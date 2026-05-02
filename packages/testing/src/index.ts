@@ -1,1 +1,1 @@
-export { __version } from './version';
+export { createTestApp, type TestApp } from './test-app';
