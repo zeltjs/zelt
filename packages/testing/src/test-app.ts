@@ -1,11 +1,11 @@
-import type { Application, HttpRuntimeOptions } from '@koya/core';
+import { createHttpApp, type CreateHttpAppOptions } from '@koya/core';
 
 export type TestApp = {
   readonly request: (method: string, path: string, body?: unknown) => Promise<Response>;
 };
 
-export const createTestApp = (app: Application, options: HttpRuntimeOptions): TestApp => {
-  const worker = app.http(options).toWorker();
+export const createTestApp = (options: CreateHttpAppOptions): TestApp => {
+  const worker = createHttpApp(options).toWorker();
   return {
     request: async (method, path, body) => {
       const init: RequestInit = body

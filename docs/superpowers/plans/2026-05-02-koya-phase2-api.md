@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement `@koya/core` Phase 2 (1) public API (Application + HTTP routing + DI + 3 入力 primitives) と、`@koya/testing` の最小 HTTP integration invoke API。Hono を内部実装として完全隠蔽し、TypeScript legacy decorator (`experimentalDecorators: true` / reflect-metadata なし) と引数デフォルト値で codegen を排除する。
+**Goal:** Implement `@koya/core` Phase 2 (1) public API (HTTP App + routing + DI + 3 入力 primitives) と、`@koya/testing` の最小 HTTP integration invoke API。Hono を内部実装として完全隠蔽し、TypeScript legacy decorator (`experimentalDecorators: true` / reflect-metadata なし) と引数デフォルト値で codegen を排除する。
 
-**Architecture:** Application が `@needle-di/core` Container を所有し、`@Controller`/`@Get` 等の class/method decorator は WeakMap ベース metadata storage に登録する。HTTP request 時に `app.http().toWorker()` が AsyncLocalStorage で Entry context を `run()` 内に流し、Hono の internal route が controller method を引数なしで呼ぶ。引数デフォルト値の primitive (`inject` / `validated` / `pathParam`) が ALS context から値を取得する。class は Entry/Provider (DI 登録単位) のみに限定し、internal は関数 + readonly データ。
+**Architecture:** `createHttpApp({ controllers })` が `@needle-di/core` Container を opaque な `ResolverHandle` 経由で所有し、`@Controller` / `@Get` 等の class/method decorator は WeakMap ベース metadata storage に登録する。HTTP request 時に `toWorker()` が返す Workers handler が AsyncLocalStorage で Entry context を `run()` 内に流し、Hono の internal route が controller method を引数なしで呼ぶ。引数デフォルト値の primitive (`inject` / `validated` / `pathParam`) が ALS context から値を取得する。**明示的な provider 登録は持たない**。Service / Repository / Adapter は `inject(X)` の auto-bind で解決する (spec §4.10)。class は Entry / Provider (DI 登録単位) のみに限定し、internal は関数 + readonly データ。
 
-**Tech Stack:** TypeScript 6.0.2 / hono 4.12.16 / @needle-di/core 1.1.2 / valibot 1.3.1 / vitest 4.1.5 / tsdown 0.9.3 / pnpm workspace + Nx 21.6.10
+**Tech Stack:** TypeScript 6.0.2 / hono 4.12.16 / @needle-di/core 1.1.2 / valibot 1.3.1 / vitest 4.1.5 / tsdown 0.21.10 / pnpm workspace + Nx 21.6.10
 
 **Spec:** [`docs/superpowers/specs/2026-05-02-koya-phase2-api-design.md`](../specs/2026-05-02-koya-phase2-api-design.md)
 
@@ -25,24 +25,30 @@
 - 影響を受ける Plan task: Task 3 / Task 4 の decorator signature を **Stage 3 形式 → legacy 形式** に変更 (詳細は各 task 内)。
 - legacy 形式の挙動上、method decorator は **class declaration 時に発火** (Stage 3 の `addInitializer` per-instance モデルと違い、`new C()` 不要で metadata 確定)。Task 4 / Task 9 の test 内 `new C()` は不要に。
 
+**Design revision (2026-05-02 後半 / spec §4.10 / §10 #12 #13 / §11 #7 #8 反映済):**
+- Task 8-15 で実装した `createApp({ providers }).http({ controllers })` の 2 段階形は、controllers 二重指定 + provider 登録の責務超過 (spec §4.10) を生むため、`createHttpApp({ controllers })` 単一形に統一する。
+- 後続 phase で予定していた `useFactory` / `useValue` / `useClass` / scope 制御の Provider DSL も廃止。外部境界は adapter class が責務として内包する (spec §4.10)。
+- 該当する API 切替は **Task 16** にまとめて記載。Task 0-15 はコミット履歴と整合した実装記録としてそのまま残す。
+
 ---
 
 ## File Structure
 
-`packages/core/src/`:
-- `application.ts` — `createApp({ providers })` / `Application` 型
+`packages/core/src/` (Task 16 改訂後の最終形):
+- `http/app.ts` — `createHttpApp({ controllers })` factory + `HttpApp` / `WorkerHandler` 型 (Task 16 で `http/runtime.ts` を rename)
 - `decorators/controller.ts` — `@Controller(path)` class decorator
 - `decorators/http-method.ts` — `@Get` / `@Post` / `@Put` / `@Patch` / `@Delete` method decorators
 - `primitives/inject.ts` — DI コンテナ解決
 - `primitives/validated.ts` — valibot による request body validation
 - `primitives/path-param.ts` — URL path parameter 取得
-- `http/runtime.ts` — `app.http({ controllers })` Runtime adapter + `toWorker()`
 - `http/error-handler.ts` — validation error / generic error → Response 変換
 - `internal/entry-context.ts` — AsyncLocalStorage Entry context
+- `internal/container.ts` — `ResolverHandle` opaque 型 + `createContainer(controllers)` (Container を public d.ts から完全隠蔽)
 - `internal/metadata.ts` — WeakMap decorator metadata storage
 - `internal/route-builder.ts` — controller class → Hono route 構築 (内部)
 - `index.ts` — 公開 API barrel
 - `workers.ts` / `lambda.ts` — Phase 1 sub-entry のまま (本 phase 触らない)
+- ~~`application.ts`~~ — Task 16 で削除 (Application 抽象廃止、createHttpApp に統合)
 
 `packages/testing/src/`:
 - `test-app.ts` — `createTestApp(app)` + `request(method, path, body?)`
@@ -1823,19 +1829,208 @@ git commit -m "feat(examples): rewrite hello example with Phase 2 API"
 
 ---
 
+## Task 16: 設計改訂 — Provider DSL 廃止 + `createApp` → `createHttpApp` 統合
+
+**Files:**
+- Delete: `packages/core/src/application.ts` + `packages/core/src/application.test.ts`
+- Rename: `packages/core/src/http/runtime.ts` → `packages/core/src/http/app.ts` (型名は `HttpRuntime` → `HttpApp`、`HttpRuntimeOptions` → `CreateHttpAppOptions`)
+- Modify: `packages/core/src/http/app.ts` — `createHttpApp({ controllers })` を export、内部で `createContainer(controllers)` を呼ぶ
+- Modify: `packages/core/src/internal/container.ts` — シグネチャを `createContainer(controllers: readonly Class<object>[])` に変更 (旧 `providers` 引数を捨てる)
+- Modify: `packages/core/src/index.ts` — `createApp` / `Application` / `CreateAppOptions` の export を削除し、`createHttpApp` / `HttpApp` / `CreateHttpAppOptions` に置換
+- Modify: `packages/testing/src/test-app.ts` — `createTestApp(options: CreateHttpAppOptions)` の単一引数形に
+- Modify: `examples/hello/src/main.ts` — `createHttpApp({ controllers: [HelloController] }).toWorker()` に書き換え (`Greeter` は auto-bind 対象なので登録不要)
+- Modify: `packages/core/src/http/runtime.test.ts` (rename 後 `http/app.test.ts`) — `createApp` 経由テストを `createHttpApp` 直接形に
+- Modify: `packages/core/src/http/error-handler.test.ts` (integration 部分) / `packages/testing/src/test-app.test.ts` — 新 API に追従
+
+**設計根拠:** spec §4.10 (外部境界は adapter class が内包) / §10 #12 (Provider DSL 廃止) / §10 #13 (Application 抽象廃止) / §11 #7 #8
+
+- [ ] **Step 1: `internal/container.ts` を controllers 引数化**
+
+```ts
+// packages/core/src/internal/container.ts
+import { Container } from '@needle-di/core';
+
+type Class<T> = new (...args: never[]) => T;
+
+export type ResolverHandle = {
+  readonly get: <T extends object>(cls: Class<T>) => T;
+};
+
+export const createContainer = (
+  controllers: readonly Class<object>[],
+): ResolverHandle => {
+  const container = new Container();
+  for (const cls of controllers) {
+    container.bind(cls);
+  }
+  return {
+    get: <T extends object>(cls: Class<T>): T => container.get<T>(cls),
+  };
+};
+```
+
+> Note: `Provider` 型 import を削除する。Service / Repository / Adapter は `inject(X)` の auto-bind で解決されるため、`@Controller` decorator の付いた controllers のみ明示 bind する。
+
+- [ ] **Step 2: `http/runtime.ts` を `http/app.ts` に rename + `createHttpApp` 化**
+
+```ts
+// packages/core/src/http/app.ts
+import { Hono } from 'hono';
+
+import { createContainer } from '../internal/container';
+import { buildRoutes } from '../internal/route-builder';
+
+type ControllerClass = new (...args: never[]) => object;
+
+export type CreateHttpAppOptions = {
+  readonly controllers: readonly ControllerClass[];
+};
+
+export type WorkerHandler = {
+  readonly fetch: (request: Request) => Response | Promise<Response>;
+};
+
+export type HttpApp = {
+  readonly toWorker: () => WorkerHandler;
+};
+
+export const createHttpApp = (options: CreateHttpAppOptions): HttpApp => {
+  const resolver = createContainer(options.controllers);
+  // strict:false で `/echo` と `/echo/` を同一視する。joinPath が末尾スラッシュを正規化するため、
+  // 利用者が `@Post('/')` と書いた場合でも `/echo/` リクエストにマッチさせる必要がある。
+  const hono = new Hono({ strict: false });
+  buildRoutes(hono, options.controllers, resolver);
+  return {
+    toWorker: () => ({
+      fetch: (request) => hono.fetch(request),
+    }),
+  };
+};
+```
+
+- [ ] **Step 3: `application.ts` / `application.test.ts` を削除**
+
+```bash
+git rm packages/core/src/application.ts packages/core/src/application.test.ts
+```
+
+- [ ] **Step 4: `index.ts` barrel を新 API に**
+
+```ts
+// packages/core/src/index.ts
+export { createHttpApp } from './http/app';
+export type { HttpApp, CreateHttpAppOptions, WorkerHandler } from './http/app';
+
+export { Controller } from './decorators/controller';
+export { Delete, Get, Patch, Post, Put } from './decorators/http-method';
+
+export { inject } from './primitives/inject';
+export { pathParam } from './primitives/path-param';
+export { validated } from './primitives/validated';
+```
+
+- [ ] **Step 5: `@koya/testing` の signature を単一引数に**
+
+```ts
+// packages/testing/src/test-app.ts
+import { createHttpApp, type CreateHttpAppOptions } from '@koya/core';
+
+export type TestApp = {
+  readonly request: (method: string, path: string, body?: unknown) => Promise<Response>;
+};
+
+export const createTestApp = (options: CreateHttpAppOptions): TestApp => {
+  const worker = createHttpApp(options).toWorker();
+  return {
+    request: (method, path, body) => {
+      const init: RequestInit = body
+        ? { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
+        : { method };
+      return worker.fetch(new Request(`https://test.local${path}`, init));
+    },
+  };
+};
+```
+
+- [ ] **Step 6: `examples/hello/src/main.ts` を新 API に**
+
+```ts
+import { Controller, Get, createHttpApp, inject, pathParam } from '@koya/core';
+
+class Greeter {
+  greet(name: string) {
+    return `hello, ${name}`;
+  }
+}
+
+@Controller('/hello')
+class HelloController {
+  constructor(private greeter = inject(Greeter)) {}
+
+  @Get('/:name')
+  greet() {
+    return { message: this.greeter.greet(pathParam('name')) };
+  }
+}
+
+const worker = createHttpApp({ controllers: [HelloController] }).toWorker();
+
+const res = await worker.fetch(new Request('https://example.local/hello/koya'));
+console.log(res.status, await res.json());
+```
+
+> `Greeter` は明示登録しない。`@Controller` decorator が `@injectable()` を兼ねている `HelloController` の constructor で `inject(Greeter)` を呼ぶと、needle-di が auto-bind する。
+
+- [ ] **Step 7: 関連 test を新 API に追従**
+
+旧 `application.test.ts` は削除（Application 抽象自体が消えるため）。`http/app.test.ts` (rename 後) と `testing/test-app.test.ts` で `createApp(...).http({...})` の呼び出しを `createHttpApp({...})` に書き換える。
+
+- [ ] **Step 8: 検証**
+
+```bash
+pnpm format:check && pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm knip
+```
+
+Expected: all PASS。
+
+```bash
+node --import tsx examples/hello/src/main.ts
+```
+
+Expected: `200 { message: 'hello, koya' }`
+
+CI leak check (positive control 含む) も green を確認:
+
+```bash
+grep -E "from ['\"]hono(/.+)?['\"]" packages/core/dist/index.d.ts && exit 1 || true
+grep -E "import\(['\"]hono(/.+)?['\"]" packages/core/dist/index.d.ts && exit 1 || true
+grep -E "(import|from)[^\\n]*['\"]@needle-di/core['\"][^\\n]*\\bContainer\\b" packages/core/dist/index.d.ts && exit 1 || true
+```
+
+Expected: 全て exit 0 (= leak なし)。
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add -A
+git commit -m "refactor(core): drop Application abstraction, ship createHttpApp single form"
+```
+
+---
+
 ## Done state
 
-After all tasks:
+After all tasks (Task 0-15 + Task 16 改訂):
 
 - Task 0 spike 完了 — needle-di Stage 3 互換性 / Provider 型 / barrel rule format を確認済、結果が後続タスクに inline 反映されている
 - `@koya/core` が以下を export:
-  - 値: `createApp`, `Controller`, `Get`/`Post`/`Put`/`Patch`/`Delete`, `inject` (re-export), `validated`, `pathParam`
-  - 型: `Application` (opaque, http() のみ公開), `CreateAppOptions`, `HttpRuntime`, `HttpRuntimeOptions`, `WorkerHandler`
+  - 値: `createHttpApp`, `Controller`, `Get`/`Post`/`Put`/`Patch`/`Delete`, `inject` (re-export), `validated`, `pathParam`
+  - 型: `HttpApp` (opaque, `toWorker()` のみ公開), `CreateHttpAppOptions`, `WorkerHandler`
   - **`@needle-di/core.Container` / `hono.*` は public d.ts に出ない** — CI grep + positive control で担保
-- `@koya/testing` が `createTestApp` / `TestApp` を export、`@koya/core` を peerDep で参照 (Phase 1 deviation #1〜#3 reversed)
-- `examples/hello` が `@injectable()` 無しの constructor injection + path param を dogfood として動作
+- `@koya/testing` が `createTestApp(options)` / `TestApp` を export、`@koya/core` を peerDep で参照 (Phase 1 deviation #1〜#3 reversed)
+- `examples/hello` が `createHttpApp` 単一形 + `@injectable()` 無しの constructor injection + path param を dogfood として動作
 - CI で hono leak / Container leak / positive control の 3 step が pass
 - All tests pass、format / typecheck / lint / build / test / knip のゲートすべて green
 - Spec §13 work items 完了
 
-Phase 2 (1) is shippable. Subsequent Phase 2 (2) DI binding API / (3) Error handling + Validation contract / (4) Testing utility builds on this foundation.
+Phase 2 (1) is shippable. Subsequent phases (Error handling + Validation contract / Testing utility resolver override / Lifecycle hook) build on this foundation. **Provider DSL 系の phase は廃止** (spec §4.10 / §10 #12)。

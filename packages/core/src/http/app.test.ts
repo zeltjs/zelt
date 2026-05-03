@@ -2,12 +2,13 @@ import { injectable } from '@needle-di/core';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
-import { createApp } from '../application';
 import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
 import { inject } from '../primitives/inject';
 import { pathParam } from '../primitives/path-param';
 import { validated } from '../primitives/validated';
+
+import { createHttpApp } from './app';
 
 @injectable()
 class Greeter {
@@ -34,14 +35,10 @@ class EchoController {
   }
 }
 
-const buildWorker = () => {
-  const app = createApp({
-    providers: [Greeter, HelloController, EchoController],
-  });
-  return app.http({ controllers: [HelloController, EchoController] }).toWorker();
-};
+const buildWorker = () =>
+  createHttpApp({ controllers: [HelloController, EchoController] }).toWorker();
 
-describe('app.http().toWorker()', () => {
+describe('createHttpApp().toWorker()', () => {
   it('serves a constructor-injected GET endpoint with pathParam', async () => {
     const worker = buildWorker();
     const res = await worker.fetch(new Request('https://example.com/hello/koya'));
@@ -76,14 +73,13 @@ describe('app.http().toWorker()', () => {
     expect(b.status).toBe(200);
   });
 
-  it('throws at app.http() construction when a controller is missing @Controller', () => {
+  it('throws at createHttpApp() construction when a controller is missing @Controller', () => {
     class NoDecorator {
       @Get('/')
       list() {}
     }
     new NoDecorator();
-    const app = createApp({ providers: [] });
-    expect(() => app.http({ controllers: [NoDecorator] }).toWorker()).toThrow(
+    expect(() => createHttpApp({ controllers: [NoDecorator] }).toWorker()).toThrow(
       /missing @Controller/,
     );
   });
@@ -122,8 +118,7 @@ describe('error paths', () => {
         return { v: pathParam('id') };
       }
     }
-    const app = createApp({ providers: [BrokenController] });
-    const w = app.http({ controllers: [BrokenController] }).toWorker();
+    const w = createHttpApp({ controllers: [BrokenController] }).toWorker();
     const res = await w.fetch(new Request('https://example.com/x/'));
     expect(res.status).toBe(500);
   });

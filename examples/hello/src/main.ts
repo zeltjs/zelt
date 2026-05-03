@@ -1,5 +1,7 @@
-import { Controller, createApp, Get, inject, pathParam } from '@koya/core';
+import { Controller, createHttpApp, Get, inject, Injectable, pathParam } from '@koya/core';
 
+// Service / Repository / Adapter (= Provider) は @Injectable で DI 登録する (spec §4.7)。
+@Injectable()
 class Greeter {
   greet(name: string) {
     return `hello, ${name}`;
@@ -8,7 +10,8 @@ class Greeter {
 
 @Controller('/hello')
 class HelloController {
-  // constructor injection (inject は @koya/core が @needle-di/core から re-export)
+  // constructor injection。@Controller が @Injectable を兼ねるので、
+  // controllers にだけ列挙すれば、依存する Provider は auto-bind で解決される (spec §4.10)。
   constructor(private greeter = inject(Greeter)) {}
 
   @Get('/:name')
@@ -17,8 +20,7 @@ class HelloController {
   }
 }
 
-const app = createApp({ providers: [Greeter, HelloController] });
-const worker = app.http({ controllers: [HelloController] }).toWorker();
+const worker = createHttpApp({ controllers: [HelloController] }).toWorker();
 
 const res = await worker.fetch(new Request('https://example.local/hello/koya'));
 console.log(res.status, await res.json());

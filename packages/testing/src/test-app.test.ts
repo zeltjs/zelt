@@ -1,4 +1,4 @@
-import { Controller, Get, Post, createApp, validated } from '@koya/core';
+import { Controller, Get, Post, validated } from '@koya/core';
 import { describe, expect, it } from 'vitest';
 import * as v from 'valibot';
 
@@ -17,10 +17,7 @@ class ItemController {
   }
 }
 
-const buildTest = () => {
-  const app = createApp({ providers: [ItemController] });
-  return createTestApp(app, { controllers: [ItemController] });
-};
+const buildTest = () => createTestApp({ controllers: [ItemController] });
 
 describe('createTestApp', () => {
   it('routes a GET request through the full http runtime', async () => {
