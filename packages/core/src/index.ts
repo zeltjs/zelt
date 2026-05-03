@@ -3,6 +3,8 @@ export type { CreateHttpAppOptions, HttpApp, WorkerHandler } from './http/app';
 
 export { validationErrorBodySchema } from './http/error-schema';
 export type { ValidationErrorBody } from './http/error-schema';
+export { koyaErrorBodySchema } from './http/error-schema';
+export type { KoyaErrorBody } from './http/error-schema';
 
 export { HTTPException } from 'hono/http-exception';
 
