@@ -1,6 +1,8 @@
 export { createHttpApp } from './http/app';
 export type { CreateHttpAppOptions, HttpApp, WorkerHandler } from './http/app';
 
+export { HTTPException } from 'hono/http-exception';
+
 export { Controller } from './decorators/controller';
 export { Delete, Get, Patch, Post, Put } from './decorators/http-method';
 export { Injectable } from './decorators/injectable';
