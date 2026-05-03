@@ -11,14 +11,24 @@ export type ExtractPathParams<P extends string> = string extends P
       ? { [K in Param]: string }
       : Record<string, never>;
 
-// Extracts the validated body type T from the FIRST parameter of a handler.
-// koya handlers accept validated() as their first (and typically only) body arg.
-// Uses Parameters<H>[0] (direct index) instead of `infer` from a spread pattern:
-// TypeScript infers a "deferred" constrained type from tuple spread that prevents
-// ExtractValidated from resolving correctly, while direct index access resolves fully.
-export type ExtractRequestBody<H extends (...args: never[]) => unknown> = ExtractValidated<
-  Parameters<H>[0]
->;
+// Scans handler args in order and returns the inner T of the first ValidatedMarker<T> found.
+// Uses function-type inference (H extends (a0: infer A0, ...) => unknown) instead of
+// Parameters<H>[number] to avoid TypeScript deferred-evaluation of tuple index unions,
+// which prevents ExtractValidated from resolving under tsc -b composite mode.
+export type ExtractRequestBody<H extends (...args: never[]) => unknown> = H extends (
+  a0: infer A0,
+  ...r0: infer _R0
+) => unknown
+  ? ExtractValidated<A0> extends never
+    ? H extends (b0: infer _B0, a1: infer A1, ...r1: infer _R1) => unknown
+      ? ExtractValidated<A1> extends never
+        ? H extends (c0: infer _C0, c1: infer _C1, a2: infer A2, ...r2: infer _R2) => unknown
+          ? ExtractValidated<A2>
+          : never
+        : ExtractValidated<A1>
+      : never
+    : ExtractValidated<A0>
+  : never;
 
 // handler 戻り値の Awaited を取り、TypedResponse ならそのまま、素データなら 200/json で wrap
 type WrapRaw<T> =
@@ -32,9 +42,22 @@ export type ExtractResponse<H extends (...args: never[]) => unknown> = WrapRaw<
   Awaited<ReturnType<H>>
 >;
 
-// Returns TypedResponse<ValidationErrorBody, 400> if the first handler arg is ValidatedMarker<T>,
-// never otherwise. Uses Parameters<H>[0] directly (same reason as ExtractRequestBody).
-export type ExtractValidationErrors<H extends (...args: never[]) => unknown> =
-  IsValidated<Parameters<H>[0]> extends true
-    ? TypedResponse<ValidationErrorBody, 400, 'json'>
-    : never;
+// Returns TypedResponse<ValidationErrorBody, 400> if any handler arg is ValidatedMarker<T>.
+// Uses the same function-type inference approach as ExtractRequestBody (see above).
+export type ExtractValidationErrors<H extends (...args: never[]) => unknown> = (
+  H extends (a0: infer A0, ...r0: infer _R0) => unknown
+    ? IsValidated<A0> extends true
+      ? true
+      : H extends (b0: infer _B0, a1: infer A1, ...r1: infer _R1) => unknown
+        ? IsValidated<A1> extends true
+          ? true
+          : H extends (c0: infer _C0, c1: infer _C1, a2: infer A2, ...r2: infer _R2) => unknown
+            ? IsValidated<A2> extends true
+              ? true
+              : false
+            : false
+        : false
+    : false
+) extends true
+  ? TypedResponse<ValidationErrorBody, 400, 'json'>
+  : never;

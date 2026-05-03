@@ -25,7 +25,8 @@ type AppType = BuildAppType<
 
 const _client = hc<AppType>('http://x');
 type GetReturn = Awaited<ReturnType<(typeof _client.users)[':id']['$get']>>;
-type PostStatus = Awaited<ReturnType<(typeof _client.users)['$post']>>['status'];
+type PostReturn = Awaited<ReturnType<(typeof _client.users)['$post']>>;
+type PostStatus = PostReturn['status'];
 
 describe('BuildAppType + hc<AppType>', () => {
   it('hc client narrows GET response', () => {
@@ -33,6 +34,6 @@ describe('BuildAppType + hc<AppType>', () => {
   });
 
   it('hc client knows POST validation 400 union', () => {
-    expectTypeOf<PostStatus>().toMatchTypeOf<201 | 400>();
+    expectTypeOf<PostStatus>().toEqualTypeOf<201 | 400>();
   });
 });

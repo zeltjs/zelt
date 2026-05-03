@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type { TypedResponse } from 'hono';
 import * as v from 'valibot';
+import type { ValidationErrorBody } from '@koya/core';
 
 import type {
   ExtractPathParams,
@@ -19,6 +20,8 @@ type HandlerWithBody = (body?: ValidatedMarker<Body>) => Promise<unknown>;
 type HandlerNoBody = (id?: string) => Promise<unknown>;
 type HandlerTypedResponse = () => Promise<TypedResponse<{ ok: true }, 201, 'json'>>;
 type HandlerRawReturn = () => Promise<{ id: string }>;
+// Canonical koya pattern: pathParam() precedes validated() as default-valued args (optional)
+type HandlerWithBodyAtSecondArg = (id?: string, body?: ValidatedMarker<Body>) => Promise<unknown>;
 
 type BodyFromHandler = ExtractRequestBody<HandlerWithBody>;
 type BodyFromHandlerNoBody = ExtractRequestBody<HandlerNoBody>;
@@ -26,6 +29,8 @@ type ResponseTyped = ExtractResponse<HandlerTypedResponse>;
 type ResponseRaw = ExtractResponse<HandlerRawReturn>;
 type ValidationErrors = ExtractValidationErrors<HandlerWithBody>;
 type ValidationErrorsNone = ExtractValidationErrors<HandlerNoBody>;
+type BodyFromSecondArg = ExtractRequestBody<HandlerWithBodyAtSecondArg>;
+type ValidationErrorsFromSecondArg = ExtractValidationErrors<HandlerWithBodyAtSecondArg>;
 
 describe('ExtractPathParams', () => {
   it('extracts single param', () => {
@@ -66,10 +71,26 @@ describe('ExtractResponse', () => {
 
 describe('ExtractValidationErrors', () => {
   it('returns 400 ValidationErrorBody when validated() arg present', () => {
-    expectTypeOf<ValidationErrors>().not.toBeNever();
+    expectTypeOf<ValidationErrors>().toEqualTypeOf<
+      TypedResponse<ValidationErrorBody, 400, 'json'>
+    >();
   });
 
   it('returns never when no validated() arg', () => {
     expectTypeOf<ValidationErrorsNone>().toBeNever();
+  });
+});
+
+describe('ExtractRequestBody (multi-arg)', () => {
+  it('extracts body when validated() is at second arg position', () => {
+    expectTypeOf<BodyFromSecondArg>().toEqualTypeOf<Body>();
+  });
+});
+
+describe('ExtractValidationErrors (multi-arg)', () => {
+  it('returns 400 ValidationErrorBody when validated() is at any arg position', () => {
+    expectTypeOf<ValidationErrorsFromSecondArg>().toEqualTypeOf<
+      TypedResponse<ValidationErrorBody, 400, 'json'>
+    >();
   });
 });
