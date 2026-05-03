@@ -1,6 +1,9 @@
 export { createHttpApp } from './http/app';
 export type { CreateHttpAppOptions, HttpApp, WorkerHandler } from './http/app';
 
+export { validationErrorBodySchema } from './http/error-schema';
+export type { ValidationErrorBody } from './http/error-schema';
+
 export { HTTPException } from 'hono/http-exception';
 
 export { Controller } from './decorators/controller';
