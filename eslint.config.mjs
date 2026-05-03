@@ -96,9 +96,21 @@ export default tseslint.config(
     files: [
       'packages/contract/src/analyzer/**/*.{ts,tsx}',
       'packages/contract/src/emit/**/*.{ts,tsx}',
+      'packages/contract/src/generate-client.ts',
+      'packages/contract/src/watch.ts',
+      'packages/contract/src/cli.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
+    },
+  },
+  {
+    // CLI tool entry points: console output is the user-visible UX, watch loop must catch
+    // regeneration errors to keep watching after a failure rather than crashing the process.
+    files: ['packages/contract/src/watch.ts', 'packages/contract/src/cli.ts'],
+    rules: {
+      'no-console': 'off',
+      '@9wick/strict-type-rules/no-try-catch': 'off',
     },
   },
 );
