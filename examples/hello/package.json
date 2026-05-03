@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "contract:build": "tsx ../../packages/contract/src/cli.ts build",
+    "contract:watch": "tsx ../../packages/contract/src/cli.ts watch"
   },
   "dependencies": {
-    "@koya/core": "workspace:*"
+    "@koya/core": "workspace:*",
+    "@koya/contract": "workspace:*",
+    "hono": "4.12.16",
+    "valibot": "1.3.1"
   },
   "devDependencies": {
     "tsx": "4.21.0"

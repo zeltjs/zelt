@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { Hono } from 'hono';
 
 import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
 
-import { collectRoutes, joinPath } from './route-builder';
+import { createContainer } from './container';
+import { collectRoutes, joinPath, buildRoutes } from './route-builder';
 
 describe('joinPath', () => {
   it.each([
@@ -50,5 +52,24 @@ describe('collectRoutes', () => {
       list() {}
     }
     expect(() => collectRoutes([NoDecorator])).toThrow(/missing @Controller/);
+  });
+});
+
+@Controller('/passthrough')
+class PassthroughController {
+  @Get('/teapot')
+  teapot() {
+    return new Response('I am a teapot', { status: 418, headers: { 'X-Custom': 'yes' } });
+  }
+}
+
+describe('buildRoutes (instanceof Response branch)', () => {
+  it('returns a hand-built Response as-is (instanceof Response branch)', async () => {
+    const hono = new Hono({ strict: false });
+    buildRoutes(hono, [PassthroughController], createContainer());
+    const res = await hono.fetch(new Request('http://x/passthrough/teapot'));
+    expect(res.status).toBe(418);
+    expect(res.headers.get('X-Custom')).toBe('yes');
+    expect(await res.text()).toBe('I am a teapot');
   });
 });

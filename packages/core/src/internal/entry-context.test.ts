@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Context } from 'hono';
 
 import { getEntryContext, runInEntryContext, type EntryContext } from './entry-context';
 
@@ -6,6 +7,7 @@ describe('entry-context', () => {
   it('returns the running context inside runInEntryContext', () => {
     const ctx: EntryContext = {
       input: { body: { hello: 'world' }, pathParams: {} },
+      honoContext: {} as unknown as Context,
     };
     const got = runInEntryContext(ctx, () => getEntryContext());
     expect(got).toBe(ctx);
@@ -16,8 +18,14 @@ describe('entry-context', () => {
   });
 
   it('isolates concurrent contexts', async () => {
-    const ctxA: EntryContext = { input: { body: 'A', pathParams: {} } };
-    const ctxB: EntryContext = { input: { body: 'B', pathParams: {} } };
+    const ctxA: EntryContext = {
+      input: { body: 'A', pathParams: {} },
+      honoContext: {} as unknown as Context,
+    };
+    const ctxB: EntryContext = {
+      input: { body: 'B', pathParams: {} },
+      honoContext: {} as unknown as Context,
+    };
     const [a, b] = await Promise.all([
       runInEntryContext(ctxA, async () => {
         await new Promise((r) => setTimeout(r, 10));

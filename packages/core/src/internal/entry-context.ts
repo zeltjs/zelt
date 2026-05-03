@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
+import type { Context } from 'hono';
+
 type EntryInput = {
   readonly body: unknown;
   readonly pathParams: Readonly<Record<string, string>>;
@@ -7,6 +9,7 @@ type EntryInput = {
 
 export type EntryContext = {
   readonly input: EntryInput;
+  readonly honoContext: Context;
 };
 
 const storage = new AsyncLocalStorage<EntryContext>();

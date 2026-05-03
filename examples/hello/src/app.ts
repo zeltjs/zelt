@@ -1,5 +1,5 @@
 import { createHttpApp } from '@koya/core';
 
-import { HelloController } from './entry/hello.controller';
+import { controllers } from './controllers';
 
-export const app = createHttpApp({ controllers: [HelloController] });
+export const app = createHttpApp({ controllers });

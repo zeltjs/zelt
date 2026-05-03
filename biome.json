@@ -37,6 +37,6 @@
     "formatter": { "enabled": false }
   },
   "files": {
-    "includes": ["**", "!node_modules", "!dist", "!.nx", "!pnpm-lock.yaml"]
+    "includes": ["**", "!node_modules", "!dist", "!.nx", "!pnpm-lock.yaml", "!**/generated"]
   }
 }

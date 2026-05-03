@@ -74,8 +74,12 @@ const registerRoute = (hono: Hono, resolver: ResolverHandle, route: Route): void
     try {
       const body = await parseRequestBody(c);
       const pathParams: Readonly<Record<string, string>> = c.req.param();
-      const result = await runInEntryContext({ input: { body, pathParams } }, async () => invoke());
-      return Response.json(result);
+      const result = await runInEntryContext(
+        { input: { body, pathParams }, honoContext: c },
+        async () => invoke(),
+      );
+      if (result instanceof Response) return result;
+      return c.json(result);
     } catch (error) {
       return toErrorResponse(error);
     }

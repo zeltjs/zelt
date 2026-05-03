@@ -44,8 +44,19 @@ jobs:
           PUBLIC_DTS="packages/core/dist/index.d.ts"
           [ -f "$PUBLIC_DTS" ] || { echo "missing $PUBLIC_DTS"; exit 1; }
 
-          if grep -E "from ['\"]hono(/|['\"])" "$PUBLIC_DTS"; then
+          HONO_REFS=$(grep -E "from ['\"]hono(/|['\"])" "$PUBLIC_DTS" || true)
+          # Whitelisted lines (intentional public surface):
+          #   HTTPException — explicit re-export per §4.1 (Phase 2 (2))
+          #   TypedResponse — structural part of ResponseBuilder return types
+          #   ContentfulStatusCode — structural part of ResponseBuilder status parameter types
+          UNEXPECTED=$(echo "$HONO_REFS" \
+            | grep -v "^import { HTTPException } from ['\"]hono/http-exception['\"];$" \
+            | grep -v "^import { TypedResponse } from ['\"]hono['\"];$" \
+            | grep -v "^import { ContentfulStatusCode } from ['\"]hono/utils/http-status['\"];$" \
+            || true)
+          if [ -n "$UNEXPECTED" ]; then
             echo "::error::hono leaked into $PUBLIC_DTS"
+            echo "$UNEXPECTED"
             exit 1
           fi
           if grep -E "import\(['\"]hono(/|['\"])" "$PUBLIC_DTS"; then

@@ -6,6 +6,7 @@ import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
 const TEST_FILES = ['**/*.{test,spec}.{ts,tsx}', '**/*.e2e-{test,spec}.{ts,tsx}'];
+const FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}'];
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
 
 export default tseslint.config(
@@ -17,6 +18,7 @@ export default tseslint.config(
       '**/*.d.ts',
       '**/*.config.{ts,mjs,js}',
       'eslint.config.mjs',
+      '**/generated/**',
     ],
   },
   tseslint.configs.recommended,
@@ -38,12 +40,15 @@ export default tseslint.config(
   },
   {
     files: ['**/*.{ts,tsx}'],
-    ignores: [...TEST_FILES, ...EXAMPLE_FILES],
+    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
     rules: {
       complexity: ['error', { max: 7 }],
       'sonarjs/cognitive-complexity': 'error',
       'no-console': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
@@ -71,7 +76,7 @@ export default tseslint.config(
     },
   },
   {
-    files: [...TEST_FILES, ...EXAMPLE_FILES],
+    files: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
     rules: {
       'no-console': 'off',
       'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
@@ -85,6 +90,37 @@ export default tseslint.config(
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
+    },
+  },
+  {
+    // build-time CLI tool: throw fatal errors that surface to the user via the CLI
+    files: [
+      'packages/contract/src/analyzer/**/*.{ts,tsx}',
+      'packages/contract/src/emit/**/*.{ts,tsx}',
+      'packages/contract/src/generate-client.ts',
+      'packages/contract/src/watch.ts',
+      'packages/contract/src/load-config.ts',
+      'packages/contract/src/cli.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+    },
+  },
+  {
+    // CLI tool entry points: console output is the user-visible UX, watch loop must catch
+    // regeneration errors to keep watching after a failure rather than crashing the process.
+    files: ['packages/contract/src/watch.ts', 'packages/contract/src/cli.ts'],
+    rules: {
+      'no-console': 'off',
+      '@9wick/strict-type-rules/no-try-catch': 'off',
+    },
+  },
+  {
+    // CLI and config loader need process.argv / process.cwd() — these are build-time tools
+    // that run in Node.js directly, not inside an application container.
+    files: ['packages/contract/src/cli.ts', 'packages/contract/src/load-config.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-process-access': 'off',
     },
   },
 );
