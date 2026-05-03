@@ -1,8 +1,5 @@
 import * as v from 'valibot';
 
-// ValiError.issues は valibot.BaseIssue<unknown>[]。客側に晒す情報のみ定義し、
-// 余分なフィールドはパース時に除去する方針 (将来 Phase 2 (3) で
-// KoyaErrorSchema の variant として精緻化する余地を残すため)。
 const issueSchema = v.object({
   kind: v.string(),
   type: v.string(),
@@ -10,9 +7,29 @@ const issueSchema = v.object({
   path: v.optional(v.array(v.unknown())),
 });
 
-export const validationErrorBodySchema = v.object({
+const validationVariant = v.object({
   error: v.literal('validation_failed'),
   issues: v.array(issueSchema),
 });
 
+const httpExceptionVariant = v.object({
+  error: v.literal('http_exception'),
+  message: v.string(),
+});
+
+const internalErrorVariant = v.object({
+  error: v.literal('internal_error'),
+  message: v.string(),
+});
+
+export const koyaErrorBodySchema = v.variant('error', [
+  validationVariant,
+  httpExceptionVariant,
+  internalErrorVariant,
+]);
+
+// validation_failed variant 単独 schema (既存名互換、@koya/contract から参照される)
+export const validationErrorBodySchema = validationVariant;
+
+export type KoyaErrorBody = v.InferOutput<typeof koyaErrorBodySchema>;
 export type ValidationErrorBody = v.InferOutput<typeof validationErrorBodySchema>;
