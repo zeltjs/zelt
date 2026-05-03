@@ -9,36 +9,36 @@ import { buildRoutes } from '../internal/route-builder';
 import { response } from './response';
 
 @Controller('/r')
-class R {
+class ResponseTestController {
   @Get('/json')
-  j(res = response()) {
+  jsonRoute(res = response()) {
     return res.json({ ok: true }, 201);
   }
 
   @Get('/redirect')
-  r(res = response()) {
+  redirectRoute(res = response()) {
     return res.redirect('/new', 301);
   }
 
   @Get('/text')
-  t(res = response()) {
+  textRoute(res = response()) {
     return res.text('hello', 200);
   }
 
   @Get('/header')
-  h(res = response()) {
+  headerRoute(res = response()) {
     return res.header('X-Foo', 'bar').json({ ok: true });
   }
 
   @Post('/raw')
-  raw() {
+  rawRoute() {
     return { wrapped: true };
   }
 }
 
 describe('response()', () => {
   const hono = new Hono({ strict: false });
-  buildRoutes(hono, [R], createContainer());
+  buildRoutes(hono, [ResponseTestController], createContainer());
 
   it('json status code', async () => {
     const res = await hono.fetch(new Request('http://x/r/json'));
