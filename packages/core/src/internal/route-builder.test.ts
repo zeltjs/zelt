@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import * as v from 'valibot';
 
 import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
+import { validated } from '../primitives/validated';
 
 import { createContainer } from './container';
 import { collectRoutes, joinPath, buildRoutes } from './route-builder';
@@ -71,5 +74,60 @@ describe('buildRoutes (instanceof Response branch)', () => {
     expect(res.status).toBe(418);
     expect(res.headers.get('X-Custom')).toBe('yes');
     expect(await res.text()).toBe('I am a teapot');
+  });
+});
+
+describe('route-builder — error path integration', () => {
+  const BodySchema = v.object({ name: v.string() });
+
+  @Controller('/err')
+  class ErrController {
+    @Get('/not-found')
+    nf() {
+      throw new HTTPException(404, { message: 'gone' });
+    }
+
+    @Get('/teapot')
+    tp() {
+      // 利用者の res override が Hono catch を経ても pass-through されることの確認 (handler unit で確定済の挙動が integration でも保たれる)
+      throw new HTTPException(418, {
+        res: Response.json({ shape: 'teapot' }, { status: 418 }),
+      });
+    }
+
+    @Post('/v')
+    vHandler(body = validated(BodySchema)) {
+      return { name: body.name };
+    }
+  }
+
+  const hono = new Hono({ strict: false });
+  buildRoutes(hono, [ErrController], createContainer());
+
+  it('serializes HTTPException to status + http_exception body via catch', async () => {
+    const res = await hono.fetch(new Request('http://x/err/not-found'));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'http_exception', message: 'gone' });
+  });
+
+  it('passes through user-provided res override via catch', async () => {
+    const res = await hono.fetch(new Request('http://x/err/teapot'));
+    expect(res.status).toBe(418);
+    expect(await res.json()).toEqual({ shape: 'teapot' });
+  });
+
+  it('serializes ValiError from validated() to 400 + validation_failed body', async () => {
+    const res = await hono.fetch(
+      new Request('http://x/err/v', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 123 }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string; issues: unknown[] };
+    expect(json.error).toBe('validation_failed');
+    expect(Array.isArray(json.issues)).toBe(true);
+    expect(json.issues.length).toBeGreaterThan(0);
   });
 });
