@@ -5,6 +5,9 @@ import oxlint from 'eslint-plugin-oxlint';
 import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
+const TEST_FILES = ['**/*.{test,spec}.{ts,tsx}', '**/*.e2e-{test,spec}.{ts,tsx}'];
+const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
+
 export default tseslint.config(
   {
     ignores: [
@@ -35,7 +38,7 @@ export default tseslint.config(
   },
   {
     files: ['**/*.{ts,tsx}'],
-    ignores: ['**/*.test.{ts,tsx}', 'examples/**/*.{ts,tsx}'],
+    ignores: [...TEST_FILES, ...EXAMPLE_FILES],
     rules: {
       complexity: ['error', { max: 7 }],
       'sonarjs/cognitive-complexity': 'error',
@@ -68,11 +71,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.test.{ts,tsx}'],
+    files: [...TEST_FILES, ...EXAMPLE_FILES],
     rules: {
       'no-console': 'off',
       'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
       'import-x/no-namespace': 'off',
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'warn',
     },
   },
   {
@@ -81,13 +85,6 @@ export default tseslint.config(
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
-    },
-  },
-  {
-    files: ['examples/**/*.{ts,tsx}'],
-    rules: {
-      'no-console': 'off',
-      'import-x/no-namespace': 'off',
     },
   },
 );
