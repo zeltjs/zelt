@@ -6,6 +6,7 @@ import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
 const TEST_FILES = ['**/*.{test,spec}.{ts,tsx}', '**/*.e2e-{test,spec}.{ts,tsx}'];
+const FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}'];
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
 
 export default tseslint.config(
@@ -38,7 +39,7 @@ export default tseslint.config(
   },
   {
     files: ['**/*.{ts,tsx}'],
-    ignores: [...TEST_FILES, ...EXAMPLE_FILES],
+    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
     rules: {
       complexity: ['error', { max: 7 }],
       'sonarjs/cognitive-complexity': 'error',
@@ -74,7 +75,7 @@ export default tseslint.config(
     },
   },
   {
-    files: [...TEST_FILES, ...EXAMPLE_FILES],
+    files: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
     rules: {
       'no-console': 'off',
       'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
@@ -88,6 +89,13 @@ export default tseslint.config(
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
+    },
+  },
+  {
+    // build-time CLI tool: throw fatal errors that surface to the user via the CLI
+    files: ['packages/contract/src/analyzer/**/*.{ts,tsx}'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
     },
   },
 );
