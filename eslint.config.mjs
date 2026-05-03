@@ -43,7 +43,10 @@ export default tseslint.config(
       complexity: ['error', { max: 7 }],
       'sonarjs/cognitive-complexity': 'error',
       'no-console': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],

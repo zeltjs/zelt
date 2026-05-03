@@ -15,3 +15,4 @@ export { pathParam } from './primitives/path-param';
 export { response } from './primitives/response';
 export type { ResponseBuilder } from './primitives/response';
 export { validated } from './primitives/validated';
+export type { ValidatedMarker, ExtractValidated, IsValidated } from './primitives/validated';
