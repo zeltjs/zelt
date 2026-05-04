@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/main.ts",
+    "start:node": "tsx src/entry/node.ts",
     "contract:build": "tsx ../../packages/contract/src/cli.ts build",
     "contract:watch": "tsx ../../packages/contract/src/cli.ts watch"
   },
   "dependencies": {
+    "@koya/adapter-node": "workspace:*",
     "@koya/core": "workspace:*",
     "@koya/contract": "workspace:*",
     "hono": "4.12.16",

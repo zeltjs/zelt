@@ -28,5 +28,8 @@
   "dependencies": {
     "@hono/node-server": "2.0.1",
     "@koya/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.17"
   }
 }
