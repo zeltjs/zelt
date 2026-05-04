@@ -15,11 +15,11 @@
     "knip": "knip",
     "test": "vitest run",
     "typecheck": "tsc -b",
-    "prepush": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm build && pnpm test && npx prepush-hash save",
+    "precommit": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm build && pnpm test && npx precommit-verify save",
     "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
-    "@9wick/eslint-plugin-strict-type-rules": "github:9wick/eslint-strict-type-rules#081ca1c7c414375e4efd906a1b3a84dd65e74e4f",
+    "@9wick/eslint-plugin-strict-type-rules": "1.0.2",
     "@biomejs/biome": "2.4.14",
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.1",
     "@vitest/coverage-v8": "4.1.5",
@@ -30,6 +30,7 @@
     "knip": "6.10.0",
     "nx": "21.6.10",
     "oxlint": "1.62.0",
+    "precommit-verify": "0.1.7",
     "tsdown": "0.21.10",
     "typescript": "6.0.2",
     "typescript-eslint": "8.59.1",
