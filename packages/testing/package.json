@@ -31,6 +31,7 @@
     "vitest": ">=4 <5"
   },
   "devDependencies": {
+    "@needle-di/core": "1.1.2",
     "valibot": "1.3.1"
   }
 }
