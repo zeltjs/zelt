@@ -27,6 +27,7 @@
   },
   "peerDependencies": {
     "@koya/core": "workspace:*",
+    "@needle-di/core": "1.1.2",
     "vitest": ">=4 <5"
   },
   "devDependencies": {
