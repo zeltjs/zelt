@@ -35,7 +35,7 @@ describe('Hello API', () => {
 
 ## Testing with Type-Safe Client
 
-Use the generated `AppType` with Hono's client for fully typed tests:
+Use the generated `AppType` with Hono's client for fully typed tests. See [OpenAPI & Type Generation](./openapi.md) for how to generate `AppType`.
 
 ```typescript
 import { hc } from 'hono/client';

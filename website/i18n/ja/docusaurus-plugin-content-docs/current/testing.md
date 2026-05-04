@@ -35,7 +35,7 @@ describe('Hello API', () => {
 
 ## 型安全なクライアントでのテスト
 
-生成された`AppType`とHonoのクライアントを使用して、完全に型付けされたテストを行います：
+生成された`AppType`とHonoのクライアントを使用して、完全に型付けされたテストを行います。`AppType`の生成方法は[OpenAPIと型生成](./openapi.md)を参照してください。
 
 ```typescript
 import { hc } from 'hono/client';
