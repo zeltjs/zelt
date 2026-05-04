@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ServerType } from '@hono/node-server';
 
-import { serve } from './index';
+import { serve, type AddressInfo } from './index';
 
 const createMockApp = () => ({
   fetch: async (req: Request) => new Response(`Hello from ${req.url}`),
@@ -24,66 +24,71 @@ describe('serve', () => {
     server?.close();
   });
 
-  it('returns http.Server and listens on default port 3000', async () => {
+  it('returns http.Server and starts listening', async () => {
     const app = createMockApp();
-    server = serve(app);
+    const s = serve(app, { port: 13000 });
+    server = s;
 
-    await waitForListening(server);
+    await waitForListening(s);
 
-    expect(server).toBeDefined();
-    expect(server.listening).toBe(true);
+    expect(s).toBeDefined();
+    expect(s.listening).toBe(true);
 
-    const address = server.address();
+    const address = s.address();
     expect(address).not.toBeNull();
-    expect(typeof address === 'object' && address?.port).toBe(3000);
+    expect(typeof address === 'object' && address?.port).toBe(13000);
   });
 
   it('listens on specified port', async () => {
     const app = createMockApp();
-    server = serve(app, { port: 4567 });
+    const s = serve(app, { port: 4567 });
+    server = s;
 
-    await waitForListening(server);
+    await waitForListening(s);
 
-    expect(server.listening).toBe(true);
+    expect(s.listening).toBe(true);
 
-    const address = server.address();
+    const address = s.address();
     expect(typeof address === 'object' && address?.port).toBe(4567);
   });
 
   it('invokes callback with AddressInfo when options provided', async () => {
     const app = createMockApp();
-    let receivedInfo: { port: number; address: string } | undefined;
+    let receivedInfo: AddressInfo | undefined;
 
-    server = serve(app, { port: 5678 }, (info) => {
+    const s = serve(app, { port: 5678 }, (info: AddressInfo) => {
       receivedInfo = info;
     });
+    server = s;
 
-    await waitForListening(server);
+    await waitForListening(s);
 
     expect(receivedInfo).toBeDefined();
     expect(receivedInfo?.port).toBe(5678);
     expect(typeof receivedInfo?.address).toBe('string');
   });
 
-  it('invokes callback when passed as second argument', async () => {
+  it('invokes callback with options and callback', async () => {
     const app = createMockApp();
-    let receivedInfo: { port: number; address: string } | undefined;
+    let receivedInfo: AddressInfo | undefined;
 
-    server = serve(app, (info) => {
+    const s = serve(app, { port: 13001 }, (info: AddressInfo) => {
       receivedInfo = info;
     });
+    server = s;
 
-    await waitForListening(server);
+    await waitForListening(s);
 
     expect(receivedInfo).toBeDefined();
-    expect(receivedInfo?.port).toBe(3000);
+    expect(receivedInfo?.port).toBe(13001);
   });
 
   it('responds to HTTP requests', async () => {
     const app = createMockApp();
-    server = serve(app, { port: 6789 });
+    const s = serve(app, { port: 6789 });
+    server = s;
 
-    await waitForListening(server);
+    await waitForListening(s);
 
     const response = await fetch('http://localhost:6789/hello');
     const text = await response.text();

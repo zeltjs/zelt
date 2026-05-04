@@ -59,6 +59,9 @@ importers:
 
   examples/hello:
     dependencies:
+      '@koya/adapter-node':
+        specifier: workspace:*
+        version: link:../../packages/adapter-node
       '@koya/contract':
         specifier: workspace:*
         version: link:../../packages/contract
@@ -84,6 +87,10 @@ importers:
       '@koya/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: 22.19.17
+        version: 22.19.17
 
   packages/contract:
     dependencies:
