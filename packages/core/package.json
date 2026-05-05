@@ -23,6 +23,10 @@
     "./lambda": {
       "types": "./dist/lambda.d.ts",
       "import": "./dist/lambda.js"
+    },
+    "./modules/logger": {
+      "types": "./dist/modules/logger/index.d.ts",
+      "import": "./dist/modules/logger/index.js"
     }
   },
   "files": [
