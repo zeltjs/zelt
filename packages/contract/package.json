@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/9wick/zeltjs.git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
     "directory": "packages/contract"
   },
   "publishConfig": {

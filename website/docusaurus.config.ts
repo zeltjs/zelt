@@ -11,11 +11,11 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://9wick.github.io',
-  baseUrl: '/zeltjs/',
+  url: 'https://zeltjs.github.io',
+  baseUrl: '/zelt/',
 
-  organizationName: '9wick',
-  projectName: 'zeltjs',
+  organizationName: 'zeltjs',
+  projectName: 'zelt',
 
   onBrokenLinks: 'throw',
 
@@ -36,7 +36,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/9wick/zeltjs/tree/main/website/',
+          editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
           routeBasePath: '/',
         },
         blog: false,
@@ -70,7 +70,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/9wick/zeltjs',
+          href: 'https://github.com/zeltjs/zelt',
           label: 'GitHub',
           position: 'right',
         },
@@ -97,7 +97,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/9wick/zeltjs',
+              href: 'https://github.com/zeltjs/zelt',
             },
           ],
         },
