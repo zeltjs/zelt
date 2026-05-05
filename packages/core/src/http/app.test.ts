@@ -4,6 +4,7 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
 import { Controller } from '../decorators/controller';
+import { ErrorHandler } from '../decorators/error-handler';
 import { Get, Post } from '../decorators/http-method';
 import { Middleware } from '../decorators/middleware';
 import { SkipMiddleware } from '../decorators/skip-middleware';
@@ -370,5 +371,143 @@ describe('middleware', () => {
     const res = await app.request('/test/');
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ blocked: true });
+  });
+});
+
+describe('errorHandlers', () => {
+  it('handles errors thrown in controller', async () => {
+    class CustomError extends Error {
+      constructor(
+        message: string,
+        public code: string,
+      ) {
+        super(message);
+      }
+    }
+
+    @ErrorHandler
+    class CustomErrorHandler {
+      onError(error: Error, _c: Context) {
+        if (error instanceof CustomError) {
+          return Response.json({ code: error.code, message: error.message }, { status: 400 });
+        }
+        return undefined;
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        throw new CustomError('invalid input', 'INVALID_INPUT');
+      }
+    }
+
+    const app = createHttpApp({
+      controllers: [TestController],
+      errorHandlers: [CustomErrorHandler],
+    });
+
+    const res = await app.request('/test/');
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ code: 'INVALID_INPUT', message: 'invalid input' });
+  });
+
+  it('falls back to default handler when error handler returns undefined', async () => {
+    @ErrorHandler
+    class SelectiveErrorHandler {
+      onError(_error: Error, _c: Context) {
+        return undefined;
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        throw new Error('unhandled error');
+      }
+    }
+
+    const app = createHttpApp({
+      controllers: [TestController],
+      errorHandlers: [SelectiveErrorHandler],
+    });
+
+    const res = await app.request('/test/');
+    expect(res.status).toBe(500);
+  });
+
+  it('executes multiple error handlers in order until one handles', async () => {
+    const order: string[] = [];
+
+    @ErrorHandler
+    class FirstErrorHandler {
+      onError(_error: Error, _c: Context) {
+        order.push('first');
+        return undefined;
+      }
+    }
+
+    @ErrorHandler
+    class SecondErrorHandler {
+      onError(error: Error, _c: Context) {
+        order.push('second');
+        return Response.json({ handled: true, message: error.message }, { status: 500 });
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        throw new Error('test error');
+      }
+    }
+
+    const app = createHttpApp({
+      controllers: [TestController],
+      errorHandlers: [FirstErrorHandler, SecondErrorHandler],
+    });
+
+    const res = await app.request('/test/');
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ handled: true, message: 'test error' });
+    expect(order).toEqual(['first', 'second']);
+  });
+
+  it('middlewares and errorHandlers work together', async () => {
+    const executed: string[] = [];
+
+    const beforeMiddleware: MiddlewareHandler = async (_c, next) => {
+      executed.push('middleware');
+      await next();
+    };
+
+    @ErrorHandler
+    class TestErrorHandler {
+      onError(error: Error, _c: Context) {
+        executed.push('errorHandler');
+        return Response.json({ error: error.message }, { status: 500 });
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        executed.push('handler');
+        throw new Error('test');
+      }
+    }
+
+    const app = createHttpApp({
+      controllers: [TestController],
+      middlewares: [beforeMiddleware],
+      errorHandlers: [TestErrorHandler],
+    });
+
+    await app.request('/test/');
+    expect(executed).toEqual(['middleware', 'handler', 'errorHandler']);
   });
 });

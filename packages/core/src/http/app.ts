@@ -2,15 +2,22 @@ import { Hono } from 'hono';
 
 import { createContainer } from '../internal/container';
 import { buildRoutes } from '../internal/route-builder';
-import type { MiddlewareInput } from '../middleware/types';
+import type {
+  ErrorHandlerClass,
+  ErrorHandlerInstance,
+  MiddlewareInput,
+  RequestContext,
+} from '../middleware/types';
 
 import { handleError } from './error-handler';
 
 type ControllerClass = new (...args: never[]) => object;
+type Resolver = { get: <T extends object>(cls: new (...args: never[]) => T) => T };
 
 export type CreateHttpAppOptions = {
   readonly controllers: readonly ControllerClass[];
   readonly middlewares?: readonly MiddlewareInput[];
+  readonly errorHandlers?: readonly ErrorHandlerClass[];
   readonly configs?: readonly (new (...args: never[]) => unknown)[];
 };
 
@@ -19,13 +26,34 @@ export type HttpApp = {
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
 };
 
+const createErrorHandler =
+  (errorHandlers: readonly ErrorHandlerInstance[]) =>
+  async (err: Error, c: RequestContext): Promise<Response> => {
+    for (const handler of errorHandlers) {
+      const result = await handler.onError(err, c);
+      if (result) return result;
+    }
+    return handleError(err);
+  };
+
+const resolveErrorHandler = (cls: ErrorHandlerClass, resolver: Resolver): ErrorHandlerInstance => {
+  const instance: ErrorHandlerInstance = resolver.get(cls);
+  return instance;
+};
+
+const resolveErrorHandlers = (
+  classes: readonly ErrorHandlerClass[],
+  resolver: Resolver,
+): ErrorHandlerInstance[] => classes.map((cls) => resolveErrorHandler(cls, resolver));
+
 export const createHttpApp = (options: CreateHttpAppOptions): HttpApp => {
   const resolver = createContainer({ configs: options.configs });
   // strict:false で `/echo` と `/echo/` を同一視する。joinPath が末尾スラッシュを正規化するため、
   // 利用者が `@Post('/')` と書いた場合でも `/echo/` リクエストにマッチさせる必要がある。
   const hono = new Hono({ strict: false });
 
-  hono.onError((err) => handleError(err));
+  const errorHandlers = resolveErrorHandlers(options.errorHandlers ?? [], resolver);
+  hono.onError(createErrorHandler(errorHandlers));
 
   buildRoutes(hono, options.controllers, resolver, options.middlewares ?? []);
 

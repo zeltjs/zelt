@@ -14,3 +14,9 @@ export type MiddlewareInstance = {
 export type MiddlewareInput = FunctionMiddleware | MiddlewareClass;
 
 export type MiddlewareIdentifier = FunctionMiddleware | MiddlewareClass;
+
+export type ErrorHandlerClass = new (...args: never[]) => ErrorHandlerInstance;
+
+export type ErrorHandlerInstance = {
+  onError(error: Error, c: RequestContext): Response | Promise<Response | undefined> | undefined;
+};

@@ -9,6 +9,7 @@ export type { ErrorBody } from './http/error-schema';
 export { HTTPException } from 'hono/http-exception';
 
 export { Controller } from './decorators/controller';
+export { ErrorHandler } from './decorators/error-handler';
 export { Delete, Get, Patch, Post, Put } from './decorators/http-method';
 export { Injectable } from './decorators/injectable';
 export { Middleware } from './decorators/middleware';
@@ -16,6 +17,8 @@ export { SkipMiddleware } from './decorators/skip-middleware';
 export { UseMiddleware } from './decorators/use-middleware';
 
 export type {
+  ErrorHandlerClass,
+  ErrorHandlerInstance,
   FunctionMiddleware,
   MiddlewareClass,
   MiddlewareIdentifier,
