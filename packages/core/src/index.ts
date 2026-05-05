@@ -33,3 +33,6 @@ export { response } from './primitives/response';
 export type { ResponseBuilder } from './primitives/response';
 export { validated } from './primitives/validated';
 export type { ValidatedMarker, ExtractValidated, IsValidated } from './primitives/validated';
+
+export { Config, injectConfig } from './config';
+export type { ConfigClass } from './config';
