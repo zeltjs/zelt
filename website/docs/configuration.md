@@ -4,51 +4,125 @@ sidebar_position: 9
 
 # Configuration
 
-:::info Coming Soon
-Configuration documentation is under development.
-:::
+Koya provides a type-safe configuration system using the `@Config` decorator and `injectConfig()` helper.
 
-Koya provides a type-safe way to manage application configuration.
+## Defining Configuration
 
-## Environment Variables
+Use the `@Config` decorator to define a configuration class. Each config class must have a static `Token` property:
 
 ```typescript
-import { Injectable } from '@koya/core';
+import { Config } from '@koya/core';
+
+@Config
+export class DatabaseConfig {
+  static readonly Token = DatabaseConfig;
+
+  get host() {
+    return process.env.DATABASE_HOST ?? 'localhost';
+  }
+
+  get port() {
+    return Number(process.env.DATABASE_PORT ?? 5432);
+  }
+
+  get connectionString() {
+    return `postgres://${this.host}:${this.port}/mydb`;
+  }
+}
+```
+
+## Using Configuration
+
+Inject configuration into services or controllers using `injectConfig()`:
+
+```typescript
+import { Injectable, injectConfig } from '@koya/core';
+import { DatabaseConfig } from './database.config';
 
 @Injectable()
-export class ConfigService {
-  readonly port = Number(process.env.PORT ?? 3000);
-  readonly databaseUrl = process.env.DATABASE_URL ?? '';
-  readonly apiKey = process.env.API_KEY ?? '';
-  
-  get isDevelopment() {
-    return process.env.NODE_ENV === 'development';
-  }
-  
-  get isProduction() {
-    return process.env.NODE_ENV === 'production';
+export class DatabaseService {
+  constructor(private config = injectConfig(DatabaseConfig)) {}
+
+  connect() {
+    return this.config.connectionString;
   }
 }
 ```
 
-## Usage in Controllers
+## Registering Configuration
+
+Register config classes when creating the HTTP app:
 
 ```typescript
-import { Controller, Get, inject } from '@koya/core';
-import { ConfigService } from './config.service';
+import { createHttpApp } from '@koya/core';
+import { DatabaseConfig } from './database.config';
+import { AppController } from './app.controller';
 
-@Controller('/health')
-export class HealthController {
-  constructor(private config = inject(ConfigService)) {}
+const app = createHttpApp({
+  controllers: [AppController],
+  configs: [DatabaseConfig],
+});
+```
 
-  @Get('/')
-  check() {
-    return {
-      status: 'ok',
-      environment: this.config.isDevelopment ? 'development' : 'production',
-    };
+## Overriding Configuration
+
+Override configuration values for testing by extending the config class:
+
+```typescript
+import { Config } from '@koya/core';
+import { DatabaseConfig } from './database.config';
+
+@Config
+export class TestDatabaseConfig extends DatabaseConfig {
+  override get host() {
+    return 'test-db';
+  }
+
+  override get port() {
+    return 5433;
+  }
+}
+
+// In test setup
+const app = createHttpApp({
+  controllers: [AppController],
+  configs: [TestDatabaseConfig],
+});
+```
+
+The `Token` property is inherited from the parent class, so `injectConfig(DatabaseConfig)` will receive the overridden `TestDatabaseConfig` instance.
+
+## Environment-Based Configuration
+
+A common pattern for environment-aware configuration:
+
+```typescript
+import { Config } from '@koya/core';
+
+@Config
+export class AppConfig {
+  static readonly Token = AppConfig;
+
+  get environment() {
+    return process.env.NODE_ENV ?? 'development';
+  }
+
+  get isDevelopment() {
+    return this.environment === 'development';
+  }
+
+  get isProduction() {
+    return this.environment === 'production';
+  }
+
+  get port() {
+    return Number(process.env.PORT ?? 3000);
+  }
+
+  get apiBaseUrl() {
+    return this.isProduction
+      ? 'https://api.example.com'
+      : 'http://localhost:3000';
   }
 }
 ```
-
-Stay tuned for more detailed configuration patterns and best practices.
