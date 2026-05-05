@@ -1,0 +1,6 @@
+{
+  "packages/core": "0.0.1",
+  "packages/adapter-node": "0.0.1",
+  "packages/contract": "0.0.1",
+  "packages/testing": "0.0.1"
+}
