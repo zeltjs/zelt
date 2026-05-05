@@ -8,6 +8,7 @@ export type { ErrorBody } from './http/error-schema';
 
 export { HTTPException } from 'hono/http-exception';
 
+export { Authorized } from './decorators/authorized';
 export { Controller } from './decorators/controller';
 export { ErrorHandler } from './decorators/error-handler';
 export { Delete, Get, Patch, Post, Put } from './decorators/http-method';
@@ -28,6 +29,7 @@ export type {
   RequestContext,
 } from './middleware/types';
 
+export { currentRoles, currentUser, setUser } from './primitives/auth';
 export { getContext, setContext } from './primitives/get-context';
 export type { RequestContextSchema } from './primitives/get-context';
 export { inject } from './primitives/inject';
