@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.1](https://github.com/zeltjs/zelt/compare/testing-v0.1.0...testing-v0.1.1) (2026-05-05)
+
+
+### Miscellaneous Chores
+
+* **testing:** Synchronize zeltjs versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * peerDependencies
+    * @zeltjs/core bumped to 0.1.1
+
 ## [0.1.0](https://github.com/zeltjs/zelt/compare/testing-v0.0.1...testing-v0.1.0) (2026-05-05)
 
 

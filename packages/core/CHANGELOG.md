@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/zeltjs/zelt/compare/core-v0.1.0...core-v0.1.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **core:** add license section to README ([558abe2](https://github.com/zeltjs/zelt/commit/558abe26cb9bf2604faa22a5ef02ec77f553a6a6))
+* **core:** add license section to README ([2eb1036](https://github.com/zeltjs/zelt/commit/2eb1036516bb9825b6c4ed403583f7b627a0658b))
+
 ## [0.1.0](https://github.com/zeltjs/zelt/compare/core-v0.0.1...core-v0.1.0) (2026-05-05)
 
 

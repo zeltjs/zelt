@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.1](https://github.com/zeltjs/zelt/compare/openapi-v0.1.0...openapi-v0.1.1) (2026-05-05)
+
+
+### Miscellaneous Chores
+
+* **openapi:** Synchronize zeltjs versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @zeltjs/core bumped to 0.1.1
+  * peerDependencies
+    * @zeltjs/core bumped to 0.1.1
+
 ## [0.1.0](https://github.com/zeltjs/zelt/compare/openapi-v0.0.1...openapi-v0.1.0) (2026-05-05)
 
 

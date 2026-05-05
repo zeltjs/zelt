@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.1](https://github.com/zeltjs/zelt/compare/adapter-node-v0.1.0...adapter-node-v0.1.1) (2026-05-05)
+
+
+### Miscellaneous Chores
+
+* **adapter-node:** Synchronize zeltjs versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @zeltjs/core bumped to 0.1.1
+
 ## [0.1.0](https://github.com/zeltjs/zelt/compare/adapter-node-v0.0.1...adapter-node-v0.1.0) (2026-05-05)
 
 
