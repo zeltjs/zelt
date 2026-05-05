@@ -4,10 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 import { analyzeControllers } from '../analyzer/internal-representation';
 import { createProject } from '../analyzer/project';
+import { emitOpenApi } from '../emit/openapi';
 
-import { emitOpenApi } from './openapi';
-
-const fixturePath = resolve(import.meta.dirname, '../analyzer/_fixtures/sample.controller.ts');
+const fixturePath = resolve(import.meta.dirname, 'fixtures/sample.controller.ts');
 const tsconfigPath = resolve(import.meta.dirname, '../../tsconfig.json');
 
 // These keys access Record<string, ...> index signatures.

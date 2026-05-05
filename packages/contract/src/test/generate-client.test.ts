@@ -4,17 +4,16 @@ import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { UserController } from './analyzer/_fixtures/sample.controller';
-import { generateClient } from './generate-client';
+import { generateClient } from '../generate-client';
 
-const fixtureSource = resolve(import.meta.dirname, 'analyzer/_fixtures/sample.controller.ts');
-const tsconfigPath = resolve(import.meta.dirname, '../tsconfig.json');
+const fixtureGlob = resolve(import.meta.dirname, 'fixtures/*.controller.ts');
+const tsconfigPath = resolve(import.meta.dirname, '../../tsconfig.json');
 
 describe('generateClient', () => {
   it('writes app.gen.ts and openapi.json', async () => {
     const dist = await mkdtemp(join(tmpdir(), 'koya-contract-'));
     const result = await generateClient({
-      controllers: [{ class: UserController, source: fixtureSource }],
+      controllers: [fixtureGlob],
       dist,
       tsconfig: tsconfigPath,
     });
@@ -31,27 +30,16 @@ describe('generateClient', () => {
   it('returns changed=false on second run with no changes', async () => {
     const dist = await mkdtemp(join(tmpdir(), 'koya-contract-'));
     await generateClient({
-      controllers: [{ class: UserController, source: fixtureSource }],
+      controllers: [fixtureGlob],
       dist,
       tsconfig: tsconfigPath,
     });
     const result = await generateClient({
-      controllers: [{ class: UserController, source: fixtureSource }],
+      controllers: [fixtureGlob],
       dist,
       tsconfig: tsconfigPath,
     });
     expect(result.appGenChanged).toBe(false);
     expect(result.openApiChanged).toBe(false);
-  });
-
-  it('throws clear error when controllers entry is bare class', async () => {
-    const dist = await mkdtemp(join(tmpdir(), 'koya-contract-'));
-    await expect(
-      generateClient({
-        controllers: [UserController],
-        dist,
-        tsconfig: tsconfigPath,
-      }),
-    ).rejects.toThrow(/UserController.*\{ class, source/);
   });
 });

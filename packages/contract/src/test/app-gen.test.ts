@@ -4,10 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 import { analyzeControllers } from '../analyzer/internal-representation';
 import { createProject } from '../analyzer/project';
+import { emitAppGen } from '../emit/app-gen';
 
-import { emitAppGen } from './app-gen';
-
-const fixturePath = resolve(import.meta.dirname, '../analyzer/_fixtures/sample.controller.ts');
+const fixturePath = resolve(import.meta.dirname, 'fixtures/sample.controller.ts');
 
 describe('emitAppGen', () => {
   const project = createProject({ controllerFiles: [fixturePath] });
@@ -24,9 +23,9 @@ describe('emitAppGen', () => {
 
   it('uses relative import path from distDir to controller module', () => {
     const out = emitAppGen(ir, { distDir: resolve(import.meta.dirname, '../../generated') });
-    // distDir is contract/generated, fixture is at contract/src/analyzer/_fixtures/sample.controller.ts
-    // Relative path from generated/ to src/analyzer/_fixtures/sample.controller is something like:
-    //   ../src/analyzer/_fixtures/sample.controller
+    // distDir is contract/generated, fixture is at contract/src/test/fixtures/sample.controller.ts
+    // Relative path from generated/ to src/test/fixtures/sample.controller is something like:
+    //   ../src/test/fixtures/sample.controller
     expect(out).toMatch(/import type \{ UserController \} from '[^']+sample\.controller'/);
     expect(out).not.toMatch(/sample\.controller\.ts'/); // .ts extension stripped
   });

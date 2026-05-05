@@ -26,14 +26,8 @@ Create a `koya.config.ts` file in your project root:
 ```typescript
 import { defineConfig } from '@koya/contract';
 
-import { HelloController } from './src/controllers/hello.controller';
-import { UsersController } from './src/controllers/users.controller';
-
 export default defineConfig({
-  controllers: [
-    { class: HelloController, source: './src/controllers/hello.controller.ts' },
-    { class: UsersController, source: './src/controllers/users.controller.ts' },
-  ],
+  controllers: ['./src/**/*.controller.ts'],
   dist: './generated',
   tsconfig: './tsconfig.json',
 });
@@ -43,9 +37,11 @@ export default defineConfig({
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `controllers` | `ControllerEntry[]` | List of controllers with their source paths |
+| `controllers` | `string[]` | Glob patterns to find controller files |
 | `dist` | `string` | Output directory for generated files |
 | `tsconfig` | `string` | Path to tsconfig.json (required for OpenAPI generation) |
+
+Controllers are automatically discovered by scanning files matching the glob patterns and detecting classes with `@Controller` decorator.
 
 ## Generating Files
 

@@ -9,7 +9,7 @@ export type {
 export type { ValidatedMarker, UnwrapValidated } from './types/validated-marker';
 
 export { defineConfig } from './config/options';
-export type { ControllerEntry, GenerateClientOptions } from './config/options';
+export type { GenerateClientOptions } from './config/options';
 
 export { generateClient } from './generate-client';
 export type { GenerateClientResult } from './generate-client';

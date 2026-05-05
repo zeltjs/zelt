@@ -2,21 +2,12 @@ import { existsSync } from 'node:fs';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { analyzeControllers, type ControllerSpec } from './analyzer/internal-representation';
+import { discoverControllers } from './analyzer/discover-controllers';
+import { analyzeControllers } from './analyzer/internal-representation';
 import { createProject } from './analyzer/project';
-import type { ControllerEntry, GenerateClientOptions } from './config/options';
+import type { GenerateClientOptions } from './config/options';
 import { emitAppGen } from './emit/app-gen';
 import { emitOpenApi } from './emit/openapi';
-
-const toSpec = (entry: ControllerEntry): ControllerSpec => {
-  if (typeof entry === 'function') {
-    throw new Error(
-      `koya/contract: controllers entry "${entry.name}" must be { class, source: '...' }. ` +
-        `Class identifier alone cannot resolve source file path at runtime.`,
-    );
-  }
-  return { filePath: resolve(entry.source), exportName: entry.class.name };
-};
 
 const writeIfChanged = async (path: string, content: string): Promise<boolean> => {
   if (existsSync(path)) {
@@ -35,16 +26,13 @@ export type GenerateClientResult = {
 export const generateClient = async (
   options: GenerateClientOptions,
 ): Promise<GenerateClientResult> => {
-  const specs = options.controllers.map(toSpec);
   const distDir = resolve(options.dist);
   const tsconfigPath = options.tsconfig ? resolve(options.tsconfig) : resolve('tsconfig.json');
 
   await mkdir(distDir, { recursive: true });
 
-  const project = createProject({
-    tsConfigFilePath: tsconfigPath,
-    controllerFiles: specs.map((s) => s.filePath),
-  });
+  const project = createProject({ tsConfigFilePath: tsconfigPath, controllerFiles: [] });
+  const specs = discoverControllers(project, options.controllers);
   const ir = analyzeControllers(project, specs);
 
   const appGenContent = emitAppGen(ir, { distDir });
