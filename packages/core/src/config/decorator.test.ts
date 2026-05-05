@@ -36,7 +36,7 @@ describe('Config decorator', () => {
 
     @Config
     class ChildConfig extends ParentConfig {
-      get level() {
+      override get level() {
         return 'debug';
       }
     }
