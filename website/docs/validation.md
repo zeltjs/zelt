@@ -36,7 +36,7 @@ When validation fails, Koya automatically returns a 400 response:
 
 ```json
 {
-  "error": "validation_failed",
+  "code": "VALIDATION_FAILED",
   "issues": [
     {
       "kind": "validation",
@@ -47,6 +47,8 @@ When validation fails, Koya automatically returns a 400 response:
   ]
 }
 ```
+
+See [Error Handling](./error-handling.md) for more details on error responses.
 
 ## Common Validations
 
