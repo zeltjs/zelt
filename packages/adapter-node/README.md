@@ -1,0 +1,24 @@
+# @zeltjs/adapter-node
+
+Node.js HTTP server adapter for Zelt applications.
+
+## Installation
+
+```bash
+npm install @zeltjs/adapter-node @zeltjs/core
+```
+
+## Usage
+
+```typescript
+import { serve } from '@zeltjs/adapter-node';
+import { createHttpApp } from '@zeltjs/core';
+
+const app = createHttpApp({ controllers: [...] });
+
+serve(app, { port: 3000 });
+```
+
+## Documentation
+
+See [zeltjs.dev](https://zeltjs.dev) for full documentation.
