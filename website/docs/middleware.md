@@ -135,8 +135,7 @@ import { Controller, Get, getContext } from '@koya/core';
 @Controller('/profile')
 export class ProfileController {
   @Get('/')
-  getProfile() {
-    const user = getContext('user');
+  getProfile(user = getContext('user')) {
     return { id: user?.id, name: user?.name };
   }
 }
