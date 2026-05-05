@@ -144,9 +144,7 @@ export default tseslint.config(
   {
     // Config module uses prototype chain traversal and type assertions at DI boundaries.
     // These are necessary for the Token resolution pattern.
-    files: [
-      'packages/core/src/config/token.ts',
-    ],
+    files: ['packages/core/src/config/token.ts'],
     rules: {
       '@9wick/strict-type-rules/no-in-operator': 'off',
       '@9wick/strict-type-rules/no-as-assertion': 'off',

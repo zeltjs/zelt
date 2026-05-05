@@ -1,8 +1,7 @@
 import { injectable } from '@needle-di/core';
 
 import type { ConfigClass } from './types';
-import {findConfigToken} from "./token";
-
+import { findConfigToken } from './token';
 
 export const Config = <T extends ConfigClass>(target: T): T => {
   if (!findConfigToken(target)) {

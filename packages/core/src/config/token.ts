@@ -1,4 +1,3 @@
-
 type AnyConstructor = new (...args: never[]) => unknown;
 
 export const findConfigToken = (cls: AnyConstructor): AnyConstructor | null => {

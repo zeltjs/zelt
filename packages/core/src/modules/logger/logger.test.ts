@@ -27,40 +27,34 @@ describe('Logger', () => {
 
   it('respects log level from config', () => {
     @Config
-    class WarnConfig extends LoggerConfig {
+    class CustomConfig extends LoggerConfig {
+      constructor(private _level: 'debug' | 'info' | 'warn' | 'error') {
+        super();
+      }
       override get level(): 'debug' | 'info' | 'warn' | 'error' {
-        return 'warn';
+        return this._level;
       }
     }
 
-    const container = new Container();
-    container.bind(WarnConfig);
-    container.bind({ provide: LoggerConfig, useExisting: WarnConfig });
+    const warnContainer = new Container();
+    warnContainer.bind({ provide: CustomConfig, useFactory: () => new CustomConfig('warn') });
+    warnContainer.bind({ provide: LoggerConfig, useExisting: CustomConfig });
 
-    const logger = container.get(Logger);
-
-    logger.info('should not log');
+    const warnLogger = warnContainer.get(Logger);
+    warnLogger.info('should not log');
     expect(consoleSpy).not.toHaveBeenCalled();
 
-    logger.warn('should log');
+    warnLogger.warn('should log');
     expect(consoleSpy).toHaveBeenCalledWith('[WARN] should log');
-  });
 
-  it('logs debug when level is debug', () => {
-    @Config
-    class DebugConfig extends LoggerConfig {
-      override get level(): 'debug' | 'info' | 'warn' | 'error' {
-        return 'debug';
-      }
-    }
+    consoleSpy.mockClear();
 
-    const container = new Container();
-    container.bind(DebugConfig);
-    container.bind({ provide: LoggerConfig, useExisting: DebugConfig });
+    const debugContainer = new Container();
+    debugContainer.bind({ provide: CustomConfig, useFactory: () => new CustomConfig('debug') });
+    debugContainer.bind({ provide: LoggerConfig, useExisting: CustomConfig });
 
-    const logger = container.get(Logger);
-
-    logger.debug('debug message');
+    const debugLogger = debugContainer.get(Logger);
+    debugLogger.debug('debug message');
     expect(consoleSpy).toHaveBeenCalledWith('[DEBUG] debug message');
   });
 });
