@@ -1,5 +1,9 @@
 import { createHttpApp } from '@koya/core';
 
 import { controllers } from './controllers';
+import { loggingMiddleware } from './middlewares';
 
-export const app = createHttpApp({ controllers });
+export const app = createHttpApp({
+  controllers,
+  middlewares: [loggingMiddleware],
+});

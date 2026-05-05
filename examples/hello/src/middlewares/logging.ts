@@ -1,6 +1,6 @@
-import type { MiddlewareHandler } from 'hono';
+import type { FunctionMiddleware } from '@koya/core';
 
-export const loggingMiddleware: MiddlewareHandler = async (c, next) => {
+export const loggingMiddleware: FunctionMiddleware = async (c, next) => {
   const start = Date.now();
   await next();
   const duration = Date.now() - start;
