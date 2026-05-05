@@ -11,6 +11,7 @@ type ControllerClass = new (...args: never[]) => object;
 export type CreateHttpAppOptions = {
   readonly controllers: readonly ControllerClass[];
   readonly middlewares?: readonly MiddlewareInput[];
+  readonly configs?: readonly (new (...args: never[]) => unknown)[];
 };
 
 export type HttpApp = {
@@ -19,7 +20,7 @@ export type HttpApp = {
 };
 
 export const createHttpApp = (options: CreateHttpAppOptions): HttpApp => {
-  const resolver = createContainer();
+  const resolver = createContainer({ configs: options.configs });
   // strict:false で `/echo` と `/echo/` を同一視する。joinPath が末尾スラッシュを正規化するため、
   // 利用者が `@Post('/')` と書いた場合でも `/echo/` リクエストにマッチさせる必要がある。
   const hono = new Hono({ strict: false });

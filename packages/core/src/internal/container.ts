@@ -3,7 +3,7 @@ import { Container } from '@needle-di/core';
 type Class<T> = new (...args: never[]) => T;
 
 type CreateContainerOptions = {
-  readonly configs?: readonly Class<unknown>[];
+  readonly configs?: readonly Class<unknown>[] | undefined;
 };
 
 export type ResolverHandle = {
