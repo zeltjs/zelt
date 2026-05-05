@@ -6,7 +6,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Overview',
-      items: ['first-steps', 'controllers', 'services'],
+      items: ['first-steps', 'controllers', 'services', 'middleware'],
     },
     {
       type: 'category',

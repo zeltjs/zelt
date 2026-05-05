@@ -139,3 +139,7 @@ export const app = createHttpApp({
   controllers: [UserController, PostController],
 });
 ```
+
+## Next Steps
+
+- Learn about [Middleware](./middleware.md) for request/response processing

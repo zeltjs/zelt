@@ -139,3 +139,7 @@ export const app = createHttpApp({
   controllers: [UserController, PostController],
 });
 ```
+
+## 次のステップ
+
+- [ミドルウェア](./middleware.md)でリクエスト/レスポンスの処理について学ぶ
