@@ -2,10 +2,10 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { analyzeControllers } from './internal-representation';
-import { createProject } from './project';
+import { analyzeControllers } from '../analyzer/internal-representation';
+import { createProject } from '../analyzer/project';
 
-const fixturePath = resolve(import.meta.dirname, '_fixtures/sample.controller.ts');
+const fixturePath = resolve(import.meta.dirname, 'fixtures/sample.controller.ts');
 const tsConfigFilePath = resolve(import.meta.dirname, '../../tsconfig.json');
 
 describe('analyzeControllers', () => {

@@ -4,10 +4,10 @@ import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { generateClient } from './generate-client';
+import { generateClient } from '../generate-client';
 
-const fixtureGlob = resolve(import.meta.dirname, 'analyzer/_fixtures/*.controller.ts');
-const tsconfigPath = resolve(import.meta.dirname, '../tsconfig.json');
+const fixtureGlob = resolve(import.meta.dirname, 'fixtures/*.controller.ts');
+const tsconfigPath = resolve(import.meta.dirname, '../../tsconfig.json');
 
 describe('generateClient', () => {
   it('writes app.gen.ts and openapi.json', async () => {
