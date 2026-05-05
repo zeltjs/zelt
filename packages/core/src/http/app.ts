@@ -4,7 +4,7 @@ import { createContainer } from '../internal/container';
 import { buildRoutes } from '../internal/route-builder';
 import type { MiddlewareInput } from '../middleware/types';
 
-import { toErrorResponse } from './error-handler';
+import { handleError } from './error-handler';
 
 type ControllerClass = new (...args: never[]) => object;
 
@@ -24,7 +24,7 @@ export const createHttpApp = (options: CreateHttpAppOptions): HttpApp => {
   // 利用者が `@Post('/')` と書いた場合でも `/echo/` リクエストにマッチさせる必要がある。
   const hono = new Hono({ strict: false });
 
-  hono.onError((err) => toErrorResponse(err));
+  hono.onError((err) => handleError(err));
 
   buildRoutes(hono, options.controllers, resolver, options.middlewares ?? []);
 

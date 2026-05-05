@@ -8,27 +8,17 @@ const issueSchema = v.object({
 });
 
 const validationVariant = v.object({
-  error: v.literal('validation_failed'),
+  code: v.literal('VALIDATION_FAILED'),
   issues: v.array(issueSchema),
 });
 
-const httpExceptionVariant = v.object({
-  error: v.literal('http_exception'),
-  message: v.string(),
-});
-
 const internalErrorVariant = v.object({
-  error: v.literal('internal_error'),
+  code: v.literal('INTERNAL_ERROR'),
   message: v.string(),
 });
 
-export const koyaErrorBodySchema = v.variant('error', [
-  validationVariant,
-  httpExceptionVariant,
-  internalErrorVariant,
-]);
+export const koyaErrorBodySchema = v.variant('code', [validationVariant, internalErrorVariant]);
 
-// validation_failed variant 単独 schema (既存名互換、@koya/contract から参照される)
 export const validationErrorBodySchema = validationVariant;
 
 export type KoyaErrorBody = v.InferOutput<typeof koyaErrorBodySchema>;

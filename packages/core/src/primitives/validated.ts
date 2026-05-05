@@ -1,4 +1,5 @@
-import { parse, type GenericSchema, type InferOutput } from 'valibot';
+import { HTTPException } from 'hono/http-exception';
+import { safeParse, type GenericSchema, type InferOutput } from 'valibot';
 
 import { getEntryContext } from '../internal/entry-context';
 
@@ -32,5 +33,11 @@ export function validated<Schema extends GenericSchema>(
 ): ValidatedMarker<InferOutput<Schema>>;
 export function validated<Schema extends GenericSchema>(schema: Schema): InferOutput<Schema> {
   const ctx = getEntryContext();
-  return parse(schema, ctx.input.body);
+  const result = safeParse(schema, ctx.input.body);
+  if (!result.success) {
+    throw new HTTPException(400, {
+      res: Response.json({ code: 'VALIDATION_FAILED', issues: result.issues }, { status: 400 }),
+    });
+  }
+  return result.output;
 }

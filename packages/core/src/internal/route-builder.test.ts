@@ -5,7 +5,6 @@ import * as v from 'valibot';
 
 import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
-import { toErrorResponse } from '../http/error-handler';
 import { validated } from '../primitives/validated';
 
 import { createContainer } from './container';
@@ -33,7 +32,6 @@ describe('collectRoutes', () => {
       @Post('/')
       create() {}
     }
-    // legacy decorator は class declaration 時に metadata 確定済 (new() 不要)
 
     const routes = collectRoutes([UserController]);
     expect(routes).toHaveLength(2);
@@ -78,6 +76,16 @@ describe('buildRoutes (instanceof Response branch)', () => {
   });
 });
 
+const createOnError =
+  () =>
+  (err: Error): Response => {
+    if (err instanceof HTTPException) return err.getResponse();
+    return Response.json(
+      { code: 'INTERNAL_ERROR', message: 'internal server error' },
+      { status: 500 },
+    );
+  };
+
 describe('route-builder — error path integration', () => {
   const BodySchema = v.object({ name: v.string() });
 
@@ -85,12 +93,13 @@ describe('route-builder — error path integration', () => {
   class ErrController {
     @Get('/not-found')
     nf() {
-      throw new HTTPException(404, { message: 'gone' });
+      throw new HTTPException(404, {
+        res: Response.json({ code: 'NOT_FOUND', message: 'gone' }, { status: 404 }),
+      });
     }
 
     @Get('/teapot')
     tp() {
-      // 利用者の res override が Hono catch を経ても pass-through されることの確認 (handler unit で確定済の挙動が integration でも保たれる)
       throw new HTTPException(418, {
         res: Response.json({ shape: 'teapot' }, { status: 418 }),
       });
@@ -103,22 +112,22 @@ describe('route-builder — error path integration', () => {
   }
 
   const hono = new Hono({ strict: false });
-  hono.onError((err) => toErrorResponse(err));
+  hono.onError(createOnError());
   buildRoutes(hono, [ErrController], createContainer());
 
-  it('serializes HTTPException to status + http_exception body via catch', async () => {
+  it('serializes HTTPException to status + custom body via getResponse()', async () => {
     const res = await hono.fetch(new Request('http://x/err/not-found'));
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: 'http_exception', message: 'gone' });
+    expect(await res.json()).toEqual({ code: 'NOT_FOUND', message: 'gone' });
   });
 
-  it('passes through user-provided res override via catch', async () => {
+  it('passes through user-provided res override via getResponse()', async () => {
     const res = await hono.fetch(new Request('http://x/err/teapot'));
     expect(res.status).toBe(418);
     expect(await res.json()).toEqual({ shape: 'teapot' });
   });
 
-  it('serializes ValiError from validated() to 400 + validation_failed body', async () => {
+  it('serializes validation error from validated() to 400 + VALIDATION_FAILED body', async () => {
     const res = await hono.fetch(
       new Request('http://x/err/v', {
         method: 'POST',
@@ -127,8 +136,8 @@ describe('route-builder — error path integration', () => {
       }),
     );
     expect(res.status).toBe(400);
-    const json = (await res.json()) as { error: string; issues: unknown[] };
-    expect(json.error).toBe('validation_failed');
+    const json = (await res.json()) as { code: string; issues: unknown[] };
+    expect(json.code).toBe('VALIDATION_FAILED');
     expect(Array.isArray(json.issues)).toBe(true);
     expect(json.issues.length).toBeGreaterThan(0);
   });

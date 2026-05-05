@@ -11,14 +11,14 @@ import {
 describe('validationErrorBodySchema', () => {
   it('accepts valid body', () => {
     const sample: ValidationErrorBody = {
-      error: 'validation_failed',
+      code: 'VALIDATION_FAILED',
       issues: [],
     };
     expect(() => v.parse(validationErrorBodySchema, sample)).not.toThrow();
   });
 
-  it('rejects wrong error literal', () => {
-    expect(() => v.parse(validationErrorBodySchema, { error: 'other', issues: [] })).toThrow();
+  it('rejects wrong code literal', () => {
+    expect(() => v.parse(validationErrorBodySchema, { code: 'OTHER', issues: [] })).toThrow();
   });
 
   it('round-trips a real ValiError', () => {
@@ -26,7 +26,7 @@ describe('validationErrorBodySchema', () => {
     const result = v.safeParse(schema, { name: 123 });
     if (result.success) throw new Error('should fail');
     const body: ValidationErrorBody = {
-      error: 'validation_failed',
+      code: 'VALIDATION_FAILED',
       issues: result.issues,
     };
     expect(() => v.parse(validationErrorBodySchema, body)).not.toThrow();
@@ -34,54 +34,41 @@ describe('validationErrorBodySchema', () => {
 });
 
 describe('koyaErrorBodySchema', () => {
-  it('accepts validation_failed variant', () => {
-    const body: KoyaErrorBody = { error: 'validation_failed', issues: [] };
+  it('accepts VALIDATION_FAILED variant', () => {
+    const body: KoyaErrorBody = { code: 'VALIDATION_FAILED', issues: [] };
     expect(() => v.parse(koyaErrorBodySchema, body)).not.toThrow();
   });
 
-  it('accepts http_exception variant', () => {
-    const body: KoyaErrorBody = { error: 'http_exception', message: 'not found' };
+  it('accepts INTERNAL_ERROR variant', () => {
+    const body: KoyaErrorBody = { code: 'INTERNAL_ERROR', message: 'boom' };
     expect(() => v.parse(koyaErrorBodySchema, body)).not.toThrow();
   });
 
-  it('accepts internal_error variant', () => {
-    const body: KoyaErrorBody = { error: 'internal_error', message: 'boom' };
-    expect(() => v.parse(koyaErrorBodySchema, body)).not.toThrow();
+  it('rejects unknown code literal', () => {
+    expect(() => v.parse(koyaErrorBodySchema, { code: 'OTHER_ERROR', message: 'x' })).toThrow();
   });
 
-  it('rejects unknown error literal', () => {
-    expect(() => v.parse(koyaErrorBodySchema, { error: 'other_error', message: 'x' })).toThrow();
-  });
-
-  it('rejects http_exception without message', () => {
-    expect(() => v.parse(koyaErrorBodySchema, { error: 'http_exception' })).toThrow();
+  it('rejects INTERNAL_ERROR without message', () => {
+    expect(() => v.parse(koyaErrorBodySchema, { code: 'INTERNAL_ERROR' })).toThrow();
   });
 });
 
-// 論点 4 (discriminator narrowing) の唯一の検証手段。
 describe('KoyaErrorBody — discriminator narrowing (type-level)', () => {
-  it('narrows http_exception variant', () => {
-    expectTypeOf<Extract<KoyaErrorBody, { error: 'http_exception' }>>().toEqualTypeOf<{
-      error: 'http_exception';
+  it('narrows INTERNAL_ERROR variant', () => {
+    expectTypeOf<Extract<KoyaErrorBody, { code: 'INTERNAL_ERROR' }>>().toEqualTypeOf<{
+      code: 'INTERNAL_ERROR';
       message: string;
     }>();
   });
 
-  it('narrows internal_error variant', () => {
-    expectTypeOf<Extract<KoyaErrorBody, { error: 'internal_error' }>>().toEqualTypeOf<{
-      error: 'internal_error';
-      message: string;
-    }>();
-  });
-
-  it('narrows validation_failed variant carrying issues array', () => {
-    type V = Extract<KoyaErrorBody, { error: 'validation_failed' }>;
+  it('narrows VALIDATION_FAILED variant carrying issues array', () => {
+    type V = Extract<KoyaErrorBody, { code: 'VALIDATION_FAILED' }>;
     expectTypeOf<V['issues']>().toBeArray();
   });
 
-  it('keeps ValidationErrorBody shape-equal to validation_failed variant', () => {
+  it('keeps ValidationErrorBody shape-equal to VALIDATION_FAILED variant', () => {
     expectTypeOf<ValidationErrorBody>().toEqualTypeOf<
-      Extract<KoyaErrorBody, { error: 'validation_failed' }>
+      Extract<KoyaErrorBody, { code: 'VALIDATION_FAILED' }>
     >();
   });
 });
