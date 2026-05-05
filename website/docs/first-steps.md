@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # First Steps
 
-In this guide, you'll learn the core fundamentals of Koya. To get familiar with the essential building blocks, we'll build a basic CRUD application with features that cover the fundamentals.
+In this guide, you'll learn the core fundamentals of Zelt. To get familiar with the essential building blocks, we'll build a basic CRUD application with features that cover the fundamentals.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ In this guide, you'll learn the core fundamentals of Koya. To get familiar with 
 ## Installation
 
 ```bash
-pnpm add @koya/core @koya/adapter-node
+pnpm add @zeltjs/core @zeltjs/adapter-node
 ```
 
 ## Creating a Simple Application
@@ -39,7 +39,7 @@ my-app/
 Controllers handle incoming requests and return responses. Create `src/controllers/hello.controller.ts`:
 
 ```typescript
-import { Controller, Get, pathParam } from '@koya/core';
+import { Controller, Get, pathParam } from '@zeltjs/core';
 
 @Controller('/hello')
 export class HelloController {
@@ -55,7 +55,7 @@ export class HelloController {
 Create `src/app.ts` to wire up your controllers:
 
 ```typescript
-import { createHttpApp } from '@koya/core';
+import { createHttpApp } from '@zeltjs/core';
 import { HelloController } from './controllers/hello.controller';
 
 export const app = createHttpApp({
@@ -68,7 +68,7 @@ export const app = createHttpApp({
 Create `src/main.ts` for the Node.js entry point:
 
 ```typescript
-import { serve } from '@koya/adapter-node';
+import { serve } from '@zeltjs/adapter-node';
 import { app } from './app';
 
 serve(app, { port: 3000 }, (info) => {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, validated, pathParam, response } from '@koya/core';
+import { Controller, Get, Post, validated, pathParam, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 export const CreateUserBody = v.object({

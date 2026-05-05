@@ -4,14 +4,14 @@ sidebar_position: 8
 
 # Validation
 
-Koya uses [Valibot](https://valibot.dev/) for request validation, providing a type-safe and lightweight validation solution.
+Zelt uses [Valibot](https://valibot.dev/) for request validation, providing a type-safe and lightweight validation solution.
 
 ## Basic Usage
 
 Use `validated()` with a Valibot schema to validate request bodies:
 
 ```typescript
-import { Controller, Post, validated, response } from '@koya/core';
+import { Controller, Post, validated, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserSchema = v.object({
@@ -32,7 +32,7 @@ export class UserController {
 
 ## Validation Error Response
 
-When validation fails, Koya automatically returns a 400 response:
+When validation fails, Zelt automatically returns a 400 response:
 
 ```json
 {

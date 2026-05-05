@@ -1,4 +1,4 @@
-import type { FunctionMiddleware } from '@koya/core';
+import type { FunctionMiddleware } from '@zeltjs/core';
 
 export const loggingMiddleware: FunctionMiddleware = async (c, next) => {
   const start = Date.now();

@@ -8,12 +8,12 @@ sidebar_position: 6
 Detailed dependency injection documentation is under development.
 :::
 
-Koya uses [needle-di](https://github.com/nicosommi/needle-di) under the hood for dependency injection, providing a lightweight and type-safe DI container.
+Zelt uses [needle-di](https://github.com/nicosommi/needle-di) under the hood for dependency injection, providing a lightweight and type-safe DI container.
 
 ## Quick Overview
 
 ```typescript
-import { Injectable, inject } from '@koya/core';
+import { Injectable, inject } from '@zeltjs/core';
 
 @Injectable()
 export class DatabaseService {

@@ -4,7 +4,7 @@ sidebar_position: 9
 
 # Error Handling
 
-Koya provides a simple error handling mechanism based on Hono's `HTTPException`.
+Zelt provides a simple error handling mechanism based on Hono's `HTTPException`.
 
 ## Error Response Format
 
@@ -56,7 +56,7 @@ Use Hono's `HTTPException` to throw custom HTTP errors:
 
 ```typescript
 import { HTTPException } from 'hono/http-exception';
-import { Controller, Get, pathParam } from '@koya/core';
+import { Controller, Get, pathParam } from '@zeltjs/core';
 
 @Controller('/users')
 export class UserController {
@@ -104,7 +104,7 @@ throw createError(409, 'CONFLICT', 'Resource already exists');
 Use the built-in error schemas to document error responses in your OpenAPI spec:
 
 ```typescript
-import { errorBodySchema, validationErrorBodySchema } from '@koya/core';
+import { errorBodySchema, validationErrorBodySchema } from '@zeltjs/core';
 ```
 
 These schemas define the structure of error responses:

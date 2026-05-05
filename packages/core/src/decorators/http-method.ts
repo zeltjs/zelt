@@ -7,7 +7,7 @@ const makeDecorator =
   (path: string): MethodDecorator =>
   (target, propertyKey): void => {
     if (typeof target === 'function') {
-      throw new Error(`koya: @${method} cannot be applied to static methods`);
+      throw new Error(`zelt: @${method} cannot be applied to static methods`);
     }
     appendRouteMetadata(target.constructor, { method, path, methodName: propertyKey });
   };

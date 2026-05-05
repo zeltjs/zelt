@@ -1,11 +1,11 @@
 {
-  "name": "@koya/testing",
+  "name": "@zeltjs/testing",
   "version": "0.0.0",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/9wick/koya.git",
+    "url": "git+https://github.com/9wick/zeltjs.git",
     "directory": "packages/testing"
   },
   "publishConfig": {
@@ -26,7 +26,7 @@
     "typecheck": "tsc -b"
   },
   "peerDependencies": {
-    "@koya/core": "workspace:*",
+    "@zeltjs/core": "workspace:*",
     "@needle-di/core": "1.1.2",
     "vitest": ">=4 <5"
   },

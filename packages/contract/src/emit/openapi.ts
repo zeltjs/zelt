@@ -1,4 +1,4 @@
-import { validationErrorBodySchema } from '@koya/core';
+import { validationErrorBodySchema } from '@zeltjs/core';
 import { toJsonSchema } from '@valibot/to-json-schema';
 
 import type { RequestSchemaRef } from '../analyzer/handler';
@@ -129,7 +129,7 @@ export const emitOpenApi = async (
 
   return {
     openapi: '3.1.0',
-    info: { title: 'koya app', version: '0.0.0' },
+    info: { title: 'zelt app', version: '0.0.0' },
     paths,
     components: { schemas },
   };

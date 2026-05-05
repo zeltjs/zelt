@@ -18,6 +18,6 @@ export const runInEntryContext = <T>(ctx: EntryContext, fn: () => T): T => stora
 
 export const getEntryContext = (): EntryContext => {
   const ctx = storage.getStore();
-  if (!ctx) throw new Error('koya: primitive called outside entry execution');
+  if (!ctx) throw new Error('zelt: primitive called outside entry execution');
   return ctx;
 };

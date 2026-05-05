@@ -11,7 +11,7 @@ const tsconfigPath = resolve(import.meta.dirname, '../../tsconfig.json');
 
 describe('generateClient', () => {
   it('writes app.gen.ts and openapi.json', async () => {
-    const dist = await mkdtemp(join(tmpdir(), 'koya-contract-'));
+    const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
     const result = await generateClient({
       controllers: [fixtureGlob],
       dist,
@@ -28,7 +28,7 @@ describe('generateClient', () => {
   });
 
   it('returns changed=false on second run with no changes', async () => {
-    const dist = await mkdtemp(join(tmpdir(), 'koya-contract-'));
+    const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
     await generateClient({
       controllers: [fixtureGlob],
       dist,

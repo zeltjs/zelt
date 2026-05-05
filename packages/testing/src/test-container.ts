@@ -28,7 +28,7 @@ const getBaseContainer = () => {
   baseContainer = new Container();
 
   // 本来は利用側で必要なものをdummy inject する
-  // (koya framework 自体は default 持たない)
+  // (zelt framework 自体は default 持たない)
 
   return baseContainer;
 };

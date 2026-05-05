@@ -3,7 +3,7 @@ import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'Koya',
+  title: 'Zelt',
   tagline: 'A fast, type-safe application framework for TypeScript',
   favicon: 'img/favicon.ico',
 
@@ -12,10 +12,10 @@ const config: Config = {
   },
 
   url: 'https://9wick.github.io',
-  baseUrl: '/koya/',
+  baseUrl: '/zeltjs/',
 
   organizationName: '9wick',
-  projectName: 'koya',
+  projectName: 'zeltjs',
 
   onBrokenLinks: 'throw',
 
@@ -36,7 +36,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/9wick/koya/tree/main/website/',
+          editUrl: 'https://github.com/9wick/zeltjs/tree/main/website/',
           routeBasePath: '/',
         },
         blog: false,
@@ -48,14 +48,14 @@ const config: Config = {
   ],
 
   themeConfig: {
-    image: 'img/koya-social-card.png',
+    image: 'img/zelt-social-card.png',
     colorMode: {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'Koya',
+      title: 'Zelt',
       logo: {
-        alt: 'Koya Logo',
+        alt: 'Zelt Logo',
         src: 'img/logo.svg',
       },
       items: [
@@ -70,7 +70,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/9wick/koya',
+          href: 'https://github.com/9wick/zeltjs',
           label: 'GitHub',
           position: 'right',
         },
@@ -97,12 +97,12 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/9wick/koya',
+              href: 'https://github.com/9wick/zeltjs',
             },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Koya. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Zelt. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

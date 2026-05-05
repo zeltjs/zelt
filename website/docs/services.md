@@ -11,7 +11,7 @@ Services are classes that handle **business logic** and can be **injected** into
 A service is a class decorated with `@Injectable()`:
 
 ```typescript
-import { Injectable } from '@koya/core';
+import { Injectable } from '@zeltjs/core';
 
 @Injectable()
 export class UserService {
@@ -39,7 +39,7 @@ export class UserService {
 Use `inject()` to inject services into controllers:
 
 ```typescript
-import { Controller, Get, Post, inject, pathParam, validated } from '@koya/core';
+import { Controller, Get, Post, inject, pathParam, validated } from '@zeltjs/core';
 import * as v from 'valibot';
 import { UserService } from './user.service';
 
@@ -77,7 +77,7 @@ export class UserController {
 Services can inject other services:
 
 ```typescript
-import { Injectable, inject } from '@koya/core';
+import { Injectable, inject } from '@zeltjs/core';
 import { DatabaseService } from './database.service';
 import { LoggerService } from './logger.service';
 
@@ -127,7 +127,7 @@ The singleton pattern makes testing straightforward — you can provide mock imp
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
-import { createTestContainer } from '@koya/testing';
+import { createTestContainer } from '@zeltjs/testing';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 

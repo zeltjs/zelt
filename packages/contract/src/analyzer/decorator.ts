@@ -32,7 +32,7 @@ const lookupHttpMethod = (name: string): HttpMethod | undefined => {
 const stringLiteralArg = (decoratorName: string, args: readonly Node[]): string => {
   const first = args[0];
   if (!first || first.getKind() !== SyntaxKind.StringLiteral) {
-    throw new Error(`koya/contract: @${decoratorName} requires a string literal argument`);
+    throw new Error(`zelt/openapi: @${decoratorName} requires a string literal argument`);
   }
   const text = first.getText();
   return text.slice(1, -1);

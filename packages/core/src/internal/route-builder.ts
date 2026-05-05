@@ -42,7 +42,7 @@ export const collectRoutes = (controllers: readonly ControllerClass[]): readonly
   for (const cls of controllers) {
     const meta = getControllerMetadata(cls);
     if (!meta) {
-      throw new Error('koya: controller is missing @Controller decorator');
+      throw new Error('zelt: controller is missing @Controller decorator');
     }
     for (const r of getRouteMetadata(cls)) {
       routes.push({
@@ -62,7 +62,7 @@ const resolveHandler = (instance: object, methodName: string | symbol): (() => u
   const value: unknown = Reflect.get(instance, methodName);
   if (typeof value !== 'function') {
     throw new Error(
-      `koya: route handler ${String(methodName)} is not a function on the controller`,
+      `zelt: route handler ${String(methodName)} is not a function on the controller`,
     );
   }
   return () => {

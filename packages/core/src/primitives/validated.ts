@@ -3,27 +3,27 @@ import { safeParse, type GenericSchema, type InferOutput } from 'valibot';
 
 import { getEntryContext } from '../internal/entry-context';
 
-// 型レベル marker。@koya/contract が handler signature から validated() 引数を検出するために使う。
+// 型レベル marker。@zeltjs/openapi が handler signature から validated() 引数を検出するために使う。
 // runtime 値は parse 結果そのもので、brand は phantom (compile time only)。
-declare const __koyaValidatedBrand: unique symbol;
-// __koyaValidatedType は T を phantom field として保持し、conditional type の infer で
+declare const __zeltValidatedBrand: unique symbol;
+// __zeltValidatedType は T を phantom field として保持し、conditional type の infer で
 // 自己参照交差型を避けて安全に T を取り出せるようにするためのタグ。
-declare const __koyaValidatedType: unique symbol;
+declare const __zeltValidatedType: unique symbol;
 
 export type ValidatedMarker<T> = T & {
-  [__koyaValidatedBrand]: true;
-  [__koyaValidatedType]: T;
+  [__zeltValidatedBrand]: true;
+  [__zeltValidatedType]: T;
 };
 
-// Extracts T from ValidatedMarker<T> by reading the phantom [__koyaValidatedType] key.
-// Defined in @koya/core (same module as the symbols) so that the lookup is a simple
+// Extracts T from ValidatedMarker<T> by reading the phantom [__zeltValidatedType] key.
+// Defined in @zeltjs/core (same module as the symbols) so that the lookup is a simple
 // property access, avoiding complex cross-module conditional type inference.
 export type ExtractValidated<H> =
-  NonNullable<H> extends Record<typeof __koyaValidatedType, infer T> ? T : never;
+  NonNullable<H> extends Record<typeof __zeltValidatedType, infer T> ? T : never;
 
-// Returns true if NonNullable<H> contains the [__koyaValidatedBrand] marker.
+// Returns true if NonNullable<H> contains the [__zeltValidatedBrand] marker.
 export type IsValidated<H> =
-  NonNullable<H> extends Record<typeof __koyaValidatedBrand, true> ? true : false;
+  NonNullable<H> extends Record<typeof __zeltValidatedBrand, true> ? true : false;
 
 // Public overload returns the branded type so contract analyzer can detect it.
 // Implementation signature returns the underlying parsed value; the brand is

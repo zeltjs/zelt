@@ -71,7 +71,7 @@ export const resolveResponseSchema = (
 ): ResponseSchemaJson => {
   if (resp.kind === 'unresolvable') {
     throw new Error(
-      'koya/contract: handler return type is unknown/any. Add an explicit return type annotation.',
+      'zelt/openapi: handler return type is unknown/any. Add an explicit return type annotation.',
     );
   }
   if (resp.kind === 'typed-response') return resolveTypedResponse(resp, options);

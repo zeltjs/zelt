@@ -51,7 +51,7 @@ const analyzeValidatedCall = (expr: CallExpression): RequestSchemaRef => {
     const module = resolveSchemaModule(expr, id.exportName);
     if (module === undefined) {
       throw new Error(
-        `koya/contract: cannot resolve module for validated(${id.exportName}). Schema must be a module-level export.`,
+        `zelt/openapi: cannot resolve module for validated(${id.exportName}). Schema must be a module-level export.`,
       );
     }
     return { kind: 'valibot-named', module, exportName: id.exportName };
@@ -75,7 +75,7 @@ export const analyzeHandlerSignature = (m: MethodDeclaration): HandlerSignatureI
     if (isCallTo(init, 'pathParam')) {
       const name = literalArg(init);
       if (name === undefined) {
-        throw new Error(`koya/contract: pathParam() requires a string literal argument`);
+        throw new Error(`zelt/openapi: pathParam() requires a string literal argument`);
       }
       pathParams.push(name);
     }

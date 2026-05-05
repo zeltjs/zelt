@@ -59,15 +59,15 @@ importers:
 
   examples/hello:
     dependencies:
-      '@koya/adapter-node':
+      '@zeltjs/adapter-node':
         specifier: workspace:*
         version: link:../../packages/adapter-node
-      '@koya/contract':
-        specifier: workspace:*
-        version: link:../../packages/contract
-      '@koya/core':
+      '@zeltjs/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@zeltjs/openapi':
+        specifier: workspace:*
+        version: link:../../packages/contract
       valibot:
         specifier: 1.3.1
         version: 1.3.1(typescript@6.0.2)
@@ -84,7 +84,7 @@ importers:
       '@hono/node-server':
         specifier: 2.0.1
         version: 2.0.1(hono@4.12.16)
-      '@koya/core':
+      '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -116,12 +116,12 @@ importers:
         specifier: 1.3.1
         version: 1.3.1(typescript@6.0.2)
     devDependencies:
-      '@koya/core':
-        specifier: workspace:*
-        version: link:../core
       '@types/node':
         specifier: 22.19.17
         version: 22.19.17
+      '@zeltjs/core':
+        specifier: workspace:*
+        version: link:../core
       hono:
         specifier: 4.12.16
         version: 4.12.16
@@ -147,7 +147,7 @@ importers:
 
   packages/testing:
     dependencies:
-      '@koya/core':
+      '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
       vitest:

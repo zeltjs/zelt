@@ -1,7 +1,7 @@
 import type { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
-  ignore: ['**/koya.config.ts', 'packages/contract/src/test/**'],
+  ignore: ['**/zelt.config.ts', 'packages/contract/src/test/**'],
   ignoreExportsUsedInFile: true,
   // GreetBody/GreetResponse: used via ts-morph AST resolution and AppType inference, invisible to static analysis
   // CreateUserBody/User: used by fixture file consumed via ts-morph at runtime, not traceable by static analysis
@@ -10,14 +10,14 @@ const config: KnipConfig = {
     'examples/hello': {
       entry: ['src/main.ts', 'src/entry/node.ts'],
       ignore: ['generated/**'],
-      ignoreDependencies: ['@koya/contract', '@koya/adapter-node'],
+      ignoreDependencies: ['@zeltjs/openapi', '@zeltjs/adapter-node'],
     },
     'packages/core': {
       // neverthrow は今後 Result wrapper に使う想定で keep。
       ignoreDependencies: ['neverthrow'],
     },
     'packages/adapter-node': {
-      ignoreDependencies: ['@koya/core'],
+      ignoreDependencies: ['@zeltjs/core'],
     },
     website: {
       // @docusaurus/plugin-content-docs types are re-exported by @docusaurus/preset-classic

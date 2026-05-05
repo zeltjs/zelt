@@ -11,7 +11,7 @@ Controllers are responsible for handling incoming **requests** and returning **r
 A controller is a class decorated with `@Controller()`. The decorator accepts a path prefix that will be prepended to all routes defined in the controller.
 
 ```typescript
-import { Controller, Get, Post, pathParam, validated, response } from '@koya/core';
+import { Controller, Get, Post, pathParam, validated, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({
@@ -40,7 +40,7 @@ export class UserController {
 
 ## HTTP Method Decorators
 
-Koya provides decorators for all standard HTTP methods:
+Zelt provides decorators for all standard HTTP methods:
 
 | Decorator | HTTP Method |
 |-----------|-------------|
@@ -107,7 +107,7 @@ create(body = validated(CreatePostBody)) {
 }
 ```
 
-If validation fails, Koya automatically returns a 400 response with detailed error information.
+If validation fails, Zelt automatically returns a 400 response with detailed error information.
 
 ## Custom Response Status
 
@@ -131,7 +131,7 @@ remove(id = pathParam('id'), res = response()) {
 Controllers must be registered in `createHttpApp()`:
 
 ```typescript
-import { createHttpApp } from '@koya/core';
+import { createHttpApp } from '@zeltjs/core';
 import { UserController } from './controllers/user.controller';
 import { PostController } from './controllers/post.controller';
 

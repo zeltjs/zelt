@@ -11,9 +11,9 @@
     "contract:watch": "tsx ../../packages/contract/src/cli.ts watch"
   },
   "dependencies": {
-    "@koya/adapter-node": "workspace:*",
-    "@koya/core": "workspace:*",
-    "@koya/contract": "workspace:*",
+    "@zeltjs/adapter-node": "workspace:*",
+    "@zeltjs/core": "workspace:*",
+    "@zeltjs/openapi": "workspace:*",
     "valibot": "1.3.1"
   },
   "devDependencies": {

@@ -11,7 +11,7 @@ Middleware functions execute before the route handler and can modify requests, r
 The simplest form of middleware is a function that receives the context and next function:
 
 ```typescript
-import type { FunctionMiddleware } from '@koya/core';
+import type { FunctionMiddleware } from '@zeltjs/core';
 
 export const loggingMiddleware: FunctionMiddleware = async (c, next) => {
   const start = Date.now();
@@ -23,14 +23,14 @@ export const loggingMiddleware: FunctionMiddleware = async (c, next) => {
 
 ## Middleware Levels
 
-Koya supports middleware at three levels, executed in order: **global → controller → method**.
+Zelt supports middleware at three levels, executed in order: **global → controller → method**.
 
 ### Global Middleware
 
 Apply to all routes via `createHttpApp()`:
 
 ```typescript
-import { createHttpApp } from '@koya/core';
+import { createHttpApp } from '@zeltjs/core';
 import { loggingMiddleware } from './middlewares/logging';
 
 export const app = createHttpApp({
@@ -44,7 +44,7 @@ export const app = createHttpApp({
 Apply to all methods in a controller with `@UseMiddleware`:
 
 ```typescript
-import { Controller, Get, UseMiddleware } from '@koya/core';
+import { Controller, Get, UseMiddleware } from '@zeltjs/core';
 
 @UseMiddleware(authMiddleware)
 @Controller('/admin')
@@ -81,7 +81,7 @@ export class PostController {
 Use `@SkipMiddleware` to exclude specific middleware from a method:
 
 ```typescript
-import { Controller, Get, SkipMiddleware } from '@koya/core';
+import { Controller, Get, SkipMiddleware } from '@zeltjs/core';
 
 @Controller('/api')
 export class ApiController {
@@ -107,7 +107,7 @@ Middleware can share data with handlers via `setContext()` and `getContext()`.
 Define your context shape using module augmentation:
 
 ```typescript
-declare module '@koya/core' {
+declare module '@zeltjs/core' {
   interface RequestContextSchema {
     user: { id: number; name: string };
   }
@@ -117,7 +117,7 @@ declare module '@koya/core' {
 ### Setting Context in Middleware
 
 ```typescript
-import type { FunctionMiddleware } from '@koya/core';
+import type { FunctionMiddleware } from '@zeltjs/core';
 
 export const authMiddleware: FunctionMiddleware = async (c, next) => {
   const token = c.req.header('Authorization');
@@ -130,7 +130,7 @@ export const authMiddleware: FunctionMiddleware = async (c, next) => {
 ### Reading Context in Handlers
 
 ```typescript
-import { Controller, Get, getContext } from '@koya/core';
+import { Controller, Get, getContext } from '@zeltjs/core';
 
 @Controller('/profile')
 export class ProfileController {
@@ -146,8 +146,8 @@ export class ProfileController {
 For middleware that requires dependency injection, use `@Middleware`:
 
 ```typescript
-import { Middleware, inject, Injectable } from '@koya/core';
-import type { RequestContext, Next } from '@koya/core';
+import { Middleware, inject, Injectable } from '@zeltjs/core';
+import type { RequestContext, Next } from '@zeltjs/core';
 
 @Injectable()
 class ConfigService {

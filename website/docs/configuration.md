@@ -4,14 +4,14 @@ sidebar_position: 9
 
 # Configuration
 
-Koya provides a type-safe configuration system using the `@Config` decorator and `injectConfig()` helper.
+Zelt provides a type-safe configuration system using the `@Config` decorator and `injectConfig()` helper.
 
 ## Defining Configuration
 
 Use the `@Config` decorator to define a configuration class. Each config class must have a static `Token` property:
 
 ```typescript
-import { Config } from '@koya/core';
+import { Config } from '@zeltjs/core';
 
 @Config
 export class DatabaseConfig {
@@ -36,7 +36,7 @@ export class DatabaseConfig {
 Inject configuration into services or controllers using `injectConfig()`:
 
 ```typescript
-import { Injectable, injectConfig } from '@koya/core';
+import { Injectable, injectConfig } from '@zeltjs/core';
 import { DatabaseConfig } from './database.config';
 
 @Injectable()
@@ -54,7 +54,7 @@ export class DatabaseService {
 Register config classes when creating the HTTP app:
 
 ```typescript
-import { createHttpApp } from '@koya/core';
+import { createHttpApp } from '@zeltjs/core';
 import { DatabaseConfig } from './database.config';
 import { AppController } from './app.controller';
 
@@ -69,7 +69,7 @@ const app = createHttpApp({
 Override configuration values for testing by extending the config class:
 
 ```typescript
-import { Config } from '@koya/core';
+import { Config } from '@zeltjs/core';
 import { DatabaseConfig } from './database.config';
 
 @Config
@@ -97,7 +97,7 @@ The `Token` property is inherited from the parent class, so `injectConfig(Databa
 A common pattern for environment-aware configuration:
 
 ```typescript
-import { Config } from '@koya/core';
+import { Config } from '@zeltjs/core';
 
 @Config
 export class AppConfig {

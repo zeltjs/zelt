@@ -1,4 +1,4 @@
-import { serve, type AddressInfo } from '@koya/adapter-node';
+import { serve, type AddressInfo } from '@zeltjs/adapter-node';
 
 import { app } from '../app';
 

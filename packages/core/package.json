@@ -1,11 +1,11 @@
 {
-  "name": "@koya/core",
+  "name": "@zeltjs/core",
   "version": "0.0.0",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/9wick/koya.git",
+    "url": "git+https://github.com/9wick/zeltjs.git",
     "directory": "packages/core"
   },
   "publishConfig": {

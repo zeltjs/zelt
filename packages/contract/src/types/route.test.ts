@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type { TypedResponse } from 'hono';
-import type { ValidationErrorBody } from '@koya/core';
+import type { ValidationErrorBody } from '@zeltjs/core';
 import * as v from 'valibot';
 
 import type { Route } from './route';

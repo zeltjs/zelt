@@ -1,7 +1,7 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type { TypedResponse } from 'hono';
 import * as v from 'valibot';
-import type { ValidationErrorBody } from '@koya/core';
+import type { ValidationErrorBody } from '@zeltjs/core';
 
 import type {
   ExtractPathParams,
@@ -20,7 +20,7 @@ type HandlerWithBody = (body?: ValidatedMarker<Body>) => Promise<unknown>;
 type HandlerNoBody = (id?: string) => Promise<unknown>;
 type HandlerTypedResponse = () => Promise<TypedResponse<{ ok: true }, 201, 'json'>>;
 type HandlerRawReturn = () => Promise<{ id: string }>;
-// Canonical koya pattern: pathParam() precedes validated() as default-valued args (optional)
+// Canonical zelt pattern: pathParam() precedes validated() as default-valued args (optional)
 type HandlerWithBodyAtSecondArg = (id?: string, body?: ValidatedMarker<Body>) => Promise<unknown>;
 
 type BodyFromHandler = ExtractRequestBody<HandlerWithBody>;

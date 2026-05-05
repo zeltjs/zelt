@@ -5,10 +5,10 @@ import { pathToFileURL } from 'node:url';
 import type { GenerateClientOptions } from './config/options';
 
 const DEFAULT_CONFIG_NAMES = [
-  'koya.config.ts',
-  'koya.config.js',
-  'koya.config.mts',
-  'koya.config.mjs',
+  'zelt.config.ts',
+  'zelt.config.js',
+  'zelt.config.mts',
+  'zelt.config.mjs',
 ] as const;
 
 const exists = async (p: string): Promise<boolean> =>
@@ -44,7 +44,7 @@ export const loadConfig = async (path: string): Promise<GenerateClientOptions> =
   const url = pathToFileURL(abs).href;
   const mod = await dynamicImport(url);
   if (typeof mod !== 'object' || mod === null) {
-    throw new Error(`koya/contract: ${path} must export a default GenerateClientOptions object`);
+    throw new Error(`zelt/openapi: ${path} must export a default GenerateClientOptions object`);
   }
   // Spread into Record to access named exports without in-operator or type predicate.
   // Pattern from emit/json-schema-input.ts importNamedExport.
@@ -52,7 +52,7 @@ export const loadConfig = async (path: string): Promise<GenerateClientOptions> =
   const defaultKey = 'default';
   const cfg = namespace[defaultKey];
   if (cfg === undefined) {
-    throw new Error(`koya/contract: ${path} must export a default GenerateClientOptions object`);
+    throw new Error(`zelt/openapi: ${path} must export a default GenerateClientOptions object`);
   }
   return narrowConfig(cfg);
 };

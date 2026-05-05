@@ -1,4 +1,4 @@
-import { defineConfig } from '@koya/contract';
+import { defineConfig } from '@zeltjs/openapi';
 
 export default defineConfig({
   controllers: ['./src/**/*.controller.ts'],

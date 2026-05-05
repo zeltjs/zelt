@@ -1,5 +1,5 @@
-import type { ValidatedMarker } from '@koya/core';
+import type { ValidatedMarker } from '@zeltjs/core';
 
-export type { ValidatedMarker } from '@koya/core';
+export type { ValidatedMarker } from '@zeltjs/core';
 
 export type UnwrapValidated<T> = T extends ValidatedMarker<infer U> ? U : never;

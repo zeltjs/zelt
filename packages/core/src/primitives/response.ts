@@ -3,7 +3,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 import { getEntryContext } from '../internal/entry-context';
 
-// koya は 300 multi-choice / 304 not-modified / 305-306 deprecated を除外し、
+// zelt は 300 multi-choice / 304 not-modified / 305-306 deprecated を除外し、
 // AppType / OpenAPI consumer 向けに本物の redirect 3xx だけに narrow する。
 type KoyaRedirectStatusCode = 301 | 302 | 303 | 307 | 308;
 

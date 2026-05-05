@@ -15,10 +15,10 @@ export const watchClient = async (options: GenerateClientOptions): Promise<() =>
       try {
         const result = await generateClient(options);
         console.log(
-          `[koya-contract] regenerated (app.gen.ts ${result.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${result.openApiChanged ? 'changed' : 'unchanged'}) — trigger: ${path}`,
+          `[zelt-openapi] regenerated (app.gen.ts ${result.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${result.openApiChanged ? 'changed' : 'unchanged'}) — trigger: ${path}`,
         );
       } catch (e) {
-        console.error('[koya-contract] regeneration failed:', e);
+        console.error('[zelt-openapi] regeneration failed:', e);
       }
     })();
   });

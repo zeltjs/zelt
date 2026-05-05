@@ -6,7 +6,7 @@ type CreateProjectOptions = {
 };
 
 // tsconfig が指定されていればそれを使い、なければ in-memory project を controllerFiles で構築。
-// tsconfig 経由なら moduleResolution / paths が解決され、@koya/core の symbol も追える。
+// tsconfig 経由なら moduleResolution / paths が解決され、@zeltjs/core の symbol も追える。
 export const createProject = (options: CreateProjectOptions): Project => {
   const project =
     options.tsConfigFilePath === undefined

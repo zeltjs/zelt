@@ -37,12 +37,12 @@ const importNamedExport = async (modulePath: string, exportName: string): Promis
   const url = pathToFileURL(resolve(modulePath)).href;
   const mod = await dynamicImport(url);
   if (typeof mod !== 'object' || mod === null) {
-    throw new Error(`koya/contract: ${modulePath} did not export an object module`);
+    throw new Error(`zelt/openapi: ${modulePath} did not export an object module`);
   }
   const namespace: Record<string, unknown> = { ...mod };
   const value = namespace[exportName];
   if (value === undefined) {
-    throw new Error(`koya/contract: ${exportName} not found in ${modulePath}`);
+    throw new Error(`zelt/openapi: ${exportName} not found in ${modulePath}`);
   }
   return value;
 };
@@ -54,14 +54,14 @@ export const resolveRequestSchema = async (ref: RequestSchemaRef): Promise<Reque
   if (ref.kind === 'none') return { kind: 'none' };
   if (ref.kind === 'valibot-inline') {
     throw new Error(
-      'koya/contract: validated() with inline schema is not supported in MVP. Extract the schema to a module-level export.',
+      'zelt/openapi: validated() with inline schema is not supported in MVP. Extract the schema to a module-level export.',
     );
   }
   const value = await importNamedExport(ref.module, ref.exportName);
   const parsed = v.safeParse(valibotSchemaShape, value);
   if (!parsed.success) {
     throw new Error(
-      `koya/contract: ${ref.exportName} in ${ref.module} is not a valibot schema (validated() expects a valibot schema)`,
+      `zelt/openapi: ${ref.exportName} in ${ref.module} is not a valibot schema (validated() expects a valibot schema)`,
     );
   }
   const schema = narrowToValibotSchema(value);

@@ -1,6 +1,6 @@
 import type { TypedResponse } from 'hono';
 import type { StatusCode } from 'hono/utils/http-status';
-import type { ExtractValidated, IsValidated, ValidationErrorBody } from '@koya/core';
+import type { ExtractValidated, IsValidated, ValidationErrorBody } from '@zeltjs/core';
 
 // '/users/:id/posts/:postId' → { id: string; postId: string }
 export type ExtractPathParams<P extends string> = string extends P

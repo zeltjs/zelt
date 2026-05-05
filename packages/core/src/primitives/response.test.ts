@@ -71,6 +71,6 @@ describe('response()', () => {
   });
 
   it('throws when called outside entry execution', () => {
-    expect(() => response()).toThrow('koya: primitive called outside entry execution');
+    expect(() => response()).toThrow('zelt: primitive called outside entry execution');
   });
 });

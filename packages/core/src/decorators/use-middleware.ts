@@ -11,7 +11,7 @@ export const UseMiddleware =
       setControllerMiddlewareMetadata(target, middlewares);
     } else {
       if (typeof target === 'function') {
-        throw new Error('koya: @UseMiddleware cannot be applied to static methods');
+        throw new Error('zelt: @UseMiddleware cannot be applied to static methods');
       }
       appendMethodMiddlewareMetadata(target.constructor, propertyKey, middlewares);
     }

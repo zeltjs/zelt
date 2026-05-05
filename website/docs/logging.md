@@ -4,15 +4,15 @@ sidebar_position: 10
 
 # Logging
 
-Koya provides a built-in `Logger` module with configurable log levels.
+Zelt provides a built-in `Logger` module with configurable log levels.
 
 ## Basic Usage
 
 Inject the `Logger` into your services or controllers:
 
 ```typescript
-import { Injectable, inject } from '@koya/core';
-import { Logger } from '@koya/core/modules/logger';
+import { Injectable, inject } from '@zeltjs/core';
+import { Logger } from '@zeltjs/core/modules/logger';
 
 @Injectable()
 export class OrderService {
@@ -50,8 +50,8 @@ Messages are only output if their level is equal to or higher than the configure
 Configure the Logger using `LoggerConfig`:
 
 ```typescript
-import { Config } from '@koya/core';
-import { LoggerConfig } from '@koya/core/modules/logger';
+import { Config } from '@zeltjs/core';
+import { LoggerConfig } from '@zeltjs/core/modules/logger';
 
 @Config
 export class AppLoggerConfig extends LoggerConfig {
@@ -64,7 +64,7 @@ export class AppLoggerConfig extends LoggerConfig {
 Register the config when creating the app:
 
 ```typescript
-import { createHttpApp } from '@koya/core';
+import { createHttpApp } from '@zeltjs/core';
 import { AppLoggerConfig } from './logger.config';
 import { AppController } from './app.controller';
 

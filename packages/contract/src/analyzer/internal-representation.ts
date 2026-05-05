@@ -46,15 +46,15 @@ export type ControllerSpec = {
 
 const buildControllerIR = (project: Project, spec: ControllerSpec): ControllerIR => {
   const sf = project.getSourceFile(spec.filePath);
-  if (!sf) throw new Error(`koya/contract: source file not found: ${spec.filePath}`);
+  if (!sf) throw new Error(`zelt/openapi: source file not found: ${spec.filePath}`);
   const cls = sf.getClass(spec.exportName);
   if (!cls) {
-    throw new Error(`koya/contract: class ${spec.exportName} not found in ${spec.filePath}`);
+    throw new Error(`zelt/openapi: class ${spec.exportName} not found in ${spec.filePath}`);
   }
 
   const ctrl = extractControllerDecorator(cls);
   if (!ctrl) {
-    throw new Error(`koya/contract: ${spec.exportName} is missing @Controller decorator`);
+    throw new Error(`zelt/openapi: ${spec.exportName} is missing @Controller decorator`);
   }
 
   const routes: RouteIR[] = [];

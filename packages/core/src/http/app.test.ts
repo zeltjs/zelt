@@ -15,7 +15,7 @@ import { validated } from '../primitives/validated';
 
 import { createHttpApp } from './app';
 
-declare module '@koya/core' {
+declare module '@zeltjs/core' {
   interface RequestContextSchema {
     configValue: string;
     user: { id: number; name: string };
@@ -52,9 +52,9 @@ const buildApp = () => createHttpApp({ controllers: [HelloController, EchoContro
 describe('createHttpApp() — fetch', () => {
   it('serves a constructor-injected GET endpoint with pathParam', async () => {
     const app = buildApp();
-    const res = await app.fetch(new Request('https://example.com/hello/koya'));
+    const res = await app.fetch(new Request('https://example.com/hello/zelt'));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ message: 'hello, koya' });
+    expect(await res.json()).toEqual({ message: 'hello, zelt' });
   });
 
   it('parses JSON body via validated()', async () => {
@@ -97,9 +97,9 @@ describe('createHttpApp() — fetch', () => {
 describe('createHttpApp() — request', () => {
   it('accepts a path string with no init (defaults to GET)', async () => {
     const app = buildApp();
-    const res = await app.request('/hello/koya');
+    const res = await app.request('/hello/zelt');
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ message: 'hello, koya' });
+    expect(await res.json()).toEqual({ message: 'hello, zelt' });
   });
 
   it('accepts a path string with init for POST + JSON body', async () => {
@@ -115,17 +115,17 @@ describe('createHttpApp() — request', () => {
 
   it('accepts a raw Request instance', async () => {
     const app = buildApp();
-    const res = await app.request(new Request('https://x/hello/koya'));
+    const res = await app.request(new Request('https://x/hello/zelt'));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ message: 'hello, koya' });
+    expect(await res.json()).toEqual({ message: 'hello, zelt' });
   });
 
   it('ignores init when input is a Request (Request takes precedence)', async () => {
     const app = buildApp();
     // Request の method は GET、init で POST を指定しても Request 側が優先される
-    const res = await app.request(new Request('https://x/hello/koya'), { method: 'POST' });
+    const res = await app.request(new Request('https://x/hello/zelt'), { method: 'POST' });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ message: 'hello, koya' });
+    expect(await res.json()).toEqual({ message: 'hello, zelt' });
   });
 });
 

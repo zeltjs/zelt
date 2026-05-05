@@ -1,4 +1,4 @@
-import { Controller, Get, Post, inject, pathParam, response, validated } from '@koya/core';
+import { Controller, Get, Post, inject, pathParam, response, validated } from '@zeltjs/core';
 import * as v from 'valibot';
 
 import { HelloService } from './hello.service';

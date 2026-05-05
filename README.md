@@ -1,4 +1,4 @@
-# koya
+# zeltjs
 
 > Edge/serverless 時代のための、Laravel/FuelPHP 的な型安全 TypeScript アプリケーションフレームワーク。
 >
@@ -16,11 +16,12 @@
 
 ## Packages
 
-- `@koya/core` — DI / lifecycle / validation / error / HTTP の中核
-- `@koya/adapter-node` — Node.js 用 listen
-- `@koya/testing` — テストユーティリティ
+- `@zeltjs/core` — DI / lifecycle / validation / error / HTTP の中核
+- `@zeltjs/adapter-node` — Node.js 用 listen
+- `@zeltjs/testing` — テストユーティリティ
+- `@zeltjs/openapi` — OpenAPI / 型生成ツール
 
-Workers / Lambda 用アダプタは `@koya/core` の subpath (`@koya/core/workers`, `@koya/core/lambda`) として提供予定です。
+Workers / Lambda 用アダプタは `@zeltjs/core` の subpath (`@zeltjs/core/workers`, `@zeltjs/core/lambda`) として提供予定です。
 
 ## License
 

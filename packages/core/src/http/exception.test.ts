@@ -3,7 +3,7 @@ import { HTTPException as HonoHTTPException } from 'hono/http-exception';
 
 import { HTTPException } from '../index';
 
-describe('@koya/core HTTPException re-export', () => {
+describe('@zeltjs/core HTTPException re-export', () => {
   it('is the same constructor as hono/http-exception', () => {
     expect(HTTPException).toBe(HonoHTTPException);
   });

@@ -8,12 +8,12 @@ sidebar_position: 5
 Module system documentation is under development.
 :::
 
-Koya uses a lightweight module system for organizing your application. Unlike traditional frameworks, Koya favors explicit composition over implicit module discovery.
+Zelt uses a lightweight module system for organizing your application. Unlike traditional frameworks, Zelt favors explicit composition over implicit module discovery.
 
 ## Basic Concept
 
 ```typescript
-import { createHttpApp } from '@koya/core';
+import { createHttpApp } from '@zeltjs/core';
 import { UserController } from './user/user.controller';
 import { PostController } from './post/post.controller';
 

@@ -8,12 +8,12 @@ sidebar_position: 7
 Testing documentation is under development.
 :::
 
-Koya provides `@koya/testing` package with utilities for testing your application.
+Zelt provides `@zeltjs/testing` package with utilities for testing your application.
 
 ## Installation
 
 ```bash
-pnpm add -D @koya/testing vitest
+pnpm add -D @zeltjs/testing vitest
 ```
 
 ## Basic Example

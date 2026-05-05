@@ -5,7 +5,7 @@ import { runInEntryContext, type EntryContext } from '../internal/entry-context'
 
 import { getContext, setContext } from './get-context';
 
-declare module '@koya/core' {
+declare module '@zeltjs/core' {
   interface RequestContextSchema {
     user: { id: number; name: string };
     nonexistent: unknown;
