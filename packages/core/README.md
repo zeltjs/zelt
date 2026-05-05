@@ -27,3 +27,7 @@ const app = createHttpApp({ controllers: [HelloController] });
 ## Documentation
 
 See [zeltjs.dev](https://zeltjs.dev) for full documentation.
+
+## License
+
+MIT
