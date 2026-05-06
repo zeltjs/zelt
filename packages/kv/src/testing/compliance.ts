@@ -2,7 +2,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AtomicKVDriver, AtomicKVStore, KVDriver, KVStore } from '../types';
 
-export const runKVStoreComplianceTests = (factory: () => KVDriver): void => {
+export type ComplianceOptions = {
+  /** Use real wall-clock sleeps instead of fake timers for TTL tests (needed for real backends like Redis). */
+  realClock?: boolean;
+  /** Milliseconds to sleep when realClock is true. Default: 1500. */
+  sleepMs?: number;
+};
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+export const runKVStoreComplianceTests = (
+  factory: () => KVDriver,
+  options?: ComplianceOptions,
+): void => {
+  const realClock = options?.realClock ?? false;
+  const sleepMs = options?.sleepMs ?? 1500;
+
   describe('KVStore compliance', () => {
     let driver: KVDriver;
     let store: KVStore;
@@ -55,32 +70,62 @@ export const runKVStoreComplianceTests = (factory: () => KVDriver): void => {
   });
 
   describe('KVStore TTL compliance', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-    });
-    afterEach(() => {
-      vi.useRealTimers();
-    });
+    if (realClock) {
+      it(
+        'TTL expires the key',
+        async () => {
+          const store = factory().namespace('compliance-ttl:');
+          await store.set('foo', 1, { ttlSec: 1 });
+          await sleep(sleepMs);
+          expect(await store.get('foo')).toBeUndefined();
+        },
+        sleepMs + 2000,
+      );
 
-    it('TTL expires the key', async () => {
-      const store = factory().namespace('compliance-ttl:');
-      await store.set('foo', 1, { ttlSec: 10 });
-      vi.advanceTimersByTime(11_000);
-      expect(await store.get('foo')).toBeUndefined();
-    });
+      it('expire returns false on missing key', async () => {
+        const store = factory().namespace('compliance-ttl:');
+        expect(await store.expire('missing', 5)).toBe(false);
+      });
 
-    it('expire returns false on missing key', async () => {
-      const store = factory().namespace('compliance-ttl:');
-      expect(await store.expire('missing', 5)).toBe(false);
-    });
+      it(
+        'expire(key) extends/sets TTL',
+        async () => {
+          const store = factory().namespace('compliance-ttl:');
+          await store.set('foo', 1);
+          expect(await store.expire('foo', 1)).toBe(true);
+          await sleep(sleepMs);
+          expect(await store.get('foo')).toBeUndefined();
+        },
+        sleepMs + 2000,
+      );
+    } else {
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
 
-    it('expire(key) extends/sets TTL', async () => {
-      const store = factory().namespace('compliance-ttl:');
-      await store.set('foo', 1);
-      expect(await store.expire('foo', 5)).toBe(true);
-      vi.advanceTimersByTime(6_000);
-      expect(await store.get('foo')).toBeUndefined();
-    });
+      it('TTL expires the key', async () => {
+        const store = factory().namespace('compliance-ttl:');
+        await store.set('foo', 1, { ttlSec: 10 });
+        vi.advanceTimersByTime(11_000);
+        expect(await store.get('foo')).toBeUndefined();
+      });
+
+      it('expire returns false on missing key', async () => {
+        const store = factory().namespace('compliance-ttl:');
+        expect(await store.expire('missing', 5)).toBe(false);
+      });
+
+      it('expire(key) extends/sets TTL', async () => {
+        const store = factory().namespace('compliance-ttl:');
+        await store.set('foo', 1);
+        expect(await store.expire('foo', 5)).toBe(true);
+        vi.advanceTimersByTime(6_000);
+        expect(await store.get('foo')).toBeUndefined();
+      });
+    }
   });
 
   describe('KVStore namespace compliance', () => {
@@ -93,8 +138,14 @@ export const runKVStoreComplianceTests = (factory: () => KVDriver): void => {
   });
 };
 
-export const runAtomicKVStoreComplianceTests = (factory: () => AtomicKVDriver): void => {
-  runKVStoreComplianceTests(factory);
+export const runAtomicKVStoreComplianceTests = (
+  factory: () => AtomicKVDriver,
+  options?: ComplianceOptions,
+): void => {
+  runKVStoreComplianceTests(factory, options);
+
+  const realClock = options?.realClock ?? false;
+  const sleepMs = options?.sleepMs ?? 1500;
 
   describe('AtomicKVStore compliance', () => {
     let store: AtomicKVStore;
@@ -130,22 +181,39 @@ export const runAtomicKVStoreComplianceTests = (factory: () => AtomicKVDriver): 
   });
 
   describe('AtomicKVStore TTL compliance', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-    });
-    afterEach(() => {
-      vi.useRealTimers();
-    });
+    if (realClock) {
+      it(
+        'incr with ttlSec sets TTL only on first incr (no extension on subsequent)',
+        async () => {
+          const store = factory().namespace('atomic-ttl:');
+          await store.incr('c', 1, { ttlSec: 1 });
+          await sleep(500);
+          // second incr with a longer ttlSec must NOT extend the TTL
+          await store.incr('c', 1, { ttlSec: 100 });
+          await sleep(sleepMs);
+          // original 1s TTL has elapsed, key must be gone
+          expect(await store.get('c')).toBeUndefined();
+        },
+        sleepMs + 2000,
+      );
+    } else {
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
 
-    it('incr with ttlSec sets TTL only on first incr (no extension on subsequent)', async () => {
-      const store = factory().namespace('atomic-ttl:');
-      await store.incr('c', 1, { ttlSec: 10 });
-      vi.advanceTimersByTime(5_000);
-      // second incr with a longer ttlSec must NOT extend the TTL
-      await store.incr('c', 1, { ttlSec: 100 });
-      vi.advanceTimersByTime(6_000);
-      // original 10s TTL has now elapsed (5+6=11s), key must be gone
-      expect(await store.get('c')).toBeUndefined();
-    });
+      it('incr with ttlSec sets TTL only on first incr (no extension on subsequent)', async () => {
+        const store = factory().namespace('atomic-ttl:');
+        await store.incr('c', 1, { ttlSec: 10 });
+        vi.advanceTimersByTime(5_000);
+        // second incr with a longer ttlSec must NOT extend the TTL
+        await store.incr('c', 1, { ttlSec: 100 });
+        vi.advanceTimersByTime(6_000);
+        // original 10s TTL has now elapsed (5+6=11s), key must be gone
+        expect(await store.get('c')).toBeUndefined();
+      });
+    }
   });
 };
