@@ -47,8 +47,10 @@ jobs:
         run: pnpm build
 
       - name: Publish packages
+        env:
+          PATHS_RELEASED: ${{ needs.release-please.outputs.paths_released }}
         run: |
-          for pkg in packages/core packages/adapter-node packages/contract packages/testing; do
+          echo "$PATHS_RELEASED" | jq -r '.[]' | while read -r pkg; do
             echo "Publishing $pkg..."
             pnpm --filter "./$pkg" publish --access public --no-git-checks --provenance
           done
