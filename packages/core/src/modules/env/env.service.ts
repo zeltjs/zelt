@@ -21,4 +21,13 @@ export class EnvService {
     this.ensureLoaded();
     return process.env[key] ?? defaultValue;
   }
+
+  getInteger<D extends number | null | undefined>(key: string, defaultValue: D): number | D {
+    this.ensureLoaded();
+    const val = process.env[key];
+    if (val === undefined) return defaultValue;
+    const parsed = parseInt(val, 10);
+    if (Number.isNaN(parsed)) return defaultValue;
+    return parsed;
+  }
 }
