@@ -59,7 +59,7 @@ Use Hono's `HTTPException` to throw HTTP errors by specifying a status code and 
 For basic text responses, just set the error `message`:
 
 ```typescript
-import { HTTPException } from 'hono/http-exception';
+import { HTTPException } from '@zeltjs/core';
 
 throw new HTTPException(401, { message: 'Unauthorized' });
 ```
@@ -69,7 +69,7 @@ throw new HTTPException(401, { message: 'Unauthorized' });
 For JSON responses, or to set response headers, use the `res` option.
 
 ```typescript
-import { HTTPException } from 'hono/http-exception';
+import { HTTPException } from '@zeltjs/core';
 
 const errorResponse = Response.json(
   { code: 'USER_NOT_FOUND', message: 'User not found' },
@@ -109,7 +109,7 @@ try {
 Define reusable error responses to maintain consistency across your API:
 
 ```typescript
-import { HTTPException } from 'hono/http-exception';
+import { HTTPException } from '@zeltjs/core';
 
 const notFoundResponse = Response.json(
   { code: 'USER_NOT_FOUND', message: 'User not found' },
