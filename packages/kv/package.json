@@ -31,7 +31,7 @@
   },
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
-    "vitest": "^4.0.0"
+    "vitest": ">=4 <5"
   },
   "peerDependenciesMeta": {
     "vitest": {

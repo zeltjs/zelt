@@ -4,10 +4,12 @@ import type { AtomicKVDriver, AtomicKVStore, KVDriver, KVStore } from '../types'
 
 export const runKVStoreComplianceTests = (factory: () => KVDriver): void => {
   describe('KVStore compliance', () => {
+    let driver: KVDriver;
     let store: KVStore;
 
     beforeEach(() => {
-      store = factory().namespace('compliance:');
+      driver = factory();
+      store = driver.namespace('compliance:');
     });
 
     it('get returns undefined for missing key', async () => {
@@ -34,13 +36,21 @@ export const runKVStoreComplianceTests = (factory: () => KVDriver): void => {
     it('chained namespace concatenates prefixes', async () => {
       const sub = store.namespace('sub:');
       await sub.set('foo', 1);
-      // when we read via parent prefix + sub key, we should see the value
-      const directParent = factory().namespace('compliance:sub:');
+      // verify the same backing store sees the value under the concatenated prefix
+      const directParent = driver.namespace('compliance:sub:');
       expect(await directParent.get('foo')).toBe(1);
     });
 
     it('empty namespace prefix throws', () => {
       expect(() => store.namespace('')).toThrow();
+    });
+
+    it('del on missing key is a no-op (no throw)', async () => {
+      await expect(store.del('does-not-exist')).resolves.toBeUndefined();
+    });
+
+    it('set with undefined value throws', async () => {
+      await expect(store.set('foo', undefined)).rejects.toThrow();
     });
   });
 
