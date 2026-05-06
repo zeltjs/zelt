@@ -2,10 +2,12 @@ import type { Context, Env, Hono, Input } from 'hono';
 import * as v from 'valibot';
 
 import type { FunctionMiddleware, MiddlewareClass, MiddlewareInput } from '../middleware/types';
+import { currentRoles, currentUser } from '../primitives/auth';
 
 import type { ResolverHandle } from './container';
 import { runInEntryContext } from './entry-context';
 import {
+  getAuthorizedMetadata,
   getControllerMetadata,
   getControllerMiddlewareMetadata,
   getMethodMiddlewareMetadata,
@@ -99,6 +101,32 @@ const resolveMiddleware = (
   return middleware;
 };
 
+const createAuthorizationMiddleware = (requiredRoles: readonly string[]): FunctionMiddleware => {
+  return async (_c, next) => {
+    const user = currentUser();
+    if (user === undefined) {
+      return Response.json(
+        { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
+    if (requiredRoles.length > 0) {
+      const userRoles = currentRoles();
+      const hasRequiredRole = requiredRoles.some((role) => userRoles.includes(role));
+      if (!hasRequiredRole) {
+        return Response.json(
+          { code: 'FORBIDDEN', message: 'Insufficient permissions' },
+          { status: 403 },
+        );
+      }
+    }
+
+    await next();
+    return undefined;
+  };
+};
+
 const collectRouteMiddlewares = (
   globalMiddlewares: readonly MiddlewareInput[],
   controllerClass: ControllerClass,
@@ -112,6 +140,7 @@ const collectRouteMiddlewares = (
   const skipMetas = getSkipMiddlewareMetadata(controllerClass).filter(
     (m) => m.methodName === methodName,
   );
+  const authorizedMeta = getAuthorizedMetadata(controllerClass, methodName);
 
   const skippedSet = new Set<MiddlewareInput>(skipMetas.flatMap((m) => m.skipped));
 
@@ -121,7 +150,13 @@ const collectRouteMiddlewares = (
     ...methodMetas.flatMap((m) => m.middlewares.filter((mw) => !skippedSet.has(mw))),
   ];
 
-  return allMiddlewares.map((m) => resolveMiddleware(m, resolver));
+  const resolvedMiddlewares = allMiddlewares.map((m) => resolveMiddleware(m, resolver));
+
+  if (authorizedMeta) {
+    resolvedMiddlewares.push(createAuthorizationMiddleware(authorizedMeta.roles));
+  }
+
+  return resolvedMiddlewares;
 };
 
 const composeHandler = (
@@ -174,17 +209,20 @@ const registerRoute = (
   );
 
   const finalHandler = async (c: MiddlewareContext): Promise<Response> => {
-    const body = await parseRequestBody(c);
-    const pathParams: Readonly<Record<string, string>> = c.req.param();
-    const result = await runInEntryContext(
-      { input: { body, pathParams }, honoContext: c },
-      async () => invoke(),
-    );
+    const result = await invoke();
     if (result instanceof Response) return result;
     return c.json(result);
   };
 
-  const handler = composeHandler(middlewares, finalHandler);
+  const composedHandler = composeHandler(middlewares, finalHandler);
+
+  const handler = async (c: MiddlewareContext): Promise<Response> => {
+    const body = await parseRequestBody(c);
+    const pathParams: Readonly<Record<string, string>> = c.req.param();
+    return runInEntryContext({ input: { body, pathParams }, honoContext: c }, () =>
+      composedHandler(c),
+    );
+  };
 
   const methods = {
     GET: () => hono.get(route.fullPath, handler),

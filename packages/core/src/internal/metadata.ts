@@ -26,11 +26,17 @@ type SkipMiddlewareMetadata = {
   readonly skipped: readonly MiddlewareIdentifier[];
 };
 
+type AuthorizedMetadata = {
+  readonly methodName: string | symbol;
+  readonly roles: readonly string[];
+};
+
 const controllerStore = new WeakMap<object, ControllerMetadata>();
 const routeStore = new WeakMap<object, RouteMetadata[]>();
 const controllerMiddlewareStore = new WeakMap<object, ControllerMiddlewareMetadata>();
 const methodMiddlewareStore = new WeakMap<object, MethodMiddlewareMetadata[]>();
 const skipMiddlewareStore = new WeakMap<object, SkipMiddlewareMetadata[]>();
+const authorizedStore = new WeakMap<object, AuthorizedMetadata[]>();
 
 export const setControllerMetadata = (cls: object, meta: ControllerMetadata): void => {
   controllerStore.set(cls, meta);
@@ -85,3 +91,20 @@ export const appendSkipMiddlewareMetadata = (
 
 export const getSkipMiddlewareMetadata = (cls: object): readonly SkipMiddlewareMetadata[] =>
   skipMiddlewareStore.get(cls) ?? [];
+
+export const setAuthorizedMetadata = (
+  cls: object,
+  methodName: string | symbol,
+  roles: readonly string[],
+): void => {
+  const existing = authorizedStore.get(cls) ?? [];
+  authorizedStore.set(cls, [...existing, { methodName, roles }]);
+};
+
+export const getAuthorizedMetadata = (
+  cls: object,
+  methodName: string | symbol,
+): AuthorizedMetadata | undefined => {
+  const all = authorizedStore.get(cls) ?? [];
+  return all.find((m) => m.methodName === methodName);
+};

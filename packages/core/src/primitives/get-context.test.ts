@@ -7,7 +7,6 @@ import { getContext, setContext } from './get-context';
 
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
-    user: { id: number; name: string };
     nonexistent: unknown;
   }
 }

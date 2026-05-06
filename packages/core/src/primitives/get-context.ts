@@ -1,7 +1,9 @@
 import { getEntryContext } from '../internal/entry-context';
 
-// biome-ignore lint/suspicious/noEmptyInterface: users extend this interface via module augmentation
-export interface RequestContextSchema {}
+export interface RequestContextSchema {
+  user: unknown;
+  authRoles: string[];
+}
 
 export const getContext = <K extends keyof RequestContextSchema>(
   key: K,

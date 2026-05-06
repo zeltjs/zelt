@@ -19,7 +19,6 @@ import { createHttpApp } from './app';
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
     configValue: string;
-    user: { id: number; name: string };
   }
 }
 
@@ -310,7 +309,7 @@ describe('middleware', () => {
     class TestController {
       @Get('/')
       get() {
-        const user = getContext('user');
+        const user = getContext('user') as { id: number; name: string } | undefined;
         return { userId: user?.id, userName: user?.name };
       }
     }
