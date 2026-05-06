@@ -27,8 +27,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@needle-di/core": "1.1.2",
-    "citty": "0.1.6"
+    "@needle-di/core": "1.1.2"
   },
   "devDependencies": {
     "@types/node": "22.19.17"
