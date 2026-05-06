@@ -19,7 +19,7 @@ const assertValidTtl = (ttlSec: number | undefined): void => {
   }
 };
 
-interface RedisWithCustomCommands extends Redis {
+export interface RedisWithCustomCommands extends Redis {
   zeltIncrWithTtl(key: string, by: number, ttlOrEmpty: string): Promise<number>;
   zeltSetnxWithTtl(key: string, value: string, ttlOrEmpty: string): Promise<number>;
   zeltDelIf(key: string, expected: string): Promise<number>;

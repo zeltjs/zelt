@@ -1,14 +1,10 @@
 import { Injectable, injectConfig, type Disposable } from '@zeltjs/core';
-import {
-  assertNonEmptyPrefix,
-  type AtomicKVDriver,
-  type AtomicKVStore,
-} from '@zeltjs/kv';
+import { assertNonEmptyPrefix, type AtomicKVDriver, type AtomicKVStore } from '@zeltjs/kv';
 import Redis from 'ioredis';
 
 import { DEL_IF_LUA, INCR_WITH_TTL_LUA, SETNX_WITH_TTL_LUA } from './lua-scripts';
 import { RedisConfig } from './redis.config';
-import { RedisKVStore } from './redis-kv-store';
+import { RedisKVStore, type RedisWithCustomCommands } from './redis-kv-store';
 
 @Injectable()
 export class RedisKV implements AtomicKVDriver, Disposable {
@@ -21,7 +17,7 @@ export class RedisKV implements AtomicKVDriver, Disposable {
 
   namespace(prefix: string): AtomicKVStore {
     assertNonEmptyPrefix(prefix);
-    return new RedisKVStore(this.client as never, prefix);
+    return new RedisKVStore(this.client as unknown as RedisWithCustomCommands, prefix);
   }
 
   async shutdown(): Promise<void> {

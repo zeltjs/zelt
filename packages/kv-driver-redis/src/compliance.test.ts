@@ -1,5 +1,5 @@
 import { runAtomicKVStoreComplianceTests } from '@zeltjs/kv/testing';
-import { afterAll, beforeAll, beforeEach } from 'vitest';
+import { afterEach, beforeAll, beforeEach } from 'vitest';
 import Redis from 'ioredis';
 
 import { RedisConfig } from './redis.config';
@@ -30,7 +30,7 @@ beforeEach(async () => {
   if (nsKeysB.length > 0) await client.del(...nsKeysB);
 });
 
-afterAll(async () => {
+afterEach(async () => {
   await driver.shutdown();
 });
 
