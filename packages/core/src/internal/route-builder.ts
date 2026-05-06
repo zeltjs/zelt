@@ -105,14 +105,20 @@ const createAuthorizationMiddleware = (requiredRoles: readonly string[]): Functi
   return async (_c, next) => {
     const user = currentUser();
     if (user === undefined) {
-      return Response.json({ code: 'UNAUTHORIZED', message: 'Authentication required' }, { status: 401 });
+      return Response.json(
+        { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        { status: 401 },
+      );
     }
 
     if (requiredRoles.length > 0) {
       const userRoles = currentRoles();
       const hasRequiredRole = requiredRoles.some((role) => userRoles.includes(role));
       if (!hasRequiredRole) {
-        return Response.json({ code: 'FORBIDDEN', message: 'Insufficient permissions' }, { status: 403 });
+        return Response.json(
+          { code: 'FORBIDDEN', message: 'Insufficient permissions' },
+          { status: 403 },
+        );
       }
     }
 
