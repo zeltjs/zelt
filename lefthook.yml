@@ -8,3 +8,28 @@ prepare-commit-msg:
   commands:
     verify-footer:
       run: npx precommit-verify verify-footer "{1}" "${2:-}"
+
+pre-rebase:
+  commands:
+    prevent-rebase:
+      run: |
+        echo "ERROR: git rebase is prohibited in this repository."
+        echo "Use merge commits instead to preserve history."
+        exit 1
+
+pre-push:
+  commands:
+    prevent-force-push:
+      run: |
+        while read local_ref local_sha remote_ref remote_sha; do
+          if [ "$remote_sha" != "0000000000000000000000000000000000000000" ] && [ "$local_sha" != "0000000000000000000000000000000000000000" ]; then
+            # Check if local commit is NOT an ancestor of remote (history rewrite)
+            if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+              echo "ERROR: Push rejected - would rewrite remote history."
+              echo "  Local ref: $local_ref"
+              echo "  Remote ref: $remote_ref"
+              echo "Force push is prohibited in this repository."
+              exit 1
+            fi
+          fi
+        done
