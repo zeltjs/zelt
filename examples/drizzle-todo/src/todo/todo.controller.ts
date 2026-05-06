@@ -38,6 +38,7 @@ export class TodoController {
   findById(id = pathParam('id')): Todo {
     const todo = this.todoService.findById(Number(id));
     if (!todo) {
+      // eslint-disable-next-line @9wick/strict-type-rules/no-throw -- HTTPException requires throw
       throw new HTTPException(404, { message: 'Todo not found' });
     }
     return todo;
@@ -53,6 +54,7 @@ export class TodoController {
   update(id = pathParam('id'), body = validated(UpdateTodoBody)): Todo {
     const todo = this.todoService.update(Number(id), body);
     if (!todo) {
+      // eslint-disable-next-line @9wick/strict-type-rules/no-throw -- HTTPException requires throw
       throw new HTTPException(404, { message: 'Todo not found' });
     }
     return todo;
@@ -62,6 +64,7 @@ export class TodoController {
   delete(id = pathParam('id'), res = response()) {
     const deleted = this.todoService.delete(Number(id));
     if (!deleted) {
+      // eslint-disable-next-line @9wick/strict-type-rules/no-throw -- HTTPException requires throw
       throw new HTTPException(404, { message: 'Todo not found' });
     }
     return res.body(null, 204);
