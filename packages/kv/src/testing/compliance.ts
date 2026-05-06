@@ -24,61 +24,83 @@ export const runKVStoreComplianceTests = (
 
     beforeEach(() => {
       driver = factory();
-      store = driver.namespace('compliance:');
+      store = driver.namespace('compliance:')._unsafeUnwrap();
     });
 
     it('get returns undefined for missing key', async () => {
-      expect(await store.get('missing')).toBeUndefined();
+      const r = await store.get('missing');
+      expect(r.isOk(), `expected Ok, got Err: ${JSON.stringify(r.isErr() && r.error)}`).toBe(true);
+      expect(r._unsafeUnwrap()).toBeUndefined();
     });
 
     it('set + get round-trips a JSON object', async () => {
-      await store.set('foo', { a: 1, nested: ['x', 'y'] });
-      expect(await store.get('foo')).toEqual({ a: 1, nested: ['x', 'y'] });
+      const setR = await store.set('foo', { a: 1, nested: ['x', 'y'] });
+      expect(setR.isOk()).toBe(true);
+      const getR = await store.get('foo');
+      expect(getR.isOk()).toBe(true);
+      expect(getR._unsafeUnwrap()).toEqual({ a: 1, nested: ['x', 'y'] });
     });
 
     it('del removes the key', async () => {
       await store.set('foo', 1);
       await store.del('foo');
-      expect(await store.has('foo')).toBe(false);
+      const r = await store.has('foo');
+      expect(r._unsafeUnwrap()).toBe(false);
     });
 
     it('has reflects existence', async () => {
-      expect(await store.has('foo')).toBe(false);
+      const r1 = await store.has('foo');
+      expect(r1._unsafeUnwrap()).toBe(false);
       await store.set('foo', 1);
-      expect(await store.has('foo')).toBe(true);
+      const r2 = await store.has('foo');
+      expect(r2._unsafeUnwrap()).toBe(true);
     });
 
     it('chained namespace concatenates prefixes', async () => {
-      const sub = store.namespace('sub:');
+      const subResult = store.namespace('sub:');
+      expect(subResult.isOk()).toBe(true);
+      const sub = subResult._unsafeUnwrap();
       await sub.set('foo', 1);
       // verify the same backing store sees the value under the concatenated prefix
-      const directParent = driver.namespace('compliance:sub:');
-      expect(await directParent.get('foo')).toBe(1);
+      const directParent = driver.namespace('compliance:sub:')._unsafeUnwrap();
+      const r = await directParent.get('foo');
+      expect(r._unsafeUnwrap()).toBe(1);
     });
 
-    it('empty namespace prefix throws', () => {
-      expect(() => store.namespace('')).toThrow();
+    it('empty namespace prefix returns Err', () => {
+      const r = store.namespace('');
+      expect(r.isErr()).toBe(true);
+      expect(r._unsafeUnwrapErr().type).toBe('EMPTY_NAMESPACE');
     });
 
-    it('del on missing key is a no-op (no throw)', async () => {
-      await expect(store.del('does-not-exist')).resolves.toBeUndefined();
+    it('del on missing key is a no-op (returns Ok)', async () => {
+      const r = await store.del('does-not-exist');
+      expect(r.isOk()).toBe(true);
     });
 
-    it('set with undefined value throws', async () => {
-      await expect(store.set('foo', undefined)).rejects.toThrow();
+    it('set with undefined value returns Err', async () => {
+      const r = await store.set('foo', undefined);
+      expect(r.isErr()).toBe(true);
+      expect(r._unsafeUnwrapErr().type).toBe('INVALID_VALUE');
     });
 
-    it('set with ttlSec=0 throws (driver-level TTL validation)', async () => {
-      await expect(store.set('foo', 1, { ttlSec: 0 })).rejects.toThrow();
+    it('set with ttlSec=0 returns Err INVALID_TTL', async () => {
+      const r = await store.set('foo', 1, { ttlSec: 0 });
+      expect(r.isErr()).toBe(true);
+      expect(r._unsafeUnwrapErr().type).toBe('INVALID_TTL');
     });
 
-    it('set with negative ttlSec throws (driver-level TTL validation)', async () => {
-      await expect(store.set('foo', 1, { ttlSec: -1 })).rejects.toThrow();
+    it('set with negative ttlSec returns Err INVALID_TTL', async () => {
+      const r = await store.set('foo', 1, { ttlSec: -1 });
+      expect(r.isErr()).toBe(true);
+      expect(r._unsafeUnwrapErr().type).toBe('INVALID_TTL');
     });
 
-    it('expire with ttlSec=0 throws (driver-level TTL validation)', async () => {
+    it('expire with ttlSec=0 returns Err INVALID_TTL', async () => {
       await store.set('foo', 1);
-      await expect(store.expire('foo', 0)).rejects.toThrow();
+      const r = await store.expire('foo', 0);
+      expect(r.isErr()).toBe(true);
+      expect(r._unsafeUnwrapErr().type).toBe('INVALID_TTL');
     });
   });
 
@@ -87,27 +109,31 @@ export const runKVStoreComplianceTests = (
       it(
         'TTL expires the key',
         async () => {
-          const store = factory().namespace('compliance-ttl:');
+          const store = factory().namespace('compliance-ttl:')._unsafeUnwrap();
           await store.set('foo', 1, { ttlSec: 1 });
           await sleep(sleepMs);
-          expect(await store.get('foo')).toBeUndefined();
+          const r = await store.get('foo');
+          expect(r._unsafeUnwrap()).toBeUndefined();
         },
         sleepMs + 2000,
       );
 
       it('expire returns false on missing key', async () => {
-        const store = factory().namespace('compliance-ttl:');
-        expect(await store.expire('missing', 5)).toBe(false);
+        const store = factory().namespace('compliance-ttl:')._unsafeUnwrap();
+        const r = await store.expire('missing', 5);
+        expect(r._unsafeUnwrap()).toBe(false);
       });
 
       it(
         'expire(key) extends/sets TTL',
         async () => {
-          const store = factory().namespace('compliance-ttl:');
+          const store = factory().namespace('compliance-ttl:')._unsafeUnwrap();
           await store.set('foo', 1);
-          expect(await store.expire('foo', 1)).toBe(true);
+          const expireR = await store.expire('foo', 1);
+          expect(expireR._unsafeUnwrap()).toBe(true);
           await sleep(sleepMs);
-          expect(await store.get('foo')).toBeUndefined();
+          const r = await store.get('foo');
+          expect(r._unsafeUnwrap()).toBeUndefined();
         },
         sleepMs + 2000,
       );
@@ -120,33 +146,38 @@ export const runKVStoreComplianceTests = (
       });
 
       it('TTL expires the key', async () => {
-        const store = factory().namespace('compliance-ttl:');
+        const store = factory().namespace('compliance-ttl:')._unsafeUnwrap();
         await store.set('foo', 1, { ttlSec: 10 });
         vi.advanceTimersByTime(11_000);
-        expect(await store.get('foo')).toBeUndefined();
+        const r = await store.get('foo');
+        expect(r._unsafeUnwrap()).toBeUndefined();
       });
 
       it('expire returns false on missing key', async () => {
-        const store = factory().namespace('compliance-ttl:');
-        expect(await store.expire('missing', 5)).toBe(false);
+        const store = factory().namespace('compliance-ttl:')._unsafeUnwrap();
+        const r = await store.expire('missing', 5);
+        expect(r._unsafeUnwrap()).toBe(false);
       });
 
       it('expire(key) extends/sets TTL', async () => {
-        const store = factory().namespace('compliance-ttl:');
+        const store = factory().namespace('compliance-ttl:')._unsafeUnwrap();
         await store.set('foo', 1);
-        expect(await store.expire('foo', 5)).toBe(true);
+        const expireR = await store.expire('foo', 5);
+        expect(expireR._unsafeUnwrap()).toBe(true);
         vi.advanceTimersByTime(6_000);
-        expect(await store.get('foo')).toBeUndefined();
+        const r = await store.get('foo');
+        expect(r._unsafeUnwrap()).toBeUndefined();
       });
     }
   });
 
   describe('KVStore namespace compliance', () => {
     it('namespace isolates keys (cache:foo vs ratelimit:foo)', async () => {
-      const a = factory().namespace('a:');
-      const b = factory().namespace('b:');
+      const a = factory().namespace('a:')._unsafeUnwrap();
+      const b = factory().namespace('b:')._unsafeUnwrap();
       await a.set('shared', 1);
-      expect(await b.get('shared')).toBeUndefined();
+      const r = await b.get('shared');
+      expect(r._unsafeUnwrap()).toBeUndefined();
     });
   });
 };
@@ -164,32 +195,33 @@ export const runAtomicKVStoreComplianceTests = (
     let store: AtomicKVStore;
 
     beforeEach(() => {
-      store = factory().namespace('atomic:');
+      store = factory().namespace('atomic:')._unsafeUnwrap();
     });
 
     it('incr starts at 1 from missing, then increments', async () => {
-      expect(await store.incr('counter')).toBe(1);
-      expect(await store.incr('counter')).toBe(2);
-      expect(await store.incr('counter', 5)).toBe(7);
+      expect((await store.incr('counter'))._unsafeUnwrap()).toBe(1);
+      expect((await store.incr('counter'))._unsafeUnwrap()).toBe(2);
+      expect((await store.incr('counter', 5))._unsafeUnwrap()).toBe(7);
     });
 
     it('setnx returns true on new, false on existing', async () => {
-      expect(await store.setnx('lock', 'a')).toBe(true);
-      expect(await store.setnx('lock', 'b')).toBe(false);
-      expect(await store.get('lock')).toBe('a');
+      expect((await store.setnx('lock', 'a'))._unsafeUnwrap()).toBe(true);
+      expect((await store.setnx('lock', 'b'))._unsafeUnwrap()).toBe(false);
+      expect((await store.get('lock'))._unsafeUnwrap()).toBe('a');
     });
 
     it('delIf deletes only on value match', async () => {
       await store.set('lock', 'A');
-      expect(await store.delIf('lock', 'B')).toBe(false);
-      expect(await store.get('lock')).toBe('A');
-      expect(await store.delIf('lock', 'A')).toBe(true);
-      expect(await store.has('lock')).toBe(false);
+      expect((await store.delIf('lock', 'B'))._unsafeUnwrap()).toBe(false);
+      expect((await store.get('lock'))._unsafeUnwrap()).toBe('A');
+      expect((await store.delIf('lock', 'A'))._unsafeUnwrap()).toBe(true);
+      expect((await store.has('lock'))._unsafeUnwrap()).toBe(false);
     });
 
     it('incr is atomic under concurrent calls', async () => {
       await Promise.all(Array.from({ length: 50 }, () => store.incr('hot')));
-      expect(await store.get('hot')).toBe(50);
+      const r = await store.get('hot');
+      expect(r._unsafeUnwrap()).toBe(50);
     });
   });
 
@@ -198,14 +230,15 @@ export const runAtomicKVStoreComplianceTests = (
       it(
         'incr with ttlSec sets TTL only on first incr (no extension on subsequent)',
         async () => {
-          const store = factory().namespace('atomic-ttl:');
+          const store = factory().namespace('atomic-ttl:')._unsafeUnwrap();
           await store.incr('c', 1, { ttlSec: 1 });
           await sleep(500);
           // second incr with a longer ttlSec must NOT extend the TTL
           await store.incr('c', 1, { ttlSec: 100 });
           await sleep(sleepMs);
           // original 1s TTL has elapsed, key must be gone
-          expect(await store.get('c')).toBeUndefined();
+          const r = await store.get('c');
+          expect(r._unsafeUnwrap()).toBeUndefined();
         },
         sleepMs + 2000,
       );
@@ -218,14 +251,15 @@ export const runAtomicKVStoreComplianceTests = (
       });
 
       it('incr with ttlSec sets TTL only on first incr (no extension on subsequent)', async () => {
-        const store = factory().namespace('atomic-ttl:');
+        const store = factory().namespace('atomic-ttl:')._unsafeUnwrap();
         await store.incr('c', 1, { ttlSec: 10 });
         vi.advanceTimersByTime(5_000);
         // second incr with a longer ttlSec must NOT extend the TTL
         await store.incr('c', 1, { ttlSec: 100 });
         vi.advanceTimersByTime(6_000);
         // original 10s TTL has now elapsed (5+6=11s), key must be gone
-        expect(await store.get('c')).toBeUndefined();
+        const r = await store.get('c');
+        expect(r._unsafeUnwrap()).toBeUndefined();
       });
     }
   });
