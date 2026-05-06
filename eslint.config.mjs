@@ -32,6 +32,24 @@ export default tseslint.config(
   ...strictTypes.configs.test,
   ...strictTypes.configs.barrel,
   {
+    files: ['**/*.*.{ts,tsx}'],
+    ignores: ['**/*.lib.{ts,tsx}'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
+        'error',
+        {
+          injectableDecorators: [
+            'Injectable',
+            'Controller',
+            'Middleware',
+            'ErrorHandler',
+            'Config',
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
@@ -151,10 +169,10 @@ export default tseslint.config(
     },
   },
   {
-    // CLI package does not use DI
-    files: ['packages/cli/src/**/*.{ts,tsx}'],
+    // Env module needs process.env access
+    files: ['packages/core/src/modules/env/env.service.ts'],
     rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+      '@9wick/strict-type-rules/no-process-access': 'off',
     },
   },
 );

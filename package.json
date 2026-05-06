@@ -19,7 +19,7 @@
     "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
-    "@9wick/eslint-plugin-strict-type-rules": "1.0.2",
+    "@9wick/eslint-plugin-strict-type-rules": "1.1.0",
     "@biomejs/biome": "2.4.14",
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.1",
     "@vitest/coverage-v8": "4.1.5",

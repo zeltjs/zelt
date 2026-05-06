@@ -27,6 +27,10 @@
     "./modules/logger": {
       "types": "./dist/modules/logger/index.d.ts",
       "import": "./dist/modules/logger/index.js"
+    },
+    "./modules/env": {
+      "types": "./dist/modules/env/index.d.ts",
+      "import": "./dist/modules/env/index.js"
     }
   },
   "files": [
@@ -38,6 +42,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "dotenv": "17.4.2",
     "hono": "4.12.16",
     "valibot": "1.3.1"
   },

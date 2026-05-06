@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { Config } from '../../config';
 
-import { LoggerConfig } from './config';
-import { Logger } from './logger';
+import { LoggerConfig } from './logger.config';
+import { Logger } from './logger.service';
 
 describe('Logger', () => {
   const consoleSpy = vi.spyOn(console, 'log');
