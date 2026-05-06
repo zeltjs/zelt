@@ -50,53 +50,96 @@ Returned when an unhandled error occurs (status 500):
 
 In development mode (`NODE_ENV=development`), the actual error message is included for debugging.
 
-## Throwing HTTP Errors
+## Throwing HTTPExceptions
 
-Use Hono's `HTTPException` to throw custom HTTP errors:
+Use Hono's `HTTPException` to throw HTTP errors by specifying a status code and either a message or a custom response.
+
+### Custom Message
+
+For basic text responses, just set the error `message`:
 
 ```typescript
 import { HTTPException } from 'hono/http-exception';
-import { Controller, Get, pathParam } from '@zeltjs/core';
 
-@Controller('/users')
-export class UserController {
-  @Get('/:id')
-  findOne(id = pathParam('id')) {
-    const user = findUser(id);
-    
-    if (!user) {
-      throw new HTTPException(404, {
-        res: Response.json(
-          { code: 'USER_NOT_FOUND', message: `User ${id} not found` },
-          { status: 404 }
-        ),
-      });
-    }
-    
-    return user;
-  }
+throw new HTTPException(401, { message: 'Unauthorized' });
+```
+
+### Custom Response
+
+For JSON responses, or to set response headers, use the `res` option.
+
+```typescript
+import { HTTPException } from 'hono/http-exception';
+
+const errorResponse = Response.json(
+  { code: 'USER_NOT_FOUND', message: 'User not found' },
+  { status: 404 }
+);
+
+throw new HTTPException(404, { res: errorResponse });
+```
+
+With custom headers:
+
+```typescript
+const errorResponse = new Response('Unauthorized', {
+  status: 401,
+  headers: {
+    'WWW-Authenticate': 'Bearer error="invalid_token"',
+  },
+});
+
+throw new HTTPException(401, { res: errorResponse });
+```
+
+### Cause
+
+Use the `cause` option to attach the original error for debugging:
+
+```typescript
+try {
+  await authorize(c);
+} catch (cause) {
+  throw new HTTPException(401, { message: 'Authorization failed', cause });
 }
 ```
 
 ## Custom Error Codes
 
-Define your own error codes to maintain consistency across your API:
+Define reusable error responses to maintain consistency across your API:
 
 ```typescript
-const createError = (
+import { HTTPException } from 'hono/http-exception';
+
+const notFoundResponse = Response.json(
+  { code: 'USER_NOT_FOUND', message: 'User not found' },
+  { status: 404 }
+);
+
+const forbiddenResponse = Response.json(
+  { code: 'FORBIDDEN', message: 'Access denied' },
+  { status: 403 }
+);
+
+// Usage
+throw new HTTPException(404, { res: notFoundResponse });
+throw new HTTPException(403, { res: forbiddenResponse });
+```
+
+Or create a factory function:
+
+```typescript
+const createErrorResponse = (
   status: number,
   code: string,
   message: string
-): HTTPException => {
-  return new HTTPException(status, {
-    res: Response.json({ code, message }, { status }),
-  });
+): Response => {
+  return Response.json({ code, message }, { status });
 };
 
 // Usage
-throw createError(404, 'USER_NOT_FOUND', 'User not found');
-throw createError(403, 'FORBIDDEN', 'Access denied');
-throw createError(409, 'CONFLICT', 'Resource already exists');
+const response = createErrorResponse(404, 'USER_NOT_FOUND', 'User not found');
+throw new HTTPException(404, { res: response });
 ```
 
 ## Error Schema for OpenAPI
