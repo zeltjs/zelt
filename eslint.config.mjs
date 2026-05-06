@@ -180,11 +180,15 @@ export default tseslint.config(
     // - HTTPException requires throw
     // - raw fetch returns untyped JSON
     // - DI rules too strict for simple samples
+    // - Workers KV returns untyped data
     files: ['examples/**/*.{ts,tsx}'],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
       'max-lines-per-function': 'off',
     },
   },

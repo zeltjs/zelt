@@ -22,6 +22,10 @@ const config: KnipConfig = {
       ],
       ignoreDependencies: ['@zeltjs/adapter-node', '@zeltjs/core', 'valibot'],
     },
+    'examples/workers-url-shortener': {
+      entry: ['src/worker.ts', 'src/app.ts', 'src/controllers.ts', 'src/url/*.ts', 'src/env.ts'],
+      ignoreDependencies: ['@zeltjs/core', 'valibot', 'wrangler'],
+    },
     'packages/core': {
       // neverthrow は今後 Result wrapper に使う想定で keep。
       ignoreDependencies: ['neverthrow'],

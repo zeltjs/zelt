@@ -34,6 +34,7 @@ export { getContext, setContext } from './primitives/get-context';
 export type { RequestContextSchema } from './primitives/get-context';
 export { inject } from './primitives/inject';
 export { pathParam } from './primitives/path-param';
+export { requestContext } from './primitives/request-context';
 export { response } from './primitives/response';
 export type { ResponseBuilder } from './primitives/response';
 export { validated } from './primitives/validated';
