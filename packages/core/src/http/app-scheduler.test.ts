@@ -6,11 +6,12 @@ import { Scheduled } from '../decorators/scheduled';
 import { createHttpApp, type HttpApp } from './app';
 
 describe('createHttpApp with schedulers', () => {
-  let app: HttpApp;
+  let app: HttpApp | undefined;
 
   afterEach(async () => {
     if (app) {
       await app.stopScheduler();
+      app = undefined;
     }
   });
 
@@ -41,23 +42,26 @@ describe('createHttpApp with schedulers', () => {
       }
     }
 
-    app = createHttpApp({
+    const localApp = createHttpApp({
       controllers: [],
       schedulers: [TestScheduler],
     });
+    app = localApp;
 
-    app.startScheduler();
+    localApp.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
 
-    await app.stopScheduler();
+    await localApp.stopScheduler();
+    app = undefined;
   });
 
   it('works without schedulers option', () => {
-    app = createHttpApp({
+    const localApp = createHttpApp({
       controllers: [],
     });
+    app = localApp;
 
-    expect(() => app.startScheduler()).not.toThrow();
+    expect(() => localApp.startScheduler()).not.toThrow();
   });
 });

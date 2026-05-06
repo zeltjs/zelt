@@ -5,4 +5,8 @@ export default defineConfig({
   format: ['esm'],
   dts: true,
   clean: true,
+  fixedExtension: false,
+  deps: {
+    neverBundle: [/@needle-di\//],
+  },
 });

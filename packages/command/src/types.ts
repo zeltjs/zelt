@@ -1,5 +1,5 @@
 export type ArgDefinition = {
-  readonly type: 'positional';
+  type: 'positional';
   readonly default?: string;
   readonly description?: string;
   readonly required?: boolean;

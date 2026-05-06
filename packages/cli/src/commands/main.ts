@@ -2,6 +2,7 @@ import { defineCommand } from 'citty';
 
 import { buildCommand } from './build';
 import { devCommand } from './dev';
+import { runCommandDef } from './run';
 
 export const mainCommand = defineCommand({
   meta: {
@@ -12,5 +13,6 @@ export const mainCommand = defineCommand({
   subCommands: {
     build: buildCommand,
     dev: devCommand,
+    run: runCommandDef,
   },
 });
