@@ -1,0 +1,35 @@
+{
+  "name": "@zeltjs/command",
+  "version": "0.0.1",
+  "description": "Command decorators for Zelt framework",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/command"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@needle-di/core": "1.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.17"
+  }
+}

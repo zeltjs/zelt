@@ -33,7 +33,7 @@ export default tseslint.config(
   ...strictTypes.configs.barrel,
   {
     files: ['**/*.*.{ts,tsx}'],
-    ignores: ['**/*.lib.{ts,tsx}'],
+    ignores: ['**/*.lib.{ts,tsx}', '**/*.types.{ts,tsx}'],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
         'error',
@@ -180,12 +180,36 @@ export default tseslint.config(
     // - HTTPException requires throw
     // - raw fetch returns untyped JSON
     // - DI rules too strict for simple samples
+    // - Workers KV returns untyped data
     files: ['examples/**/*.{ts,tsx}'],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
       'max-lines-per-function': 'off',
+    },
+  },
+  {
+    // *.types.ts files are pure type declaration files and cannot export @injectable() classes.
+    files: ['**/*.types.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
+  {
+    // CLI command runner uses Object.create and DI container.get() at dynamic module
+    // boundaries where type assertions are unavoidable.
+    files: [
+      'packages/cli/src/commands/run/runner.ts',
+      'packages/cli/src/commands/run/loader.ts',
+      'packages/cli/src/commands/run.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
     },
   },
   {

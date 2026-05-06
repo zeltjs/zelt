@@ -6,6 +6,8 @@
     { "path": "packages/testing" },
     { "path": "packages/adapter-node" },
     { "path": "packages/cli" },
+    { "path": "packages/auth-jwt" },
+    { "path": "packages/command" },
     { "path": "packages/kv" },
     { "path": "packages/kv-driver-redis" },
     { "path": "packages/rate-limit" }

@@ -2,14 +2,15 @@
   "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
   "compilerOptions": {
     "composite": true,
-    "rootDir": "./src",
     "outDir": "./dist",
+    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "experimentalDecorators": true,
+    "erasableSyntaxOnly": false,
     "types": ["node"]
   },
-  "include": ["src/**/*"],
-  "references": [{ "path": "../command" }]
+  "include": ["src/**/*"]
 }

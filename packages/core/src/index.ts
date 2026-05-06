@@ -10,12 +10,18 @@ export { HTTPException } from 'hono/http-exception';
 
 export { Authorized } from './decorators/authorized';
 export { Controller } from './decorators/controller';
+export { Cron } from './decorators/cron';
+export { Daily } from './decorators/daily';
 export { ErrorHandler } from './decorators/error-handler';
+export { Every } from './decorators/every';
 export { Delete, Get, Patch, Post, Put } from './decorators/http-method';
+export { Hourly } from './decorators/hourly';
 export { Injectable } from './decorators/injectable';
 export { Middleware } from './decorators/middleware';
+export { Scheduled } from './decorators/scheduled';
 export { SkipMiddleware } from './decorators/skip-middleware';
 export { UseMiddleware } from './decorators/use-middleware';
+export { Weekly } from './decorators/weekly';
 
 export type {
   ErrorHandlerClass,
@@ -35,6 +41,7 @@ export { getContext, setContext } from './primitives/get-context';
 export type { RequestContextSchema } from './primitives/get-context';
 export { inject } from './primitives/inject';
 export { pathParam } from './primitives/path-param';
+export { requestContext } from './primitives/request-context';
 export { response } from './primitives/response';
 export type { ResponseBuilder } from './primitives/response';
 export { validated } from './primitives/validated';
