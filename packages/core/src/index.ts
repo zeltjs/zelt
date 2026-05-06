@@ -30,6 +30,7 @@ export type {
 } from './middleware/types';
 
 export { currentRoles, currentUser, setUser } from './primitives/auth';
+export { ip } from './primitives/ip';
 export { getContext, setContext } from './primitives/get-context';
 export type { RequestContextSchema } from './primitives/get-context';
 export { inject } from './primitives/inject';
