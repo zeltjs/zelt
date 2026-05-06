@@ -215,6 +215,103 @@ class PostController {
 }
 ```
 
+## Using @zeltjs/auth-jwt
+
+For JWT authentication, Zelt provides the `@zeltjs/auth-jwt` package with ready-to-use middleware and services.
+
+### Installation
+
+```bash
+pnpm add @zeltjs/auth-jwt
+```
+
+### Basic Setup
+
+1. Set the `JWT_SECRET` environment variable
+2. Register the `JwtMiddleware` and `JwtConfig`:
+
+```typescript
+import { createHttpApp } from '@zeltjs/core';
+import { JwtMiddleware, JwtConfig } from '@zeltjs/auth-jwt';
+
+const app = createHttpApp({
+  controllers: [UserController],
+  middlewares: [JwtMiddleware],
+  configs: [JwtConfig],
+});
+```
+
+### Generating Tokens
+
+Use `JwtService` to sign tokens:
+
+```typescript
+import { Controller, Post, bodyParam, inject } from '@zeltjs/core';
+import { JwtService } from '@zeltjs/auth-jwt';
+import * as v from 'valibot';
+
+const LoginSchema = v.object({
+  email: v.string(),
+  password: v.string(),
+});
+
+@Controller('/auth')
+class AuthController {
+  constructor(private jwtService = inject(JwtService)) {}
+
+  @Post('/login')
+  async login(body = bodyParam(LoginSchema)) {
+    const user = await validateCredentials(body.email, body.password);
+    const token = await this.jwtService.sign({ sub: user.id, roles: user.roles });
+    return { token };
+  }
+}
+```
+
+### Custom Configuration
+
+Extend `JwtConfig` to customize behavior:
+
+```typescript
+import { JwtConfig, type ResolveUserResult, type JwtPayload } from '@zeltjs/auth-jwt';
+import { Config } from '@zeltjs/core';
+
+@Config
+class CustomJwtConfig extends JwtConfig {
+  override get expiresIn(): string {
+    return '7d';
+  }
+
+  override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {
+    return async (payload) => {
+      const user = await findUserById(payload.sub);
+      return {
+        user: { id: user.id, name: user.name, email: user.email },
+        roles: user.roles,
+      };
+    };
+  }
+}
+```
+
+Register the custom config:
+
+```typescript
+const app = createHttpApp({
+  controllers: [AuthController, UserController],
+  middlewares: [JwtMiddleware],
+  configs: [CustomJwtConfig],
+});
+```
+
+### JwtService Methods
+
+| Method | Description |
+|--------|-------------|
+| `sign(payload)` | Create a signed JWT token |
+| `verify(token)` | Verify and decode a token (throws on invalid) |
+| `decode(token)` | Decode without verification (returns `null` on error) |
+
 ## Best Practices
 
 1. **Set authentication early** — Register auth middleware globally so it runs before route handlers
