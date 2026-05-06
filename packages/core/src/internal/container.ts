@@ -37,14 +37,14 @@ type Override<T> = {
   readonly useValue: T;
 };
 
-type ResolveWithOptions = {
+export type CreateTestContainerOptions = {
   readonly configs?: readonly Class<unknown>[];
   readonly overrides?: readonly Override<unknown>[];
 };
 
-type ResolveWithResult<T> = {
+export type TestContainerResult<T> = {
   readonly target: T;
-  readonly resolver: ResolverHandle;
+  readonly get: <U extends object>(cls: Class<U>) => U;
 };
 
 const bindOverrides = (container: Container, overrides: readonly Override<unknown>[]): void => {
@@ -53,10 +53,10 @@ const bindOverrides = (container: Container, overrides: readonly Override<unknow
   }
 };
 
-export const resolveWith = <T extends object>(
+export const createTestContainer = <T extends object>(
   targetClass: Class<T>,
-  options: ResolveWithOptions = {},
-): ResolveWithResult<T> => {
+  options: CreateTestContainerOptions = {},
+): TestContainerResult<T> => {
   const container = new Container();
   bindConfigs(container, options.configs ?? []);
   bindOverrides(container, options.overrides ?? []);
@@ -64,8 +64,6 @@ export const resolveWith = <T extends object>(
   const target = container.get<T>(targetClass);
   return {
     target,
-    resolver: {
-      get: <U extends object>(cls: Class<U>): U => container.get<U>(cls),
-    },
+    get: <U extends object>(cls: Class<U>): U => container.get<U>(cls),
   };
 };
