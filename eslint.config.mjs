@@ -5,11 +5,7 @@ import oxlint from 'eslint-plugin-oxlint';
 import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
-const TEST_FILES = [
-  '**/*.{test,spec}.{ts,tsx}',
-  '**/*.e2e-{test,spec}.{ts,tsx}',
-  '**/testing/**/*.{ts,tsx}',
-];
+const TEST_FILES = ['**/*.{test,spec}.{ts,tsx}', '**/*.e2e-{test,spec}.{ts,tsx}'];
 const FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,tsx}'];
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
 
