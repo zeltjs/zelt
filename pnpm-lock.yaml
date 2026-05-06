@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@9wick/eslint-plugin-strict-type-rules':
-        specifier: 1.0.2
-        version: 1.0.2(@eslint-community/eslint-plugin-eslint-comments@4.7.1(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-import-x@4.16.2(@typescript-eslint/utils@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-sonarjs@4.0.3(eslint@10.3.0(jiti@2.6.1)))(eslint@10.3.0(jiti@2.6.1))(typescript-eslint@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))
+        specifier: 1.1.0
+        version: 1.1.0(@eslint-community/eslint-plugin-eslint-comments@4.7.1(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-import-x@4.16.2(@typescript-eslint/utils@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-sonarjs@4.0.3(eslint@10.3.0(jiti@2.6.1)))(eslint@10.3.0(jiti@2.6.1))(typescript-eslint@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))
       '@biomejs/biome':
         specifier: 2.4.14
         version: 2.4.14
@@ -239,8 +239,8 @@ importers:
 
 packages:
 
-  '@9wick/eslint-plugin-strict-type-rules@1.0.2':
-    resolution: {integrity: sha512-9uLHtjnQW/kXzeT4v5T2fxbRSRps7B1NPhKUkKFqgTyWEVkG2zwbZxqNQn7NGWs1EUQ7/+qaMsYH3+M0qpVpXg==}
+  '@9wick/eslint-plugin-strict-type-rules@1.1.0':
+    resolution: {integrity: sha512-yotaG2vPxvNn2aszKMKusYHyJicpBYAsWp9gAb5BoYRv2o3w0cpsCv2XW6pYlr3BpMLnJSRS5xMYa22YEH01pw==}
     engines: {node: '>=18.18.0'}
     peerDependencies:
       '@eslint-community/eslint-plugin-eslint-comments': ^4.0.0
@@ -7650,7 +7650,7 @@ packages:
 
 snapshots:
 
-  '@9wick/eslint-plugin-strict-type-rules@1.0.2(@eslint-community/eslint-plugin-eslint-comments@4.7.1(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-import-x@4.16.2(@typescript-eslint/utils@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-sonarjs@4.0.3(eslint@10.3.0(jiti@2.6.1)))(eslint@10.3.0(jiti@2.6.1))(typescript-eslint@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))':
+  '@9wick/eslint-plugin-strict-type-rules@1.1.0(@eslint-community/eslint-plugin-eslint-comments@4.7.1(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-import-x@4.16.2(@typescript-eslint/utils@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-sonarjs@4.0.3(eslint@10.3.0(jiti@2.6.1)))(eslint@10.3.0(jiti@2.6.1))(typescript-eslint@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))':
     dependencies:
       '@eslint-community/eslint-plugin-eslint-comments': 4.7.1(eslint@10.3.0(jiti@2.6.1))
       eslint: 10.3.0(jiti@2.6.1)

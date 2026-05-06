@@ -32,6 +32,24 @@ export default tseslint.config(
   ...strictTypes.configs.test,
   ...strictTypes.configs.barrel,
   {
+    files: ['**/*.*.{ts,tsx}'],
+    ignores: ['**/*.lib.{ts,tsx}'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
+        'error',
+        {
+          injectableDecorators: [
+            'Injectable',
+            'Controller',
+            'Middleware',
+            'ErrorHandler',
+            'Config',
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
@@ -148,22 +166,6 @@ export default tseslint.config(
     rules: {
       '@9wick/strict-type-rules/no-in-operator': 'off',
       '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // CLI package does not use DI
-    files: ['packages/cli/src/**/*.{ts,tsx}'],
-    rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
-    // Core modules use @Injectable (re-exported from @needle-di/core).
-    // The lint rule only recognizes @injectable(), not the Pascal-case alias.
-    files: ['packages/core/src/modules/**/*.ts'],
-    ignores: [...TEST_FILES],
-    rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
     },
   },
   {

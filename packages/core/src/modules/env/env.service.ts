@@ -2,18 +2,16 @@ import { Injectable } from '../../decorators/injectable';
 import { injectConfig } from '../../config';
 
 import { EnvConfig } from './env.config';
-import { loadEnvFiles } from './env.loader';
+import { loadEnvFiles, isEnvLoaded, markEnvLoaded } from './env.lib';
 
 @Injectable()
 export class EnvService {
-  private loaded = false;
-
   constructor(private config = injectConfig(EnvConfig)) {}
 
   private ensureLoaded(): void {
-    if (!this.loaded) {
+    if (!isEnvLoaded()) {
       loadEnvFiles(this.config.envFilePath);
-      this.loaded = true;
+      markEnvLoaded();
     }
   }
 

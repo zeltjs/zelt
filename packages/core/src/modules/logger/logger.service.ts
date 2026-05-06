@@ -2,10 +2,7 @@ import { Injectable } from '../../decorators/injectable';
 import { injectConfig } from '../../config';
 
 import { LoggerConfig } from './logger.config';
-
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-const LOG_LEVELS: readonly LogLevel[] = ['debug', 'info', 'warn', 'error'];
+import { LOG_LEVELS, type LogLevel } from './logger.lib';
 
 @Injectable()
 export class Logger {
