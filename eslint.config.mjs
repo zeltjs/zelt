@@ -188,4 +188,20 @@ export default tseslint.config(
       'max-lines-per-function': 'off',
     },
   },
+  {
+    // KV package: serialize and namespace throw on invalid input (library error contract);
+    // JSON.parse requires a type assertion at the generic boundary.
+    files: ['packages/kv/src/serialize.ts', 'packages/kv/src/namespace.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // compliance test suite is a single describe-tree factory; exceeds 50-line limit by design.
+    files: ['packages/kv/src/testing/compliance.ts'],
+    rules: {
+      'max-lines-per-function': 'off',
+    },
+  },
 );
