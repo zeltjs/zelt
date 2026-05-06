@@ -175,4 +175,14 @@ export default tseslint.config(
       '@9wick/strict-type-rules/no-process-access': 'off',
     },
   },
+  {
+    // Example apps use HTTPException which requires throw, and tests use raw fetch
+    // which returns untyped JSON. These patterns are acceptable for demo code.
+    files: ['examples/**/*.{ts,tsx}'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      'max-lines-per-function': 'off',
+    },
+  },
 );

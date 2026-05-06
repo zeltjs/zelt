@@ -27,7 +27,6 @@ describe('TodoController (e2e)', () => {
       });
 
       expect(res.status).toBe(201);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const body: Todo = await res.json();
       expect(body).toMatchObject({ title: 'Buy milk', completed: false });
     });
@@ -38,7 +37,6 @@ describe('TodoController (e2e)', () => {
       const res = await appFetch(`${baseUrl}/todos`);
 
       expect(res.status).toBe(200);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const body: Todo[] = await res.json();
       expect(Array.isArray(body)).toBe(true);
     });
@@ -51,13 +49,11 @@ describe('TodoController (e2e)', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: 'Test todo' }),
       });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const created: Todo = await createRes.json();
 
       const res = await appFetch(`${baseUrl}/todos/${created.id}`);
 
       expect(res.status).toBe(200);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const body: Todo = await res.json();
       expect(body.title).toBe('Test todo');
     });
@@ -75,7 +71,6 @@ describe('TodoController (e2e)', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: 'Original title' }),
       });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const created: Todo = await createRes.json();
 
       const res = await appFetch(`${baseUrl}/todos/${created.id}`, {
@@ -85,7 +80,6 @@ describe('TodoController (e2e)', () => {
       });
 
       expect(res.status).toBe(200);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const body: Todo = await res.json();
       expect(body.title).toBe('Updated title');
       expect(body.completed).toBe(true);
@@ -99,7 +93,6 @@ describe('TodoController (e2e)', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: 'To be deleted' }),
       });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const created: Todo = await createRes.json();
 
       const res = await appFetch(`${baseUrl}/todos/${created.id}`, {
