@@ -1,5 +1,6 @@
 // packages/contract/src/analyzer/internal-representation.ts
 import type { Project, ClassDeclaration, MethodDeclaration } from 'ts-morph';
+
 import { ok, err, type Result } from 'neverthrow';
 
 import type { AnalyzerError } from '../errors';

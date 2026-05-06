@@ -91,6 +91,7 @@ const processPathParamParam = (init: CallExpression): Result<string, AnalyzerErr
   return ok(name);
 };
 
+// eslint-disable-next-line complexity
 export const analyzeHandlerSignature = (
   m: MethodDeclaration,
 ): Result<HandlerSignatureInfo, AnalyzerError> => {

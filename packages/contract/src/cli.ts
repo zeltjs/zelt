@@ -8,6 +8,7 @@ import { generateClient } from './generate-client';
 import { findConfigFile, loadConfig } from './load-config';
 import { watchClient } from './watch';
 
+// eslint-disable-next-line max-lines-per-function
 const formatError = (error: ContractError): string =>
   match(error)
     .with(
