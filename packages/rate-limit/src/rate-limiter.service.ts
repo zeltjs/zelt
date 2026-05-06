@@ -26,7 +26,7 @@ export class RateLimiter {
         if (this.config.failureMode === 'closed') {
           return errAsync(kvFailed(kvErr));
         }
-this.logger.warn(`rate-limit: KV failure key=${key} error=${JSON.stringify(kvErr)}`);
+        this.logger.warn(`rate-limit: KV failure key=${key} error=${JSON.stringify(kvErr)}`);
         return okAsync(this.openResult(limit));
       });
   }

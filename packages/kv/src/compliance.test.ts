@@ -50,10 +50,7 @@ const runKVStoreGetSetDelTests = (getStore: () => KVStore): void => {
   });
 };
 
-const runKVStoreNamespaceTests = (
-  getDriver: () => KVDriver,
-  getStore: () => KVStore,
-): void => {
+const runKVStoreNamespaceTests = (getDriver: () => KVDriver, getStore: () => KVStore): void => {
   it('chained namespace concatenates prefixes', async () => {
     const store = getStore();
     const subResult = store.namespace('sub:');
@@ -245,7 +242,10 @@ const runAtomicKVStoreBasicTests = (factory: () => AtomicKVDriver): void => {
   });
 };
 
-const runAtomicKVStoreTTLTestsRealClock = (factory: () => AtomicKVDriver, sleepMs: number): void => {
+const runAtomicKVStoreTTLTestsRealClock = (
+  factory: () => AtomicKVDriver,
+  sleepMs: number,
+): void => {
   describe('AtomicKVStore TTL compliance', () => {
     it(
       'incr with ttlSec sets TTL only on first incr (no extension on subsequent)',
