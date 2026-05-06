@@ -4,7 +4,8 @@
     { "path": "packages/core" },
     { "path": "packages/contract" },
     { "path": "packages/testing" },
-    { "path": "packages/adapter-node" }
+    { "path": "packages/adapter-node" },
+    { "path": "packages/cli" }
   ],
   "files": []
 }

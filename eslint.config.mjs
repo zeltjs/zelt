@@ -150,4 +150,11 @@ export default tseslint.config(
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
+  {
+    // CLI package does not use DI
+    files: ['packages/cli/src/**/*.{ts,tsx}'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
 );

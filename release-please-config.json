@@ -16,6 +16,9 @@
     },
     "packages/testing": {
       "component": "testing"
+    },
+    "packages/cli": {
+      "component": "cli"
     }
   },
   "plugins": [
@@ -26,7 +29,7 @@
     {
       "type": "linked-versions",
       "groupName": "zeltjs",
-      "components": ["core", "adapter-node", "openapi", "testing"]
+      "components": ["core", "adapter-node", "openapi", "testing", "cli"]
     }
   ]
 }
