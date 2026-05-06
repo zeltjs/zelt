@@ -30,7 +30,13 @@
     "typecheck": "tsc -b"
   },
   "peerDependencies": {
-    "@zeltjs/core": "workspace:*"
+    "@zeltjs/core": "workspace:*",
+    "vitest": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@zeltjs/core": "workspace:*",

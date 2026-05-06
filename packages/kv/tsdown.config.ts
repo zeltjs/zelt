@@ -7,6 +7,6 @@ export default defineConfig({
   clean: true,
   fixedExtension: false,
   deps: {
-    neverBundle: ['@zeltjs/core', /^@zeltjs\/core\//],
+    neverBundle: ['@zeltjs/core', /^@zeltjs\/core\//, 'vitest', /^vitest\//, /^@vitest\//],
   },
 });
