@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveWith } from '../../internal/container';
 
-import { ProcessEnvConfig } from './env.provider';
+import { EnvConfig } from './env.config';
 import { EnvService } from './env.service';
 
 const createEnvService = () => {
   const { target } = resolveWith(EnvService, {
-    configs: [ProcessEnvConfig],
+    configs: [EnvConfig],
   });
   return target;
 };
