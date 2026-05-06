@@ -216,4 +216,29 @@ export default tseslint.config(
       'max-lines-per-function': 'off',
     },
   },
+  {
+    // rate-limit decorator: factory function creates a @Injectable() class per call; not a DI
+    // module itself. throw is the correct mechanism for HTTP error propagation via HTTPException.
+    files: ['packages/rate-limit/src/rate-limit.decorator.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+      '@9wick/strict-type-rules/no-throw': 'off',
+    },
+  },
+  {
+    // rate-limiter service: pure helper functions at module level are not DI singletons;
+    // throw propagates store errors per the fail-closed contract (user-facing error contract).
+    files: ['packages/rate-limit/src/rate-limiter.service.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+      '@9wick/strict-type-rules/no-throw': 'off',
+    },
+  },
+  {
+    // TooManyRequestsException: extending HTTPException is the correct error type for 429.
+    files: ['packages/rate-limit/src/errors.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+    },
+  },
 );
