@@ -304,9 +304,6 @@ importers:
         specifier: 8.2.0
         version: 8.2.0
     devDependencies:
-      '@needle-di/core':
-        specifier: 1.1.2
-        version: 1.1.2
       '@types/node':
         specifier: 22.19.17
         version: 22.19.17
@@ -323,9 +320,6 @@ importers:
         specifier: 8.2.0
         version: 8.2.0
     devDependencies:
-      '@needle-di/core':
-        specifier: 1.1.2
-        version: 1.1.2
       '@types/node':
         specifier: 22.19.17
         version: 22.19.17
@@ -335,9 +329,6 @@ importers:
       '@zeltjs/kv':
         specifier: workspace:*
         version: link:../kv
-      hono:
-        specifier: 4.12.16
-        version: 4.12.16
       valibot:
         specifier: 1.3.1
         version: 1.3.1(typescript@6.0.2)
@@ -350,6 +341,12 @@ importers:
       vitest:
         specifier: '>=4 <5'
         version: 4.1.5(@types/node@22.19.17)(@vitest/coverage-v8@4.1.5)(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.3))
+
+  packages/zeltjs:
+    dependencies:
+      '@zeltjs/core':
+        specifier: '>=0.0.1'
+        version: 0.1.1(typescript@6.0.2)
 
   website:
     dependencies:
@@ -4181,6 +4178,9 @@ packages:
   '@yarnpkg/parsers@3.0.2':
     resolution: {integrity: sha512-/HcYgtUSiJiot/XWGLOlGxPYUG65+/31V8oqk17vZLW1xlCoR4PampyePljOxY2n8/3jz9+tIFzICsyGujJZoA==}
     engines: {node: '>=18.12.0'}
+
+  '@zeltjs/core@0.1.1':
+    resolution: {integrity: sha512-GKTuDOMuD9NUmLyEXdg9gzco185hV5tU7Xk5EXgrb3JB6wJ47dZYAZywVA9uNlD6taD5OyHvO4eUVgyAdPEAaQ==}
 
   '@zkochan/js-yaml@0.0.7':
     resolution: {integrity: sha512-nrUSn7hzt7J6JWgWGz78ZYI8wj+gdIJdk0Ynjpp8l+trkn58Uqsf6RYrYkEK+3X18EX+TNdtJI0WxAtc+L84SQ==}
@@ -12876,6 +12876,15 @@ snapshots:
     dependencies:
       js-yaml: 3.14.2
       tslib: 2.8.1
+
+  '@zeltjs/core@0.1.1(typescript@6.0.2)':
+    dependencies:
+      '@needle-di/core': 1.1.2
+      hono: 4.12.16
+      neverthrow: 8.2.0
+      valibot: 1.3.1(typescript@6.0.2)
+    transitivePeerDependencies:
+      - typescript
 
   '@zkochan/js-yaml@0.0.7':
     dependencies:

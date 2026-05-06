@@ -36,11 +36,6 @@
     "@zeltjs/core": "workspace:*",
     "vitest": ">=4 <5"
   },
-  "peerDependenciesMeta": {
-    "vitest": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@zeltjs/core": "workspace:*",
     "@types/node": "22.19.17"
