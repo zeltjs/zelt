@@ -176,11 +176,14 @@ export default tseslint.config(
     },
   },
   {
-    // Example apps use HTTPException which requires throw, and tests use raw fetch
-    // which returns untyped JSON. These patterns are acceptable for demo code.
+    // Example apps: relaxed rules for demo code clarity
+    // - HTTPException requires throw
+    // - raw fetch returns untyped JSON
+    // - DI rules too strict for simple samples
     files: ['examples/**/*.{ts,tsx}'],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       'max-lines-per-function': 'off',
     },
