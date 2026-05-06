@@ -1,7 +1,7 @@
 import { Injectable, inject, UseMiddleware } from '@zeltjs/core';
 import type { MiddlewareClass, RequestContext, Next } from '@zeltjs/core';
 
-import { TooManyRequestsException } from './errors';
+import { tooManyRequestsResponse } from './errors';
 import { RateLimiter } from './rate-limiter.service';
 import type { RateLimitOptions } from './types';
 
@@ -16,15 +16,24 @@ const createRateLimitMiddlewareClass = (opts: RateLimitOptions): MiddlewareClass
 
     async use(c: RequestContext, next: Next): Promise<Response | undefined> {
       const key = typeof opts.key === 'string' ? opts.key : opts.key();
-      const result = await this.limiter.hit(key, {
+      const r = await this.limiter.hit(key, {
         limit: opts.limit,
         windowSec: opts.windowSec,
       });
 
+      if (r.isErr()) {
+        // closed-mode KV failure: cannot guarantee rate-limit contract, return 503.
+        return c.json({ code: 'RATE_LIMIT_UNAVAILABLE' }, 503);
+      }
+
+      const result = r.value;
       c.header('X-RateLimit-Limit', String(result.limit));
       c.header('X-RateLimit-Remaining', String(result.remaining));
 
-      if (!result.allowed) throw new TooManyRequestsException(result);
+      if (!result.allowed) {
+        return tooManyRequestsResponse(result);
+      }
+
       await next();
       return undefined;
     }

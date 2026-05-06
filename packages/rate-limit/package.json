@@ -25,6 +25,9 @@
     "test": "vitest run",
     "typecheck": "tsc -b"
   },
+  "dependencies": {
+    "neverthrow": "8.2.0"
+  },
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
     "@zeltjs/kv": "workspace:*"

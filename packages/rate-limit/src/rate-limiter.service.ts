@@ -1,5 +1,7 @@
 import { Injectable, injectConfig } from '@zeltjs/core';
+import { errAsync, okAsync, type ResultAsync } from 'neverthrow';
 
+import { kvFailed, type RateLimitError } from './errors';
 import { RateLimitConfig } from './rate-limit.config';
 import type { RateLimitResult } from './types';
 
@@ -21,25 +23,28 @@ const openResult = (limit: number): RateLimitResult => ({
 export class RateLimiter {
   constructor(private config = injectConfig(RateLimitConfig)) {}
 
-  async hit(key: string, opts?: { limit?: number; windowSec?: number }): Promise<RateLimitResult> {
+  hit(
+    key: string,
+    opts?: { limit?: number; windowSec?: number },
+  ): ResultAsync<RateLimitResult, RateLimitError> {
     const limit = opts?.limit ?? this.config.defaultLimit;
     const windowSec = opts?.windowSec ?? this.config.defaultWindowSec;
 
-    const count = await this.config.store
+    return this.config.store
       .incr(key, 1, { ttlSec: windowSec })
-      .catch((err: unknown) => {
-        // closed mode propagates errors to the global error handler (logs there);
-        // open mode swallows the error so the request proceeds, but we surface it here so it isn't silent.
-        if (this.config.failureMode === 'closed') throw err;
-        console.warn('rate-limit: KV failure', { err, key });
-        return null;
+      .map((count) => buildResult(count, limit, windowSec))
+      .orElse((kvErr) => {
+        if (this.config.failureMode === 'closed') {
+          return errAsync(kvFailed(kvErr));
+        }
+        // console.warn is the spec-mandated fallback logger for KV failures in open failureMode.
+        // no-console is disabled only for this file because Logger is not yet exported from core.
+        console.warn('rate-limit: KV failure', { err: kvErr, key });
+        return okAsync(openResult(limit));
       });
-
-    if (count === null) return openResult(limit);
-    return buildResult(count, limit, windowSec);
   }
 
-  async reset(key: string): Promise<void> {
-    await this.config.store.del(key);
+  reset(key: string): ResultAsync<void, RateLimitError> {
+    return this.config.store.del(key).mapErr(kvFailed);
   }
 }
