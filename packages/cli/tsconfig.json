@@ -10,5 +10,6 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "references": [{ "path": "../command" }]
 }
