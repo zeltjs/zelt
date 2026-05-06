@@ -169,6 +169,12 @@ importers:
 
   packages/cli:
     dependencies:
+      '@needle-di/core':
+        specifier: 1.1.2
+        version: 1.1.2
+      '@zeltjs/command':
+        specifier: workspace:*
+        version: link:../command
       c12:
         specifier: 3.0.4
         version: 3.0.4
@@ -184,6 +190,9 @@ importers:
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0
+      tinyglobby:
+        specifier: 0.2.14
+        version: 0.2.14
       ts-pattern:
         specifier: 5.7.1
         version: 5.7.1
@@ -200,6 +209,16 @@ importers:
       valibot:
         specifier: 1.3.1
         version: 1.3.1(typescript@6.0.2)
+
+  packages/command:
+    dependencies:
+      '@needle-di/core':
+        specifier: 1.1.2
+        version: 1.1.2
+    devDependencies:
+      '@types/node':
+        specifier: 22.19.17
+        version: 22.19.17
 
   packages/contract:
     dependencies:
@@ -237,6 +256,9 @@ importers:
 
   packages/core:
     dependencies:
+      croner:
+        specifier: 9.1.0
+        version: 9.1.0
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -4695,6 +4717,10 @@ packages:
       typescript:
         optional: true
 
+  croner@9.1.0:
+    resolution: {integrity: sha512-p9nwwR4qyT5W996vBZhdvBCnMhicY5ytZkR4D1Xj0wuTDEiMnjwR57Q3RXYY/s0EpX6Ay3vgIcfaR+ewGHsi+g==}
+    engines: {node: '>=18.0'}
+
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
@@ -8086,6 +8112,10 @@ packages:
   tinyexec@1.1.2:
     resolution: {integrity: sha512-dAqSqE/RabpBKI8+h26GfLq6Vb3JVXs30XYQjdMjaj/c2tS8IYYMbIzP599KtRj7c57/wYApb3QjgRgXmrCukA==}
     engines: {node: '>=18'}
+
+  tinyglobby@0.2.14:
+    resolution: {integrity: sha512-tX5e7OM1HnYr2+a2C/4V0htOcSQcoSTH9KgJnVvNm5zm/cyEWKJ7j7YutsH9CxMdtOkkLFy2AHrMci9IM8IPZQ==}
+    engines: {node: '>=12.0.0'}
 
   tinyglobby@0.2.16:
     resolution: {integrity: sha512-pn99VhoACYR8nFHhxqix+uvsbXineAasWm5ojXoN8xEwK5Kd3/TrhNn1wByuD52UxWRLy8pu+kRMniEi6Eq9Zg==}
@@ -12258,7 +12288,7 @@ snapshots:
     dependencies:
       minimatch: 10.2.5
       path-browserify: 1.0.1
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.14
 
   '@tybys/wasm-util@0.10.1':
     dependencies:
@@ -13372,6 +13402,8 @@ snapshots:
       path-type: 4.0.0
     optionalDependencies:
       typescript: 6.0.2
+
+  croner@9.1.0: {}
 
   cross-spawn@7.0.6:
     dependencies:
@@ -17412,6 +17444,11 @@ snapshots:
   tinybench@2.9.0: {}
 
   tinyexec@1.1.2: {}
+
+  tinyglobby@0.2.14:
+    dependencies:
+      fdir: 6.5.0(picomatch@4.0.4)
+      picomatch: 4.0.4
 
   tinyglobby@0.2.16:
     dependencies:

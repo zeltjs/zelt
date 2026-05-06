@@ -199,4 +199,17 @@ export default tseslint.config(
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
     },
   },
+  {
+    // CLI command runner uses Object.create and DI container.get() at dynamic module
+    // boundaries where type assertions are unavoidable.
+    files: [
+      'packages/cli/src/commands/run/runner.ts',
+      'packages/cli/src/commands/run/loader.ts',
+      'packages/cli/src/commands/run.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
 );

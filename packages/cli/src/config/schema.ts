@@ -26,6 +26,7 @@ export const ZeltConfigSchema = v.object({
   openapi: v.optional(OpenApiConfigSchema),
   build: v.optional(BuildConfigSchema),
   dev: v.optional(DevConfigSchema),
+  commands: v.optional(v.string()),
 
   // Legacy top-level fields for backward compatibility
   controllers: v.optional(v.array(v.string())),

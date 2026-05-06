@@ -91,6 +91,20 @@ describe('loadZeltConfig', () => {
     expect(config.dev?.debounceMs).toBe(300);
   });
 
+  it('accepts commands glob pattern', async () => {
+    await writeFile(
+      join(testDir, 'zelt.config.ts'),
+      `export default { commands: 'src/commands/**/*.ts' }`,
+    );
+
+    const result = await loadZeltConfig({ cwd: testDir });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.commands).toBe('src/commands/**/*.ts');
+    }
+  });
+
   it('loads legacy top-level fields for backward compatibility', async () => {
     const configContent = `
       export default {

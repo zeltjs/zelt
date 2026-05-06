@@ -6,7 +6,8 @@
     { "path": "packages/testing" },
     { "path": "packages/adapter-node" },
     { "path": "packages/cli" },
-    { "path": "packages/auth-jwt" }
+    { "path": "packages/auth-jwt" },
+    { "path": "packages/command" }
   ],
   "files": []
 }
