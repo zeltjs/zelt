@@ -77,21 +77,30 @@ const analyzeValidatedCall = (expr: CallExpression): Result<RequestSchemaRef, An
   return ok({ kind: 'valibot-inline', schemaText: arg?.getText() ?? '', target });
 };
 
-const processValidatedParam = (init: CallExpression): Result<RequestSchemaRef, AnalyzerError> => {
-  const result = analyzeValidatedCall(init);
-  if (result.isErr()) return err(result.error);
-  return ok(result.value);
+type ParamProcessResult = {
+  requestSchema: RequestSchemaRef;
+  pathParam: string | undefined;
 };
 
-const processPathParamParam = (init: CallExpression): Result<string, AnalyzerError> => {
-  const name = literalArg(init);
-  if (name === undefined) {
-    return err({ type: 'PATH_PARAM_REQUIRES_LITERAL' });
+const processParam = (
+  init: CallExpression,
+  currentSchema: RequestSchemaRef,
+): Result<ParamProcessResult, AnalyzerError> => {
+  if (isCallTo(init, 'validated')) {
+    const result = analyzeValidatedCall(init);
+    if (result.isErr()) return err(result.error);
+    return ok({ requestSchema: result.value, pathParam: undefined });
   }
-  return ok(name);
+  if (isCallTo(init, 'pathParam')) {
+    const name = literalArg(init);
+    if (name === undefined) {
+      return err({ type: 'PATH_PARAM_REQUIRES_LITERAL' });
+    }
+    return ok({ requestSchema: currentSchema, pathParam: name });
+  }
+  return ok({ requestSchema: currentSchema, pathParam: undefined });
 };
 
-// eslint-disable-next-line complexity
 export const analyzeHandlerSignature = (
   m: MethodDeclaration,
 ): Result<HandlerSignatureInfo, AnalyzerError> => {
@@ -102,17 +111,10 @@ export const analyzeHandlerSignature = (
     const init = param.getInitializer();
     if (!init || !Node.isCallExpression(init)) continue;
 
-    if (isCallTo(init, 'validated')) {
-      const result = processValidatedParam(init);
-      if (result.isErr()) return err(result.error);
-      requestSchema = result.value;
-      continue;
-    }
-    if (isCallTo(init, 'pathParam')) {
-      const result = processPathParamParam(init);
-      if (result.isErr()) return err(result.error);
-      pathParams.push(result.value);
-    }
+    const result = processParam(init, requestSchema);
+    if (result.isErr()) return err(result.error);
+    requestSchema = result.value.requestSchema;
+    if (result.value.pathParam) pathParams.push(result.value.pathParam);
   }
 
   return ok({ requestSchema, pathParams });

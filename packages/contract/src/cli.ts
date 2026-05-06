@@ -8,59 +8,33 @@ import { generateClient } from './generate-client';
 import { findConfigFile, loadConfig } from './load-config';
 import { watchClient } from './watch';
 
-// eslint-disable-next-line max-lines-per-function
-const formatError = (error: ContractError): string =>
-  match(error)
-    .with(
-      { type: 'SOURCE_FILE_NOT_FOUND' },
-      (e) => `zelt/openapi: source file not found: ${e.path}`,
-    )
-    .with(
-      { type: 'CLASS_NOT_FOUND' },
-      (e) => `zelt/openapi: class ${e.className} not found in ${e.path}`,
-    )
-    .with(
-      { type: 'CONTROLLER_DECORATOR_MISSING' },
-      (e) => `zelt/openapi: ${e.className} is missing @Controller decorator`,
-    )
-    .with(
-      { type: 'DECORATOR_REQUIRES_STRING_LITERAL' },
-      (e) => `zelt/openapi: @${e.decoratorName} requires a string literal argument`,
-    )
-    .with(
-      { type: 'MODULE_RESOLVE_FAILED' },
-      (e) => `zelt/openapi: cannot resolve module for validated(${e.exportName})`,
-    )
-    .with(
-      { type: 'PATH_PARAM_REQUIRES_LITERAL' },
-      () => `zelt/openapi: pathParam() requires a string literal argument`,
-    )
-    .with(
-      { type: 'MODULE_NOT_OBJECT' },
-      (e) => `zelt/openapi: ${e.modulePath} did not export an object module`,
-    )
-    .with(
-      { type: 'EXPORT_NOT_FOUND' },
-      (e) => `zelt/openapi: ${e.exportName} not found in ${e.modulePath}`,
-    )
-    .with(
-      { type: 'INLINE_SCHEMA_NOT_SUPPORTED' },
-      () => `zelt/openapi: inline schema not supported. Extract to module-level export.`,
-    )
-    .with(
-      { type: 'NOT_VALIBOT_SCHEMA' },
-      (e) => `zelt/openapi: ${e.exportName} in ${e.modulePath} is not a valibot schema`,
-    )
-    .with(
-      { type: 'UNRESOLVABLE_RESPONSE_TYPE' },
-      () => `zelt/openapi: handler return type is unknown/any. Add explicit return type.`,
-    )
+const formatAnalyzerError = (e: ContractError & { type: string }): string =>
+  match(e)
+    .with({ type: 'SOURCE_FILE_NOT_FOUND' }, (x) => `zelt/openapi: source file not found: ${x.path}`)
+    .with({ type: 'CLASS_NOT_FOUND' }, (x) => `zelt/openapi: class ${x.className} not found in ${x.path}`)
+    .with({ type: 'CONTROLLER_DECORATOR_MISSING' }, (x) => `zelt/openapi: ${x.className} is missing @Controller decorator`)
+    .with({ type: 'DECORATOR_REQUIRES_STRING_LITERAL' }, (x) => `zelt/openapi: @${x.decoratorName} requires a string literal argument`)
+    .with({ type: 'MODULE_RESOLVE_FAILED' }, (x) => `zelt/openapi: cannot resolve module for validated(${x.exportName})`)
+    .with({ type: 'PATH_PARAM_REQUIRES_LITERAL' }, () => `zelt/openapi: pathParam() requires a string literal argument`)
+    .otherwise(() => '');
+
+const formatEmitError = (e: ContractError & { type: string }): string =>
+  match(e)
+    .with({ type: 'MODULE_NOT_OBJECT' }, (x) => `zelt/openapi: ${x.modulePath} did not export an object module`)
+    .with({ type: 'EXPORT_NOT_FOUND' }, (x) => `zelt/openapi: ${x.exportName} not found in ${x.modulePath}`)
+    .with({ type: 'INLINE_SCHEMA_NOT_SUPPORTED' }, () => `zelt/openapi: inline schema not supported. Extract to module-level export.`)
+    .with({ type: 'NOT_VALIBOT_SCHEMA' }, (x) => `zelt/openapi: ${x.exportName} in ${x.modulePath} is not a valibot schema`)
+    .with({ type: 'UNRESOLVABLE_RESPONSE_TYPE' }, () => `zelt/openapi: handler return type is unknown/any. Add explicit return type.`)
+    .otherwise(() => '');
+
+const formatConfigError = (e: ContractError & { type: string }): string =>
+  match(e)
     .with({ type: 'CONFIG_NOT_FOUND' }, () => `zelt/openapi: no zelt.config.{ts,js,mts,mjs} found`)
-    .with(
-      { type: 'INVALID_CONFIG_EXPORT' },
-      (e) => `zelt/openapi: ${e.path} must export a default GenerateClientOptions`,
-    )
-    .exhaustive();
+    .with({ type: 'INVALID_CONFIG_EXPORT' }, (x) => `zelt/openapi: ${x.path} must export a default GenerateClientOptions`)
+    .otherwise(() => '');
+
+const formatError = (error: ContractError): string =>
+  formatAnalyzerError(error) || formatEmitError(error) || formatConfigError(error) || 'zelt/openapi: unknown error';
 
 const cli = cac('zelt-openapi');
 
