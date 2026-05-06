@@ -28,6 +28,7 @@
     "eslint-plugin-oxlint": "1.62.0",
     "eslint-plugin-sonarjs": "4.0.3",
     "knip": "6.10.0",
+    "lefthook": "2.1.6",
     "nx": "21.6.10",
     "oxlint": "1.62.0",
     "precommit-verify": "0.1.7",
