@@ -5,7 +5,8 @@
     { "path": "packages/contract" },
     { "path": "packages/testing" },
     { "path": "packages/adapter-node" },
-    { "path": "packages/cli" }
+    { "path": "packages/cli" },
+    { "path": "packages/auth-jwt" }
   ],
   "files": []
 }

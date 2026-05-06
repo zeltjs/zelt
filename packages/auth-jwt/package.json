@@ -1,0 +1,40 @@
+{
+  "name": "@zeltjs/auth-jwt",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/auth-jwt"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "peerDependencies": {
+    "@zeltjs/core": "workspace:*"
+  },
+  "dependencies": {
+    "jose": "6.0.11",
+    "neverthrow": "8.2.0"
+  },
+  "devDependencies": {
+    "@needle-di/core": "1.1.2",
+    "@types/node": "22.19.17",
+    "@zeltjs/core": "workspace:*"
+  }
+}
