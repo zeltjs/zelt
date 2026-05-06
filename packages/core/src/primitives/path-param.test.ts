@@ -9,7 +9,7 @@ describe('pathParam()', () => {
   it('returns the path param value', () => {
     const result = runInEntryContext(
       {
-        input: { body: undefined, pathParams: { id: '42' } },
+        input: { jsonBody: undefined, formBody: undefined, pathParams: { id: '42' } },
         honoContext: {} as unknown as Context,
       },
       () => pathParam('id'),
@@ -20,7 +20,10 @@ describe('pathParam()', () => {
   it('throws when the path param is absent', () => {
     expect(() =>
       runInEntryContext(
-        { input: { body: undefined, pathParams: {} }, honoContext: {} as unknown as Context },
+        {
+          input: { jsonBody: undefined, formBody: undefined, pathParams: {} },
+          honoContext: {} as unknown as Context,
+        },
         () => pathParam('id'),
       ),
     ).toThrow(/path parameter "id" is not defined/);

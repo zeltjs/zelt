@@ -30,6 +30,69 @@ export class UserController {
 }
 ```
 
+## Form Data and File Uploads
+
+Use `validated(schema, 'form')` to validate `multipart/form-data` requests, including file uploads:
+
+```typescript
+import { Controller, Post, validated, response } from '@zeltjs/core';
+import * as v from 'valibot';
+
+const UploadSchema = v.object({
+  file: v.instance(File),
+  description: v.optional(v.string()),
+});
+
+@Controller('/upload')
+export class UploadController {
+  @Post('/')
+  upload(body = validated(UploadSchema, 'form'), res = response()) {
+    // body.file is a File object
+    console.log(body.file.name, body.file.size, body.file.type);
+    return res.json({ filename: body.file.name, size: body.file.size }, 201);
+  }
+}
+```
+
+### Target Options
+
+The second argument to `validated()` specifies the request body format:
+
+| Target | Content-Type | Use Case |
+|--------|-------------|----------|
+| `'json'` (default) | `application/json` | JSON API requests |
+| `'form'` | `multipart/form-data`, `application/x-www-form-urlencoded` | File uploads, HTML forms |
+
+### Multiple Files
+
+```typescript
+const MultiUploadSchema = v.object({
+  files: v.array(v.instance(File)),
+  category: v.string(),
+});
+
+@Post('/bulk')
+bulkUpload(body = validated(MultiUploadSchema, 'form')) {
+  for (const file of body.files) {
+    console.log(file.name);
+  }
+  return { count: body.files.length };
+}
+```
+
+### OpenAPI Generation
+
+When using `'form'` target, OpenAPI output automatically uses `multipart/form-data` as the content type:
+
+```yaml
+requestBody:
+  required: true
+  content:
+    multipart/form-data:
+      schema:
+        $ref: '#/components/schemas/UploadSchema'
+```
+
 ## Validation Error Response
 
 When validation fails, Zelt automatically returns a 400 response:

@@ -4,11 +4,16 @@ import { pathToFileURL } from 'node:url';
 import { toJsonSchema } from '@valibot/to-json-schema';
 import * as v from 'valibot';
 
-import type { RequestSchemaRef } from '../analyzer/handler';
+import type { RequestSchemaRef, ValidationTarget } from '../analyzer/handler';
 
 export type RequestSchemaJson =
-  | { kind: 'ref'; readonly name: string; readonly schema: unknown }
-  | { kind: 'inline'; readonly schema: unknown }
+  | {
+      kind: 'ref';
+      readonly name: string;
+      readonly schema: unknown;
+      readonly target: ValidationTarget;
+    }
+  | { kind: 'inline'; readonly schema: unknown; readonly target: ValidationTarget }
   | { kind: 'none' };
 
 type AnyValibotSchema = v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>;
@@ -65,5 +70,5 @@ export const resolveRequestSchema = async (ref: RequestSchemaRef): Promise<Reque
     );
   }
   const schema = narrowToValibotSchema(value);
-  return { kind: 'ref', name: ref.exportName, schema: toJsonSchema(schema) };
+  return { kind: 'ref', name: ref.exportName, schema: toJsonSchema(schema), target: ref.target };
 };

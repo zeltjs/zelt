@@ -12,6 +12,16 @@ const config: KnipConfig = {
       ignore: ['generated/**'],
       ignoreDependencies: ['@zeltjs/openapi', '@zeltjs/adapter-node', '@zeltjs/cli', 'tsdown'],
     },
+    'examples/drizzle-todo': {
+      entry: [
+        'src/entry/node.ts',
+        'src/app.ts',
+        'src/controllers.ts',
+        'src/todo/*.ts',
+        'src/db/*.ts',
+      ],
+      ignoreDependencies: ['@zeltjs/adapter-node', '@zeltjs/core', 'valibot'],
+    },
     'packages/core': {
       // neverthrow は今後 Result wrapper に使う想定で keep。
       ignoreDependencies: ['neverthrow'],

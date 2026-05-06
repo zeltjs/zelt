@@ -7,5 +7,6 @@ ignoredBuiltDependencies:
 
 onlyBuiltDependencies:
   - "@9wick/eslint-plugin-strict-type-rules"
+  - better-sqlite3
   - esbuild
   - nx

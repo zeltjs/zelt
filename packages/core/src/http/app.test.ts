@@ -47,7 +47,22 @@ class EchoController {
   }
 }
 
-const buildApp = () => createHttpApp({ controllers: [HelloController, EchoController] });
+const FileSchema = v.object({
+  description: v.string(),
+  file: v.instance(File),
+});
+
+@Controller('/upload')
+class UploadController {
+  @Post('/')
+  upload() {
+    const body = validated(FileSchema, 'form');
+    return { description: body.description, filename: body.file.name, size: body.file.size };
+  }
+}
+
+const buildApp = () =>
+  createHttpApp({ controllers: [HelloController, EchoController, UploadController] });
 
 describe('createHttpApp() — fetch', () => {
   it('serves a constructor-injected GET endpoint with pathParam', async () => {
@@ -68,6 +83,22 @@ describe('createHttpApp() — fetch', () => {
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ msg: 'ok' });
+  });
+
+  it('parses multipart/form-data with File via validated(schema, "form")', async () => {
+    const app = buildApp();
+    const formData = new FormData();
+    formData.append('description', 'test file');
+    formData.append('file', new File(['hello world'], 'test.txt', { type: 'text/plain' }));
+
+    const res = await app.fetch(
+      new Request('https://example.com/upload/', {
+        method: 'POST',
+        body: formData,
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ description: 'test file', filename: 'test.txt', size: 11 });
   });
 
   it('mounts multiple controllers under different base paths', async () => {

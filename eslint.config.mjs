@@ -182,4 +182,17 @@ export default tseslint.config(
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
     },
   },
+  {
+    // Example apps: relaxed rules for demo code clarity
+    // - HTTPException requires throw
+    // - raw fetch returns untyped JSON
+    // - DI rules too strict for simple samples
+    files: ['examples/**/*.{ts,tsx}'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      'max-lines-per-function': 'off',
+    },
+  },
 );

@@ -7,6 +7,7 @@ import { createProject } from '../analyzer/project';
 import { emitOpenApi } from '../emit/openapi';
 
 const fixturePath = resolve(import.meta.dirname, 'fixtures/sample.controller.ts');
+const uploadFixturePath = resolve(import.meta.dirname, 'fixtures/upload.controller.ts');
 const tsconfigPath = resolve(import.meta.dirname, '../../tsconfig.json');
 
 // These keys access Record<string, ...> index signatures.
@@ -108,5 +109,24 @@ describe('emitOpenApi', () => {
     expect(getOp?.[parametersKey]).toEqual([
       { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
     ]);
+  });
+
+  it('emits multipart/form-data content-type for form target', async () => {
+    const project = createProject({
+      tsConfigFilePath: tsconfigPath,
+      controllerFiles: [uploadFixturePath],
+    });
+    const ir = analyzeControllers(project, [
+      { filePath: uploadFixturePath, exportName: 'UploadController' },
+    ]);
+    const doc = await emitOpenApi(ir, { distDir: '/tmp/generated', tsconfigPath });
+
+    const postOp = doc.paths['/upload']?.[postKey];
+    expect(postOp).toBeDefined();
+    const requestBody = postOp?.['requestBody'] as Record<string, unknown>;
+    expect(requestBody).toBeDefined();
+    const content = requestBody['content'] as Record<string, unknown>;
+    expect(content['multipart/form-data']).toBeDefined();
+    expect(content['application/json']).toBeUndefined();
   });
 });

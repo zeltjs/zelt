@@ -29,13 +29,17 @@ const refTo = (name: string): { $ref: string } => ({
   $ref: `#/components/schemas/${name}`,
 });
 
+const targetToContentType = (target: 'json' | 'form'): string =>
+  target === 'form' ? 'multipart/form-data' : 'application/json';
+
 const buildRequestBody = (req: RequestSchemaJson, schemas: SchemaMap): Operation | undefined => {
   if (req.kind === 'none') return undefined;
+  const contentType = targetToContentType(req.target);
   if (req.kind === 'ref') {
     schemas[req.name] = req.schema;
-    return { required: true, content: { 'application/json': { schema: refTo(req.name) } } };
+    return { required: true, content: { [contentType]: { schema: refTo(req.name) } } };
   }
-  return { required: true, content: { 'application/json': { schema: req.schema } } };
+  return { required: true, content: { [contentType]: { schema: req.schema } } };
 };
 
 const buildPathParams = (

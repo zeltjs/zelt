@@ -6,6 +6,7 @@ import { analyzeControllers } from '../analyzer/internal-representation';
 import { createProject } from '../analyzer/project';
 
 const fixturePath = resolve(import.meta.dirname, 'fixtures/sample.controller.ts');
+const uploadFixturePath = resolve(import.meta.dirname, 'fixtures/upload.controller.ts');
 const tsConfigFilePath = resolve(import.meta.dirname, '../../tsconfig.json');
 
 describe('analyzeControllers', () => {
@@ -26,6 +27,7 @@ describe('analyzeControllers', () => {
       kind: 'valibot-named',
       module: fixturePath,
       exportName: 'CreateUserBody',
+      target: 'json',
     });
   });
 
@@ -40,5 +42,19 @@ describe('analyzeControllers', () => {
     if (show?.responseType.kind === 'ts-named') {
       expect(show.responseType.name).toBe('User');
     }
+  });
+
+  it('detects validated() with form target', () => {
+    const uploadProject = createProject({ tsConfigFilePath, controllerFiles: [uploadFixturePath] });
+    const uploadIr = analyzeControllers(uploadProject, [
+      { filePath: uploadFixturePath, exportName: 'UploadController' },
+    ]);
+    const upload = uploadIr[0]?.routes.find((r) => r.method === 'POST');
+    expect(upload?.requestSchema).toEqual({
+      kind: 'valibot-named',
+      module: uploadFixturePath,
+      exportName: 'UploadBody',
+      target: 'form',
+    });
   });
 });

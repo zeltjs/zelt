@@ -2,8 +2,11 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 import type { Context } from 'hono';
 
+type FormBody = Record<string, string | File | (string | File)[]>;
+
 type EntryInput = {
-  readonly body: unknown;
+  readonly jsonBody: unknown;
+  readonly formBody: FormBody | undefined;
   readonly pathParams: Readonly<Record<string, string>>;
 };
 

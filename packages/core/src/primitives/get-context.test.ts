@@ -12,7 +12,7 @@ declare module '@zeltjs/core' {
 }
 
 const createMockEntryContext = (contextValues: Record<string, unknown> = {}): EntryContext => ({
-  input: { body: {}, pathParams: {} },
+  input: { jsonBody: {}, formBody: undefined, pathParams: {} },
   honoContext: {
     get: (key: string) => contextValues[key],
     set: vi.fn(),

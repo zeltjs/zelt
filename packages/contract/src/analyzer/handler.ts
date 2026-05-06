@@ -1,8 +1,15 @@
 import { type CallExpression, type MethodDeclaration, Node, SyntaxKind } from 'ts-morph';
 
+export type ValidationTarget = 'json' | 'form';
+
 export type RequestSchemaRef =
-  | { kind: 'valibot-named'; readonly module: string; readonly exportName: string }
-  | { kind: 'valibot-inline'; readonly schemaText: string }
+  | {
+      kind: 'valibot-named';
+      readonly module: string;
+      readonly exportName: string;
+      readonly target: ValidationTarget;
+    }
+  | { kind: 'valibot-inline'; readonly schemaText: string; readonly target: ValidationTarget }
   | { kind: 'none' };
 
 export type HandlerSignatureInfo = {
@@ -45,7 +52,17 @@ const resolveSchemaModule = (expr: CallExpression, exportName: string): string |
   return undefined;
 };
 
+const extractTarget = (expr: CallExpression): ValidationTarget => {
+  const args = expr.getArguments();
+  const targetArg = args[1];
+  if (!targetArg) return 'json';
+  const text = targetArg.getText();
+  if (text === "'form'" || text === '"form"') return 'form';
+  return 'json';
+};
+
 const analyzeValidatedCall = (expr: CallExpression): RequestSchemaRef => {
+  const target = extractTarget(expr);
   const id = identifierArg(expr);
   if (id) {
     const module = resolveSchemaModule(expr, id.exportName);
@@ -54,10 +71,10 @@ const analyzeValidatedCall = (expr: CallExpression): RequestSchemaRef => {
         `zelt/openapi: cannot resolve module for validated(${id.exportName}). Schema must be a module-level export.`,
       );
     }
-    return { kind: 'valibot-named', module, exportName: id.exportName };
+    return { kind: 'valibot-named', module, exportName: id.exportName, target };
   }
   const arg = expr.getArguments()[0];
-  return { kind: 'valibot-inline', schemaText: arg?.getText() ?? '' };
+  return { kind: 'valibot-inline', schemaText: arg?.getText() ?? '', target };
 };
 
 export const analyzeHandlerSignature = (m: MethodDeclaration): HandlerSignatureInfo => {

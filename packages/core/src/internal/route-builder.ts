@@ -73,10 +73,32 @@ const resolveHandler = (instance: object, methodName: string | symbol): (() => u
   };
 };
 
-const parseRequestBody = async (c: Parameters<Parameters<Hono['on']>[2]>[0]): Promise<unknown> => {
-  const contentType = c.req.header('content-type');
-  if (contentType?.includes('application/json') !== true) return undefined;
-  return c.req.json<unknown>().catch(() => undefined);
+type FormBody = Record<string, string | File | (string | File)[]>;
+
+type ParsedBodies = {
+  jsonBody: unknown;
+  formBody: FormBody | undefined;
+};
+
+const parseRequestBodies = async (
+  c: Parameters<Parameters<Hono['on']>[2]>[0],
+): Promise<ParsedBodies> => {
+  const contentType = c.req.header('content-type') ?? '';
+
+  if (contentType.includes('application/json')) {
+    const jsonBody = await c.req.json<unknown>().catch(() => undefined);
+    return { jsonBody, formBody: undefined };
+  }
+
+  if (
+    contentType.includes('multipart/form-data') ||
+    contentType.includes('application/x-www-form-urlencoded')
+  ) {
+    const formBody: FormBody = await c.req.parseBody({ all: true }).catch(() => ({}));
+    return { jsonBody: undefined, formBody };
+  }
+
+  return { jsonBody: undefined, formBody: undefined };
 };
 
 const hasUseMethod = (proto: unknown): boolean => {
@@ -217,9 +239,9 @@ const registerRoute = (
   const composedHandler = composeHandler(middlewares, finalHandler);
 
   const handler = async (c: MiddlewareContext): Promise<Response> => {
-    const body = await parseRequestBody(c);
+    const { jsonBody, formBody } = await parseRequestBodies(c);
     const pathParams: Readonly<Record<string, string>> = c.req.param();
-    return runInEntryContext({ input: { body, pathParams }, honoContext: c }, () =>
+    return runInEntryContext({ input: { jsonBody, formBody, pathParams }, honoContext: c }, () =>
       composedHandler(c),
     );
   };

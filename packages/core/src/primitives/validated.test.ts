@@ -10,10 +10,10 @@ import { validated } from './validated';
 const Schema = v.object({ name: v.string(), age: v.number() });
 
 describe('validated()', () => {
-  it('returns parsed body when schema matches', () => {
+  it('returns parsed body when schema matches (json)', () => {
     const result = runInEntryContext(
       {
-        input: { body: { name: 'Ada', age: 36 }, pathParams: {} },
+        input: { jsonBody: { name: 'Ada', age: 36 }, formBody: undefined, pathParams: {} },
         honoContext: {} as unknown as Context,
       },
       () => validated(Schema),
@@ -21,10 +21,25 @@ describe('validated()', () => {
     expect(result).toEqual({ name: 'Ada', age: 36 });
   });
 
+  it('returns parsed body when schema matches (form)', () => {
+    const FormSchema = v.object({ name: v.string() });
+    const result = runInEntryContext(
+      {
+        input: { jsonBody: undefined, formBody: { name: 'Ada' }, pathParams: {} },
+        honoContext: {} as unknown as Context,
+      },
+      () => validated(FormSchema, 'form'),
+    );
+    expect(result).toEqual({ name: 'Ada' });
+  });
+
   it('throws HTTPException with 400 when schema does not match', () => {
     expect(() =>
       runInEntryContext(
-        { input: { body: { name: 'Ada' }, pathParams: {} }, honoContext: {} as unknown as Context },
+        {
+          input: { jsonBody: { name: 'Ada' }, formBody: undefined, pathParams: {} },
+          honoContext: {} as unknown as Context,
+        },
         () => validated(Schema),
       ),
     ).toThrow(HTTPException);
@@ -33,7 +48,10 @@ describe('validated()', () => {
   it('HTTPException contains VALIDATION_FAILED response', async () => {
     try {
       runInEntryContext(
-        { input: { body: { name: 'Ada' }, pathParams: {} }, honoContext: {} as unknown as Context },
+        {
+          input: { jsonBody: { name: 'Ada' }, formBody: undefined, pathParams: {} },
+          honoContext: {} as unknown as Context,
+        },
         () => validated(Schema),
       );
       throw new Error('should have thrown');
