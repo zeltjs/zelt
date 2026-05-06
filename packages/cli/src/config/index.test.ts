@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { defineConfig } from './define-config';
-import { loadConfig } from './load-config';
+import { loadZeltConfig as loadConfig } from './loader';
 
 describe('defineConfig', () => {
   it('returns the config as-is', () => {

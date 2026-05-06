@@ -72,34 +72,8 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
   return child;
 };
 
-export const startDevServer = async (options: DevServerOptions): Promise<void> => {
-  const { cwd, config } = options;
-
-  const state: DevServerState = {
-    childProcess: undefined,
-    watcher: undefined,
-    isShuttingDown: false,
-  };
-
-  const watchPatterns = config.watch ?? DEFAULT_WATCH_PATTERNS;
-  const ignorePatterns = config.ignore ?? DEFAULT_IGNORE_PATTERNS;
-  const debounceMs = config.debounceMs ?? 300;
-
-  const restart = async (): Promise<void> => {
-    if (state.isShuttingDown) {
-      return;
-    }
-
-    consola.info('File changed, restarting...');
-
-    if (state.childProcess !== undefined) {
-      await killProcess(state.childProcess);
-    }
-
-    state.childProcess = startProcess(cwd, config.entry);
-  };
-
-  const shutdown = async (): Promise<void> => {
+const createShutdownHandler = (state: DevServerState) => {
+  return async (): Promise<void> => {
     if (state.isShuttingDown) {
       return;
     }
@@ -117,6 +91,39 @@ export const startDevServer = async (options: DevServerOptions): Promise<void> =
 
     process.exit(0);
   };
+};
+
+const createRestartHandler = (state: DevServerState, cwd: string, entry: string) => {
+  return async (): Promise<void> => {
+    if (state.isShuttingDown) {
+      return;
+    }
+
+    consola.info('File changed, restarting...');
+
+    if (state.childProcess !== undefined) {
+      await killProcess(state.childProcess);
+    }
+
+    state.childProcess = startProcess(cwd, entry);
+  };
+};
+
+export const startDevServer = async (options: DevServerOptions): Promise<void> => {
+  const { cwd, config } = options;
+
+  const state: DevServerState = {
+    childProcess: undefined,
+    watcher: undefined,
+    isShuttingDown: false,
+  };
+
+  const watchPatterns = config.watch ?? DEFAULT_WATCH_PATTERNS;
+  const ignorePatterns = config.ignore ?? DEFAULT_IGNORE_PATTERNS;
+  const debounceMs = config.debounceMs ?? 300;
+
+  const shutdown = createShutdownHandler(state);
+  const restart = createRestartHandler(state, cwd, config.entry);
 
   process.on('SIGINT', () => {
     void shutdown();

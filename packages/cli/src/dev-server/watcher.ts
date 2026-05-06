@@ -2,8 +2,8 @@ import { watch } from 'chokidar';
 
 export type WatcherOptions = {
   readonly cwd: string;
-  readonly patterns: readonly string[];
-  readonly ignore: readonly string[];
+  readonly patterns: string[];
+  readonly ignore: string[];
   readonly debounceMs: number;
   readonly onChange: () => void;
 };
@@ -17,9 +17,9 @@ export const createWatcher = (options: WatcherOptions): WatcherHandle => {
 
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const watcher = watch(patterns as string[], {
+  const watcher = watch(patterns, {
     cwd,
-    ignored: ignore as string[],
+    ignored: ignore,
     ignoreInitial: true,
     persistent: true,
   });

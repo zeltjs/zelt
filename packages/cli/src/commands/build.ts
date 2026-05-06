@@ -2,7 +2,20 @@ import { defineCommand } from 'citty';
 import consola from 'consola';
 
 import { runTsdownBuild } from '../builders/tsdown';
-import { loadConfig } from '../config/load-config';
+import { loadZeltConfig } from '../config/loader';
+import type { BuildConfig } from '../config/schema';
+
+type BuildArgs = {
+  readonly config?: string;
+  readonly entry?: string;
+  readonly outDir?: string;
+};
+
+const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefined) => ({
+  ...buildConfig,
+  entry: args.entry ?? buildConfig?.entry,
+  outDir: args.outDir ?? buildConfig?.outDir,
+});
 
 export const buildCommand = defineCommand({
   meta: {
@@ -28,20 +41,14 @@ export const buildCommand = defineCommand({
   },
   async run({ args }) {
     const cwd = process.cwd();
+    const typedArgs: BuildArgs = args;
 
-    const configFile = args.config as string | undefined;
-    const config = await loadConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
+    const configFile = typedArgs.config;
+    const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
 
-    const entry = (args.entry as string | undefined) ?? config.build?.entry;
-    const outDir = (args.outDir as string | undefined) ?? config.build?.outDir;
+    const buildConfig = resolveBuildConfig(typedArgs, config.build);
 
-    const buildConfig = {
-      ...config.build,
-      entry,
-      outDir,
-    };
-
-    if (entry === undefined) {
+    if (buildConfig.entry === undefined) {
       consola.error('No entry file specified. Use --entry or set build.entry in zelt.config.ts');
       process.exit(1);
     }

@@ -151,19 +151,12 @@ export default tseslint.config(
     },
   },
   {
-    // CLI package: build-time tool that requires direct process access, type assertions
-    // for citty's arg types, and c12 import rename to avoid naming collision
+    // CLI package: build-time tool that requires direct process access
     files: ['packages/cli/src/**/*.{ts,tsx}'],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
       '@9wick/strict-type-rules/no-throw': 'off',
-      '@9wick/strict-type-rules/no-try-catch': 'off',
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@9wick/strict-type-rules/no-import-rename': 'off',
-      '@typescript-eslint/no-unnecessary-condition': 'off',
-      complexity: 'off',
-      'max-lines-per-function': 'off',
     },
   },
 );

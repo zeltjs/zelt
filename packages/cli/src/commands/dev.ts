@@ -1,8 +1,26 @@
 import { defineCommand } from 'citty';
 import consola from 'consola';
 
-import { loadConfig } from '../config/load-config';
+import { loadZeltConfig } from '../config/loader';
+import type { DevConfig } from '../config/schema';
 import { startDevServer } from '../dev-server/server';
+
+type DevArgs = {
+  readonly config?: string;
+  readonly entry?: string;
+  readonly port?: string;
+};
+
+const resolveDevConfig = (args: DevArgs, devConfig: DevConfig | undefined) => {
+  const entry = args.entry ?? devConfig?.entry;
+  const port = args.port !== undefined ? Number.parseInt(args.port, 10) : devConfig?.port;
+
+  return {
+    ...devConfig,
+    entry,
+    port,
+  };
+};
 
 export const devCommand = defineCommand({
   meta: {
@@ -28,27 +46,21 @@ export const devCommand = defineCommand({
   },
   async run({ args }) {
     const cwd = process.cwd();
+    const typedArgs: DevArgs = args;
 
-    const configFile = args.config as string | undefined;
-    const config = await loadConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
+    const configFile = typedArgs.config;
+    const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
 
-    const entry = (args.entry as string | undefined) ?? config.dev?.entry;
+    const devConfig = resolveDevConfig(typedArgs, config.dev);
 
-    if (entry === undefined) {
+    if (devConfig.entry === undefined) {
       consola.error('No entry file specified. Use --entry or set dev.entry in zelt.config.ts');
       process.exit(1);
     }
 
-    const portArg = args.port as string | undefined;
-    const devConfig = {
-      ...config.dev,
-      entry,
-      port: portArg !== undefined ? Number.parseInt(portArg, 10) : config.dev?.port,
-    };
-
     await startDevServer({
       cwd,
-      config: devConfig,
+      config: { ...devConfig, entry: devConfig.entry },
     });
   },
 });
