@@ -104,7 +104,7 @@ export default tseslint.config(
   },
   {
     // framework error strategy: throw + global error handler (spec §4.9 / koya phase2)
-    files: ['packages/core/src/**/*.{ts,tsx}'],
+    files: ['packages/core/src/**/*.{ts,tsx}', 'packages/auth-jwt/src/**/*.{ts,tsx}'],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
