@@ -8,9 +8,7 @@ export type LoadCommandsError =
   | { type: 'GLOB_FAILED'; cause: unknown }
   | { type: 'IMPORT_FAILED'; file: string; cause: unknown };
 
-const importModule = (
-  file: string,
-): ResultAsync<Record<string, unknown>, LoadCommandsError> =>
+const importModule = (file: string): ResultAsync<Record<string, unknown>, LoadCommandsError> =>
   fromPromise(
     import(pathToFileURL(file).href) as Promise<Record<string, unknown>>,
     (cause) => ({ type: 'IMPORT_FAILED', file, cause }) as const,
@@ -46,6 +44,7 @@ export const loadCommands = (
             for (const [name, cls] of extractCommands(module)) {
               commandMap.set(name, cls);
             }
+            return undefined;
           }),
         ),
       okAsync(undefined),

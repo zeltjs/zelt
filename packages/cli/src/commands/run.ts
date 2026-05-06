@@ -98,9 +98,7 @@ export const runCommandDef = defineCommand({
 
     const result = await loadZeltConfig(
       configFile !== undefined ? { cwd, configFile } : { cwd },
-    ).andThen((config) =>
-      executeCommand(cwd, config.commands, commandName, commandArgs),
-    );
+    ).andThen((config) => executeCommand(cwd, config.commands, commandName, commandArgs));
 
     if (result.isErr()) {
       handleError(result.error);
