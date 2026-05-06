@@ -1,6 +1,9 @@
+// packages/contract/src/emit/openapi.ts
 import { validationErrorBodySchema } from '@zeltjs/core';
 import { toJsonSchema } from '@valibot/to-json-schema';
+import { okAsync, errAsync, ResultAsync } from 'neverthrow';
 
+import type { ContractError } from '../errors';
 import type { RequestSchemaRef } from '../analyzer/handler';
 import type { ControllerIR, RouteIR } from '../analyzer/internal-representation';
 
@@ -80,27 +83,35 @@ const validationFailedResponse = (): Record<string, unknown> => ({
   content: { 'application/json': { schema: refTo('ValidationErrorBody') } },
 });
 
-const buildOperation = async (
+const buildOperation = (
   r: RouteIR,
   schemas: SchemaMap,
   options: EmitOpenApiOptions,
-): Promise<Operation> => {
-  const op: Operation = {};
-  const reqJson = await resolveRequestSchema(r.requestSchema);
-  const reqBody = buildRequestBody(reqJson, schemas);
-  if (reqBody) op['requestBody'] = reqBody;
+): ResultAsync<Operation, ContractError> => {
+  return resolveRequestSchema(r.requestSchema).andThen((reqJson) => {
+    const respResult = resolveResponseSchema(r.responseType, {
+      tsconfigPath: options.tsconfigPath,
+    });
+    if (respResult.isErr()) {
+      return errAsync(respResult.error);
+    }
+    const respJson = respResult.value;
 
-  const params = buildPathParams(r.pathParams);
-  if (params) op['parameters'] = params;
+    const op: Operation = {};
+    const reqBody = buildRequestBody(reqJson, schemas);
+    if (reqBody) op['requestBody'] = reqBody;
 
-  const respJson = resolveResponseSchema(r.responseType, { tsconfigPath: options.tsconfigPath });
-  const responses: Record<string, unknown> = {};
-  const respEntry = buildResponseEntry(respJson, schemas);
-  if (respEntry) responses[respEntry.status] = respEntry.value;
-  if (hasValibotRequest(r.requestSchema)) responses['400'] = validationFailedResponse();
-  op['responses'] = responses;
+    const params = buildPathParams(r.pathParams);
+    if (params) op['parameters'] = params;
 
-  return op;
+    const responses: Record<string, unknown> = {};
+    const respEntry = buildResponseEntry(respJson, schemas);
+    if (respEntry) responses[respEntry.status] = respEntry.value;
+    if (hasValibotRequest(r.requestSchema)) responses['400'] = validationFailedResponse();
+    op['responses'] = responses;
+
+    return okAsync(op);
+  });
 };
 
 const addOperation = (
@@ -114,27 +125,35 @@ const addOperation = (
   paths[oaPath] = existing;
 };
 
-export const emitOpenApi = async (
+export const emitOpenApi = (
   controllers: readonly ControllerIR[],
   options: EmitOpenApiOptions,
-): Promise<OpenApiDoc> => {
+): ResultAsync<OpenApiDoc, ContractError> => {
   const schemas: SchemaMap = {};
   const paths: Record<string, PathItem> = {};
 
-  // ValidationErrorBody は validated() を持つ任意の route から参照されるため一度だけ global 登録する。
   schemas['ValidationErrorBody'] = toJsonSchema(validationErrorBodySchema);
 
-  for (const c of controllers) {
-    for (const r of c.routes) {
-      const op = await buildOperation(r, schemas, options);
-      addOperation(paths, toOpenApiPath(r.fullPath), r.method, op);
-    }
-  }
+  const buildAllOperations = (): ResultAsync<void, ContractError> => {
+    let chain: ResultAsync<void, ContractError> = okAsync(undefined);
 
-  return {
-    openapi: '3.1.0',
+    for (const c of controllers) {
+      for (const r of c.routes) {
+        chain = chain.andThen(() =>
+          buildOperation(r, schemas, options).map((op) => {
+            addOperation(paths, toOpenApiPath(r.fullPath), r.method, op);
+          }),
+        );
+      }
+    }
+
+    return chain;
+  };
+
+  return buildAllOperations().map(() => ({
+    openapi: '3.1.0' as const,
     info: { title: 'zelt app', version: '0.0.0' },
     paths,
     components: { schemas },
-  };
+  }));
 };
