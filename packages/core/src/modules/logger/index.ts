@@ -1,2 +1,2 @@
-export { Logger } from './logger';
-export { LoggerConfig } from './config';
+export { Logger } from './logger.service';
+export { LoggerConfig } from './logger.config';
