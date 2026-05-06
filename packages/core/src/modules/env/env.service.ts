@@ -1,28 +1,19 @@
-import { Injectable } from '../../decorators/injectable';
-import { injectConfig } from '../../config';
+import { inject } from '@needle-di/core';
 
-import { EnvConfig } from './env.config';
-import { loadEnvFiles, isEnvLoaded, markEnvLoaded } from './env.lib';
+import { Injectable } from '../../decorators/injectable';
+
+import { EnvProvider } from './env.provider';
 
 @Injectable()
 export class EnvService {
-  constructor(private config = injectConfig(EnvConfig)) {}
-
-  private ensureLoaded(): void {
-    if (!isEnvLoaded()) {
-      loadEnvFiles(this.config.envFilePath);
-      markEnvLoaded();
-    }
-  }
+  constructor(private provider = inject(EnvProvider)) {}
 
   getString<D extends string | null | undefined>(key: string, defaultValue: D): string | D {
-    this.ensureLoaded();
-    return process.env[key] ?? defaultValue;
+    return this.provider.get(key) ?? defaultValue;
   }
 
   getInteger<D extends number | null | undefined>(key: string, defaultValue: D): number | D {
-    this.ensureLoaded();
-    const val = process.env[key];
+    const val = this.provider.get(key);
     if (val === undefined) return defaultValue;
     const parsed = parseInt(val, 10);
     if (Number.isNaN(parsed)) return defaultValue;
@@ -30,8 +21,7 @@ export class EnvService {
   }
 
   getBoolean<D extends boolean | null | undefined>(key: string, defaultValue: D): boolean | D {
-    this.ensureLoaded();
-    const val = process.env[key];
+    const val = this.provider.get(key);
     if (val === undefined) return defaultValue;
     return val === 'true' || val === '1';
   }

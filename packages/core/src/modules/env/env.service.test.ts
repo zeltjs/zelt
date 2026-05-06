@@ -1,141 +1,95 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { resolveWith } from '../../internal/container';
+
+import { ProcessEnvConfig } from './env.provider';
+import { EnvService } from './env.service';
+
+const createEnvService = () => {
+  const { target } = resolveWith(EnvService, {
+    configs: [ProcessEnvConfig],
+  });
+  return target;
+};
+
 describe('EnvService', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
   });
 
   describe('getString', () => {
-    it('returns env value when exists', async () => {
+    it('returns env value when exists', () => {
       vi.stubEnv('TEST_KEY', 'test_value');
-
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+      const service = createEnvService();
       expect(service.getString('TEST_KEY', 'default')).toBe('test_value');
     });
 
-    it('returns default string when env not exists', async () => {
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+    it('returns default string when env not exists', () => {
+      const service = createEnvService();
       expect(service.getString('NOT_EXISTS', 'default')).toBe('default');
     });
 
-    it('returns null when default is null', async () => {
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+    it('returns null when default is null', () => {
+      const service = createEnvService();
       expect(service.getString('NOT_EXISTS', null)).toBeNull();
     });
 
-    it('returns undefined when default is undefined', async () => {
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+    it('returns undefined when default is undefined', () => {
+      const service = createEnvService();
       expect(service.getString('NOT_EXISTS', undefined)).toBeUndefined();
     });
   });
 
   describe('getInteger', () => {
-    it('returns parsed integer when env exists', async () => {
+    it('returns parsed integer when env exists', () => {
       vi.stubEnv('PORT', '3000');
-
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+      const service = createEnvService();
       expect(service.getInteger('PORT', 8080)).toBe(3000);
     });
 
-    it('returns default when env not exists', async () => {
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+    it('returns default when env not exists', () => {
+      const service = createEnvService();
       expect(service.getInteger('NOT_EXISTS', 8080)).toBe(8080);
     });
 
-    it('returns default when env is not a valid integer', async () => {
+    it('returns default when env is not a valid integer', () => {
       vi.stubEnv('INVALID', 'not_a_number');
-
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+      const service = createEnvService();
       expect(service.getInteger('INVALID', 8080)).toBe(8080);
     });
 
-    it('returns null when default is null', async () => {
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+    it('returns null when default is null', () => {
+      const service = createEnvService();
       expect(service.getInteger('NOT_EXISTS', null)).toBeNull();
     });
   });
 
   describe('getBoolean', () => {
-    it('returns true when env is "true"', async () => {
+    it('returns true when env is "true"', () => {
       vi.stubEnv('ENABLED', 'true');
-
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+      const service = createEnvService();
       expect(service.getBoolean('ENABLED', false)).toBe(true);
     });
 
-    it('returns true when env is "1"', async () => {
+    it('returns true when env is "1"', () => {
       vi.stubEnv('ENABLED', '1');
-
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+      const service = createEnvService();
       expect(service.getBoolean('ENABLED', false)).toBe(true);
     });
 
-    it('returns false when env is other value', async () => {
+    it('returns false when env is other value', () => {
       vi.stubEnv('ENABLED', 'false');
-
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+      const service = createEnvService();
       expect(service.getBoolean('ENABLED', true)).toBe(false);
     });
 
-    it('returns default when env not exists', async () => {
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+    it('returns default when env not exists', () => {
+      const service = createEnvService();
       expect(service.getBoolean('NOT_EXISTS', true)).toBe(true);
     });
 
-    it('returns null when default is null', async () => {
-      const { EnvService } = await import('./env.service');
-      const { Container } = await import('@needle-di/core');
-      const container = new Container();
-      const service = container.get(EnvService);
-
+    it('returns null when default is null', () => {
+      const service = createEnvService();
       expect(service.getBoolean('NOT_EXISTS', null)).toBeNull();
     });
   });

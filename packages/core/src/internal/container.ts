@@ -36,6 +36,7 @@ type Override<T> = {
 };
 
 type ResolveWithOptions = {
+  readonly configs?: readonly Class<unknown>[];
   readonly overrides?: readonly Override<unknown>[];
 };
 
@@ -49,6 +50,14 @@ export const resolveWith = <T extends object>(
   options: ResolveWithOptions = {},
 ): ResolveWithResult<T> => {
   const container = new Container();
+
+  for (const configClass of options.configs ?? []) {
+    const token = findConfigToken(configClass);
+    if (token && token !== configClass) {
+      container.bind(configClass);
+      container.bind({ provide: token, useExisting: configClass });
+    }
+  }
 
   for (const override of options.overrides ?? []) {
     container.bind({ provide: override.provide, useValue: override.useValue });
