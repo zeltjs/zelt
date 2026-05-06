@@ -151,6 +151,22 @@ export default tseslint.config(
     },
   },
   {
+    // Env module needs process.env access and maintains load state.
+    // This is the core purpose of the module.
+    files: ['packages/core/src/modules/env/env.service.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-process-access': 'off',
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
+  {
+    // Env module test file
+    files: ['packages/core/src/modules/env/env.service.test.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
+  {
     // CLI package does not use DI
     files: ['packages/cli/src/**/*.{ts,tsx}'],
     rules: {
