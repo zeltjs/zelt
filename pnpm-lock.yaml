@@ -106,9 +106,6 @@ importers:
       jose:
         specifier: 6.0.11
         version: 6.0.11
-      neverthrow:
-        specifier: 8.2.0
-        version: 8.2.0
     devDependencies:
       '@needle-di/core':
         specifier: 1.1.2

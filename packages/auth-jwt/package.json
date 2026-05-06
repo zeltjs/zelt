@@ -29,8 +29,7 @@
     "@zeltjs/core": "workspace:*"
   },
   "dependencies": {
-    "jose": "6.0.11",
-    "neverthrow": "8.2.0"
+    "jose": "6.0.11"
   },
   "devDependencies": {
     "@needle-di/core": "1.1.2",

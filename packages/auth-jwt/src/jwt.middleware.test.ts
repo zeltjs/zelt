@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { Hono } from 'hono';
+import { describe, it, expect } from 'vitest';
 import { Container } from '@needle-di/core';
-import type { RequestContext, Next } from '@zeltjs/core';
+import {
+  Controller,
+  Get,
+  UseMiddleware,
+  createHttpApp,
+  currentUser,
+  currentRoles,
+} from '@zeltjs/core';
 
 import { JwtMiddleware } from './jwt.middleware';
 import { JwtService } from './jwt.service';
@@ -21,30 +27,36 @@ class TestJwtConfig extends JwtConfig {
   }
 }
 
-describe('JwtMiddleware', () => {
-  let app: Hono;
-  let jwtService: JwtService;
-  let middleware: JwtMiddleware;
+@Controller('/protected')
+@UseMiddleware(JwtMiddleware)
+class ProtectedController {
+  @Get('/')
+  get() {
+    return { message: 'success' };
+  }
+}
 
-  beforeEach(() => {
-    const container = new Container();
-    container.bind({ provide: JwtConfig.Token, useClass: TestJwtConfig });
-    jwtService = container.get(JwtService);
-    middleware = container.get(JwtMiddleware);
-
-    app = new Hono();
-    app.use('/*', (c, next) => middleware.use(c as RequestContext, next as Next));
-    app.get('/protected', (c) => c.json({ message: 'success' }));
+const buildApp = () =>
+  createHttpApp({
+    controllers: [ProtectedController],
+    configs: [TestJwtConfig],
   });
 
+const buildJwtService = () => {
+  const container = new Container();
+  container.bind({ provide: JwtConfig.Token, useClass: TestJwtConfig });
+  return container.get(JwtService);
+};
+
+describe('JwtMiddleware', () => {
   it('should return 401 when no Authorization header', async () => {
-    const res = await app.request('/protected');
+    const res = await buildApp().request('/protected/');
 
     expect(res.status).toBe(401);
   });
 
   it('should return 401 when Authorization header is not Bearer', async () => {
-    const res = await app.request('/protected', {
+    const res = await buildApp().request('/protected/', {
       headers: { Authorization: 'Basic abc123' },
     });
 
@@ -52,7 +64,7 @@ describe('JwtMiddleware', () => {
   });
 
   it('should return 401 when token is invalid', async () => {
-    const res = await app.request('/protected', {
+    const res = await buildApp().request('/protected/', {
       headers: { Authorization: 'Bearer invalid-token' },
     });
 
@@ -60,8 +72,9 @@ describe('JwtMiddleware', () => {
   });
 
   it('should allow request with valid token', async () => {
+    const jwtService = buildJwtService();
     const token = await jwtService.sign({ sub: 'user-123' });
-    const res = await app.request('/protected', {
+    const res = await buildApp().request('/protected/', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -86,10 +99,44 @@ describe('JwtMiddleware', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const res = await app.request('/protected', {
+    const res = await buildApp().request('/protected/', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     expect(res.status).toBe(401);
+  });
+});
+
+describe('JwtMiddleware — setUser integration', () => {
+  it('should expose currentUser and currentRoles after middleware runs', async () => {
+    let capturedUser: unknown;
+    let capturedRoles: string[] = [];
+
+    @Controller('/user-check')
+    @UseMiddleware(JwtMiddleware)
+    class UserCheckController {
+      @Get('/')
+      get() {
+        capturedUser = currentUser();
+        capturedRoles = currentRoles();
+        return { ok: true };
+      }
+    }
+
+    const httpApp = createHttpApp({
+      controllers: [UserCheckController],
+      configs: [TestJwtConfig],
+    });
+
+    const jwtService = buildJwtService();
+    const token = await jwtService.sign({ sub: 'user-42' });
+
+    const res = await httpApp.request('/user-check/', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.status).toBe(200);
+    expect(capturedUser).toBe('user-42');
+    expect(capturedRoles).toEqual(['user', 'admin']);
   });
 });

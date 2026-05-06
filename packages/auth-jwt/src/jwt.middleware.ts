@@ -1,13 +1,13 @@
-import { Injectable, injectConfig } from '@zeltjs/core';
+import { Middleware, inject, injectConfig, setUser } from '@zeltjs/core';
 import type { RequestContext, Next } from '@zeltjs/core';
 
 import { JwtConfig } from './jwt.config';
 import { JwtService } from './jwt.service';
 
-@Injectable()
+@Middleware
 export class JwtMiddleware {
   constructor(
-    private readonly jwtService = new JwtService(injectConfig(JwtConfig)),
+    private readonly jwtService = inject(JwtService),
     private readonly config = injectConfig(JwtConfig),
   ) {}
 
@@ -28,7 +28,8 @@ export class JwtMiddleware {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    await this.config.resolveUser(verified.payload);
+    const { user, roles } = await this.config.resolveUser(verified.payload);
+    setUser(user, roles);
     await next();
     return undefined;
   }
