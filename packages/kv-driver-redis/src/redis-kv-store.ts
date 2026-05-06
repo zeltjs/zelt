@@ -2,10 +2,22 @@ import {
   assertNonEmptyPrefix,
   joinPrefix,
   KVError,
+  MinTtlError,
   type AtomicKVStore,
   type SetOptions,
 } from '@zeltjs/kv';
 import type Redis from 'ioredis';
+
+// NOTE: spec says ioredis command errors should be wrapped in KVError, but
+// MemoryKV doesn't wrap either, and ioredis errors are descriptive enough.
+// If wrapping becomes necessary (e.g., for cross-driver error type checks),
+// add a withErrorWrap utility and apply uniformly across all drivers + MemoryKV.
+
+const assertValidTtl = (ttlSec: number | undefined): void => {
+  if (ttlSec !== undefined && ttlSec <= 0) {
+    throw new MinTtlError('ttlSec must be > 0');
+  }
+};
 
 interface RedisWithCustomCommands extends Redis {
   zeltIncrWithTtl(key: string, by: number, ttlOrEmpty: string): Promise<number>;
@@ -32,6 +44,7 @@ export class RedisKVStore implements AtomicKVStore {
 
   async set<T>(key: string, value: T, opts?: SetOptions): Promise<void> {
     if (value === undefined) throw new KVError('cannot set undefined');
+    assertValidTtl(opts?.ttlSec);
     const json = JSON.stringify(value);
     if (opts?.ttlSec !== undefined) {
       await this.client.set(this.k(key), json, 'EX', opts.ttlSec);
@@ -49,6 +62,7 @@ export class RedisKVStore implements AtomicKVStore {
   }
 
   async expire(key: string, ttlSec: number): Promise<boolean> {
+    assertValidTtl(ttlSec);
     return (await this.client.expire(this.k(key), ttlSec)) === 1;
   }
 
@@ -58,11 +72,13 @@ export class RedisKVStore implements AtomicKVStore {
   }
 
   async incr(key: string, by = 1, opts?: { ttlSec?: number }): Promise<number> {
+    assertValidTtl(opts?.ttlSec);
     return await this.client.zeltIncrWithTtl(this.k(key), by, String(opts?.ttlSec ?? ''));
   }
 
   async setnx<T>(key: string, value: T, opts?: SetOptions): Promise<boolean> {
     if (value === undefined) throw new KVError('cannot setnx undefined');
+    assertValidTtl(opts?.ttlSec);
     const result = await this.client.zeltSetnxWithTtl(
       this.k(key),
       JSON.stringify(value),

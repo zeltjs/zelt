@@ -1,9 +1,17 @@
 import { runAtomicKVStoreComplianceTests } from '@zeltjs/kv/testing';
-import { afterAll, beforeEach } from 'vitest';
+import { afterAll, beforeAll, beforeEach } from 'vitest';
 import Redis from 'ioredis';
 
 import { RedisConfig } from './redis.config';
 import { RedisKV } from './redis-kv';
+
+const url = process.env['REDIS_URL'] ?? 'redis://localhost:6379';
+
+beforeAll(async () => {
+  const probe = new Redis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
+  await probe.connect();
+  await probe.quit();
+});
 
 const config = new RedisConfig();
 
@@ -23,7 +31,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await driver?.shutdown();
+  await driver.shutdown();
 });
 
 runAtomicKVStoreComplianceTests(() => driver, { realClock: true, sleepMs: 1500 });
