@@ -1,0 +1,10 @@
+# Managed by lefthook - see https://github.com/evilmartians/lefthook
+pre-commit:
+  commands:
+    precommit-verify:
+      run: npx precommit-verify check
+
+prepare-commit-msg:
+  commands:
+    verify-footer:
+      run: npx precommit-verify verify-footer "{1}" "${2:-}"

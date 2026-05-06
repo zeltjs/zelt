@@ -16,7 +16,12 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Techniques',
-      items: ['authentication', 'validation', 'error-handling', 'configuration', 'openapi'],
+      items: ['authentication', 'validation', 'error-handling', 'configuration'],
+    },
+    {
+      type: 'category',
+      label: 'Client Integration',
+      items: ['hono-client', 'openapi'],
     },
   ],
 };
