@@ -30,7 +30,8 @@
     "@zeltjs/kv": "workspace:*"
   },
   "dependencies": {
-    "ioredis": "5.10.1"
+    "ioredis": "5.10.1",
+    "neverthrow": "8.2.0"
   },
   "devDependencies": {
     "@needle-di/core": "1.1.2",

@@ -1,23 +1,24 @@
 import {
-  assertNonEmptyPrefix,
   joinPrefix,
-  KVError,
-  MinTtlError,
+  serialize,
+  deserialize,
+  storeOperationFailed,
+  validatePrefix,
+  invalidTtl,
   type AtomicKVStore,
+  type KVError,
   type SetOptions,
 } from '@zeltjs/kv';
 import type Redis from 'ioredis';
+import { err, ok, fromPromise, ResultAsync, type Result } from 'neverthrow';
 
-// NOTE: spec says ioredis command errors should be wrapped in KVError, but
-// MemoryKV doesn't wrap either, and ioredis errors are descriptive enough.
-// If wrapping becomes necessary (e.g., for cross-driver error type checks),
-// add a withErrorWrap utility and apply uniformly across all drivers + MemoryKV.
-
-const assertValidTtl = (ttlSec: number | undefined): void => {
-  if (ttlSec !== undefined && ttlSec <= 0) {
-    throw new MinTtlError('ttlSec must be > 0');
-  }
+const validateTtl = (ttlSec: number | undefined): Result<void, KVError> => {
+  if (ttlSec !== undefined && ttlSec <= 0) return err(invalidTtl(ttlSec));
+  return ok(undefined);
 };
+
+const toResultAsync = <T, E>(result: Result<T, E>): ResultAsync<T, E> =>
+  new ResultAsync(Promise.resolve(result));
 
 export interface RedisWithCustomCommands extends Redis {
   zeltIncrWithTtl(key: string, by: number, ttlOrEmpty: string): Promise<number>;
@@ -29,66 +30,81 @@ export class RedisKVStore implements AtomicKVStore {
   constructor(
     private readonly client: RedisWithCustomCommands,
     private readonly prefix: string,
-  ) {
-    assertNonEmptyPrefix(prefix);
-  }
+  ) {}
 
   private k(key: string): string {
     return this.prefix + key;
   }
 
-  async get<T>(key: string): Promise<T | undefined> {
-    const raw = await this.client.get(this.k(key));
-    return raw === null ? undefined : (JSON.parse(raw) as T);
+  get<T>(key: string): ResultAsync<T | undefined, KVError> {
+    return fromPromise(this.client.get(this.k(key)), (cause) =>
+      storeOperationFailed('get', cause),
+    ).map((raw) => (raw === null ? undefined : deserialize<T>(raw)));
   }
 
-  async set<T>(key: string, value: T, opts?: SetOptions): Promise<void> {
-    if (value === undefined) throw new KVError('cannot set undefined');
-    assertValidTtl(opts?.ttlSec);
-    const json = JSON.stringify(value);
-    if (opts?.ttlSec !== undefined) {
-      await this.client.set(this.k(key), json, 'EX', opts.ttlSec);
-    } else {
-      await this.client.set(this.k(key), json);
-    }
-  }
-
-  async del(key: string): Promise<void> {
-    await this.client.del(this.k(key));
-  }
-
-  async has(key: string): Promise<boolean> {
-    return (await this.client.exists(this.k(key))) === 1;
-  }
-
-  async expire(key: string, ttlSec: number): Promise<boolean> {
-    assertValidTtl(ttlSec);
-    return (await this.client.expire(this.k(key), ttlSec)) === 1;
-  }
-
-  namespace(sub: string): AtomicKVStore {
-    assertNonEmptyPrefix(sub);
-    return new RedisKVStore(this.client, joinPrefix(this.prefix, sub));
-  }
-
-  async incr(key: string, by = 1, opts?: { ttlSec?: number }): Promise<number> {
-    assertValidTtl(opts?.ttlSec);
-    return await this.client.zeltIncrWithTtl(this.k(key), by, String(opts?.ttlSec ?? ''));
-  }
-
-  async setnx<T>(key: string, value: T, opts?: SetOptions): Promise<boolean> {
-    if (value === undefined) throw new KVError('cannot setnx undefined');
-    assertValidTtl(opts?.ttlSec);
-    const result = await this.client.zeltSetnxWithTtl(
-      this.k(key),
-      JSON.stringify(value),
-      String(opts?.ttlSec ?? ''),
+  set<T>(key: string, value: T, opts?: SetOptions): ResultAsync<void, KVError> {
+    const validated = validateTtl(opts?.ttlSec).andThen(() => serialize(value));
+    return toResultAsync(validated).andThen((json) =>
+      opts?.ttlSec !== undefined
+        ? fromPromise(this.client.set(this.k(key), json, 'EX', opts.ttlSec), (cause) =>
+            storeOperationFailed('set', cause),
+          ).map(() => undefined)
+        : fromPromise(this.client.set(this.k(key), json), (cause) =>
+            storeOperationFailed('set', cause),
+          ).map(() => undefined),
     );
-    return result === 1;
   }
 
-  async delIf(key: string, expected: unknown): Promise<boolean> {
-    const result = await this.client.zeltDelIf(this.k(key), JSON.stringify(expected));
-    return result === 1;
+  del(key: string): ResultAsync<void, KVError> {
+    return fromPromise(this.client.del(this.k(key)), (cause) =>
+      storeOperationFailed('del', cause),
+    ).map(() => undefined);
+  }
+
+  has(key: string): ResultAsync<boolean, KVError> {
+    return fromPromise(this.client.exists(this.k(key)), (cause) =>
+      storeOperationFailed('exists', cause),
+    ).map((n) => n === 1);
+  }
+
+  expire(key: string, ttlSec: number): ResultAsync<boolean, KVError> {
+    return toResultAsync(validateTtl(ttlSec)).andThen(() =>
+      fromPromise(this.client.expire(this.k(key), ttlSec), (cause) =>
+        storeOperationFailed('expire', cause),
+      ).map((n) => n === 1),
+    );
+  }
+
+  namespace(sub: string): Result<AtomicKVStore, KVError> {
+    return validatePrefix(sub).map(
+      (s) => new RedisKVStore(this.client, joinPrefix(this.prefix, s)),
+    );
+  }
+
+  incr(key: string, by = 1, opts?: { ttlSec?: number }): ResultAsync<number, KVError> {
+    return toResultAsync(validateTtl(opts?.ttlSec)).andThen(() =>
+      fromPromise(
+        this.client.zeltIncrWithTtl(this.k(key), by, String(opts?.ttlSec ?? '')),
+        (cause) => storeOperationFailed('incr', cause),
+      ),
+    );
+  }
+
+  setnx<T>(key: string, value: T, opts?: SetOptions): ResultAsync<boolean, KVError> {
+    const validated = validateTtl(opts?.ttlSec).andThen(() => serialize(value));
+    return toResultAsync(validated).andThen((json) =>
+      fromPromise(
+        this.client.zeltSetnxWithTtl(this.k(key), json, String(opts?.ttlSec ?? '')),
+        (cause) => storeOperationFailed('setnx', cause),
+      ).map((n) => n === 1),
+    );
+  }
+
+  delIf(key: string, expected: unknown): ResultAsync<boolean, KVError> {
+    return toResultAsync(serialize(expected)).andThen((expectedJson) =>
+      fromPromise(this.client.zeltDelIf(this.k(key), expectedJson), (cause) =>
+        storeOperationFailed('delIf', cause),
+      ).map((n) => n === 1),
+    );
   }
 }
