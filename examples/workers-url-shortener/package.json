@@ -1,0 +1,19 @@
+{
+  "name": "@examples/workers-url-shortener",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@zeltjs/core": "workspace:*",
+    "valibot": "1.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260506.1",
+    "hono": "4.12.16",
+    "wrangler": "4.88.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "erasableSyntaxOnly": false,
+    "types": ["@cloudflare/workers-types/2023-07-01"]
+  },
+  "include": ["src/**/*"]
+}
