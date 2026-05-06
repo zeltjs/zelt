@@ -30,4 +30,11 @@ export class EnvService {
     if (Number.isNaN(parsed)) return defaultValue;
     return parsed;
   }
+
+  getBoolean<D extends boolean | null | undefined>(key: string, defaultValue: D): boolean | D {
+    this.ensureLoaded();
+    const val = process.env[key];
+    if (val === undefined) return defaultValue;
+    return val === 'true' || val === '1';
+  }
 }

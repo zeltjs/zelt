@@ -86,4 +86,57 @@ describe('EnvService', () => {
       expect(service.getInteger('NOT_EXISTS', null)).toBeNull();
     });
   });
+
+  describe('getBoolean', () => {
+    it('returns true when env is "true"', async () => {
+      vi.stubEnv('ENABLED', 'true');
+
+      const { EnvService } = await import('./env.service');
+      const { Container } = await import('@needle-di/core');
+      const container = new Container();
+      const service = container.get(EnvService);
+
+      expect(service.getBoolean('ENABLED', false)).toBe(true);
+    });
+
+    it('returns true when env is "1"', async () => {
+      vi.stubEnv('ENABLED', '1');
+
+      const { EnvService } = await import('./env.service');
+      const { Container } = await import('@needle-di/core');
+      const container = new Container();
+      const service = container.get(EnvService);
+
+      expect(service.getBoolean('ENABLED', false)).toBe(true);
+    });
+
+    it('returns false when env is other value', async () => {
+      vi.stubEnv('ENABLED', 'false');
+
+      const { EnvService } = await import('./env.service');
+      const { Container } = await import('@needle-di/core');
+      const container = new Container();
+      const service = container.get(EnvService);
+
+      expect(service.getBoolean('ENABLED', true)).toBe(false);
+    });
+
+    it('returns default when env not exists', async () => {
+      const { EnvService } = await import('./env.service');
+      const { Container } = await import('@needle-di/core');
+      const container = new Container();
+      const service = container.get(EnvService);
+
+      expect(service.getBoolean('NOT_EXISTS', true)).toBe(true);
+    });
+
+    it('returns null when default is null', async () => {
+      const { EnvService } = await import('./env.service');
+      const { Container } = await import('@needle-di/core');
+      const container = new Container();
+      const service = container.get(EnvService);
+
+      expect(service.getBoolean('NOT_EXISTS', null)).toBeNull();
+    });
+  });
 });
