@@ -31,6 +31,7 @@
     "ioredis": "5.10.1"
   },
   "devDependencies": {
+    "@needle-di/core": "1.1.2",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/kv": "workspace:*",
     "@types/node": "22.19.17"
