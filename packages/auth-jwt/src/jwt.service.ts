@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify, decodeJwt } from 'jose';
+import { fromThrowable } from 'neverthrow';
 import { Injectable, injectConfig } from '@zeltjs/core';
 
 import { JwtConfig } from './jwt.config';
@@ -28,11 +29,8 @@ export class JwtService {
   }
 
   decode(token: string): JwtPayload | null {
-    try {
-      return decodeJwt<JwtPayload>(token);
-    } catch {
-      return null;
-    }
+    const safeDecode = fromThrowable(decodeJwt<JwtPayload>);
+    return safeDecode(token).unwrapOr(null);
   }
 
   private parseExpiresIn(expiresIn: string): string | number {

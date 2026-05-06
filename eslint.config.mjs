@@ -33,7 +33,7 @@ export default tseslint.config(
   ...strictTypes.configs.barrel,
   {
     files: ['**/*.*.{ts,tsx}'],
-    ignores: ['**/*.lib.{ts,tsx}'],
+    ignores: ['**/*.lib.{ts,tsx}', '**/*.types.{ts,tsx}'],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
         'error',
@@ -104,7 +104,7 @@ export default tseslint.config(
   },
   {
     // framework error strategy: throw + global error handler (spec §4.9 / koya phase2)
-    files: ['packages/core/src/**/*.{ts,tsx}', 'packages/auth-jwt/src/**/*.{ts,tsx}'],
+    files: ['packages/core/src/**/*.{ts,tsx}'],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
@@ -176,13 +176,6 @@ export default tseslint.config(
     },
   },
   {
-    // *.types.ts files are pure type declaration files and cannot export @injectable() classes.
-    files: ['**/*.types.ts'],
-    rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
     // Example apps: relaxed rules for demo code clarity
     // - HTTPException requires throw
     // - raw fetch returns untyped JSON
@@ -193,6 +186,13 @@ export default tseslint.config(
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       'max-lines-per-function': 'off',
+    },
+  },
+  {
+    // *.types.ts files are pure type declaration files and cannot export @injectable() classes.
+    files: ['**/*.types.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
     },
   },
 );
