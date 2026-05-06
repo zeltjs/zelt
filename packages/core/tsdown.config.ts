@@ -7,6 +7,6 @@ export default defineConfig({
   clean: true,
   fixedExtension: false,
   deps: {
-    neverBundle: ['hono', /^hono\//, /^@hono\//],
+    neverBundle: ['hono', /^hono\//, /^@hono\//, 'valibot'],
   },
 });
