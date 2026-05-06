@@ -84,6 +84,19 @@ describe('MemoryKV (TTL)', () => {
   });
 });
 
+describe('MemoryKV (Disposable)', () => {
+  it('shutdown() resolves without throwing', async () => {
+    const kv = new MemoryKV();
+    await expect(kv.shutdown()).resolves.toBeUndefined();
+  });
+
+  it('shutdown() stops the GC interval (calling shutdown twice does not throw)', async () => {
+    const kv = new MemoryKV();
+    await kv.shutdown();
+    await expect(kv.shutdown()).resolves.toBeUndefined();
+  });
+});
+
 describe('MemoryKV (AtomicKVStore ops)', () => {
   it('incr from missing key starts at 1, then increments', async () => {
     const kv = new MemoryKV();

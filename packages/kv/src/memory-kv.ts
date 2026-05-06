@@ -1,4 +1,4 @@
-import { Injectable } from '@zeltjs/core';
+import { Injectable, type Disposable } from '@zeltjs/core';
 
 import { assertNonEmptyPrefix, joinPrefix } from './namespace';
 import { deserialize, serialize } from './serialize';
@@ -14,8 +14,28 @@ const makeEntry = (raw: string, ttlSec?: number): Entry =>
   ttlSec !== undefined ? { raw, expiresAt: Date.now() + ttlSec * 1000 } : { raw };
 
 @Injectable()
-export class MemoryKV implements AtomicKVDriver {
+export class MemoryKV implements AtomicKVDriver, Disposable {
   private readonly data = new Map<string, Entry>();
+  private readonly gcInterval: ReturnType<typeof setInterval>;
+
+  constructor() {
+    this.gcInterval = setInterval(() => this.gc(), 60_000);
+    // prevent the interval from keeping the Node.js process alive
+    this.gcInterval.unref?.();
+  }
+
+  private gc(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.data) {
+      if (entry.expiresAt !== undefined && entry.expiresAt <= now) {
+        this.data.delete(key);
+      }
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    clearInterval(this.gcInterval);
+  }
 
   namespace(prefix: string): AtomicKVStore {
     assertNonEmptyPrefix(prefix);
