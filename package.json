@@ -16,7 +16,7 @@
     "test": "vitest run",
     "typecheck": "tsc -b",
     "precommit": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm build && pnpm test && npx precommit-verify save",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "npx lefthook install"
   },
   "devDependencies": {
     "@9wick/eslint-plugin-strict-type-rules": "1.1.0",
@@ -28,6 +28,7 @@
     "eslint-plugin-oxlint": "1.62.0",
     "eslint-plugin-sonarjs": "4.0.3",
     "knip": "6.10.0",
+    "lefthook": "2.1.6",
     "nx": "21.6.10",
     "oxlint": "1.62.0",
     "precommit-verify": "0.1.7",
