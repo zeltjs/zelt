@@ -1,5 +1,5 @@
 filter: diff
-agent: github-copilot/gpt-4.1
+agent: claude-code/claude-sonnet-4-5
 concurrency: 10
 
 rules:
