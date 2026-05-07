@@ -94,35 +94,76 @@ The `Token` property is inherited from the parent class, so `injectConfig(Databa
 
 ## Environment-Based Configuration
 
-A common pattern for environment-aware configuration:
+Zelt provides built-in config classes for environment variables:
+
+### ProcessEnvConfig
+
+Reads from `process.env` directly:
 
 ```typescript
-import { Config } from '@zeltjs/core';
+import { Config, ProcessEnvConfig, injectConfig } from '@zeltjs/core';
 
 @Config
-export class AppConfig {
-  static readonly Token = AppConfig;
+export class DatabaseConfig {
+  static readonly Token = DatabaseConfig;
 
-  get environment() {
-    return process.env.NODE_ENV ?? 'development';
-  }
+  constructor(private env = injectConfig(ProcessEnvConfig)) {}
 
-  get isDevelopment() {
-    return this.environment === 'development';
-  }
-
-  get isProduction() {
-    return this.environment === 'production';
+  get host() {
+    return this.env.get('DATABASE_HOST') ?? 'localhost';
   }
 
   get port() {
-    return Number(process.env.PORT ?? 3000);
+    return Number(this.env.get('DATABASE_PORT') ?? 5432);
   }
 
-  get apiBaseUrl() {
-    return this.isProduction
-      ? 'https://api.example.com'
-      : 'http://localhost:3000';
+  get connectionString() {
+    return `postgres://${this.host}:${this.port}/mydb`;
   }
 }
+
+// Register both configs
+const app = createHttpApp({
+  controllers: [AppController],
+  configs: [ProcessEnvConfig, DatabaseConfig],
+});
 ```
+
+### DotEnvConfig
+
+Loads `.env` files using [dotenv](https://github.com/motdotla/dotenv), then reads from `process.env`:
+
+```typescript
+import { Config, DotEnvConfig, injectConfig } from '@zeltjs/core';
+
+@Config
+export class DatabaseConfig {
+  static readonly Token = DatabaseConfig;
+
+  constructor(private env = injectConfig(DotEnvConfig)) {}
+
+  get host() {
+    return this.env.get('DATABASE_HOST') ?? 'localhost';
+  }
+}
+
+// DotEnvConfig loads .env on construction
+const app = createHttpApp({
+  controllers: [AppController],
+  configs: [DotEnvConfig, DatabaseConfig],
+});
+```
+
+### Custom Env Paths
+
+Extend `DotEnvConfig` to load from custom paths:
+
+```typescript
+import { Config, DotEnvConfig } from '@zeltjs/core';
+
+@Config
+export class MyEnvConfig extends DotEnvConfig {
+  protected override readonly paths = ['.env', '.env.local'];
+}
+```
+

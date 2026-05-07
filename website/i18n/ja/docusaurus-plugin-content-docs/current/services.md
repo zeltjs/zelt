@@ -11,7 +11,7 @@ sidebar_position: 4
 サービスは`@Injectable()`デコレーターで装飾されたクラスです：
 
 ```typescript
-import { Injectable } from '@koya/core';
+import { Injectable } from '@zeltjs/core';
 
 @Injectable()
 export class UserService {
@@ -39,7 +39,7 @@ export class UserService {
 `inject()`を使用してサービスをコントローラーに注入します：
 
 ```typescript
-import { Controller, Get, Post, inject, pathParam, validated } from '@koya/core';
+import { Controller, Get, Post, inject, pathParam, validated } from '@zeltjs/core';
 import * as v from 'valibot';
 import { UserService } from './user.service';
 
@@ -77,7 +77,7 @@ export class UserController {
 サービスは他のサービスを注入できます：
 
 ```typescript
-import { Injectable, inject } from '@koya/core';
+import { Injectable, inject } from '@zeltjs/core';
 import { DatabaseService } from './database.service';
 import { LoggerService } from './logger.service';
 
@@ -127,7 +127,7 @@ export class ConfigService {
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
-import { createTestContainer } from '@koya/testing';
+import { createTestTarget } from '@zeltjs/testing';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
@@ -135,7 +135,7 @@ describe('UserController', () => {
   it('should return all users', async () => {
     const mockUsers = [{ id: '1', name: 'John' }];
     
-    const container = createTestContainer()
+    const container = createTestTarget()
       .override(UserService, {
         findAll: () => mockUsers,
       });

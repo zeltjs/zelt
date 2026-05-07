@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # はじめに
 
-このガイドでは、Koyaの基本を学びます。基本的なCRUDアプリケーションを構築しながら、必要不可欠な構成要素に慣れていきましょう。
+このガイドでは、Zeltの基本を学びます。基本的なCRUDアプリケーションを構築しながら、必要不可欠な構成要素に慣れていきましょう。
 
 ## 前提条件
 
@@ -14,7 +14,7 @@ sidebar_position: 2
 ## インストール
 
 ```bash
-pnpm add @koya/core @koya/adapter-node
+pnpm add @zeltjs/core @zeltjs/adapter-node
 ```
 
 ## シンプルなアプリケーションの作成
@@ -39,7 +39,7 @@ my-app/
 コントローラーは受信リクエストを処理し、レスポンスを返します。`src/controllers/hello.controller.ts`を作成：
 
 ```typescript
-import { Controller, Get, pathParam } from '@koya/core';
+import { Controller, Get, pathParam } from '@zeltjs/core';
 
 @Controller('/hello')
 export class HelloController {
@@ -55,7 +55,7 @@ export class HelloController {
 `src/app.ts`を作成してコントローラーを接続：
 
 ```typescript
-import { createHttpApp } from '@koya/core';
+import { createHttpApp } from '@zeltjs/core';
 import { HelloController } from './controllers/hello.controller';
 
 export const app = createHttpApp({
@@ -68,7 +68,7 @@ export const app = createHttpApp({
 Node.jsエントリーポイント`src/main.ts`を作成：
 
 ```typescript
-import { serve } from '@koya/adapter-node';
+import { serve } from '@zeltjs/adapter-node';
 import { app } from './app';
 
 serve(app, { port: 3000 }, (info) => {

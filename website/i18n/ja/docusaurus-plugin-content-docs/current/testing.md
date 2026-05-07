@@ -8,12 +8,12 @@ sidebar_position: 7
 テストのドキュメントは作成中です。
 :::
 
-Koyaはアプリケーションをテストするためのユーティリティを含む`@koya/testing`パッケージを提供しています。
+Zeltはアプリケーションをテストするためのユーティリティを含む`@zeltjs/testing`パッケージを提供しています。
 
 ## インストール
 
 ```bash
-pnpm add -D @koya/testing vitest
+pnpm add -D @zeltjs/testing vitest
 ```
 
 ## 基本的な例
