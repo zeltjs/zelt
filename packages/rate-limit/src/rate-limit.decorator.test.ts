@@ -14,7 +14,7 @@ describe('@RateLimit decorator', () => {
       }
     }
 
-    const app = createHttpApp({ controllers: [TestController] });
+    const app = await createHttpApp({ controllers: [TestController] });
 
     const r1 = await app.request('/limited');
     expect(r1.status).toBe(200);
@@ -36,7 +36,7 @@ describe('@RateLimit decorator', () => {
         return { ok: true };
       }
     }
-    const app = createHttpApp({ controllers: [TestController] });
+    const app = await createHttpApp({ controllers: [TestController] });
     const res = await app.request('/headers');
     expect(res.headers.get('X-RateLimit-Limit')).toBe('5');
     expect(res.headers.get('X-RateLimit-Remaining')).toBe('4');
@@ -56,7 +56,7 @@ describe('@RateLimit decorator', () => {
         return { ok: true };
       }
     }
-    const app = createHttpApp({ controllers: [TestController] });
+    const app = await createHttpApp({ controllers: [TestController] });
     // Different keys per request → both succeed
     const r1 = await app.request('/dyn');
     const r2 = await app.request('/dyn');
@@ -74,7 +74,7 @@ describe('@RateLimit decorator', () => {
         return { ok: true };
       }
     }
-    const app = createHttpApp({ controllers: [TestController] });
+    const app = await createHttpApp({ controllers: [TestController] });
     const r1 = await app.request('/stack');
     expect(r1.status).toBe(200);
     const r2 = await app.request('/stack');

@@ -30,7 +30,6 @@ export type HttpApp = {
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
   readonly startScheduler: () => void;
   readonly stopScheduler: () => Promise<void>;
-  readonly startup: () => Promise<void>;
   readonly shutdown: () => Promise<void>;
 };
 
@@ -54,7 +53,7 @@ const resolveErrorHandlers = (
   resolver: Resolver,
 ): ErrorHandlerInstance[] => classes.map((cls) => resolveErrorHandler(cls, resolver));
 
-export const createHttpApp = (options: CreateHttpAppOptions): HttpApp => {
+export const createHttpApp = async (options: CreateHttpAppOptions): Promise<HttpApp> => {
   const resolver = createContainer({ configs: options.configs });
   const lifecycle = resolver.get(LifecycleManager);
 
@@ -62,6 +61,9 @@ export const createHttpApp = (options: CreateHttpAppOptions): HttpApp => {
   for (const configClass of options.configs ?? []) {
     resolver.get(configClass);
   }
+
+  await lifecycle.startup();
+
   // strict:false で `/echo` と `/echo/` を同一視する。joinPath が末尾スラッシュを正規化するため、
   // 利用者が `@Post('/')` と書いた場合でも `/echo/` リクエストにマッチさせる必要がある。
   const hono = new Hono({ strict: false });
@@ -93,14 +95,10 @@ export const createHttpApp = (options: CreateHttpAppOptions): HttpApp => {
     await schedulerRunner?.stop();
   };
 
-  const startup = async (): Promise<void> => {
-    await lifecycle.startup();
-  };
-
   const shutdown = async (): Promise<void> => {
     await stopScheduler();
     await lifecycle.shutdown();
   };
 
-  return { fetch, request, startScheduler, stopScheduler, startup, shutdown };
+  return { fetch, request, startScheduler, stopScheduler, shutdown };
 };

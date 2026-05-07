@@ -17,7 +17,7 @@ describe('rate-limit integration with primitives', () => {
       }
     }
 
-    const app = createHttpApp({ controllers: [AuthController] });
+    const app = await createHttpApp({ controllers: [AuthController] });
 
     const r1 = await app.request('/auth/login', {
       method: 'POST',
@@ -57,7 +57,7 @@ describe('rate-limit integration with primitives', () => {
       }
     }
 
-    const app = createHttpApp({ controllers: [AuthController2] });
+    const app = await createHttpApp({ controllers: [AuthController2] });
 
     const r1 = await app.request('/auth/login', {
       method: 'POST',

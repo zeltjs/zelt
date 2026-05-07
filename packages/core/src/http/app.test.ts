@@ -61,19 +61,19 @@ class UploadController {
   }
 }
 
-const buildApp = () =>
-  createHttpApp({ controllers: [HelloController, EchoController, UploadController] });
+const buildApp = async () =>
+  await createHttpApp({ controllers: [HelloController, EchoController, UploadController] });
 
-describe('createHttpApp() — fetch', () => {
+describe('await createHttpApp() — fetch', () => {
   it('serves a constructor-injected GET endpoint with pathParam', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const res = await app.fetch(new Request('https://example.com/hello/zelt'));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ message: 'hello, zelt' });
   });
 
   it('parses JSON body via validated()', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const res = await app.fetch(
       new Request('https://example.com/echo/', {
         method: 'POST',
@@ -86,7 +86,7 @@ describe('createHttpApp() — fetch', () => {
   });
 
   it('parses multipart/form-data with File via validated(schema, "form")', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const formData = new FormData();
     formData.append('description', 'test file');
     formData.append('file', new File(['hello world'], 'test.txt', { type: 'text/plain' }));
@@ -102,7 +102,7 @@ describe('createHttpApp() — fetch', () => {
   });
 
   it('mounts multiple controllers under different base paths', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const a = await app.fetch(new Request('https://example.com/hello/x'));
     const b = await app.fetch(
       new Request('https://example.com/echo/', {
@@ -115,26 +115,26 @@ describe('createHttpApp() — fetch', () => {
     expect(b.status).toBe(200);
   });
 
-  it('throws at createHttpApp() construction when a controller is missing @Controller', () => {
+  it('throws at createHttpApp() construction when a controller is missing @Controller', async () => {
     class NoDecorator {
       @Get('/')
       list() {}
     }
     new NoDecorator();
-    expect(() => createHttpApp({ controllers: [NoDecorator] })).toThrow(/missing @Controller/);
+    await expect(createHttpApp({ controllers: [NoDecorator] })).rejects.toThrow(/missing @Controller/);
   });
 });
 
-describe('createHttpApp() — request', () => {
+describe('await createHttpApp() — request', () => {
   it('accepts a path string with no init (defaults to GET)', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const res = await app.request('/hello/zelt');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ message: 'hello, zelt' });
   });
 
   it('accepts a path string with init for POST + JSON body', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const res = await app.request('/echo/', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -145,14 +145,14 @@ describe('createHttpApp() — request', () => {
   });
 
   it('accepts a raw Request instance', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const res = await app.request(new Request('https://x/hello/zelt'));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ message: 'hello, zelt' });
   });
 
   it('ignores init when input is a Request (Request takes precedence)', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     // Request の method は GET、init で POST を指定しても Request 側が優先される
     const res = await app.request(new Request('https://x/hello/zelt'), { method: 'POST' });
     expect(res.status).toBe(200);
@@ -162,7 +162,7 @@ describe('createHttpApp() — request', () => {
 
 describe('error paths', () => {
   it('returns 400 when validated() rejects the body', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const res = await app.fetch(
       new Request('https://example.com/echo/', {
         method: 'POST',
@@ -174,7 +174,7 @@ describe('error paths', () => {
   });
 
   it('returns 400 for malformed JSON body (validated() sees undefined)', async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const res = await app.fetch(
       new Request('https://example.com/echo/', {
         method: 'POST',
@@ -193,7 +193,7 @@ describe('error paths', () => {
         return { v: pathParam('id') };
       }
     }
-    const app = createHttpApp({ controllers: [BrokenController] });
+    const app = await createHttpApp({ controllers: [BrokenController] });
     const res = await app.fetch(new Request('https://example.com/x/'));
     expect(res.status).toBe(500);
   });
@@ -215,7 +215,7 @@ describe('middleware', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       middlewares: [trackMiddleware],
     });
@@ -250,7 +250,7 @@ describe('middleware', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       middlewares: [globalMiddleware],
     });
@@ -282,7 +282,7 @@ describe('middleware', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       middlewares: [authMiddleware],
     });
@@ -324,7 +324,7 @@ describe('middleware', () => {
       }
     }
 
-    const app = createHttpApp({ controllers: [TestController] });
+    const app = await createHttpApp({ controllers: [TestController] });
     const res = await app.request('/test/');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ value: 'injected-value' });
@@ -345,7 +345,7 @@ describe('middleware', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       middlewares: [setUserMiddleware],
     });
@@ -368,7 +368,7 @@ describe('middleware', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       middlewares: [throwingMiddleware],
     });
@@ -393,7 +393,7 @@ describe('middleware', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       middlewares: [earlyReturnMiddleware],
     });
@@ -433,7 +433,7 @@ describe('errorHandlers', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       errorHandlers: [CustomErrorHandler],
     });
@@ -459,7 +459,7 @@ describe('errorHandlers', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       errorHandlers: [SelectiveErrorHandler],
     });
@@ -495,7 +495,7 @@ describe('errorHandlers', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       errorHandlers: [FirstErrorHandler, SecondErrorHandler],
     });
@@ -531,7 +531,7 @@ describe('errorHandlers', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       middlewares: [beforeMiddleware],
       errorHandlers: [TestErrorHandler],

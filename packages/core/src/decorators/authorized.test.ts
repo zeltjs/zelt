@@ -29,7 +29,7 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       middlewares: [authMiddleware],
     });
@@ -52,7 +52,7 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       middlewares: [authMiddleware],
     });
@@ -74,7 +74,7 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [AdminController],
       middlewares: [authMiddleware],
     });
@@ -99,7 +99,7 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [AdminController],
       middlewares: [authMiddleware],
     });
@@ -121,7 +121,7 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [ContentController],
       middlewares: [authMiddleware],
     });

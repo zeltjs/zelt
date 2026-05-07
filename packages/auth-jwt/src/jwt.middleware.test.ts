@@ -36,7 +36,7 @@ class ProtectedController {
   }
 }
 
-const buildApp = () =>
+const buildApp = async () =>
   createHttpApp({
     controllers: [ProtectedController],
     configs: [TestJwtConfig],
@@ -50,13 +50,13 @@ const buildJwtService = () => {
 
 describe('JwtMiddleware', () => {
   it('should return 401 when no Authorization header', async () => {
-    const res = await buildApp().request('/protected/');
+    const res = await (await buildApp()).request('/protected/');
 
     expect(res.status).toBe(401);
   });
 
   it('should return 401 when Authorization header is not Bearer', async () => {
-    const res = await buildApp().request('/protected/', {
+    const res = await (await buildApp()).request('/protected/', {
       headers: { Authorization: 'Basic abc123' },
     });
 
@@ -64,7 +64,7 @@ describe('JwtMiddleware', () => {
   });
 
   it('should return 401 when token is invalid', async () => {
-    const res = await buildApp().request('/protected/', {
+    const res = await (await buildApp()).request('/protected/', {
       headers: { Authorization: 'Bearer invalid-token' },
     });
 
@@ -74,7 +74,7 @@ describe('JwtMiddleware', () => {
   it('should allow request with valid token', async () => {
     const jwtService = buildJwtService();
     const token = await jwtService.sign({ sub: 'user-123' });
-    const res = await buildApp().request('/protected/', {
+    const res = await (await buildApp()).request('/protected/', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -99,7 +99,7 @@ describe('JwtMiddleware', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const res = await buildApp().request('/protected/', {
+    const res = await (await buildApp()).request('/protected/', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -123,7 +123,7 @@ describe('JwtMiddleware — setUser integration', () => {
       }
     }
 
-    const httpApp = createHttpApp({
+    const httpApp = await createHttpApp({
       controllers: [UserCheckController],
       configs: [TestJwtConfig],
     });

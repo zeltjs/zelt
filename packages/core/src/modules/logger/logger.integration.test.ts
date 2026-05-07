@@ -27,7 +27,7 @@ describe('Logger integration', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
     });
 
@@ -56,7 +56,7 @@ describe('Logger integration', () => {
       }
     }
 
-    const app = createHttpApp({
+    const app = await createHttpApp({
       controllers: [TestController],
       configs: [CustomLoggerConfig],
     });

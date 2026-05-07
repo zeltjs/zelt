@@ -15,14 +15,14 @@ describe('createHttpApp with schedulers', () => {
     }
   });
 
-  it('accepts schedulers option', () => {
+  it('accepts schedulers option', async () => {
     @Scheduled()
     class TestScheduler {
       @Cron('0 * * * *')
       hourlyTask() {}
     }
 
-    app = createHttpApp({
+    app = await createHttpApp({
       controllers: [],
       schedulers: [TestScheduler],
     });
@@ -42,7 +42,7 @@ describe('createHttpApp with schedulers', () => {
       }
     }
 
-    const localApp = createHttpApp({
+    const localApp = await createHttpApp({
       controllers: [],
       schedulers: [TestScheduler],
     });
@@ -56,8 +56,8 @@ describe('createHttpApp with schedulers', () => {
     app = undefined;
   });
 
-  it('works without schedulers option', () => {
-    const localApp = createHttpApp({
+  it('works without schedulers option', async () => {
+    const localApp = await createHttpApp({
       controllers: [],
     });
     app = localApp;
