@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { LifecycleManager } from '@zeltjs/core';
 
 import { RedisConfig } from './redis.config';
 import { RedisKV } from './redis-kv';
@@ -7,7 +8,7 @@ describe('RedisKVStore TTL validation', () => {
   let driver: RedisKV;
 
   beforeAll(() => {
-    driver = new RedisKV(new RedisConfig());
+    driver = new RedisKV(new RedisConfig(), new LifecycleManager());
   });
 
   afterAll(async () => {
