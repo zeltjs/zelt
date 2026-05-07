@@ -60,7 +60,7 @@ export { createTestTarget } from './internal/container';
 export type { CreateTestTargetOptions, TestTargetResult } from './internal/container';
 
 export { LifecycleManager } from './lifecycle';
-export type { Disposable } from './lifecycle';
+export type { Lifecycle, Disposable } from './lifecycle';
 
 export { Logger } from './modules/logger';
 
