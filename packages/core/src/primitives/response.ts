@@ -1,6 +1,6 @@
 import type { Context, TypedResponse } from 'hono';
 import { deleteCookie, setCookie } from 'hono/cookie';
-import type { CookieOptions } from 'hono/utils/cookie';
+import type { CookieOptions as HonoCookieOptions } from 'hono/utils/cookie';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 import { getEntryContext } from '../internal/entry-context';
@@ -8,6 +8,16 @@ import { getEntryContext } from '../internal/entry-context';
 // zelt は 300 multi-choice / 304 not-modified / 305-306 deprecated を除外し、
 // AppType / OpenAPI consumer 向けに本物の redirect 3xx だけに narrow する。
 type KoyaRedirectStatusCode = 301 | 302 | 303 | 307 | 308;
+
+export type CookieOptions = {
+  domain?: string;
+  expires?: Date;
+  httpOnly?: boolean;
+  maxAge?: number;
+  path?: string;
+  secure?: boolean;
+  sameSite?: 'Strict' | 'Lax' | 'None';
+};
 
 export type ResponseBuilder = {
   json<T, S extends ContentfulStatusCode = 200>(
@@ -37,8 +47,6 @@ export type ResponseBuilder = {
 
   deleteCookie(name: string, options?: CookieOptions): ResponseBuilder;
 };
-
-export type { CookieOptions };
 
 // Minimal structural view of hono Context for building responses.
 type ResponseContext = Pick<Context, 'json' | 'redirect' | 'text' | 'body' | 'header'>;
@@ -102,11 +110,13 @@ const buildResponseBuilder = (c: Context): ResponseBuilder => {
       return builder;
     },
     setCookie: (name, value, options) => {
-      setCookie(c, name, value, options);
+      const honoOptions: HonoCookieOptions | undefined = options;
+      setCookie(c, name, value, honoOptions);
       return builder;
     },
     deleteCookie: (name, options) => {
-      deleteCookie(c, name, options);
+      const honoOptions: HonoCookieOptions | undefined = options;
+      deleteCookie(c, name, honoOptions);
       return builder;
     },
   };
