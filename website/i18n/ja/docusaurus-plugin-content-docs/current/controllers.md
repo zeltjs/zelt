@@ -11,7 +11,7 @@ sidebar_position: 3
 コントローラーは`@Controller()`デコレーターで装飾されたクラスです。デコレーターはパスプレフィックスを受け取り、コントローラー内で定義されたすべてのルートに付加されます。
 
 ```typescript
-import { Controller, Get, Post, pathParam, validated, response } from '@koya/core';
+import { Controller, Get, Post, pathParam, validated, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({
@@ -40,7 +40,7 @@ export class UserController {
 
 ## HTTPメソッドデコレーター
 
-Koyaは標準的なHTTPメソッドすべてにデコレーターを提供します：
+Zeltは標準的なHTTPメソッドすべてにデコレーターを提供します：
 
 | デコレーター | HTTPメソッド |
 |-----------|-------------|
@@ -107,7 +107,7 @@ create(body = validated(CreatePostBody)) {
 }
 ```
 
-バリデーションが失敗した場合、Koyaは自動的に詳細なエラー情報を含む400レスポンスを返します。
+バリデーションが失敗した場合、Zeltは自動的に詳細なエラー情報を含む400レスポンスを返します。
 
 ## カスタムレスポンスステータス
 
@@ -131,7 +131,7 @@ remove(id = pathParam('id'), res = response()) {
 コントローラーは`createHttpApp()`で登録する必要があります：
 
 ```typescript
-import { createHttpApp } from '@koya/core';
+import { createHttpApp } from '@zeltjs/core';
 import { UserController } from './controllers/user.controller';
 import { PostController } from './controllers/post.controller';
 

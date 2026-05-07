@@ -4,14 +4,14 @@ sidebar_position: 8
 
 # バリデーション
 
-Koyaはリクエストの検証に[Valibot](https://valibot.dev/)を使用し、型安全で軽量なバリデーションソリューションを提供します。
+Zeltはリクエストの検証に[Valibot](https://valibot.dev/)を使用し、型安全で軽量なバリデーションソリューションを提供します。
 
 ## 基本的な使い方
 
 `validated()`とValibotスキーマを使用してリクエストボディを検証します：
 
 ```typescript
-import { Controller, Post, validated, response } from '@koya/core';
+import { Controller, Post, validated, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserSchema = v.object({
@@ -30,13 +30,76 @@ export class UserController {
 }
 ```
 
+## フォームデータとファイルアップロード
+
+`validated(schema, 'form')`を使用して、ファイルアップロードを含む`multipart/form-data`リクエストを検証します：
+
+```typescript
+import { Controller, Post, validated, response } from '@zeltjs/core';
+import * as v from 'valibot';
+
+const UploadSchema = v.object({
+  file: v.instance(File),
+  description: v.optional(v.string()),
+});
+
+@Controller('/upload')
+export class UploadController {
+  @Post('/')
+  upload(body = validated(UploadSchema, 'form'), res = response()) {
+    // body.fileはFileオブジェクト
+    console.log(body.file.name, body.file.size, body.file.type);
+    return res.json({ filename: body.file.name, size: body.file.size }, 201);
+  }
+}
+```
+
+### ターゲットオプション
+
+`validated()`の第2引数でリクエストボディのフォーマットを指定します：
+
+| ターゲット | Content-Type | 用途 |
+|--------|-------------|----------|
+| `'json'`（デフォルト） | `application/json` | JSON APIリクエスト |
+| `'form'` | `multipart/form-data`、`application/x-www-form-urlencoded` | ファイルアップロード、HTMLフォーム |
+
+### 複数ファイル
+
+```typescript
+const MultiUploadSchema = v.object({
+  files: v.array(v.instance(File)),
+  category: v.string(),
+});
+
+@Post('/bulk')
+bulkUpload(body = validated(MultiUploadSchema, 'form')) {
+  for (const file of body.files) {
+    console.log(file.name);
+  }
+  return { count: body.files.length };
+}
+```
+
+### OpenAPI生成
+
+`'form'`ターゲットを使用すると、OpenAPI出力は自動的に`multipart/form-data`をコンテンツタイプとして使用します：
+
+```yaml
+requestBody:
+  required: true
+  content:
+    multipart/form-data:
+      schema:
+        $ref: '#/components/schemas/UploadSchema'
+```
+
 ## バリデーションエラーレスポンス
 
-バリデーションが失敗すると、Koyaは自動的に400レスポンスを返します：
+バリデーションが失敗すると、Zeltは自動的に400レスポンスを返します：
 
 ```json
 {
-  "error": "validation_failed",
+  "code": "VALIDATION_FAILED",
   "issues": [
     {
       "kind": "validation",
@@ -47,6 +110,8 @@ export class UserController {
   ]
 }
 ```
+
+エラーレスポンスの詳細は[エラー処理](./error-handling.md)を参照してください。
 
 ## 一般的なバリデーション
 

@@ -8,12 +8,12 @@ sidebar_position: 6
 依存性注入の詳細なドキュメントは作成中です。
 :::
 
-Koyaは内部で[needle-di](https://github.com/nicosommi/needle-di)を使用し、軽量で型安全なDIコンテナを提供しています。
+Zeltは内部で[needle-di](https://github.com/nicosommi/needle-di)を使用し、軽量で型安全なDIコンテナを提供しています。
 
 ## 概要
 
 ```typescript
-import { Injectable, inject } from '@koya/core';
+import { Injectable, inject } from '@zeltjs/core';
 
 @Injectable()
 export class DatabaseService {
