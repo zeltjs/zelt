@@ -1,4 +1,6 @@
 import type { Context, TypedResponse } from 'hono';
+import { deleteCookie, setCookie } from 'hono/cookie';
+import type { CookieOptions } from 'hono/utils/cookie';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 import { getEntryContext } from '../internal/entry-context';
@@ -30,7 +32,13 @@ export type ResponseBuilder = {
   ): TypedResponse<T, S, 'body'>;
 
   header(name: string, value: string): ResponseBuilder;
+
+  setCookie(name: string, value: string, options?: CookieOptions): ResponseBuilder;
+
+  deleteCookie(name: string, options?: CookieOptions): ResponseBuilder;
 };
+
+export type { CookieOptions };
 
 // Minimal structural view of hono Context for building responses.
 type ResponseContext = Pick<Context, 'json' | 'redirect' | 'text' | 'body' | 'header'>;
@@ -83,7 +91,7 @@ function makeBody(c: ResponseContext): ResponseBuilder['body'] {
   return body;
 }
 
-const buildResponseBuilder = (c: ResponseContext): ResponseBuilder => {
+const buildResponseBuilder = (c: Context): ResponseBuilder => {
   const builder: ResponseBuilder = {
     json: makeJson(c),
     redirect: makeRedirect(c),
@@ -91,6 +99,14 @@ const buildResponseBuilder = (c: ResponseContext): ResponseBuilder => {
     body: makeBody(c),
     header: (name, value) => {
       c.header(name, value);
+      return builder;
+    },
+    setCookie: (name, value, options) => {
+      setCookie(c, name, value, options);
+      return builder;
+    },
+    deleteCookie: (name, options) => {
+      deleteCookie(c, name, options);
       return builder;
     },
   };
