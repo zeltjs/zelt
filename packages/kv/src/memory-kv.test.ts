@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LifecycleManager } from '@zeltjs/core';
 
 import { MemoryKV } from './memory-kv';
 
@@ -6,7 +7,7 @@ describe('MemoryKV (KVStore ops)', () => {
   let kv: MemoryKV;
 
   beforeEach(() => {
-    kv = new MemoryKV();
+    kv = new MemoryKV(new LifecycleManager());
   });
 
   it('namespace returns Err for empty prefix, Ok for non-empty', () => {
@@ -70,7 +71,7 @@ describe('MemoryKV (TTL)', () => {
   });
 
   it('TTL expires the key', async () => {
-    const kv = new MemoryKV();
+    const kv = new MemoryKV(new LifecycleManager());
     const store = kv.namespace('test:')._unsafeUnwrap();
     await store.set('foo', 1, { ttlSec: 10 });
     expect((await store.get('foo'))._unsafeUnwrap()).toBe(1);
@@ -79,7 +80,7 @@ describe('MemoryKV (TTL)', () => {
   });
 
   it('expire(key, ttl) extends TTL on existing key, returns true', async () => {
-    const kv = new MemoryKV();
+    const kv = new MemoryKV(new LifecycleManager());
     const store = kv.namespace('test:')._unsafeUnwrap();
     await store.set('foo', 1);
     expect((await store.expire('foo', 5))._unsafeUnwrap()).toBe(true);
@@ -88,7 +89,7 @@ describe('MemoryKV (TTL)', () => {
   });
 
   it('expire(key, ttl) returns false for missing key', async () => {
-    const kv = new MemoryKV();
+    const kv = new MemoryKV(new LifecycleManager());
     const store = kv.namespace('test:')._unsafeUnwrap();
     expect((await store.expire('missing', 5))._unsafeUnwrap()).toBe(false);
   });
@@ -96,12 +97,12 @@ describe('MemoryKV (TTL)', () => {
 
 describe('MemoryKV (Disposable)', () => {
   it('shutdown() resolves without error', async () => {
-    const kv = new MemoryKV();
+    const kv = new MemoryKV(new LifecycleManager());
     await expect(kv.shutdown()).resolves.toBeUndefined();
   });
 
   it('shutdown() stops the GC interval (calling shutdown twice does not throw)', async () => {
-    const kv = new MemoryKV();
+    const kv = new MemoryKV(new LifecycleManager());
     await kv.shutdown();
     await expect(kv.shutdown()).resolves.toBeUndefined();
   });
@@ -109,7 +110,7 @@ describe('MemoryKV (Disposable)', () => {
 
 describe('MemoryKV (AtomicKVStore ops)', () => {
   it('incr from missing key starts at 1, then increments', async () => {
-    const kv = new MemoryKV();
+    const kv = new MemoryKV(new LifecycleManager());
     const store = kv.namespace('test:')._unsafeUnwrap();
     expect((await store.incr('counter'))._unsafeUnwrap()).toBe(1);
     expect((await store.incr('counter'))._unsafeUnwrap()).toBe(2);
@@ -119,7 +120,7 @@ describe('MemoryKV (AtomicKVStore ops)', () => {
   it('incr sets TTL only on first call when ttlSec given', async () => {
     vi.useFakeTimers();
     try {
-      const kv = new MemoryKV();
+      const kv = new MemoryKV(new LifecycleManager());
       const store = kv.namespace('test:')._unsafeUnwrap();
       await store.incr('c', 1, { ttlSec: 10 });
       vi.advanceTimersByTime(5_000);
@@ -134,7 +135,7 @@ describe('MemoryKV (AtomicKVStore ops)', () => {
   });
 
   it('setnx returns true on first call, false on existing', async () => {
-    const kv = new MemoryKV();
+    const kv = new MemoryKV(new LifecycleManager());
     const store = kv.namespace('test:')._unsafeUnwrap();
     expect((await store.setnx('lock', 'token-1'))._unsafeUnwrap()).toBe(true);
     expect((await store.setnx('lock', 'token-2'))._unsafeUnwrap()).toBe(false);
@@ -144,7 +145,7 @@ describe('MemoryKV (AtomicKVStore ops)', () => {
   it('setnx with ttlSec sets expiry', async () => {
     vi.useFakeTimers();
     try {
-      const kv = new MemoryKV();
+      const kv = new MemoryKV(new LifecycleManager());
       const store = kv.namespace('test:')._unsafeUnwrap();
       await store.setnx('lock', 'token', { ttlSec: 5 });
       vi.advanceTimersByTime(6_000);

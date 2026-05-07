@@ -1,4 +1,4 @@
-import { Injectable, type Disposable } from '@zeltjs/core';
+import { inject, Injectable, LifecycleManager, type Lifecycle } from '@zeltjs/core';
 import { err, ok, okAsync, ResultAsync, type Result } from 'neverthrow';
 
 import { invalidTtl, type KVError } from './errors';
@@ -24,14 +24,15 @@ const toResultAsync = <T, E>(result: Result<T, E>): ResultAsync<T, E> =>
   new ResultAsync(Promise.resolve(result));
 
 @Injectable()
-export class MemoryKV implements AtomicKVDriver, Disposable {
+export class MemoryKV implements AtomicKVDriver, Lifecycle {
   private readonly data = new Map<string, Entry>();
   private readonly gcInterval: ReturnType<typeof setInterval>;
 
-  constructor() {
+  constructor(lifecycle = inject(LifecycleManager)) {
     this.gcInterval = setInterval(() => this.gc(), 60_000);
     // prevent the interval from keeping the Node.js process alive
     this.gcInterval.unref();
+    lifecycle.register(this);
   }
 
   private gc(): void {
@@ -42,6 +43,8 @@ export class MemoryKV implements AtomicKVDriver, Disposable {
       }
     }
   }
+
+  async startup(): Promise<void> {}
 
   async shutdown(): Promise<void> {
     clearInterval(this.gcInterval);
