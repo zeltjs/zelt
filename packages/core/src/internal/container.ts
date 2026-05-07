@@ -55,7 +55,7 @@ const bindOverrides = (container: Container, overrides: readonly Override<unknow
   }
 };
 
-export const createTestTarget = async <T extends object>(
+export const createTestTargetBase = async <T extends object>(
   targetClass: Class<T>,
   options: CreateTestTargetOptions = {},
 ): Promise<TestTargetResult<T>> => {

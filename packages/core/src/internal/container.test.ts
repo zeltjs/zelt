@@ -5,7 +5,7 @@ import { Config, injectConfig } from '../config';
 import { Injectable, inject, LifecycleManager } from '../index';
 import type { Lifecycle } from '../index';
 
-import { createContainer, createTestTarget } from './container';
+import { createContainer, createTestTargetBase } from './container';
 
 describe('createContainer with configs', () => {
   it('binds user config to parent Token', () => {
@@ -60,7 +60,7 @@ describe('createContainer with configs', () => {
   });
 });
 
-describe('createTestTarget', () => {
+describe('createTestTargetBase', () => {
   it('instantiates configs before calling startup', async () => {
     const events: string[] = [];
 
@@ -95,7 +95,7 @@ describe('createTestTarget', () => {
       }
     }
 
-    const { target, shutdown } = await createTestTarget(TestService, {
+    const { target, shutdown } = await createTestTargetBase(TestService, {
       configs: [TestConfig],
     });
 
@@ -127,7 +127,7 @@ describe('createTestTarget', () => {
     @Injectable()
     class SimpleService {}
 
-    const { shutdown } = await createTestTarget(SimpleService, {
+    const { shutdown } = await createTestTargetBase(SimpleService, {
       configs: [IdempotentConfig],
     });
 

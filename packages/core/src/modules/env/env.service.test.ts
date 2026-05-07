@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createTestTarget } from '../../internal/container';
+import { createTestTargetBase } from '../../internal/container';
 
 import { ProcessEnvConfig } from './env.config';
 import { EnvService } from './env.service';
@@ -8,7 +8,7 @@ import { EnvService } from './env.service';
 let service: EnvService;
 
 const setupEnvService = async () => {
-  const result = await createTestTarget(EnvService, {
+  const result = await createTestTargetBase(EnvService, {
     configs: [ProcessEnvConfig],
   });
   service = result.target;

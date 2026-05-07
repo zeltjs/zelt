@@ -7,7 +7,7 @@ export class RedisTestContainerConfig extends RedisConfig implements Lifecycle {
   static override readonly Token = RedisConfig;
 
   private container: StartedTestContainer | undefined;
-  private connectionUrl: string | undefined;
+  private connectionUrl = '';
 
   constructor(lifecycle = inject(LifecycleManager)) {
     super();
@@ -28,9 +28,6 @@ export class RedisTestContainerConfig extends RedisConfig implements Lifecycle {
   }
 
   override get url(): string {
-    if (!this.connectionUrl) {
-      throw new Error('RedisTestContainerConfig: startup() not called yet');
-    }
     return this.connectionUrl;
   }
 

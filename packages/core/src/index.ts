@@ -56,7 +56,7 @@ export type {
 export { Config, injectConfig } from './config';
 export type { ConfigClass } from './config';
 
-export { createTestTarget } from './internal/container';
+export { createTestTargetBase } from './internal/container';
 export type { CreateTestTargetOptions, TestTargetResult } from './internal/container';
 
 export { LifecycleManager } from './lifecycle';

@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { MemoryKV, type AtomicKVStore } from '@zeltjs/kv';
 import type { Logger } from '@zeltjs/core';
+import { createTestTargetBase } from '@zeltjs/core';
 import { errAsync } from 'neverthrow';
 
 import { RateLimitConfig } from './rate-limit.config';
@@ -13,8 +14,15 @@ const mockLogger = {
   error: vi.fn(),
 } as unknown as Logger;
 
+let memoryKv: MemoryKV;
+
+beforeAll(async () => {
+  const { target } = await createTestTargetBase(MemoryKV);
+  memoryKv = target;
+});
+
 const makeDefaultLimiter = () => {
-  const config = new RateLimitConfig(new MemoryKV());
+  const config = new RateLimitConfig(memoryKv);
   return new RateLimiter(config, mockLogger);
 };
 
@@ -58,8 +66,7 @@ describe('RateLimiter', () => {
   });
 
   it('failureMode=open returns allowed when store returns Err', async () => {
-    const failingKv = new MemoryKV();
-    const failingConfig = new RateLimitConfig(failingKv);
+    const failingConfig = new RateLimitConfig(memoryKv);
     Object.defineProperty(failingConfig, 'store', {
       value: {
         incr: vi.fn().mockReturnValue(
@@ -80,8 +87,7 @@ describe('RateLimiter', () => {
   });
 
   it('failureMode=closed returns Err when store returns Err', async () => {
-    const failingKv = new MemoryKV();
-    const failingConfig = new RateLimitConfig(failingKv);
+    const failingConfig = new RateLimitConfig(memoryKv);
     Object.defineProperty(failingConfig, 'store', {
       value: {
         incr: vi.fn().mockReturnValue(

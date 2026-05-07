@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
 import { Injectable, inject } from '@zeltjs/core';
 import { RedisConfig, RedisKV } from '@zeltjs/kv-driver-redis';
+import { describe, expect, it } from 'vitest';
 
 import { createTestTarget } from '../test-target';
+
 import { RedisTestContainerConfig } from './redis-test-container-config';
 
 describe('RedisTestContainerConfig', () => {
