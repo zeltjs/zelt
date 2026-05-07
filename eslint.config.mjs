@@ -233,4 +233,23 @@ export default tseslint.config(
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
+  {
+    // onTest adapter bridges generic config types to HttpApp.replaceConfig() which expects
+    // ConfigClass. Type assertion unavoidable at this DI boundary.
+    files: ['packages/testing/src/on-test.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@9wick/strict-type-rules/no-try-catch': 'off',
+    },
+  },
+  {
+    // onNode adapter handles server lifecycle with necessary try-catch for optional config
+    // injection and re-throws non-matching errors.
+    files: ['packages/adapter-node/src/on-node.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-try-catch': 'off',
+      '@9wick/strict-type-rules/no-throw': 'off',
+      complexity: ['error', { max: 8 }],
+    },
+  },
 );

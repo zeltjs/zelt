@@ -21,12 +21,16 @@ export const onNode = (app: HttpApp): OnNodeHandle => {
     const options: ListenOptions =
       typeof portOrOptions === 'number' ? { port: portOrOptions } : (portOrOptions ?? {});
 
-    // Attempt to auto-inject ProcessEnvConfig. If EnvConfig is not registered in configs, the
-    // call throws and we ignore it — the app simply doesn't need env config.
+    // Attempt to auto-inject ProcessEnvConfig. If EnvConfig is not registered in configs,
+    // replaceConfig throws - we silently ignore this since the app simply doesn't need env config.
     try {
       app.replaceConfig(EnvConfig, ProcessEnvConfig);
-    } catch {
-      // Token not in configs or already ready — ignore
+    } catch (error) {
+      const isTokenNotFound =
+        error instanceof Error && error.message.startsWith('Cannot replaceConfig(): token');
+      if (!isTokenNotFound) {
+        throw error;
+      }
     }
 
     await app.ready();
@@ -34,11 +38,10 @@ export const onNode = (app: HttpApp): OnNodeHandle => {
     const port = options.port ?? 3000;
     const hostname = options.hostname ?? '0.0.0.0';
 
-    let server: ServerType;
+    let server!: ServerType;
     const serverReady = new Promise<{ port: number; address: string }>((resolve) => {
-      server = serve(
-        { fetch: app.fetch, port, hostname },
-        (info) => resolve({ port: info.port, address: info.address }),
+      server = serve({ fetch: app.fetch, port, hostname }, (info) =>
+        resolve({ port: info.port, address: info.address }),
       );
     });
 
