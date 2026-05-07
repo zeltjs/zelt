@@ -59,7 +59,6 @@ describe('onTest', () => {
 
     const testApp = await onTest(app);
     const res = await testApp.request('/');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const body: { url: string } = await res.json();
 
     expect(body.url).toBe('test://db');
@@ -85,7 +84,6 @@ describe('onTest', () => {
     });
 
     const res = await testApp.request('/');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const body: { url: string } = await res.json();
 
     expect(body.url).toBe('inline://db');

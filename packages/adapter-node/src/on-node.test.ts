@@ -27,7 +27,6 @@ describe('onNode', () => {
     expect(handle.shutdown).toBeTypeOf('function');
 
     const res = await fetch(`http://localhost:${handle.address.port}/`);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const body: { ok: boolean } = await res.json();
     expect(body.ok).toBe(true);
   });
@@ -66,7 +65,6 @@ describe('onNode', () => {
     expect(readySpy).toHaveBeenCalledOnce();
 
     const res = await fetch(`http://localhost:${handle.address.port}/health/`);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const body: { status: string } = await res.json();
     expect(body.status).toBe('ok');
   });
