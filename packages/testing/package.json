@@ -15,6 +15,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./redis": {
+      "types": "./dist/redis/index.d.ts",
+      "import": "./dist/redis/index.js"
     }
   },
   "files": [
@@ -27,6 +31,20 @@
   },
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
+    "@zeltjs/kv-driver-redis": "workspace:*",
+    "testcontainers": ">=10 <12",
     "vitest": ">=4 <5"
+  },
+  "peerDependenciesMeta": {
+    "@zeltjs/kv-driver-redis": {
+      "optional": true
+    },
+    "testcontainers": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@zeltjs/kv-driver-redis": "workspace:*",
+    "testcontainers": "10.25.0"
   }
 }
