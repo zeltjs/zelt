@@ -1,0 +1,3 @@
+[[repository_settings]]
+repository = "."
+setup_commands = ["pnpm i"]
