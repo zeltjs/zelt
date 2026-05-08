@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   appendPendingScheduleMetadata,
-  appendScheduleMetadata,
   getScheduledMetadata,
   getScheduleMetadata,
   resolveScheduleMetadata,
@@ -23,11 +22,11 @@ describe('scheduler-metadata', () => {
     });
   });
 
-  describe('appendScheduleMetadata / getScheduleMetadata (deprecated API)', () => {
+  describe('appendPendingScheduleMetadata / getScheduleMetadata', () => {
     it('appends and retrieves schedule metadata with resolve', () => {
       const pendingKey = {};
       class TestScheduler {}
-      appendScheduleMetadata(pendingKey, {
+      appendPendingScheduleMetadata(pendingKey, {
         methodName: 'dailyTask',
         cronExpression: '0 3 * * *',
         timezone: 'Asia/Tokyo',
@@ -46,11 +45,11 @@ describe('scheduler-metadata', () => {
     it('appends multiple schedules with resolve', () => {
       const pendingKey = {};
       class TestScheduler {}
-      appendScheduleMetadata(pendingKey, {
+      appendPendingScheduleMetadata(pendingKey, {
         methodName: 'task1',
         cronExpression: '0 * * * *',
       });
-      appendScheduleMetadata(pendingKey, {
+      appendPendingScheduleMetadata(pendingKey, {
         methodName: 'task2',
         cronExpression: '0 0 * * *',
       });

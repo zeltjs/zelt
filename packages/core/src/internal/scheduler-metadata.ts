@@ -30,6 +30,3 @@ export const resolveScheduleMetadata = (pendingKey: object, cls: object): void =
 
 export const getScheduleMetadata = (cls: object): readonly ScheduleMetadata[] =>
   scheduleStore.get(cls) ?? [];
-
-// Deprecated: kept for backward compatibility during migration
-export const appendScheduleMetadata = appendPendingScheduleMetadata;

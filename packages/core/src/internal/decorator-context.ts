@@ -30,13 +30,6 @@ const tc39ClassPattern = P.shape({
   metadata: P.nonNullable,
 });
 
-const tc39Pattern = P.shape({ kind: P.string, metadata: P.any });
-
-export const isTC39Mode = (args: unknown[]): boolean =>
-  match(args[1])
-    .with(tc39Pattern, () => true)
-    .otherwise(() => false);
-
 export const resolveMethodArgs = (args: unknown[]): MethodDecoratorArgs => {
   const [first, second] = args;
 

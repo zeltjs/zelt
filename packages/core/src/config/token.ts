@@ -34,8 +34,6 @@ export const registerConfigToken = (cls: AnyConfigClass): void => {
   }
 };
 
-export const isConfigRegistered = (cls: AnyConfigClass): boolean => classToToken.has(cls);
-
 export const findConfigToken = (cls: AnyConfigClass): AnyConfigClass | null => {
   const token = findTokenInChain(cls);
   if (!token) return null;
