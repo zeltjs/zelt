@@ -1,8 +1,8 @@
 import { createTestTargetBase, findConfigToken, type ConfigClass } from '@zeltjs/core';
 import type { CreateTestTargetOptions, TestTargetResult } from '@zeltjs/core';
-import { afterAll } from 'vitest';
 
 import { getTestDefaults } from './global-config';
+import { registerShutdown } from './shutdown-registry';
 
 export type { CreateTestTargetOptions, TestTargetResult } from '@zeltjs/core';
 
@@ -43,6 +43,6 @@ export const createTestTarget = async <T extends object>(
     ...options,
     configs: mergedConfigs,
   });
-  afterAll(result.shutdown);
+  registerShutdown(result.shutdown);
   return result;
 };
