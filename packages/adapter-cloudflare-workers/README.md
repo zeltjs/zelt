@@ -37,3 +37,29 @@ onCloudflareWorkers(app, {
 
 - `warmup: false` (default) - Controllers are resolved on first request (optimized for serverless)
 - `warmup: true` - All controllers are resolved during initialization
+
+## Environment Variables
+
+When using `EnvConfig`, it is automatically replaced with `CloudflareWorkersEnvConfig` which reads from `cloudflare:workers` env:
+
+```typescript
+import { createHttpApp, Controller, Get, EnvConfig, EnvService, inject } from '@zeltjs/core';
+import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
+
+@Controller('/config')
+class ConfigController {
+  constructor(private env = inject(EnvService)) {}
+
+  @Get('/')
+  getApiHost() {
+    return { apiHost: this.env.get('API_HOST') };
+  }
+}
+
+const app = createHttpApp({
+  controllers: [ConfigController],
+  configs: [EnvConfig],
+});
+
+export default onCloudflareWorkers(app);
+```

@@ -1,4 +1,6 @@
-import type { HttpApp, ReadyOptions } from '@zeltjs/core';
+import { EnvConfig, type HttpApp, type ReadyOptions } from '@zeltjs/core';
+
+import { CloudflareWorkersEnvConfig } from './cloudflare-workers-env.config';
 
 export type CloudflareWorkersOptions = {
   readonly warmup?: boolean;
@@ -16,6 +18,9 @@ export const onCloudflareWorkers = (
 
   const ensureReady = (): Promise<void> => {
     if (!readyPromise) {
+      if (app.hasConfig(EnvConfig)) {
+        app.replaceConfig(EnvConfig, CloudflareWorkersEnvConfig);
+      }
       const readyOptions: ReadyOptions = { warmup: options.warmup ?? false };
       readyPromise = app.ready(readyOptions);
     }
