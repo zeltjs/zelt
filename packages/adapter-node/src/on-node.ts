@@ -7,7 +7,6 @@ import { ProcessEnvConfig } from './process-env.config';
 type ListenOptions = {
   readonly port?: number;
   readonly hostname?: string;
-  readonly warmup?: boolean;
 };
 
 export type ServerHandle = {
@@ -15,24 +14,30 @@ export type ServerHandle = {
   readonly shutdown: () => Promise<void>;
 };
 
-type OnNodeHandle = {
-  readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
+export type NodeAppOptions = {
+  readonly warmup?: boolean;
 };
 
-export const onNode = (app: HttpApp): OnNodeHandle => {
+export type NodeApp = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => T;
+  readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
+  readonly shutdown: () => Promise<void>;
+};
+
+export const onNode = async (app: HttpApp, options: NodeAppOptions = {}): Promise<NodeApp> => {
+  if (app.hasConfig(EnvConfig)) {
+    app.replaceConfig(EnvConfig, ProcessEnvConfig);
+  }
+
+  const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
+  const { get } = await app.ready(readyOptions);
+
   const listen = async (portOrOptions?: number | ListenOptions): Promise<ServerHandle> => {
-    const options: ListenOptions =
+    const listenOptions: ListenOptions =
       typeof portOrOptions === 'number' ? { port: portOrOptions } : (portOrOptions ?? {});
 
-    if (app.hasConfig(EnvConfig)) {
-      app.replaceConfig(EnvConfig, ProcessEnvConfig);
-    }
-
-    const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
-    await app.ready(readyOptions);
-
-    const port = options.port ?? 3000;
-    const hostname = options.hostname ?? '0.0.0.0';
+    const port = listenOptions.port ?? 3000;
+    const hostname = listenOptions.hostname ?? '0.0.0.0';
 
     let server!: ServerType;
     const serverReady = new Promise<{ port: number; address: string }>((resolve) => {
@@ -53,5 +58,5 @@ export const onNode = (app: HttpApp): OnNodeHandle => {
     return { address, shutdown };
   };
 
-  return { listen };
+  return { get, listen, shutdown: app.shutdown };
 };

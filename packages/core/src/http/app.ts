@@ -34,11 +34,15 @@ export type ReadyOptions = {
   readonly warmup?: boolean;
 };
 
+export type ReadyResult = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => T;
+};
+
 export type HttpApp = {
   readonly fetch: (request: Request) => Promise<Response>;
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
-  readonly ready: (options?: ReadyOptions) => Promise<void>;
+  readonly ready: (options?: ReadyOptions) => Promise<ReadyResult>;
   readonly hasConfig: (token: AnyConfigClass) => boolean;
   readonly replaceConfig: (token: AnyConfigClass, replacement: AnyConfigClass) => void;
   /** @deprecated Scheduler now starts automatically. Use shutdown() to stop. */
@@ -173,7 +177,7 @@ const assertConfigToken = (
   }
 };
 
-const awaitSafe = async (p: Promise<void>): Promise<void> => {
+const awaitSafe = async (p: Promise<unknown>): Promise<void> => {
   try {
     await p;
   } catch {
@@ -187,7 +191,7 @@ const configHasToken = (configs: readonly AnyConstructorClass[], token: AnyConfi
 type AppState = {
   built: BuiltApp | undefined;
   disposed: boolean;
-  readyPromise: Promise<void> | undefined;
+  readyPromise: Promise<ReadyResult> | undefined;
   readonly configOverrides: Map<AnyConfigClass, AnyConfigClass>;
 };
 
@@ -200,11 +204,14 @@ const createReplaceConfig =
     state.configOverrides.set(token, replacement);
   };
 
+const createReadyResult = (resolver: Resolver): ReadyResult => ({
+  get: <T extends object>(cls: new (...args: never[]) => T): T => resolver.get(cls),
+});
+
 const createReady =
   (options: CreateHttpAppOptions, state: AppState) =>
-  async (readyOptions?: ReadyOptions): Promise<void> => {
+  async (readyOptions?: ReadyOptions): Promise<ReadyResult> => {
     if (state.disposed) throw new Error('Cannot ready() after shutdown()');
-    if (state.built) return;
     if (state.readyPromise) return state.readyPromise;
 
     const warmup = readyOptions?.warmup ?? false;
@@ -214,6 +221,7 @@ const createReady =
       warmup,
     }).then((b) => {
       state.built = b;
+      return createReadyResult(b.resolver);
     });
     return state.readyPromise;
   };

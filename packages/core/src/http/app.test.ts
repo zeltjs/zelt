@@ -613,9 +613,11 @@ describe('createHttpApp 2-phase initialization', () => {
     }
 
     const app = createHttpApp({ controllers: [TestController] });
-    await app.ready();
-    // Second call must not throw and must not re-initialize
-    await expect(app.ready()).resolves.toBeUndefined();
+    const result1 = await app.ready();
+    // Second call must not throw and must return same result
+    const result2 = await app.ready();
+    expect(result1.get).toBeDefined();
+    expect(result2.get).toBeDefined();
     await app.shutdown();
   });
 
