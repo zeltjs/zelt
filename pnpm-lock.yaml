@@ -138,6 +138,16 @@ importers:
         specifier: 4.88.0
         version: 4.88.0(@cloudflare/workers-types@4.20260506.1)
 
+  packages/adapter-cloudflare-workers:
+    dependencies:
+      '@zeltjs/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 4.20250523.0
+        version: 4.20250523.0
+
   packages/adapter-node:
     dependencies:
       '@hono/node-server':
@@ -1335,6 +1345,9 @@ packages:
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
+
+  '@cloudflare/workers-types@4.20250523.0':
+    resolution: {integrity: sha512-0ghPbRDqjORo4qX8YkayNvJc7SSfK8cn5YhSkx1316vd+32cSlhqJTz8sRiavZiJw79glPq0rO1TNTJwvuuZOg==}
 
   '@cloudflare/workers-types@4.20260506.1':
     resolution: {integrity: sha512-IKv/C08utEbAqEu2zr0/3CMf1MbYrl7x0Z1UsrnMs4xxfIN81vtGTRduCZb7xJQpaICQPe0Sa6fhHlZmUXrMjw==}
@@ -10599,6 +10612,8 @@ snapshots:
 
   '@cloudflare/workerd-windows-64@1.20260504.1':
     optional: true
+
+  '@cloudflare/workers-types@4.20250523.0': {}
 
   '@cloudflare/workers-types@4.20260506.1': {}
 

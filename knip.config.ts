@@ -48,6 +48,9 @@ const config: KnipConfig = {
     'packages/adapter-node': {
       ignoreDependencies: ['@zeltjs/core'],
     },
+    'packages/adapter-cloudflare-workers': {
+      ignoreDependencies: ['@zeltjs/core', 'cloudflare'],
+    },
     website: {
       // @docusaurus/plugin-content-docs types are re-exported by @docusaurus/preset-classic
       // prism-react-renderer is used internally by Docusaurus for code block syntax highlighting

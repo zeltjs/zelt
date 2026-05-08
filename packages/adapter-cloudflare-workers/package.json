@@ -1,0 +1,34 @@
+{
+  "name": "@zeltjs/adapter-cloudflare-workers",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/adapter-cloudflare-workers"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@zeltjs/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20250523.0"
+  }
+}
