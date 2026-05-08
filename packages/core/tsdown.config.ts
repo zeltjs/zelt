@@ -7,6 +7,7 @@ export default defineConfig({
     'src/lambda.ts',
     'src/modules/logger/index.ts',
     'src/modules/env/index.ts',
+    'src/runtime/index.ts',
   ],
   format: ['esm'],
   dts: true,
