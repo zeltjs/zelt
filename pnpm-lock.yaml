@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@9wick/eslint-plugin-strict-type-rules':
-        specifier: 1.1.0
-        version: 1.1.0(@eslint-community/eslint-plugin-eslint-comments@4.7.1(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-import-x@4.16.2(@typescript-eslint/utils@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-sonarjs@4.0.3(eslint@10.3.0(jiti@2.6.1)))(eslint@10.3.0(jiti@2.6.1))(typescript-eslint@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))
+        specifier: 1.1.1
+        version: 1.1.1(@eslint-community/eslint-plugin-eslint-comments@4.7.1(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-import-x@4.16.2(@typescript-eslint/utils@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-sonarjs@4.0.3(eslint@10.3.0(jiti@2.6.1)))(eslint@10.3.0(jiti@2.6.1))(typescript-eslint@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))
       '@biomejs/biome':
         specifier: 2.4.14
         version: 2.4.14
@@ -48,8 +48,8 @@ importers:
         specifier: 1.62.0
         version: 1.62.0
       precommit-verify:
-        specifier: 0.1.7
-        version: 0.1.7
+        specifier: 0.1.8
+        version: 0.1.8
       tsdown:
         specifier: 0.21.10
         version: 0.21.10(oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0))(typescript@6.0.2)
@@ -428,8 +428,8 @@ importers:
 
 packages:
 
-  '@9wick/eslint-plugin-strict-type-rules@1.1.0':
-    resolution: {integrity: sha512-yotaG2vPxvNn2aszKMKusYHyJicpBYAsWp9gAb5BoYRv2o3w0cpsCv2XW6pYlr3BpMLnJSRS5xMYa22YEH01pw==}
+  '@9wick/eslint-plugin-strict-type-rules@1.1.1':
+    resolution: {integrity: sha512-lXhsn58ki+p0WVUDUP8tYhn/8DquZozJTTOeRDaoQHoehxwXXfzeoAFsVS97IuScLzMUmP9ef7LhoXKtJNyLdw==}
     engines: {node: '>=18.18.0'}
     peerDependencies:
       '@eslint-community/eslint-plugin-eslint-comments': ^4.0.0
@@ -8056,8 +8056,8 @@ packages:
     deprecated: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
     hasBin: true
 
-  precommit-verify@0.1.7:
-    resolution: {integrity: sha512-iovZ9ugAiIWXlrZ4JX9XjArqKrht1bfCHC3xmqUkqkRItiTC+NruVmm2RSeokmBeCTPj3+WXAWkOIAXsp+MIMQ==}
+  precommit-verify@0.1.8:
+    resolution: {integrity: sha512-/6IOgo12zhyQ+HgnqIxCQD6GOkO+7Xbvo+O4UlfennMjHin6EmSexSpyLt18TStlhUgKBKEotXDi2rgQsiEwng==}
     engines: {node: '>=18'}
     cpu: [x64, arm64]
     os: [linux, darwin, win32]
@@ -9544,7 +9544,7 @@ packages:
 
 snapshots:
 
-  '@9wick/eslint-plugin-strict-type-rules@1.1.0(@eslint-community/eslint-plugin-eslint-comments@4.7.1(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-import-x@4.16.2(@typescript-eslint/utils@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-sonarjs@4.0.3(eslint@10.3.0(jiti@2.6.1)))(eslint@10.3.0(jiti@2.6.1))(typescript-eslint@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))':
+  '@9wick/eslint-plugin-strict-type-rules@1.1.1(@eslint-community/eslint-plugin-eslint-comments@4.7.1(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-import-x@4.16.2(@typescript-eslint/utils@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))(eslint@10.3.0(jiti@2.6.1)))(eslint-plugin-sonarjs@4.0.3(eslint@10.3.0(jiti@2.6.1)))(eslint@10.3.0(jiti@2.6.1))(typescript-eslint@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2))':
     dependencies:
       '@eslint-community/eslint-plugin-eslint-comments': 4.7.1(eslint@10.3.0(jiti@2.6.1))
       eslint: 10.3.0(jiti@2.6.1)
@@ -18009,7 +18009,7 @@ snapshots:
       tar-fs: 2.1.4
       tunnel-agent: 0.6.0
 
-  precommit-verify@0.1.7: {}
+  precommit-verify@0.1.8: {}
 
   prelude-ls@1.2.1: {}
 
