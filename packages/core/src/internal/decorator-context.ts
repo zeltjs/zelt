@@ -1,58 +1,101 @@
+import { match, P } from 'ts-pattern';
+
 export type MethodDecoratorArgs = {
   readonly pendingKey: object;
   readonly methodName: string | symbol;
   readonly isStatic: boolean;
 };
 
+export type InjectableClass = new (...args: never[]) => object;
+
 export type ClassDecoratorArgs = {
   readonly cls: object;
   readonly pendingKey: object;
+  readonly injectableClass: InjectableClass;
 };
 
-type TC39MethodContext = {
-  kind: 'method';
-  readonly name: string | symbol;
-  readonly static: boolean;
-  readonly metadata: object;
-};
+const isSymbol = (v: unknown): boolean => typeof v === 'symbol';
+const isObjectOrFunction = (v: unknown): v is object =>
+  (typeof v === 'object' && v !== null) || typeof v === 'function';
 
-type TC39ClassContext = {
-  kind: 'class';
-  readonly metadata: object;
-};
+const tc39MethodPattern = P.shape({
+  kind: 'method',
+  name: P.union(P.string, P.when(isSymbol)),
+  static: P.boolean,
+  metadata: P.nonNullable,
+});
 
-const isTC39Context = (arg: unknown): arg is { kind: string; metadata: object } =>
-  typeof arg === 'object' && arg !== null && 'kind' in arg;
+const tc39ClassPattern = P.shape({
+  kind: 'class',
+  metadata: P.nonNullable,
+});
+
+const tc39Pattern = P.shape({ kind: P.string, metadata: P.any });
+
+export const isTC39Mode = (args: unknown[]): boolean =>
+  match(args[1])
+    .with(tc39Pattern, () => true)
+    .otherwise(() => false);
 
 export const resolveMethodArgs = (args: unknown[]): MethodDecoratorArgs => {
   const [first, second] = args;
 
-  if (isTC39Context(second)) {
-    const ctx = second as TC39MethodContext;
-    return {
-      pendingKey: ctx.metadata,
-      methodName: ctx.name,
-      isStatic: ctx.static,
-    };
-  }
+  return match(second)
+    .with(tc39MethodPattern, (ctx) => {
+      const name: string | symbol = typeof ctx.name === 'symbol' ? ctx.name : String(ctx.name);
+      return {
+        pendingKey: ctx.metadata,
+        methodName: name,
+        isStatic: ctx.static,
+      };
+    })
+    .otherwise(() => {
+      const target = first ?? {};
+      const targetObj: object = isObjectOrFunction(target) ? target : {};
+      const isStatic = typeof first === 'function';
+      const methodName: string | symbol =
+        typeof second === 'string' || typeof second === 'symbol' ? second : '';
+      return {
+        pendingKey: targetObj,
+        methodName,
+        isStatic,
+      };
+    });
+};
 
-  const target = first as object;
-  const isStatic = typeof target === 'function';
-  return {
-    pendingKey: target,
-    methodName: second as string | symbol,
-    isStatic,
-  };
+const emptyClass: InjectableClass = class {};
+const emptyObject: object = {};
+
+const toInjectableClass = (cls: object): InjectableClass => {
+  if (typeof cls !== 'function') return emptyClass;
+  // biome-ignore lint/suspicious/noExplicitAny: Type boundary - runtime validation ensures cls is a class
+  const result: InjectableClass = cls as any;
+  return result;
+};
+
+const extractPendingKey = (targetObj: object): object => {
+  if (typeof targetObj === 'function') {
+    const proto: object = targetObj.prototype ?? emptyObject;
+    return proto;
+  }
+  return emptyObject;
 };
 
 export const resolveClassArgs = (args: unknown[]): ClassDecoratorArgs => {
   const [target, context] = args;
 
-  if (isTC39Context(context)) {
-    const ctx = context as TC39ClassContext;
-    return { cls: target as object, pendingKey: ctx.metadata };
-  }
-
-  const cls = target as { prototype: object };
-  return { cls, pendingKey: cls.prototype };
+  return match(context)
+    .with(tc39ClassPattern, (ctx) => {
+      const cls: object = isObjectOrFunction(target) ? target : emptyObject;
+      return { cls, pendingKey: ctx.metadata, injectableClass: toInjectableClass(cls) };
+    })
+    .otherwise(() => {
+      const targetObj: object = isObjectOrFunction(target) ? target : emptyObject;
+      const pendingKey = extractPendingKey(targetObj);
+      return {
+        cls: targetObj,
+        pendingKey,
+        injectableClass: toInjectableClass(targetObj),
+      };
+    });
 };

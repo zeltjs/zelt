@@ -11,7 +11,7 @@ import type {
 } from '../middleware/types';
 import { createSchedulerRunner, type SchedulerRunner } from '../scheduler/runner';
 import type { ConfigClass } from '../config';
-import { findConfigToken } from '../config';
+import { findRootConfigToken } from '../config/token';
 
 import { handleError } from './error-handler';
 
@@ -137,12 +137,15 @@ const applyOverrides = (
 };
 
 const assertConfigToken = (
-  token: AnyConfigClass,
+  tokenClass: AnyConfigClass,
   configs: readonly AnyConstructorClass[],
 ): void => {
-  const hasToken = configs.some((cfg) => cfg === token || findConfigToken(cfg) === token);
+  const targetRoot = findRootConfigToken(tokenClass);
+  const hasToken = configs.some(
+    (cfg) => cfg === tokenClass || findRootConfigToken(cfg) === targetRoot,
+  );
   if (!hasToken) {
-    throw new Error(`Cannot replaceConfig(): token ${token.name} is not in configs`);
+    throw new Error(`Cannot replaceConfig(): token ${tokenClass.name} is not in configs`);
   }
 };
 
@@ -154,8 +157,13 @@ const awaitSafe = async (p: Promise<void>): Promise<void> => {
   }
 };
 
-const configHasToken = (configs: readonly AnyConstructorClass[], token: AnyConfigClass): boolean =>
-  configs.some((cfg) => cfg === token || findConfigToken(cfg) === token);
+const configHasToken = (
+  configs: readonly AnyConstructorClass[],
+  tokenClass: AnyConfigClass,
+): boolean => {
+  const targetRoot = findRootConfigToken(tokenClass);
+  return configs.some((cfg) => cfg === tokenClass || findRootConfigToken(cfg) === targetRoot);
+};
 
 type AppState = {
   built: BuiltApp | undefined;

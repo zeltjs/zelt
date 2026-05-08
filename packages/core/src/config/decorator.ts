@@ -1,17 +1,13 @@
 import { injectable } from '@needle-di/core';
 
 import { resolveClassArgs } from '../internal/decorator-context';
-import type { ConfigClass } from './types';
-import { findConfigToken } from './token';
 
-export const Config = (...args: unknown[]): unknown => {
+import { registerConfigToken } from './token';
+import { toConfigClass } from './types';
+
+export const Config = (...args: unknown[]): void => {
   const { cls } = resolveClassArgs(args);
-  const target = cls as ConfigClass;
-  if (!findConfigToken(target)) {
-    throw new Error(
-      `@Config class "${target.name}" must have static Token (or extend a class that has one)`,
-    );
-  }
+  const target = toConfigClass(cls);
+  registerConfigToken(target);
   injectable()(target);
-  return cls;
 };

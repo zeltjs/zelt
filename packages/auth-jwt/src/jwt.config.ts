@@ -10,8 +10,6 @@ export interface ResolveUserResult {
 
 @Config
 export class JwtConfig {
-  static readonly Token = JwtConfig;
-
   get secret(): string {
     const secret = process.env['JWT_SECRET'];
     if (!secret) {

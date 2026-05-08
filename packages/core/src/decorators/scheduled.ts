@@ -5,11 +5,10 @@ import { setScheduledMetadata, resolveScheduleMetadata } from '../internal/sched
 
 export const Scheduled =
   () =>
-  (...args: unknown[]): unknown => {
-    const { cls, pendingKey } = resolveClassArgs(args);
+  (...args: unknown[]): void => {
+    const { cls, pendingKey, injectableClass } = resolveClassArgs(args);
 
     resolveScheduleMetadata(pendingKey, cls);
     setScheduledMetadata(cls);
-    injectable()(cls as new (...args: never[]) => object);
-    return cls;
+    injectable()(injectableClass);
   };

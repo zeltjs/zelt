@@ -4,8 +4,6 @@ import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 
 @Config
 export class RedisTestContainerConfig extends RedisConfig implements Lifecycle {
-  static override readonly Token = RedisConfig;
-
   private container: StartedTestContainer | undefined;
   private connectionUrl = '';
 

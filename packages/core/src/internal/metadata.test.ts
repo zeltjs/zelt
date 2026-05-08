@@ -85,7 +85,11 @@ describe('pending/resolve pattern', () => {
     it('stores to pending and resolves to final', () => {
       const pendingKey = {};
       class TestClass {}
-      class MiddlewareA {}
+      class MiddlewareA {
+        async use() {
+          return undefined;
+        }
+      }
 
       appendPendingMethodMiddlewareMetadata(pendingKey, 'test', [MiddlewareA]);
       resolveMethodMiddlewareMetadata(pendingKey, TestClass);
@@ -99,7 +103,11 @@ describe('pending/resolve pattern', () => {
     it('stores to pending and resolves to final', () => {
       const pendingKey = {};
       class TestClass {}
-      class MiddlewareA {}
+      class MiddlewareA {
+        async use() {
+          return undefined;
+        }
+      }
 
       appendPendingSkipMiddlewareMetadata(pendingKey, 'test', [MiddlewareA]);
       resolveSkipMiddlewareMetadata(pendingKey, TestClass);

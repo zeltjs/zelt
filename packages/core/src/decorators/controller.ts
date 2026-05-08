@@ -11,8 +11,8 @@ import {
 
 export const Controller =
   (basePath: string) =>
-  (...args: unknown[]): unknown => {
-    const { cls, pendingKey } = resolveClassArgs(args);
+  (...args: unknown[]): void => {
+    const { cls, pendingKey, injectableClass } = resolveClassArgs(args);
 
     resolveRouteMetadata(pendingKey, cls);
     resolveMethodMiddlewareMetadata(pendingKey, cls);
@@ -20,6 +20,5 @@ export const Controller =
     resolveAuthorizedMetadata(pendingKey, cls);
 
     setControllerMetadata(cls, { basePath });
-    injectable()(cls as new (...args: never[]) => object);
-    return cls;
+    injectable()(injectableClass);
   };

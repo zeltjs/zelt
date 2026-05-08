@@ -8,10 +8,9 @@ import type { Lifecycle } from '../index';
 import { createContainer, createTestTargetBase } from './container';
 
 describe('createContainer with configs', () => {
-  it('binds user config to parent Token', () => {
+  it('binds user config to parent class', () => {
     @Config
     class BaseConfig {
-      static readonly Token = BaseConfig;
       get value() {
         return 'base';
       }
@@ -40,7 +39,6 @@ describe('createContainer with configs', () => {
   it('uses default config when no override provided', () => {
     @Config
     class DefaultConfig {
-      static readonly Token = DefaultConfig;
       get value() {
         return 'default';
       }
@@ -66,8 +64,6 @@ describe('createTestTargetBase', () => {
 
     @Config
     class TestConfig implements Lifecycle {
-      static readonly Token = TestConfig;
-
       constructor(lifecycle = inject(LifecycleManager)) {
         events.push('config:constructor');
         lifecycle.register(this);
@@ -111,8 +107,6 @@ describe('createTestTargetBase', () => {
 
     @Config
     class IdempotentConfig implements Lifecycle {
-      static readonly Token = IdempotentConfig;
-
       constructor(lifecycle = inject(LifecycleManager)) {
         lifecycle.register(this);
       }

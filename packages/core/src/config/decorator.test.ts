@@ -1,36 +1,43 @@
-import { Container } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
 import { Config } from './decorator';
+import { findConfigToken } from './token';
 
 describe('Config decorator', () => {
-  it('makes class injectable', () => {
+  it('registers class in config registry', () => {
     @Config
     class TestConfig {
-      static readonly Token = TestConfig;
       value = 'test';
     }
 
-    const container = new Container();
-    const instance = container.get(TestConfig);
-    expect(instance.value).toBe('test');
+    const token = findConfigToken(TestConfig);
+    expect(token).toBe(TestConfig);
   });
 
-  it('throws if Token is missing', () => {
-    expect(() => {
-      // @ts-expect-error Testing runtime error for missing Token
-      @Config
-      class NoTokenConfig {
-        value = 'test';
-      }
-      return NoTokenConfig;
-    }).toThrow('must have static Token');
-  });
-
-  it('finds Token from parent class', () => {
+  it('undecorated child class finds parent in registry', () => {
     @Config
     class ParentConfig {
-      static readonly Token = ParentConfig;
+      get level() {
+        return 'info';
+      }
+    }
+
+    class ChildConfig extends ParentConfig {
+      override get level() {
+        return 'debug';
+      }
+    }
+
+    const parentToken = findConfigToken(ParentConfig);
+    const childToken = findConfigToken(ChildConfig);
+
+    expect(parentToken).toBe(ParentConfig);
+    expect(childToken).toBe(ParentConfig);
+  });
+
+  it('decorated child class overwrites parent in same token', () => {
+    @Config
+    class ParentConfig {
       get level() {
         return 'info';
       }
@@ -43,8 +50,10 @@ describe('Config decorator', () => {
       }
     }
 
-    const container = new Container();
-    const instance = container.get(ChildConfig);
-    expect(instance.level).toBe('debug');
+    const parentToken = findConfigToken(ParentConfig);
+    const childToken = findConfigToken(ChildConfig);
+
+    expect(parentToken).toBe(ChildConfig);
+    expect(childToken).toBe(ChildConfig);
   });
 });

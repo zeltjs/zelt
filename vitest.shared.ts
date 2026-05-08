@@ -1,7 +1,5 @@
 import swc from 'unplugin-swc';
-import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
+export const sharedConfig = {
   plugins: [
     swc.vite({
       jsc: {
@@ -12,11 +10,4 @@ export default defineConfig({
   ],
   esbuild: false,
   oxc: false,
-  test: {
-    projects: ['packages/*', 'examples/*'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-    },
-  },
-});
+};

@@ -58,7 +58,13 @@ export type {
   ValidationTarget,
 } from './primitives/validated';
 
-export { Config, injectConfig, findConfigToken } from './config';
+export {
+  Config,
+  injectConfig,
+  findConfigToken,
+  findRootConfigToken,
+  toConfigClass,
+} from './config';
 export type { ConfigClass } from './config';
 
 export { createTestTargetBase } from './internal/container';

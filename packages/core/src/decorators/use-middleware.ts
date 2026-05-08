@@ -1,3 +1,5 @@
+import { match, P } from 'ts-pattern';
+
 import { resolveMethodArgs, resolveClassArgs } from '../internal/decorator-context';
 import {
   appendPendingMethodMiddlewareMetadata,
@@ -5,19 +7,22 @@ import {
 } from '../internal/metadata';
 import type { MiddlewareInput } from '../middleware/types';
 
+const tc39ClassPattern = P.shape({ kind: 'class', metadata: P.nonNullable });
+
 export const UseMiddleware =
   (...middlewares: MiddlewareInput[]) =>
-  (...args: unknown[]): unknown => {
+  (...args: unknown[]): void => {
     const [, second] = args;
 
-    // Class decorator: second is undefined (legacy) or has kind:'class' (TC39)
-    const isClassDecorator =
-      second === undefined || (typeof second === 'object' && second !== null && 'kind' in second && (second as { kind: string }).kind === 'class');
+    const isClassDecorator = match(second)
+      .with(P.nullish, () => true)
+      .with(tc39ClassPattern, () => true)
+      .otherwise(() => false);
 
     if (isClassDecorator) {
       const { cls } = resolveClassArgs(args);
       setControllerMiddlewareMetadata(cls, middlewares);
-      return args[0];
+      return;
     }
 
     // Method decorator
@@ -26,5 +31,4 @@ export const UseMiddleware =
       throw new Error('zelt: @UseMiddleware cannot be applied to static methods');
     }
     appendPendingMethodMiddlewareMetadata(pendingKey, methodName, middlewares);
-    return undefined;
   };

@@ -3,8 +3,6 @@ import type { RedisOptions } from 'ioredis';
 
 @Config
 export class RedisConfig {
-  static readonly Token = RedisConfig;
-
   /** 接続 URL。default は REDIS_URL 環境変数。 */
   get url(): string {
     return process.env['REDIS_URL'] ?? 'redis://localhost:6379';

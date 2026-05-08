@@ -7,7 +7,6 @@ import { onTest } from './on-test';
 // Isolated base config used only for the global-default test
 @Config
 class DbConfig {
-  static readonly Token = DbConfig;
   get url() {
     return 'prod://db';
   }
@@ -24,7 +23,6 @@ class TestDbConfig extends DbConfig {
 // caused by needle-di's inheritance scanning when multiple @Config subclasses share a parent
 @Config
 class DbConfig2 {
-  static readonly Token = DbConfig2;
   get url() {
     return 'prod2://db';
   }

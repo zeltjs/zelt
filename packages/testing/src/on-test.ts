@@ -1,4 +1,4 @@
-import { findConfigToken, type HttpApp, type ConfigClass } from '@zeltjs/core';
+import { findRootConfigToken, type HttpApp, type ConfigClass } from '@zeltjs/core';
 import { afterAll } from 'vitest';
 
 import { getTestDefaults } from './global-config';
@@ -26,7 +26,7 @@ const applyGlobalConfigs = (app: HttpApp): void => {
 
 const applyInlineConfigs = (app: HttpApp, configs: readonly AnyConfigClass[]): void => {
   for (const configClass of configs) {
-    const token = findConfigToken(configClass);
+    const token = findRootConfigToken(configClass);
     if (token && app.hasConfig(token)) {
       app.replaceConfig(token, configClass);
     }

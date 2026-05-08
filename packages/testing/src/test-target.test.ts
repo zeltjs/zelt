@@ -114,7 +114,6 @@ describe('createTestTarget', () => {
   describe('global config defaults', () => {
     @Config
     class GlobalBaseConfig {
-      static readonly Token = GlobalBaseConfig;
       get value() {
         return 'base';
       }
@@ -129,7 +128,6 @@ describe('createTestTarget', () => {
 
     @Config
     class GlobalBaseConfig2 {
-      static readonly Token = GlobalBaseConfig2;
       get value() {
         return 'base2';
       }
