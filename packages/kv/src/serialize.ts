@@ -1,11 +1,6 @@
-import { err, ok, type Result } from 'neverthrow';
+import type { Defined } from './types';
 
-import { invalidValue, type KVError } from './errors';
-
-export const serialize = (value: unknown): Result<string, KVError> => {
-  if (value === undefined) return err(invalidValue('cannot serialize undefined'));
-  return ok(JSON.stringify(value));
-};
+export const serialize = (value: Defined): string => JSON.stringify(value);
 
 // deserialize stays sync without Result because we control the input (always
 // a string we previously serialized via JSON.stringify, plus driver-controlled null sentinel).

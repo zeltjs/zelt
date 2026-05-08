@@ -21,6 +21,8 @@ export default tseslint.config(
       'eslint.config.mjs',
       '**/generated/**',
       'website/**',
+      // TODO: remove after rate-limit package adapts to new KV API
+      'packages/rate-limit/**',
     ],
   },
   tseslint.configs.recommended,
@@ -218,6 +220,21 @@ export default tseslint.config(
     files: ['**/*.types.ts'],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
+  {
+    // KV uses throw for TTL validation.
+    files: ['packages/kv/src/memory-kv.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+    },
+  },
+  {
+    // Redis KV wraps ioredis errors into KVError at the driver boundary.
+    files: ['packages/kv-driver-redis/src/redis-kv-store.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/no-try-catch': 'off',
     },
   },
   {

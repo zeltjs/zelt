@@ -17,7 +17,7 @@ class TestSessionConfig extends SessionConfig {
   private readonly memoryKV = inject(MemoryKV);
 
   override get store(): KVStore {
-    return this.memoryKV.namespace('test:').unwrapOr(null as never);
+    return this.memoryKV.namespace('test:');
   }
 
   override get secret(): string {

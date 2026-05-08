@@ -66,12 +66,9 @@ export class SessionMiddleware {
     if (signedId) {
       const sessionId = verifyAndExtractSessionId(signedId, this.config.secret);
       if (sessionId) {
-        const result = await this.config.store.get<StoredSession>(sessionId);
-        if (result.isOk() && result.value) {
-          const stored = result.value;
-          if (stored.meta.expiresAt > Date.now()) {
-            return { sessionId, session: stored, isNew: false };
-          }
+        const stored = await this.config.store.get<StoredSession>(sessionId);
+        if (stored && stored.meta.expiresAt > Date.now()) {
+          return { sessionId, session: stored, isNew: false };
         }
       }
     }

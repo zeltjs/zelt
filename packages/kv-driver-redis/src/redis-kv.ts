@@ -1,6 +1,5 @@
 import { inject, Injectable, injectConfig, LifecycleManager, type Lifecycle } from '@zeltjs/core';
-import { validatePrefix, type AtomicKVDriver, type AtomicKVStore, type KVError } from '@zeltjs/kv';
-import type { Result } from 'neverthrow';
+import { type AtomicKVDriver, type AtomicKVStore, type NonEmptyString } from '@zeltjs/kv';
 
 import { RedisConfig } from './redis.config';
 import { RedisKVStore } from './redis-kv-store';
@@ -15,8 +14,8 @@ export class RedisKV implements AtomicKVDriver, Lifecycle {
     lifecycle.register(this);
   }
 
-  namespace(prefix: string): Result<AtomicKVStore, KVError> {
-    return validatePrefix(prefix).map((p) => new RedisKVStore(this.client, p));
+  namespace<const S extends string>(prefix: NonEmptyString<S>): AtomicKVStore {
+    return new RedisKVStore(this.client, prefix);
   }
 
   async startup(): Promise<void> {}
