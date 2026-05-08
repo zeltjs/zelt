@@ -8,9 +8,22 @@ const config: KnipConfig = {
   ignoreMembers: ['GreetBody', 'GreetResponse', 'CreateUserBody', 'User'],
   workspaces: {
     'examples/hello': {
-      entry: ['src/main.ts', 'src/entry/node.ts'],
+      entry: [
+        'src/main.ts',
+        'src/entry/*.ts',
+        'src/app.ts',
+        'src/controllers.ts',
+        'src/middlewares/*.ts',
+      ],
       ignore: ['generated/**'],
-      ignoreDependencies: ['@zeltjs/openapi', '@zeltjs/adapter-node', '@zeltjs/cli', 'tsdown'],
+      ignoreDependencies: [
+        '@zeltjs/openapi',
+        '@zeltjs/adapter-node',
+        '@zeltjs/core',
+        '@zeltjs/cli',
+        'tsdown',
+        'valibot',
+      ],
     },
     'examples/drizzle-todo': {
       entry: [
