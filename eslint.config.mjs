@@ -179,6 +179,14 @@ export default tseslint.config(
     },
   },
   {
+    // TTY detection reads process.stdout.isTTY and process.env.NO_COLOR; typeof guard
+    // prevents crashes in runtimes without process (e.g. browser/Cloudflare Workers).
+    files: ['packages/core/src/modules/logger/formatter/pretty.formatter.lib.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-process-access': 'off',
+    },
+  },
+  {
     // Example apps: relaxed rules for demo code clarity
     // - HTTPException requires throw
     // - raw fetch returns untyped JSON
