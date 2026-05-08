@@ -1,7 +1,7 @@
 import { Config } from '@zeltjs/core';
 import type { RequestContextSchema } from '@zeltjs/core';
 
-import type { JwtPayload } from './jwt.types';
+import type { JwtDriver, JwtPayload } from './jwt.types';
 
 export interface ResolveUserResult {
   user: RequestContextSchema['user'];
@@ -20,6 +20,14 @@ export class JwtConfig {
 
   get expiresIn(): string {
     return '1h';
+  }
+
+  get driver(): JwtDriver {
+    return 'header';
+  }
+
+  get cookieName(): string {
+    return 'jwt';
   }
 
   get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {

@@ -8,6 +8,6 @@ export const sharedConfig = {
       },
     }),
   ],
-  esbuild: false,
-  oxc: false,
+  esbuild: false as const,
+  oxc: false as const,
 };

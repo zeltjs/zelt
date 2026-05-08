@@ -1,6 +1,7 @@
 import type { Context, Env, Hono, Input } from 'hono';
 import * as v from 'valibot';
 
+import type { LifecycleManager } from '../lifecycle';
 import type { FunctionMiddleware, MiddlewareClass, MiddlewareInput } from '../middleware/types';
 import { currentRoles, currentUser } from '../primitives/auth';
 
@@ -201,10 +202,12 @@ const composeHandler = (
           const result = await mw(c, () => dispatch(i + 1));
           if (result instanceof Response) {
             response = result;
+            c.res = result;
           }
         }
       } else {
         response = await finalHandler(c);
+        c.res = response;
       }
     };
 
@@ -213,31 +216,50 @@ const composeHandler = (
   };
 };
 
+type RouteBuilderContext = {
+  readonly resolver: ResolverHandle;
+  readonly lifecycle: LifecycleManager;
+  readonly instanceCache: Map<ControllerClass, object>;
+};
+
+const getOrCreateInstance = (
+  ctx: RouteBuilderContext,
+  controllerClass: ControllerClass,
+): object => {
+  const cached = ctx.instanceCache.get(controllerClass);
+  if (cached) return cached;
+  const instance = ctx.resolver.get(controllerClass);
+  ctx.instanceCache.set(controllerClass, instance);
+  return instance;
+};
+
 const registerRoute = (
   hono: Hono,
-  resolver: ResolverHandle,
+  ctx: RouteBuilderContext,
   route: Route,
   globalMiddlewares: readonly MiddlewareInput[],
 ): void => {
-  const instance = resolver.get(route.controllerClass);
-  const invoke = resolveHandler(instance, route.methodName);
-
   const middlewares = collectRouteMiddlewares(
     globalMiddlewares,
     route.controllerClass,
     route.methodName,
-    resolver,
+    ctx.resolver,
   );
 
-  const finalHandler = async (c: MiddlewareContext): Promise<Response> => {
-    const result = await invoke();
-    if (result instanceof Response) return result;
-    return c.json(result);
-  };
-
-  const composedHandler = composeHandler(middlewares, finalHandler);
-
   const handler = async (c: MiddlewareContext): Promise<Response> => {
+    const instance = getOrCreateInstance(ctx, route.controllerClass);
+    await ctx.lifecycle.startupPending();
+
+    const invoke = resolveHandler(instance, route.methodName);
+
+    const finalHandler = async (ctx: MiddlewareContext): Promise<Response> => {
+      const result = await invoke();
+      if (result instanceof Response) return result;
+      return ctx.json(result);
+    };
+
+    const composedHandler = composeHandler(middlewares, finalHandler);
+
     const { jsonBody, formBody } = await parseRequestBodies(c);
     const pathParams: Readonly<Record<string, string>> = c.req.param();
     return runInEntryContext({ input: { jsonBody, formBody, pathParams }, honoContext: c }, () =>
@@ -256,13 +278,33 @@ const registerRoute = (
   methods[route.method]();
 };
 
-export const buildRoutes = (
-  hono: Hono,
+export type BuildRoutesOptions = {
+  readonly hono: Hono;
+  readonly controllers: readonly ControllerClass[];
+  readonly resolver: ResolverHandle;
+  readonly lifecycle: LifecycleManager;
+  readonly globalMiddlewares?: readonly MiddlewareInput[];
+};
+
+export const buildRoutes = (options: BuildRoutesOptions): void => {
+  const ctx: RouteBuilderContext = {
+    resolver: options.resolver,
+    lifecycle: options.lifecycle,
+    instanceCache: new Map(),
+  };
+
+  for (const route of collectRoutes(options.controllers)) {
+    registerRoute(options.hono, ctx, route, options.globalMiddlewares ?? []);
+  }
+};
+
+export const warmupControllers = async (
   controllers: readonly ControllerClass[],
   resolver: ResolverHandle,
-  globalMiddlewares: readonly MiddlewareInput[] = [],
-): void => {
-  for (const route of collectRoutes(controllers)) {
-    registerRoute(hono, resolver, route, globalMiddlewares);
+  lifecycle: LifecycleManager,
+): Promise<void> => {
+  for (const cls of controllers) {
+    resolver.get(cls);
   }
+  await lifecycle.startupPending();
 };

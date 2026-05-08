@@ -1,7 +1,7 @@
 import { findRootConfigToken, type HttpApp, type ConfigClass } from '@zeltjs/core';
-import { afterAll } from 'vitest';
 
 import { getTestDefaults } from './global-config';
+import { registerShutdown } from './shutdown-registry';
 
 type AnyConfigClass = ConfigClass<object>;
 
@@ -38,10 +38,7 @@ export const onTest = async (app: HttpApp, options: OnTestOptions = {}): Promise
   applyInlineConfigs(app, options.configs ?? []);
 
   await app.ready();
-
-  afterAll(async () => {
-    await app.shutdown();
-  });
+  registerShutdown(app.shutdown.bind(app));
 
   return {
     fetch: app.fetch.bind(app),

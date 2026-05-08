@@ -16,6 +16,22 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./vitest": {
+      "types": "./dist/adapters/vitest.d.ts",
+      "import": "./dist/adapters/vitest.js"
+    },
+    "./jest": {
+      "types": "./dist/adapters/jest.d.ts",
+      "import": "./dist/adapters/jest.js"
+    },
+    "./bun": {
+      "types": "./dist/adapters/bun.d.ts",
+      "import": "./dist/adapters/bun.js"
+    },
+    "./node": {
+      "types": "./dist/adapters/node.d.ts",
+      "import": "./dist/adapters/node.js"
+    },
     "./redis": {
       "types": "./dist/redis/index.d.ts",
       "import": "./dist/redis/index.js"
@@ -33,7 +49,10 @@
     "@zeltjs/core": "workspace:*",
     "@zeltjs/kv-driver-redis": "workspace:*",
     "testcontainers": ">=10 <12",
-    "vitest": ">=4 <5"
+    "vitest": ">=2",
+    "@jest/globals": ">=29",
+    "bun-types": ">=1",
+    "@types/node": ">=20"
   },
   "peerDependenciesMeta": {
     "@zeltjs/kv-driver-redis": {
@@ -41,10 +60,25 @@
     },
     "testcontainers": {
       "optional": true
+    },
+    "vitest": {
+      "optional": true
+    },
+    "@jest/globals": {
+      "optional": true
+    },
+    "bun-types": {
+      "optional": true
+    },
+    "@types/node": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@zeltjs/kv-driver-redis": "workspace:*",
-    "testcontainers": "10.25.0"
+    "@jest/globals": "29.7.0",
+    "bun-types": "1.2.14",
+    "testcontainers": "10.25.0",
+    "vitest": "4.1.5"
   }
 }

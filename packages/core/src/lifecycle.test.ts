@@ -102,4 +102,58 @@ describe('LifecycleManager', () => {
 
     expect(maxConcurrent).toBe(1);
   });
+
+  it('startupPending only starts newly registered lifecycles', async () => {
+    const manager = new LifecycleManager();
+    const events: string[] = [];
+
+    const first: Lifecycle = {
+      startup: async () => {
+        events.push('first:start');
+      },
+      shutdown: async () => {},
+    };
+    const second: Lifecycle = {
+      startup: async () => {
+        events.push('second:start');
+      },
+      shutdown: async () => {},
+    };
+    const third: Lifecycle = {
+      startup: async () => {
+        events.push('third:start');
+      },
+      shutdown: async () => {},
+    };
+
+    manager.register(first);
+    manager.register(second);
+    await manager.startupPending();
+
+    expect(events).toEqual(['first:start', 'second:start']);
+
+    manager.register(third);
+    await manager.startupPending();
+
+    expect(events).toEqual(['first:start', 'second:start', 'third:start']);
+  });
+
+  it('startupPending is idempotent when no new lifecycles registered', async () => {
+    const manager = new LifecycleManager();
+    let callCount = 0;
+
+    const lifecycle: Lifecycle = {
+      startup: async () => {
+        callCount++;
+      },
+      shutdown: async () => {},
+    };
+
+    manager.register(lifecycle);
+    await manager.startupPending();
+    await manager.startupPending();
+    await manager.startupPending();
+
+    expect(callCount).toBe(1);
+  });
 });

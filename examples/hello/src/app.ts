@@ -9,4 +9,4 @@ export const app = createHttpApp({
   middlewares: [loggingMiddleware],
 });
 
-export default onNode(app);
+export default await onNode(app);

@@ -7,4 +7,4 @@ export const app = createHttpApp({
   controllers,
 });
 
-export default onNode(app);
+export default await onNode(app);

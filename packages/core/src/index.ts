@@ -1,5 +1,5 @@
 export { createHttpApp } from './http/app';
-export type { CreateHttpAppOptions, HttpApp } from './http/app';
+export type { CreateHttpAppOptions, HttpApp, ReadyOptions, ReadyResult } from './http/app';
 
 export { validationErrorBodySchema } from './http/error-schema';
 export type { ValidationErrorBody } from './http/error-schema';
@@ -75,4 +75,4 @@ export type { Lifecycle, Disposable } from './lifecycle';
 
 export { Logger } from './modules/logger';
 
-export { EnvConfig, ProcessEnvConfig, DotEnvConfig, EnvService } from './modules/env';
+export { EnvConfig, EnvService } from './modules/env';

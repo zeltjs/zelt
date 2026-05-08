@@ -5,6 +5,7 @@ import * as v from 'valibot';
 
 import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
+import { LifecycleManager } from '../lifecycle';
 import { validated } from '../primitives/validated';
 
 import { createContainer } from './container';
@@ -68,7 +69,14 @@ class PassthroughController {
 describe('buildRoutes (instanceof Response branch)', () => {
   it('returns a hand-built Response as-is (instanceof Response branch)', async () => {
     const hono = new Hono({ strict: false });
-    buildRoutes(hono, [PassthroughController], createContainer());
+    const resolver = createContainer();
+    const lifecycle = resolver.get(LifecycleManager);
+    buildRoutes({
+      hono,
+      controllers: [PassthroughController],
+      resolver,
+      lifecycle,
+    });
     const res = await hono.fetch(new Request('http://x/passthrough/teapot'));
     expect(res.status).toBe(418);
     expect(res.headers.get('X-Custom')).toBe('yes');
@@ -113,7 +121,14 @@ describe('route-builder — error path integration', () => {
 
   const hono = new Hono({ strict: false });
   hono.onError(createOnError());
-  buildRoutes(hono, [ErrController], createContainer());
+  const resolver = createContainer();
+  const lifecycle = resolver.get(LifecycleManager);
+  buildRoutes({
+    hono,
+    controllers: [ErrController],
+    resolver,
+    lifecycle,
+  });
 
   it('serializes HTTPException to status + custom body via getResponse()', async () => {
     const res = await hono.fetch(new Request('http://x/err/not-found'));

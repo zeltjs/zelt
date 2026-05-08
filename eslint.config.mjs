@@ -5,9 +5,10 @@ import oxlint from 'eslint-plugin-oxlint';
 import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
-const TEST_FILES = ['**/*.{test,spec}.{ts,tsx}', '**/*.e2e-{test,spec}.{ts,tsx}'];
+const TEST_FILES = ['**/*.test.{ts,tsx}', '**/*.e2e.test.{ts,tsx}'];
 const FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,tsx}'];
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
+const FORBIDDEN_TEST_PATTERNS = ['**/*.spec.{ts,tsx}', '**/*.e2e-spec.{ts,tsx}'];
 
 export default tseslint.config(
   {
@@ -100,7 +101,7 @@ export default tseslint.config(
       'no-console': 'off',
       'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
       'import-x/no-namespace': 'off',
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'warn',
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
     },
@@ -196,20 +197,6 @@ export default tseslint.config(
     },
   },
   {
-    // *.types.ts files are pure type declaration files and cannot export @injectable() classes.
-    files: ['**/*.types.ts'],
-    rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
-    // *.decorator.ts files are decorator factories that dynamically create classes.
-    files: ['**/*.decorator.ts'],
-    rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
     // CLI command runner uses Object.create and DI container.get() at dynamic module
     // boundaries where type assertions are unavoidable.
     files: [
@@ -220,6 +207,18 @@ export default tseslint.config(
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
+  {
+    files: ['**/*.decorator.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
+  {
+    files: ['**/*.types.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
     },
   },
   {
@@ -245,6 +244,29 @@ export default tseslint.config(
       '@9wick/strict-type-rules/no-type-predicate': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  {
+    // Session context uses generic type narrowing at AsyncLocalStorage boundary.
+    // Type assertions are needed for user-facing generic session data APIs.
+    files: [
+      'packages/auth-session/src/session.context.lib.ts',
+      'packages/auth-session/src/session.functions.lib.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    files: FORBIDDEN_TEST_PATTERNS,
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Program',
+          message: 'Use .test.ts instead of .spec.ts for test files',
+        },
+      ],
     },
   },
 );

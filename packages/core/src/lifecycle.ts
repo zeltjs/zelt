@@ -11,20 +11,29 @@ export interface Lifecycle extends Disposable {
 @injectable()
 export class LifecycleManager {
   private readonly lifecycles: Lifecycle[] = [];
+  private startedIndex = 0;
 
   register(lifecycle: Lifecycle): void {
     this.lifecycles.push(lifecycle);
   }
 
   async startup(): Promise<void> {
-    for (const lc of this.lifecycles) {
-      await lc.startup();
+    await this.startupPending();
+  }
+
+  async startupPending(): Promise<void> {
+    while (this.startedIndex < this.lifecycles.length) {
+      const lc = this.lifecycles[this.startedIndex];
+      if (lc) await lc.startup();
+      this.startedIndex++;
     }
   }
 
   async shutdown(): Promise<void> {
-    for (const lc of [...this.lifecycles].reverse()) {
-      await lc.shutdown();
+    const stopAt = Math.max(this.startedIndex, this.lifecycles.length);
+    for (let i = stopAt - 1; i >= 0; i--) {
+      const lc = this.lifecycles[i];
+      if (lc) await lc.shutdown();
     }
   }
 }

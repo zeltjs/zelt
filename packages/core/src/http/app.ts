@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 
 import { createContainer } from '../internal/container';
 import { LifecycleManager } from '../lifecycle';
-import { buildRoutes } from '../internal/route-builder';
+import { buildRoutes, warmupControllers } from '../internal/route-builder';
 import type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
@@ -30,11 +30,19 @@ export type CreateHttpAppOptions = {
   readonly configs?: readonly (new (...args: never[]) => object)[];
 };
 
+export type ReadyOptions = {
+  readonly warmup?: boolean;
+};
+
+export type ReadyResult = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => T;
+};
+
 export type HttpApp = {
   readonly fetch: (request: Request) => Promise<Response>;
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
-  readonly ready: () => Promise<void>;
+  readonly ready: (options?: ReadyOptions) => Promise<ReadyResult>;
   readonly hasConfig: (token: AnyConfigClass) => boolean;
   readonly replaceConfig: (token: AnyConfigClass, replacement: AnyConfigClass) => void;
   /** @deprecated Scheduler now starts automatically. Use shutdown() to stop. */
@@ -83,13 +91,21 @@ const registerScheduler = (
   return runner;
 };
 
-const setupHono = (options: CreateHttpAppOptions, resolver: Resolver): Hono => {
-  // strict:false で `/echo` と `/echo/` を同一視する。joinPath が末尾スラッシュを正規化するため、
-  // 利用者が `@Post('/')` と書いた場合でも `/echo/` リクエストにマッチさせる必要がある。
+const setupHono = (
+  options: CreateHttpAppOptions,
+  resolver: Resolver,
+  lifecycle: LifecycleManager,
+): Hono => {
   const hono = new Hono({ strict: false });
   const errorHandlers = resolveErrorHandlers(options.errorHandlers ?? [], resolver);
   hono.onError(createErrorHandler(errorHandlers));
-  buildRoutes(hono, options.controllers, resolver, options.middlewares ?? []);
+  buildRoutes({
+    hono,
+    controllers: options.controllers,
+    resolver,
+    lifecycle,
+    globalMiddlewares: options.middlewares ?? [],
+  });
   return hono;
 };
 
@@ -97,21 +113,27 @@ type BuiltApp = {
   readonly hono: Hono;
   readonly lifecycle: LifecycleManager;
   readonly schedulerRunner: SchedulerRunner | undefined;
+  readonly resolver: Resolver;
+  readonly controllers: readonly ControllerClass[];
 };
 
-const buildApp = async (
-  options: CreateHttpAppOptions,
-  configOverrides: ReadonlyMap<AnyConstructorClass, AnyConstructorClass>,
-): Promise<BuiltApp> => {
-  const effectiveConfigs = applyOverrides(options.configs ?? [], configOverrides);
+type BuildAppOptions = {
+  readonly appOptions: CreateHttpAppOptions;
+  readonly configOverrides: ReadonlyMap<AnyConstructorClass, AnyConstructorClass>;
+  readonly warmup: boolean;
+};
+
+const buildApp = async (buildOptions: BuildAppOptions): Promise<BuiltApp> => {
+  const { appOptions, configOverrides, warmup } = buildOptions;
+  const effectiveConfigs = applyOverrides(appOptions.configs ?? [], configOverrides);
   const resolver = createContainer({ configs: effectiveConfigs });
   const lifecycle = resolver.get(LifecycleManager);
 
   instantiateConfigs(effectiveConfigs, resolver);
-  const schedulerRunner = registerScheduler(options.schedulers, resolver, lifecycle);
+  const schedulerRunner = registerScheduler(appOptions.schedulers, resolver, lifecycle);
 
   try {
-    await lifecycle.startup();
+    await lifecycle.startupPending();
   } catch (error) {
     await lifecycle.shutdown();
     throw error;
@@ -119,13 +141,22 @@ const buildApp = async (
 
   let hono: Hono;
   try {
-    hono = setupHono(options, resolver);
+    hono = setupHono(appOptions, resolver, lifecycle);
   } catch (error) {
     await lifecycle.shutdown();
     throw error;
   }
 
-  return { hono, lifecycle, schedulerRunner };
+  if (warmup) {
+    try {
+      await warmupControllers(appOptions.controllers, resolver, lifecycle);
+    } catch (error) {
+      await lifecycle.shutdown();
+      throw error;
+    }
+  }
+
+  return { hono, lifecycle, schedulerRunner, resolver, controllers: appOptions.controllers };
 };
 
 const applyOverrides = (
@@ -149,7 +180,7 @@ const assertConfigToken = (
   }
 };
 
-const awaitSafe = async (p: Promise<void>): Promise<void> => {
+const awaitSafe = async (p: Promise<unknown>): Promise<void> => {
   try {
     await p;
   } catch {
@@ -168,7 +199,7 @@ const configHasToken = (
 type AppState = {
   built: BuiltApp | undefined;
   disposed: boolean;
-  readyPromise: Promise<void> | undefined;
+  readyPromise: Promise<ReadyResult> | undefined;
   readonly configOverrides: Map<AnyConfigClass, AnyConfigClass>;
 };
 
@@ -181,15 +212,27 @@ const createReplaceConfig =
     state.configOverrides.set(token, replacement);
   };
 
-const createReady = (options: CreateHttpAppOptions, state: AppState) => async (): Promise<void> => {
-  if (state.disposed) throw new Error('Cannot ready() after shutdown()');
-  if (state.built) return;
-  if (state.readyPromise) return state.readyPromise;
-  state.readyPromise = buildApp(options, state.configOverrides).then((b) => {
-    state.built = b;
-  });
-  return state.readyPromise;
-};
+const createReadyResult = (resolver: Resolver): ReadyResult => ({
+  get: <T extends object>(cls: new (...args: never[]) => T): T => resolver.get(cls),
+});
+
+const createReady =
+  (options: CreateHttpAppOptions, state: AppState) =>
+  async (readyOptions?: ReadyOptions): Promise<ReadyResult> => {
+    if (state.disposed) throw new Error('Cannot ready() after shutdown()');
+    if (state.readyPromise) return state.readyPromise;
+
+    const warmup = readyOptions?.warmup ?? false;
+    state.readyPromise = buildApp({
+      appOptions: options,
+      configOverrides: state.configOverrides,
+      warmup,
+    }).then((b) => {
+      state.built = b;
+      return createReadyResult(b.resolver);
+    });
+    return state.readyPromise;
+  };
 
 const createShutdown = (state: AppState) => async (): Promise<void> => {
   if (state.disposed) return;

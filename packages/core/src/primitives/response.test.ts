@@ -5,6 +5,7 @@ import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
 import { createContainer } from '../internal/container';
 import { buildRoutes } from '../internal/route-builder';
+import { LifecycleManager } from '../lifecycle';
 
 import { response } from './response';
 
@@ -38,7 +39,14 @@ class ResponseTestController {
 
 describe('response()', () => {
   const hono = new Hono({ strict: false });
-  buildRoutes(hono, [ResponseTestController], createContainer());
+  const resolver = createContainer();
+  const lifecycle = resolver.get(LifecycleManager);
+  buildRoutes({
+    hono,
+    controllers: [ResponseTestController],
+    resolver,
+    lifecycle,
+  });
 
   it('json status code', async () => {
     const res = await hono.fetch(new Request('http://x/r/json'));

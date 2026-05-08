@@ -1,0 +1,17 @@
+{
+  "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "experimentalDecorators": true,
+    "erasableSyntaxOnly": false,
+    "types": ["@cloudflare/workers-types"]
+  },
+  "include": ["src/**/*"],
+  "references": [{ "path": "../core" }]
+}

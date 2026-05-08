@@ -1,5 +1,4 @@
 ---
-sidebar_position: 7
 ---
 
 # Testing
@@ -9,7 +8,46 @@ Zelt provides `@zeltjs/testing` package with utilities for testing your applicat
 ## Installation
 
 ```bash
-pnpm add -D @zeltjs/testing vitest
+pnpm add -D @zeltjs/testing
+```
+
+## Test Runner Adapters
+
+Import from the adapter for your test runner. This auto-registers cleanup via `afterAll`.
+
+### Vitest
+
+```typescript
+import { onTest, createTestTarget } from '@zeltjs/testing/vitest';
+```
+
+### Jest
+
+```typescript
+import { onTest, createTestTarget } from '@zeltjs/testing/jest';
+```
+
+### Bun
+
+```typescript
+import { onTest, createTestTarget } from '@zeltjs/testing/bun';
+```
+
+### Node.js Test Runner
+
+```typescript
+import { onTest, createTestTarget } from '@zeltjs/testing/node';
+```
+
+### Manual Setup
+
+If you prefer manual control or use a different test runner, import from the base package and call `shutdownAll()` yourself:
+
+```typescript
+import { onTest, createTestTarget, shutdownAll } from '@zeltjs/testing';
+import { afterAll } from 'your-test-runner';
+
+afterAll(shutdownAll);
 ```
 
 ## createTestTarget
@@ -18,7 +56,7 @@ pnpm add -D @zeltjs/testing vitest
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { createTestTarget } from '@zeltjs/testing';
+import { createTestTarget } from '@zeltjs/testing/vitest';
 import { UserService } from './user.service';
 import { ProcessEnvConfig } from '@zeltjs/core';
 
@@ -47,14 +85,14 @@ describe('UserService', () => {
 |----------|------|-------------|
 | `target` | `T` | The instantiated service |
 | `get` | `(cls) => T` | Resolve additional dependencies from the container |
-| `shutdown` | `() => Promise<void>` | Cleanup function (auto-called via vitest `afterAll`) |
+| `shutdown` | `() => Promise<void>` | Cleanup function (auto-registered to `shutdownAll`) |
 
 ### Mocking Dependencies
 
 Use `overrides` to replace real implementations with mocks:
 
 ```typescript
-import { createTestTarget } from '@zeltjs/testing';
+import { createTestTarget } from '@zeltjs/testing/vitest';
 import { UserService } from './user.service';
 import { EmailService } from './email.service';
 
@@ -137,7 +175,7 @@ pnpm add -D @zeltjs/testing testcontainers
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { createTestTarget } from '@zeltjs/testing';
+import { createTestTarget } from '@zeltjs/testing/vitest';
 import { RedisTestContainerConfig } from '@zeltjs/testing/redis';
 import { CacheService } from './cache.service';
 
@@ -204,9 +242,9 @@ export class PostgresTestContainerConfig implements Lifecycle {
 
 ## Lifecycle Management
 
-`createTestTarget` automatically manages the lifecycle of your dependencies:
+`createTestTarget` and `onTest` automatically register their shutdown functions to `shutdownAll`:
 
-1. **Startup**: All registered `Lifecycle` implementations are started before tests
-2. **Shutdown**: Cleanup is automatically called via vitest's `afterAll` hook
+1. **Startup**: All registered `Lifecycle` implementations are started when the test target is created
+2. **Shutdown**: Call `shutdownAll()` in your test runner's global teardown (see [Test Runner Setup](#test-runner-setup))
 
 This means Testcontainers and other resources are properly cleaned up even if tests fail.

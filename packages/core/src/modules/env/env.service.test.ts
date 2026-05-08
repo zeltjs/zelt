@@ -1,15 +1,24 @@
+/// <reference types="node" />
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Config } from '../../config';
 import { createTestTargetBase } from '../../internal/container';
 
-import { ProcessEnvConfig } from './env.config';
+import { EnvConfig } from './env.config';
 import { EnvService } from './env.service';
+
+@Config
+class TestProcessEnvConfig extends EnvConfig {
+  override get(key: string): string | undefined {
+    return process.env[key];
+  }
+}
 
 let service: EnvService;
 
 const setupEnvService = async () => {
   const result = await createTestTargetBase(EnvService, {
-    configs: [ProcessEnvConfig],
+    configs: [TestProcessEnvConfig],
   });
   service = result.target;
   return result;

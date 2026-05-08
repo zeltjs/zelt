@@ -1,17 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createHttpApp, Controller, Get, EnvConfig, ProcessEnvConfig } from '@zeltjs/core';
+import { createHttpApp, Controller, Get, EnvConfig } from '@zeltjs/core';
 
-import { onNode, type ServerHandle } from './on-node';
+import { onNode, type ServerHandle, type NodeApp } from './on-node';
+import { ProcessEnvConfig } from './process-env.config';
 
 describe('onNode', () => {
+  let nodeApp: NodeApp | undefined;
   let handle: ServerHandle | undefined;
 
   afterEach(async () => {
     await handle?.shutdown();
     handle = undefined;
+    nodeApp = undefined;
   });
 
-  it('calls ready and returns server handle', async () => {
+  it('calls ready and returns NodeApp with get and listen', async () => {
     @Controller('/')
     class TestController {
       @Get('/')
@@ -21,7 +24,8 @@ describe('onNode', () => {
     }
 
     const app = createHttpApp({ controllers: [TestController] });
-    handle = await onNode(app).listen(0);
+    nodeApp = await onNode(app);
+    handle = await nodeApp.listen(0);
 
     expect(handle.address.port).toBeGreaterThan(0);
     expect(handle.shutdown).toBeTypeOf('function');
@@ -41,14 +45,15 @@ describe('onNode', () => {
     }
 
     const app = createHttpApp({ controllers: [PingController] });
-    handle = await onNode(app).listen(0);
+    nodeApp = await onNode(app);
+    handle = await nodeApp.listen(0);
 
     expect(handle.address.port).toBeGreaterThan(0);
     const res = await fetch(`http://localhost:${handle.address.port}/`);
     expect(res.status).toBe(200);
   });
 
-  it('calls app.ready() before serving', async () => {
+  it('calls app.ready() during onNode', async () => {
     @Controller('/health')
     class HealthController {
       @Get('/')
@@ -60,10 +65,11 @@ describe('onNode', () => {
     const app = createHttpApp({ controllers: [HealthController] });
     const readySpy = vi.spyOn(app, 'ready');
 
-    handle = await onNode(app).listen(0);
+    nodeApp = await onNode(app);
 
     expect(readySpy).toHaveBeenCalledOnce();
 
+    handle = await nodeApp.listen(0);
     const res = await fetch(`http://localhost:${handle.address.port}/health/`);
     const body: { status: string } = await res.json();
     expect(body.status).toBe('ok');
@@ -76,7 +82,7 @@ describe('onNode', () => {
     });
     const replaceConfigSpy = vi.spyOn(app, 'replaceConfig');
 
-    handle = await onNode(app).listen(0);
+    nodeApp = await onNode(app);
 
     expect(replaceConfigSpy).toHaveBeenCalledWith(EnvConfig, ProcessEnvConfig);
   });
@@ -91,7 +97,8 @@ describe('onNode', () => {
     }
 
     const app = createHttpApp({ controllers: [SimpleController] });
-    handle = await onNode(app).listen(0);
+    nodeApp = await onNode(app);
+    handle = await nodeApp.listen(0);
 
     const res = await fetch(`http://localhost:${handle.address.port}/`);
     expect(res.status).toBe(200);
@@ -107,12 +114,32 @@ describe('onNode', () => {
     }
 
     const app = createHttpApp({ controllers: [ShutdownController] });
-    handle = await onNode(app).listen(0);
+    nodeApp = await onNode(app);
+    handle = await nodeApp.listen(0);
     const { port } = handle.address;
 
     await handle.shutdown();
     handle = undefined;
 
     await expect(fetch(`http://localhost:${port}/`)).rejects.toThrow();
+  });
+
+  it('provides get() to retrieve dependencies from container', async () => {
+    @Controller('/')
+    class ServiceController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createHttpApp({
+      controllers: [ServiceController],
+      configs: [EnvConfig],
+    });
+    nodeApp = await onNode(app);
+
+    const env = nodeApp.get(EnvConfig);
+    expect(env.get).toBeTypeOf('function');
   });
 });
