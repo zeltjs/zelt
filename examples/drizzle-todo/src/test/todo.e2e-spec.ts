@@ -1,10 +1,14 @@
 import { existsSync, rmSync } from 'node:fs';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { app } from '../app';
 
 type Todo = { id: number; title: string; completed: boolean };
+
+beforeAll(async () => {
+  await app.ready();
+});
 
 const appFetch = (input: RequestInfo | URL, init?: RequestInit) =>
   app.fetch(new Request(input, init));

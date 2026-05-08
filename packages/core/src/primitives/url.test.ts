@@ -16,7 +16,8 @@ describe('url', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/info?foo=bar'));
     expect(await res.json()).toEqual({ url: 'http://localhost/info?foo=bar' });
   });
@@ -32,7 +33,8 @@ describe('path', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/users/123?include=profile'));
     expect(await res.json()).toEqual({ path: '/users/123' });
   });
@@ -53,7 +55,8 @@ describe('method', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
 
     const getRes = await app.fetch(new Request('http://localhost/test'));
     expect(await getRes.json()).toEqual({ method: 'GET' });

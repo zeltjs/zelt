@@ -17,7 +17,8 @@ describe('body', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(
       new Request('http://localhost/text', {
         method: 'POST',
@@ -38,7 +39,8 @@ describe('body', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
@@ -59,10 +61,11 @@ describe('body', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
     const formData = new FormData();
     formData.append('name', 'John');
 
+    await app.ready();
     const res = await app.fetch(
       new Request('http://localhost/form', {
         method: 'POST',
@@ -82,7 +85,8 @@ describe('body', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(
       new Request('http://localhost/buffer', {
         method: 'POST',
@@ -102,7 +106,8 @@ describe('body', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(
       new Request('http://localhost/blob', {
         method: 'POST',

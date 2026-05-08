@@ -1,7 +1,10 @@
 import { createHttpApp } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
 
 import { controllers } from './controllers';
 
-export const app = await createHttpApp({
+export const app = createHttpApp({
   controllers,
 });
+
+export default onNode(app);

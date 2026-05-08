@@ -1,7 +1,7 @@
 import { injectable } from '@needle-di/core';
 import type { MiddlewareHandler, Context, Next } from 'hono';
 import * as v from 'valibot';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { Controller } from '../decorators/controller';
 import { ErrorHandler } from '../decorators/error-handler';
@@ -13,8 +13,9 @@ import { inject } from '../primitives/inject';
 import { getContext } from '../primitives/get-context';
 import { pathParam } from '../primitives/path-param';
 import { validated } from '../primitives/validated';
+import { Config } from '../config';
 
-import { createHttpApp } from './app';
+import { createHttpApp, type HttpApp } from './app';
 
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
@@ -61,10 +62,13 @@ class UploadController {
   }
 }
 
-const buildApp = async () =>
-  await createHttpApp({ controllers: [HelloController, EchoController, UploadController] });
+const buildApp = async () => {
+  const app = createHttpApp({ controllers: [HelloController, EchoController, UploadController] });
+  await app.ready();
+  return app;
+};
 
-describe('await createHttpApp() — fetch', () => {
+describe('createHttpApp() — fetch', () => {
   it('serves a constructor-injected GET endpoint with pathParam', async () => {
     const app = await buildApp();
     const res = await app.fetch(new Request('https://example.com/hello/zelt'));
@@ -115,19 +119,18 @@ describe('await createHttpApp() — fetch', () => {
     expect(b.status).toBe(200);
   });
 
-  it('throws at createHttpApp() construction when a controller is missing @Controller', async () => {
+  it('throws at ready() when a controller is missing @Controller', async () => {
     class NoDecorator {
       @Get('/')
       list() {}
     }
     new NoDecorator();
-    await expect(createHttpApp({ controllers: [NoDecorator] })).rejects.toThrow(
-      /missing @Controller/,
-    );
+    const app = createHttpApp({ controllers: [NoDecorator] });
+    await expect(app.ready()).rejects.toThrow(/missing @Controller/);
   });
 });
 
-describe('await createHttpApp() — request', () => {
+describe('createHttpApp() — request', () => {
   it('accepts a path string with no init (defaults to GET)', async () => {
     const app = await buildApp();
     const res = await app.request('/hello/zelt');
@@ -195,7 +198,8 @@ describe('error paths', () => {
         return { v: pathParam('id') };
       }
     }
-    const app = await createHttpApp({ controllers: [BrokenController] });
+    const app = createHttpApp({ controllers: [BrokenController] });
+    await app.ready();
     const res = await app.fetch(new Request('https://example.com/x/'));
     expect(res.status).toBe(500);
   });
@@ -217,10 +221,11 @@ describe('middleware', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       middlewares: [trackMiddleware],
     });
+    await app.ready();
 
     await app.request('/test/');
     expect(executed).toContain('global');
@@ -252,10 +257,11 @@ describe('middleware', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       middlewares: [globalMiddleware],
     });
+    await app.ready();
 
     await app.request('/test/');
     expect(order).toEqual(['global', 'controller', 'method', 'handler']);
@@ -284,10 +290,11 @@ describe('middleware', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       middlewares: [authMiddleware],
     });
+    await app.ready();
 
     executed.length = 0;
     await app.request('/test/protected');
@@ -326,7 +333,8 @@ describe('middleware', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.request('/test/');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ value: 'injected-value' });
@@ -347,10 +355,11 @@ describe('middleware', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       middlewares: [setUserMiddleware],
     });
+    await app.ready();
 
     const res = await app.request('/test/');
     expect(res.status).toBe(200);
@@ -370,10 +379,11 @@ describe('middleware', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       middlewares: [throwingMiddleware],
     });
+    await app.ready();
 
     const res = await app.request('/test/');
     expect(res.status).toBe(500);
@@ -395,10 +405,11 @@ describe('middleware', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       middlewares: [earlyReturnMiddleware],
     });
+    await app.ready();
 
     const res = await app.request('/test/');
     expect(res.status).toBe(403);
@@ -435,10 +446,11 @@ describe('errorHandlers', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       errorHandlers: [CustomErrorHandler],
     });
+    await app.ready();
 
     const res = await app.request('/test/');
     expect(res.status).toBe(400);
@@ -461,10 +473,11 @@ describe('errorHandlers', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       errorHandlers: [SelectiveErrorHandler],
     });
+    await app.ready();
 
     const res = await app.request('/test/');
     expect(res.status).toBe(500);
@@ -497,10 +510,11 @@ describe('errorHandlers', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       errorHandlers: [FirstErrorHandler, SecondErrorHandler],
     });
+    await app.ready();
 
     const res = await app.request('/test/');
     expect(res.status).toBe(500);
@@ -533,13 +547,174 @@ describe('errorHandlers', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       middlewares: [beforeMiddleware],
       errorHandlers: [TestErrorHandler],
     });
+    await app.ready();
 
     await app.request('/test/');
     expect(executed).toEqual(['middleware', 'handler', 'errorHandler']);
+  });
+});
+
+describe('createHttpApp 2-phase initialization', () => {
+  let app: HttpApp | undefined;
+
+  afterEach(async () => {
+    if (app) {
+      await app.shutdown();
+      app = undefined;
+    }
+  });
+
+  it('returns HttpApp synchronously without starting lifecycle', () => {
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    // createHttpApp must return synchronously — no await
+    const app = createHttpApp({ controllers: [TestController] });
+    expect(app).toBeDefined();
+    expect(typeof app.ready).toBe('function');
+    expect(typeof app.fetch).toBe('function');
+    expect(typeof app.shutdown).toBe('function');
+    expect(typeof app.replaceConfig).toBe('function');
+  });
+
+  it('throws when fetch called before ready', async () => {
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    app = createHttpApp({ controllers: [TestController] });
+    await expect(app.fetch(new Request('https://example.com/test/'))).rejects.toThrow(
+      'Cannot fetch() before ready()',
+    );
+  });
+
+  it('ready() is idempotent', async () => {
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
+    // Second call must not throw and must not re-initialize
+    await expect(app.ready()).resolves.toBeUndefined();
+    await app.shutdown();
+  });
+
+  it('throws when ready() called after shutdown', async () => {
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.shutdown();
+    await expect(app.ready()).rejects.toThrow(/after shutdown\(\)/);
+  });
+
+  it('shutdown() is idempotent', async () => {
+    app = createHttpApp({ controllers: [] });
+    await app.ready();
+    await app.shutdown();
+    await expect(app.shutdown()).resolves.toBeUndefined();
+    // Prevent afterEach from calling shutdown() on disposed instance
+    app = undefined;
+  });
+});
+
+describe('replaceConfig', () => {
+  it('replaces config before ready', async () => {
+    @Config
+    class BaseConfig {
+      static readonly Token = BaseConfig;
+      get value() {
+        return 'base';
+      }
+    }
+
+    @Config
+    class OverrideConfig extends BaseConfig {
+      override get value() {
+        return 'overridden';
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      constructor(private cfg = inject(BaseConfig)) {}
+
+      @Get('/')
+      get() {
+        return { value: this.cfg.value };
+      }
+    }
+
+    const app = createHttpApp({ controllers: [TestController], configs: [BaseConfig] });
+    app.replaceConfig(BaseConfig, OverrideConfig);
+    await app.ready();
+
+    const res = await app.request('/test/');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ value: 'overridden' });
+    await app.shutdown();
+  });
+
+  it('throws when replaceConfig called after ready', async () => {
+    @Config
+    class SomeConfig {
+      static readonly Token = SomeConfig;
+    }
+
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
+    expect(() => app.replaceConfig(SomeConfig, SomeConfig)).toThrow(/after ready\(\)/);
+    await app.shutdown();
+  });
+
+  it('throws when replaceConfig called after shutdown', async () => {
+    @Config
+    class SomeConfig2 {
+      static readonly Token = SomeConfig2;
+    }
+
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.shutdown();
+    expect(() => app.replaceConfig(SomeConfig2, SomeConfig2)).toThrow(/after shutdown\(\)/);
   });
 });

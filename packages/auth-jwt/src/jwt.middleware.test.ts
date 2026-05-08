@@ -36,11 +36,14 @@ class ProtectedController {
   }
 }
 
-const buildApp = async () =>
-  createHttpApp({
+const buildApp = async () => {
+  const app = createHttpApp({
     controllers: [ProtectedController],
     configs: [TestJwtConfig],
   });
+  await app.ready();
+  return app;
+};
 
 const buildJwtService = () => {
   const container = new Container();
@@ -123,10 +126,11 @@ describe('JwtMiddleware — setUser integration', () => {
       }
     }
 
-    const httpApp = await createHttpApp({
+    const httpApp = createHttpApp({
       controllers: [UserCheckController],
       configs: [TestJwtConfig],
     });
+    await httpApp.ready();
 
     const jwtService = buildJwtService();
     const token = await jwtService.sign({ sub: 'user-42' });

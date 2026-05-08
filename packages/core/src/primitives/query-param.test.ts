@@ -16,7 +16,8 @@ describe('queryParam', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/search?q=hello'));
     expect(await res.json()).toEqual({ q: 'hello' });
   });
@@ -30,7 +31,8 @@ describe('queryParam', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/search'));
     expect(await res.json()).toEqual({ q: 'default' });
   });
@@ -46,7 +48,8 @@ describe('queryParams', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/filter?tag=a&tag=b&tag=c'));
     expect(await res.json()).toEqual({ tags: ['a', 'b', 'c'] });
   });
@@ -60,7 +63,8 @@ describe('queryParams', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/filter'));
     expect(await res.json()).toEqual({ tags: [] });
   });

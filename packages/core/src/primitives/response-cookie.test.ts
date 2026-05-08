@@ -16,7 +16,8 @@ describe('response.setCookie', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/login', { method: 'POST' }));
 
     expect(res.headers.get('Set-Cookie')).toBe('session=abc123; Path=/');
@@ -39,7 +40,8 @@ describe('response.setCookie', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/login', { method: 'POST' }));
 
     const cookie = res.headers.get('Set-Cookie');
@@ -60,7 +62,8 @@ describe('response.deleteCookie', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/logout', { method: 'POST' }));
 
     const cookie = res.headers.get('Set-Cookie');

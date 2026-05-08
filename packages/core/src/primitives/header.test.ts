@@ -16,7 +16,8 @@ describe('header', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(
       new Request('http://localhost/', {
         headers: { 'User-Agent': 'test-agent' },
@@ -34,7 +35,8 @@ describe('header', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/'));
     expect(await res.json()).toEqual({ custom: 'none' });
   });

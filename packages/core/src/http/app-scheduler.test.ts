@@ -22,17 +22,18 @@ describe('createHttpApp with schedulers', () => {
       hourlyTask() {}
     }
 
-    app = await createHttpApp({
+    app = createHttpApp({
       controllers: [],
       schedulers: [TestScheduler],
     });
+    await app.ready();
 
     expect(app.shutdown).toBeDefined();
     expect(app.startScheduler).toBeDefined();
     expect(app.stopScheduler).toBeDefined();
   });
 
-  it('scheduler runs automatically after createHttpApp', async () => {
+  it('scheduler runs automatically after ready()', async () => {
     const taskFn = vi.fn();
 
     @Scheduled()
@@ -43,26 +44,29 @@ describe('createHttpApp with schedulers', () => {
       }
     }
 
-    app = await createHttpApp({
+    app = createHttpApp({
       controllers: [],
       schedulers: [TestScheduler],
     });
+    await app.ready();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
   });
 
   it('works without schedulers option', async () => {
-    app = await createHttpApp({
+    app = createHttpApp({
       controllers: [],
     });
+    await app.ready();
 
     expect(app.shutdown).toBeDefined();
   });
 
   it('deprecated startScheduler/stopScheduler work for backward compatibility', async () => {
-    const localApp = await createHttpApp({
+    const localApp = createHttpApp({
       controllers: [],
     });
+    await localApp.ready();
     app = localApp;
 
     expect(() => localApp.startScheduler()).not.toThrow();

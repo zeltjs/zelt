@@ -1,4 +1,5 @@
 import { app } from './app';
 
+await app.ready();
+
 export default app;
-// app.fetch が Workers / Bun / Deno runtime に拾われる

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { Injectable, inject } from '@zeltjs/core';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { Injectable, inject, Config } from '@zeltjs/core';
 
+import { configureTestDefaults } from './global-config';
 import { createTestTarget } from './test-target';
 
 describe('createTestTarget', () => {
@@ -108,5 +109,73 @@ describe('createTestTarget', () => {
     });
 
     expect(target.getUrl()).toBe('https://test.api');
+  });
+
+  describe('global config defaults', () => {
+    @Config
+    class GlobalBaseConfig {
+      static readonly Token = GlobalBaseConfig;
+      get value() {
+        return 'base';
+      }
+    }
+
+    @Config
+    class GlobalTestConfig extends GlobalBaseConfig {
+      override get value() {
+        return 'global-test';
+      }
+    }
+
+    @Config
+    class GlobalBaseConfig2 {
+      static readonly Token = GlobalBaseConfig2;
+      get value() {
+        return 'base2';
+      }
+    }
+
+    @Config
+    class InlineTestConfig extends GlobalBaseConfig2 {
+      override get value() {
+        return 'inline-test';
+      }
+    }
+
+    beforeAll(() => {
+      configureTestDefaults({ configs: [GlobalTestConfig] });
+    });
+
+    it('applies global config replacement', async () => {
+      @Injectable()
+      class ServiceWithConfig {
+        constructor(private config = inject(GlobalBaseConfig)) {}
+        getValue() {
+          return this.config.value;
+        }
+      }
+
+      const { target } = await createTestTarget(ServiceWithConfig, {
+        configs: [GlobalBaseConfig],
+      });
+
+      expect(target.getValue()).toBe('global-test');
+    });
+
+    it('inline config overrides global defaults', async () => {
+      @Injectable()
+      class ServiceWithConfig2 {
+        constructor(private config = inject(GlobalBaseConfig2)) {}
+        getValue() {
+          return this.config.value;
+        }
+      }
+
+      const { target } = await createTestTarget(ServiceWithConfig2, {
+        configs: [InlineTestConfig],
+      });
+
+      expect(target.getValue()).toBe('inline-test');
+    });
   });
 });

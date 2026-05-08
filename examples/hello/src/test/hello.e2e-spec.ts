@@ -1,8 +1,12 @@
 import { hc } from 'hono/client';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { app } from '../app';
 import type { AppType } from '../../generated/app.gen';
+
+beforeAll(async () => {
+  await app.ready();
+});
 
 describe('/hello', () => {
   const client = hc<AppType>('https://example.local', {

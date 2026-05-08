@@ -27,9 +27,10 @@ describe('Logger integration', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
     });
+    await app.ready();
 
     const res = await app.request('/test');
     expect(res.status).toBe(200);
@@ -56,10 +57,11 @@ describe('Logger integration', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       configs: [CustomLoggerConfig],
     });
+    await app.ready();
 
     const res = await app.request('/test');
     expect(res.status).toBe(200);

@@ -29,10 +29,11 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       middlewares: [authMiddleware],
     });
+    await app.ready();
 
     const res = await app.request('/test/');
     expect(res.status).toBe(401);
@@ -52,10 +53,11 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [TestController],
       middlewares: [authMiddleware],
     });
+    await app.ready();
 
     const res = await app.request('/test/', {
       headers: { Authorization: 'Bearer valid-token' },
@@ -74,10 +76,11 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [AdminController],
       middlewares: [authMiddleware],
     });
+    await app.ready();
 
     const res = await app.request('/admin/', {
       headers: { Authorization: 'Bearer valid-token' },
@@ -99,10 +102,11 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [AdminController],
       middlewares: [authMiddleware],
     });
+    await app.ready();
 
     const res = await app.request('/admin/', {
       headers: { Authorization: 'Bearer admin-token' },
@@ -121,10 +125,11 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = await createHttpApp({
+    const app = createHttpApp({
       controllers: [ContentController],
       middlewares: [authMiddleware],
     });
+    await app.ready();
 
     const res = await app.request('/content/', {
       headers: { Authorization: 'Bearer admin-token' },

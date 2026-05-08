@@ -16,7 +16,8 @@ describe('cookie', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(
       new Request('http://localhost/', {
         headers: { Cookie: 'session=abc123' },
@@ -34,7 +35,8 @@ describe('cookie', () => {
       }
     }
 
-    const app = await createHttpApp({ controllers: [TestController] });
+    const app = createHttpApp({ controllers: [TestController] });
+    await app.ready();
     const res = await app.fetch(new Request('http://localhost/'));
     expect(await res.json()).toEqual({ session: 'none' });
   });
