@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getRouteMetadata } from '../internal/metadata';
+import { getRouteMetadata, resolveRouteMetadata } from '../internal/metadata';
 
 import { Delete, Get, Patch, Post, Put } from './http-method';
 
@@ -20,7 +20,8 @@ describe('HTTP method decorators (legacy form)', () => {
       @Delete('/:id')
       destroy() {}
     }
-    // legacy decorator は class declaration 時に発火するため new C() 不要
+    // 2-phase initialization: method decorators store to pending, resolve moves to class
+    resolveRouteMetadata(C.prototype, C);
     expect(getRouteMetadata(C)).toEqual([
       { method: 'GET', path: '/', methodName: 'list' },
       { method: 'GET', path: '/:id', methodName: 'show' },

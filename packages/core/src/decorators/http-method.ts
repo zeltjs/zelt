@@ -1,15 +1,15 @@
-import { appendRouteMetadata, type HttpMethod } from '../internal/metadata';
+import { appendPendingRouteMetadata, type HttpMethod } from '../internal/metadata';
+import { resolveMethodArgs } from '../internal/decorator-context';
 
-// legacy method decorator: instance method なら target は prototype (object)、static なら target は class (function).
-// typeof target === 'function' で static を識別して throw する。
 const makeDecorator =
   (method: HttpMethod) =>
-  (path: string): MethodDecorator =>
-  (target, propertyKey): void => {
-    if (typeof target === 'function') {
+  (path: string) =>
+  (...args: unknown[]): void => {
+    const { pendingKey, methodName, isStatic } = resolveMethodArgs(args);
+    if (isStatic) {
       throw new Error(`zelt: @${method} cannot be applied to static methods`);
     }
-    appendRouteMetadata(target.constructor, { method, path, methodName: propertyKey });
+    appendPendingRouteMetadata(pendingKey, { method, path, methodName });
   };
 
 export const Get = makeDecorator('GET');
