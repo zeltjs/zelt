@@ -1,13 +1,15 @@
 import { injectable } from '@needle-di/core';
 
-import { setScheduledMetadata } from '../internal/scheduler-metadata';
-
-type AnyClass = new (...args: never[]) => object;
+import { resolveClassArgs } from '../internal/decorator-context';
+import { setScheduledMetadata, resolveScheduleMetadata } from '../internal/scheduler-metadata';
 
 export const Scheduled =
   () =>
-  <T extends AnyClass>(target: T): T => {
-    setScheduledMetadata(target);
-    const wrapped: T | void = injectable<T>()(target);
-    return wrapped ?? target;
+  (...args: unknown[]): unknown => {
+    const { cls, pendingKey } = resolveClassArgs(args);
+
+    resolveScheduleMetadata(pendingKey, cls);
+    setScheduledMetadata(cls);
+    injectable()(cls as new (...args: never[]) => object);
+    return cls;
   };
