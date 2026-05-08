@@ -1,5 +1,4 @@
 ---
-sidebar_position: 11
 ---
 
 # Key-Value Store
