@@ -1,5 +1,5 @@
 export { createHttpApp } from './http/app';
-export type { CreateHttpAppOptions, HttpApp, ReadyOptions } from './http/app';
+export type { CreateHttpAppOptions, HttpApp, ReadyOptions, ReadyResult } from './http/app';
 
 export { validationErrorBodySchema } from './http/error-schema';
 export type { ValidationErrorBody } from './http/error-schema';

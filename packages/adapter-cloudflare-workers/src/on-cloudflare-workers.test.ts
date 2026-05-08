@@ -20,20 +20,22 @@ const createMockExecutionContext = () =>
   }) as unknown as ExecutionContext;
 
 describe('onCloudflareWorkers', () => {
-  it('returns a fetch handler', () => {
+  it('returns CloudflareWorkersApp with get and fetch', async () => {
     const app = createHttpApp({ controllers: [HelloController] });
-    const handle = onCloudflareWorkers(app);
+    const workersApp = await onCloudflareWorkers(app);
 
-    expect(handle.fetch).toBeDefined();
-    expect(typeof handle.fetch).toBe('function');
+    expect(workersApp.fetch).toBeDefined();
+    expect(typeof workersApp.fetch).toBe('function');
+    expect(workersApp.get).toBeDefined();
+    expect(typeof workersApp.get).toBe('function');
   });
 
   it('handles requests and returns responses', async () => {
     const app = createHttpApp({ controllers: [HelloController] });
-    const handle = onCloudflareWorkers(app);
+    const workersApp = await onCloudflareWorkers(app);
     const ctx = createMockExecutionContext();
 
-    const res = await handle.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    const res = await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ message: 'hello from workers' });
@@ -42,10 +44,8 @@ describe('onCloudflareWorkers', () => {
   it('defaults to lazy mode (warmup: false)', async () => {
     const app = createHttpApp({ controllers: [HelloController] });
     const readySpy = vi.spyOn(app, 'ready');
-    const handle = onCloudflareWorkers(app);
-    const ctx = createMockExecutionContext();
 
-    await handle.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    await onCloudflareWorkers(app);
 
     expect(readySpy).toHaveBeenCalledWith({ warmup: false });
   });
@@ -53,33 +53,31 @@ describe('onCloudflareWorkers', () => {
   it('respects warmup: true option', async () => {
     const app = createHttpApp({ controllers: [HelloController] });
     const readySpy = vi.spyOn(app, 'ready');
-    const handle = onCloudflareWorkers(app, { warmup: true });
-    const ctx = createMockExecutionContext();
 
-    await handle.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    await onCloudflareWorkers(app, { warmup: true });
 
     expect(readySpy).toHaveBeenCalledWith({ warmup: true });
   });
 
-  it('calls ready() only once across multiple requests', async () => {
+  it('ready() is called once during onCloudflareWorkers', async () => {
     const app = createHttpApp({ controllers: [HelloController] });
     const readySpy = vi.spyOn(app, 'ready');
-    const handle = onCloudflareWorkers(app);
     const ctx = createMockExecutionContext();
 
-    await handle.fetch(new Request('https://example.com/hello/'), {}, ctx);
-    await handle.fetch(new Request('https://example.com/hello/'), {}, ctx);
-    await handle.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    const workersApp = await onCloudflareWorkers(app);
+    await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
 
     expect(readySpy).toHaveBeenCalledTimes(1);
   });
 
   it('calls waitUntil on ExecutionContext', async () => {
     const app = createHttpApp({ controllers: [HelloController] });
-    const handle = onCloudflareWorkers(app);
+    const workersApp = await onCloudflareWorkers(app);
     const ctx = createMockExecutionContext();
 
-    await handle.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
 
     expect(ctx.waitUntil).toHaveBeenCalled();
   });
@@ -90,10 +88,8 @@ describe('onCloudflareWorkers', () => {
       configs: [EnvConfig],
     });
     const replaceConfigSpy = vi.spyOn(app, 'replaceConfig');
-    const handle = onCloudflareWorkers(app);
-    const ctx = createMockExecutionContext();
 
-    await handle.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    await onCloudflareWorkers(app);
 
     expect(replaceConfigSpy).toHaveBeenCalledWith(EnvConfig, CloudflareWorkersEnvConfig);
   });
@@ -101,11 +97,20 @@ describe('onCloudflareWorkers', () => {
   it('does not call replaceConfig when EnvConfig is not registered', async () => {
     const app = createHttpApp({ controllers: [HelloController] });
     const replaceConfigSpy = vi.spyOn(app, 'replaceConfig');
-    const handle = onCloudflareWorkers(app);
-    const ctx = createMockExecutionContext();
 
-    await handle.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    await onCloudflareWorkers(app);
 
     expect(replaceConfigSpy).not.toHaveBeenCalled();
+  });
+
+  it('provides get() to retrieve dependencies from container', async () => {
+    const app = createHttpApp({
+      controllers: [HelloController],
+      configs: [EnvConfig],
+    });
+    const workersApp = await onCloudflareWorkers(app);
+
+    const env = workersApp.get(EnvConfig);
+    expect(env.get).toBeTypeOf('function');
   });
 });

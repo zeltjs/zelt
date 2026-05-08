@@ -6,37 +6,32 @@ export type CloudflareWorkersOptions = {
   readonly warmup?: boolean;
 };
 
-export type CloudflareWorkersHandle = {
+export type CloudflareWorkersApp = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => T;
   readonly fetch: (request: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>;
+  readonly shutdown: () => Promise<void>;
 };
 
-export const onCloudflareWorkers = (
+export const onCloudflareWorkers = async (
   app: HttpApp,
   options: CloudflareWorkersOptions = {},
-): CloudflareWorkersHandle => {
-  let readyPromise: Promise<void> | undefined;
+): Promise<CloudflareWorkersApp> => {
+  if (app.hasConfig(EnvConfig)) {
+    app.replaceConfig(EnvConfig, CloudflareWorkersEnvConfig);
+  }
 
-  const ensureReady = (): Promise<void> => {
-    if (!readyPromise) {
-      if (app.hasConfig(EnvConfig)) {
-        app.replaceConfig(EnvConfig, CloudflareWorkersEnvConfig);
-      }
-      const readyOptions: ReadyOptions = { warmup: options.warmup ?? false };
-      readyPromise = app.ready(readyOptions);
-    }
-    return readyPromise;
-  };
+  const readyOptions: ReadyOptions = { warmup: options.warmup ?? false };
+  const { get } = await app.ready(readyOptions);
 
   const fetch = async (
     request: Request,
     _env: unknown,
     ctx: ExecutionContext,
   ): Promise<Response> => {
-    await ensureReady();
     const response = app.fetch(request);
     ctx.waitUntil(response.then(() => {}));
     return response;
   };
 
-  return { fetch };
+  return { get, fetch, shutdown: app.shutdown };
 };
