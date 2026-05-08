@@ -5,9 +5,10 @@ import oxlint from 'eslint-plugin-oxlint';
 import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
-const TEST_FILES = ['**/*.{test,spec}.{ts,tsx}', '**/*.e2e-{test,spec}.{ts,tsx}'];
+const TEST_FILES = ['**/*.test.{ts,tsx}', '**/*.e2e.test.{ts,tsx}'];
 const FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,tsx}'];
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
+const FORBIDDEN_TEST_PATTERNS = ['**/*.spec.{ts,tsx}', '**/*.e2e-spec.{ts,tsx}'];
 
 export default tseslint.config(
   {
@@ -225,6 +226,18 @@ export default tseslint.config(
     files: ['packages/kv-driver-redis/src/zelt-redis.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    files: FORBIDDEN_TEST_PATTERNS,
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Program',
+          message: 'Use .test.ts instead of .spec.ts for test files',
+        },
+      ],
     },
   },
 );
