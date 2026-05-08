@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { getScheduleMetadata } from '../internal/scheduler-metadata';
 
 import { Cron } from './cron';
+import { Scheduled } from './scheduled';
 
 describe('@Cron', () => {
   it('registers cron expression for method', () => {
+    @Scheduled()
     class TestScheduler {
       @Cron('0 3 * * *')
       task() {}
@@ -16,11 +18,11 @@ describe('@Cron', () => {
     expect(schedules[0]).toEqual({
       methodName: 'task',
       cronExpression: '0 3 * * *',
-      timezone: undefined,
     });
   });
 
   it('supports timezone option', () => {
+    @Scheduled()
     class TestScheduler {
       @Cron('0 3 * * *', { tz: 'Asia/Tokyo' })
       task() {}
@@ -32,6 +34,7 @@ describe('@Cron', () => {
 
   it('throws when applied to static method', () => {
     expect(() => {
+      @Scheduled()
       class S {
         @Cron('0 3 * * *')
         static task() {}

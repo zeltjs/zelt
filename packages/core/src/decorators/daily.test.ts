@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { getScheduleMetadata } from '../internal/scheduler-metadata';
 
 import { Daily } from './daily';
+import { Scheduled } from './scheduled';
 
 describe('@Daily', () => {
   it('converts hour to cron expression', () => {
+    @Scheduled()
     class TestScheduler {
       @Daily({ hour: 3 })
       task() {}
@@ -17,6 +19,7 @@ describe('@Daily', () => {
   });
 
   it('includes minute in cron expression', () => {
+    @Scheduled()
     class TestScheduler {
       @Daily({ hour: 14, minute: 30 })
       task() {}
@@ -27,6 +30,7 @@ describe('@Daily', () => {
   });
 
   it('supports timezone option', () => {
+    @Scheduled()
     class TestScheduler {
       @Daily({ hour: 9, tz: 'Asia/Tokyo' })
       task() {}
@@ -37,6 +41,7 @@ describe('@Daily', () => {
   });
 
   it('defaults minute to 0', () => {
+    @Scheduled()
     class TestScheduler {
       @Daily({ hour: 6 })
       task() {}
