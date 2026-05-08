@@ -235,4 +235,15 @@ export default tseslint.config(
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
+  {
+    // Session context uses generic type narrowing at AsyncLocalStorage boundary.
+    // Type assertions are needed for user-facing generic session data APIs.
+    files: [
+      'packages/auth-session/src/session.context.lib.ts',
+      'packages/auth-session/src/session.functions.lib.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
 );

@@ -4,3 +4,5 @@ export interface JwtPayload {
   exp?: number;
   [key: string]: unknown;
 }
+
+export type JwtDriver = 'header' | 'cookie';
