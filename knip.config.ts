@@ -1,7 +1,7 @@
 import type { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
-  ignore: ['**/zelt.config.ts', 'packages/contract/src/test/**'],
+  ignore: ['**/zelt.config.ts', 'packages/contract/src/test/**', '**/*.e2e-test.ts'],
   ignoreExportsUsedInFile: true,
   // GreetBody/GreetResponse: used via ts-morph AST resolution and AppType inference, invisible to static analysis
   // CreateUserBody/User: used by fixture file consumed via ts-morph at runtime, not traceable by static analysis
