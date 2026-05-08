@@ -1,0 +1,1 @@
+export { validated } from './validated';
