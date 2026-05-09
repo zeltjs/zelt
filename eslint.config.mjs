@@ -21,8 +21,6 @@ export default tseslint.config(
       'eslint.config.mjs',
       '**/generated/**',
       'website/**',
-      // TODO: remove after rate-limit package adapts to new KV API
-      'packages/rate-limit/**',
     ],
   },
   tseslint.configs.recommended,
@@ -260,6 +258,13 @@ export default tseslint.config(
     ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // Rate limiter wraps KV errors at the service boundary.
+    files: ['packages/rate-limit/src/rate-limiter.service.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-try-catch': 'off',
     },
   },
   {

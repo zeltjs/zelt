@@ -33,9 +33,8 @@ describe('RateLimitConfig', () => {
 
   it('store is namespaced AtomicKVStore', async () => {
     const config = new RateLimitConfig(memoryKv);
-    const setR = await config.store.set('foo', 1);
-    expect(setR.isOk()).toBe(true);
-    const getR = await config.store.get('foo');
-    expect(getR._unsafeUnwrap()).toBe(1);
+    await config.store.set('foo', 1);
+    const value = await config.store.get('foo');
+    expect(value).toBe(1);
   });
 });

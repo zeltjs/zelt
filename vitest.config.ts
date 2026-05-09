@@ -2,8 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // TODO: remove rate-limit exclusion after it adapts to new KV API
-    projects: ['packages/*', '!packages/rate-limit', 'examples/*'],
+    projects: ['packages/*', 'examples/*'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
