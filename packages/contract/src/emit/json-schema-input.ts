@@ -2,7 +2,7 @@
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { okAsync, errAsync, ResultAsync } from 'neverthrow';
+import { okAsync, errAsync, fromThrowable, ResultAsync } from 'neverthrow';
 
 import type { EmitError } from '../errors';
 import type { RequestSchemaRef, ValidationTarget } from '../analyzer/handler';
@@ -49,16 +49,13 @@ const convertSchema = (
   exportName: string,
   modulePath: string,
 ): ResultAsync<unknown, EmitError> => {
-  try {
-    return okAsync(adapter.toJsonSchema(value));
-  } catch (e) {
-    return errAsync({
-      type: 'SCHEMA_ADAPTER_FAILED' as const,
-      exportName,
-      modulePath,
-      reason: e instanceof Error ? e.message : String(e),
-    });
-  }
+  const safeConvert = fromThrowable(adapter.toJsonSchema, (e) => ({
+    type: 'SCHEMA_ADAPTER_FAILED' as const,
+    exportName,
+    modulePath,
+    reason: e instanceof Error ? e.message : String(e),
+  }));
+  return okAsync(safeConvert(value)).andThen((result) => result);
 };
 
 export const resolveRequestSchema = (

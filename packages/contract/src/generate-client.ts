@@ -42,10 +42,14 @@ export const generateClient = (
   }
   const ir = irResult.value;
 
+  const emitOptions = options.requestValidator
+    ? { distDir, tsconfigPath, requestValidator: options.requestValidator }
+    : { distDir, tsconfigPath };
+
   return ResultAsync.fromPromise(mkdir(distDir, { recursive: true }), () => ({
     type: 'CONFIG_NOT_FOUND' as const,
   }))
-    .andThen(() => emitOpenApi(ir, { distDir, tsconfigPath }))
+    .andThen(() => emitOpenApi(ir, emitOptions))
     .andThen((openApiDoc) => {
       const appGenContent = emitAppGen(ir, { distDir });
       const appGenPath = resolve(distDir, 'app.gen.ts');

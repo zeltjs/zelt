@@ -1,10 +1,13 @@
 import { resolve } from 'node:path';
 
+import { toJsonSchema } from '@valibot/to-json-schema';
+import type { GenericSchema } from 'valibot';
 import { describe, expect, it } from 'vitest';
 
 import { analyzeControllers } from '../analyzer/internal-representation';
 import { createProject } from '../analyzer/project';
 import { emitOpenApi } from '../emit/openapi';
+import type { SchemaAdapter, JsonSchema } from '../types/schema-adapter';
 
 const fixturePath = resolve(import.meta.dirname, 'fixtures/sample.controller.ts');
 const uploadFixturePath = resolve(import.meta.dirname, 'fixtures/upload.controller.ts');
@@ -18,6 +21,11 @@ const postKey = 'post';
 const responsesKey = 'responses';
 const parametersKey = 'parameters';
 
+const requestValidator: SchemaAdapter = {
+  toJsonSchema: (schema: unknown): JsonSchema =>
+    toJsonSchema(schema as GenericSchema) as unknown as JsonSchema,
+};
+
 describe('emitOpenApi', () => {
   it('builds a valid OpenAPI 3.1 document with paths and components', async () => {
     const project = createProject({
@@ -30,7 +38,11 @@ describe('emitOpenApi', () => {
     expect(irResult.isOk()).toBe(true);
     if (!irResult.isOk()) return;
     const ir = irResult.value;
-    const docResult = await emitOpenApi(ir, { distDir: '/tmp/generated', tsconfigPath });
+    const docResult = await emitOpenApi(ir, {
+      distDir: '/tmp/generated',
+      tsconfigPath,
+      requestValidator,
+    });
     expect(docResult.isOk()).toBe(true);
     if (!docResult.isOk()) return;
     const doc = docResult.value;
@@ -51,7 +63,11 @@ describe('emitOpenApi', () => {
     expect(irResult.isOk()).toBe(true);
     if (!irResult.isOk()) return;
     const ir = irResult.value;
-    const docResult = await emitOpenApi(ir, { distDir: '/tmp/generated', tsconfigPath });
+    const docResult = await emitOpenApi(ir, {
+      distDir: '/tmp/generated',
+      tsconfigPath,
+      requestValidator,
+    });
     expect(docResult.isOk()).toBe(true);
     if (!docResult.isOk()) return;
     const doc = docResult.value;
@@ -71,7 +87,11 @@ describe('emitOpenApi', () => {
     expect(irResult.isOk()).toBe(true);
     if (!irResult.isOk()) return;
     const ir = irResult.value;
-    const docResult = await emitOpenApi(ir, { distDir: '/tmp/generated', tsconfigPath });
+    const docResult = await emitOpenApi(ir, {
+      distDir: '/tmp/generated',
+      tsconfigPath,
+      requestValidator,
+    });
     expect(docResult.isOk()).toBe(true);
     if (!docResult.isOk()) return;
     const doc = docResult.value;
@@ -96,7 +116,11 @@ describe('emitOpenApi', () => {
     expect(irResult.isOk()).toBe(true);
     if (!irResult.isOk()) return;
     const ir = irResult.value;
-    const docResult = await emitOpenApi(ir, { distDir: '/tmp/generated', tsconfigPath });
+    const docResult = await emitOpenApi(ir, {
+      distDir: '/tmp/generated',
+      tsconfigPath,
+      requestValidator,
+    });
     expect(docResult.isOk()).toBe(true);
     if (!docResult.isOk()) return;
     const doc = docResult.value;
@@ -116,7 +140,11 @@ describe('emitOpenApi', () => {
     expect(irResult.isOk()).toBe(true);
     if (!irResult.isOk()) return;
     const ir = irResult.value;
-    const docResult = await emitOpenApi(ir, { distDir: '/tmp/generated', tsconfigPath });
+    const docResult = await emitOpenApi(ir, {
+      distDir: '/tmp/generated',
+      tsconfigPath,
+      requestValidator,
+    });
     expect(docResult.isOk()).toBe(true);
     if (!docResult.isOk()) return;
     const doc = docResult.value;
@@ -136,7 +164,11 @@ describe('emitOpenApi', () => {
     expect(irResult.isOk()).toBe(true);
     if (!irResult.isOk()) return;
     const ir = irResult.value;
-    const docResult = await emitOpenApi(ir, { distDir: '/tmp/generated', tsconfigPath });
+    const docResult = await emitOpenApi(ir, {
+      distDir: '/tmp/generated',
+      tsconfigPath,
+      requestValidator,
+    });
     expect(docResult.isOk()).toBe(true);
     if (!docResult.isOk()) return;
     const doc = docResult.value;
@@ -158,7 +190,11 @@ describe('emitOpenApi', () => {
     expect(irResult.isOk()).toBe(true);
     if (!irResult.isOk()) return;
     const ir = irResult.value;
-    const docResult = await emitOpenApi(ir, { distDir: '/tmp/generated', tsconfigPath });
+    const docResult = await emitOpenApi(ir, {
+      distDir: '/tmp/generated',
+      tsconfigPath,
+      requestValidator,
+    });
     expect(docResult.isOk()).toBe(true);
     if (!docResult.isOk()) return;
     const doc = docResult.value;
