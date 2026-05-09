@@ -49,14 +49,13 @@ export { requestContext } from './primitives/request-context';
 export { response } from './primitives/response';
 export type { CookieOptions, ResponseBuilder } from './primitives/response';
 export { method, path, url } from './primitives/url';
-export { validated } from './primitives/validated';
 export type {
   ValidatedMarker,
   ExtractValidated,
   ExtractValidationTarget,
   IsValidated,
   ValidationTarget,
-} from './primitives/validated';
+} from './primitives/validated-types';
 
 export { Config, injectConfig, findConfigToken } from './config';
 export type { ConfigClass } from './config';
