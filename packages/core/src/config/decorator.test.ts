@@ -35,7 +35,7 @@ describe('Config decorator', () => {
     expect(childToken).toBe(ParentConfig);
   });
 
-  it('decorated child class overwrites parent in same token', () => {
+  it('decorated child class is registered independently', () => {
     @Config
     class ParentConfig {
       get level() {
@@ -53,7 +53,7 @@ describe('Config decorator', () => {
     const parentToken = findConfigToken(ParentConfig);
     const childToken = findConfigToken(ChildConfig);
 
-    expect(parentToken).toBe(ChildConfig);
+    expect(parentToken).toBe(ParentConfig);
     expect(childToken).toBe(ChildConfig);
   });
 });
