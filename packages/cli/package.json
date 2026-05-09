@@ -40,7 +40,6 @@
     "chokidar": "5.0.0",
     "citty": "0.1.6",
     "consola": "3.4.2",
-    "neverthrow": "8.2.0",
     "tinyglobby": "0.2.14",
     "ts-pattern": "5.7.1"
   },

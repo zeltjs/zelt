@@ -227,9 +227,6 @@ importers:
       consola:
         specifier: 3.4.2
         version: 3.4.2
-      neverthrow:
-        specifier: 8.2.0
-        version: 8.2.0
       tinyglobby:
         specifier: 0.2.14
         version: 0.2.14
