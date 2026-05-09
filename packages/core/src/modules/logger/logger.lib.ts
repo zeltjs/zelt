@@ -1,7 +1,5 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-export const LOG_LEVELS: readonly LogLevel[] = ['debug', 'info', 'warn', 'error'];
-
 export const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   debug: 0,
   info: 1,
