@@ -1,10 +1,12 @@
 export { createHttpApp } from './http/app';
 export type { CreateHttpAppOptions, HttpApp, ReadyOptions, ReadyResult } from './http/app';
 
-export { validationErrorBodySchema } from './http/error-schema';
-export type { ValidationErrorBody } from './http/error-schema';
-export { errorBodySchema } from './http/error-schema';
-export type { ErrorBody } from './http/error-schema';
+export type {
+  ValidationErrorBody,
+  ErrorBody,
+  ValidationIssue,
+  InternalErrorBody,
+} from './http/error-schema';
 
 export { HTTPException } from 'hono/http-exception';
 
