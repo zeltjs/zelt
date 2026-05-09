@@ -1,9 +1,8 @@
 import { defineCommand } from 'citty';
 import consola from 'consola';
-import { errAsync, ResultAsync } from 'neverthrow';
 import { match } from 'ts-pattern';
 
-import { type ConfigLoadError, loadZeltConfig } from '../config/loader';
+import { ConfigLoadError, loadZeltConfig } from '../config/loader';
 import type { DevConfig } from '../config/schema';
 import { startDevServer } from '../dev-server/server';
 
@@ -13,7 +12,11 @@ type DevArgs = {
   readonly port?: string;
 };
 
-type DevError = ConfigLoadError | { type: 'NO_ENTRY' };
+class NoEntryError extends Error {
+  readonly type = 'NO_ENTRY' as const;
+}
+
+type DevError = ConfigLoadError | NoEntryError;
 
 const resolveDevConfig = (args: DevArgs, devConfig: DevConfig | undefined) => {
   const entry = args.entry ?? devConfig?.entry;
@@ -26,22 +29,27 @@ const resolveDevConfig = (args: DevArgs, devConfig: DevConfig | undefined) => {
   };
 };
 
-const runDev = (cwd: string, typedArgs: DevArgs): ResultAsync<void, DevError> => {
+const runDev = async (cwd: string, typedArgs: DevArgs): Promise<void> => {
   const configFile = typedArgs.config;
+  const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
+  const devConfig = resolveDevConfig(typedArgs, config.dev);
 
-  return loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd }).andThen(
-    (config) => {
-      const devConfig = resolveDevConfig(typedArgs, config.dev);
+  if (devConfig.entry === undefined) {
+    throw new NoEntryError();
+  }
 
-      if (devConfig.entry === undefined) {
-        return errAsync({ type: 'NO_ENTRY' as const });
-      }
+  await startDevServer({ cwd, config: { ...devConfig, entry: devConfig.entry } });
+};
 
-      return ResultAsync.fromSafePromise(
-        startDevServer({ cwd, config: { ...devConfig, entry: devConfig.entry } }),
-      );
-    },
-  );
+const handleError = (error: DevError): void => {
+  match(error)
+    .with({ type: 'CONFIG_LOAD_FAILED' }, () => {
+      consola.error('Failed to load config');
+    })
+    .with({ type: 'NO_ENTRY' }, () => {
+      consola.error('No entry file specified. Use --entry or set dev.entry in zelt.config.ts');
+    })
+    .exhaustive();
 };
 
 export const devCommand = defineCommand({
@@ -70,21 +78,14 @@ export const devCommand = defineCommand({
     const cwd = globalThis.process.cwd();
     const typedArgs: DevArgs = args;
 
-    const result = await runDev(cwd, typedArgs);
-
-    result.match(
-      () => {},
-      (error) =>
-        match(error)
-          .with({ type: 'CONFIG_LOAD_FAILED' }, () => {
-            consola.error('Failed to load config');
-          })
-          .with({ type: 'NO_ENTRY' }, () => {
-            consola.error(
-              'No entry file specified. Use --entry or set dev.entry in zelt.config.ts',
-            );
-          })
-          .exhaustive(),
-    );
+    try {
+      await runDev(cwd, typedArgs);
+    } catch (error) {
+      if (error instanceof ConfigLoadError || error instanceof NoEntryError) {
+        handleError(error);
+      } else {
+        throw error;
+      }
+    }
   },
 });

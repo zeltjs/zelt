@@ -48,28 +48,37 @@ const formatError = (error: ContractError): string =>
     )
     .exhaustive();
 
+const isContractError = (error: unknown): error is ContractError =>
+  typeof error === 'object' && error !== null && 'type' in error;
+
 export const watchClient = async (options: GenerateClientOptions): Promise<() => Promise<void>> => {
   const watchedPaths = fg.sync([...options.controllers], { absolute: true });
 
-  const initialResult = await generateClient(options);
-  if (initialResult.isErr()) {
-    console.error('[zelt-openapi] initial generation failed:', formatError(initialResult.error));
+  try {
+    await generateClient(options);
+  } catch (error) {
+    if (isContractError(error)) {
+      console.error('[zelt-openapi] initial generation failed:', formatError(error));
+    } else {
+      throw error;
+    }
   }
 
   const watcher = chokidar.watch(watchedPaths, { ignoreInitial: true });
   watcher.on('change', (path) => {
     void (async (): Promise<void> => {
-      const result = await generateClient(options);
-      result.match(
-        (success) => {
-          console.log(
-            `[zelt-openapi] regenerated (app.gen.ts ${success.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${success.openApiChanged ? 'changed' : 'unchanged'}) — trigger: ${path}`,
-          );
-        },
-        (error) => {
+      try {
+        const success = await generateClient(options);
+        console.log(
+          `[zelt-openapi] regenerated (app.gen.ts ${success.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${success.openApiChanged ? 'changed' : 'unchanged'}) — trigger: ${path}`,
+        );
+      } catch (error) {
+        if (isContractError(error)) {
           console.error('[zelt-openapi] regeneration failed:', formatError(error));
-        },
-      );
+        } else {
+          throw error;
+        }
+      }
     })();
   });
 

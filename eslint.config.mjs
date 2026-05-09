@@ -126,15 +126,20 @@ export default tseslint.config(
     ],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/no-try-catch': 'off',
+      '@9wick/strict-type-rules/no-type-predicate': 'off',
     },
   },
   {
     // CLI tool entry points: console output is the user-visible UX, watch loop must catch
     // regeneration errors to keep watching after a failure rather than crashing the process.
+    // Type predicate and in operator needed for ContractError type guard.
     files: ['packages/contract/src/watch.ts', 'packages/contract/src/cli.ts'],
     rules: {
       'no-console': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
+      '@9wick/strict-type-rules/no-type-predicate': 'off',
+      '@9wick/strict-type-rules/no-in-operator': 'off',
     },
   },
   {
@@ -207,6 +212,25 @@ export default tseslint.config(
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
+  {
+    // CLI entry points: throw/catch at user-facing boundaries for error reporting.
+    // Public API returns Promise (not ResultAsync) to avoid neverthrow leak.
+    // Type predicate needed for error type guard.
+    files: [
+      'packages/cli/src/config/loader.ts',
+      'packages/cli/src/builders/tsdown.ts',
+      'packages/cli/src/commands/run/runner.ts',
+      'packages/cli/src/commands/run/loader.ts',
+      'packages/cli/src/commands/run.ts',
+      'packages/cli/src/commands/dev.ts',
+      'packages/cli/src/commands/build.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/no-try-catch': 'off',
+      '@9wick/strict-type-rules/no-type-predicate': 'off',
     },
   },
   {

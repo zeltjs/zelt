@@ -1,18 +1,37 @@
 import { pathToFileURL } from 'node:url';
 
 import { getCommandMetadata, type CommandClass } from '@zeltjs/command';
-import { fromPromise, okAsync, type ResultAsync } from 'neverthrow';
 import { glob } from 'tinyglobby';
 
-export type LoadCommandsError =
-  | { type: 'GLOB_FAILED'; cause: unknown }
-  | { type: 'IMPORT_FAILED'; file: string; cause: unknown };
+export class GlobError extends Error {
+  readonly type = 'GLOB_FAILED' as const;
+  constructor(cause: unknown) {
+    super('Failed to scan command files');
+    this.name = 'GlobError';
+    this.cause = cause;
+  }
+}
 
-const importModule = (file: string): ResultAsync<Record<string, unknown>, LoadCommandsError> =>
-  fromPromise(
-    import(pathToFileURL(file).href) as Promise<Record<string, unknown>>,
-    (cause) => ({ type: 'IMPORT_FAILED', file, cause }) as const,
-  );
+export class ImportError extends Error {
+  readonly type = 'IMPORT_FAILED' as const;
+  readonly file: string;
+  constructor(file: string, cause: unknown) {
+    super(`Failed to import command file: ${file}`);
+    this.name = 'ImportError';
+    this.file = file;
+    this.cause = cause;
+  }
+}
+
+export type LoadCommandsError = GlobError | ImportError;
+
+const importModule = async (file: string): Promise<Record<string, unknown>> => {
+  try {
+    return (await import(pathToFileURL(file).href)) as Record<string, unknown>;
+  } catch (cause) {
+    throw new ImportError(file, cause);
+  }
+};
 
 const extractCommands = (module: Record<string, unknown>): Map<string, CommandClass> => {
   const commandMap = new Map<string, CommandClass>();
@@ -27,34 +46,30 @@ const extractCommands = (module: Record<string, unknown>): Map<string, CommandCl
   return commandMap;
 };
 
-const importAndExtract = (
+const importAndExtract = async (
   file: string,
   commandMap: Map<string, CommandClass>,
-): ResultAsync<void, LoadCommandsError> =>
-  importModule(file).map((module) => {
-    for (const [name, cls] of extractCommands(module)) {
-      commandMap.set(name, cls);
-    }
-    return undefined;
-  });
+): Promise<void> => {
+  const module = await importModule(file);
+  for (const [name, cls] of extractCommands(module)) {
+    commandMap.set(name, cls);
+  }
+};
 
-const importAllFiles = (
-  files: string[],
-  commandMap: Map<string, CommandClass>,
-): ResultAsync<void, LoadCommandsError> =>
-  files.reduce<ResultAsync<void, LoadCommandsError>>(
-    (acc, file) => acc.andThen(() => importAndExtract(file, commandMap)),
-    okAsync(undefined),
-  );
-
-export const loadCommands = (
+export const loadCommands = async (
   cwd: string,
   pattern: string,
-): ResultAsync<Map<string, CommandClass>, LoadCommandsError> =>
-  fromPromise(
-    glob(pattern, { cwd, absolute: true }),
-    (cause) => ({ type: 'GLOB_FAILED', cause }) as const,
-  ).andThen((files) => {
-    const commandMap = new Map<string, CommandClass>();
-    return importAllFiles(files, commandMap).map(() => commandMap);
-  });
+): Promise<Map<string, CommandClass>> => {
+  let files: string[];
+  try {
+    files = await glob(pattern, { cwd, absolute: true });
+  } catch (cause) {
+    throw new GlobError(cause);
+  }
+
+  const commandMap = new Map<string, CommandClass>();
+  for (const file of files) {
+    await importAndExtract(file, commandMap);
+  }
+  return commandMap;
+};

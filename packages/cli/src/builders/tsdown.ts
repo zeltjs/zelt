@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 
 import consola from 'consola';
-import { errAsync, okAsync, ResultAsync } from 'neverthrow';
 
 import type { BuildConfig } from '../config/schema';
 
@@ -11,7 +10,15 @@ export type BuildOptions = {
   readonly config: BuildConfig;
 };
 
-export type BuildError = { type: 'BUILD_FAILED'; exitCode: number };
+export class BuildError extends Error {
+  readonly type = 'BUILD_FAILED' as const;
+  readonly exitCode: number;
+  constructor(exitCode: number) {
+    super(`Build failed with exit code ${exitCode}`);
+    this.name = 'BuildError';
+    this.exitCode = exitCode;
+  }
+}
 
 const buildArgs = (config: BuildConfig): string[] => {
   const args: string[] = [];
@@ -42,7 +49,7 @@ const buildArgs = (config: BuildConfig): string[] => {
   return args;
 };
 
-export const runTsdownBuild = (options: BuildOptions): ResultAsync<void, BuildError> => {
+export const runTsdownBuild = async (options: BuildOptions): Promise<void> => {
   const { cwd, config } = options;
   const args = buildArgs(config);
 
@@ -51,26 +58,22 @@ export const runTsdownBuild = (options: BuildOptions): ResultAsync<void, BuildEr
 
   const tsdownBin = resolve(cwd, 'node_modules/.bin/tsdown');
 
-  return ResultAsync.fromPromise(
-    new Promise<number>((resolvePromise, rejectPromise) => {
-      const child = spawn(tsdownBin, args, {
-        cwd,
-        stdio: 'inherit',
-      });
+  const exitCode = await new Promise<number>((resolvePromise, rejectPromise) => {
+    const child = spawn(tsdownBin, args, {
+      cwd,
+      stdio: 'inherit',
+    });
 
-      child.on('close', (code) => {
-        resolvePromise(code ?? 0);
-      });
+    child.on('close', (code) => {
+      resolvePromise(code ?? 0);
+    });
 
-      child.on('error', (err) => {
-        rejectPromise(err);
-      });
-    }),
-    () => ({ type: 'BUILD_FAILED' as const, exitCode: 1 }),
-  ).andThen((exitCode) => {
-    if (exitCode !== 0) {
-      return errAsync({ type: 'BUILD_FAILED' as const, exitCode });
-    }
-    return okAsync(undefined);
+    child.on('error', (err) => {
+      rejectPromise(err);
+    });
   });
+
+  if (exitCode !== 0) {
+    throw new BuildError(exitCode);
+  }
 };

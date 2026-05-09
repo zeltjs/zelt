@@ -3,9 +3,10 @@
 import { cac } from 'cac';
 import { match } from 'ts-pattern';
 
-import type { ContractError } from './errors';
+import type { ContractError, ConfigError } from './errors';
 import { generateClient } from './generate-client';
-import { findConfigFile, loadConfig } from './load-config';
+import type { GenerateClientOptions } from './config/options';
+import { findConfigFile, loadConfig, isLoadConfigError } from './load-config';
 import { watchClient } from './watch';
 
 const formatAnalyzerError = (e: ContractError & { type: string }): string =>
@@ -75,57 +76,73 @@ const formatError = (error: ContractError): string =>
   formatConfigError(error) ||
   'zelt/openapi: unknown error';
 
+const isContractError = (error: unknown): error is ContractError =>
+  typeof error === 'object' && error !== null && 'type' in error;
+
+const resolveConfig = async (
+  configPath: string | undefined,
+): Promise<GenerateClientOptions | ConfigError> => {
+  const cfgPath = configPath ?? (await findConfigFile(process.cwd()));
+  if (cfgPath === undefined) {
+    return { type: 'CONFIG_NOT_FOUND' };
+  }
+
+  try {
+    return await loadConfig(cfgPath);
+  } catch (error) {
+    if (isLoadConfigError(error)) {
+      return error;
+    }
+    throw error;
+  }
+};
+
+const isConfigError = (result: GenerateClientOptions | ConfigError): result is ConfigError =>
+  'type' in result;
+
+const buildAction = async (opts: { config?: string }): Promise<void> => {
+  const configOrError = await resolveConfig(opts.config);
+  if (isConfigError(configOrError)) {
+    console.error(formatError(configOrError));
+    process.exit(1);
+  }
+
+  try {
+    const success = await generateClient(configOrError);
+    console.log(
+      `[zelt-openapi] built (app.gen.ts ${success.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${success.openApiChanged ? 'changed' : 'unchanged'})`,
+    );
+  } catch (error) {
+    if (isContractError(error)) {
+      console.error(formatError(error));
+      process.exit(1);
+    }
+    throw error;
+  }
+};
+
+const watchAction = async (opts: { config?: string }): Promise<void> => {
+  const configOrError = await resolveConfig(opts.config);
+  if (isConfigError(configOrError)) {
+    console.error(formatError(configOrError));
+    process.exit(1);
+  }
+
+  await watchClient({ ...configOrError, watch: true });
+  console.log('[zelt-openapi] watching ...');
+};
+
 const cli = cac('zelt-openapi');
 
 cli
   .command('build', 'Generate AppType + OpenAPI once')
   .option('-c, --config <path>', 'Path to zelt.config file')
-  .action(async (opts: { config?: string }) => {
-    const cfgPath = opts.config ?? (await findConfigFile(process.cwd()));
-    if (cfgPath === undefined) {
-      console.error(formatError({ type: 'CONFIG_NOT_FOUND' }));
-      process.exit(1);
-    }
-
-    const cfgResult = await loadConfig(cfgPath);
-    if (cfgResult.isErr()) {
-      console.error(formatError(cfgResult.error));
-      process.exit(1);
-    }
-
-    const result = await generateClient(cfgResult.value);
-    result.match(
-      (success) => {
-        console.log(
-          `[zelt-openapi] built (app.gen.ts ${success.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${success.openApiChanged ? 'changed' : 'unchanged'})`,
-        );
-      },
-      (error) => {
-        console.error(formatError(error));
-        process.exit(1);
-      },
-    );
-  });
+  .action(buildAction);
 
 cli
   .command('watch', 'Generate AppType + OpenAPI continuously')
   .option('-c, --config <path>', 'Path to zelt.config file')
-  .action(async (opts: { config?: string }) => {
-    const cfgPath = opts.config ?? (await findConfigFile(process.cwd()));
-    if (cfgPath === undefined) {
-      console.error(formatError({ type: 'CONFIG_NOT_FOUND' }));
-      process.exit(1);
-    }
-
-    const cfgResult = await loadConfig(cfgPath);
-    if (cfgResult.isErr()) {
-      console.error(formatError(cfgResult.error));
-      process.exit(1);
-    }
-
-    await watchClient({ ...cfgResult.value, watch: true });
-    console.log('[zelt-openapi] watching ...');
-  });
+  .action(watchAction);
 
 cli.help();
 cli.version('0.0.0');

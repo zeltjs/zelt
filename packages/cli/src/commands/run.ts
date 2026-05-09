@@ -1,49 +1,57 @@
 import type { CommandClass } from '@zeltjs/command';
 import { defineCommand } from 'citty';
 import consola from 'consola';
-import { err, ok, type Result, type ResultAsync } from 'neverthrow';
 import { match } from 'ts-pattern';
 
-import { type ConfigLoadError, loadZeltConfig } from '../config/loader';
+import { ConfigLoadError, loadZeltConfig } from '../config/loader';
 
-import { type LoadCommandsError, loadCommands } from './run/loader';
-import { type RunCommandError, runCommand } from './run/runner';
+import { type LoadCommandsError, GlobError, ImportError, loadCommands } from './run/loader';
+import { CommandExecutionError, runCommand } from './run/runner';
+
+class NoCommandsConfigError extends Error {
+  readonly type = 'NO_COMMANDS_CONFIG' as const;
+}
+
+class CommandNotFoundError extends Error {
+  readonly type = 'COMMAND_NOT_FOUND' as const;
+  readonly commandName: string;
+  readonly available: string[];
+  constructor(name: string, available: string[]) {
+    super(`Command not found: ${name}`);
+    this.name = 'CommandNotFoundError';
+    this.commandName = name;
+    this.available = available;
+  }
+}
 
 type RunError =
   | ConfigLoadError
   | LoadCommandsError
-  | RunCommandError
-  | { type: 'NO_COMMANDS_CONFIG' }
-  | { type: 'COMMAND_NOT_FOUND'; name: string; available: string[] };
+  | CommandExecutionError
+  | NoCommandsConfigError
+  | CommandNotFoundError;
 
-const findCommand = (
-  commands: Map<string, CommandClass>,
-  name: string,
-): Result<CommandClass, RunError> => {
+const findCommand = (commands: Map<string, CommandClass>, name: string): CommandClass => {
   const commandClass = commands.get(name);
   if (!commandClass) {
-    return err({
-      type: 'COMMAND_NOT_FOUND',
-      name,
-      available: [...commands.keys()],
-    });
+    throw new CommandNotFoundError(name, [...commands.keys()]);
   }
-  return ok(commandClass);
+  return commandClass;
 };
 
-const executeCommand = (
+const executeCommand = async (
   cwd: string,
   commandsPattern: string | undefined,
   commandName: string,
   commandArgs: string[],
-): ResultAsync<void, RunError> => {
+): Promise<void> => {
   if (!commandsPattern) {
-    return err({ type: 'NO_COMMANDS_CONFIG' } as const) as unknown as ResultAsync<void, RunError>;
+    throw new NoCommandsConfigError();
   }
 
-  return loadCommands(cwd, commandsPattern)
-    .andThen((commands) => findCommand(commands, commandName))
-    .andThen((commandClass) => runCommand(commandClass, commandArgs));
+  const commands = await loadCommands(cwd, commandsPattern);
+  const commandClass = findCommand(commands, commandName);
+  await runCommand(commandClass, commandArgs);
 };
 
 const handleError = (error: RunError): void => {
@@ -61,7 +69,7 @@ const handleError = (error: RunError): void => {
       consola.error(`Failed to import command file: ${e.file}`, e.cause);
     })
     .with({ type: 'COMMAND_NOT_FOUND' }, (e) => {
-      consola.error(`Command not found: ${e.name}`);
+      consola.error(`Command not found: ${e.commandName}`);
       consola.info('Available commands:');
       for (const name of e.available) {
         consola.info(`  - ${name}`);
@@ -71,6 +79,24 @@ const handleError = (error: RunError): void => {
       consola.error('Command execution failed:', e.cause);
     })
     .exhaustive();
+};
+
+const isRunError = (error: unknown): error is RunError =>
+  error instanceof ConfigLoadError ||
+  error instanceof GlobError ||
+  error instanceof ImportError ||
+  error instanceof CommandExecutionError ||
+  error instanceof NoCommandsConfigError ||
+  error instanceof CommandNotFoundError;
+
+const runMain = async (
+  cwd: string,
+  configFile: string | undefined,
+  commandName: string,
+  commandArgs: string[],
+): Promise<void> => {
+  const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
+  await executeCommand(cwd, config.commands, commandName, commandArgs);
 };
 
 export const runCommandDef = defineCommand({
@@ -96,12 +122,14 @@ export const runCommandDef = defineCommand({
     const commandName = args.command as string;
     const commandArgs = rawArgs.slice(rawArgs.indexOf(commandName) + 1);
 
-    const result = await loadZeltConfig(
-      configFile !== undefined ? { cwd, configFile } : { cwd },
-    ).andThen((config) => executeCommand(cwd, config.commands, commandName, commandArgs));
-
-    if (result.isErr()) {
-      handleError(result.error);
+    try {
+      await runMain(cwd, configFile, commandName, commandArgs);
+    } catch (error) {
+      if (isRunError(error)) {
+        handleError(error);
+      } else {
+        throw error;
+      }
     }
   },
 });
