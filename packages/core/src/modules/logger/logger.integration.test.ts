@@ -34,7 +34,10 @@ describe('Logger integration', () => {
 
     const res = await app.request('/test');
     expect(res.status).toBe(200);
-    expect(consoleSpy).toHaveBeenCalledWith('[INFO] hello');
+    const rawCall = consoleSpy.mock.calls[0]?.[0] as string;
+    const logged = JSON.parse(rawCall) as Record<string, unknown>;
+    expect(logged['level']).toBe('info');
+    expect(logged['message']).toBe('hello');
   });
 
   it('uses custom config when provided', async () => {
@@ -66,6 +69,9 @@ describe('Logger integration', () => {
     const res = await app.request('/test');
     expect(res.status).toBe(200);
     expect(consoleSpy).toHaveBeenCalledTimes(1);
-    expect(consoleSpy).toHaveBeenCalledWith('[ERROR] should log');
+    const rawCall = consoleSpy.mock.calls[0]?.[0] as string;
+    const logged = JSON.parse(rawCall) as Record<string, unknown>;
+    expect(logged['level']).toBe('error');
+    expect(logged['message']).toBe('should log');
   });
 });

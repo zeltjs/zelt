@@ -1,33 +1,55 @@
 import { Injectable } from '../../decorators/injectable';
 import { injectConfig } from '../../config';
 
+import { getLogContext } from './logger.context.lib';
 import { LoggerConfig } from './logger.config';
-import { LOG_LEVELS, type LogLevel } from './logger.lib';
+import { LOG_LEVEL_PRIORITY, type LogContext, type LogEntry, type LogLevel } from './logger.lib';
 
 @Injectable()
 export class Logger {
-  constructor(private config = injectConfig(LoggerConfig)) {}
+  constructor(
+    private config = injectConfig(LoggerConfig),
+    private bindings: LogContext = {},
+  ) {}
 
-  debug(msg: string): void {
-    this.log('debug', msg);
+  debug(msg: string, ctx: LogContext = {}): void {
+    this.log('debug', msg, ctx);
   }
 
-  info(msg: string): void {
-    this.log('info', msg);
+  info(msg: string, ctx: LogContext = {}): void {
+    this.log('info', msg, ctx);
   }
 
-  warn(msg: string): void {
-    this.log('warn', msg);
+  warn(msg: string, ctx: LogContext = {}): void {
+    this.log('warn', msg, ctx);
   }
 
-  error(msg: string): void {
-    this.log('error', msg);
+  error(msg: string, ctx: LogContext = {}): void {
+    this.log('error', msg, ctx);
   }
 
-  private log(level: LogLevel, msg: string): void {
+  child(bindings: LogContext): Logger {
+    const merged = { ...this.bindings, ...bindings };
+    return new Logger(this.config, merged);
+  }
+
+  private log(level: LogLevel, msg: string, ctx: LogContext): void {
     const configLevel = this.config.level;
-    if (LOG_LEVELS.indexOf(level) >= LOG_LEVELS.indexOf(configLevel)) {
-      console.log(`[${level.toUpperCase()}] ${msg}`);
+    if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[configLevel]) {
+      return;
+    }
+
+    const globalContext = getLogContext();
+    const entry: LogEntry = {
+      level,
+      message: msg,
+      timestamp: new Date().toISOString(),
+      context: { ...globalContext, ...this.bindings, ...ctx },
+    };
+
+    for (const { transport, formatter } of this.config.transports) {
+      const formatted = formatter.format(entry);
+      transport.write(formatted);
     }
   }
 }

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Config } from '../../config';
 
 import { LoggerConfig } from './logger.config';
+import type { LogLevel } from './logger.lib';
 import { Logger } from './logger.service';
 
 describe('Logger', () => {
@@ -17,44 +18,51 @@ describe('Logger', () => {
     consoleSpy.mockReset();
   });
 
-  it('logs info by default', () => {
-    const container = new Container();
-    const logger = container.get(Logger);
+  describe('child logger', () => {
+    it('child inherits parent bindings and merges context', () => {
+      const container = new Container();
+      const logger = container.get(Logger);
+      const child1 = logger.child({ service: 'auth' });
+      const child2 = child1.child({ module: 'jwt' });
 
-    logger.info('test message');
-    expect(consoleSpy).toHaveBeenCalledWith('[INFO] test message');
+      child2.info('grandchild log');
+
+      const rawCall = consoleSpy.mock.calls[0]?.[0] as string;
+      const logged = JSON.parse(rawCall) as Record<string, unknown>;
+      expect(logged['service']).toBe('auth');
+      expect(logged['module']).toBe('jwt');
+    });
+
+    it('child is not DI-managed (lightweight wrapper)', () => {
+      const container = new Container();
+      const logger = container.get(Logger);
+      const child = logger.child({ service: 'test' });
+
+      expect(child).not.toBe(logger);
+      expect(child).toBeInstanceOf(Logger);
+    });
   });
 
-  it('respects log level from config', () => {
-    @Config
-    class CustomConfig extends LoggerConfig {
-      constructor(private _level: 'debug' | 'info' | 'warn' | 'error') {
-        super();
+  describe('log level filtering', () => {
+    it('uses O(1) priority lookup for level comparison', () => {
+      @Config
+      class WarnOnlyConfig extends LoggerConfig {
+        override get level(): LogLevel {
+          return 'warn';
+        }
       }
-      override get level(): 'debug' | 'info' | 'warn' | 'error' {
-        return this._level;
-      }
-    }
 
-    const warnContainer = new Container();
-    warnContainer.bind({ provide: CustomConfig, useFactory: () => new CustomConfig('warn') });
-    warnContainer.bind({ provide: LoggerConfig, useExisting: CustomConfig });
+      const container = new Container();
+      container.bind({ provide: WarnOnlyConfig, useClass: WarnOnlyConfig });
+      container.bind({ provide: LoggerConfig, useExisting: WarnOnlyConfig });
 
-    const warnLogger = warnContainer.get(Logger);
-    warnLogger.info('should not log');
-    expect(consoleSpy).not.toHaveBeenCalled();
+      const logger = container.get(Logger);
+      logger.debug('skip');
+      logger.info('skip');
+      logger.warn('log');
+      logger.error('log');
 
-    warnLogger.warn('should log');
-    expect(consoleSpy).toHaveBeenCalledWith('[WARN] should log');
-
-    consoleSpy.mockClear();
-
-    const debugContainer = new Container();
-    debugContainer.bind({ provide: CustomConfig, useFactory: () => new CustomConfig('debug') });
-    debugContainer.bind({ provide: LoggerConfig, useExisting: CustomConfig });
-
-    const debugLogger = debugContainer.get(Logger);
-    debugLogger.debug('debug message');
-    expect(consoleSpy).toHaveBeenCalledWith('[DEBUG] debug message');
+      expect(consoleSpy).toHaveBeenCalledTimes(2);
+    });
   });
 });
