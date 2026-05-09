@@ -105,7 +105,6 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@9wick/strict-type-rules/no-throw': 'off',
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {
