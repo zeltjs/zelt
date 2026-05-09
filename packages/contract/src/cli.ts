@@ -67,6 +67,11 @@ const formatConfigError = (e: ContractError & { type: string }): string =>
       { type: 'INVALID_CONFIG_EXPORT' },
       (x) => `zelt/openapi: ${x.path} must export a default GenerateClientOptions`,
     )
+    .with(
+      { type: 'REQUEST_VALIDATOR_REQUIRED' },
+      () =>
+        'zelt/openapi: requestValidator is required when routes use validated(). Provide a SchemaAdapter in config.',
+    )
     .otherwise(() => '');
 
 const formatError = (error: ContractError): string =>
