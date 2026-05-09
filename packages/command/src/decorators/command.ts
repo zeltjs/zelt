@@ -16,7 +16,6 @@ export const Command =
       ? { name: options.name, description: options.description }
       : { name: options.name };
     setCommandMetadata(target, meta);
-    // injectable() returns T | void; void is the decorator protocol's "no replacement" signal
-    const wrapped: T | void = injectable<T>()(target);
+    const wrapped = injectable<T>()(target);
     return wrapped ?? target;
   };

@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { getScheduleMetadata } from '../internal/scheduler-metadata';
 
 import { Hourly } from './hourly';
+import { Scheduled } from './scheduled';
 
 describe('@Hourly', () => {
   it('generates hourly cron expression with default minute 0', () => {
+    @Scheduled()
     class TestScheduler {
       @Hourly()
       task() {}
@@ -17,6 +19,7 @@ describe('@Hourly', () => {
   });
 
   it('includes specified minute', () => {
+    @Scheduled()
     class TestScheduler {
       @Hourly({ minute: 15 })
       task() {}
@@ -27,6 +30,7 @@ describe('@Hourly', () => {
   });
 
   it('supports timezone option', () => {
+    @Scheduled()
     class TestScheduler {
       @Hourly({ tz: 'Europe/London' })
       task() {}

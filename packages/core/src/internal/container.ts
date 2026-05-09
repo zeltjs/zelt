@@ -1,6 +1,6 @@
 import { Container } from '@needle-di/core';
 
-import { findConfigToken } from '../config';
+import { findRootConfigToken } from '../config';
 import { LifecycleManager } from '../lifecycle';
 
 type Class<T> = new (...args: never[]) => T;
@@ -15,7 +15,7 @@ export type ResolverHandle = {
 
 const bindConfigs = (container: Container, configs: readonly Class<unknown>[]): void => {
   for (const configClass of configs) {
-    const token = findConfigToken(configClass);
+    const token = findRootConfigToken(configClass);
     if (token && token !== configClass) {
       container.bind(configClass);
       container.bind({ provide: token, useExisting: configClass });

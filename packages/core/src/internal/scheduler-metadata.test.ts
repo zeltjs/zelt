@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  appendScheduleMetadata,
+  appendPendingScheduleMetadata,
   getScheduledMetadata,
   getScheduleMetadata,
+  resolveScheduleMetadata,
   setScheduledMetadata,
 } from './scheduler-metadata';
 
@@ -21,14 +22,16 @@ describe('scheduler-metadata', () => {
     });
   });
 
-  describe('appendScheduleMetadata / getScheduleMetadata', () => {
-    it('appends and retrieves schedule metadata', () => {
+  describe('appendPendingScheduleMetadata / getScheduleMetadata', () => {
+    it('appends and retrieves schedule metadata with resolve', () => {
+      const pendingKey = {};
       class TestScheduler {}
-      appendScheduleMetadata(TestScheduler, {
+      appendPendingScheduleMetadata(pendingKey, {
         methodName: 'dailyTask',
         cronExpression: '0 3 * * *',
         timezone: 'Asia/Tokyo',
       });
+      resolveScheduleMetadata(pendingKey, TestScheduler);
 
       const schedules = getScheduleMetadata(TestScheduler);
       expect(schedules).toHaveLength(1);
@@ -39,16 +42,18 @@ describe('scheduler-metadata', () => {
       });
     });
 
-    it('appends multiple schedules', () => {
+    it('appends multiple schedules with resolve', () => {
+      const pendingKey = {};
       class TestScheduler {}
-      appendScheduleMetadata(TestScheduler, {
+      appendPendingScheduleMetadata(pendingKey, {
         methodName: 'task1',
         cronExpression: '0 * * * *',
       });
-      appendScheduleMetadata(TestScheduler, {
+      appendPendingScheduleMetadata(pendingKey, {
         methodName: 'task2',
         cronExpression: '0 0 * * *',
       });
+      resolveScheduleMetadata(pendingKey, TestScheduler);
 
       const schedules = getScheduleMetadata(TestScheduler);
       expect(schedules).toHaveLength(2);
@@ -57,6 +62,34 @@ describe('scheduler-metadata', () => {
     it('returns empty array for class without schedules', () => {
       class EmptyScheduler {}
       expect(getScheduleMetadata(EmptyScheduler)).toEqual([]);
+    });
+  });
+
+  describe('scheduler pending/resolve pattern', () => {
+    it('stores to pending and resolves to final', () => {
+      const pendingKey = {};
+      class TestClass {}
+      const meta = { methodName: 'run', cronExpression: '* * * * *' };
+
+      appendPendingScheduleMetadata(pendingKey, meta);
+      resolveScheduleMetadata(pendingKey, TestClass);
+
+      const result = getScheduleMetadata(TestClass);
+      expect(result).toEqual([meta]);
+    });
+
+    it('handles multiple schedules on same pending key', () => {
+      const pendingKey = {};
+      class TestClass {}
+      const meta1 = { methodName: 'a', cronExpression: '* * * * *' };
+      const meta2 = { methodName: 'b', cronExpression: '0 * * * *' };
+
+      appendPendingScheduleMetadata(pendingKey, meta1);
+      appendPendingScheduleMetadata(pendingKey, meta2);
+      resolveScheduleMetadata(pendingKey, TestClass);
+
+      const result = getScheduleMetadata(TestClass);
+      expect(result).toEqual([meta1, meta2]);
     });
   });
 });

@@ -1,8 +1,8 @@
 import { injectable } from '@needle-di/core';
 
-type AnyClass = new (...args: never[]) => object;
+import { resolveClassArgs } from '../internal/decorator-context';
 
-export const ErrorHandler = <T extends AnyClass>(target: T): T => {
-  injectable<T>()(target);
-  return target;
+export const ErrorHandler = (...args: unknown[]): void => {
+  const { injectableClass } = resolveClassArgs(args);
+  injectable()(injectableClass);
 };

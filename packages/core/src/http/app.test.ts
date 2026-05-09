@@ -649,7 +649,6 @@ describe('replaceConfig', () => {
   it('replaces config before ready', async () => {
     @Config
     class BaseConfig {
-      static readonly Token = BaseConfig;
       get value() {
         return 'base';
       }
@@ -684,9 +683,7 @@ describe('replaceConfig', () => {
 
   it('throws when replaceConfig called after ready', async () => {
     @Config
-    class SomeConfig {
-      static readonly Token = SomeConfig;
-    }
+    class SomeConfig {}
 
     @Controller('/test')
     class TestController {
@@ -704,9 +701,7 @@ describe('replaceConfig', () => {
 
   it('throws when replaceConfig called after shutdown', async () => {
     @Config
-    class SomeConfig2 {
-      static readonly Token = SomeConfig2;
-    }
+    class SomeConfig2 {}
 
     @Controller('/test')
     class TestController {

@@ -45,9 +45,15 @@ const buildApp = async () => {
   return app;
 };
 
+class JwtServiceTestConfig extends JwtConfig {
+  override get secret(): string {
+    return 'test-secret-key-for-testing-only';
+  }
+}
+
 const buildJwtService = () => {
   const container = new Container();
-  container.bind({ provide: JwtConfig.Token, useClass: TestJwtConfig });
+  container.bind({ provide: JwtConfig, useValue: new JwtServiceTestConfig() });
   return container.get(JwtService);
 };
 
@@ -96,7 +102,7 @@ describe('JwtMiddleware', () => {
         return '0s';
       }
     }
-    expiredContainer.bind({ provide: JwtConfig.Token, useClass: ExpiredConfig });
+    expiredContainer.bind({ provide: JwtConfig, useValue: new ExpiredConfig() });
     const expiredJwtService = expiredContainer.get(JwtService);
     const token = await expiredJwtService.sign({ sub: 'user-123' });
 
@@ -187,7 +193,7 @@ describe('JwtMiddleware — cookie driver', () => {
 
   const buildCookieJwtService = () => {
     const container = new Container();
-    container.bind({ provide: JwtConfig.Token, useClass: CookieDriverConfig });
+    container.bind({ provide: JwtConfig, useClass: CookieDriverConfig });
     return container.get(JwtService);
   };
 

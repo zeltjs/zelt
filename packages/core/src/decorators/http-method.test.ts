@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { getRouteMetadata } from '../internal/metadata';
 
+import { Controller } from './controller';
 import { Delete, Get, Patch, Post, Put } from './http-method';
 
-describe('HTTP method decorators (legacy form)', () => {
+describe('HTTP method decorators', () => {
   it('registers GET / POST / PUT / PATCH / DELETE in declaration order', () => {
+    @Controller('/')
     class C {
       @Get('/')
       list() {}
@@ -20,7 +22,6 @@ describe('HTTP method decorators (legacy form)', () => {
       @Delete('/:id')
       destroy() {}
     }
-    // legacy decorator は class declaration 時に発火するため new C() 不要
     expect(getRouteMetadata(C)).toEqual([
       { method: 'GET', path: '/', methodName: 'list' },
       { method: 'GET', path: '/:id', methodName: 'show' },
@@ -31,10 +32,9 @@ describe('HTTP method decorators (legacy form)', () => {
     ]);
   });
 
-  it('rejects static methods (target is the constructor itself)', () => {
-    // legacy method decorator: instance method なら target は prototype、static なら target は class.
-    // typeof target === 'function' で static を識別して throw する。
+  it('rejects static methods', () => {
     expect(() => {
+      @Controller('/')
       class S {
         @Get('/')
         static foo() {
@@ -44,7 +44,4 @@ describe('HTTP method decorators (legacy form)', () => {
       void S;
     }).toThrow(/static/);
   });
-
-  // legacy decorator は private (#priv) には適用不可 (TS が syntax error にする)
-  // ので runtime check は不要。test も省略。
 });

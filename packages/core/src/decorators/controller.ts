@@ -1,14 +1,24 @@
 import { injectable } from '@needle-di/core';
 
-import { setControllerMetadata } from '../internal/metadata';
+import { resolveClassArgs } from '../internal/decorator-context';
+import {
+  setControllerMetadata,
+  resolveRouteMetadata,
+  resolveMethodMiddlewareMetadata,
+  resolveSkipMiddlewareMetadata,
+  resolveAuthorizedMetadata,
+} from '../internal/metadata';
 
-type AnyClass = new (...args: never[]) => object;
-
-// legacy class decorator: (target: Class) => Class | void
 export const Controller =
   (basePath: string) =>
-  <T extends AnyClass>(target: T): T => {
-    setControllerMetadata(target, { basePath });
-    const wrapped: T | void = injectable<T>()(target);
-    return wrapped ?? target;
+  (...args: unknown[]): void => {
+    const { cls, pendingKey, injectableClass } = resolveClassArgs(args);
+
+    resolveRouteMetadata(pendingKey, cls);
+    resolveMethodMiddlewareMetadata(pendingKey, cls);
+    resolveSkipMiddlewareMetadata(pendingKey, cls);
+    resolveAuthorizedMetadata(pendingKey, cls);
+
+    setControllerMetadata(cls, { basePath });
+    injectable()(injectableClass);
   };

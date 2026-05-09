@@ -7,7 +7,6 @@ describe('configureTestDefaults', () => {
   it('maps config token to replacement class', () => {
     @Config
     class BaseConfig {
-      static readonly Token = BaseConfig;
       get value() {
         return 'base';
       }

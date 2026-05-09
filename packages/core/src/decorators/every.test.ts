@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { getScheduleMetadata } from '../internal/scheduler-metadata';
 
 import { Every } from './every';
+import { Scheduled } from './scheduled';
 
 describe('@Every', () => {
   it('generates interval cron for minutes', () => {
+    @Scheduled()
     class TestScheduler {
       @Every({ minutes: 5 })
       task() {}
@@ -17,6 +19,7 @@ describe('@Every', () => {
   });
 
   it('generates interval cron for seconds', () => {
+    @Scheduled()
     class TestScheduler {
       @Every({ seconds: 30 })
       task() {}

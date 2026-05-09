@@ -3,8 +3,6 @@ import { MemoryKV, type AtomicKVStore } from '@zeltjs/kv';
 
 @Config
 export class RateLimitConfig {
-  static readonly Token = RateLimitConfig;
-
   readonly store: AtomicKVStore;
 
   constructor(kv = inject(MemoryKV)) {

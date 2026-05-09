@@ -21,6 +21,7 @@ export default tseslint.config(
       'eslint.config.mjs',
       '**/generated/**',
       'website/**',
+      'vitest.shared.ts',
     ],
   },
   tseslint.configs.recommended,
@@ -247,6 +248,16 @@ export default tseslint.config(
     files: ['packages/kv-driver-redis/src/zelt-redis.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // TC39/legacy decorator dual-mode adapter: runtime boundary where decorator args are unknown
+    files: ['packages/core/src/internal/decorator-context.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@9wick/strict-type-rules/no-type-predicate': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
   {

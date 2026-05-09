@@ -1,4 +1,5 @@
-import { appendScheduleMetadata } from '../internal/scheduler-metadata';
+import { resolveMethodArgs } from '../internal/decorator-context';
+import { appendPendingScheduleMetadata } from '../internal/scheduler-metadata';
 
 type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
 
@@ -20,16 +21,17 @@ const dayToCron: Record<DayOfWeek, string> = {
 };
 
 export const Weekly =
-  (options: WeeklyOptions): MethodDecorator =>
-  (target, propertyKey): void => {
-    if (typeof target === 'function') {
+  (options: WeeklyOptions) =>
+  (...args: unknown[]): void => {
+    const { pendingKey, methodName, isStatic } = resolveMethodArgs(args);
+    if (isStatic) {
       throw new Error('@Weekly cannot be applied to static methods');
     }
     const minute = options.minute ?? 0;
     const cronDay = dayToCron[options.day];
     const cronExpression = `${minute} ${options.hour} * * ${cronDay}`;
-    appendScheduleMetadata(target.constructor, {
-      methodName: propertyKey,
+    appendPendingScheduleMetadata(pendingKey, {
+      methodName,
       cronExpression,
       ...(options.tz !== undefined ? { timezone: options.tz } : {}),
     });

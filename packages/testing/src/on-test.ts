@@ -1,4 +1,4 @@
-import { findConfigToken, type HttpApp, type ConfigClass } from '@zeltjs/core';
+import { findRootConfigToken, type HttpApp, type ConfigClass } from '@zeltjs/core';
 
 import { getTestDefaults } from './global-config';
 import { registerShutdown } from './shutdown-registry';
@@ -26,9 +26,9 @@ const applyGlobalConfigs = (app: HttpApp): void => {
 
 const applyInlineConfigs = (app: HttpApp, configs: readonly AnyConfigClass[]): void => {
   for (const configClass of configs) {
-    const token = findConfigToken(configClass);
-    if (token && app.hasConfig(token)) {
-      app.replaceConfig(token, configClass);
+    const rootToken = findRootConfigToken(configClass);
+    if (rootToken && app.hasConfig(rootToken)) {
+      app.replaceConfig(rootToken, configClass);
     }
   }
 };

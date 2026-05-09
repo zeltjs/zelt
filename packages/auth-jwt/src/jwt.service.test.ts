@@ -19,7 +19,7 @@ describe('JwtService', () => {
 
   beforeEach(() => {
     const container = new Container();
-    container.bind({ provide: JwtConfig.Token, useClass: TestJwtConfig });
+    container.bind({ provide: JwtConfig, useValue: new TestJwtConfig() });
     jwtService = container.get(JwtService);
   });
 
