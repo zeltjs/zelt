@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { getScheduleMetadata } from '../internal/scheduler-metadata';
+import { getScheduleMetadata, resolveScheduleMetadata } from '../internal/scheduler-metadata';
 
 import { Weekly } from './weekly';
+import { Scheduled } from './scheduled';
 
 describe('@Weekly', () => {
   it('converts day and hour to cron expression', () => {
+    @Scheduled()
     class TestScheduler {
       @Weekly({ day: 'monday', hour: 9 })
       task() {}
@@ -31,19 +33,18 @@ describe('@Weekly', () => {
       class TestScheduler {
         task() {}
       }
-      const descriptor = Object.getOwnPropertyDescriptor(TestScheduler.prototype, 'task');
-      if (descriptor === undefined) throw new Error('descriptor not found');
       Weekly({ day: day as Parameters<typeof Weekly>[0]['day'], hour: 0 })(
         TestScheduler.prototype,
         'task',
-        descriptor,
       );
+      resolveScheduleMetadata(TestScheduler.prototype, TestScheduler);
       const schedules = getScheduleMetadata(TestScheduler);
       expect(schedules[0]?.cronExpression).toBe(`0 0 * * ${cronDay}`);
     }
   });
 
   it('includes minute in cron expression', () => {
+    @Scheduled()
     class TestScheduler {
       @Weekly({ day: 'friday', hour: 17, minute: 30 })
       task() {}
@@ -54,6 +55,7 @@ describe('@Weekly', () => {
   });
 
   it('supports timezone option', () => {
+    @Scheduled()
     class TestScheduler {
       @Weekly({ day: 'sunday', hour: 8, tz: 'America/New_York' })
       task() {}

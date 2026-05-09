@@ -38,6 +38,11 @@ const methodMiddlewareStore = new WeakMap<object, MethodMiddlewareMetadata[]>();
 const skipMiddlewareStore = new WeakMap<object, SkipMiddlewareMetadata[]>();
 const authorizedStore = new WeakMap<object, AuthorizedMetadata[]>();
 
+const pendingRouteStore = new WeakMap<object, RouteMetadata[]>();
+const pendingMethodMiddlewareStore = new WeakMap<object, MethodMiddlewareMetadata[]>();
+const pendingSkipMiddlewareStore = new WeakMap<object, SkipMiddlewareMetadata[]>();
+const pendingAuthorizedStore = new WeakMap<object, AuthorizedMetadata[]>();
+
 export const setControllerMetadata = (cls: object, meta: ControllerMetadata): void => {
   controllerStore.set(cls, meta);
 };
@@ -107,4 +112,68 @@ export const getAuthorizedMetadata = (
 ): AuthorizedMetadata | undefined => {
   const all = authorizedStore.get(cls) ?? [];
   return all.find((m) => m.methodName === methodName);
+};
+
+export const appendPendingRouteMetadata = (pendingKey: object, meta: RouteMetadata): void => {
+  const existing = pendingRouteStore.get(pendingKey) ?? [];
+  pendingRouteStore.set(pendingKey, [...existing, meta]);
+};
+
+export const resolveRouteMetadata = (pendingKey: object, cls: object): void => {
+  const pending = pendingRouteStore.get(pendingKey) ?? [];
+  for (const meta of pending) {
+    appendRouteMetadata(cls, meta);
+  }
+  pendingRouteStore.delete(pendingKey);
+};
+
+export const appendPendingMethodMiddlewareMetadata = (
+  pendingKey: object,
+  methodName: string | symbol,
+  middlewares: readonly MiddlewareInput[],
+): void => {
+  const existing = pendingMethodMiddlewareStore.get(pendingKey) ?? [];
+  pendingMethodMiddlewareStore.set(pendingKey, [...existing, { methodName, middlewares }]);
+};
+
+export const resolveMethodMiddlewareMetadata = (pendingKey: object, cls: object): void => {
+  const pending = pendingMethodMiddlewareStore.get(pendingKey) ?? [];
+  for (const { methodName, middlewares } of pending) {
+    appendMethodMiddlewareMetadata(cls, methodName, middlewares);
+  }
+  pendingMethodMiddlewareStore.delete(pendingKey);
+};
+
+export const appendPendingSkipMiddlewareMetadata = (
+  pendingKey: object,
+  methodName: string | symbol,
+  skipped: readonly MiddlewareIdentifier[],
+): void => {
+  const existing = pendingSkipMiddlewareStore.get(pendingKey) ?? [];
+  pendingSkipMiddlewareStore.set(pendingKey, [...existing, { methodName, skipped }]);
+};
+
+export const resolveSkipMiddlewareMetadata = (pendingKey: object, cls: object): void => {
+  const pending = pendingSkipMiddlewareStore.get(pendingKey) ?? [];
+  for (const { methodName, skipped } of pending) {
+    appendSkipMiddlewareMetadata(cls, methodName, skipped);
+  }
+  pendingSkipMiddlewareStore.delete(pendingKey);
+};
+
+export const appendPendingAuthorizedMetadata = (
+  pendingKey: object,
+  methodName: string | symbol,
+  roles: readonly string[],
+): void => {
+  const existing = pendingAuthorizedStore.get(pendingKey) ?? [];
+  pendingAuthorizedStore.set(pendingKey, [...existing, { methodName, roles }]);
+};
+
+export const resolveAuthorizedMetadata = (pendingKey: object, cls: object): void => {
+  const pending = pendingAuthorizedStore.get(pendingKey) ?? [];
+  for (const { methodName, roles } of pending) {
+    setAuthorizedMetadata(cls, methodName, roles);
+  }
+  pendingAuthorizedStore.delete(pendingKey);
 };

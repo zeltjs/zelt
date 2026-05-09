@@ -1,10 +1,9 @@
 import { inject, Injectable, LifecycleManager, type Lifecycle } from '@zeltjs/core';
-import { err, ok, okAsync, ResultAsync, type Result } from 'neverthrow';
 
-import { invalidTtl, type KVError } from './errors';
-import { validatePrefix, joinPrefix } from './namespace';
+import { KVError } from './errors';
+import { joinPrefix } from './namespace';
 import { deserialize, serialize } from './serialize';
-import type { AtomicKVDriver, AtomicKVStore, SetOptions } from './types';
+import type { AtomicKVDriver, AtomicKVStore, Defined, NonEmptyString, SetOptions } from './types';
 
 type Entry = {
   raw: string;
@@ -12,16 +11,12 @@ type Entry = {
   expiresAt?: number;
 };
 
-const validateTtl = (ttlSec: number | undefined): Result<void, KVError> => {
-  if (ttlSec !== undefined && ttlSec <= 0) return err(invalidTtl(ttlSec));
-  return ok(undefined);
+const validateTtl = (ttlSec: number | undefined): void => {
+  if (ttlSec !== undefined && ttlSec <= 0) throw KVError.invalidTtl(ttlSec);
 };
 
 const makeEntry = (raw: string, ttlSec?: number): Entry =>
   ttlSec !== undefined ? { raw, expiresAt: Date.now() + ttlSec * 1000 } : { raw };
-
-const toResultAsync = <T, E>(result: Result<T, E>): ResultAsync<T, E> =>
-  new ResultAsync(Promise.resolve(result));
 
 @Injectable()
 export class MemoryKV implements AtomicKVDriver, Lifecycle {
@@ -30,7 +25,6 @@ export class MemoryKV implements AtomicKVDriver, Lifecycle {
 
   constructor(lifecycle = inject(LifecycleManager)) {
     this.gcInterval = setInterval(() => this.gc(), 60_000);
-    // prevent the interval from keeping the Node.js process alive
     this.gcInterval.unref();
     lifecycle.register(this);
   }
@@ -50,8 +44,8 @@ export class MemoryKV implements AtomicKVDriver, Lifecycle {
     clearInterval(this.gcInterval);
   }
 
-  namespace(prefix: string): Result<AtomicKVStore, KVError> {
-    return validatePrefix(prefix).map((p) => new MemoryKVStore(this.data, p));
+  namespace<const S extends string>(prefix: NonEmptyString<S>): AtomicKVStore {
+    return new MemoryKVStore(this.data, prefix);
   }
 }
 
@@ -75,72 +69,56 @@ class MemoryKVStore implements AtomicKVStore {
     return entry;
   }
 
-  get<T>(key: string): ResultAsync<T | undefined, KVError> {
-    return okAsync(this.current(key)).map((entry) =>
-      entry ? deserialize<T>(entry.raw) : undefined,
-    );
+  async get<T>(key: string): Promise<T | undefined> {
+    const entry = this.current(key);
+    return entry ? deserialize<T>(entry.raw) : undefined;
   }
 
-  set<T>(key: string, value: T, opts?: SetOptions): ResultAsync<void, KVError> {
-    const validated = validateTtl(opts?.ttlSec).andThen(() => serialize(value));
-    return toResultAsync(
-      validated.andThen((raw) => {
-        this.data.set(this.k(key), makeEntry(raw, opts?.ttlSec));
-        return ok<void, KVError>(undefined);
-      }),
-    );
+  async set<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<void> {
+    validateTtl(opts?.ttlSec);
+    const raw = serialize(value);
+    this.data.set(this.k(key), makeEntry(raw, opts?.ttlSec));
   }
 
-  del(key: string): ResultAsync<void, KVError> {
+  async del(key: string): Promise<void> {
     this.data.delete(this.k(key));
-    return okAsync(undefined);
   }
 
-  has(key: string): ResultAsync<boolean, KVError> {
-    return okAsync(this.current(key) !== undefined);
+  async has(key: string): Promise<boolean> {
+    return this.current(key) !== undefined;
   }
 
-  expire(key: string, ttlSec: number): ResultAsync<boolean, KVError> {
-    const result = validateTtl(ttlSec).map(() => {
-      const entry = this.current(key);
-      if (!entry) return false;
-      entry.expiresAt = Date.now() + ttlSec * 1000;
-      return true;
-    });
-    return toResultAsync(result);
+  async expire(key: string, ttlSec: number): Promise<boolean> {
+    validateTtl(ttlSec);
+    const entry = this.current(key);
+    if (!entry) return false;
+    entry.expiresAt = Date.now() + ttlSec * 1000;
+    return true;
   }
 
-  namespace(sub: string): Result<AtomicKVStore, KVError> {
-    return validatePrefix(sub).map((s) => new MemoryKVStore(this.data, joinPrefix(this.prefix, s)));
+  namespace<const S extends string>(sub: NonEmptyString<S>): AtomicKVStore {
+    return new MemoryKVStore(this.data, joinPrefix(this.prefix, sub));
   }
 
-  incr(key: string, by = 1, opts?: { ttlSec?: number }): ResultAsync<number, KVError> {
-    const result = validateTtl(opts?.ttlSec).andThen(() => {
-      const k = this.k(key);
-      const entry = this.current(key);
-      if (!entry) {
-        return serialize(by).map((raw) => {
-          this.data.set(k, makeEntry(raw, opts?.ttlSec));
-          return by;
-        });
-      }
-      const next = (deserialize<number>(entry.raw) ?? 0) + by;
-      return serialize(next).map((raw) => {
-        entry.raw = raw;
-        return next;
-      });
-    });
-    return toResultAsync(result);
+  async incr(key: string, by = 1, opts?: { ttlSec?: number }): Promise<number> {
+    validateTtl(opts?.ttlSec);
+    const k = this.k(key);
+    const entry = this.current(key);
+    if (!entry) {
+      const raw = serialize(by);
+      this.data.set(k, makeEntry(raw, opts?.ttlSec));
+      return by;
+    }
+    const next = (deserialize<number>(entry.raw) ?? 0) + by;
+    entry.raw = serialize(next);
+    return next;
   }
 
-  setnx<T>(key: string, value: T, opts?: SetOptions): ResultAsync<boolean, KVError> {
-    const result = validateTtl(opts?.ttlSec).andThen(() => {
-      if (this.current(key)) return ok(false);
-      return serialize(value).map((raw) => {
-        this.data.set(this.k(key), makeEntry(raw, opts?.ttlSec));
-        return true;
-      });
-    });
-    return toResultAsync(result);
+  async setnx<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<boolean> {
+    validateTtl(opts?.ttlSec);
+    if (this.current(key)) return false;
+    const raw = serialize(value);
+    this.data.set(this.k(key), makeEntry(raw, opts?.ttlSec));
+    return true;
   }
 }

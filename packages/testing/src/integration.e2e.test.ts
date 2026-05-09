@@ -8,7 +8,6 @@ import { createTestTarget } from './test-target';
 // Shared config hierarchy for E2E tests
 @Config
 class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
   get connectionString() {
     return 'prod://database';
   }
@@ -71,7 +70,6 @@ describe('E2E: createTestTarget with global config', () => {
 describe('E2E: inline config overrides global', () => {
   @Config
   class CacheConfig {
-    static readonly Token = CacheConfig;
     get ttl() {
       return 3600;
     }

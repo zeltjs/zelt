@@ -1,4 +1,4 @@
-import { findConfigToken, type ConfigClass } from '@zeltjs/core';
+import { findRootConfigToken, type ConfigClass } from '@zeltjs/core';
 
 type AnyConfigClass = ConfigClass<object>;
 
@@ -14,9 +14,9 @@ const tokenMap = new Map<AnyConfigClass, AnyConfigClass>();
 
 export const configureTestDefaults = (options: ConfigureOptions): void => {
   for (const configClass of options.configs) {
-    const token = findConfigToken(configClass);
-    if (token) {
-      tokenMap.set(token, configClass);
+    const rootToken = findRootConfigToken(configClass);
+    if (rootToken) {
+      tokenMap.set(rootToken, configClass);
     }
   }
 };

@@ -3,7 +3,16 @@ import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 const sidebars: SidebarsConfig = {
   docsSidebar: [
     'introduction',
-    'first-steps',
+    {
+      type: 'category',
+      label: 'Getting Started',
+      collapsed: false,
+      items: [
+        'getting-started/basic',
+        'getting-started/node',
+        'getting-started/cloudflare-workers',
+      ],
+    },
     {
       type: 'category',
       label: 'HTTP',

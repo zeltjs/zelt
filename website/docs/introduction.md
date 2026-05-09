@@ -28,10 +28,9 @@ Unlike traditional frameworks, Zelt is designed from the ground up for edge and 
 |---------|-------------|
 | `@zeltjs/core` | DI, lifecycle, validation, error handling, and HTTP core |
 | `@zeltjs/adapter-node` | Node.js server adapter |
+| `@zeltjs/adapter-cloudflare-workers` | Cloudflare Workers adapter |
 | `@zeltjs/openapi` | Type generation and OpenAPI output |
 | `@zeltjs/testing` | Test utilities |
-
-Workers / Lambda adapters will be provided as subpaths of `@zeltjs/core` (`@zeltjs/core/workers`, `@zeltjs/core/lambda`).
 
 ## Status
 

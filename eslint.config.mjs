@@ -21,6 +21,7 @@ export default tseslint.config(
       'eslint.config.mjs',
       '**/generated/**',
       'website/**',
+      'vitest.shared.ts',
     ],
   },
   tseslint.configs.recommended,
@@ -221,6 +222,21 @@ export default tseslint.config(
     },
   },
   {
+    // KV uses throw for TTL validation.
+    files: ['packages/kv/src/memory-kv.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+    },
+  },
+  {
+    // Redis KV wraps ioredis errors into KVError at the driver boundary.
+    files: ['packages/kv-driver-redis/src/redis-kv-store.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/no-try-catch': 'off',
+    },
+  },
+  {
     // JSON.parse returns `any`; type assertion unavoidable at this generic boundary.
     files: ['packages/kv/src/serialize.ts'],
     rules: {
@@ -235,6 +251,16 @@ export default tseslint.config(
     },
   },
   {
+    // TC39/legacy decorator dual-mode adapter: runtime boundary where decorator args are unknown
+    files: ['packages/core/src/internal/decorator-context.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@9wick/strict-type-rules/no-type-predicate': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  {
     // Session context uses generic type narrowing at AsyncLocalStorage boundary.
     // Type assertions are needed for user-facing generic session data APIs.
     files: [
@@ -243,6 +269,13 @@ export default tseslint.config(
     ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // Rate limiter wraps KV errors at the service boundary.
+    files: ['packages/rate-limit/src/rate-limiter.service.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-try-catch': 'off',
     },
   },
   {

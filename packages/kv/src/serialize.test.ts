@@ -4,21 +4,15 @@ import { deserialize, serialize } from './serialize';
 
 describe('serialize', () => {
   it('round-trips primitives', () => {
-    expect(deserialize(serialize(42)._unsafeUnwrap())).toBe(42);
-    expect(deserialize(serialize('hello')._unsafeUnwrap())).toBe('hello');
-    expect(deserialize(serialize(true)._unsafeUnwrap())).toBe(true);
-    expect(deserialize(serialize(null)._unsafeUnwrap())).toBe(null);
+    expect(deserialize(serialize(42))).toBe(42);
+    expect(deserialize(serialize('hello'))).toBe('hello');
+    expect(deserialize(serialize(true))).toBe(true);
+    expect(deserialize(serialize(null))).toBe(null);
   });
 
   it('round-trips objects', () => {
     const value = { a: 1, b: ['x', 'y'], c: { d: true } };
-    expect(deserialize(serialize(value)._unsafeUnwrap())).toEqual(value);
-  });
-
-  it('returns Err when serializing undefined', () => {
-    const r = serialize(undefined);
-    expect(r.isErr()).toBe(true);
-    expect(r._unsafeUnwrapErr().type).toBe('INVALID_VALUE');
+    expect(deserialize(serialize(value))).toEqual(value);
   });
 
   it('returns undefined when deserializing null input', () => {

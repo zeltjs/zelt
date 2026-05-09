@@ -1,4 +1,5 @@
-import { appendScheduleMetadata } from '../internal/scheduler-metadata';
+import { resolveMethodArgs } from '../internal/decorator-context';
+import { appendPendingScheduleMetadata } from '../internal/scheduler-metadata';
 
 type HourlyOptions = {
   readonly minute?: number;
@@ -6,15 +7,16 @@ type HourlyOptions = {
 };
 
 export const Hourly =
-  (options?: HourlyOptions): MethodDecorator =>
-  (target, propertyKey): void => {
-    if (typeof target === 'function') {
+  (options?: HourlyOptions) =>
+  (...args: unknown[]): void => {
+    const { pendingKey, methodName, isStatic } = resolveMethodArgs(args);
+    if (isStatic) {
       throw new Error('@Hourly cannot be applied to static methods');
     }
     const minute = options?.minute ?? 0;
     const cronExpression = `${minute} * * * *`;
-    appendScheduleMetadata(target.constructor, {
-      methodName: propertyKey,
+    appendPendingScheduleMetadata(pendingKey, {
+      methodName,
       cronExpression,
       ...(options?.tz !== undefined ? { timezone: options.tz } : {}),
     });

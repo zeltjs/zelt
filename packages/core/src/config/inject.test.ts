@@ -5,10 +5,9 @@ import { Config } from './decorator';
 import { injectConfig } from './inject';
 
 describe('injectConfig', () => {
-  it('injects config via Token', () => {
+  it('injects config via auto-generated token', () => {
     @Config
     class AppConfig {
-      static readonly Token = AppConfig;
       name = 'myapp';
     }
 
@@ -23,5 +22,13 @@ describe('injectConfig', () => {
     const container = new Container();
     const service = container.get(AppService);
     expect(service.getName()).toBe('myapp');
+  });
+
+  it('throws for class not decorated with @Config', () => {
+    class PlainClass {
+      value = 'test';
+    }
+
+    expect(() => injectConfig(PlainClass)).toThrow('is not decorated with @Config');
   });
 });

@@ -21,8 +21,7 @@ const createRateLimitMiddlewareClass = (opts: RateLimitOptions): MiddlewareClass
         windowSec: opts.windowSec,
       });
 
-      if (r.isErr()) {
-        // closed-mode KV failure: cannot guarantee rate-limit contract, return 503.
+      if (!r.ok) {
         return c.json({ code: 'RATE_LIMIT_UNAVAILABLE' }, 503);
       }
 

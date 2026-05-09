@@ -88,7 +88,7 @@ const config: Config = {
             },
             {
               label: 'Getting Started',
-              to: '/first-steps',
+              to: '/getting-started/basic',
             },
           ],
         },

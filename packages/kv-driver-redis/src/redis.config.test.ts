@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { findConfigToken } from '@zeltjs/core';
 
 import { RedisConfig } from './redis.config';
 
@@ -27,7 +28,7 @@ describe('RedisConfig', () => {
     expect(config.options).toEqual({});
   });
 
-  it('Token is the class itself', () => {
-    expect(RedisConfig.Token).toBe(RedisConfig);
+  it('is registered in config registry', () => {
+    expect(findConfigToken(RedisConfig)).toBe(RedisConfig);
   });
 });
