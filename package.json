@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "nx run-many -t build",
+    "check:no-neverthrow-leak": "grep -r 'neverthrow' packages/*/dist/*.d.ts 2>/dev/null && echo 'WARN: neverthrow leaked to public API' || true",
     "format": "biome format --write .",
     "format:check": "biome check .",
     "lint": "eslint . && oxlint .",
@@ -16,7 +17,7 @@
     "codepolicy": "codepolicy",
     "test": "vitest run",
     "typecheck": "tsc -b",
-    "precommit": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm build && pnpm test && npx precommit-verify save",
+    "precommit": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm build && pnpm check:no-neverthrow-leak && pnpm test && npx precommit-verify save",
     "prepare": "npx lefthook install"
   },
   "devDependencies": {
