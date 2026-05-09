@@ -20,10 +20,10 @@ describe('RedisTestContainerConfig', () => {
       }
 
       async ping(): Promise<boolean> {
-        const store = this.redis.namespace('test:')._unsafeUnwrap();
+        const store = this.redis.namespace('test:');
         await store.set('ping', 'pong');
         const result = await store.get<string>('ping');
-        return result._unsafeUnwrap() === 'pong';
+        return result === 'pong';
       }
     }
 

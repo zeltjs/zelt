@@ -2,24 +2,18 @@ import {
   joinPrefix,
   serialize,
   deserialize,
-  storeOperationFailed,
-  validatePrefix,
-  invalidTtl,
+  KVError,
   type AtomicKVStore,
-  type KVError,
+  type Defined,
+  type NonEmptyString,
   type SetOptions,
 } from '@zeltjs/kv';
-import { err, ok, fromPromise, ResultAsync, type Result } from 'neverthrow';
 
 import type { ZeltRedis } from './zelt-redis';
 
-const validateTtl = (ttlSec: number | undefined): Result<void, KVError> => {
-  if (ttlSec !== undefined && ttlSec <= 0) return err(invalidTtl(ttlSec));
-  return ok(undefined);
+const validateTtl = (ttlSec: number | undefined): void => {
+  if (ttlSec !== undefined && ttlSec <= 0) throw KVError.invalidTtl(ttlSec);
 };
-
-const toResultAsync = <T, E>(result: Result<T, E>): ResultAsync<T, E> =>
-  new ResultAsync(Promise.resolve(result));
 
 export class RedisKVStore implements AtomicKVStore {
   constructor(
@@ -31,69 +25,81 @@ export class RedisKVStore implements AtomicKVStore {
     return this.prefix + key;
   }
 
-  get<T>(key: string): ResultAsync<T | undefined, KVError> {
-    return fromPromise(this.client.get(this.k(key)), (cause) =>
-      storeOperationFailed('get', cause),
-    ).map((raw) => (raw === null ? undefined : deserialize<T>(raw)));
+  async get<T>(key: string): Promise<T | undefined> {
+    try {
+      const raw = await this.client.get(this.k(key));
+      return raw === null ? undefined : deserialize<T>(raw);
+    } catch (cause) {
+      throw KVError.storeOperationFailed('get', cause);
+    }
   }
 
-  set<T>(key: string, value: T, opts?: SetOptions): ResultAsync<void, KVError> {
-    const validated = validateTtl(opts?.ttlSec).andThen(() => serialize(value));
-    return toResultAsync(validated).andThen((json) =>
-      opts?.ttlSec !== undefined
-        ? fromPromise(this.client.set(this.k(key), json, 'EX', opts.ttlSec), (cause) =>
-            storeOperationFailed('set', cause),
-          ).map(() => undefined)
-        : fromPromise(this.client.set(this.k(key), json), (cause) =>
-            storeOperationFailed('set', cause),
-          ).map(() => undefined),
-    );
+  async set<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<void> {
+    validateTtl(opts?.ttlSec);
+    const json = serialize(value);
+    try {
+      if (opts?.ttlSec !== undefined) {
+        await this.client.set(this.k(key), json, 'EX', opts.ttlSec);
+      } else {
+        await this.client.set(this.k(key), json);
+      }
+    } catch (cause) {
+      throw KVError.storeOperationFailed('set', cause);
+    }
   }
 
-  del(key: string): ResultAsync<void, KVError> {
-    return fromPromise(this.client.del(this.k(key)), (cause) =>
-      storeOperationFailed('del', cause),
-    ).map(() => undefined);
+  async del(key: string): Promise<void> {
+    try {
+      await this.client.del(this.k(key));
+    } catch (cause) {
+      throw KVError.storeOperationFailed('del', cause);
+    }
   }
 
-  has(key: string): ResultAsync<boolean, KVError> {
-    return fromPromise(this.client.exists(this.k(key)), (cause) =>
-      storeOperationFailed('exists', cause),
-    ).map((n) => n === 1);
+  async has(key: string): Promise<boolean> {
+    try {
+      const n = await this.client.exists(this.k(key));
+      return n === 1;
+    } catch (cause) {
+      throw KVError.storeOperationFailed('exists', cause);
+    }
   }
 
-  expire(key: string, ttlSec: number): ResultAsync<boolean, KVError> {
-    return toResultAsync(validateTtl(ttlSec)).andThen(() =>
-      fromPromise(this.client.expire(this.k(key), ttlSec), (cause) =>
-        storeOperationFailed('expire', cause),
-      ).map((n) => n === 1),
-    );
+  async expire(key: string, ttlSec: number): Promise<boolean> {
+    validateTtl(ttlSec);
+    try {
+      const n = await this.client.expire(this.k(key), ttlSec);
+      return n === 1;
+    } catch (cause) {
+      throw KVError.storeOperationFailed('expire', cause);
+    }
   }
 
-  namespace(sub: string): Result<AtomicKVStore, KVError> {
-    return validatePrefix(sub).map(
-      (s) => new RedisKVStore(this.client, joinPrefix(this.prefix, s)),
-    );
+  namespace<const S extends string>(sub: NonEmptyString<S>): AtomicKVStore {
+    return new RedisKVStore(this.client, joinPrefix(this.prefix, sub));
   }
 
-  incr(key: string, by = 1, opts?: { ttlSec?: number }): ResultAsync<number, KVError> {
-    return toResultAsync(validateTtl(opts?.ttlSec)).andThen(() =>
-      fromPromise(this.client.incrWithTtl(this.k(key), by, opts?.ttlSec), (cause) =>
-        storeOperationFailed('incr', cause),
-      ),
-    );
+  async incr(key: string, by = 1, opts?: { ttlSec?: number }): Promise<number> {
+    validateTtl(opts?.ttlSec);
+    try {
+      return await this.client.incrWithTtl(this.k(key), by, opts?.ttlSec);
+    } catch (cause) {
+      throw KVError.storeOperationFailed('incr', cause);
+    }
   }
 
-  setnx<T>(key: string, value: T, opts?: SetOptions): ResultAsync<boolean, KVError> {
-    const validated = validateTtl(opts?.ttlSec).andThen(() => serialize(value));
-    return toResultAsync(validated).andThen((json) => {
+  async setnx<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<boolean> {
+    validateTtl(opts?.ttlSec);
+    const json = serialize(value);
+    try {
       const promise =
         opts?.ttlSec !== undefined
           ? this.client.set(this.k(key), json, 'EX', opts.ttlSec, 'NX')
           : this.client.set(this.k(key), json, 'NX');
-      return fromPromise(promise, (cause) => storeOperationFailed('setnx', cause)).map(
-        (result) => result === 'OK',
-      );
-    });
+      const result = await promise;
+      return result === 'OK';
+    } catch (cause) {
+      throw KVError.storeOperationFailed('setnx', cause);
+    }
   }
 }

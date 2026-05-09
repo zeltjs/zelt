@@ -1,21 +1,17 @@
 export { MemoryKV } from './memory-kv';
 
-export {
-  type KVError,
-  invalidTtl,
-  emptyNamespace,
-  invalidValue,
-  storeOperationFailed,
-} from './errors';
+export { KVError, type KVErrorType } from './errors';
 
 export type {
   AtomicKVDriver,
   AtomicKVStore,
+  Defined,
   KVDriver,
   KVStore,
+  NonEmptyString,
   SetOptions,
 } from './types';
 
-export { validatePrefix, joinPrefix } from './namespace';
+export { joinPrefix } from './namespace';
 
 export { serialize, deserialize } from './serialize';

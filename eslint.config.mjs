@@ -221,6 +221,21 @@ export default tseslint.config(
     },
   },
   {
+    // KV uses throw for TTL validation.
+    files: ['packages/kv/src/memory-kv.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+    },
+  },
+  {
+    // Redis KV wraps ioredis errors into KVError at the driver boundary.
+    files: ['packages/kv-driver-redis/src/redis-kv-store.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/no-try-catch': 'off',
+    },
+  },
+  {
     // JSON.parse returns `any`; type assertion unavoidable at this generic boundary.
     files: ['packages/kv/src/serialize.ts'],
     rules: {
@@ -243,6 +258,13 @@ export default tseslint.config(
     ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // Rate limiter wraps KV errors at the service boundary.
+    files: ['packages/rate-limit/src/rate-limiter.service.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-try-catch': 'off',
     },
   },
   {

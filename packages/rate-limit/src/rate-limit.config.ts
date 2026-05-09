@@ -8,7 +8,7 @@ export class RateLimitConfig {
   readonly store: AtomicKVStore;
 
   constructor(kv = inject(MemoryKV)) {
-    this.store = kv.namespace('rate-limit:')._unsafeUnwrap();
+    this.store = kv.namespace('rate-limit:');
   }
 
   defaultLimit = 100;
