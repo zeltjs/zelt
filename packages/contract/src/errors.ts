@@ -13,6 +13,7 @@ export type EmitError =
   | { type: 'EXPORT_NOT_FOUND'; exportName: string; modulePath: string }
   | { type: 'INLINE_SCHEMA_NOT_SUPPORTED' }
   | { type: 'NOT_VALIBOT_SCHEMA'; exportName: string; modulePath: string }
+  | { type: 'SCHEMA_ADAPTER_FAILED'; exportName: string; modulePath: string; reason: string }
   | { type: 'UNRESOLVABLE_RESPONSE_TYPE' };
 
 // Config層のエラー

@@ -2,12 +2,11 @@
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { toJsonSchema } from '@valibot/to-json-schema';
-import * as v from 'valibot';
 import { okAsync, errAsync, ResultAsync } from 'neverthrow';
 
 import type { EmitError } from '../errors';
 import type { RequestSchemaRef, ValidationTarget } from '../analyzer/handler';
+import type { SchemaAdapter } from '../types/schema-adapter';
 
 export type RequestSchemaJson =
   | {
@@ -18,19 +17,6 @@ export type RequestSchemaJson =
     }
   | { kind: 'inline'; readonly schema: unknown; readonly target: ValidationTarget }
   | { kind: 'none' };
-
-type AnyValibotSchema = v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>;
-
-const valibotSchemaShape = v.object({
-  kind: v.literal('schema'),
-  type: v.string(),
-  async: v.boolean(),
-});
-
-function narrowToValibotSchema(value: unknown): AnyValibotSchema;
-function narrowToValibotSchema(value: unknown): unknown {
-  return value;
-}
 
 const dynamicImport = (url: string, modulePath: string): ResultAsync<unknown, EmitError> =>
   ResultAsync.fromSafePromise(import(url)).mapErr(() => ({
@@ -57,29 +43,39 @@ const importNamedExport = (
   });
 };
 
+const convertSchema = (
+  value: unknown,
+  adapter: SchemaAdapter,
+  exportName: string,
+  modulePath: string,
+): ResultAsync<unknown, EmitError> => {
+  try {
+    return okAsync(adapter.toJsonSchema(value));
+  } catch (e) {
+    return errAsync({
+      type: 'SCHEMA_ADAPTER_FAILED' as const,
+      exportName,
+      modulePath,
+      reason: e instanceof Error ? e.message : String(e),
+    });
+  }
+};
+
 export const resolveRequestSchema = (
   ref: RequestSchemaRef,
+  adapter: SchemaAdapter,
 ): ResultAsync<RequestSchemaJson, EmitError> => {
   if (ref.kind === 'none') return okAsync({ kind: 'none' });
   if (ref.kind === 'valibot-inline') {
     return errAsync({ type: 'INLINE_SCHEMA_NOT_SUPPORTED' });
   }
 
-  return importNamedExport(ref.module, ref.exportName).andThen((value) => {
-    const parsed = v.safeParse(valibotSchemaShape, value);
-    if (!parsed.success) {
-      return errAsync({
-        type: 'NOT_VALIBOT_SCHEMA' as const,
-        exportName: ref.exportName,
-        modulePath: ref.module,
-      });
-    }
-    const schema = narrowToValibotSchema(value);
-    return okAsync({
+  return importNamedExport(ref.module, ref.exportName).andThen((value) =>
+    convertSchema(value, adapter, ref.exportName, ref.module).map((schema) => ({
       kind: 'ref' as const,
       name: ref.exportName,
-      schema: toJsonSchema(schema),
+      schema,
       target: ref.target,
-    });
-  });
+    })),
+  );
 };
