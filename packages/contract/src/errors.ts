@@ -18,7 +18,8 @@ export type EmitError =
 // Config層のエラー
 export type ConfigError =
   | { type: 'CONFIG_NOT_FOUND' }
-  | { type: 'INVALID_CONFIG_EXPORT'; path: string };
+  | { type: 'INVALID_CONFIG_EXPORT'; path: string }
+  | { type: 'REQUEST_VALIDATOR_REQUIRED' };
 
 // 統合エラー型
 export type ContractError = AnalyzerError | EmitError | ConfigError;

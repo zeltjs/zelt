@@ -46,6 +46,11 @@ const formatError = (error: ContractError): string =>
       { type: 'INVALID_CONFIG_EXPORT' },
       (e) => `${e.path} must export a default GenerateClientOptions`,
     )
+    .with(
+      { type: 'REQUEST_VALIDATOR_REQUIRED' },
+      () =>
+        `requestValidator is required when routes use validated(). Provide a SchemaAdapter in config.`,
+    )
     .exhaustive();
 
 export const watchClient = async (options: GenerateClientOptions): Promise<() => Promise<void>> => {
