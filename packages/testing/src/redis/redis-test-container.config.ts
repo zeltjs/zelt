@@ -1,9 +1,9 @@
 import { Config, inject, LifecycleManager, type Lifecycle } from '@zeltjs/core';
-import { RedisConfig } from '@zeltjs/kv-driver-redis';
+import { RedisKVConfig } from '@zeltjs/kv-driver-redis';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 
 @Config
-export class RedisTestContainerConfig extends RedisConfig implements Lifecycle {
+export class RedisTestContainerConfig extends RedisKVConfig implements Lifecycle {
   private container: StartedTestContainer | undefined;
   private connectionUrl = '';
 
@@ -31,7 +31,7 @@ export class RedisTestContainerConfig extends RedisConfig implements Lifecycle {
     return this.connectionUrl;
   }
 
-  override get options(): RedisConfig['options'] {
+  override get options(): RedisKVConfig['options'] {
     return {};
   }
 }

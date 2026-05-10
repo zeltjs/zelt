@@ -42,7 +42,13 @@ export default tseslint.config(
   ...strictTypes.configs.barrel,
   {
     files: ['**/*.*.{ts,tsx}'],
-    ignores: ['**/*.lib.{ts,tsx}', '**/*.types.{ts,tsx}', '**/*.decorator.{ts,tsx}'],
+    ignores: [
+      '**/*.lib.{ts,tsx}',
+      '**/*.spec.{ts,tsx}',
+      '**/*.test.{ts,tsx}',
+      '**/*.type.{ts,tsx}',
+      '**/*.types.{ts,tsx}',
+    ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
         'error',
@@ -54,6 +60,7 @@ export default tseslint.config(
             'ErrorHandler',
             'Config',
           ],
+          allowClassFieldsInPaths: ['**/*.driver.ts'],
         },
       ],
     },
@@ -267,8 +274,8 @@ export default tseslint.config(
     },
   },
   {
-    // KV uses throw for TTL validation.
-    files: ['packages/kv/src/memory-kv.ts'],
+    // KV driver uses throw for TTL validation.
+    files: ['packages/kv/src/memory-kv.driver.ts'],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
     },
@@ -317,9 +324,17 @@ export default tseslint.config(
   },
   {
     // Rate limiter wraps KV errors at the service boundary.
-    files: ['packages/rate-limit/src/rate-limiter.service.ts'],
+    files: ['packages/rate-limit/src/rate-limit.service.ts'],
     rules: {
       '@9wick/strict-type-rules/no-try-catch': 'off',
+    },
+  },
+  {
+    // RateLimit decorator defines a dynamic middleware class inline.
+    // The class name cannot match the file name pattern.
+    files: ['packages/rate-limit/src/rate-limit.decorator.ts'],
+    rules: {
+      'zelt/decorator-file-naming': 'off',
     },
   },
   {

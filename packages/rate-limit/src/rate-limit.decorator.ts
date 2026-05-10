@@ -2,15 +2,15 @@ import { Injectable, inject, UseMiddleware } from '@zeltjs/core';
 import type { MiddlewareClass, RequestContext, Next } from '@zeltjs/core';
 
 import { tooManyRequestsResponse } from './errors';
-import { RateLimiter } from './rate-limiter.service';
+import { RateLimitService } from './rate-limit.service';
 import type { RateLimitOptions } from './types';
 
 const createRateLimitMiddlewareClass = (opts: RateLimitOptions): MiddlewareClass => {
   @Injectable()
   class RateLimitMiddleware {
-    private readonly limiter: RateLimiter;
+    private readonly limiter: RateLimitService;
 
-    constructor(limiter = inject(RateLimiter)) {
+    constructor(limiter = inject(RateLimitService)) {
       this.limiter = limiter;
     }
 

@@ -5,9 +5,9 @@ import { Config } from '../../config';
 
 import { LoggerConfig } from './logger.config';
 import type { LogLevel } from './logger.lib';
-import { Logger } from './logger.service';
+import { LoggerService } from './logger.service';
 
-describe('Logger', () => {
+describe('LoggerService', () => {
   const consoleSpy = vi.spyOn(console, 'log');
 
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe('Logger', () => {
   describe('child logger', () => {
     it('child inherits parent bindings and merges context', () => {
       const container = new Container();
-      const logger = container.get(Logger);
+      const logger = container.get(LoggerService);
       const child1 = logger.child({ service: 'auth' });
       const child2 = child1.child({ module: 'jwt' });
 
@@ -35,11 +35,11 @@ describe('Logger', () => {
 
     it('child is not DI-managed (lightweight wrapper)', () => {
       const container = new Container();
-      const logger = container.get(Logger);
+      const logger = container.get(LoggerService);
       const child = logger.child({ service: 'test' });
 
       expect(child).not.toBe(logger);
-      expect(child).toBeInstanceOf(Logger);
+      expect(child).toBeInstanceOf(LoggerService);
     });
   });
 
@@ -56,7 +56,7 @@ describe('Logger', () => {
       container.bind({ provide: WarnOnlyConfig, useClass: WarnOnlyConfig });
       container.bind({ provide: LoggerConfig, useExisting: WarnOnlyConfig });
 
-      const logger = container.get(Logger);
+      const logger = container.get(LoggerService);
       logger.debug('skip');
       logger.info('skip');
       logger.warn('log');

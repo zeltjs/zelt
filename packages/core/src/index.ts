@@ -100,6 +100,7 @@ export type { Lifecycle, Disposable } from './lifecycle';
 
 export {
   Logger,
+  LoggerService,
   LoggerConfig,
   withLogContext,
   getLogContext,

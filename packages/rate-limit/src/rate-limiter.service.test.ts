@@ -1,31 +1,31 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { MemoryKV, type AtomicKVStore, KVError } from '@zeltjs/kv';
-import type { Logger } from '@zeltjs/core';
+import { MemoryKVService, type AtomicKVStore, KVError } from '@zeltjs/kv';
+import type { LoggerService } from '@zeltjs/core';
 import { createTestTargetBase } from '@zeltjs/core';
 
 import { RateLimitConfig } from './rate-limit.config';
-import { RateLimiter } from './rate-limiter.service';
+import { RateLimitService } from './rate-limit.service';
 
-const mockLogger = {
+const mockLoggerService = {
   debug: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
-} as unknown as Logger;
+} as unknown as LoggerService;
 
-let memoryKv: MemoryKV;
+let memoryKv: MemoryKVService;
 
 beforeAll(async () => {
-  const { target } = await createTestTargetBase(MemoryKV);
+  const { target } = await createTestTargetBase(MemoryKVService);
   memoryKv = target;
 });
 
 const makeDefaultLimiter = () => {
   const config = new RateLimitConfig(memoryKv);
-  return new RateLimiter(config, mockLogger);
+  return new RateLimitService(config, mockLoggerService);
 };
 
-describe('RateLimiter', () => {
+describe('RateLimitService', () => {
   it('hit returns allowed=true within limit', async () => {
     const limiter = makeDefaultLimiter();
     const r = await limiter.hit('test:k1', { limit: 3, windowSec: 60 });
@@ -74,7 +74,7 @@ describe('RateLimiter', () => {
         del: vi.fn(),
       } as unknown as AtomicKVStore,
     });
-    const limiter = new RateLimiter(failingConfig, mockLogger);
+    const limiter = new RateLimitService(failingConfig, mockLoggerService);
     const r = await limiter.hit('test:k5', { limit: 5, windowSec: 60 });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('expected ok');
@@ -90,7 +90,7 @@ describe('RateLimiter', () => {
       } as unknown as AtomicKVStore,
     });
     failingConfig.failureMode = 'closed';
-    const limiter = new RateLimiter(failingConfig, mockLogger);
+    const limiter = new RateLimitService(failingConfig, mockLoggerService);
     const r = await limiter.hit('test:k6', { limit: 5, windowSec: 60 });
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('expected error');

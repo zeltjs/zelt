@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LifecycleManager } from '@zeltjs/core';
 
-import { MemoryKV } from './memory-kv';
+import { MemoryKVDriver } from './memory-kv.driver';
 
-describe('MemoryKV Lifecycle', () => {
+describe('MemoryKVDriver Lifecycle', () => {
   it('implements Lifecycle interface', () => {
     const lifecycle = new LifecycleManager();
-    const kv = new MemoryKV(lifecycle);
+    const kv = new MemoryKVDriver(lifecycle);
 
     expect(typeof kv.startup).toBe('function');
     expect(typeof kv.shutdown).toBe('function');
@@ -16,7 +16,7 @@ describe('MemoryKV Lifecycle', () => {
     const lifecycle = new LifecycleManager();
     const registerSpy = vi.spyOn(lifecycle, 'register');
 
-    new MemoryKV(lifecycle);
+    new MemoryKVDriver(lifecycle);
 
     expect(registerSpy).toHaveBeenCalledOnce();
   });

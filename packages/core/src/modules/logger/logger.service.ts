@@ -6,7 +6,7 @@ import { LoggerConfig } from './logger.config';
 import { LOG_LEVEL_PRIORITY, type LogContext, type LogEntry, type LogLevel } from './logger.lib';
 
 @Injectable()
-export class Logger {
+export class LoggerService {
   constructor(
     private config = injectConfig(LoggerConfig),
     private bindings: LogContext = {},
@@ -28,9 +28,9 @@ export class Logger {
     this.log('error', msg, ctx);
   }
 
-  child(bindings: LogContext): Logger {
+  child(bindings: LogContext): LoggerService {
     const merged = { ...this.bindings, ...bindings };
-    return new Logger(this.config, merged);
+    return new LoggerService(this.config, merged);
   }
 
   private log(level: LogLevel, msg: string, ctx: LogContext): void {

@@ -10,7 +10,7 @@ export type RateLimiterHitResult =
   | { ok: false; error: RateLimitError };
 
 @Injectable()
-export class RateLimiter {
+export class RateLimitService {
   constructor(
     private config = injectConfig(RateLimitConfig),
     private logger = inject(Logger),

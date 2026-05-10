@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createTestTarget } from '../test-target';
 
-import { RedisTestContainerConfig } from './redis-test-container-config';
+import { RedisTestContainerConfig } from './redis-test-container.config';
 
 describe('RedisTestContainerConfig', () => {
   it('starts a Redis container and provides connection URL', async () => {

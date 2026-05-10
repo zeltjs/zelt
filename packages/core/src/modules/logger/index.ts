@@ -1,4 +1,4 @@
-export { Logger } from './logger.service';
+export { LoggerService, LoggerService as Logger } from './logger.service';
 export { LoggerConfig, type TransportBinding } from './logger.config';
 export { withLogContext, getLogContext } from './logger.context.lib';
 export type { LogLevel, LogContext, LogEntry } from './logger.lib';
