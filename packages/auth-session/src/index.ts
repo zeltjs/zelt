@@ -8,4 +8,4 @@ export {
   isNewSession,
   getSessionId,
 } from './session.functions.lib';
-export type { SessionData, SessionMetadata, StoredSession } from './session.types';
+export type { SessionData, SessionMetadata, SessionSchema, StoredSession } from './session.types';

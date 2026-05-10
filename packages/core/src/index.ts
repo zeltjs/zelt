@@ -43,10 +43,9 @@ export type {
   ArgsDefinition,
   CommandClass,
   CommandContext,
+  CommandRunner,
   InferArgs,
   InferOptions,
-  LegacyCommandClass,
-  NewCommandClass,
   OptionDefinition,
   OptionsDefinition,
 } from './command/types';
@@ -119,4 +118,6 @@ export type {
   LoggerTransport,
 } from './modules/logger';
 
+export { CliConfig } from './modules/cli';
+export type { Signal, SignalHandler } from './modules/cli';
 export { EnvConfig, EnvService } from './modules/env';

@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@needle-di/core": "1.1.2",
+    "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/core": "workspace:*",
     "c12": "3.0.4",
     "chokidar": "5.0.0",

@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import type { ServerType } from '@hono/node-server';
 import {
+  CliConfig,
   EnvConfig,
   type HttpApp,
   type CommandApp,
@@ -8,6 +9,7 @@ import {
   type CommandClass,
 } from '@zeltjs/core';
 
+import { NodeCliConfig } from './cli.config';
 import { ProcessEnvConfig } from './process-env.config';
 
 type ListenOptions = {
@@ -86,7 +88,7 @@ const runCommand = (
 ): Promise<ExecResult> => {
   const instance = get(CommandClass);
   return Promise.resolve()
-    .then(() => instance.run({ args: {}, options: {} }))
+    .then(() => instance.run())
     .then(() => successResult)
     .catch(() => failureResult);
 };
@@ -195,6 +197,9 @@ export async function onNode(
   app: HttpApp | CommandApp | (HttpApp & CommandApp),
   options: NodeAppOptions = {},
 ): Promise<NodeApp> {
+  if (app.hasConfig(CliConfig)) {
+    app.replaceConfig(CliConfig, NodeCliConfig);
+  }
   if (app.hasConfig(EnvConfig)) {
     app.replaceConfig(EnvConfig, ProcessEnvConfig);
   }

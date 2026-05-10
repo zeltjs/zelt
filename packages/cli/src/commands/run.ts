@@ -1,3 +1,4 @@
+import { NodeCliConfig } from '@zeltjs/adapter-node';
 import type { CommandClass } from '@zeltjs/core';
 import { defineCommand } from 'citty';
 import consola from 'consola';
@@ -12,6 +13,8 @@ import {
   runCommand,
   SchemaValidationError,
 } from './run/runner';
+
+const cliConfig = new NodeCliConfig();
 
 class NoCommandsConfigError extends Error {
   readonly type = 'NO_COMMANDS_CONFIG' as const;
@@ -152,7 +155,7 @@ export const runCommandDef = defineCommand({
     },
   },
   async run({ args, rawArgs }) {
-    const cwd = globalThis.process.cwd();
+    const cwd = cliConfig.cwd();
     const configFile = args.config as string | undefined;
     const commandName = args.command as string;
     const commandArgs = rawArgs.slice(rawArgs.indexOf(commandName) + 1);

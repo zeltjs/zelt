@@ -8,5 +8,10 @@ export const injectConfig = <T extends object>(configClass: ConfigClass<T>): T =
   if (!actualConfig) {
     throw new Error(`Config class "${configClass.name}" is not decorated with @Config`);
   }
-  return inject<T>(actualConfig);
+  const configs: T[] = inject(actualConfig, { multi: true });
+  const config = configs[0];
+  if (!config) {
+    throw new Error(`No provider found for config "${configClass.name}"`);
+  }
+  return config;
 };

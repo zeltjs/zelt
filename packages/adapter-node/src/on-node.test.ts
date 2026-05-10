@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp, Controller, Get, EnvConfig, Command } from '@zeltjs/core';
+import { createApp, Controller, Get, EnvConfig, CliConfig, Command, cliSchema } from '@zeltjs/core';
 
+import { NodeCliConfig } from './cli.config';
 import { onNode, type ServerHandle, type HttpNodeApp, type CommandNodeApp } from './on-node';
 import { ProcessEnvConfig } from './process-env.config';
 
@@ -87,6 +88,18 @@ describe('onNode with HTTP', () => {
     expect(replaceConfigSpy).toHaveBeenCalledWith(EnvConfig, ProcessEnvConfig);
   });
 
+  it('auto-injects NodeCliConfig when CliConfig token is in configs', async () => {
+    const app = createApp({
+      http: { controllers: [] },
+      configs: [CliConfig],
+    });
+    const replaceConfigSpy = vi.spyOn(app, 'replaceConfig');
+
+    nodeApp = await onNode(app);
+
+    expect(replaceConfigSpy).toHaveBeenCalledWith(CliConfig, NodeCliConfig);
+  });
+
   it('silently skips ProcessEnvConfig injection when EnvConfig is not in configs', async () => {
     @Controller('/')
     class SimpleController {
@@ -155,12 +168,14 @@ describe('onNode with commands', () => {
   it('executes a command and returns exitCode 0 on success', async () => {
     const runFn = vi.fn();
 
-    @Command({ name: 'test-cmd' })
     class TestCommand {
+      static schema = cliSchema({});
+
       run() {
         runFn();
       }
     }
+    Command({ name: 'test-cmd' })(TestCommand);
 
     const app = createApp({ commands: [TestCommand] });
     nodeApp = await onNode(app);
@@ -172,10 +187,12 @@ describe('onNode with commands', () => {
   });
 
   it('returns exitCode 1 when command not found', async () => {
-    @Command({ name: 'existing' })
     class ExistingCommand {
+      static schema = cliSchema({});
+
       run() {}
     }
+    Command({ name: 'existing' })(ExistingCommand);
 
     const app = createApp({ commands: [ExistingCommand] });
     nodeApp = await onNode(app);
@@ -186,10 +203,12 @@ describe('onNode with commands', () => {
   });
 
   it('returns exitCode 1 when no command specified', async () => {
-    @Command({ name: 'test' })
     class TestCommand {
+      static schema = cliSchema({});
+
       run() {}
     }
+    Command({ name: 'test' })(TestCommand);
 
     const app = createApp({ commands: [TestCommand] });
     nodeApp = await onNode(app);
@@ -200,12 +219,14 @@ describe('onNode with commands', () => {
   });
 
   it('returns exitCode 1 when command throws', async () => {
-    @Command({ name: 'failing' })
     class FailingCommand {
+      static schema = cliSchema({});
+
       run() {
         throw new Error('Command failed');
       }
     }
+    Command({ name: 'failing' })(FailingCommand);
 
     const app = createApp({ commands: [FailingCommand] });
     nodeApp = await onNode(app);

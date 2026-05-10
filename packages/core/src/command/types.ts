@@ -45,23 +45,14 @@ export type CommandContext<
   readonly options: InferOptions<TOptions>;
 };
 
-// Legacy command class (args/options properties)
-export type LegacyCommandClass = new (
-  ...args: never[]
-) => {
-  args?: ArgsDefinition;
-  options?: OptionsDefinition;
-  run(ctx: CommandContext): Promise<void> | void;
+import type { SchemaDefinition } from './schema';
+
+export type CommandRunner = {
+  run(): Promise<void> | void;
 };
 
-// New command class (static schema)
-export type NewCommandClass = (new (
+export type CommandClass = (new (
   ...args: never[]
-) => {
-  run(ctx?: unknown): Promise<void> | void;
-}) & {
-  schema: import('./schema').SchemaDefinition;
+) => CommandRunner) & {
+  schema: SchemaDefinition;
 };
-
-// Union of both for backward compatibility
-export type CommandClass = LegacyCommandClass | NewCommandClass;

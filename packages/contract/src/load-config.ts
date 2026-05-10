@@ -3,6 +3,8 @@ import { access } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import type { CliConfig } from '@zeltjs/core';
+
 import type { ConfigError } from './errors';
 import type { GenerateClientOptions } from './config/options';
 
@@ -42,8 +44,11 @@ class InvalidConfigExportError extends Error {
   }
 }
 
-export const loadConfig = async (path: string): Promise<GenerateClientOptions> => {
-  const abs = isAbsolute(path) ? path : resolve(process.cwd(), path);
+export const loadConfig = async (
+  path: string,
+  cliConfig: CliConfig,
+): Promise<GenerateClientOptions> => {
+  const abs = isAbsolute(path) ? path : resolve(cliConfig.cwd(), path);
   const url = pathToFileURL(abs).href;
 
   let mod: unknown;

@@ -175,6 +175,14 @@ export default tseslint.config(
     },
   },
   {
+    // injectConfig uses multi: true to handle needle-di's inheritance-based auto-binding.
+    // inject() returns any[] which requires unsafe assignment.
+    files: ['packages/core/src/config/inject.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+    },
+  },
+  {
     // Env module needs process.env access
     files: ['packages/core/src/modules/env/env.service.ts'],
     rules: {
@@ -206,8 +214,8 @@ export default tseslint.config(
     },
   },
   {
-    // CLI command runner uses Object.create and DI container.get() at dynamic module
-    // boundaries where type assertions are unavoidable.
+    // CLI command runner uses citty parseArgs which returns loosely typed object.
+    // Type assertions are needed at this library boundary.
     files: [
       'packages/cli/src/commands/run/runner.ts',
       'packages/cli/src/commands/run/loader.ts',
@@ -215,7 +223,6 @@ export default tseslint.config(
     ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@typescript-eslint/no-unsafe-argument': 'off',
     },
   },
   {
@@ -286,17 +293,6 @@ export default tseslint.config(
       '@9wick/strict-type-rules/no-type-predicate': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-    },
-  },
-  {
-    // Session context uses generic type narrowing at AsyncLocalStorage boundary.
-    // Type assertions are needed for user-facing generic session data APIs.
-    files: [
-      'packages/auth-session/src/session.context.lib.ts',
-      'packages/auth-session/src/session.functions.lib.ts',
-    ],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {

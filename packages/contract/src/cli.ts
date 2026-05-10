@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 // packages/contract/src/cli.ts
+import { NodeCliConfig } from '@zeltjs/adapter-node';
 import { cac } from 'cac';
 import { match } from 'ts-pattern';
 
+import type { GenerateClientOptions } from './config/options';
 import type { ContractError, ConfigError } from './errors';
 import { generateClient } from './generate-client';
-import type { GenerateClientOptions } from './config/options';
 import { findConfigFile, loadConfig, isLoadConfigError } from './load-config';
 import { watchClient } from './watch';
 import { cliPrint, cliError } from './cli-output';
+
+const cliConfig = new NodeCliConfig();
 
 const formatAnalyzerError = (e: ContractError & { type: string }): string =>
   match(e)
@@ -93,13 +96,13 @@ const isContractError = (error: unknown): error is ContractError =>
 const resolveConfig = async (
   configPath: string | undefined,
 ): Promise<GenerateClientOptions | ConfigError> => {
-  const cfgPath = configPath ?? (await findConfigFile(process.cwd()));
+  const cfgPath = configPath ?? (await findConfigFile(cliConfig.cwd()));
   if (cfgPath === undefined) {
     return { type: 'CONFIG_NOT_FOUND' };
   }
 
   try {
-    return await loadConfig(cfgPath);
+    return await loadConfig(cfgPath, cliConfig);
   } catch (error) {
     if (isLoadConfigError(error)) {
       return error;
@@ -115,7 +118,7 @@ const buildAction = async (opts: { config?: string }): Promise<void> => {
   const configOrError = await resolveConfig(opts.config);
   if (isConfigError(configOrError)) {
     cliError(formatError(configOrError));
-    process.exit(1);
+    return cliConfig.exit(1);
   }
 
   try {
@@ -126,7 +129,7 @@ const buildAction = async (opts: { config?: string }): Promise<void> => {
   } catch (error) {
     if (isContractError(error)) {
       cliError(formatError(error));
-      process.exit(1);
+      return cliConfig.exit(1);
     }
     throw error;
   }
@@ -136,7 +139,7 @@ const watchAction = async (opts: { config?: string }): Promise<void> => {
   const configOrError = await resolveConfig(opts.config);
   if (isConfigError(configOrError)) {
     cliError(formatError(configOrError));
-    process.exit(1);
+    return cliConfig.exit(1);
   }
 
   await watchClient({ ...configOrError, watch: true });
@@ -157,5 +160,5 @@ cli
 
 cli.help();
 cli.version('0.0.0');
-cli.parse(process.argv, { run: false });
+cli.parse([...cliConfig.argv()], { run: false });
 await cli.runMatchedCommand();

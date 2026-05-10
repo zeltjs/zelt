@@ -4,6 +4,7 @@ export type { ServeOptions, AddressInfo } from './serve';
 export { onNode } from './on-node';
 export type { ServerHandle } from './on-node';
 
+export { NodeCliConfig } from './cli.config';
 export { ProcessEnvConfig } from './process-env.config';
 export { DotEnvConfig } from './dotenv.config';
 

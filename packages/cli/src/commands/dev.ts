@@ -1,3 +1,4 @@
+import { NodeCliConfig } from '@zeltjs/adapter-node';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
@@ -5,6 +6,8 @@ import { match } from 'ts-pattern';
 import { ConfigLoadError, loadZeltConfig } from '../config/loader';
 import type { DevConfig } from '../config/schema';
 import { startDevServer } from '../dev-server/server';
+
+const cliConfig = new NodeCliConfig();
 
 type DevArgs = {
   readonly config?: string;
@@ -75,7 +78,7 @@ export const devCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const cwd = globalThis.process.cwd();
+    const cwd = cliConfig.cwd();
     const typedArgs: DevArgs = args;
 
     try {

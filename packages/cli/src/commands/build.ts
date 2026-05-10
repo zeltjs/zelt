@@ -1,3 +1,4 @@
+import { NodeCliConfig } from '@zeltjs/adapter-node';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
@@ -5,6 +6,8 @@ import { match } from 'ts-pattern';
 import { BuildError, runTsdownBuild } from '../builders/tsdown';
 import { ConfigLoadError, loadZeltConfig } from '../config/loader';
 import type { BuildConfig } from '../config/schema';
+
+const cliConfig = new NodeCliConfig();
 
 type BuildArgs = {
   readonly config?: string;
@@ -75,7 +78,7 @@ export const buildCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const cwd = globalThis.process.cwd();
+    const cwd = cliConfig.cwd();
     const typedArgs: BuildArgs = args;
 
     try {

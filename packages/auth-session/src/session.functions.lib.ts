@@ -1,28 +1,26 @@
 import { getSessionContext, markSessionDestroyed, markSessionDirty } from './session.context.lib';
-import type { SessionData } from './session.types';
+import type { SessionSchema } from './session.types';
 
-export const getSession = <T extends SessionData = SessionData>(): T | undefined => {
-  const ctx = getSessionContext<T>();
+export const getSession = (): SessionSchema | undefined => {
+  const ctx = getSessionContext();
   if (!ctx || ctx.isDestroyed) {
     return undefined;
   }
-  return ctx.session.data as T;
+  return ctx.session.data;
 };
 
-export const setSession = <T extends SessionData = SessionData>(data: T): void => {
-  const ctx = getSessionContext<T>();
+export const setSession = (data: SessionSchema): void => {
+  const ctx = getSessionContext();
   if (ctx) {
     ctx.session.data = data;
     markSessionDirty();
   }
 };
 
-export const updateSession = <T extends SessionData = SessionData>(
-  updater: (current: T) => T,
-): void => {
-  const ctx = getSessionContext<T>();
+export const updateSession = (updater: (current: SessionSchema) => SessionSchema): void => {
+  const ctx = getSessionContext();
   if (ctx) {
-    ctx.session.data = updater(ctx.session.data as T);
+    ctx.session.data = updater(ctx.session.data);
     markSessionDirty();
   }
 };

@@ -33,6 +33,7 @@
     "hono": "4.12.16"
   },
   "dependencies": {
+    "@zeltjs/adapter-node": "workspace:*",
     "cac": "7.0.0",
     "chokidar": "5.0.0",
     "fast-glob": "3.3.3",
