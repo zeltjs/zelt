@@ -9,6 +9,7 @@ import type { ContractError, ConfigError } from './errors';
 import { generateClient } from './generate-client';
 import { findConfigFile, loadConfig, isLoadConfigError } from './load-config';
 import { watchClient } from './watch';
+import { cliPrint, cliError } from './cli-output';
 
 const cliConfig = new NodeCliConfig();
 
@@ -116,18 +117,18 @@ const isConfigError = (result: GenerateClientOptions | ConfigError): result is C
 const buildAction = async (opts: { config?: string }): Promise<void> => {
   const configOrError = await resolveConfig(opts.config);
   if (isConfigError(configOrError)) {
-    console.error(formatError(configOrError));
+    cliError(formatError(configOrError));
     return cliConfig.exit(1);
   }
 
   try {
     const success = await generateClient(configOrError);
-    console.log(
+    cliPrint(
       `[zelt-openapi] built (app.gen.ts ${success.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${success.openApiChanged ? 'changed' : 'unchanged'})`,
     );
   } catch (error) {
     if (isContractError(error)) {
-      console.error(formatError(error));
+      cliError(formatError(error));
       return cliConfig.exit(1);
     }
     throw error;
@@ -137,12 +138,12 @@ const buildAction = async (opts: { config?: string }): Promise<void> => {
 const watchAction = async (opts: { config?: string }): Promise<void> => {
   const configOrError = await resolveConfig(opts.config);
   if (isConfigError(configOrError)) {
-    console.error(formatError(configOrError));
+    cliError(formatError(configOrError));
     return cliConfig.exit(1);
   }
 
   await watchClient({ ...configOrError, watch: true });
-  console.log('[zelt-openapi] watching ...');
+  cliPrint('[zelt-openapi] watching ...');
 };
 
 const cli = cac('zelt-openapi');
