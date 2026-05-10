@@ -45,9 +45,16 @@ export type {
   CommandContext,
   InferArgs,
   InferOptions,
+  LegacyCommandClass,
+  NewCommandClass,
   OptionDefinition,
   OptionsDefinition,
 } from './command/types';
+export { cliSchema } from './command/schema';
+export type { ArgDef, InferSchema, OptionDef, SchemaDefinition } from './command/schema';
+export { args } from './command/primitives/args';
+export { runInCommandContext } from './command/command-context';
+export type { CommandContextStore } from './command/command-context';
 
 export type {
   ErrorHandlerClass,

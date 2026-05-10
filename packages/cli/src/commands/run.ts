@@ -6,7 +6,12 @@ import { match } from 'ts-pattern';
 import { ConfigLoadError, loadZeltConfig } from '../config/loader';
 
 import { type LoadCommandsError, GlobError, ImportError, loadCommands } from './run/loader';
-import { CommandExecutionError, runCommand } from './run/runner';
+import {
+  CommandExecutionError,
+  InvalidNumberError,
+  runCommand,
+  SchemaValidationError,
+} from './run/runner';
 
 class NoCommandsConfigError extends Error {
   readonly type = 'NO_COMMANDS_CONFIG' as const;
@@ -28,6 +33,8 @@ type RunError =
   | ConfigLoadError
   | LoadCommandsError
   | CommandExecutionError
+  | InvalidNumberError
+  | SchemaValidationError
   | NoCommandsConfigError
   | CommandNotFoundError;
 
@@ -54,40 +61,68 @@ const executeCommand = async (
   await runCommand(commandClass, commandArgs);
 };
 
-const handleError = (error: RunError): void => {
+const handleCommandNotFound = (e: CommandNotFoundError): void => {
+  consola.error(`Command not found: ${e.commandName}`);
+  consola.info('Available commands:');
+  for (const name of e.available) {
+    consola.info(`  - ${name}`);
+  }
+};
+
+const handleConfigError = (error: RunError): boolean =>
   match(error)
     .with({ type: 'CONFIG_LOAD_FAILED' }, () => {
       consola.error('Failed to load config');
+      return true;
     })
     .with({ type: 'NO_COMMANDS_CONFIG' }, () => {
       consola.error('No commands config found. Add "commands" to zelt.config.ts');
+      return true;
     })
     .with({ type: 'GLOB_FAILED' }, (e) => {
       consola.error('Failed to scan command files:', e.cause);
+      return true;
     })
     .with({ type: 'IMPORT_FAILED' }, (e) => {
       consola.error(`Failed to import command file: ${e.file}`, e.cause);
+      return true;
     })
-    .with({ type: 'COMMAND_NOT_FOUND' }, (e) => {
-      consola.error(`Command not found: ${e.commandName}`);
-      consola.info('Available commands:');
-      for (const name of e.available) {
-        consola.info(`  - ${name}`);
-      }
-    })
-    .with({ type: 'COMMAND_EXECUTION_FAILED' }, (e) => {
-      consola.error('Command execution failed:', e.cause);
-    })
-    .exhaustive();
+    .otherwise(() => false);
+
+const handleRuntimeError = (error: RunError): void => {
+  match(error)
+    .with({ type: 'COMMAND_NOT_FOUND' }, handleCommandNotFound)
+    .with({ type: 'COMMAND_EXECUTION_FAILED' }, (e) =>
+      consola.error('Command execution failed:', e.cause),
+    )
+    .with({ type: 'INVALID_NUMBER' }, (e) =>
+      consola.error(`Invalid number for '${e.argName}': ${String(e.value)}`),
+    )
+    .with({ type: 'SCHEMA_VALIDATION_FAILED' }, (e) =>
+      consola.error(`Schema validation failed: ${e.message}`),
+    )
+    .otherwise(() => {});
 };
 
+const handleError = (error: RunError): void => {
+  if (!handleConfigError(error)) {
+    handleRuntimeError(error);
+  }
+};
+
+const runErrorClasses = [
+  ConfigLoadError,
+  GlobError,
+  ImportError,
+  CommandExecutionError,
+  InvalidNumberError,
+  SchemaValidationError,
+  NoCommandsConfigError,
+  CommandNotFoundError,
+] as const;
+
 const isRunError = (error: unknown): error is RunError =>
-  error instanceof ConfigLoadError ||
-  error instanceof GlobError ||
-  error instanceof ImportError ||
-  error instanceof CommandExecutionError ||
-  error instanceof NoCommandsConfigError ||
-  error instanceof CommandNotFoundError;
+  runErrorClasses.some((ErrorClass) => error instanceof ErrorClass);
 
 const runMain = async (
   cwd: string,

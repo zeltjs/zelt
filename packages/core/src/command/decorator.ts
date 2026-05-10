@@ -1,8 +1,8 @@
 import { injectable } from '@needle-di/core';
 
-import { setCommandMetadata, type CommandMetadata } from './metadata';
+import { resolveClassArgs } from '../internal/decorator-context';
 
-type AnyClass = new (...args: never[]) => object;
+import { setCommandMetadata, type CommandMetadata } from './metadata';
 
 type CommandOptions = {
   readonly name: string;
@@ -11,11 +11,11 @@ type CommandOptions = {
 
 export const Command =
   (options: CommandOptions) =>
-  <T extends AnyClass>(target: T): T => {
+  (...args: unknown[]): void => {
+    const { cls, injectableClass } = resolveClassArgs(args);
     const meta: CommandMetadata = options.description
       ? { name: options.name, description: options.description }
       : { name: options.name };
-    setCommandMetadata(target, meta);
-    const wrapped = injectable<T>()(target);
-    return wrapped ?? target;
+    setCommandMetadata(cls, meta);
+    injectable()(injectableClass);
   };

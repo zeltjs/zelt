@@ -1,5 +1,7 @@
 import * as path from 'node:path';
+
 import { defineConfig, mergeConfig } from 'vitest/config';
+
 import { sharedConfig } from '../../vitest.shared';
 
 export default mergeConfig(

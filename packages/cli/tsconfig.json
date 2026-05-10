@@ -8,7 +8,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
-    "types": ["node"]
+    "types": ["node"],
+    "erasableSyntaxOnly": false
   },
   "include": ["src/**/*"],
   "references": [{ "path": "../core" }]

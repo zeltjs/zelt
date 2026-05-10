@@ -304,6 +304,16 @@ export default tseslint.config(
     },
   },
   {
+    // Command module uses AsyncLocalStorage and generic type inference at runtime boundaries.
+    // Type assertions are needed for inferred schema types. Throws for developer errors (calling
+    // args() outside command context) which should crash immediately during development.
+    files: ['packages/core/src/command/primitives/args.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@9wick/strict-type-rules/no-throw': 'off',
+    },
+  },
+  {
     // Rate limiter wraps KV errors at the service boundary.
     files: ['packages/rate-limit/src/rate-limiter.service.ts'],
     rules: {

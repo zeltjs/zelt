@@ -20,10 +20,10 @@ describe('loadCommands', () => {
   });
 
   it('loads command classes from glob pattern', async () => {
-    class GreetCommandBase {
+    @Command({ name: 'greet' })
+    class GreetCommand {
       run() {}
     }
-    const GreetCommand = Command({ name: 'greet' })(GreetCommandBase);
 
     const commandFile = join(testDir, 'greet.command.mjs');
     await writeFile(commandFile, '// placeholder');
@@ -43,14 +43,14 @@ describe('loadCommands', () => {
   });
 
   it('handles multiple commands in one file', async () => {
-    class FooCommandBase {
+    @Command({ name: 'foo' })
+    class FooCommand {
       run() {}
     }
-    class BarCommandBase {
+    @Command({ name: 'bar' })
+    class BarCommand {
       run() {}
     }
-    const FooCommand = Command({ name: 'foo' })(FooCommandBase);
-    const BarCommand = Command({ name: 'bar' })(BarCommandBase);
 
     const commandFile = join(testDir, 'commands.mjs');
     await writeFile(commandFile, '// placeholder');
