@@ -8,9 +8,9 @@ import type { ErrorHandlerClass, ErrorHandlerInstance, RequestContext } from '..
 import { createSchedulerRunner, type SchedulerRunner } from '../scheduler/runner';
 import type { ConfigClass } from '../config';
 import { findRootConfigToken } from '../config/token';
-import { createHandleError } from '../http/error-handler';
+import { createDefaultErrorHandler } from '../http/default-error-handler';
 import { getCommandMetadata } from '../command/metadata';
-import { EnvConfig, EnvService } from '../modules/env';
+import { EnvConfig } from '../modules/env';
 import type { CommandClass } from '../command/types';
 
 import type {
@@ -29,14 +29,7 @@ type Resolver = { get: <T extends object>(cls: new (...args: never[]) => T) => T
 
 type ErrorHandlerContext = {
   readonly errorHandlers: readonly ErrorHandlerInstance[];
-  readonly resolver: Resolver;
-  readonly hasEnvConfig: boolean;
-};
-
-const getIsDevelopment = (ctx: ErrorHandlerContext): boolean => {
-  if (!ctx.hasEnvConfig) return false;
-  const envService = ctx.resolver.get(EnvService);
-  return envService.getString('NODE_ENV', 'production') === 'development';
+  readonly envConfig: EnvConfig | undefined;
 };
 
 const createErrorHandler =
@@ -46,8 +39,7 @@ const createErrorHandler =
       const result = await handler.onError(err, c);
       if (result) return result;
     }
-    const isDevelopment = getIsDevelopment(ctx);
-    return createHandleError({ isDevelopment })(err);
+    return createDefaultErrorHandler(ctx.envConfig)(err);
   };
 
 const resolveErrorHandler = (cls: ErrorHandlerClass, resolver: Resolver): ErrorHandlerInstance => {
@@ -84,14 +76,14 @@ type SetupHonoOptions = {
   readonly httpOptions: HttpOptions;
   readonly resolver: Resolver;
   readonly lifecycle: LifecycleManager;
-  readonly hasEnvConfig: boolean;
+  readonly envConfig: EnvConfig | undefined;
 };
 
 const setupHono = (options: SetupHonoOptions): Hono => {
-  const { httpOptions, resolver, lifecycle, hasEnvConfig } = options;
+  const { httpOptions, resolver, lifecycle, envConfig } = options;
   const hono = new Hono({ strict: false });
   const errorHandlers = resolveErrorHandlers(httpOptions.errorHandlers ?? [], resolver);
-  hono.onError(createErrorHandler({ errorHandlers, resolver, hasEnvConfig }));
+  hono.onError(createErrorHandler({ errorHandlers, envConfig }));
   buildRoutes({
     hono,
     controllers: httpOptions.controllers,
@@ -156,7 +148,7 @@ type InitializeHttpOptions = {
   readonly httpOptions: HttpOptions;
   readonly resolver: Resolver;
   readonly lifecycle: LifecycleManager;
-  readonly hasEnvConfig: boolean;
+  readonly envConfig: EnvConfig | undefined;
 };
 
 const initializeHttpSetup = (options: InitializeHttpOptions): HttpResult =>
@@ -227,11 +219,9 @@ const buildAppInternal = async (buildOptions: BuildAppInternalOptions): Promise<
   }
 
   const hasEnvConfig = configHasToken(effectiveConfigs, EnvConfig);
+  const envConfig = hasEnvConfig ? resolver.get(EnvConfig) : undefined;
   const hono = appOptions.http
-    ? await initializeHttp(
-        { httpOptions: appOptions.http, resolver, lifecycle, hasEnvConfig },
-        warmup,
-      )
+    ? await initializeHttp({ httpOptions: appOptions.http, resolver, lifecycle, envConfig }, warmup)
     : undefined;
 
   return {
