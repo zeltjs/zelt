@@ -1,3 +1,7 @@
+export interface SessionSchema {
+  [key: string]: unknown;
+}
+
 export interface SessionData {
   [key: string]: unknown;
 }
@@ -7,7 +11,7 @@ export interface SessionMetadata {
   expiresAt: number;
 }
 
-export interface StoredSession<T extends SessionData = SessionData> {
-  data: T;
+export interface StoredSession {
+  data: SessionSchema;
   meta: SessionMetadata;
 }

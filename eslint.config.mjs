@@ -299,17 +299,6 @@ export default tseslint.config(
     },
   },
   {
-    // Session context uses generic type narrowing at AsyncLocalStorage boundary.
-    // Type assertions are needed for user-facing generic session data APIs.
-    files: [
-      'packages/auth-session/src/session.context.lib.ts',
-      'packages/auth-session/src/session.functions.lib.ts',
-    ],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
     // Command module uses AsyncLocalStorage and generic type inference at runtime boundaries.
     // Type assertions are needed for inferred schema types. Throws for developer errors (calling
     // args() outside command context) which should crash immediately during development.

@@ -6,11 +6,13 @@ import type { KVStore } from '@zeltjs/kv';
 import { SessionMiddleware } from './session.middleware';
 import { SessionConfig } from './session.config';
 import { getSession, setSession, destroySession, isNewSession } from './session.functions.lib';
-import type { SessionData } from './session.types';
+import type { SessionSchema } from './session.types';
 
-interface TestSession extends SessionData {
-  userId?: string;
-  count?: number;
+declare module '@zeltjs/auth-session' {
+  interface SessionSchema {
+    userId?: string;
+    count?: number;
+  }
 }
 
 class TestSessionConfig extends SessionConfig {
@@ -43,23 +45,23 @@ class TestSessionConfig extends SessionConfig {
 class SessionTestController {
   @Get('/')
   get() {
-    const session = getSession<TestSession>();
+    const session = getSession();
     return { session, isNew: isNewSession() };
   }
 
   @Post('/login')
   login() {
-    setSession<TestSession>({ userId: 'user-123', count: 1 });
+    setSession({ userId: 'user-123', count: 1 });
     return { success: true };
   }
 
   @Post('/increment')
   increment() {
-    const session = getSession<TestSession>();
+    const session = getSession();
     if (session) {
-      setSession<TestSession>({ ...session, count: (session.count ?? 0) + 1 });
+      setSession({ ...session, count: (session.count ?? 0) + 1 });
     }
-    return { count: getSession<TestSession>()?.count };
+    return { count: getSession()?.count };
   }
 
   @Post('/logout')
@@ -91,7 +93,7 @@ describe('SessionMiddleware', () => {
     const res = await app.request('/session/');
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { session: TestSession | undefined; isNew: boolean };
+    const body = (await res.json()) as { session: SessionSchema | undefined; isNew: boolean };
     expect(body.isNew).toBe(true);
     expect(body.session).toEqual({});
   });
@@ -107,7 +109,7 @@ describe('SessionMiddleware', () => {
     const getRes = await app.request('/session/', {
       headers: { Cookie: `sid=${cookie}` },
     });
-    const body = (await getRes.json()) as { session: TestSession };
+    const body = (await getRes.json()) as { session: SessionSchema };
     expect(body.session.userId).toBe('user-123');
     expect(body.session.count).toBe(1);
   });
@@ -131,7 +133,7 @@ describe('SessionMiddleware', () => {
     const getRes = await app.request('/session/', {
       headers: { Cookie: `sid=${cookie}` },
     });
-    const body = (await getRes.json()) as { session: TestSession };
+    const body = (await getRes.json()) as { session: SessionSchema };
     expect(body.session.count).toBe(3);
   });
 
@@ -150,7 +152,7 @@ describe('SessionMiddleware', () => {
     const getRes = await app.request('/session/', {
       headers: { Cookie: `sid=${cookie}` },
     });
-    const body = (await getRes.json()) as { session: TestSession | undefined; isNew: boolean };
+    const body = (await getRes.json()) as { session: SessionSchema | undefined; isNew: boolean };
     expect(body.isNew).toBe(true);
     expect(body.session).toEqual({});
   });

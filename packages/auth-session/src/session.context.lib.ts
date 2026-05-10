@@ -1,10 +1,13 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-import type { SessionData, StoredSession } from './session.types';
+import type { SessionMetadata, SessionSchema } from './session.types';
 
-export interface SessionContext<T extends SessionData = SessionData> {
+export interface SessionContext {
   sessionId: string;
-  session: StoredSession<T>;
+  session: {
+    data: SessionSchema;
+    meta: SessionMetadata;
+  };
   isNew: boolean;
   isDestroyed: boolean;
   isDirty: boolean;
@@ -12,17 +15,12 @@ export interface SessionContext<T extends SessionData = SessionData> {
 
 const sessionStorage = new AsyncLocalStorage<SessionContext>();
 
-export const getSessionContext = <T extends SessionData = SessionData>():
-  | SessionContext<T>
-  | undefined => {
-  return sessionStorage.getStore() as SessionContext<T> | undefined;
+export const getSessionContext = (): SessionContext | undefined => {
+  return sessionStorage.getStore();
 };
 
-export const runWithSessionContext = <T extends SessionData, R>(
-  context: SessionContext<T>,
-  fn: () => R,
-): R => {
-  return sessionStorage.run(context as SessionContext, fn);
+export const runWithSessionContext = <R>(context: SessionContext, fn: () => R): R => {
+  return sessionStorage.run(context, fn);
 };
 
 export const markSessionDirty = (): void => {
