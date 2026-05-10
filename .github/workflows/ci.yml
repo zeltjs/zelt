@@ -34,6 +34,9 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      - name: Build eslint-plugin
+        run: pnpm --filter @zeltjs/eslint-plugin build
+
       - name: Typecheck
         run: pnpm typecheck
 

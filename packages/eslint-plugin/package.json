@@ -1,0 +1,39 @@
+{
+  "name": "@zeltjs/eslint-plugin",
+  "version": "0.0.1",
+  "description": "ESLint plugin for Zelt DI naming conventions",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/eslint": "^9.6.1",
+    "@types/estree": "^1.0.7",
+    "@types/node": "^22.15.21",
+    "tsdown": "^0.12.6",
+    "typescript": "^5.8.3"
+  },
+  "keywords": [
+    "eslint",
+    "eslintplugin",
+    "zelt",
+    "di",
+    "naming-conventions"
+  ],
+  "license": "MIT"
+}

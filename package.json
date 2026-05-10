@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@9wick/eslint-plugin-strict-type-rules": "1.1.1",
+    "@zeltjs/eslint-plugin": "workspace:*",
     "@biomejs/biome": "2.4.14",
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.1",
     "@swc/core": "1.15.33",
