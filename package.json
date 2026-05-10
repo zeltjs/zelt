@@ -21,12 +21,12 @@
     "prepare": "npx lefthook install"
   },
   "devDependencies": {
-    "@9wick/eslint-plugin-strict-type-rules": "1.1.1",
-    "@zeltjs/eslint-plugin": "workspace:*",
+    "@9wick/eslint-plugin-strict-type-rules": "1.2.0",
     "@biomejs/biome": "2.4.14",
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.1",
     "@swc/core": "1.15.33",
     "@vitest/coverage-v8": "4.1.5",
+    "@zeltjs/eslint-plugin": "workspace:*",
     "codepolicy": "0.2.2",
     "eslint": "10.3.0",
     "eslint-plugin-import-x": "4.16.2",

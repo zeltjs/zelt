@@ -2,11 +2,11 @@ import { createTestTargetBase, LifecycleManager } from '@zeltjs/core';
 import { describe, expect, it, vi } from 'vitest';
 
 import { RedisKVConfig } from './redis-kv.config';
-import { RedisKVService } from './redis-kv.service';
+import { RedisKVDriver } from './redis-kv.driver';
 
-describe('RedisKVService Lifecycle', () => {
+describe('RedisKVDriver Lifecycle', () => {
   it('implements Lifecycle interface', async () => {
-    const { target: kv } = await createTestTargetBase(RedisKVService, {
+    const { target: kv } = await createTestTargetBase(RedisKVDriver, {
       configs: [RedisKVConfig],
     });
 
@@ -15,14 +15,14 @@ describe('RedisKVService Lifecycle', () => {
   });
 
   it('registers itself with LifecycleManager', async () => {
-    const { get } = await createTestTargetBase(RedisKVService, {
+    const { get } = await createTestTargetBase(RedisKVDriver, {
       configs: [RedisKVConfig],
     });
 
     const lifecycle = get(LifecycleManager);
     const registerSpy = vi.spyOn(lifecycle, 'register');
 
-    // RedisKVService already registered during createTestTargetBase
+    // RedisKVDriver already registered during createTestTargetBase
     // Verify by checking the manager has registered lifecycles
     expect(registerSpy).not.toHaveBeenCalled(); // spy attached after registration
   });

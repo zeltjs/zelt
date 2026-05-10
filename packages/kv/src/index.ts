@@ -1,4 +1,8 @@
-export { MemoryKVService, MemoryKVService as MemoryKV } from './memory-kv.service';
+export {
+  MemoryKVDriver,
+  MemoryKVDriver as MemoryKVService,
+  MemoryKVDriver as MemoryKV,
+} from './memory-kv.driver';
 
 export { KVError, type KVErrorType } from './errors';
 

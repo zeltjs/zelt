@@ -11,15 +11,16 @@ type Entry = {
   expiresAt?: number;
 };
 
-const validateTtl = (ttlSec: number | undefined): void => {
+function validateTtl(ttlSec: number | undefined): void {
   if (ttlSec !== undefined && ttlSec <= 0) throw KVError.invalidTtl(ttlSec);
-};
+}
 
-const makeEntry = (raw: string, ttlSec?: number): Entry =>
-  ttlSec !== undefined ? { raw, expiresAt: Date.now() + ttlSec * 1000 } : { raw };
+function makeEntry(raw: string, ttlSec?: number): Entry {
+  return ttlSec !== undefined ? { raw, expiresAt: Date.now() + ttlSec * 1000 } : { raw };
+}
 
 @Injectable()
-export class MemoryKVService implements AtomicKVDriver, Lifecycle {
+export class MemoryKVDriver implements AtomicKVDriver, Lifecycle {
   private readonly data = new Map<string, Entry>();
   private readonly gcInterval: ReturnType<typeof setInterval>;
 

@@ -3,13 +3,13 @@ import { LifecycleManager } from '@zeltjs/core';
 import { KVError } from '@zeltjs/kv';
 
 import { RedisKVConfig } from './redis-kv.config';
-import { RedisKVService } from './redis-kv.service';
+import { RedisKVDriver } from './redis-kv.driver';
 
 describe('RedisKVStore TTL validation', () => {
-  let driver: RedisKVService;
+  let driver: RedisKVDriver;
 
   beforeAll(() => {
-    driver = new RedisKVService(new RedisKVConfig(), new LifecycleManager());
+    driver = new RedisKVDriver(new RedisKVConfig(), new LifecycleManager());
   });
 
   afterAll(async () => {

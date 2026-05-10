@@ -6,7 +6,7 @@ import { RedisKVStore } from './redis-kv-store';
 import { ZeltRedis } from './zelt-redis';
 
 @Injectable()
-export class RedisKVService implements AtomicKVDriver, Lifecycle {
+export class RedisKVDriver implements AtomicKVDriver, Lifecycle {
   private readonly client: ZeltRedis;
 
   constructor(config = injectConfig(RedisKVConfig), lifecycle = inject(LifecycleManager)) {
