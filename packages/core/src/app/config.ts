@@ -7,10 +7,13 @@ type AnyConfigClass = ConfigClass<object>;
 type AnyConstructorClass = new (...args: never[]) => object;
 type Resolver = { get: <T extends object>(cls: new (...args: never[]) => T) => T };
 
-export const instantiateConfigs = (
-  configs: readonly AnyConstructorClass[] | undefined,
-  resolver: Resolver,
-): void => {
+export type ConfigReadyOptions = {
+  readonly configs: readonly AnyConstructorClass[] | undefined;
+  readonly resolver: Resolver;
+};
+
+export const configReady = (options: ConfigReadyOptions): void => {
+  const { configs, resolver } = options;
   for (const configClass of configs ?? []) {
     resolver.get(configClass);
   }

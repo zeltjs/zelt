@@ -57,13 +57,16 @@ type HttpResult = { hono: Hono } | { error: Error; cleanup: () => Promise<void> 
 
 const toHttpError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
 
-export type InitializeHttpOptions = {
+export type HttpReadyOptions = {
   readonly httpOptions: HttpOptions;
   readonly resolver: Resolver;
   readonly lifecycle: LifecycleManager;
+  readonly warmup: boolean;
 };
 
-const initializeHttpSetup = (options: InitializeHttpOptions): HttpResult =>
+const initializeHttpSetup = (
+  options: Omit<HttpReadyOptions, 'warmup'>,
+): HttpResult =>
   match(
     (() => {
       try {
@@ -77,7 +80,9 @@ const initializeHttpSetup = (options: InitializeHttpOptions): HttpResult =>
     .with({ error: P._ }, (r) => r)
     .exhaustive();
 
-const initializeHttpWarmup = async (options: InitializeHttpOptions): Promise<HttpResult> =>
+const initializeHttpWarmup = async (
+  options: Omit<HttpReadyOptions, 'warmup'>,
+): Promise<HttpResult> =>
   warmupControllers(options.httpOptions.controllers, options.resolver, options.lifecycle)
     .then((): HttpResult => ({ hono: setupHono(options) }))
     .catch(
@@ -103,15 +108,13 @@ const handleHttpWarmupResult = async (result: HttpResult): Promise<void> => {
     .exhaustive();
 };
 
-export const initializeHttp = async (
-  options: InitializeHttpOptions,
-  warmup: boolean,
-): Promise<Hono> => {
-  const setupResult = initializeHttpSetup(options);
+export const httpReady = async (options: HttpReadyOptions): Promise<Hono> => {
+  const { warmup, ...setupOptions } = options;
+  const setupResult = initializeHttpSetup(setupOptions);
   const hono = await handleHttpSetupResult(setupResult);
 
   if (warmup) {
-    const warmupResult = await initializeHttpWarmup(options);
+    const warmupResult = await initializeHttpWarmup(setupOptions);
     await handleHttpWarmupResult(warmupResult);
   }
 

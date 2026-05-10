@@ -5,11 +5,11 @@ import { LifecycleManager } from '../lifecycle';
 import type { SchedulerRunner } from '../scheduler/runner';
 import type { CommandClass } from '../command/types';
 
-import { initializeHttp, createFetch, createRequest, type InitializeHttpOptions } from './http';
+import { httpReady, createFetch, createRequest } from './http';
 import { validateCommands, createHasCommand, createGetCommands } from './command';
-import { registerScheduler } from './scheduler';
+import { schedulerReady } from './scheduler';
 import {
-  instantiateConfigs,
+  configReady,
   applyOverrides,
   configHasToken,
   createReplaceConfig,
@@ -34,7 +34,7 @@ type BuiltApp = {
   readonly commandMap: ReadonlyMap<string, CommandClass>;
 };
 
-type BuildAppInternalOptions = {
+type BuildAppOptions = {
   readonly appOptions: CreateAppOptions;
   readonly configOverrides: ReadonlyMap<AnyConstructorClass, AnyConstructorClass>;
   readonly warmup: boolean;
@@ -43,38 +43,36 @@ type BuildAppInternalOptions = {
 
 type LifecycleResult = { ok: true } | { ok: false; cleanup: () => Promise<void> };
 
-const initializeLifecycle = async (lifecycle: LifecycleManager): Promise<LifecycleResult> =>
+const lifecycleReady = async (lifecycle: LifecycleManager): Promise<LifecycleResult> =>
   lifecycle
     .startupPending()
     .then((): LifecycleResult => ({ ok: true }))
     .catch((): LifecycleResult => ({ ok: false, cleanup: () => lifecycle.shutdown() }));
 
-const buildAppInternal = async (buildOptions: BuildAppInternalOptions): Promise<BuiltApp> => {
-  const { appOptions, configOverrides, warmup, commandMap } = buildOptions;
+const buildApp = async (options: BuildAppOptions): Promise<BuiltApp> => {
+  const { appOptions, configOverrides, warmup, commandMap } = options;
+
   const effectiveConfigs = applyOverrides(appOptions.configs ?? [], configOverrides);
   const resolver = createContainer({ configs: effectiveConfigs });
   const lifecycle = resolver.get(LifecycleManager);
 
-  instantiateConfigs(effectiveConfigs, resolver);
-  const schedulerRunner = registerScheduler(appOptions.schedulers, resolver, lifecycle);
+  configReady({ configs: effectiveConfigs, resolver });
+  schedulerReady({ schedulers: appOptions.schedulers, resolver, lifecycle });
 
-  const lifecycleResult = await initializeLifecycle(lifecycle);
+  const lifecycleResult = await lifecycleReady(lifecycle);
   if (!lifecycleResult.ok) {
     await lifecycleResult.cleanup();
     throw new Error('Lifecycle startup failed');
   }
 
   const hono = appOptions.http
-    ? await initializeHttp(
-        { httpOptions: appOptions.http, resolver, lifecycle } as InitializeHttpOptions,
-        warmup,
-      )
+    ? await httpReady({ httpOptions: appOptions.http, resolver, lifecycle, warmup })
     : undefined;
 
   return {
     hono,
     lifecycle,
-    schedulerRunner,
+    schedulerRunner: undefined,
     resolver,
     controllers: appOptions.http?.controllers ?? [],
     commandMap,
@@ -104,7 +102,7 @@ const createReady =
     if (state.readyPromise) return state.readyPromise;
 
     const warmup = readyOptions?.warmup ?? false;
-    state.readyPromise = buildAppInternal({
+    state.readyPromise = buildApp({
       appOptions: options,
       configOverrides: state.configOverrides,
       warmup,
