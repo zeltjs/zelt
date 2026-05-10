@@ -24,12 +24,4 @@ export class EnvService {
     if (val === undefined) return defaultValue;
     return val === 'true' || val === '1';
   }
-
-  isDevelopment(): boolean {
-    return this.getString('NODE_ENV', 'production') === 'development';
-  }
-
-  isProduction(): boolean {
-    return this.getString('NODE_ENV', 'production') === 'production';
-  }
 }
