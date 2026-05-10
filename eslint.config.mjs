@@ -267,18 +267,15 @@ export default tseslint.config(
     },
   },
   {
-    // KV uses throw for TTL validation. Internal helper functions and class fields
-    // are needed for the GC interval pattern.
-    files: ['packages/kv/src/memory-kv.service.ts'],
+    // KV driver layer: stateful infrastructure that manages connections and storage.
+    // Class fields are required for connection state (Map, intervals, Redis client).
+    // Module-level helper functions are pure utilities, not state.
+    files: [
+      'packages/kv/src/memory-kv.service.ts',
+      'packages/kv-driver-redis/src/redis-kv.service.ts',
+    ],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
-    // RedisKVService uses private readonly field for client instance.
-    files: ['packages/kv-driver-redis/src/redis-kv.service.ts'],
-    rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
     },
   },
@@ -332,13 +329,11 @@ export default tseslint.config(
     },
   },
   {
-    // Dynamic middleware class inside decorator factory cannot follow file naming convention.
-    // Also uses throw for 429 response and module-level variables for factory pattern.
+    // RateLimit decorator defines a dynamic middleware class inline.
+    // The class name cannot match the file name pattern.
     files: ['packages/rate-limit/src/rate-limit.decorator.ts'],
     rules: {
       'zelt/decorator-file-naming': 'off',
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-      '@9wick/strict-type-rules/no-throw': 'off',
     },
   },
   {
