@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp, Controller, Get, EnvConfig, Command } from '@zeltjs/core';
+import { createApp, Controller, Get, EnvConfig, CliConfig, Command } from '@zeltjs/core';
 
+import { NodeCliConfig } from './cli.config';
 import { onNode, type ServerHandle, type HttpNodeApp, type CommandNodeApp } from './on-node';
 import { ProcessEnvConfig } from './process-env.config';
 
@@ -85,6 +86,18 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     expect(replaceConfigSpy).toHaveBeenCalledWith(EnvConfig, ProcessEnvConfig);
+  });
+
+  it('auto-injects NodeCliConfig when CliConfig token is in configs', async () => {
+    const app = createApp({
+      http: { controllers: [] },
+      configs: [CliConfig],
+    });
+    const replaceConfigSpy = vi.spyOn(app, 'replaceConfig');
+
+    nodeApp = await onNode(app);
+
+    expect(replaceConfigSpy).toHaveBeenCalledWith(CliConfig, NodeCliConfig);
   });
 
   it('silently skips ProcessEnvConfig injection when EnvConfig is not in configs', async () => {
