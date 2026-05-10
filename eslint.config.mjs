@@ -5,6 +5,8 @@ import oxlint from 'eslint-plugin-oxlint';
 import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
+import zeltPlugin from '@zeltjs/eslint-plugin';
+
 const TEST_FILES = ['**/*.test.{ts,tsx}', '**/*.e2e.test.{ts,tsx}'];
 const FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,tsx}'];
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
@@ -22,13 +24,18 @@ export default tseslint.config(
       '**/generated/**',
       'website/**',
       'vitest.shared.ts',
+      'packages/eslint-plugin/**',
     ],
   },
   tseslint.configs.recommended,
   ...oxlint.configs['flat/all'],
   eslintComments.recommended,
   {
-    plugins: { 'import-x': importX, sonarjs },
+    plugins: {
+      'import-x': importX,
+      sonarjs,
+      zelt: zeltPlugin,
+    },
   },
   ...strictTypes.configs.recommended,
   ...strictTypes.configs.test,
@@ -57,6 +64,14 @@ export default tseslint.config(
       parserOptions: {
         projectService: true,
       },
+    },
+  },
+  {
+    files: ['packages/**/*.{ts,tsx}'],
+    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
+    rules: {
+      'zelt/config-di-scope': 'warn',
+      'zelt/decorator-file-naming': 'warn',
     },
   },
   {
