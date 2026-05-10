@@ -1,3 +1,6 @@
+[copy]
+patterns = 'lefthook-local.yml'
+
 [[repository_settings]]
-repository = "."
-setup_commands = ["pnpm i"]
+repository = '.'
+setup_commands = ['pnpm i']
