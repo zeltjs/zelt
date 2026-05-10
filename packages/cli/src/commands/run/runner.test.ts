@@ -18,62 +18,6 @@ const getArgsFromContext = (cmd: unknown): unknown => {
 };
 
 describe('runCommand', () => {
-  it('executes command with parsed args and options', async () => {
-    const received: { name: string; verbose: boolean } = { name: '', verbose: false };
-
-    @Command({ name: 'greet' })
-    class GreetCommand {
-      readonly args = {
-        name: { type: 'positional' as const, required: true as const },
-      };
-      readonly options = {
-        verbose: { type: 'boolean' as const, default: false },
-      };
-
-      run(ctx: { args: Record<string, string | undefined>; options: Record<string, unknown> }) {
-        received.name = ctx.args['name'] ?? '';
-        received.verbose = ctx.options['verbose'] as boolean;
-      }
-    }
-
-    await runCommand(GreetCommand, ['Alice', '--verbose']);
-
-    expect(received.name).toBe('Alice');
-    expect(received.verbose).toBe(true);
-  });
-
-  it('uses default values when args not provided', async () => {
-    const received: { env: string } = { env: '' };
-
-    @Command({ name: 'deploy' })
-    class DeployCommand {
-      readonly options = {
-        env: { type: 'string' as const, default: 'production' },
-      };
-
-      run(ctx: { args: Record<string, string | undefined>; options: Record<string, unknown> }) {
-        received.env = ctx.options['env'] as string;
-      }
-    }
-
-    await runCommand(DeployCommand, []);
-
-    expect(received.env).toBe('production');
-  });
-
-  it('throws CommandExecutionError when command throws', async () => {
-    @Command({ name: 'fail' })
-    class FailingCommand {
-      run() {
-        throw new Error('Command failed');
-      }
-    }
-
-    await expect(runCommand(FailingCommand, [])).rejects.toThrow(CommandExecutionError);
-  });
-});
-
-describe('runCommand with static schema', () => {
   it('parses positional args from schema', async () => {
     const received: { target: string } = { target: '' };
 
@@ -230,6 +174,19 @@ describe('runCommand with static schema', () => {
     expect(received.target).toBe('production');
     expect(received.port).toBe(8080);
     expect(received.verbose).toBe(true);
+  });
+
+  it('throws CommandExecutionError when command throws', async () => {
+    class FailingCommand {
+      static schema = cliSchema({});
+
+      run() {
+        throw new Error('Command failed');
+      }
+    }
+    Command({ name: 'fail' })(FailingCommand);
+
+    await expect(runCommand(FailingCommand, [])).rejects.toThrow(CommandExecutionError);
   });
 });
 

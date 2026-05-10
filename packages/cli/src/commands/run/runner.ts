@@ -1,11 +1,4 @@
-import type {
-  ArgDef,
-  CommandClass,
-  CommandContext,
-  LegacyCommandClass,
-  NewCommandClass,
-  SchemaDefinition,
-} from '@zeltjs/core';
+import type { ArgDef, CommandClass, CommandRunner, SchemaDefinition } from '@zeltjs/core';
 import { runInCommandContext } from '@zeltjs/core';
 import { Container } from '@needle-di/core';
 import type { ArgsDef, BooleanArgDef, StringArgDef } from 'citty';
@@ -39,86 +32,9 @@ export class SchemaValidationError extends Error {
   }
 }
 
-type LegacyInstanceShape = {
-  args?: Record<string, { type: string; default?: string }>;
-  options?: Record<string, { type: string; alias?: string; default?: boolean | string }>;
-  run: (ctx: CommandContext) => Promise<void> | void;
-};
-
-type NewInstanceShape = {
-  run: (ctx?: unknown) => Promise<void> | void;
-};
-
 type ParsedArgs = {
   _: string[];
   [key: string]: unknown;
-};
-
-// --- Legacy API helpers ---
-
-const toPositionalArg = (def: { default?: string }): ArgsDef[string] =>
-  def.default !== undefined ? { type: 'positional', default: def.default } : { type: 'positional' };
-
-const toBooleanArg = (def: { alias?: string; default?: boolean | string }): BooleanArgDef => {
-  const base: BooleanArgDef = { type: 'boolean' };
-  if (def.alias !== undefined) base.alias = def.alias;
-  if (def.default !== undefined) base.default = def.default as boolean;
-  return base;
-};
-
-const toStringArg = (def: { alias?: string; default?: boolean | string }): StringArgDef => {
-  const base: StringArgDef = { type: 'string' };
-  if (def.alias !== undefined) base.alias = def.alias;
-  if (def.default !== undefined) base.default = def.default as string;
-  return base;
-};
-
-const buildLegacyCittyArgs = (commandClass: LegacyCommandClass): ArgsDef => {
-  const instance = Object.create(commandClass.prototype) as LegacyInstanceShape;
-  const cittyArgs: ArgsDef = {};
-
-  for (const [key, def] of Object.entries(instance.args ?? {})) {
-    cittyArgs[key] = toPositionalArg(def);
-  }
-
-  for (const [key, def] of Object.entries(instance.options ?? {})) {
-    cittyArgs[key] = def.type === 'boolean' ? toBooleanArg(def) : toStringArg(def);
-  }
-
-  return cittyArgs;
-};
-
-const buildLegacyArgs = (
-  instance: LegacyInstanceShape,
-  parsed: ParsedArgs,
-): Record<string, string | undefined> => {
-  const positionalKeys = Object.keys(instance.args ?? {});
-  const args: Record<string, string | undefined> = {};
-  for (let i = 0; i < positionalKeys.length; i++) {
-    const key = positionalKeys[i];
-    if (key) {
-      args[key] = (parsed._[i] as string | undefined) ?? (instance.args?.[key]?.default as string);
-    }
-  }
-  return args;
-};
-
-const buildLegacyOptions = (
-  instance: LegacyInstanceShape,
-  parsed: ParsedArgs,
-): Record<string, unknown> => {
-  const options: Record<string, unknown> = {};
-  for (const key of Object.keys(instance.options ?? {})) {
-    options[key] = parsed[key] ?? instance.options?.[key]?.default;
-  }
-  return options;
-};
-
-// --- New API helpers ---
-
-const getStaticSchema = (commandClass: CommandClass): SchemaDefinition | undefined => {
-  const maybeSchema = (commandClass as { schema?: SchemaDefinition }).schema;
-  return maybeSchema;
 };
 
 const validateSchema = (schema: SchemaDefinition): void => {
@@ -214,32 +130,10 @@ const buildNewArgs = (schema: SchemaDefinition, parsed: ParsedArgs): Record<stri
   return result;
 };
 
-// --- Legacy execution ---
-
-const parseAndResolveLegacy = (
-  commandClass: LegacyCommandClass,
+const parseAndResolve = (
+  commandClass: CommandClass,
   argv: string[],
-): { instance: LegacyInstanceShape; ctx: CommandContext } => {
-  const cittyArgs = buildLegacyCittyArgs(commandClass);
-  const parsed = parseArgs(argv, cittyArgs) as ParsedArgs;
-
-  const container = new Container();
-  const instance = container.get(commandClass) as LegacyInstanceShape;
-
-  const ctx: CommandContext = {
-    args: buildLegacyArgs(instance, parsed),
-    options: buildLegacyOptions(instance, parsed),
-  } as CommandContext;
-
-  return { instance, ctx };
-};
-
-// --- New execution ---
-
-const parseAndResolveNew = (
-  commandClass: NewCommandClass,
-  argv: string[],
-): { instance: NewInstanceShape; parsedArgs: Record<string, unknown> } => {
+): { instance: CommandRunner; parsedArgs: Record<string, unknown> } => {
   const schema = commandClass.schema;
 
   validateSchema(schema);
@@ -250,29 +144,15 @@ const parseAndResolveNew = (
   const parsedArgs = buildNewArgs(schema, parsed);
 
   const container = new Container();
-  const instance = container.get(commandClass) as NewInstanceShape;
+  const instance = container.get<CommandRunner>(commandClass);
 
   return { instance, parsedArgs };
 };
 
-// --- Main entry point ---
-
 export const runCommand = async (commandClass: CommandClass, argv: string[]): Promise<void> => {
-  const staticSchema = getStaticSchema(commandClass);
-
-  if (staticSchema !== undefined) {
-    const { instance, parsedArgs } = parseAndResolveNew(commandClass as NewCommandClass, argv);
-    try {
-      await Promise.resolve(runInCommandContext({ parsedArgs }, () => instance.run()));
-    } catch (cause) {
-      throw new CommandExecutionError(cause);
-    }
-    return;
-  }
-
-  const { instance, ctx } = parseAndResolveLegacy(commandClass as LegacyCommandClass, argv);
+  const { instance, parsedArgs } = parseAndResolve(commandClass, argv);
   try {
-    await Promise.resolve(instance.run(ctx));
+    await Promise.resolve(runInCommandContext({ parsedArgs }, () => instance.run()));
   } catch (cause) {
     throw new CommandExecutionError(cause);
   }
