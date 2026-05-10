@@ -8,8 +8,8 @@ import {
   inject,
   pathParam,
   response,
-  validated,
 } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
 
 import type { Todo } from '../db/schema';

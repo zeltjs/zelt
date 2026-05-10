@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as v from 'valibot';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-
-import { runInEntryContext } from '../internal/entry-context';
+import { runInEntryContext } from '@zeltjs/core/runtime';
 
 import { validated } from './validated';
 
@@ -46,6 +45,7 @@ describe('validated()', () => {
   });
 
   it('HTTPException contains VALIDATION_FAILED response', async () => {
+    expect.assertions(4);
     try {
       runInEntryContext(
         {

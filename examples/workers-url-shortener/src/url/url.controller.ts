@@ -8,8 +8,8 @@ import {
   pathParam,
   requestContext,
   response,
-  validated,
 } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
 
 import type { Env } from '../env';

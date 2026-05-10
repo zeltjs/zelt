@@ -1,0 +1,1 @@
+export { valibotAdapter } from './adapter';

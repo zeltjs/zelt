@@ -1,10 +1,9 @@
 import { defineCommand } from 'citty';
 import consola from 'consola';
-import { errAsync, type ResultAsync } from 'neverthrow';
 import { match } from 'ts-pattern';
 
-import { type BuildError, runTsdownBuild } from '../builders/tsdown';
-import { type ConfigLoadError, loadZeltConfig } from '../config/loader';
+import { BuildError, runTsdownBuild } from '../builders/tsdown';
+import { ConfigLoadError, loadZeltConfig } from '../config/loader';
 import type { BuildConfig } from '../config/schema';
 
 type BuildArgs = {
@@ -13,7 +12,11 @@ type BuildArgs = {
   readonly outDir?: string;
 };
 
-type RunBuildError = ConfigLoadError | BuildError | { type: 'NO_ENTRY' };
+class NoEntryError extends Error {
+  readonly type = 'NO_ENTRY' as const;
+}
+
+type RunBuildError = ConfigLoadError | BuildError | NoEntryError;
 
 const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefined) => ({
   ...buildConfig,
@@ -21,25 +24,32 @@ const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefine
   outDir: args.outDir ?? buildConfig?.outDir,
 });
 
-const runBuild = (cwd: string, typedArgs: BuildArgs): ResultAsync<void, RunBuildError> => {
+const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
   const configFile = typedArgs.config;
+  const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
+  const buildConfig = resolveBuildConfig(typedArgs, config.build);
 
-  return loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd }).andThen(
-    (config) => {
-      const buildConfig = resolveBuildConfig(typedArgs, config.build);
+  if (buildConfig.entry === undefined) {
+    throw new NoEntryError();
+  }
 
-      if (buildConfig.entry === undefined) {
-        return errAsync({ type: 'NO_ENTRY' as const });
-      }
+  consola.start('Building...');
+  await runTsdownBuild({ cwd, config: buildConfig });
+  consola.success('Build completed');
+};
 
-      consola.start('Building...');
-
-      return runTsdownBuild({ cwd, config: buildConfig }).map(() => {
-        consola.success('Build completed');
-        return undefined;
-      });
-    },
-  );
+const handleError = (error: RunBuildError): void => {
+  match(error)
+    .with({ type: 'CONFIG_LOAD_FAILED' }, () => {
+      consola.error('Failed to load config');
+    })
+    .with({ type: 'NO_ENTRY' }, () => {
+      consola.error('No entry file specified. Use --entry or set build.entry in zelt.config.ts');
+    })
+    .with({ type: 'BUILD_FAILED' }, () => {
+      consola.error('Build failed');
+    })
+    .exhaustive();
 };
 
 export const buildCommand = defineCommand({
@@ -68,24 +78,18 @@ export const buildCommand = defineCommand({
     const cwd = globalThis.process.cwd();
     const typedArgs: BuildArgs = args;
 
-    const result = await runBuild(cwd, typedArgs);
-
-    result.match(
-      () => {},
-      (error) =>
-        match(error)
-          .with({ type: 'CONFIG_LOAD_FAILED' }, () => {
-            consola.error('Failed to load config');
-          })
-          .with({ type: 'NO_ENTRY' }, () => {
-            consola.error(
-              'No entry file specified. Use --entry or set build.entry in zelt.config.ts',
-            );
-          })
-          .with({ type: 'BUILD_FAILED' }, () => {
-            consola.error('Build failed');
-          })
-          .exhaustive(),
-    );
+    try {
+      await runBuild(cwd, typedArgs);
+    } catch (error) {
+      if (
+        error instanceof ConfigLoadError ||
+        error instanceof BuildError ||
+        error instanceof NoEntryError
+      ) {
+        handleError(error);
+      } else {
+        throw error;
+      }
+    }
   },
 });

@@ -1,25 +1,18 @@
-import * as v from 'valibot';
+export type ValidationIssue = {
+  readonly kind: string;
+  readonly type: string;
+  readonly message: string;
+  readonly path?: readonly unknown[];
+};
 
-const issueSchema = v.object({
-  kind: v.string(),
-  type: v.string(),
-  message: v.string(),
-  path: v.optional(v.array(v.unknown())),
-});
+export type ValidationErrorBody = {
+  code: 'VALIDATION_FAILED';
+  readonly issues: readonly ValidationIssue[];
+};
 
-const validationVariant = v.object({
-  code: v.literal('VALIDATION_FAILED'),
-  issues: v.array(issueSchema),
-});
+export type InternalErrorBody = {
+  code: 'INTERNAL_ERROR';
+  readonly message: string;
+};
 
-const internalErrorVariant = v.object({
-  code: v.literal('INTERNAL_ERROR'),
-  message: v.string(),
-});
-
-export const errorBodySchema = v.variant('code', [validationVariant, internalErrorVariant]);
-
-export const validationErrorBodySchema = validationVariant;
-
-export type ErrorBody = v.InferOutput<typeof errorBodySchema>;
-export type ValidationErrorBody = v.InferOutput<typeof validationErrorBodySchema>;
+export type ErrorBody = ValidationErrorBody | InternalErrorBody;

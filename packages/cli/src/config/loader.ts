@@ -1,5 +1,4 @@
 import { loadConfig } from 'c12';
-import { ResultAsync } from 'neverthrow';
 
 import type { ZeltConfig } from './schema';
 
@@ -8,7 +7,14 @@ export type LoadConfigOptions = {
   readonly configFile?: string;
 };
 
-export type ConfigLoadError = { type: 'CONFIG_LOAD_FAILED' };
+export class ConfigLoadError extends Error {
+  readonly type = 'CONFIG_LOAD_FAILED' as const;
+  constructor(cause?: unknown) {
+    super('Failed to load config');
+    this.name = 'ConfigLoadError';
+    this.cause = cause;
+  }
+}
 
 const DEFAULT_BUILD_CONFIG = {
   outDir: './dist',
@@ -22,9 +28,7 @@ const DEFAULT_DEV_CONFIG = {
   debounceMs: 300,
 } as const;
 
-export const loadZeltConfig = (
-  options: LoadConfigOptions = {},
-): ResultAsync<ZeltConfig, ConfigLoadError> => {
+export const loadZeltConfig = async (options: LoadConfigOptions = {}): Promise<ZeltConfig> => {
   const c12Options: Parameters<typeof loadConfig<ZeltConfig>>[0] = {
     name: 'zelt',
     defaults: {
@@ -40,7 +44,10 @@ export const loadZeltConfig = (
     c12Options.configFile = options.configFile;
   }
 
-  return ResultAsync.fromPromise(loadConfig<ZeltConfig>(c12Options), () => ({
-    type: 'CONFIG_LOAD_FAILED' as const,
-  })).map((result) => result.config);
+  try {
+    const result = await loadConfig<ZeltConfig>(c12Options);
+    return result.config;
+  } catch (cause) {
+    throw new ConfigLoadError(cause);
+  }
 };

@@ -1,18 +1,19 @@
 // packages/contract/src/emit/openapi.ts
-import { validationErrorBodySchema } from '@zeltjs/core';
-import { toJsonSchema } from '@valibot/to-json-schema';
 import { okAsync, errAsync, type ResultAsync } from 'neverthrow';
 
 import type { ContractError } from '../errors';
 import type { RequestSchemaRef } from '../analyzer/handler';
 import type { ControllerIR, RouteIR } from '../analyzer/internal-representation';
+import type { SchemaAdapter } from '../types/schema-adapter';
 
 import { resolveRequestSchema, type RequestSchemaJson } from './json-schema-input';
 import { resolveResponseSchema, type ResponseSchemaJson } from './json-schema-output';
+import { validationErrorBodyJsonSchema } from './validation-error-schema';
 
 type EmitOpenApiOptions = {
   readonly distDir: string;
   readonly tsconfigPath: string;
+  readonly requestValidator?: SchemaAdapter;
 };
 
 type SchemaMap = Record<string, unknown>;
@@ -75,8 +76,22 @@ const buildResponseEntry = (
   };
 };
 
-const hasValibotRequest = (req: RequestSchemaRef): boolean =>
+const hasValidatedRequest = (req: RequestSchemaRef): boolean =>
   req.kind === 'valibot-named' || req.kind === 'valibot-inline';
+
+const hasAnyValidatedRoute = (controllers: readonly ControllerIR[]): boolean =>
+  controllers.some((c) => c.routes.some((r) => hasValidatedRequest(r.requestSchema)));
+
+const resolveRequestSchemaWithAdapter = (
+  ref: RequestSchemaRef,
+  adapter: SchemaAdapter | undefined,
+): ResultAsync<RequestSchemaJson, ContractError> => {
+  if (ref.kind === 'none') return okAsync({ kind: 'none' });
+  if (!adapter) {
+    return errAsync({ type: 'REQUEST_VALIDATOR_REQUIRED' as const });
+  }
+  return resolveRequestSchema(ref, adapter);
+};
 
 const validationFailedResponse = (): Record<string, unknown> => ({
   description: 'validation failed',
@@ -88,30 +103,32 @@ const buildOperation = (
   schemas: SchemaMap,
   options: EmitOpenApiOptions,
 ): ResultAsync<Operation, ContractError> => {
-  return resolveRequestSchema(r.requestSchema).andThen((reqJson) => {
-    const respResult = resolveResponseSchema(r.responseType, {
-      tsconfigPath: options.tsconfigPath,
-    });
-    if (respResult.isErr()) {
-      return errAsync(respResult.error);
-    }
-    const respJson = respResult.value;
+  return resolveRequestSchemaWithAdapter(r.requestSchema, options.requestValidator).andThen(
+    (reqJson) => {
+      const respResult = resolveResponseSchema(r.responseType, {
+        tsconfigPath: options.tsconfigPath,
+      });
+      if (respResult.isErr()) {
+        return errAsync(respResult.error);
+      }
+      const respJson = respResult.value;
 
-    const op: Operation = {};
-    const reqBody = buildRequestBody(reqJson, schemas);
-    if (reqBody) op['requestBody'] = reqBody;
+      const op: Operation = {};
+      const reqBody = buildRequestBody(reqJson, schemas);
+      if (reqBody) op['requestBody'] = reqBody;
 
-    const params = buildPathParams(r.pathParams);
-    if (params) op['parameters'] = params;
+      const params = buildPathParams(r.pathParams);
+      if (params) op['parameters'] = params;
 
-    const responses: Record<string, unknown> = {};
-    const respEntry = buildResponseEntry(respJson, schemas);
-    if (respEntry) responses[respEntry.status] = respEntry.value;
-    if (hasValibotRequest(r.requestSchema)) responses['400'] = validationFailedResponse();
-    op['responses'] = responses;
+      const responses: Record<string, unknown> = {};
+      const respEntry = buildResponseEntry(respJson, schemas);
+      if (respEntry) responses[respEntry.status] = respEntry.value;
+      if (hasValidatedRequest(r.requestSchema)) responses['400'] = validationFailedResponse();
+      op['responses'] = responses;
 
-    return okAsync(op);
-  });
+      return okAsync(op);
+    },
+  );
 };
 
 const addOperation = (
@@ -132,7 +149,9 @@ export const emitOpenApi = (
   const schemas: SchemaMap = {};
   const paths: Record<string, PathItem> = {};
 
-  schemas['ValidationErrorBody'] = toJsonSchema(validationErrorBodySchema);
+  if (hasAnyValidatedRoute(controllers)) {
+    schemas['ValidationErrorBody'] = validationErrorBodyJsonSchema;
+  }
 
   const buildAllOperations = (): ResultAsync<void, ContractError> => {
     let chain: ResultAsync<void, ContractError> = okAsync(undefined);

@@ -6,7 +6,7 @@ import * as v from 'valibot';
 import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
 import { LifecycleManager } from '../lifecycle';
-import { validated } from '../primitives/validated';
+import { validated } from '../test-helpers/validated';
 
 import { createContainer } from './container';
 import { collectRoutes, joinPath, buildRoutes } from './route-builder';

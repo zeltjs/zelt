@@ -13,7 +13,7 @@ import { LifecycleManager, type Lifecycle } from '../lifecycle';
 import { inject } from '../primitives/inject';
 import { getContext } from '../primitives/get-context';
 import { pathParam } from '../primitives/path-param';
-import { validated } from '../primitives/validated';
+import { validated } from '../test-helpers/validated';
 import { Config } from '../config';
 import { createApp, type App, type ControllerClass } from '../app';
 

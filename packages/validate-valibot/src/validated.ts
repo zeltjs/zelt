@@ -1,30 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import { safeParse, type GenericSchema, type InferOutput } from 'valibot';
-
-import { getEntryContext } from '../internal/entry-context';
-
-export type ValidationTarget = 'json' | 'form';
-
-declare const __zeltValidatedBrand: unique symbol;
-declare const __zeltValidatedType: unique symbol;
-declare const __zeltValidatedTarget: unique symbol;
-
-export type ValidatedMarker<T, Target extends ValidationTarget = 'json'> = T & {
-  [__zeltValidatedBrand]: true;
-  [__zeltValidatedType]: T;
-  [__zeltValidatedTarget]: Target;
-};
-
-export type ExtractValidated<H> =
-  NonNullable<H> extends Record<typeof __zeltValidatedType, infer T> ? T : never;
-
-export type ExtractValidationTarget<H> =
-  NonNullable<H> extends Record<typeof __zeltValidatedTarget, infer T extends ValidationTarget>
-    ? T
-    : 'json';
-
-export type IsValidated<H> =
-  NonNullable<H> extends Record<typeof __zeltValidatedBrand, true> ? true : false;
+import { getEntryContext } from '@zeltjs/core/runtime';
+import type { ValidatedMarker, ValidationTarget } from '@zeltjs/core';
 
 export function validated<Schema extends GenericSchema>(
   schema: Schema,

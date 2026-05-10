@@ -3,9 +3,6 @@ import { existsSync } from 'node:fs';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { errAsync, ResultAsync } from 'neverthrow';
-
-import type { ContractError } from './errors';
 import { discoverControllers } from './analyzer/discover-controllers';
 import { analyzeControllers } from './analyzer/internal-representation';
 import { createProject } from './analyzer/project';
@@ -27,9 +24,9 @@ export type GenerateClientResult = {
   readonly openApiChanged: boolean;
 };
 
-export const generateClient = (
+export const generateClient = async (
   options: GenerateClientOptions,
-): ResultAsync<GenerateClientResult, ContractError> => {
+): Promise<GenerateClientResult> => {
   const distDir = resolve(options.dist);
   const tsconfigPath = options.tsconfig ? resolve(options.tsconfig) : resolve('tsconfig.json');
 
@@ -38,26 +35,31 @@ export const generateClient = (
 
   const irResult = analyzeControllers(project, specs);
   if (irResult.isErr()) {
-    return errAsync(irResult.error);
+    throw irResult.error;
   }
   const ir = irResult.value;
 
-  return ResultAsync.fromPromise(mkdir(distDir, { recursive: true }), () => ({
-    type: 'CONFIG_NOT_FOUND' as const,
-  }))
-    .andThen(() => emitOpenApi(ir, { distDir, tsconfigPath }))
-    .andThen((openApiDoc) => {
-      const appGenContent = emitAppGen(ir, { distDir });
-      const appGenPath = resolve(distDir, 'app.gen.ts');
-      const openApiContent = `${JSON.stringify(openApiDoc, null, 2)}\n`;
-      const openApiPath = resolve(distDir, 'openapi.json');
+  await mkdir(distDir, { recursive: true });
 
-      return ResultAsync.fromPromise(
-        Promise.all([
-          writeIfChanged(appGenPath, appGenContent),
-          writeIfChanged(openApiPath, openApiContent),
-        ]),
-        () => ({ type: 'CONFIG_NOT_FOUND' as const }),
-      ).map(([appGenChanged, openApiChanged]) => ({ appGenChanged, openApiChanged }));
-    });
+  const emitOptions = options.requestValidator
+    ? { distDir, tsconfigPath, requestValidator: options.requestValidator }
+    : { distDir, tsconfigPath };
+
+  const openApiResult = await emitOpenApi(ir, emitOptions);
+  if (openApiResult.isErr()) {
+    throw openApiResult.error;
+  }
+  const openApiDoc = openApiResult.value;
+
+  const appGenContent = emitAppGen(ir, { distDir });
+  const appGenPath = resolve(distDir, 'app.gen.ts');
+  const openApiContent = `${JSON.stringify(openApiDoc, null, 2)}\n`;
+  const openApiPath = resolve(distDir, 'openapi.json');
+
+  const [appGenChanged, openApiChanged] = await Promise.all([
+    writeIfChanged(appGenPath, appGenContent),
+    writeIfChanged(openApiPath, openApiContent),
+  ]);
+
+  return { appGenChanged, openApiChanged };
 };

@@ -1,3 +1,4 @@
+export type { SchemaAdapter, JsonSchema } from './types/schema-adapter';
 export type { Route } from './types/route';
 export type { BuildAppType } from './types/build-app-type';
 export type {

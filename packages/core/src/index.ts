@@ -11,10 +11,12 @@ export type {
   SchedulerClass,
 } from './app/types';
 
-export { validationErrorBodySchema } from './http/error-schema';
-export type { ValidationErrorBody } from './http/error-schema';
-export { errorBodySchema } from './http/error-schema';
-export type { ErrorBody } from './http/error-schema';
+export type {
+  ValidationErrorBody,
+  ErrorBody,
+  ValidationIssue,
+  InternalErrorBody,
+} from './http/error-schema';
 
 export { HTTPException } from 'hono/http-exception';
 
@@ -73,14 +75,13 @@ export { requestContext } from './primitives/request-context';
 export { response } from './primitives/response';
 export type { CookieOptions, ResponseBuilder } from './primitives/response';
 export { method, path, url } from './primitives/url';
-export { validated } from './primitives/validated';
 export type {
   ValidatedMarker,
   ExtractValidated,
   ExtractValidationTarget,
   IsValidated,
   ValidationTarget,
-} from './primitives/validated';
+} from './primitives/validated-types';
 
 export { Config, injectConfig, findConfigToken, findRootConfigToken } from './config';
 export type { ConfigClass } from './config';

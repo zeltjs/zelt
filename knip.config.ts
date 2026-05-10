@@ -1,7 +1,12 @@
 import type { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
-  ignore: ['**/zelt.config.ts', 'packages/contract/src/test/**', 'vitest.shared.ts'],
+  ignore: [
+    '**/zelt.config.ts',
+    'packages/contract/src/test/**',
+    'packages/core/src/test-helpers/**',
+    'vitest.shared.ts',
+  ],
   ignoreExportsUsedInFile: true,
   // GreetBody/GreetResponse: used via ts-morph AST resolution and AppType inference, invisible to static analysis
   // CreateUserBody/User: used by fixture file consumed via ts-morph at runtime, not traceable by static analysis
@@ -22,6 +27,7 @@ const config: KnipConfig = {
         '@zeltjs/adapter-node',
         '@zeltjs/core',
         '@zeltjs/cli',
+        '@zeltjs/validate-valibot',
         'tsdown',
         'valibot',
       ],
@@ -35,11 +41,17 @@ const config: KnipConfig = {
         'src/db/*.ts',
         'src/test/*.e2e.test.ts',
       ],
-      ignoreDependencies: ['@zeltjs/adapter-node', '@zeltjs/core', 'valibot'],
+      ignoreDependencies: [
+        '@zeltjs/adapter-node',
+        '@zeltjs/core',
+        '@zeltjs/validate-valibot',
+        '@zeltjs/openapi',
+        'valibot',
+      ],
     },
     'examples/workers-url-shortener': {
       entry: ['src/worker.ts', 'src/app.ts', 'src/controllers.ts', 'src/url/*.ts', 'src/env.ts'],
-      ignoreDependencies: ['@zeltjs/core', 'valibot', 'wrangler'],
+      ignoreDependencies: ['@zeltjs/core', '@zeltjs/validate-valibot', 'valibot', 'wrangler'],
     },
     'packages/core': {
       // neverthrow は今後 Result wrapper に使う想定で keep。

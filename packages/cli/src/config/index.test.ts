@@ -48,19 +48,15 @@ describe('loadZeltConfig', () => {
     `;
     await writeFile(join(testDir, 'zelt.config.ts'), configContent);
 
-    const result = await loadZeltConfig({ cwd: testDir });
+    const config = await loadZeltConfig({ cwd: testDir });
 
-    expect(result.isOk()).toBe(true);
-    const config = result._unsafeUnwrap();
     expect(config.build?.entry).toBe('./src/app.ts');
     expect(config.build?.outDir).toBe('./build');
   });
 
   it('returns defaults when no config file exists', async () => {
-    const result = await loadZeltConfig({ cwd: testDir });
+    const config = await loadZeltConfig({ cwd: testDir });
 
-    expect(result.isOk()).toBe(true);
-    const config = result._unsafeUnwrap();
     expect(config.build?.outDir).toBe('./dist');
     expect(config.build?.platform).toBe('node');
     expect(config.build?.format).toBe('esm');
@@ -81,10 +77,8 @@ describe('loadZeltConfig', () => {
     `;
     await writeFile(join(testDir, 'zelt.config.ts'), configContent);
 
-    const result = await loadZeltConfig({ cwd: testDir });
+    const config = await loadZeltConfig({ cwd: testDir });
 
-    expect(result.isOk()).toBe(true);
-    const config = result._unsafeUnwrap();
     expect(config.build?.entry).toBe('./src/main.ts');
     expect(config.build?.outDir).toBe('./dist');
     expect(config.dev?.port).toBe(8080);
@@ -97,12 +91,9 @@ describe('loadZeltConfig', () => {
       `export default { commands: 'src/commands/**/*.ts' }`,
     );
 
-    const result = await loadZeltConfig({ cwd: testDir });
+    const config = await loadZeltConfig({ cwd: testDir });
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.commands).toBe('src/commands/**/*.ts');
-    }
+    expect(config.commands).toBe('src/commands/**/*.ts');
   });
 
   it('loads legacy top-level fields for backward compatibility', async () => {
@@ -115,10 +106,8 @@ describe('loadZeltConfig', () => {
     `;
     await writeFile(join(testDir, 'zelt.config.ts'), configContent);
 
-    const result = await loadZeltConfig({ cwd: testDir });
+    const config = await loadZeltConfig({ cwd: testDir });
 
-    expect(result.isOk()).toBe(true);
-    const config = result._unsafeUnwrap();
     expect(config.controllers).toEqual(['./src/**/*.controller.ts']);
     expect(config.dist).toBe('./generated');
     expect(config.tsconfig).toBe('./tsconfig.json');

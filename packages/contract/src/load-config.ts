@@ -3,8 +3,6 @@ import { access } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { okAsync, errAsync, ResultAsync } from 'neverthrow';
-
 import type { ConfigError } from './errors';
 import type { GenerateClientOptions } from './config/options';
 
@@ -34,26 +32,40 @@ function narrowConfig(value: unknown): unknown {
   return value;
 }
 
-const dynamicImport = (url: string, path: string): ResultAsync<unknown, ConfigError> =>
-  ResultAsync.fromSafePromise(import(url)).mapErr(() => ({
-    type: 'INVALID_CONFIG_EXPORT' as const,
-    path,
-  }));
+class InvalidConfigExportError extends Error {
+  readonly type = 'INVALID_CONFIG_EXPORT' as const;
+  readonly path: string;
+  constructor(path: string) {
+    super(`Invalid config export: ${path}`);
+    this.name = 'InvalidConfigExportError';
+    this.path = path;
+  }
+}
 
-export const loadConfig = (path: string): ResultAsync<GenerateClientOptions, ConfigError> => {
+export const loadConfig = async (path: string): Promise<GenerateClientOptions> => {
   const abs = isAbsolute(path) ? path : resolve(process.cwd(), path);
   const url = pathToFileURL(abs).href;
 
-  return dynamicImport(url, path).andThen((mod) => {
-    if (typeof mod !== 'object' || mod === null) {
-      return errAsync({ type: 'INVALID_CONFIG_EXPORT' as const, path });
-    }
-    const namespace: Record<string, unknown> = { ...mod };
-    const defaultKey = 'default';
-    const cfg = namespace[defaultKey];
-    if (cfg === undefined) {
-      return errAsync({ type: 'INVALID_CONFIG_EXPORT' as const, path });
-    }
-    return okAsync(narrowConfig(cfg));
-  });
+  let mod: unknown;
+  try {
+    mod = await import(url);
+  } catch {
+    throw new InvalidConfigExportError(path);
+  }
+
+  if (typeof mod !== 'object' || mod === null) {
+    throw new InvalidConfigExportError(path);
+  }
+
+  const namespace: Record<string, unknown> = { ...mod };
+  const defaultKey = 'default';
+  const cfg = namespace[defaultKey];
+  if (cfg === undefined) {
+    throw new InvalidConfigExportError(path);
+  }
+
+  return narrowConfig(cfg);
 };
+
+export const isLoadConfigError = (error: unknown): error is ConfigError =>
+  error instanceof InvalidConfigExportError;

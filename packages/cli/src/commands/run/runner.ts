@@ -2,9 +2,15 @@ import type { CommandClass, CommandContext } from '@zeltjs/core';
 import { Container } from '@needle-di/core';
 import type { ArgsDef, BooleanArgDef, StringArgDef } from 'citty';
 import { parseArgs } from 'citty';
-import { fromPromise, fromThrowable, ok, type Result, type ResultAsync } from 'neverthrow';
 
-export type RunCommandError = { type: 'COMMAND_EXECUTION_FAILED'; cause: unknown };
+export class CommandExecutionError extends Error {
+  readonly type = 'COMMAND_EXECUTION_FAILED' as const;
+  constructor(cause: unknown) {
+    super('Command execution failed');
+    this.name = 'CommandExecutionError';
+    this.cause = cause;
+  }
+}
 
 type InstanceShape = {
   args?: Record<string, { type: string; default?: string }>;
@@ -75,7 +81,7 @@ const buildOptions = (instance: InstanceShape, parsed: ParsedArgs): Record<strin
 const parseAndResolve = (
   commandClass: CommandClass,
   argv: string[],
-): Result<{ instance: InstanceShape; ctx: CommandContext }, never> => {
+): { instance: InstanceShape; ctx: CommandContext } => {
   const cittyArgs = buildCittyArgs(commandClass);
   const parsed = parseArgs(argv, cittyArgs) as ParsedArgs;
 
@@ -87,30 +93,14 @@ const parseAndResolve = (
     options: buildOptions(instance, parsed),
   } as CommandContext;
 
-  return ok({ instance, ctx });
+  return { instance, ctx };
 };
 
-const executeRun = (
-  instance: InstanceShape,
-  ctx: CommandContext,
-): ResultAsync<void, RunCommandError> => {
-  const safeRun = fromThrowable(
-    () => instance.run(ctx),
-    (cause) => ({ type: 'COMMAND_EXECUTION_FAILED' as const, cause }),
-  );
-
-  return safeRun().asyncAndThen((maybePromise) =>
-    fromPromise(Promise.resolve(maybePromise), (cause) => ({
-      type: 'COMMAND_EXECUTION_FAILED' as const,
-      cause,
-    })),
-  );
+export const runCommand = async (commandClass: CommandClass, argv: string[]): Promise<void> => {
+  const { instance, ctx } = parseAndResolve(commandClass, argv);
+  try {
+    await Promise.resolve(instance.run(ctx));
+  } catch (cause) {
+    throw new CommandExecutionError(cause);
+  }
 };
-
-export const runCommand = (
-  commandClass: CommandClass,
-  argv: string[],
-): ResultAsync<void, RunCommandError> =>
-  parseAndResolve(commandClass, argv).asyncAndThen(({ instance, ctx }) =>
-    executeRun(instance, ctx),
-  );

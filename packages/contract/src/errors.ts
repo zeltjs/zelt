@@ -13,12 +13,14 @@ export type EmitError =
   | { type: 'EXPORT_NOT_FOUND'; exportName: string; modulePath: string }
   | { type: 'INLINE_SCHEMA_NOT_SUPPORTED' }
   | { type: 'NOT_VALIBOT_SCHEMA'; exportName: string; modulePath: string }
+  | { type: 'SCHEMA_ADAPTER_FAILED'; exportName: string; modulePath: string; reason: string }
   | { type: 'UNRESOLVABLE_RESPONSE_TYPE' };
 
 // Config層のエラー
 export type ConfigError =
   | { type: 'CONFIG_NOT_FOUND' }
-  | { type: 'INVALID_CONFIG_EXPORT'; path: string };
+  | { type: 'INVALID_CONFIG_EXPORT'; path: string }
+  | { type: 'REQUEST_VALIDATOR_REQUIRED' };
 
 // 統合エラー型
 export type ContractError = AnalyzerError | EmitError | ConfigError;

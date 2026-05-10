@@ -38,6 +38,10 @@ const formatError = (error: ContractError): string =>
       (e) => `${e.exportName} in ${e.modulePath} is not a valibot schema`,
     )
     .with(
+      { type: 'SCHEMA_ADAPTER_FAILED' },
+      (e) => `schema adapter failed for ${e.exportName} in ${e.modulePath}: ${e.reason}`,
+    )
+    .with(
       { type: 'UNRESOLVABLE_RESPONSE_TYPE' },
       () => `handler return type is unknown/any. Add explicit return type.`,
     )
@@ -46,30 +50,44 @@ const formatError = (error: ContractError): string =>
       { type: 'INVALID_CONFIG_EXPORT' },
       (e) => `${e.path} must export a default GenerateClientOptions`,
     )
+    .with(
+      { type: 'REQUEST_VALIDATOR_REQUIRED' },
+      () =>
+        `requestValidator is required when routes use validated(). Provide a SchemaAdapter in config.`,
+    )
     .exhaustive();
+
+const isContractError = (error: unknown): error is ContractError =>
+  typeof error === 'object' && error !== null && 'type' in error;
 
 export const watchClient = async (options: GenerateClientOptions): Promise<() => Promise<void>> => {
   const watchedPaths = fg.sync([...options.controllers], { absolute: true });
 
-  const initialResult = await generateClient(options);
-  if (initialResult.isErr()) {
-    console.error('[zelt-openapi] initial generation failed:', formatError(initialResult.error));
+  try {
+    await generateClient(options);
+  } catch (error) {
+    if (isContractError(error)) {
+      console.error('[zelt-openapi] initial generation failed:', formatError(error));
+    } else {
+      throw error;
+    }
   }
 
   const watcher = chokidar.watch(watchedPaths, { ignoreInitial: true });
   watcher.on('change', (path) => {
     void (async (): Promise<void> => {
-      const result = await generateClient(options);
-      result.match(
-        (success) => {
-          console.log(
-            `[zelt-openapi] regenerated (app.gen.ts ${success.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${success.openApiChanged ? 'changed' : 'unchanged'}) — trigger: ${path}`,
-          );
-        },
-        (error) => {
+      try {
+        const success = await generateClient(options);
+        console.log(
+          `[zelt-openapi] regenerated (app.gen.ts ${success.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${success.openApiChanged ? 'changed' : 'unchanged'}) — trigger: ${path}`,
+        );
+      } catch (error) {
+        if (isContractError(error)) {
           console.error('[zelt-openapi] regeneration failed:', formatError(error));
-        },
-      );
+        } else {
+          throw error;
+        }
+      }
     })();
   });
 

@@ -3,12 +3,20 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { toJsonSchema } from '@valibot/to-json-schema';
+import type { GenericSchema } from 'valibot';
 import { describe, expect, it } from 'vitest';
 
 import { generateClient } from '../generate-client';
+import type { SchemaAdapter, JsonSchema } from '../types/schema-adapter';
 
 const fixtureGlob = resolve(import.meta.dirname, 'fixtures/*.controller.ts');
 const tsconfigPath = resolve(import.meta.dirname, '../../tsconfig.json');
+
+const requestValidator: SchemaAdapter = {
+  toJsonSchema: (schema: unknown): JsonSchema =>
+    toJsonSchema(schema as GenericSchema) as unknown as JsonSchema,
+};
 
 describe('generateClient', () => {
   it('writes app.gen.ts and openapi.json', async () => {
@@ -17,13 +25,11 @@ describe('generateClient', () => {
       controllers: [fixtureGlob],
       dist,
       tsconfig: tsconfigPath,
+      requestValidator,
     });
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
-
-    expect(result.value.appGenChanged).toBe(true);
-    expect(result.value.openApiChanged).toBe(true);
+    expect(result.appGenChanged).toBe(true);
+    expect(result.openApiChanged).toBe(true);
 
     const appGen = await readFile(join(dist, 'app.gen.ts'), 'utf8');
     expect(appGen).toContain('export type AppType = BuildAppType<[');
@@ -34,23 +40,21 @@ describe('generateClient', () => {
 
   it('returns changed=false on second run with no changes', async () => {
     const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
-    const firstResult = await generateClient({
+    await generateClient({
       controllers: [fixtureGlob],
       dist,
       tsconfig: tsconfigPath,
+      requestValidator,
     });
-    expect(firstResult.isOk()).toBe(true);
 
     const secondResult = await generateClient({
       controllers: [fixtureGlob],
       dist,
       tsconfig: tsconfigPath,
+      requestValidator,
     });
 
-    expect(secondResult.isOk()).toBe(true);
-    if (secondResult.isErr()) return;
-
-    expect(secondResult.value.appGenChanged).toBe(false);
-    expect(secondResult.value.openApiChanged).toBe(false);
+    expect(secondResult.appGenChanged).toBe(false);
+    expect(secondResult.openApiChanged).toBe(false);
   });
 });

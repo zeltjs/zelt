@@ -1,5 +1,4 @@
 import type { Context, Env, Hono, Input } from 'hono';
-import * as v from 'valibot';
 
 import type { LifecycleManager } from '../lifecycle';
 import type { FunctionMiddleware, MiddlewareClass, MiddlewareInput } from '../middleware/types';
@@ -107,20 +106,25 @@ const hasUseMethod = (proto: unknown): boolean => {
   return typeof Reflect.get(proto, 'use') === 'function';
 };
 
-const MiddlewareClassSchema = v.custom<MiddlewareClass>(
-  (input) =>
-    typeof input === 'function' && input.prototype !== undefined && hasUseMethod(input.prototype),
-);
+const checkMiddlewareClass = (input: MiddlewareInput): boolean =>
+  typeof input === 'function' && input.prototype !== undefined && hasUseMethod(input.prototype);
+
+function narrowToMiddlewareClass(middleware: MiddlewareInput, isClass: true): MiddlewareClass;
+function narrowToMiddlewareClass(middleware: MiddlewareInput, isClass: false): FunctionMiddleware;
+function narrowToMiddlewareClass(middleware: MiddlewareInput, _isClass: boolean): MiddlewareInput {
+  return middleware;
+}
 
 const resolveMiddleware = (
   middleware: MiddlewareInput,
   resolver: ResolverHandle,
 ): FunctionMiddleware => {
-  if (v.is(MiddlewareClassSchema, middleware)) {
-    const instance = resolver.get(middleware);
+  if (checkMiddlewareClass(middleware)) {
+    const mwClass = narrowToMiddlewareClass(middleware, true);
+    const instance = resolver.get(mwClass);
     return (c, next) => instance.use(c, next);
   }
-  return middleware;
+  return narrowToMiddlewareClass(middleware, false);
 };
 
 const createAuthorizationMiddleware = (requiredRoles: readonly string[]): FunctionMiddleware => {
