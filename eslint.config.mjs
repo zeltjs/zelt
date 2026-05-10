@@ -132,15 +132,21 @@ export default tseslint.config(
     },
   },
   {
-    // CLI tool entry points: console output is the user-visible UX, watch loop must catch
-    // regeneration errors to keep watching after a failure rather than crashing the process.
+    // CLI tool entry points: watch loop must catch regeneration errors to keep watching
+    // after a failure rather than crashing the process.
     // Type predicate and in operator needed for ContractError type guard.
     files: ['packages/contract/src/watch.ts', 'packages/contract/src/cli.ts'],
     rules: {
-      'no-console': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
       '@9wick/strict-type-rules/no-type-predicate': 'off',
       '@9wick/strict-type-rules/no-in-operator': 'off',
+    },
+  },
+  {
+    // CLI output utility wraps console methods for centralized output control.
+    files: ['packages/contract/src/cli-output.ts'],
+    rules: {
+      'no-console': 'off',
     },
   },
   {
