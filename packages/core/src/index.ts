@@ -2,6 +2,7 @@ export { createApp } from './app/create-app';
 export type {
   App,
   HttpApp,
+  CommandApp,
   CreateAppOptions,
   HttpOptions,
   ReadyOptions,

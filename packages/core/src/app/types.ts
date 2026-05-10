@@ -49,4 +49,6 @@ export type App<TOptions extends CreateAppOptions = CreateAppOptions> = BaseApp 
 
 export type HttpApp = App<{ http: HttpOptions }>;
 
+export type CommandApp = App<{ commands: readonly CommandClass[] }>;
+
 export type { ControllerClass, SchedulerClass };

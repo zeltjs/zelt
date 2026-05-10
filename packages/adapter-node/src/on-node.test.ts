@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp, Controller, Get, EnvConfig } from '@zeltjs/core';
+import { createApp, Controller, Get, EnvConfig, Command } from '@zeltjs/core';
 
-import { onNode, type ServerHandle, type NodeApp } from './on-node';
+import { onNode, type ServerHandle, type HttpNodeApp, type CommandNodeApp } from './on-node';
 import { ProcessEnvConfig } from './process-env.config';
 
-describe('onNode', () => {
-  let nodeApp: NodeApp | undefined;
+describe('onNode with HTTP', () => {
+  let nodeApp: HttpNodeApp | undefined;
   let handle: ServerHandle | undefined;
 
   afterEach(async () => {
@@ -141,5 +141,77 @@ describe('onNode', () => {
 
     const env = nodeApp.get(EnvConfig);
     expect(env.get).toBeTypeOf('function');
+  });
+});
+
+describe('onNode with commands', () => {
+  let nodeApp: CommandNodeApp | undefined;
+
+  afterEach(async () => {
+    await nodeApp?.shutdown();
+    nodeApp = undefined;
+  });
+
+  it('executes a command and returns exitCode 0 on success', async () => {
+    const runFn = vi.fn();
+
+    @Command({ name: 'test-cmd' })
+    class TestCommand {
+      run() {
+        runFn();
+      }
+    }
+
+    const app = createApp({ commands: [TestCommand] });
+    nodeApp = await onNode(app);
+
+    const result = await nodeApp.exec(['test-cmd']);
+
+    expect(result.exitCode).toBe(0);
+    expect(runFn).toHaveBeenCalled();
+  });
+
+  it('returns exitCode 1 when command not found', async () => {
+    @Command({ name: 'existing' })
+    class ExistingCommand {
+      run() {}
+    }
+
+    const app = createApp({ commands: [ExistingCommand] });
+    nodeApp = await onNode(app);
+
+    const result = await nodeApp.exec(['nonexistent']);
+
+    expect(result.exitCode).toBe(1);
+  });
+
+  it('returns exitCode 1 when no command specified', async () => {
+    @Command({ name: 'test' })
+    class TestCommand {
+      run() {}
+    }
+
+    const app = createApp({ commands: [TestCommand] });
+    nodeApp = await onNode(app);
+
+    const result = await nodeApp.exec([]);
+
+    expect(result.exitCode).toBe(1);
+  });
+
+  it('returns exitCode 1 when command throws', async () => {
+    @Command({ name: 'failing' })
+    class FailingCommand {
+      run() {
+        throw new Error('Command failed');
+      }
+    }
+
+    const app = createApp({ commands: [FailingCommand] });
+    nodeApp = await onNode(app);
+
+    const result = await nodeApp.exec(['failing']);
+
+    expect(result.exitCode).toBe(1);
   });
 });
