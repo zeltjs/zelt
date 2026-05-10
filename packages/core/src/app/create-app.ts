@@ -8,8 +8,9 @@ import type { ErrorHandlerClass, ErrorHandlerInstance, RequestContext } from '..
 import { createSchedulerRunner, type SchedulerRunner } from '../scheduler/runner';
 import type { ConfigClass } from '../config';
 import { findRootConfigToken } from '../config/token';
-import { handleError } from '../http/error-handler';
+import { createHandleError } from '../http/error-handler';
 import { getCommandMetadata } from '../command/metadata';
+import { EnvConfig, EnvService } from '../modules/env';
 import type { CommandClass } from '../command/types';
 
 import type {
@@ -26,14 +27,27 @@ type AnyConfigClass = ConfigClass<object>;
 type AnyConstructorClass = new (...args: never[]) => object;
 type Resolver = { get: <T extends object>(cls: new (...args: never[]) => T) => T };
 
+type ErrorHandlerContext = {
+  readonly errorHandlers: readonly ErrorHandlerInstance[];
+  readonly resolver: Resolver;
+  readonly hasEnvConfig: boolean;
+};
+
+const getIsDevelopment = (ctx: ErrorHandlerContext): boolean => {
+  if (!ctx.hasEnvConfig) return false;
+  const envService = ctx.resolver.get(EnvService);
+  return envService.getString('NODE_ENV', 'production') === 'development';
+};
+
 const createErrorHandler =
-  (errorHandlers: readonly ErrorHandlerInstance[]) =>
+  (ctx: ErrorHandlerContext) =>
   async (err: Error, c: RequestContext): Promise<Response> => {
-    for (const handler of errorHandlers) {
+    for (const handler of ctx.errorHandlers) {
       const result = await handler.onError(err, c);
       if (result) return result;
     }
-    return handleError(err);
+    const isDevelopment = getIsDevelopment(ctx);
+    return createHandleError({ isDevelopment })(err);
   };
 
 const resolveErrorHandler = (cls: ErrorHandlerClass, resolver: Resolver): ErrorHandlerInstance => {
@@ -66,14 +80,18 @@ const registerScheduler = (
   return runner;
 };
 
-const setupHono = (
-  httpOptions: HttpOptions,
-  resolver: Resolver,
-  lifecycle: LifecycleManager,
-): Hono => {
+type SetupHonoOptions = {
+  readonly httpOptions: HttpOptions;
+  readonly resolver: Resolver;
+  readonly lifecycle: LifecycleManager;
+  readonly hasEnvConfig: boolean;
+};
+
+const setupHono = (options: SetupHonoOptions): Hono => {
+  const { httpOptions, resolver, lifecycle, hasEnvConfig } = options;
   const hono = new Hono({ strict: false });
   const errorHandlers = resolveErrorHandlers(httpOptions.errorHandlers ?? [], resolver);
-  hono.onError(createErrorHandler(errorHandlers));
+  hono.onError(createErrorHandler({ errorHandlers, resolver, hasEnvConfig }));
   buildRoutes({
     hono,
     controllers: httpOptions.controllers,
@@ -134,17 +152,20 @@ const initializeLifecycle = async (lifecycle: LifecycleManager): Promise<Lifecyc
 
 const toHttpError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
 
-const initializeHttpSetup = (
-  httpOptions: HttpOptions,
-  resolver: Resolver,
-  lifecycle: LifecycleManager,
-): HttpResult =>
+type InitializeHttpOptions = {
+  readonly httpOptions: HttpOptions;
+  readonly resolver: Resolver;
+  readonly lifecycle: LifecycleManager;
+  readonly hasEnvConfig: boolean;
+};
+
+const initializeHttpSetup = (options: InitializeHttpOptions): HttpResult =>
   match(
     (() => {
       try {
-        return { hono: setupHono(httpOptions, resolver, lifecycle) };
+        return { hono: setupHono(options) };
       } catch (e) {
-        return { error: toHttpError(e), cleanup: () => lifecycle.shutdown() };
+        return { error: toHttpError(e), cleanup: () => options.lifecycle.shutdown() };
       }
     })(),
   )
@@ -152,14 +173,12 @@ const initializeHttpSetup = (
     .with({ error: P._ }, (r) => r)
     .exhaustive();
 
-const initializeHttpWarmup = async (
-  httpOptions: HttpOptions,
-  resolver: Resolver,
-  lifecycle: LifecycleManager,
-): Promise<HttpResult> =>
-  warmupControllers(httpOptions.controllers, resolver, lifecycle)
-    .then((): HttpResult => ({ hono: setupHono(httpOptions, resolver, lifecycle) }))
-    .catch((e): HttpResult => ({ error: toHttpError(e), cleanup: () => lifecycle.shutdown() }));
+const initializeHttpWarmup = async (options: InitializeHttpOptions): Promise<HttpResult> =>
+  warmupControllers(options.httpOptions.controllers, options.resolver, options.lifecycle)
+    .then((): HttpResult => ({ hono: setupHono(options) }))
+    .catch(
+      (e): HttpResult => ({ error: toHttpError(e), cleanup: () => options.lifecycle.shutdown() }),
+    );
 
 const handleHttpSetupResult = async (result: HttpResult): Promise<Hono> =>
   match(result)
@@ -180,17 +199,12 @@ const handleHttpWarmupResult = async (result: HttpResult): Promise<void> => {
     .exhaustive();
 };
 
-const initializeHttp = async (
-  httpOptions: HttpOptions,
-  resolver: Resolver,
-  lifecycle: LifecycleManager,
-  warmup: boolean,
-): Promise<Hono> => {
-  const setupResult = initializeHttpSetup(httpOptions, resolver, lifecycle);
+const initializeHttp = async (options: InitializeHttpOptions, warmup: boolean): Promise<Hono> => {
+  const setupResult = initializeHttpSetup(options);
   const hono = await handleHttpSetupResult(setupResult);
 
   if (warmup) {
-    const warmupResult = await initializeHttpWarmup(httpOptions, resolver, lifecycle);
+    const warmupResult = await initializeHttpWarmup(options);
     await handleHttpWarmupResult(warmupResult);
   }
 
@@ -212,8 +226,12 @@ const buildAppInternal = async (buildOptions: BuildAppInternalOptions): Promise<
     throw new Error('Lifecycle startup failed');
   }
 
+  const hasEnvConfig = configHasToken(effectiveConfigs, EnvConfig);
   const hono = appOptions.http
-    ? await initializeHttp(appOptions.http, resolver, lifecycle, warmup)
+    ? await initializeHttp(
+        { httpOptions: appOptions.http, resolver, lifecycle, hasEnvConfig },
+        warmup,
+      )
     : undefined;
 
   return {

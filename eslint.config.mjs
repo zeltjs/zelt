@@ -152,16 +152,6 @@ export default tseslint.config(
     },
   },
   {
-    // error-handler reads NODE_ENV to decide whether to expose internal error messages.
-    // process.env.NODE_ENV is the de-facto standard for this guard; edge/serverless runtimes
-    // inline or polyfill it at build time. typeof process guard prevents crashes where process
-    // is absent (e.g. pure browser bundles).
-    files: ['packages/core/src/http/error-handler.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-process-access': 'off',
-    },
-  },
-  {
     // getContext bridges Hono's Context.get() (returns any) to typed KoyaContextSchema.
     // Type assertion is unavoidable at this external library boundary.
     files: ['packages/core/src/primitives/get-context.ts'],
