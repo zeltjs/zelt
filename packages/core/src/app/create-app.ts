@@ -27,19 +27,14 @@ type AnyConfigClass = ConfigClass<object>;
 type AnyConstructorClass = new (...args: never[]) => object;
 type Resolver = { get: <T extends object>(cls: new (...args: never[]) => T) => T };
 
-type ErrorHandlerContext = {
-  readonly errorHandlers: readonly ErrorHandlerInstance[];
-  readonly envConfig: EnvConfig | undefined;
-};
-
 const createErrorHandler =
-  (ctx: ErrorHandlerContext) =>
+  (errorHandlers: readonly ErrorHandlerInstance[]) =>
   async (err: Error, c: RequestContext): Promise<Response> => {
-    for (const handler of ctx.errorHandlers) {
+    for (const handler of errorHandlers) {
       const result = await handler.onError(err, c);
       if (result) return result;
     }
-    return createDefaultErrorHandler(ctx.envConfig)(err);
+    throw new Error('Unreachable: DefaultErrorHandler should always return a response');
   };
 
 const resolveErrorHandler = (cls: ErrorHandlerClass, resolver: Resolver): ErrorHandlerInstance => {
@@ -76,14 +71,18 @@ type SetupHonoOptions = {
   readonly httpOptions: HttpOptions;
   readonly resolver: Resolver;
   readonly lifecycle: LifecycleManager;
-  readonly envConfig: EnvConfig | undefined;
+  readonly configs: readonly AnyConstructorClass[];
 };
 
 const setupHono = (options: SetupHonoOptions): Hono => {
-  const { httpOptions, resolver, lifecycle, envConfig } = options;
+  const { httpOptions, resolver, lifecycle, configs } = options;
   const hono = new Hono({ strict: false });
-  const errorHandlers = resolveErrorHandlers(httpOptions.errorHandlers ?? [], resolver);
-  hono.onError(createErrorHandler({ errorHandlers, envConfig }));
+  const userHandlers = resolveErrorHandlers(httpOptions.errorHandlers ?? [], resolver);
+  const hasEnvConfig = configHasToken(configs, EnvConfig);
+  const envConfig = hasEnvConfig ? resolver.get(EnvConfig) : undefined;
+  const defaultHandler = createDefaultErrorHandler(envConfig);
+  const errorHandlers = [...userHandlers, defaultHandler];
+  hono.onError(createErrorHandler(errorHandlers));
   buildRoutes({
     hono,
     controllers: httpOptions.controllers,
@@ -148,7 +147,7 @@ type InitializeHttpOptions = {
   readonly httpOptions: HttpOptions;
   readonly resolver: Resolver;
   readonly lifecycle: LifecycleManager;
-  readonly envConfig: EnvConfig | undefined;
+  readonly configs: readonly AnyConstructorClass[];
 };
 
 const initializeHttpSetup = (options: InitializeHttpOptions): HttpResult =>
@@ -218,10 +217,11 @@ const buildAppInternal = async (buildOptions: BuildAppInternalOptions): Promise<
     throw new Error('Lifecycle startup failed');
   }
 
-  const hasEnvConfig = configHasToken(effectiveConfigs, EnvConfig);
-  const envConfig = hasEnvConfig ? resolver.get(EnvConfig) : undefined;
   const hono = appOptions.http
-    ? await initializeHttp({ httpOptions: appOptions.http, resolver, lifecycle, envConfig }, warmup)
+    ? await initializeHttp(
+        { httpOptions: appOptions.http, resolver, lifecycle, configs: effectiveConfigs },
+        warmup,
+      )
     : undefined;
 
   return {

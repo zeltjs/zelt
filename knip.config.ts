@@ -72,7 +72,8 @@ const config: KnipConfig = {
     website: {
       // @docusaurus/plugin-content-docs types are re-exported by @docusaurus/preset-classic
       // prism-react-renderer is used internally by Docusaurus for code block syntax highlighting
-      ignoreDependencies: ['@docusaurus/plugin-content-docs', 'prism-react-renderer'],
+      // wrangler is used by Cloudflare Workers build system for deployment
+      ignoreDependencies: ['@docusaurus/plugin-content-docs', 'prism-react-renderer', 'wrangler'],
     },
   },
 };
