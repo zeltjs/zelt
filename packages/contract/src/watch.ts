@@ -6,6 +6,7 @@ import { match } from 'ts-pattern';
 import type { ContractError } from './errors';
 import type { GenerateClientOptions } from './config/options';
 import { generateClient } from './generate-client';
+import { cliPrint, cliError } from './cli-output';
 
 const formatError = (error: ContractError): string =>
   match(error)
@@ -67,7 +68,7 @@ export const watchClient = async (options: GenerateClientOptions): Promise<() =>
     await generateClient(options);
   } catch (error) {
     if (isContractError(error)) {
-      console.error('[zelt-openapi] initial generation failed:', formatError(error));
+      cliError(`[zelt-openapi] initial generation failed: ${formatError(error)}`);
     } else {
       throw error;
     }
@@ -78,12 +79,12 @@ export const watchClient = async (options: GenerateClientOptions): Promise<() =>
     void (async (): Promise<void> => {
       try {
         const success = await generateClient(options);
-        console.log(
+        cliPrint(
           `[zelt-openapi] regenerated (app.gen.ts ${success.appGenChanged ? 'changed' : 'unchanged'}, openapi.json ${success.openApiChanged ? 'changed' : 'unchanged'}) — trigger: ${path}`,
         );
       } catch (error) {
         if (isContractError(error)) {
-          console.error('[zelt-openapi] regeneration failed:', formatError(error));
+          cliError(`[zelt-openapi] regeneration failed: ${formatError(error)}`);
         } else {
           throw error;
         }
