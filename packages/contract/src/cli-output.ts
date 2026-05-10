@@ -7,7 +7,3 @@ export const cliPrint = (message: string): void => {
 export const cliError = (message: string): void => {
   console.error(message);
 };
-
-export const cliWarn = (message: string): void => {
-  console.warn(message);
-};
