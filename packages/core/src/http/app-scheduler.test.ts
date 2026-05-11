@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Cron } from '../scheduler/decorators/cron';
 import { Scheduled } from '../scheduler/decorators/scheduled';
-import { createApp, type App, type SchedulerClass } from '../app';
+import { createApp, type App } from '../app';
+import type { SchedulerClass } from '../app/modules/scheduler-module';
 
 describe('createApp with schedulers', () => {
   let app: App<{ http: { controllers: [] }; schedulers: SchedulerClass[] }> | undefined;

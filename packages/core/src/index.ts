@@ -1,15 +1,12 @@
-export { createApp } from './app/create-app';
-export type {
-  App,
-  HttpApp,
-  CommandApp,
-  CreateAppOptions,
-  HttpOptions,
-  ReadyOptions,
-  ReadyResult,
-  ControllerClass,
-  SchedulerClass,
-} from './app/types';
+export {
+  createApp,
+  type App,
+  type HttpApp,
+  type CommandApp,
+  type CreateAppOptions,
+  type ReadyOptions,
+  type ReadyResult,
+} from './app/create-app';
 
 export type {
   ValidationErrorBody,
