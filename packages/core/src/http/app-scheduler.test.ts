@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { App, SchedulerClass } from '../app';
+import type { App } from '../app';
 import { createApp } from '../app';
+import type { SchedulerClass } from '../app/modules/scheduler-module';
 import { Cron } from '../scheduler/decorators/cron';
 import { Scheduled } from '../scheduler/decorators/scheduled';
 

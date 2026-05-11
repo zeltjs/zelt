@@ -1,12 +1,9 @@
-export { createApp } from './create-app';
-export type {
-  App,
-  CommandApp,
-  ControllerClass,
-  CreateAppOptions,
-  HttpApp,
-  HttpOptions,
-  ReadyOptions,
-  ReadyResult,
-  SchedulerClass,
-} from './types';
+export {
+  type App,
+  type CommandApp,
+  type CreateAppOptions,
+  createApp,
+  type HttpApp,
+  type ReadyOptions,
+  type ReadyResult,
+} from './create-app';
