@@ -1,146 +1,94 @@
+import { spawn } from 'node:child_process';
+
 import { NodeCliConfig } from '@zeltjs/adapter-node';
-import type { CommandClass } from '@zeltjs/core';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
 
 import { ConfigLoadError, loadZeltConfig } from '../config/loader';
-
-import { type LoadCommandsError, GlobError, ImportError, loadCommands } from './run/loader';
-import {
-  CommandExecutionError,
-  InvalidNumberError,
-  runCommand,
-  SchemaValidationError,
-} from './run/runner';
+import type { CliConfig } from '../config/schema';
 
 const cliConfig = new NodeCliConfig();
 
-class NoCommandsConfigError extends Error {
-  readonly type = 'NO_COMMANDS_CONFIG' as const;
+class NoCliEntryError extends Error {
+  readonly type = 'NO_CLI_ENTRY' as const;
 }
 
-class CommandNotFoundError extends Error {
-  readonly type = 'COMMAND_NOT_FOUND' as const;
-  readonly commandName: string;
-  readonly available: string[];
-  constructor(name: string, available: string[]) {
-    super(`Command not found: ${name}`);
-    this.name = 'CommandNotFoundError';
-    this.commandName = name;
-    this.available = available;
+class CliExecutionError extends Error {
+  readonly type = 'CLI_EXECUTION_FAILED' as const;
+  readonly exitCode: number;
+  constructor(exitCode: number) {
+    super(`CLI execution failed with exit code ${exitCode}`);
+    this.name = 'CliExecutionError';
+    this.exitCode = exitCode;
   }
 }
 
-type RunError =
-  | ConfigLoadError
-  | LoadCommandsError
-  | CommandExecutionError
-  | InvalidNumberError
-  | SchemaValidationError
-  | NoCommandsConfigError
-  | CommandNotFoundError;
+type RunError = ConfigLoadError | NoCliEntryError | CliExecutionError;
 
-const findCommand = (commands: Map<string, CommandClass>, name: string): CommandClass => {
-  const commandClass = commands.get(name);
-  if (!commandClass) {
-    throw new CommandNotFoundError(name, [...commands.keys()]);
-  }
-  return commandClass;
-};
+const resolveCliConfig = (cliConfigFromFile: CliConfig | undefined) => ({
+  entry: cliConfigFromFile?.entry,
+});
 
-const executeCommand = async (
+const executeCliEntry = (cwd: string, entry: string, args: readonly string[]): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const entryPath = entry.startsWith('.') ? `${cwd}/${entry}` : entry;
+    const child = spawn('tsx', [entryPath, ...args], {
+      cwd,
+      stdio: 'inherit',
+    });
+
+    child.on('close', (code) => {
+      if (code === 0 || code === null) {
+        resolve();
+      } else {
+        reject(new CliExecutionError(code));
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+
+const runCli = async (
   cwd: string,
-  commandsPattern: string | undefined,
-  commandName: string,
-  commandArgs: string[],
+  configFile: string | undefined,
+  args: string[],
 ): Promise<void> => {
-  if (!commandsPattern) {
-    throw new NoCommandsConfigError();
+  const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
+  const cliConf = resolveCliConfig(config.cli);
+
+  if (cliConf.entry === undefined) {
+    throw new NoCliEntryError();
   }
 
-  const commands = await loadCommands(cwd, commandsPattern);
-  const commandClass = findCommand(commands, commandName);
-  await runCommand(commandClass, commandArgs);
+  await executeCliEntry(cwd, cliConf.entry, args);
 };
 
-const handleCommandNotFound = (e: CommandNotFoundError): void => {
-  consola.error(`Command not found: ${e.commandName}`);
-  consola.info('Available commands:');
-  for (const name of e.available) {
-    consola.info(`  - ${name}`);
-  }
-};
-
-const handleConfigError = (error: RunError): boolean =>
+const handleError = (error: RunError, setExitCode: (code: number) => void): void => {
   match(error)
     .with({ type: 'CONFIG_LOAD_FAILED' }, () => {
       consola.error('Failed to load config');
-      return true;
     })
-    .with({ type: 'NO_COMMANDS_CONFIG' }, () => {
-      consola.error('No commands config found. Add "commands" to zelt.config.ts');
-      return true;
+    .with({ type: 'NO_CLI_ENTRY' }, () => {
+      consola.error('No CLI entry specified. Set cli.entry in zelt.config.ts');
     })
-    .with({ type: 'GLOB_FAILED' }, (e) => {
-      consola.error('Failed to scan command files:', e.cause);
-      return true;
+    .with({ type: 'CLI_EXECUTION_FAILED' }, (e) => {
+      setExitCode(e.exitCode);
     })
-    .with({ type: 'IMPORT_FAILED' }, (e) => {
-      consola.error(`Failed to import command file: ${e.file}`, e.cause);
-      return true;
-    })
-    .otherwise(() => false);
-
-const handleRuntimeError = (error: RunError): void => {
-  match(error)
-    .with({ type: 'COMMAND_NOT_FOUND' }, handleCommandNotFound)
-    .with({ type: 'COMMAND_EXECUTION_FAILED' }, (e) =>
-      consola.error('Command execution failed:', e.cause),
-    )
-    .with({ type: 'INVALID_NUMBER' }, (e) =>
-      consola.error(`Invalid number for '${e.argName}': ${String(e.value)}`),
-    )
-    .with({ type: 'SCHEMA_VALIDATION_FAILED' }, (e) =>
-      consola.error(`Schema validation failed: ${e.message}`),
-    )
-    .otherwise(() => {});
+    .exhaustive();
 };
 
-const handleError = (error: RunError): void => {
-  if (!handleConfigError(error)) {
-    handleRuntimeError(error);
-  }
-};
-
-const runErrorClasses = [
-  ConfigLoadError,
-  GlobError,
-  ImportError,
-  CommandExecutionError,
-  InvalidNumberError,
-  SchemaValidationError,
-  NoCommandsConfigError,
-  CommandNotFoundError,
-] as const;
+const runErrorClasses = [ConfigLoadError, NoCliEntryError, CliExecutionError] as const;
 
 const isRunError = (error: unknown): error is RunError =>
   runErrorClasses.some((ErrorClass) => error instanceof ErrorClass);
 
-const runMain = async (
-  cwd: string,
-  configFile: string | undefined,
-  commandName: string,
-  commandArgs: string[],
-): Promise<void> => {
-  const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
-  await executeCommand(cwd, config.commands, commandName, commandArgs);
-};
-
 export const runCommandDef = defineCommand({
   meta: {
     name: 'run',
-    description: 'Run a custom command',
+    description: 'Run CLI commands defined in cli.entry',
   },
   args: {
     config: {
@@ -148,23 +96,19 @@ export const runCommandDef = defineCommand({
       alias: 'c',
       description: 'Path to zelt.config.ts',
     },
-    command: {
-      type: 'positional',
-      description: 'Command name to run',
-      required: true,
-    },
   },
   async run({ args, rawArgs }) {
     const cwd = cliConfig.cwd();
     const configFile = args.config as string | undefined;
-    const commandName = args.command as string;
-    const commandArgs = rawArgs.slice(rawArgs.indexOf(commandName) + 1);
+    const cliArgs = rawArgs.filter(
+      (arg) => arg !== '-c' && arg !== '--config' && arg !== configFile,
+    );
 
     try {
-      await runMain(cwd, configFile, commandName, commandArgs);
+      await runCli(cwd, configFile, cliArgs);
     } catch (error) {
       if (isRunError(error)) {
-        handleError(error);
+        handleError(error, (code) => cliConfig.setExitCode(code));
       } else {
         throw error;
       }

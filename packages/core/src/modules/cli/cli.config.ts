@@ -17,6 +17,10 @@ export class CliConfig {
     throw new Error('CliConfig.exit() not implemented');
   }
 
+  setExitCode(_code: number): void {
+    throw new Error('CliConfig.setExitCode() not implemented');
+  }
+
   onSignal(_signal: Signal, _handler: SignalHandler): void {
     throw new Error('CliConfig.onSignal() not implemented');
   }

@@ -7,40 +7,24 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
-// Resolve the built CLI binary relative to this test file
 const cliBin = path.resolve(thisDir, '../../dist/cli.js');
-// Resolve @zeltjs/core from the CLI package's own node_modules (set at install time)
-const corePkgPath = fileURLToPath(import.meta.resolve('@zeltjs/core'));
 
 describe.skip('zelt run (e2e)', () => {
   let tmpDir: string;
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zelt-run-e2e-'));
-    await fs.mkdir(path.join(tmpDir, 'src', 'commands'), { recursive: true });
 
     await fs.writeFile(
       path.join(tmpDir, 'zelt.config.ts'),
-      `export default { commands: 'src/commands/**/*.mjs' }`,
+      `export default { cli: { entry: './cli.ts' } }`,
     );
 
-    // Use .mjs (plain ESM) to avoid the need for TypeScript compilation in the temp dir.
-    // Import @zeltjs/core via absolute path since the temp dir has no node_modules.
     await fs.writeFile(
-      path.join(tmpDir, 'src', 'commands', 'hello.mjs'),
+      path.join(tmpDir, 'cli.ts'),
       `
-import { Command } from '${corePkgPath}';
-
-export class HelloCommand {
-  args = {
-    name: { type: 'positional', default: 'World' },
-  };
-
-  async run(ctx) {
-    console.log('Hello, ' + ctx.args.name + '!');
-  }
-}
-Command({ name: 'hello' })(HelloCommand);
+const args = process.argv.slice(2);
+console.log('CLI args:', args.join(' '));
 `,
     );
   });
@@ -49,21 +33,21 @@ Command({ name: 'hello' })(HelloCommand);
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('runs command with default args', () => {
-    const result = execFileSync(process.execPath, [cliBin, 'run', 'hello'], {
+  it('runs cli.ts with no args', () => {
+    const result = execFileSync(process.execPath, [cliBin, 'run'], {
       cwd: tmpDir,
       encoding: 'utf-8',
     });
 
-    expect(result).toContain('Hello, World!');
+    expect(result).toContain('CLI args:');
   });
 
-  it('runs command with provided args', () => {
-    const result = execFileSync(process.execPath, [cliBin, 'run', 'hello', 'Claude'], {
+  it('runs cli.ts with args', () => {
+    const result = execFileSync(process.execPath, [cliBin, 'run', 'hello', 'world'], {
       cwd: tmpDir,
       encoding: 'utf-8',
     });
 
-    expect(result).toContain('Hello, Claude!');
+    expect(result).toContain('CLI args: hello world');
   });
 });

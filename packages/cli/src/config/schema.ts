@@ -22,11 +22,15 @@ const DevConfigSchema = v.object({
   debounceMs: v.optional(v.number()),
 });
 
+const CliConfigSchema = v.object({
+  entry: v.optional(v.string()),
+});
+
 export const ZeltConfigSchema = v.object({
   openapi: v.optional(OpenApiConfigSchema),
   build: v.optional(BuildConfigSchema),
   dev: v.optional(DevConfigSchema),
-  commands: v.optional(v.string()),
+  cli: v.optional(CliConfigSchema),
 
   // Legacy top-level fields for backward compatibility
   controllers: v.optional(v.array(v.string())),
@@ -37,4 +41,5 @@ export const ZeltConfigSchema = v.object({
 export type ZeltConfig = v.InferOutput<typeof ZeltConfigSchema>;
 export type BuildConfig = v.InferOutput<typeof BuildConfigSchema>;
 export type DevConfig = v.InferOutput<typeof DevConfigSchema>;
+export type CliConfig = v.InferOutput<typeof CliConfigSchema>;
 export type OpenApiConfig = v.InferOutput<typeof OpenApiConfigSchema>;
