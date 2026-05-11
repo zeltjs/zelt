@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { MemoryKV } from '@zeltjs/kv';
-import { createTestTargetBase, findConfigToken } from '@zeltjs/core';
+import { createTestTargetBase } from '@zeltjs/core';
 
 import { RateLimitConfig } from './rate-limit.config';
 
@@ -12,10 +12,6 @@ beforeAll(async () => {
 });
 
 describe('RateLimitConfig', () => {
-  it('is registered in config registry', () => {
-    expect(findConfigToken(RateLimitConfig)).toBe(RateLimitConfig);
-  });
-
   it('default limit is 100', () => {
     const config = new RateLimitConfig(memoryKv);
     expect(config.defaultLimit).toBe(100);

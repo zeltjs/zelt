@@ -89,7 +89,7 @@ export type {
   ValidationTarget,
 } from './primitives/validated-types';
 
-export { Config, injectConfig, findConfigToken, findRootConfigToken } from './config';
+export { Config, injectConfig, overrideConfig } from './config';
 export type { ConfigClass } from './config';
 
 export { createTestTargetBase } from './internal/container';

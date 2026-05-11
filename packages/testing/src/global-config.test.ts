@@ -4,7 +4,7 @@ import { Config } from '@zeltjs/core';
 import { configureTestDefaults, getTestDefaults } from './global-config';
 
 describe('configureTestDefaults', () => {
-  it('maps config token to replacement class', () => {
+  it('stores config classes for fallback', () => {
     @Config
     class BaseConfig {
       get value() {
@@ -22,6 +22,6 @@ describe('configureTestDefaults', () => {
     configureTestDefaults({ configs: [TestConfig] });
 
     const defaults = getTestDefaults();
-    expect(defaults.tokenMap.get(BaseConfig)).toBe(TestConfig);
+    expect(defaults.configs).toContain(TestConfig);
   });
 });

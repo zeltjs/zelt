@@ -84,7 +84,7 @@ describe('createTestTargetBase', () => {
 
     @Injectable()
     class TestService {
-      constructor(private config = inject(TestConfig)) {}
+      constructor(private config = injectConfig(TestConfig)) {}
 
       getValue(): string {
         return this.config.value;

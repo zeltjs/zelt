@@ -24,13 +24,14 @@ export type ReadyOptions = {
 
 export type ReadyResult = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => T;
+  readonly getConfig: <T extends object>(configClass: ConfigClass<T>) => T;
 };
 
 type BaseApp = {
   readonly ready: (options?: ReadyOptions) => Promise<ReadyResult>;
   readonly shutdown: () => Promise<void>;
-  readonly hasConfig: (token: ConfigClass<object>) => boolean;
-  readonly replaceConfig: (token: ConfigClass<object>, replacement: ConfigClass<object>) => void;
+  readonly addFallbackConfig: (config: ConfigClass<object>) => void;
+  readonly overrideConfig: (config: ConfigClass<object>) => void;
 };
 
 type HttpCapabilities = {

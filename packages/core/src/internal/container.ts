@@ -1,35 +1,51 @@
 import { Container } from '@needle-di/core';
 
-import { findRootConfigToken } from '../config';
+import { overrideConfig, resolveConfig, getConfig } from '../config';
+import type { ConfigClass } from '../config';
 import { LifecycleManager } from '../lifecycle';
 
 type Class<T> = new (...args: never[]) => T;
 
 type CreateContainerOptions = {
-  readonly configs?: readonly Class<unknown>[] | undefined;
+  readonly defaults?: readonly Class<unknown>[];
+  readonly configs?: readonly Class<unknown>[];
+  readonly overrides?: readonly Class<unknown>[];
 };
 
 export type ResolverHandle = {
   readonly get: <T extends object>(cls: Class<T>) => T;
+  readonly getConfig: <T extends object>(configClass: ConfigClass<T>) => T;
 };
 
-const bindConfigs = (container: Container, configs: readonly Class<unknown>[]): void => {
+const bindConfigs = (
+  container: Container,
+  configs: readonly Class<unknown>[],
+  options?: { readonly fallback?: boolean },
+): void => {
   for (const configClass of configs) {
-    const token = findRootConfigToken(configClass);
-    if (token && token !== configClass) {
-      container.bind(configClass);
-      container.bind({ provide: token, useExisting: configClass });
-    }
+    overrideConfig(container, configClass, options);
   }
 };
 
-// Controllers / Service / Adapter は `@Controller` または `@injectable()` decorator により
-// needle-di が `container.get(cls)` 時に auto-bind する。明示的な bind は持たない (spec §4.10)。
+const resolveConfigs = (container: Container, configs: readonly Class<unknown>[]): void => {
+  for (const configClass of configs) {
+    resolveConfig(container, configClass);
+  }
+};
+
 export const createContainer = (options: CreateContainerOptions = {}): ResolverHandle => {
   const container = new Container();
-  bindConfigs(container, options.configs ?? []);
+  const configs = options.configs ?? [];
+  const overrides = options.overrides ?? [];
+  bindConfigs(container, configs);
+  bindConfigs(container, options.defaults ?? [], { fallback: true });
+  bindConfigs(container, overrides);
+  resolveConfigs(container, configs);
+  resolveConfigs(container, overrides);
   return {
     get: <T extends object>(cls: Class<T>): T => container.get<T>(cls),
+    getConfig: <T extends object>(configClass: ConfigClass<T>): T =>
+      getConfig(container, configClass),
   };
 };
 
@@ -65,9 +81,9 @@ export const createTestTargetBase = async <T extends object>(
   bindConfigs(container, configs);
   bindOverrides(container, options.overrides ?? []);
 
-  // Instantiate configs first so they can register with LifecycleManager
+  // Instantiate configs so they can register with LifecycleManager before startup
   for (const configClass of configs) {
-    container.get(configClass);
+    resolveConfig(container, configClass);
   }
 
   const lifecycle = container.get(LifecycleManager);

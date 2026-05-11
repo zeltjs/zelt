@@ -7,7 +7,6 @@ import { buildRoutes, warmupControllers } from '../internal/route-builder';
 import type { ErrorHandlerClass, ErrorHandlerInstance, RequestContext } from '../middleware/types';
 import { createSchedulerRunner, type SchedulerRunner } from '../scheduler/runner';
 import type { ConfigClass } from '../config';
-import { findRootConfigToken } from '../config/token';
 import { handleError } from '../http/error-handler';
 import { getCommandMetadata } from '../command/metadata';
 import type { CommandClass } from '../command/types';
@@ -22,9 +21,11 @@ import type {
   SchedulerClass,
 } from './types';
 
-type AnyConfigClass = ConfigClass<object>;
 type AnyConstructorClass = new (...args: never[]) => object;
-type Resolver = { get: <T extends object>(cls: new (...args: never[]) => T) => T };
+type Resolver = {
+  get: <T extends object>(cls: new (...args: never[]) => T) => T;
+  getConfig: <T extends object>(configClass: ConfigClass<T>) => T;
+};
 
 const createErrorHandler =
   (errorHandlers: readonly ErrorHandlerInstance[]) =>
@@ -45,15 +46,6 @@ const resolveErrorHandlers = (
   classes: readonly ErrorHandlerClass[],
   resolver: Resolver,
 ): ErrorHandlerInstance[] => classes.map((cls) => resolveErrorHandler(cls, resolver));
-
-const instantiateConfigs = (
-  configs: readonly AnyConstructorClass[] | undefined,
-  resolver: Resolver,
-): void => {
-  for (const configClass of configs ?? []) {
-    resolver.get(configClass);
-  }
-};
 
 const registerScheduler = (
   schedulers: readonly SchedulerClass[] | undefined,
@@ -110,17 +102,10 @@ type BuiltApp = {
 
 type BuildAppInternalOptions = {
   readonly appOptions: CreateAppOptions;
-  readonly configOverrides: ReadonlyMap<AnyConstructorClass, AnyConstructorClass>;
+  readonly configDefaults: readonly AnyConstructorClass[];
+  readonly configOverrides: readonly AnyConstructorClass[];
   readonly warmup: boolean;
   readonly commandMap: ReadonlyMap<string, CommandClass>;
-};
-
-const applyOverrides = (
-  configs: readonly AnyConstructorClass[],
-  overrides: ReadonlyMap<AnyConstructorClass, AnyConstructorClass>,
-): readonly AnyConstructorClass[] => {
-  if (overrides.size === 0) return configs;
-  return configs.map((cfg) => overrides.get(cfg) ?? cfg);
 };
 
 type LifecycleResult = { ok: true } | { ok: false; cleanup: () => Promise<void> };
@@ -198,12 +183,15 @@ const initializeHttp = async (
 };
 
 const buildAppInternal = async (buildOptions: BuildAppInternalOptions): Promise<BuiltApp> => {
-  const { appOptions, configOverrides, warmup, commandMap } = buildOptions;
-  const effectiveConfigs = applyOverrides(appOptions.configs ?? [], configOverrides);
-  const resolver = createContainer({ configs: effectiveConfigs });
+  const { appOptions, configDefaults, configOverrides, warmup, commandMap } = buildOptions;
+  const configs = appOptions.configs ?? [];
+  const resolver = createContainer({
+    defaults: configDefaults,
+    configs,
+    overrides: configOverrides,
+  });
   const lifecycle = resolver.get(LifecycleManager);
 
-  instantiateConfigs(effectiveConfigs, resolver);
   const schedulerRunner = registerScheduler(appOptions.schedulers, resolver, lifecycle);
 
   const lifecycleResult = await initializeLifecycle(lifecycle);
@@ -226,50 +214,38 @@ const buildAppInternal = async (buildOptions: BuildAppInternalOptions): Promise<
   };
 };
 
-const assertConfigToken = (
-  tokenClass: AnyConfigClass,
-  configs: readonly AnyConstructorClass[],
-): void => {
-  const targetRoot = findRootConfigToken(tokenClass);
-  const hasToken = configs.some(
-    (cfg) => cfg === tokenClass || findRootConfigToken(cfg) === targetRoot,
-  );
-  if (!hasToken) {
-    throw new Error(`Cannot replaceConfig(): token ${tokenClass.name} is not in configs`);
-  }
-};
-
 const awaitSafe = async (p: Promise<unknown>): Promise<void> => {
   await p.catch(() => {});
-};
-
-const configHasToken = (
-  configs: readonly AnyConstructorClass[],
-  tokenClass: AnyConfigClass,
-): boolean => {
-  const targetRoot = findRootConfigToken(tokenClass);
-  return configs.some((cfg) => cfg === tokenClass || findRootConfigToken(cfg) === targetRoot);
 };
 
 type AppState = {
   built: BuiltApp | undefined;
   disposed: boolean;
   readyPromise: Promise<ReadyResult> | undefined;
-  readonly configOverrides: Map<AnyConfigClass, AnyConfigClass>;
+  readonly configDefaults: AnyConstructorClass[];
+  readonly configOverrides: AnyConstructorClass[];
   readonly commandMap: ReadonlyMap<string, CommandClass>;
 };
 
-const createReplaceConfig =
-  (options: CreateAppOptions, state: AppState) =>
-  (token: AnyConfigClass, replacement: AnyConfigClass): void => {
-    if (state.disposed) throw new Error('Cannot replaceConfig() after shutdown()');
-    if (state.built) throw new Error('Cannot replaceConfig() after ready()');
-    assertConfigToken(token, options.configs ?? []);
-    state.configOverrides.set(token, replacement);
+const createAddFallbackConfig =
+  (state: AppState) =>
+  (config: AnyConstructorClass): void => {
+    if (state.disposed) throw new Error('Cannot addFallbackConfig() after shutdown()');
+    if (state.built) throw new Error('Cannot addFallbackConfig() after ready()');
+    state.configDefaults.push(config);
+  };
+
+const createOverrideConfig =
+  (state: AppState) =>
+  (config: AnyConstructorClass): void => {
+    if (state.disposed) throw new Error('Cannot overrideConfig() after shutdown()');
+    if (state.built) throw new Error('Cannot overrideConfig() after ready()');
+    state.configOverrides.push(config);
   };
 
 const createReadyResult = (resolver: Resolver): ReadyResult => ({
   get: <T extends object>(cls: new (...args: never[]) => T): T => resolver.get(cls),
+  getConfig: <T extends object>(configClass: ConfigClass<T>): T => resolver.getConfig(configClass),
 });
 
 const createReady =
@@ -281,6 +257,7 @@ const createReady =
     const warmup = readyOptions?.warmup ?? false;
     state.readyPromise = buildAppInternal({
       appOptions: options,
+      configDefaults: state.configDefaults,
       configOverrides: state.configOverrides,
       warmup,
       commandMap: state.commandMap,
@@ -327,8 +304,8 @@ const createRequest =
 const createBaseApp = (options: CreateAppOptions, state: AppState) => ({
   shutdown: createShutdown(state),
   ready: createReady(options, state),
-  hasConfig: (token: AnyConfigClass): boolean => configHasToken(options.configs ?? [], token),
-  replaceConfig: createReplaceConfig(options, state),
+  addFallbackConfig: createAddFallbackConfig(state),
+  overrideConfig: createOverrideConfig(state),
 });
 
 const buildAppObject = (options: CreateAppOptions, state: AppState): App<CreateAppOptions> => {
@@ -354,7 +331,8 @@ export function createApp(options: CreateAppOptions): App<CreateAppOptions> {
     built: undefined,
     disposed: false,
     readyPromise: undefined,
-    configOverrides: new Map<AnyConfigClass, AnyConfigClass>(),
+    configDefaults: [],
+    configOverrides: [],
     commandMap,
   };
 

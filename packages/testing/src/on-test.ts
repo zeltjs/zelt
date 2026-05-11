@@ -1,4 +1,4 @@
-import { findRootConfigToken, type HttpApp, type ConfigClass } from '@zeltjs/core';
+import type { HttpApp, ConfigClass } from '@zeltjs/core';
 
 import { getTestDefaults } from './global-config';
 import { registerShutdown } from './shutdown-registry';
@@ -15,27 +15,16 @@ type TestApp = {
   readonly shutdown: () => Promise<void>;
 };
 
-const applyGlobalConfigs = (app: HttpApp): void => {
-  const defaults = getTestDefaults();
-  for (const [token, replacement] of defaults.tokenMap) {
-    if (app.hasConfig(token)) {
-      app.replaceConfig(token, replacement);
-    }
-  }
-};
-
-const applyInlineConfigs = (app: HttpApp, configs: readonly AnyConfigClass[]): void => {
+const applyOverrides = (app: HttpApp, configs: readonly AnyConfigClass[]): void => {
   for (const configClass of configs) {
-    const rootToken = findRootConfigToken(configClass);
-    if (rootToken && app.hasConfig(rootToken)) {
-      app.replaceConfig(rootToken, configClass);
-    }
+    app.overrideConfig(configClass);
   }
 };
 
 export const onTest = async (app: HttpApp, options: OnTestOptions = {}): Promise<TestApp> => {
-  applyGlobalConfigs(app);
-  applyInlineConfigs(app, options.configs ?? []);
+  const defaults = getTestDefaults();
+  applyOverrides(app, defaults.configs);
+  applyOverrides(app, options.configs ?? []);
 
   await app.ready();
   registerShutdown(app.shutdown.bind(app));

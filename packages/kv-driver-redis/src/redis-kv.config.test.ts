@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { findConfigToken } from '@zeltjs/core';
 
 import { RedisKVConfig } from './redis-kv.config';
 
@@ -26,9 +25,5 @@ describe('RedisKVConfig', () => {
   it('default options is empty', () => {
     const config = new RedisKVConfig();
     expect(config.options).toEqual({});
-  });
-
-  it('is registered in config registry', () => {
-    expect(findConfigToken(RedisKVConfig)).toBe(RedisKVConfig);
   });
 });

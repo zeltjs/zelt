@@ -1,7 +1,7 @@
-import { Container } from '@needle-di/core';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { Config } from '../../config';
+import { createTestTargetBase } from '../../internal/container';
 
 import { LoggerConfig } from './logger.config';
 import type { LogLevel } from './logger.lib';
@@ -19,9 +19,8 @@ describe('LoggerService', () => {
   });
 
   describe('child logger', () => {
-    it('child inherits parent bindings and merges context', () => {
-      const container = new Container();
-      const logger = container.get(LoggerService);
+    it('child inherits parent bindings and merges context', async () => {
+      const { target: logger, shutdown } = await createTestTargetBase(LoggerService);
       const child1 = logger.child({ service: 'auth' });
       const child2 = child1.child({ module: 'jwt' });
 
@@ -31,20 +30,21 @@ describe('LoggerService', () => {
       const logged = JSON.parse(rawCall) as Record<string, unknown>;
       expect(logged['service']).toBe('auth');
       expect(logged['module']).toBe('jwt');
+      await shutdown();
     });
 
-    it('child is not DI-managed (lightweight wrapper)', () => {
-      const container = new Container();
-      const logger = container.get(LoggerService);
+    it('child is not DI-managed (lightweight wrapper)', async () => {
+      const { target: logger, shutdown } = await createTestTargetBase(LoggerService);
       const child = logger.child({ service: 'test' });
 
       expect(child).not.toBe(logger);
       expect(child).toBeInstanceOf(LoggerService);
+      await shutdown();
     });
   });
 
   describe('log level filtering', () => {
-    it('uses O(1) priority lookup for level comparison', () => {
+    it('uses O(1) priority lookup for level comparison', async () => {
       @Config
       class WarnOnlyConfig extends LoggerConfig {
         override get level(): LogLevel {
@@ -52,17 +52,17 @@ describe('LoggerService', () => {
         }
       }
 
-      const container = new Container();
-      container.bind({ provide: WarnOnlyConfig, useClass: WarnOnlyConfig });
-      container.bind({ provide: LoggerConfig, useExisting: WarnOnlyConfig });
+      const { target: logger, shutdown } = await createTestTargetBase(LoggerService, {
+        configs: [WarnOnlyConfig],
+      });
 
-      const logger = container.get(LoggerService);
       logger.debug('skip');
       logger.info('skip');
       logger.warn('log');
       logger.error('log');
 
       expect(consoleSpy).toHaveBeenCalledTimes(2);
+      await shutdown();
     });
   });
 });

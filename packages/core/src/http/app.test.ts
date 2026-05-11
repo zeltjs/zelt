@@ -14,7 +14,7 @@ import { inject } from '../primitives/inject';
 import { getContext } from '../primitives/get-context';
 import { pathParam } from '../primitives/path-param';
 import { validated } from '../test-helpers/validated';
-import { Config } from '../config';
+import { Config, injectConfig } from '../config';
 import { createApp, type App, type ControllerClass } from '../app';
 
 declare module '@zeltjs/core' {
@@ -607,7 +607,7 @@ describe('createApp 2-phase initialization', () => {
     expect(typeof app.ready).toBe('function');
     expect(typeof app.fetch).toBe('function');
     expect(typeof app.shutdown).toBe('function');
-    expect(typeof app.replaceConfig).toBe('function');
+    expect(typeof app.addFallbackConfig).toBe('function');
   });
 
   it('throws when fetch called before ready', async () => {
@@ -667,8 +667,8 @@ describe('createApp 2-phase initialization', () => {
   });
 });
 
-describe('replaceConfig', () => {
-  it('replaces config before ready', async () => {
+describe('addFallbackConfig', () => {
+  it('overrides config via createApp configs', async () => {
     @Config
     class BaseConfig {
       get value() {
@@ -685,7 +685,7 @@ describe('replaceConfig', () => {
 
     @Controller('/test')
     class TestController {
-      constructor(private cfg = inject(BaseConfig)) {}
+      constructor(private cfg = injectConfig(BaseConfig)) {}
 
       @Get('/')
       get() {
@@ -695,9 +695,8 @@ describe('replaceConfig', () => {
 
     const app = createApp({
       http: { controllers: [TestController] },
-      configs: [BaseConfig],
+      configs: [OverrideConfig],
     });
-    app.replaceConfig(BaseConfig, OverrideConfig);
     await app.ready();
 
     const res = await app.request('/test/');
@@ -706,7 +705,89 @@ describe('replaceConfig', () => {
     await app.shutdown();
   });
 
-  it('throws when replaceConfig called after ready', async () => {
+  it('fallback is used when no user config provided', async () => {
+    @Config
+    class BaseConfig {
+      get value() {
+        return 'base';
+      }
+    }
+
+    @Config
+    class FallbackConfig extends BaseConfig {
+      override get value() {
+        return 'fallback';
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      constructor(private cfg = injectConfig(BaseConfig)) {}
+
+      @Get('/')
+      get() {
+        return { value: this.cfg.value };
+      }
+    }
+
+    const app = createApp({
+      http: { controllers: [TestController] },
+    });
+    app.addFallbackConfig(FallbackConfig);
+    await app.ready();
+
+    const res = await app.request('/test/');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ value: 'fallback' });
+    await app.shutdown();
+  });
+
+  it('user config wins over fallback', async () => {
+    @Config
+    class BaseConfig {
+      get value() {
+        return 'base';
+      }
+    }
+
+    @Config
+    class FallbackConfig extends BaseConfig {
+      override get value() {
+        return 'fallback';
+      }
+    }
+
+    @Config
+    class UserConfig extends BaseConfig {
+      override get value() {
+        return 'user';
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      constructor(private cfg = injectConfig(BaseConfig)) {}
+
+      @Get('/')
+      get() {
+        return { value: this.cfg.value };
+      }
+    }
+
+    const app = createApp({
+      http: { controllers: [TestController] },
+      configs: [UserConfig],
+    });
+    app.addFallbackConfig(FallbackConfig);
+    await app.ready();
+
+    const res = await app.request('/test/');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ value: 'user' });
+    await app.shutdown();
+  });
+
+  it('throws when addFallbackConfig called after ready', async () => {
     @Config
     class SomeConfig {}
 
@@ -720,11 +801,11 @@ describe('replaceConfig', () => {
 
     const app = createApp({ http: { controllers: [TestController] } });
     await app.ready();
-    expect(() => app.replaceConfig(SomeConfig, SomeConfig)).toThrow(/after ready\(\)/);
+    expect(() => app.addFallbackConfig(SomeConfig)).toThrow(/after ready\(\)/);
     await app.shutdown();
   });
 
-  it('throws when replaceConfig called after shutdown', async () => {
+  it('throws when addFallbackConfig called after shutdown', async () => {
     @Config
     class SomeConfig2 {}
 
@@ -738,7 +819,7 @@ describe('replaceConfig', () => {
 
     const app = createApp({ http: { controllers: [TestController] } });
     await app.shutdown();
-    expect(() => app.replaceConfig(SomeConfig2, SomeConfig2)).toThrow(/after shutdown\(\)/);
+    expect(() => app.addFallbackConfig(SomeConfig2)).toThrow(/after shutdown\(\)/);
   });
 });
 

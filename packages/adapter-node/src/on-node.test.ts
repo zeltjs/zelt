@@ -81,11 +81,11 @@ describe('onNode with HTTP', () => {
       http: { controllers: [] },
       configs: [EnvConfig],
     });
-    const replaceConfigSpy = vi.spyOn(app, 'replaceConfig');
+    const addFallbackConfigSpy = vi.spyOn(app, 'addFallbackConfig');
 
     nodeApp = await onNode(app);
 
-    expect(replaceConfigSpy).toHaveBeenCalledWith(EnvConfig, ProcessEnvConfig);
+    expect(addFallbackConfigSpy).toHaveBeenCalledWith(ProcessEnvConfig);
   });
 
   it('auto-injects NodeCliConfig when CliConfig token is in configs', async () => {
@@ -93,11 +93,11 @@ describe('onNode with HTTP', () => {
       http: { controllers: [] },
       configs: [CliConfig],
     });
-    const replaceConfigSpy = vi.spyOn(app, 'replaceConfig');
+    const addFallbackConfigSpy = vi.spyOn(app, 'addFallbackConfig');
 
     nodeApp = await onNode(app);
 
-    expect(replaceConfigSpy).toHaveBeenCalledWith(CliConfig, NodeCliConfig);
+    expect(addFallbackConfigSpy).toHaveBeenCalledWith(NodeCliConfig);
   });
 
   it('silently skips ProcessEnvConfig injection when EnvConfig is not in configs', async () => {
@@ -152,7 +152,7 @@ describe('onNode with HTTP', () => {
     });
     nodeApp = await onNode(app);
 
-    const env = nodeApp.get(EnvConfig);
+    const env = nodeApp.getConfig(EnvConfig);
     expect(env.get).toBeTypeOf('function');
   });
 });

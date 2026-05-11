@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { createApp, Controller, Get, Config, inject } from '@zeltjs/core';
+import { createApp, Controller, Get, Config, injectConfig } from '@zeltjs/core';
 
 import { configureTestDefaults } from './global-config';
 import { onTest } from './on-test';
@@ -43,7 +43,7 @@ describe('onTest', () => {
   it('applies global test config replacements', async () => {
     @Controller('/')
     class TestController {
-      constructor(private db = inject(DbConfig)) {}
+      constructor(private db = injectConfig(DbConfig)) {}
       @Get('/')
       get() {
         return { url: this.db.url };
@@ -65,7 +65,7 @@ describe('onTest', () => {
   it('inline config overrides global defaults', async () => {
     @Controller('/')
     class InlineTestController {
-      constructor(private db = inject(DbConfig2)) {}
+      constructor(private db = injectConfig(DbConfig2)) {}
       @Get('/')
       get() {
         return { url: this.db.url };

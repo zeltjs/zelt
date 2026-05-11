@@ -82,25 +82,16 @@ describe('onCloudflareWorkers', () => {
     expect(ctx.waitUntil).toHaveBeenCalled();
   });
 
-  it('replaces EnvConfig with CloudflareWorkersEnvConfig when EnvConfig is registered', async () => {
+  it('adds CloudflareWorkersEnvConfig as fallback', async () => {
     const app = createApp({
       http: { controllers: [HelloController] },
       configs: [EnvConfig],
     });
-    const replaceConfigSpy = vi.spyOn(app, 'replaceConfig');
+    const addFallbackConfigSpy = vi.spyOn(app, 'addFallbackConfig');
 
     await onCloudflareWorkers(app);
 
-    expect(replaceConfigSpy).toHaveBeenCalledWith(EnvConfig, CloudflareWorkersEnvConfig);
-  });
-
-  it('does not call replaceConfig when EnvConfig is not registered', async () => {
-    const app = createApp({ http: { controllers: [HelloController] } });
-    const replaceConfigSpy = vi.spyOn(app, 'replaceConfig');
-
-    await onCloudflareWorkers(app);
-
-    expect(replaceConfigSpy).not.toHaveBeenCalled();
+    expect(addFallbackConfigSpy).toHaveBeenCalledWith(CloudflareWorkersEnvConfig);
   });
 
   it('provides get() to retrieve dependencies from container', async () => {
@@ -110,7 +101,7 @@ describe('onCloudflareWorkers', () => {
     });
     const workersApp = await onCloudflareWorkers(app);
 
-    const env = workersApp.get(EnvConfig);
+    const env = workersApp.getConfig(EnvConfig);
     expect(env.get).toBeTypeOf('function');
   });
 });

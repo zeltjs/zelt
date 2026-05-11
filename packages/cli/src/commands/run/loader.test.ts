@@ -2,10 +2,25 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { Command } from '@zeltjs/core';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { loadCommands } from './loader';
+
+const singleCommandFile = `
+import { Command } from '@zeltjs/core';
+class GreetCommand { run() {} }
+Command({ name: 'greet' })(GreetCommand);
+export { GreetCommand };
+`;
+
+const multiCommandFile = `
+import { Command } from '@zeltjs/core';
+class FooCommand { run() {} }
+class BarCommand { run() {} }
+Command({ name: 'foo' })(FooCommand);
+Command({ name: 'bar' })(BarCommand);
+export { FooCommand, BarCommand };
+`;
 
 describe('loadCommands', () => {
   let testDir: string;
@@ -20,15 +35,7 @@ describe('loadCommands', () => {
   });
 
   it('loads command classes from glob pattern', async () => {
-    @Command({ name: 'greet' })
-    class GreetCommand {
-      run() {}
-    }
-
-    const commandFile = join(testDir, 'greet.command.mjs');
-    await writeFile(commandFile, '// placeholder');
-
-    vi.doMock(commandFile, () => ({ GreetCommand }));
+    await writeFile(join(testDir, 'greet.command.mjs'), singleCommandFile);
 
     const result = await loadCommands(testDir, '*.mjs');
 
@@ -43,19 +50,7 @@ describe('loadCommands', () => {
   });
 
   it('handles multiple commands in one file', async () => {
-    @Command({ name: 'foo' })
-    class FooCommand {
-      run() {}
-    }
-    @Command({ name: 'bar' })
-    class BarCommand {
-      run() {}
-    }
-
-    const commandFile = join(testDir, 'commands.mjs');
-    await writeFile(commandFile, '// placeholder');
-
-    vi.doMock(commandFile, () => ({ FooCommand, BarCommand }));
+    await writeFile(join(testDir, 'commands.mjs'), multiCommandFile);
 
     const result = await loadCommands(testDir, '*.mjs');
 

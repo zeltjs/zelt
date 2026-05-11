@@ -1,24 +1,19 @@
-import { findRootConfigToken, type ConfigClass } from '@zeltjs/core';
+import type { ConfigClass } from '@zeltjs/core';
 
 type AnyConfigClass = ConfigClass<object>;
 
 type TestDefaults = {
-  readonly tokenMap: ReadonlyMap<AnyConfigClass, AnyConfigClass>;
+  readonly configs: readonly AnyConfigClass[];
 };
 
 type ConfigureOptions = {
   readonly configs: readonly AnyConfigClass[];
 };
 
-const tokenMap = new Map<AnyConfigClass, AnyConfigClass>();
+const globalConfigs: AnyConfigClass[] = [];
 
 export const configureTestDefaults = (options: ConfigureOptions): void => {
-  for (const configClass of options.configs) {
-    const rootToken = findRootConfigToken(configClass);
-    if (rootToken) {
-      tokenMap.set(rootToken, configClass);
-    }
-  }
+  globalConfigs.push(...options.configs);
 };
 
-export const getTestDefaults = (): TestDefaults => ({ tokenMap });
+export const getTestDefaults = (): TestDefaults => ({ configs: globalConfigs });
