@@ -4,11 +4,8 @@ export type {
   HttpApp,
   CommandApp,
   CreateAppOptions,
-  HttpOptions,
   ReadyOptions,
   ReadyResult,
-  ControllerClass,
-  SchedulerClass,
 } from './app/types';
 
 export type {

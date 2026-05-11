@@ -1,15 +1,8 @@
 import type { ConfigClass } from '../config';
 import type { CommandClass } from '../command/types';
-import type { ErrorHandlerClass, MiddlewareInput } from '../http/middleware/types';
 
-type ControllerClass = new (...args: never[]) => object;
-type SchedulerClass = new (...args: never[]) => object;
-
-export type HttpOptions = {
-  readonly controllers: readonly ControllerClass[];
-  readonly middlewares?: readonly MiddlewareInput[];
-  readonly errorHandlers?: readonly ErrorHandlerClass[];
-};
+import type { HttpOptions } from './modules/http-module';
+import type { SchedulerClass } from './modules/scheduler-module';
 
 export type CreateAppOptions = {
   readonly http?: HttpOptions;
@@ -51,5 +44,3 @@ export type App<TOptions extends CreateAppOptions = CreateAppOptions> = BaseApp 
 export type HttpApp = App<{ http: HttpOptions }>;
 
 export type CommandApp = App<{ commands: readonly CommandClass[] }>;
-
-export type { ControllerClass, SchedulerClass };

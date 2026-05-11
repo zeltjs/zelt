@@ -6,12 +6,20 @@ import { buildRoutes, warmupControllers } from '../../http/internal/route-builde
 import type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
+  MiddlewareInput,
   RequestContext,
 } from '../../http/middleware/types';
 import type { ResolverHandle } from '../../di/container';
 import type { LifecycleManager } from '../../lifecycle';
 import type { Module, ReadyContext } from '../module';
-import type { HttpOptions } from '../types';
+
+export type ControllerClass = new (...args: never[]) => object;
+
+export type HttpOptions = {
+  readonly controllers: readonly ControllerClass[];
+  readonly middlewares?: readonly MiddlewareInput[];
+  readonly errorHandlers?: readonly ErrorHandlerClass[];
+};
 
 export type HttpModule = Module & {
   fetch: (req: Request) => Promise<Response>;

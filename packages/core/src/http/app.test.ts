@@ -7,7 +7,8 @@ import { LifecycleManager, type Lifecycle } from '../lifecycle';
 import { inject } from '../di/inject';
 import { validated } from '../test-helpers/validated';
 import { Config, injectConfig } from '../config';
-import { createApp, type App, type ControllerClass } from '../app';
+import { createApp, type App } from '../app';
+import type { ControllerClass } from '../app/modules/http-module';
 
 import { Controller } from './decorators/controller';
 import { ErrorHandler } from './decorators/error-handler';

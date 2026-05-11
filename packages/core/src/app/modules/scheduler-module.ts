@@ -1,6 +1,7 @@
 import { createSchedulerRunner, type SchedulerRunner } from '../../scheduler/runner';
 import type { Module, ReadyContext } from '../module';
-import type { SchedulerClass } from '../types';
+
+export type SchedulerClass = new (...args: never[]) => object;
 
 type SchedulerModuleState = {
   runner: SchedulerRunner | undefined;
