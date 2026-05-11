@@ -91,7 +91,7 @@ const rule: Rule.RuleModule = {
           return;
         }
 
-        const configFileName = path.basename(source) + '.ts';
+        const configFileName = `${path.basename(source)}.ts`;
         const { prefix: configPrefix } = extractFilePrefixAndSuffix(configFileName);
 
         for (const specifier of node.specifiers) {

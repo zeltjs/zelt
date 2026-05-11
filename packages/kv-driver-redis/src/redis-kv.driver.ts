@@ -1,5 +1,5 @@
 import { inject, Injectable, injectConfig, LifecycleManager, type Lifecycle } from '@zeltjs/core';
-import { type AtomicKVDriver, type AtomicKVStore, type NonEmptyString } from '@zeltjs/kv';
+import type { AtomicKVDriver, AtomicKVStore, NonEmptyString } from '@zeltjs/kv';
 
 import { RedisKVConfig } from './redis-kv.config';
 import { RedisKVStore } from './redis-kv-store';

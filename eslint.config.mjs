@@ -173,11 +173,9 @@ export default tseslint.config(
     },
   },
   {
-    // error-handler reads NODE_ENV to decide whether to expose internal error messages.
-    // process.env.NODE_ENV is the de-facto standard for this guard; edge/serverless runtimes
-    // inline or polyfill it at build time. typeof process guard prevents crashes where process
-    // is absent (e.g. pure browser bundles).
-    files: ['packages/core/src/http/error-handler.ts'],
+    // CLI and config loader need process.argv / process.cwd() — these are build-time tools
+    // that run in Node.js directly, not inside an application container.
+    files: ['packages/contract/src/cli.ts', 'packages/contract/src/load-config.ts'],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
     },

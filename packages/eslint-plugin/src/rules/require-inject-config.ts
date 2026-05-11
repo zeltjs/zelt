@@ -29,7 +29,7 @@ const rule: Rule.RuleModule = {
         }
 
         if (source.endsWith('.config')) {
-          const configFileName = path.basename(source) + '.ts';
+          const configFileName = `${path.basename(source)}.ts`;
           if (configFileName.endsWith('.config.ts')) {
             for (const specifier of node.specifiers) {
               if (

@@ -7,7 +7,7 @@ import { buildRoutes, warmupControllers } from '../internal/route-builder';
 import type { ErrorHandlerClass, ErrorHandlerInstance, RequestContext } from '../middleware/types';
 import { createSchedulerRunner, type SchedulerRunner } from '../scheduler/runner';
 import type { ConfigClass } from '../config';
-import { handleError } from '../http/error-handler';
+import { DefaultErrorHandler } from '../http/default.error-handler';
 import { getCommandMetadata } from '../command/metadata';
 import type { CommandClass } from '../command/types';
 
@@ -28,13 +28,17 @@ type Resolver = {
 };
 
 const createErrorHandler =
-  (errorHandlers: readonly ErrorHandlerInstance[]) =>
+  (errorHandlers: readonly ErrorHandlerInstance[], fallback: ErrorHandlerInstance) =>
   async (err: Error, c: RequestContext): Promise<Response> => {
     for (const handler of errorHandlers) {
       const result = await handler.onError(err, c);
       if (result) return result;
     }
-    return handleError(err);
+    const fallbackResult = await fallback.onError(err, c);
+    return (
+      fallbackResult ??
+      Response.json({ code: 'INTERNAL_ERROR', message: 'internal server error' }, { status: 500 })
+    );
   };
 
 const resolveErrorHandler = (cls: ErrorHandlerClass, resolver: Resolver): ErrorHandlerInstance => {
@@ -65,7 +69,8 @@ const setupHono = (
 ): Hono => {
   const hono = new Hono({ strict: false });
   const errorHandlers = resolveErrorHandlers(httpOptions.errorHandlers ?? [], resolver);
-  hono.onError(createErrorHandler(errorHandlers));
+  const fallbackHandler = resolver.get(DefaultErrorHandler);
+  hono.onError(createErrorHandler(errorHandlers, fallbackHandler));
   buildRoutes({
     hono,
     controllers: httpOptions.controllers,

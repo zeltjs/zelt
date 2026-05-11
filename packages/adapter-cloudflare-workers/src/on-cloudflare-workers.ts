@@ -1,4 +1,4 @@
-import { type HttpApp, type ReadyOptions, type ReadyResult } from '@zeltjs/core';
+import type { HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
 
 import { CloudflareWorkersEnvConfig } from './cloudflare-workers-env.config';
 
