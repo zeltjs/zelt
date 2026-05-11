@@ -62,6 +62,7 @@ export type {
   MiddlewareClass,
   MiddlewareIdentifier,
   MiddlewareInput,
+  MiddlewareInputWithOptions,
   MiddlewareInstance,
   Next,
   RequestContext,

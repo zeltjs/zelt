@@ -1,7 +1,12 @@
 import type { Context, Env, Hono, Input } from 'hono';
 
 import type { LifecycleManager } from '../lifecycle';
-import type { FunctionMiddleware, MiddlewareClass, MiddlewareInput } from '../middleware/types';
+import type {
+  FunctionMiddleware,
+  MiddlewareClass,
+  MiddlewareInput,
+  MiddlewareInputWithOptions,
+} from '../middleware/types';
 import { currentRoles, currentUser } from '../primitives/auth';
 
 import type { ResolverHandle } from './container';
@@ -109,9 +114,24 @@ const hasUseMethod = (proto: unknown): boolean => {
 const checkMiddlewareClass = (input: MiddlewareInput): boolean =>
   typeof input === 'function' && input.prototype !== undefined && hasUseMethod(input.prototype);
 
-function narrowToMiddlewareClass(middleware: MiddlewareInput, isClass: true): MiddlewareClass;
-function narrowToMiddlewareClass(middleware: MiddlewareInput, isClass: false): FunctionMiddleware;
-function narrowToMiddlewareClass(middleware: MiddlewareInput, _isClass: boolean): MiddlewareInput {
+const checkMiddlewareWithOptions = (input: MiddlewareInput): boolean => {
+  if (!Array.isArray(input)) return false;
+  const tuple: MiddlewareInputWithOptions = input;
+  return checkMiddlewareClass(tuple[0]);
+};
+
+function narrowToWithOptions(middleware: MiddlewareInput): MiddlewareInputWithOptions;
+function narrowToWithOptions(middleware: MiddlewareInput): MiddlewareInput {
+  return middleware;
+}
+
+function narrowToClass(middleware: MiddlewareInput): MiddlewareClass;
+function narrowToClass(middleware: MiddlewareInput): MiddlewareInput {
+  return middleware;
+}
+
+function narrowToFunction(middleware: MiddlewareInput): FunctionMiddleware;
+function narrowToFunction(middleware: MiddlewareInput): MiddlewareInput {
   return middleware;
 }
 
@@ -119,12 +139,17 @@ const resolveMiddleware = (
   middleware: MiddlewareInput,
   resolver: ResolverHandle,
 ): FunctionMiddleware => {
-  if (checkMiddlewareClass(middleware)) {
-    const mwClass = narrowToMiddlewareClass(middleware, true);
+  if (checkMiddlewareWithOptions(middleware)) {
+    const [mwClass, options] = narrowToWithOptions(middleware);
     const instance = resolver.get(mwClass);
-    return (c, next) => instance.use(c, next);
+    return (c, next) => instance.use(c, next, options);
   }
-  return narrowToMiddlewareClass(middleware, false);
+  if (checkMiddlewareClass(middleware)) {
+    const mwClass = narrowToClass(middleware);
+    const instance = resolver.get(mwClass);
+    return (c, next) => instance.use(c, next, undefined);
+  }
+  return narrowToFunction(middleware);
 };
 
 const createAuthorizationMiddleware = (requiredRoles: readonly string[]): FunctionMiddleware => {

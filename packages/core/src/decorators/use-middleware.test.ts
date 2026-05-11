@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { MiddlewareHandler } from 'hono';
 
 import { getControllerMiddlewareMetadata, getMethodMiddlewareMetadata } from '../internal/metadata';
+import type { MiddlewareInputWithOptions } from '../middleware/types';
 
 import { Controller } from './controller';
 import { Get } from './http-method';
+import { Injectable } from './injectable';
 import { UseMiddleware } from './use-middleware';
 
 const testMiddleware: MiddlewareHandler = async (_c, next) => next();
@@ -74,5 +76,52 @@ describe('@UseMiddleware', () => {
       }
       new TestController();
     }).toThrow(/cannot be applied to static methods/);
+  });
+
+  it('registers middleware with options as tuple on method metadata', () => {
+    @Injectable()
+    class OptionsMiddleware {
+      async use(_c: unknown, next: () => Promise<void>, _options: { limit: number }) {
+        await next();
+        return undefined;
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      @UseMiddleware([OptionsMiddleware, { limit: 100 }])
+      @Get('/')
+      handler() {
+        return {};
+      }
+    }
+
+    const meta = getMethodMiddlewareMetadata(TestController);
+    expect(meta).toHaveLength(1);
+    expect(meta[0]?.methodName).toBe('handler');
+    const entry = meta[0]?.middlewares[0] as MiddlewareInputWithOptions;
+    expect(Array.isArray(entry)).toBe(true);
+    expect(entry[0]).toBe(OptionsMiddleware);
+    expect(entry[1]).toEqual({ limit: 100 });
+  });
+
+  it('registers middleware with options as tuple on controller metadata', () => {
+    @Injectable()
+    class OptionsMiddleware {
+      async use(_c: unknown, next: () => Promise<void>, _options: { limit: number }) {
+        await next();
+        return undefined;
+      }
+    }
+
+    @UseMiddleware([OptionsMiddleware, { limit: 50 }])
+    @Controller('/test')
+    class TestController {}
+
+    const meta = getControllerMiddlewareMetadata(TestController);
+    const entry = meta?.middlewares[0] as MiddlewareInputWithOptions;
+    expect(Array.isArray(entry)).toBe(true);
+    expect(entry[0]).toBe(OptionsMiddleware);
+    expect(entry[1]).toEqual({ limit: 50 });
   });
 });
