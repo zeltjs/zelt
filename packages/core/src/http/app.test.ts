@@ -856,4 +856,36 @@ describe('warmup option', () => {
     expect(instantiationCount).toBe(1);
     await app.shutdown();
   });
+
+  it('middleware receives options when used with tuple syntax', async () => {
+    type RateLimitOptions = { limit: number; windowSec: number };
+
+    @Middleware
+    class RateLimitMiddleware {
+      async use(c: Context, next: Next, options: RateLimitOptions): Promise<Response | undefined> {
+        c.header('X-RateLimit-Limit', String(options.limit));
+        c.header('X-RateLimit-Window', String(options.windowSec));
+        await next();
+        return undefined;
+      }
+    }
+
+    @Controller('/api')
+    class ApiController {
+      @UseMiddleware([RateLimitMiddleware, { limit: 100, windowSec: 60 }])
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp({ http: { controllers: [ApiController] } });
+    await app.ready();
+
+    const res = await app.request('/api/');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-RateLimit-Limit')).toBe('100');
+    expect(res.headers.get('X-RateLimit-Window')).toBe('60');
+    await app.shutdown();
+  });
 });
