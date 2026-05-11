@@ -1,7 +1,7 @@
 import { injectable } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
-import { createContainer } from '../internal/container';
+import { createContainer } from '../di/container';
 
 import { Config } from './decorator';
 import { injectConfig } from './token';

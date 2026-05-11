@@ -20,20 +20,25 @@ export type {
 
 export { HTTPException } from 'hono/http-exception';
 
-export { Authorized } from './decorators/authorized';
-export { Controller } from './decorators/controller';
-export { Cron } from './decorators/cron';
-export { Daily } from './decorators/daily';
-export { ErrorHandler } from './decorators/error-handler';
-export { Every } from './decorators/every';
-export { Delete, Get, Patch, Post, Put } from './decorators/http-method';
-export { Hourly } from './decorators/hourly';
-export { Injectable } from './decorators/injectable';
-export { Middleware } from './decorators/middleware';
-export { Scheduled } from './decorators/scheduled';
-export { SkipMiddleware } from './decorators/skip-middleware';
-export { UseMiddleware } from './decorators/use-middleware';
-export { Weekly } from './decorators/weekly';
+// HTTP decorators
+export { Authorized } from './http/decorators/authorized';
+export { Controller } from './http/decorators/controller';
+export { ErrorHandler } from './http/decorators/error-handler';
+export { Delete, Get, Patch, Post, Put } from './http/decorators/http-method';
+export { Middleware } from './http/decorators/middleware';
+export { SkipMiddleware } from './http/decorators/skip-middleware';
+export { UseMiddleware } from './http/decorators/use-middleware';
+
+// Scheduler decorators
+export { Cron } from './scheduler/decorators/cron';
+export { Daily } from './scheduler/decorators/daily';
+export { Every } from './scheduler/decorators/every';
+export { Hourly } from './scheduler/decorators/hourly';
+export { Scheduled } from './scheduler/decorators/scheduled';
+export { Weekly } from './scheduler/decorators/weekly';
+
+// DI
+export { Injectable } from './di/injectable';
 
 export { Command } from './command/decorator';
 export { getCommandMetadata, setCommandMetadata } from './command/metadata';
@@ -66,29 +71,32 @@ export type {
   MiddlewareInstance,
   Next,
   RequestContext,
-} from './middleware/types';
+} from './http/middleware/types';
 
-export { currentRoles, currentUser, setUser } from './primitives/auth';
-export { body } from './primitives/body';
-export { cookie } from './primitives/cookie';
-export { ip } from './primitives/ip';
-export { getContext, setContext } from './primitives/get-context';
-export type { RequestContextSchema } from './primitives/get-context';
-export { header } from './primitives/header';
-export { inject } from './primitives/inject';
-export { pathParam } from './primitives/path-param';
-export { queryParam, queryParams } from './primitives/query-param';
-export { requestContext } from './primitives/request-context';
-export { response } from './primitives/response';
-export type { CookieOptions, ResponseBuilder } from './primitives/response';
-export { method, path, url } from './primitives/url';
+// HTTP primitives
+export { currentRoles, currentUser, setUser } from './http/primitives/auth';
+export { body } from './http/primitives/body';
+export { cookie } from './http/primitives/cookie';
+export { ip } from './http/primitives/ip';
+export { getContext, setContext } from './http/primitives/get-context';
+export type { RequestContextSchema } from './http/primitives/get-context';
+export { header } from './http/primitives/header';
+export { pathParam } from './http/primitives/path-param';
+export { queryParam, queryParams } from './http/primitives/query-param';
+export { requestContext } from './http/primitives/request-context';
+export { response } from './http/primitives/response';
+export type { CookieOptions, ResponseBuilder } from './http/primitives/response';
+export { method, path, url } from './http/primitives/url';
 export type {
   ValidatedMarker,
   ExtractValidated,
   ExtractValidationTarget,
   IsValidated,
   ValidationTarget,
-} from './primitives/validated-types';
+} from './http/primitives/validated-types';
+
+// DI primitives
+export { inject } from './di/inject';
 
 export { Config, injectConfig, overrideConfig } from './config';
 export type { ConfigClass } from './config';

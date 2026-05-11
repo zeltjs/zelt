@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { Config } from '../../config';
-import { createTestTargetBase } from '../../internal/container';
+import { createTestTargetBase } from '../../di/container';
 
 import { LoggerConfig } from './logger.config';
 import type { LogLevel } from './logger.lib';

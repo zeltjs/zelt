@@ -9,7 +9,8 @@ export const getContext = <K extends keyof RequestContextSchema>(
   key: K,
 ): RequestContextSchema[K] | undefined => {
   const ctx = getEntryContext();
-  return ctx.honoContext.get(key) as RequestContextSchema[K] | undefined;
+  const value: RequestContextSchema[K] | undefined = ctx.honoContext.get(key);
+  return value;
 };
 
 export const setContext = <K extends keyof RequestContextSchema>(

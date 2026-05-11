@@ -1,6 +1,6 @@
 import { match, P } from 'ts-pattern';
 
-import { resolveMethodArgs, resolveClassArgs } from '../internal/decorator-context';
+import { resolveMethodArgs, resolveClassArgs } from '../../internal/decorator-context';
 import {
   appendPendingMethodMiddlewareMetadata,
   setControllerMiddlewareMetadata,

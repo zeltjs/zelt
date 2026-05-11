@@ -1,6 +1,7 @@
 import type { Context, Env, Hono, Input } from 'hono';
 
-import type { LifecycleManager } from '../lifecycle';
+import type { ResolverHandle } from '../../di/container';
+import type { LifecycleManager } from '../../lifecycle';
 import type {
   FunctionMiddleware,
   MiddlewareClass,
@@ -9,7 +10,6 @@ import type {
 } from '../middleware/types';
 import { currentRoles, currentUser } from '../primitives/auth';
 
-import type { ResolverHandle } from './container';
 import { runInEntryContext } from './entry-context';
 import {
   getAuthorizedMetadata,

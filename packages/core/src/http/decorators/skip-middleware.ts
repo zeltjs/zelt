@@ -1,4 +1,4 @@
-import { resolveMethodArgs } from '../internal/decorator-context';
+import { resolveMethodArgs } from '../../internal/decorator-context';
 import { appendPendingSkipMiddlewareMetadata } from '../internal/metadata';
 import type { MiddlewareIdentifier } from '../middleware/types';
 

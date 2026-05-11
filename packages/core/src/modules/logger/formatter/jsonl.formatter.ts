@@ -1,4 +1,4 @@
-import { Injectable } from '../../../decorators/injectable';
+import { Injectable } from '../../../di/injectable';
 import type { LogEntry } from '../index';
 import { safeStringify } from '../index';
 

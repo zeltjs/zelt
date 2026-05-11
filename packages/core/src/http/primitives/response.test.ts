@@ -3,9 +3,9 @@ import { Hono } from 'hono';
 
 import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
-import { createContainer } from '../internal/container';
+import { createContainer } from '../../di/container';
 import { buildRoutes } from '../internal/route-builder';
-import { LifecycleManager } from '../lifecycle';
+import { LifecycleManager } from '../../lifecycle';
 
 import { response } from './response';
 

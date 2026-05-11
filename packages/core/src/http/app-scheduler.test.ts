@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Cron } from '../decorators/cron';
-import { Scheduled } from '../decorators/scheduled';
+import { Cron } from '../scheduler/decorators/cron';
+import { Scheduled } from '../scheduler/decorators/scheduled';
 import { createApp, type App, type SchedulerClass } from '../app';
 
 describe('createApp with schedulers', () => {

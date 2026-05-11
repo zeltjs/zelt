@@ -1,10 +1,14 @@
 import { Hono } from 'hono';
 import { match, P } from 'ts-pattern';
 
-import { createContainer } from '../internal/container';
+import { createContainer } from '../di/container';
 import { LifecycleManager } from '../lifecycle';
-import { buildRoutes, warmupControllers } from '../internal/route-builder';
-import type { ErrorHandlerClass, ErrorHandlerInstance, RequestContext } from '../middleware/types';
+import { buildRoutes, warmupControllers } from '../http/internal/route-builder';
+import type {
+  ErrorHandlerClass,
+  ErrorHandlerInstance,
+  RequestContext,
+} from '../http/middleware/types';
 import { createSchedulerRunner, type SchedulerRunner } from '../scheduler/runner';
 import type { ConfigClass } from '../config';
 import { DefaultErrorHandler } from '../http/default.error-handler';

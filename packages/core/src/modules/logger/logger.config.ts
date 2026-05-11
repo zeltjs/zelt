@@ -1,5 +1,5 @@
 import { Config } from '../../config';
-import { inject } from '../../primitives/inject';
+import { inject } from '../../di/inject';
 
 import type { LoggerFormatter } from './formatter';
 import { JsonlFormatter } from './formatter';

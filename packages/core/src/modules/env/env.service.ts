@@ -1,4 +1,4 @@
-import { Injectable } from '../../decorators/injectable';
+import { Injectable } from '../../di/injectable';
 import { injectConfig } from '../../config';
 
 import { EnvConfig } from './env.config';

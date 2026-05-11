@@ -3,10 +3,10 @@ import type { MiddlewareHandler } from 'hono';
 
 import { getControllerMiddlewareMetadata, getMethodMiddlewareMetadata } from '../internal/metadata';
 import type { MiddlewareInputWithOptions } from '../middleware/types';
+import { Injectable } from '../../di/injectable';
 
 import { Controller } from './controller';
 import { Get } from './http-method';
-import { Injectable } from './injectable';
 import { UseMiddleware } from './use-middleware';
 
 const testMiddleware: MiddlewareHandler = async (_c, next) => next();

@@ -2,7 +2,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Config } from '../../config';
-import { createTestTargetBase } from '../../internal/container';
+import { createTestTargetBase } from '../../di/container';
 
 import { EnvConfig } from './env.config';
 import { EnvService } from './env.service';

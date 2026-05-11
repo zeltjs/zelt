@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Controller } from '../decorators/controller';
 import { Get } from '../decorators/http-method';
-import { createApp } from '../app';
+import { createApp } from '../../app';
 
 import { queryParam, queryParams } from './query-param';
 

@@ -1,5 +1,5 @@
 import { appendPendingRouteMetadata, type HttpMethod } from '../internal/metadata';
-import { resolveMethodArgs } from '../internal/decorator-context';
+import { resolveMethodArgs } from '../../internal/decorator-context';
 
 const makeDecorator =
   (method: HttpMethod) =>

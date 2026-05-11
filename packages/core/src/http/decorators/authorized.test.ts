@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createApp } from '../app';
+import { createApp } from '../../app';
 import type { FunctionMiddleware } from '../middleware/types';
 import { setUser } from '../primitives/auth';
 

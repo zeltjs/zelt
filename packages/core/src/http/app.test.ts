@@ -3,19 +3,20 @@ import type { MiddlewareHandler, Context, Next } from 'hono';
 import * as v from 'valibot';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { Controller } from '../decorators/controller';
-import { ErrorHandler } from '../decorators/error-handler';
-import { Get, Post } from '../decorators/http-method';
-import { Middleware } from '../decorators/middleware';
-import { SkipMiddleware } from '../decorators/skip-middleware';
-import { UseMiddleware } from '../decorators/use-middleware';
 import { LifecycleManager, type Lifecycle } from '../lifecycle';
-import { inject } from '../primitives/inject';
-import { getContext } from '../primitives/get-context';
-import { pathParam } from '../primitives/path-param';
+import { inject } from '../di/inject';
 import { validated } from '../test-helpers/validated';
 import { Config, injectConfig } from '../config';
 import { createApp, type App, type ControllerClass } from '../app';
+
+import { Controller } from './decorators/controller';
+import { ErrorHandler } from './decorators/error-handler';
+import { Get, Post } from './decorators/http-method';
+import { Middleware } from './decorators/middleware';
+import { SkipMiddleware } from './decorators/skip-middleware';
+import { UseMiddleware } from './decorators/use-middleware';
+import { getContext } from './primitives/get-context';
+import { pathParam } from './primitives/path-param';
 
 declare module '@zeltjs/core' {
   interface RequestContextSchema {

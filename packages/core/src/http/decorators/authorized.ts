@@ -1,4 +1,4 @@
-import { resolveMethodArgs } from '../internal/decorator-context';
+import { resolveMethodArgs } from '../../internal/decorator-context';
 import { appendPendingAuthorizedMetadata } from '../internal/metadata';
 import type { RequestContextSchema } from '../primitives/get-context';
 

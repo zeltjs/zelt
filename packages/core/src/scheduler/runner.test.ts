@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Cron } from '../decorators/cron';
-import { Scheduled } from '../decorators/scheduled';
-import { createContainer } from '../internal/container';
+import { createContainer } from '../di/container';
 
+import { Cron } from './decorators/cron';
+import { Scheduled } from './decorators/scheduled';
 import { type SchedulerRunner, createSchedulerRunner } from './runner';
 
 describe('SchedulerRunner', () => {

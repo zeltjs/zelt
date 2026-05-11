@@ -3,7 +3,7 @@ import { safeParse } from 'valibot';
 import type { GenericSchema, InferOutput } from 'valibot';
 
 import { getEntryContext } from '../runtime/index';
-import type { ValidatedMarker, ValidationTarget } from '../primitives/validated-types';
+import type { ValidatedMarker, ValidationTarget } from '../http/primitives/validated-types';
 
 export function validated<Schema extends GenericSchema>(
   schema: Schema,

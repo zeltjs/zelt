@@ -1,4 +1,4 @@
-import { Injectable } from '../../../decorators/injectable';
+import { Injectable } from '../../../di/injectable';
 
 import type { LoggerTransport } from './transport.types';
 

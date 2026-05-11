@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Controller } from '../decorators/controller';
 import { Post } from '../decorators/http-method';
-import { createApp } from '../app';
+import { createApp } from '../../app';
 
 import { response } from './response';
 
