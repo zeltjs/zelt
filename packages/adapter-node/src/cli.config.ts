@@ -14,6 +14,10 @@ export class NodeCliConfig extends CliConfig {
     process.exit(code);
   }
 
+  override setExitCode(code: number): void {
+    process.exitCode = code;
+  }
+
   override onSignal(signal: Signal, handler: SignalHandler): void {
     process.on(signal, handler);
   }

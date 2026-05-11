@@ -85,15 +85,15 @@ describe('loadZeltConfig', () => {
     expect(config.dev?.debounceMs).toBe(300);
   });
 
-  it('accepts commands glob pattern', async () => {
+  it('accepts cli entry config', async () => {
     await writeFile(
       join(testDir, 'zelt.config.ts'),
-      `export default { commands: 'src/commands/**/*.ts' }`,
+      `export default { cli: { entry: './src/cli.ts' } }`,
     );
 
     const config = await loadZeltConfig({ cwd: testDir });
 
-    expect(config.commands).toBe('src/commands/**/*.ts');
+    expect(config.cli?.entry).toBe('./src/cli.ts');
   });
 
   it('loads legacy top-level fields for backward compatibility', async () => {
