@@ -23,15 +23,21 @@ export type ExecResult = {
   readonly exitCode: 0 | 1;
 };
 
-export type HttpNodeApp = ReadyResult & {
-  readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
-  readonly shutdown: () => Promise<void>;
+type NodeAppBase = {
+  readonly args: readonly string[];
 };
 
-export type CommandNodeApp = ReadyResult & {
-  readonly exec: (argv: string[]) => Promise<ExecResult>;
-  readonly shutdown: () => Promise<void>;
-};
+export type HttpNodeApp = ReadyResult &
+  NodeAppBase & {
+    readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
+    readonly shutdown: () => Promise<void>;
+  };
+
+export type CommandNodeApp = ReadyResult &
+  NodeAppBase & {
+    readonly exec: (argv: string[]) => Promise<ExecResult>;
+    readonly shutdown: () => Promise<void>;
+  };
 
 export type FullNodeApp = HttpNodeApp & CommandNodeApp;
 
@@ -114,6 +120,8 @@ const createExecForCommands = (
 
 const getStderr = (): Stderr => globalThis.process.stderr;
 
+const getArgs = (): readonly string[] => globalThis.process.argv.slice(2);
+
 type AppCapabilities = {
   fetch?: (request: Request) => Promise<Response>;
   hasCommand?: (name: string) => boolean;
@@ -132,9 +140,10 @@ const buildHttpNodeApp = (
   caps: AppCapabilities,
   resolver: ReadyResult,
   shutdown: () => Promise<void>,
+  args: readonly string[],
 ): HttpNodeApp | undefined => {
   if (typeof caps.fetch !== 'function') return undefined;
-  return { ...resolver, listen: createListenForHttp(caps.fetch, shutdown), shutdown };
+  return { ...resolver, args, listen: createListenForHttp(caps.fetch, shutdown), shutdown };
 };
 
 const buildCommandNodeApp = (
@@ -142,11 +151,13 @@ const buildCommandNodeApp = (
   resolver: ReadyResult,
   shutdown: () => Promise<void>,
   stderr: Stderr,
+  args: readonly string[],
 ): CommandNodeApp | undefined => {
   if (typeof caps.hasCommand !== 'function' || typeof caps.getCommands !== 'function')
     return undefined;
   return {
     ...resolver,
+    args,
     exec: createExecForCommands(caps.hasCommand, caps.getCommands, resolver.get, stderr),
     shutdown,
   };
@@ -157,15 +168,17 @@ const buildNodeApps = (
   resolver: ReadyResult,
   shutdown: () => Promise<void>,
   stderr: Stderr,
+  args: readonly string[],
 ): BuildResult => ({
-  httpResult: buildHttpNodeApp(caps, resolver, shutdown),
-  commandResult: buildCommandNodeApp(caps, resolver, shutdown, stderr),
+  httpResult: buildHttpNodeApp(caps, resolver, shutdown, args),
+  commandResult: buildCommandNodeApp(caps, resolver, shutdown, stderr, args),
 });
 
 const mergeNodeApps = (
   result: BuildResult,
   resolver: ReadyResult,
   shutdown: () => Promise<void>,
+  args: readonly string[],
 ): NodeApp => {
   const { httpResult, commandResult } = result;
   if (httpResult && commandResult) {
@@ -174,7 +187,7 @@ const mergeNodeApps = (
   }
   if (httpResult) return httpResult;
   if (commandResult) return commandResult;
-  return { ...resolver, shutdown, listen: () => new Promise(() => {}) };
+  return { ...resolver, args, shutdown, listen: () => new Promise(() => {}) };
 };
 
 export function onNode(app: HttpApp & CommandApp, options?: NodeAppOptions): Promise<FullNodeApp>;
@@ -192,7 +205,8 @@ export async function onNode(
 
   const caps = extractCapabilities(app);
   const stderr = getStderr();
-  const result = buildNodeApps(caps, resolver, app.shutdown, stderr);
+  const args = getArgs();
+  const result = buildNodeApps(caps, resolver, app.shutdown, stderr, args);
 
-  return mergeNodeApps(result, resolver, app.shutdown);
+  return mergeNodeApps(result, resolver, app.shutdown, args);
 }
