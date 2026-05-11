@@ -50,15 +50,17 @@ export class DatabaseService {
 
 ## Registering Configuration
 
-Register config classes when creating the HTTP app:
+Register config classes when creating the app:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 import { DatabaseConfig } from './database.config';
 import { AppController } from './app.controller';
 
-const app = createHttpApp({
-  controllers: [AppController],
+const app = createApp({
+  http: {
+    controllers: [AppController],
+  },
   configs: [DatabaseConfig],
 });
 ```
@@ -83,8 +85,10 @@ export class TestDatabaseConfig extends DatabaseConfig {
 }
 
 // In test setup
-const app = createHttpApp({
-  controllers: [AppController],
+const app = createApp({
+  http: {
+    controllers: [AppController],
+  },
   configs: [TestDatabaseConfig],
 });
 ```
@@ -127,8 +131,10 @@ export class DatabaseConfig {
 }
 
 // Register both configs
-const app = createHttpApp({
-  controllers: [AppController],
+const app = createApp({
+  http: {
+    controllers: [AppController],
+  },
   configs: [ProcessEnvConfig, DatabaseConfig],
 });
 ```
@@ -153,8 +159,10 @@ export class DatabaseConfig {
 }
 
 // DotEnvConfig loads .env on construction
-const app = createHttpApp({
-  controllers: [AppController],
+const app = createApp({
+  http: {
+    controllers: [AppController],
+  },
   configs: [DotEnvConfig, DatabaseConfig],
 });
 ```

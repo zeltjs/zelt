@@ -3,32 +3,26 @@
 
 # Commands
 
-Zelt provides `@zeltjs/command` package for building CLI commands with dependency injection support.
-
-## Installation
-
-```bash
-pnpm add @zeltjs/command
-```
+Zelt provides CLI command support with dependency injection through `@zeltjs/core`.
 
 ## Creating a Command
 
-Use the `@Command` decorator to define a CLI command:
+Use the `@Command` decorator with `cliSchema()` and `args()` for type-safe CLI commands:
 
 ```typescript
-import { Command, type CommandContext } from '@zeltjs/command';
+import { Command, cliSchema, args } from '@zeltjs/core';
 
 @Command({
   name: 'greet',
   description: 'Greet a user',
 })
 export class GreetCommand {
-  args = {
-    name: { type: 'positional' as const, description: 'Name to greet' },
-  };
+  static schema = cliSchema({
+    args: [{ name: 'name', type: 'string' }],
+  });
 
-  run(ctx: CommandContext<typeof this.args>) {
-    console.log(`Hello, ${ctx.args.name}!`);
+  run(ctx = args(GreetCommand)) {
+    console.log(`Hello, ${ctx.name}!`);
   }
 }
 ```
@@ -58,28 +52,24 @@ zelt run greet Alice
 zelt run -c ./config/zelt.config.ts greet Alice
 ```
 
-## Arguments and Options
+## Schema Definition
+
+The `cliSchema()` function defines typed arguments and options:
 
 ### Positional Arguments
 
 ```typescript
 @Command({ name: 'copy' })
 export class CopyCommand {
-  args = {
-    source: { 
-      type: 'positional' as const,
-      required: true,
-      description: 'Source file path',
-    },
-    destination: {
-      type: 'positional' as const,
-      required: true,
-      description: 'Destination file path',
-    },
-  };
+  static schema = cliSchema({
+    args: [
+      { name: 'source', type: 'string' },
+      { name: 'destination', type: 'string' },
+    ],
+  });
 
-  run(ctx: CommandContext<typeof this.args>) {
-    console.log(`Copying ${ctx.args.source} to ${ctx.args.destination}`);
+  run(ctx = args(CopyCommand)) {
+    console.log(`Copying ${ctx.source} to ${ctx.destination}`);
   }
 }
 ```
@@ -89,26 +79,18 @@ export class CopyCommand {
 ```typescript
 @Command({ name: 'build' })
 export class BuildCommand {
-  options = {
-    watch: {
-      type: 'boolean' as const,
-      alias: 'w',
-      default: false,
-      description: 'Watch for changes',
-    },
-    outDir: {
-      type: 'string' as const,
-      alias: 'o',
-      default: 'dist',
-      description: 'Output directory',
-    },
-  };
+  static schema = cliSchema({
+    options: [
+      { name: 'watch', type: 'boolean', alias: 'w' },
+      { name: 'outDir', type: 'string', alias: 'o', default: 'dist' },
+    ],
+  });
 
-  run(ctx: CommandContext<Record<string, never>, typeof this.options>) {
-    if (ctx.options.watch) {
+  run(ctx = args(BuildCommand)) {
+    if (ctx.watch) {
       console.log('Watching for changes...');
     }
-    console.log(`Output directory: ${ctx.options.outDir}`);
+    console.log(`Output directory: ${ctx.outDir}`);
   }
 }
 ```
@@ -124,29 +106,18 @@ zelt run build -w -o out
 ```typescript
 @Command({ name: 'deploy' })
 export class DeployCommand {
-  args = {
-    environment: {
-      type: 'positional' as const,
-      required: true,
-      description: 'Target environment (staging, production)',
-    },
-  };
+  static schema = cliSchema({
+    args: [
+      { name: 'environment', type: 'string' },
+    ],
+    options: [
+      { name: 'dryRun', type: 'boolean' },
+      { name: 'tag', type: 'string' },
+    ],
+  });
 
-  options = {
-    dryRun: {
-      type: 'boolean' as const,
-      default: false,
-      description: 'Simulate deployment without making changes',
-    },
-    tag: {
-      type: 'string' as const,
-      description: 'Docker image tag to deploy',
-    },
-  };
-
-  run(ctx: CommandContext<typeof this.args, typeof this.options>) {
-    const { environment } = ctx.args;
-    const { dryRun, tag } = ctx.options;
+  run(ctx = args(DeployCommand)) {
+    const { environment, dryRun, tag } = ctx;
 
     if (dryRun) {
       console.log(`[DRY RUN] Would deploy to ${environment}`);
@@ -157,50 +128,87 @@ export class DeployCommand {
 }
 ```
 
-## Dependency Injection
+## Schema Types
 
-Commands support dependency injection, allowing you to use services:
+### Argument Types
+
+| Type | Description |
+|------|-------------|
+| `string` | String value |
+| `number` | Numeric value (automatically parsed) |
+
+Arguments can be marked as optional:
 
 ```typescript
-import { Command, type CommandContext } from '@zeltjs/command';
-import { inject } from '@zeltjs/core';
+static schema = cliSchema({
+  args: [
+    { name: 'file', type: 'string' },
+    { name: 'count', type: 'number', optional: true },
+  ],
+});
+```
+
+### Option Types
+
+| Type | Description |
+|------|-------------|
+| `string` | String option |
+| `number` | Numeric option (automatically parsed) |
+| `boolean` | Boolean flag |
+
+Options can have defaults:
+
+```typescript
+static schema = cliSchema({
+  options: [
+    { name: 'port', type: 'number', default: 3000 },
+    { name: 'verbose', type: 'boolean' },  // defaults to false
+  ],
+});
+```
+
+## Dependency Injection
+
+Commands support dependency injection:
+
+```typescript
+import { Command, cliSchema, args, inject } from '@zeltjs/core';
 import { DatabaseService } from '../services/database.service';
 
 @Command({ name: 'migrate' })
 export class MigrateCommand {
+  static schema = cliSchema({
+    options: [
+      { name: 'force', type: 'boolean' },
+    ],
+  });
+
   constructor(private readonly db = inject(DatabaseService)) {}
 
-  async run(ctx: CommandContext) {
+  async run(ctx = args(MigrateCommand)) {
+    if (ctx.force) {
+      console.log('Force migration enabled');
+    }
     await this.db.runMigrations();
     console.log('Migrations completed');
   }
 }
 ```
 
-## Type Inference
+## Programmatic Execution
 
-The `CommandContext` type automatically infers argument and option types:
+Commands can be executed programmatically using `onNode()`:
 
 ```typescript
-@Command({ name: 'example' })
-export class ExampleCommand {
-  args = {
-    file: { type: 'positional' as const, required: true },
-    count: { type: 'positional' as const, default: '10' },
-  };
+import { createApp } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
+import { MigrateCommand } from './commands/migrate.command';
 
-  options = {
-    verbose: { type: 'boolean' as const, default: false },
-    format: { type: 'string' as const },
-  };
+const app = createApp({ commands: [MigrateCommand] });
+const nodeApp = await onNode(app);
 
-  run(ctx: CommandContext<typeof this.args, typeof this.options>) {
-    // ctx.args.file: string (required)
-    // ctx.args.count: string (has default)
-    // ctx.options.verbose: boolean (has default)
-    // ctx.options.format: string | undefined (optional)
-  }
-}
+const result = await nodeApp.exec(['migrate', '--force']);
+console.log(`Exit code: ${result.exitCode}`);
 ```
 
 ## Async Commands
@@ -210,7 +218,7 @@ Commands can be async:
 ```typescript
 @Command({ name: 'sync' })
 export class SyncCommand {
-  async run(ctx: CommandContext) {
+  async run() {
     console.log('Starting sync...');
     await this.fetchData();
     await this.processData();
