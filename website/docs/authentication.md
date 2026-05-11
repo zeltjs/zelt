@@ -42,11 +42,13 @@ export const jwtAuth: FunctionMiddleware = async (c, next) => {
 ### Register as Global Middleware
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 
-const app = createHttpApp({
-  controllers: [UserController, AdminController],
-  middlewares: [jwtAuth],
+const app = createApp({
+  http: {
+    controllers: [UserController, AdminController],
+    middlewares: [jwtAuth],
+  },
 });
 ```
 
@@ -230,12 +232,14 @@ pnpm add @zeltjs/auth-jwt
 2. Register the `JwtMiddleware` and `JwtConfig`:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 import { JwtMiddleware, JwtConfig } from '@zeltjs/auth-jwt';
 
-const app = createHttpApp({
-  controllers: [UserController],
-  middlewares: [JwtMiddleware],
+const app = createApp({
+  http: {
+    controllers: [UserController],
+    middlewares: [JwtMiddleware],
+  },
   configs: [JwtConfig],
 });
 ```
@@ -296,9 +300,11 @@ class CustomJwtConfig extends JwtConfig {
 Register the custom config:
 
 ```typescript
-const app = createHttpApp({
-  controllers: [AuthController, UserController],
-  middlewares: [JwtMiddleware],
+const app = createApp({
+  http: {
+    controllers: [AuthController, UserController],
+    middlewares: [JwtMiddleware],
+  },
   configs: [CustomJwtConfig],
 });
 ```
@@ -328,10 +334,9 @@ pnpm add @zeltjs/auth-session @zeltjs/kv
 3. Register the middleware:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp, Config, inject } from '@zeltjs/core';
 import { MemoryKV } from '@zeltjs/kv';
 import { SessionMiddleware, SessionConfig } from '@zeltjs/auth-session';
-import { Config, injectConfig } from '@zeltjs/core';
 
 @Config
 class MySessionConfig extends SessionConfig {
@@ -342,12 +347,38 @@ class MySessionConfig extends SessionConfig {
   }
 }
 
-const app = createHttpApp({
-  controllers: [UserController],
-  middlewares: [SessionMiddleware],
+const app = createApp({
+  http: {
+    controllers: [UserController],
+    middlewares: [SessionMiddleware],
+  },
   configs: [MySessionConfig],
   injectables: [MemoryKV],
 });
+```
+
+### Type-Safe Sessions with SessionSchema
+
+Extend `SessionSchema` via declaration merging for type-safe session access:
+
+```typescript
+declare module '@zeltjs/auth-session' {
+  interface SessionSchema {
+    userId?: string;
+    name?: string;
+    cart?: CartItem[];
+  }
+}
+```
+
+Now all session functions are fully typed:
+
+```typescript
+const session = getSession();
+// TypeScript knows: session?.userId, session?.name, session?.cart
+
+setSession({ userId: '123', name: 'Alice' });
+// Type-checked against SessionSchema
 ```
 
 ### Session Functions
@@ -356,24 +387,19 @@ Use the session functions in your handlers:
 
 ```typescript
 import { Controller, Get, Post, bodyParam } from '@zeltjs/core';
-import { getSession, setSession, updateSession, destroySession } from '@zeltjs/auth-session';
-
-interface UserSession {
-  userId: string;
-  name: string;
-}
+import { getSession, setSession, destroySession } from '@zeltjs/auth-session';
 
 @Controller('/auth')
 class AuthController {
   @Post('/login')
   login(body = bodyParam(LoginSchema)) {
-    setSession<UserSession>({ userId: '123', name: body.name });
+    setSession({ userId: '123', name: body.name });
     return { success: true };
   }
 
   @Get('/me')
   me() {
-    const session = getSession<UserSession>();
+    const session = getSession();
     if (!session) {
       throw new HTTPException(401, { message: 'Not logged in' });
     }
@@ -392,9 +418,9 @@ class AuthController {
 
 | Function | Description |
 |----------|-------------|
-| `getSession<T>()` | Get current session data (returns `undefined` if not logged in) |
-| `setSession<T>(data)` | Set session data (replaces existing) |
-| `updateSession<T>(updater)` | Update session data with a function |
+| `getSession()` | Get current session data (returns `undefined` if not logged in) |
+| `setSession(data)` | Set session data (replaces existing) |
+| `updateSession(updater)` | Update session data with a function |
 | `destroySession()` | Destroy the session and clear the cookie |
 | `isNewSession()` | Check if this is a newly created session |
 | `getSessionId()` | Get the current session ID |
