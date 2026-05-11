@@ -224,9 +224,6 @@ importers:
 
   packages/cli:
     dependencies:
-      '@needle-di/core':
-        specifier: 1.1.2
-        version: 1.1.2
       '@zeltjs/adapter-node':
         specifier: workspace:*
         version: link:../adapter-node
@@ -245,9 +242,6 @@ importers:
       consola:
         specifier: 3.4.2
         version: 3.4.2
-      tinyglobby:
-        specifier: 0.2.14
-        version: 0.2.14
       ts-pattern:
         specifier: 5.7.1
         version: 5.7.1
