@@ -316,6 +316,27 @@ export default tseslint.config(
     },
   },
   {
+    // TC39 method decorator requires `any` for generic method type compatibility.
+    // Type assertion is unavoidable at this decorator type boundary.
+    files: ['packages/db/src/decorator.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // createTransactionMiddleware defines a dynamic class inline via a factory function.
+    // inject() returns `any` at the generic type boundary; the class name cannot match the file.
+    files: ['packages/db/src/middleware.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      'zelt/decorator-file-naming': 'off',
+    },
+  },
+  {
     // Command module uses AsyncLocalStorage and generic type inference at runtime boundaries.
     // Type assertions are needed for inferred schema types. Throws for developer errors (calling
     // args() outside command context) which should crash immediately during development.
