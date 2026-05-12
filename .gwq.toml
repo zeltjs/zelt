@@ -2,6 +2,6 @@
 repository = '.'
 copy_files = ['lefthook-local.yml']
 setup_commands = [
-  'cp -r "$(git worktree list --porcelain | grep -m1 "^worktree " | cut -d" " -f2-)/.codepolicy/cache" .codepolicy/ 2>/dev/null || true',
+  'ROOT=$(git worktree list | head -1 | awk "{print \\$1}") && mkdir -p .codepolicy && cp -r "$ROOT/.codepolicy/cache" .codepolicy/ 2>/dev/null || true',
   'pnpm i',
 ]
