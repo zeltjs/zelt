@@ -21,9 +21,27 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Authentication',
+      collapsed: false,
+      items: [
+        'authentication/overview',
+        'authentication/user-context',
+        'authentication/jwt',
+        'authentication/sessions',
+        'authentication/custom',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Authorization',
+      collapsed: false,
+      items: ['authorization/roles', 'authorization/access-control'],
+    },
+    {
+      type: 'category',
       label: 'Security',
       collapsed: false,
-      items: ['authentication', 'rate-limiting'],
+      items: ['rate-limiting'],
     },
     {
       type: 'category',
