@@ -43,14 +43,24 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: ['kv', 'kv-redis'],
     },
-    'testing',
+    {
+      type: 'category',
+      label: 'Testing',
+      collapsed: false,
+      items: ['testing/unit', 'testing/integration', 'testing/e2e'],
+    },
     {
       type: 'category',
       label: 'Integrations',
       collapsed: false,
       items: ['hono-client', 'openapi'],
     },
-    'examples',
+    {
+      type: 'category',
+      label: 'Examples',
+      collapsed: false,
+      items: ['examples/drizzle-todo', 'examples/workers-url-shortener'],
+    },
   ],
 };
 
