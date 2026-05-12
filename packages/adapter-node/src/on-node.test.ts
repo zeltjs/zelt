@@ -1,8 +1,18 @@
-import { CliConfig, Command, Controller, cliSchema, createApp, EnvConfig, Get } from '@zeltjs/core';
+import {
+  CliConfig,
+  Command,
+  Controller,
+  Cron,
+  cliSchema,
+  createApp,
+  EnvConfig,
+  Get,
+  Scheduled,
+} from '@zeltjs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { NodeCliConfig } from './cli.config';
-import type { CommandNodeApp, HttpNodeApp, ServerHandle } from './on-node';
+import type { CommandNodeApp, HttpNodeApp, SchedulerNodeAppPart, ServerHandle } from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvConfig } from './process-env.config';
 
@@ -235,5 +245,74 @@ describe('onNode with commands', () => {
     const result = await nodeApp.execCommand(['failing']);
 
     expect(result.exitCode).toBe(1);
+  });
+});
+
+describe('onNode with schedulers', () => {
+  let nodeApp: (HttpNodeApp & SchedulerNodeAppPart) | undefined;
+
+  afterEach(async () => {
+    if (nodeApp) {
+      await nodeApp.stopScheduler();
+      await nodeApp.shutdown();
+      nodeApp = undefined;
+    }
+  });
+
+  it('provides startScheduler and stopScheduler methods', async () => {
+    @Scheduled()
+    class TestScheduler {
+      @Cron('0 * * * *')
+      hourlyTask() {}
+    }
+
+    @Controller('/')
+    class TestController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp({
+      http: { controllers: [TestController] },
+      schedulers: [TestScheduler],
+    });
+    nodeApp = await onNode(app);
+
+    expect(nodeApp.startScheduler).toBeTypeOf('function');
+    expect(nodeApp.stopScheduler).toBeTypeOf('function');
+  });
+
+  it('scheduler runs after explicit startScheduler()', async () => {
+    const taskFn = vi.fn();
+
+    @Scheduled()
+    class TestScheduler {
+      @Cron('* * * * * *')
+      everySecond() {
+        taskFn();
+      }
+    }
+
+    @Controller('/')
+    class TestController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp({
+      http: { controllers: [TestController] },
+      schedulers: [TestScheduler],
+    });
+    nodeApp = await onNode(app);
+
+    expect(taskFn).not.toHaveBeenCalled();
+
+    await nodeApp.startScheduler();
+
+    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
   });
 });

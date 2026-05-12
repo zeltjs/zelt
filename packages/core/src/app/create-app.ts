@@ -10,7 +10,7 @@ import type { ConfigModule } from './modules/config-module';
 import { createConfigModule } from './modules/config-module';
 import type { ControllerClass, HttpModule, HttpOptions } from './modules/http-module';
 import { createHttpModule } from './modules/http-module';
-import type { SchedulerClass } from './modules/scheduler-module';
+import type { SchedulerClass, SchedulerModule } from './modules/scheduler-module';
 import { createSchedulerModule } from './modules/scheduler-module';
 
 // --- Types ---
@@ -49,13 +49,21 @@ type CommandCapabilities = {
   readonly getCommands: () => ReadonlyMap<string, CommandClass>;
 };
 
+type SchedulerCapabilities = {
+  readonly startScheduler: () => Promise<void>;
+  readonly stopScheduler: () => Promise<void>;
+};
+
 export type App<TOptions extends CreateAppOptions = CreateAppOptions> = BaseApp &
   (TOptions['http'] extends HttpOptions ? HttpCapabilities : object) &
-  (TOptions['commands'] extends readonly CommandClass[] ? CommandCapabilities : object);
+  (TOptions['commands'] extends readonly CommandClass[] ? CommandCapabilities : object) &
+  (TOptions['schedulers'] extends readonly SchedulerClass[] ? SchedulerCapabilities : object);
 
 export type HttpApp = App<{ http: HttpOptions }>;
 
 export type CommandApp = App<{ commands: readonly CommandClass[] }>;
+
+export type SchedulerApp = App<{ schedulers: readonly SchedulerClass[] }>;
 
 type AppState = {
   readyPromise: Promise<ReadyResult> | undefined;
@@ -77,7 +85,7 @@ type AppModules = {
   configModule: ConfigModule;
   httpModule: HttpModule | undefined;
   commandModule: CommandModule | undefined;
-  schedulerModule: Module | undefined;
+  schedulerModule: SchedulerModule | undefined;
   all: Module[];
 };
 
@@ -87,7 +95,7 @@ const createHttpModuleIfNeeded = (options: CreateAppOptions): HttpModule | undef
 const createCommandModuleIfNeeded = (options: CreateAppOptions): CommandModule | undefined =>
   options.commands?.length ? createCommandModule(options.commands) : undefined;
 
-const createSchedulerModuleIfNeeded = (options: CreateAppOptions): Module | undefined =>
+const createSchedulerModuleIfNeeded = (options: CreateAppOptions): SchedulerModule | undefined =>
   options.schedulers?.length ? createSchedulerModule(options.schedulers) : undefined;
 
 const collectAllModules = (
@@ -168,12 +176,34 @@ const createShutdown = (deps: ShutdownDeps) => async (): Promise<void> => {
   }
 };
 
+const createSchedulerMethods = (
+  schedulerModule: SchedulerModule | undefined,
+): SchedulerCapabilities | object => {
+  if (!schedulerModule) return {};
+
+  const startScheduler = async (): Promise<void> => {
+    const runner = schedulerModule.getRunner();
+    if (runner && !runner.isRunning()) {
+      await runner.startup();
+    }
+  };
+
+  const stopScheduler = async (): Promise<void> => {
+    const runner = schedulerModule.getRunner();
+    if (runner?.isRunning()) {
+      await runner.shutdown();
+    }
+  };
+
+  return { startScheduler, stopScheduler };
+};
+
 const buildAppObject = (
   appModules: AppModules,
   state: AppState,
   configs: readonly ConfigClass<object>[] | undefined,
 ): App<CreateAppOptions> => {
-  const { configModule, httpModule, commandModule, all: modules } = appModules;
+  const { configModule, httpModule, commandModule, schedulerModule, all: modules } = appModules;
 
   const baseApp = {
     ready: createReady({ state, modules, configModule, configs }),
@@ -192,8 +222,9 @@ const buildAppObject = (
   const commandMethods = commandModule
     ? { hasCommand: commandModule.hasCommand, getCommands: commandModule.getCommands }
     : {};
+  const schedulerMethods = createSchedulerMethods(schedulerModule);
 
-  return { ...baseApp, ...httpMethods, ...commandMethods };
+  return { ...baseApp, ...httpMethods, ...commandMethods, ...schedulerMethods };
 };
 
 export function createApp<TOptions extends CreateAppOptions>(options: TOptions): App<TOptions>;

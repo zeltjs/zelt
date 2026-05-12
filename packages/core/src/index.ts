@@ -7,6 +7,7 @@ export {
   type HttpApp,
   type ReadyOptions,
   type ReadyResult,
+  type SchedulerApp,
 } from './app/create-app';
 export type { ControllerClass } from './app/modules/http-module';
 export type { CommandContextStore } from './command/command-context';

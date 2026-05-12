@@ -39,30 +39,36 @@ class ReportScheduler {
 
 ### Registering Schedulers
 
-Pass scheduler classes to `createHttpApp()`:
+Pass scheduler classes to `createApp()`:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 
-const app = createHttpApp({
-  controllers: [UserController],
+const app = createApp({
+  http: { controllers: [UserController] },
   schedulers: [ReportScheduler],
 });
 ```
 
 ### Starting the Scheduler
 
-Call `startScheduler()` to begin executing scheduled tasks:
+The scheduler requires explicit startup. After calling `onNode()` and `ready()`, call `startScheduler()` to begin executing scheduled tasks:
 
 ```typescript
-app.startScheduler();
+await nodeApp.startScheduler();
 ```
 
 To stop the scheduler gracefully:
 
 ```typescript
-await app.stopScheduler();
+await nodeApp.stopScheduler();
 ```
+
+The scheduler is **not started automatically** when the app becomes ready. This design allows you to:
+
+- Run HTTP server without scheduled tasks (e.g., during testing)
+- Control scheduler lifecycle independently from the server
+- Conditionally enable scheduling based on environment
 
 ## Decorator Reference
 
@@ -203,19 +209,30 @@ class NotificationScheduler {
 
 ## Node.js Entry Point
 
-For Node.js applications, start the scheduler in your entry point:
+For Node.js applications, use `onNode()` and explicitly start the scheduler:
 
 ```typescript
-import { listen } from '@zeltjs/adapter-node';
+import { onNode } from '@zeltjs/adapter-node';
 import { app } from './app';
 
-listen(app, { port: 3000 });
-app.startScheduler();
+const nodeApp = await onNode(app);
+const handle = await nodeApp.listen(3000);
+
+// Start scheduled tasks
+await nodeApp.startScheduler();
 
 process.on('SIGTERM', async () => {
-  await app.stopScheduler();
-  process.exit(0);
+  await nodeApp.stopScheduler();
+  await handle.shutdown();
 });
+```
+
+You can conditionally enable the scheduler:
+
+```typescript
+if (process.env.ENABLE_SCHEDULER !== 'false') {
+  await nodeApp.startScheduler();
+}
 ```
 
 ## Cron Expression Format

@@ -40,30 +40,36 @@ class ReportScheduler {
 
 ### スケジューラーの登録
 
-`createHttpApp()`にスケジューラークラスを渡します：
+`createApp()`にスケジューラークラスを渡します：
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 
-const app = createHttpApp({
-  controllers: [UserController],
+const app = createApp({
+  http: { controllers: [UserController] },
   schedulers: [ReportScheduler],
 });
 ```
 
 ### スケジューラーの開始
 
-`startScheduler()`を呼び出してスケジュールされたタスクの実行を開始：
+スケジューラーは明示的に起動する必要があります。`onNode()`と`ready()`を呼び出した後、`startScheduler()`を呼び出してスケジュールされたタスクの実行を開始します：
 
 ```typescript
-app.startScheduler();
+await nodeApp.startScheduler();
 ```
 
 スケジューラーを正常に停止するには：
 
 ```typescript
-await app.stopScheduler();
+await nodeApp.stopScheduler();
 ```
+
+スケジューラーはアプリがreadyになっても**自動的には開始されません**。この設計により以下が可能になります：
+
+- スケジュールタスクなしでHTTPサーバーを実行（例：テスト時）
+- サーバーとは独立してスケジューラーのライフサイクルを制御
+- 環境に基づいてスケジューリングを条件付きで有効化
 
 ## デコレータリファレンス
 
@@ -204,19 +210,30 @@ class NotificationScheduler {
 
 ## Node.jsエントリーポイント
 
-Node.jsアプリケーションでは、エントリーポイントでスケジューラーを開始：
+Node.jsアプリケーションでは、`onNode()`を使用して明示的にスケジューラーを開始します：
 
 ```typescript
-import { listen } from '@zeltjs/adapter-node';
+import { onNode } from '@zeltjs/adapter-node';
 import { app } from './app';
 
-listen(app, { port: 3000 });
-app.startScheduler();
+const nodeApp = await onNode(app);
+const handle = await nodeApp.listen(3000);
+
+// スケジュールタスクを開始
+await nodeApp.startScheduler();
 
 process.on('SIGTERM', async () => {
-  await app.stopScheduler();
-  process.exit(0);
+  await nodeApp.stopScheduler();
+  await handle.shutdown();
 });
+```
+
+スケジューラーを条件付きで有効化できます：
+
+```typescript
+if (process.env.ENABLE_SCHEDULER !== 'false') {
+  await nodeApp.startScheduler();
+}
 ```
 
 ## Cron式フォーマット
