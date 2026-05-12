@@ -48,7 +48,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Integrations',
       collapsed: false,
-      items: ['hono-client', 'openapi'],
+      items: ['hono-client', 'openapi', 'bullmq'],
     },
     'examples',
   ],
