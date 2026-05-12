@@ -1,11 +1,11 @@
-import { injectConfig } from '../../config';
+import { inject } from '../../di/inject';
 import { Injectable } from '../../di/injectable';
 
 import { EnvConfig } from './env.config';
 
 @Injectable()
 export class EnvService {
-  constructor(private config = injectConfig(EnvConfig)) {}
+  constructor(private config = inject(EnvConfig)) {}
 
   getString<D extends string | null | undefined>(key: string, defaultValue: D): string | D {
     return this.config.get(key) ?? defaultValue;

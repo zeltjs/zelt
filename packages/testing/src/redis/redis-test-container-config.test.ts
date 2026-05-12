@@ -1,4 +1,4 @@
-import { Injectable, inject, injectConfig } from '@zeltjs/core';
+import { Injectable, inject } from '@zeltjs/core';
 import { RedisConfig, RedisKV } from '@zeltjs/kv-driver-redis';
 import { describe, expect, it } from 'vitest';
 
@@ -11,7 +11,7 @@ describe('RedisTestContainerConfig', () => {
     @Injectable()
     class TestService {
       constructor(
-        private config = injectConfig(RedisConfig),
+        private config = inject(RedisConfig),
         private redis = inject(RedisKV),
       ) {}
 
@@ -40,7 +40,7 @@ describe('RedisTestContainerConfig', () => {
   it('provides empty options by default', async () => {
     @Injectable()
     class ConfigReader {
-      constructor(private config = injectConfig(RedisConfig)) {}
+      constructor(private config = inject(RedisConfig)) {}
 
       getOptions() {
         return this.config.options;

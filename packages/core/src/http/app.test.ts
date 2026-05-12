@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { App } from '../app';
 import { createApp } from '../app';
 import type { ControllerClass } from '../app/modules/http-module';
-import { Config, injectConfig } from '../config';
+import { Config } from '../config';
 import { inject } from '../di/inject';
 import type { Lifecycle } from '../lifecycle';
 import { LifecycleManager } from '../lifecycle';
@@ -688,7 +688,7 @@ describe('addFallbackConfig', () => {
 
     @Controller('/test')
     class TestController {
-      constructor(private cfg = injectConfig(BaseConfig)) {}
+      constructor(private cfg = inject(BaseConfig)) {}
 
       @Get('/')
       get() {
@@ -725,7 +725,7 @@ describe('addFallbackConfig', () => {
 
     @Controller('/test')
     class TestController {
-      constructor(private cfg = injectConfig(BaseConfig)) {}
+      constructor(private cfg = inject(BaseConfig)) {}
 
       @Get('/')
       get() {
@@ -769,7 +769,7 @@ describe('addFallbackConfig', () => {
 
     @Controller('/test')
     class TestController {
-      constructor(private cfg = injectConfig(BaseConfig)) {}
+      constructor(private cfg = inject(BaseConfig)) {}
 
       @Get('/')
       get() {

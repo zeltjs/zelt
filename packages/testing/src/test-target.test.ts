@@ -1,4 +1,4 @@
-import { Config, Injectable, inject, injectConfig } from '@zeltjs/core';
+import { Config, Injectable, inject } from '@zeltjs/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { configureTestDefaults } from './global-config';
@@ -147,7 +147,7 @@ describe('createTestTarget', () => {
     it('applies global config replacement', async () => {
       @Injectable()
       class ServiceWithConfig {
-        constructor(private config = injectConfig(GlobalBaseConfig)) {}
+        constructor(private config = inject(GlobalBaseConfig)) {}
         getValue() {
           return this.config.value;
         }
@@ -163,7 +163,7 @@ describe('createTestTarget', () => {
     it('inline config overrides global defaults', async () => {
       @Injectable()
       class ServiceWithConfig2 {
-        constructor(private config = injectConfig(GlobalBaseConfig2)) {}
+        constructor(private config = inject(GlobalBaseConfig2)) {}
         getValue() {
           return this.config.value;
         }

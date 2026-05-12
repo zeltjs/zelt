@@ -1,4 +1,4 @@
-import { Injectable, injectConfig } from '@zeltjs/core';
+import { Injectable, inject } from '@zeltjs/core';
 import { decodeJwt, jwtVerify, SignJWT } from 'jose';
 import { fromThrowable } from 'neverthrow';
 
@@ -7,7 +7,7 @@ import type { JwtPayload } from './jwt.types';
 
 @Injectable()
 export class JwtService {
-  constructor(private config = injectConfig(JwtConfig)) {}
+  constructor(private config = inject(JwtConfig)) {}
 
   async sign(payload: Record<string, unknown>): Promise<string> {
     const secret = new TextEncoder().encode(this.config.secret);

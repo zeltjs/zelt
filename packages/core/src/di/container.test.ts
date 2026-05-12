@@ -1,7 +1,7 @@
 import { injectable } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
-import { Config, injectConfig } from '../config';
+import { Config } from '../config';
 import type { Lifecycle } from '../index';
 import { Injectable, inject, LifecycleManager } from '../index';
 
@@ -25,7 +25,7 @@ describe('createContainer with configs', () => {
 
     @injectable()
     class TestService {
-      constructor(private config = injectConfig(BaseConfig)) {}
+      constructor(private config = inject(BaseConfig)) {}
       getValue() {
         return this.config.value;
       }
@@ -46,7 +46,7 @@ describe('createContainer with configs', () => {
 
     @injectable()
     class TestService {
-      constructor(private config = injectConfig(DefaultConfig)) {}
+      constructor(private config = inject(DefaultConfig)) {}
       getValue() {
         return this.config.value;
       }
@@ -84,7 +84,7 @@ describe('createTestTargetBase', () => {
 
     @Injectable()
     class TestService {
-      constructor(private config = injectConfig(TestConfig)) {}
+      constructor(private config = inject(TestConfig)) {}
 
       getValue(): string {
         return this.config.value;

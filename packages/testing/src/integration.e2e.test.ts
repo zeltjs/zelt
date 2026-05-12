@@ -1,4 +1,4 @@
-import { Config, Controller, createApp, Get, Injectable, injectConfig } from '@zeltjs/core';
+import { Config, Controller, createApp, Get, Injectable, inject } from '@zeltjs/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { configureTestDefaults } from './global-config';
@@ -29,7 +29,7 @@ describe('E2E: onTest with global config', () => {
   it('applies global config to HTTP app', async () => {
     @Controller('/')
     class DbController {
-      constructor(private db = injectConfig(DatabaseConfig)) {}
+      constructor(private db = inject(DatabaseConfig)) {}
       @Get('/db')
       getDbInfo() {
         return { connection: this.db.connectionString };
@@ -53,7 +53,7 @@ describe('E2E: createTestTarget with global config', () => {
   it('applies global config to service', async () => {
     @Injectable()
     class DbService {
-      constructor(private db = injectConfig(DatabaseConfig)) {}
+      constructor(private db = inject(DatabaseConfig)) {}
       getConnection() {
         return this.db.connectionString;
       }
@@ -85,7 +85,7 @@ describe('E2E: inline config overrides global', () => {
   it('inline overrides global in onTest', async () => {
     @Controller('/')
     class CacheController {
-      constructor(private cache = injectConfig(CacheConfig)) {}
+      constructor(private cache = inject(CacheConfig)) {}
       @Get('/ttl')
       getTtl() {
         return { ttl: this.cache.ttl };
@@ -107,7 +107,7 @@ describe('E2E: inline config overrides global', () => {
   it('inline overrides global in createTestTarget', async () => {
     @Injectable()
     class CacheService {
-      constructor(private cache = injectConfig(CacheConfig)) {}
+      constructor(private cache = inject(CacheConfig)) {}
       getTtl() {
         return this.cache.ttl;
       }

@@ -1,4 +1,4 @@
-import { injectConfig } from '../../config';
+import { inject } from '../../di/inject';
 import { Injectable } from '../../di/injectable';
 import { LoggerConfig } from './logger.config';
 import { getLogContext } from './logger.context.lib';
@@ -8,7 +8,7 @@ import { LOG_LEVEL_PRIORITY } from './logger.lib';
 @Injectable()
 export class LoggerService {
   constructor(
-    private config = injectConfig(LoggerConfig),
+    private config = inject(LoggerConfig),
     private bindings: LogContext = {},
   ) {}
 

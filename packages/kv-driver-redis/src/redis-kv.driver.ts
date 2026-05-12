@@ -1,5 +1,5 @@
 import type { Lifecycle } from '@zeltjs/core';
-import { Injectable, inject, injectConfig, LifecycleManager } from '@zeltjs/core';
+import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
 import type { AtomicKVDriver, AtomicKVStore, NonEmptyString } from '@zeltjs/kv';
 
 import { RedisKVConfig } from './redis-kv.config';
@@ -10,7 +10,7 @@ import { ZeltRedis } from './zelt-redis';
 export class RedisKVDriver implements AtomicKVDriver, Lifecycle {
   private readonly client: ZeltRedis;
 
-  constructor(config = injectConfig(RedisKVConfig), lifecycle = inject(LifecycleManager)) {
+  constructor(config = inject(RedisKVConfig), lifecycle = inject(LifecycleManager)) {
     this.client = new ZeltRedis(config.url, config.options);
     lifecycle.register(this);
   }

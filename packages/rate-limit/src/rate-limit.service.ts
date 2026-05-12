@@ -1,4 +1,4 @@
-import { Injectable, inject, injectConfig, Logger } from '@zeltjs/core';
+import { Injectable, inject, Logger } from '@zeltjs/core';
 import { KVError } from '@zeltjs/kv';
 
 import type { RateLimitError } from './errors';
@@ -13,7 +13,7 @@ export type RateLimiterHitResult =
 @Injectable()
 export class RateLimitService {
   constructor(
-    private config = injectConfig(RateLimitConfig),
+    private config = inject(RateLimitConfig),
     private logger = inject(Logger),
   ) {}
 

@@ -1,5 +1,4 @@
 import type { Container as ContainerType } from '@needle-di/core';
-import { inject } from '../di/inject';
 import { getLeaf, overrideLeaf, registerAsLeaf, resolveLeaf } from '../di/leaf';
 
 import type { ConfigClass } from './types';
@@ -24,10 +23,3 @@ export const getConfig = <T extends object>(
   container: ContainerType,
   configClass: ConfigClass<T>,
 ): T => getLeaf(container, configClass);
-
-/**
- * @deprecated Use `inject(ConfigClass)` instead.
- * The unified `inject` now handles leaf resolution automatically for @Config classes.
- */
-export const injectConfig = <T extends object>(configClass: ConfigClass<T>): T =>
-  inject(configClass);

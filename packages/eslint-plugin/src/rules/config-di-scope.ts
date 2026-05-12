@@ -64,11 +64,12 @@ const rule: Rule.RuleModule = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Enforce that injectConfig() caller file prefix matches the config file prefix',
+      description:
+        'Enforce that inject() for @Config classes caller file prefix matches the config file prefix',
     },
     messages: {
       prefixMismatch:
-        'injectConfig({{configName}}): caller prefix "{{callerPrefix}}" does not match config file prefix "{{configPrefix}}". Rename to {{expectedFile}}',
+        'inject({{configName}}): caller prefix "{{callerPrefix}}" does not match config file prefix "{{configPrefix}}". Rename to {{expectedFile}}',
     },
     schema: [],
   },
@@ -109,7 +110,7 @@ const rule: Rule.RuleModule = {
       },
 
       CallExpression(node) {
-        if (node.callee.type !== 'Identifier' || node.callee.name !== 'injectConfig') {
+        if (node.callee.type !== 'Identifier' || node.callee.name !== 'inject') {
           return;
         }
 

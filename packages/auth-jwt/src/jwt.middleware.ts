@@ -1,5 +1,5 @@
 import type { Next, RequestContext } from '@zeltjs/core';
-import { inject, injectConfig, Middleware, setUser } from '@zeltjs/core';
+import { inject, Middleware, setUser } from '@zeltjs/core';
 import { getCookie } from 'hono/cookie';
 
 import { JwtConfig } from './jwt.config';
@@ -9,7 +9,7 @@ import { JwtService } from './jwt.service';
 export class JwtMiddleware {
   constructor(
     private readonly jwtService = inject(JwtService),
-    private readonly config = injectConfig(JwtConfig),
+    private readonly config = inject(JwtConfig),
   ) {}
 
   async use(c: RequestContext, next: Next): Promise<Response | undefined> {

@@ -2,13 +2,12 @@ import { injectable } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
 import { createContainer } from '../di/container';
-
+import { inject } from '../di/inject';
 import { Config } from './decorator';
-import { injectConfig } from './token';
 
 describe('config token', () => {
   describe('single @Config', () => {
-    it('configs に含めると injectConfig で取得できる', () => {
+    it('configs に含めると inject で取得できる', () => {
       @Config
       class AppConfig {
         get name() {
@@ -18,7 +17,7 @@ describe('config token', () => {
 
       @injectable()
       class Service {
-        constructor(private config = injectConfig(AppConfig)) {}
+        constructor(private config = inject(AppConfig)) {}
         getName() {
           return this.config.name;
         }
@@ -28,7 +27,7 @@ describe('config token', () => {
       expect(resolver.get(Service).getName()).toBe('app');
     });
 
-    it('configs に含めなくても injectConfig で取得できる', () => {
+    it('configs に含めなくても inject で取得できる', () => {
       @Config
       class ImplicitConfig {
         get value() {
@@ -38,7 +37,7 @@ describe('config token', () => {
 
       @injectable()
       class Service {
-        constructor(private config = injectConfig(ImplicitConfig)) {}
+        constructor(private config = inject(ImplicitConfig)) {}
         getValue() {
           return this.config.value;
         }
@@ -50,7 +49,7 @@ describe('config token', () => {
   });
 
   describe('override: @Config + child', () => {
-    it('configs に child を含めると injectConfig(root) で child が返る', () => {
+    it('configs に child を含めると inject(root) で child が返る', () => {
       @Config
       class BaseConfig {
         get value() {
@@ -67,7 +66,7 @@ describe('config token', () => {
 
       @injectable()
       class Service {
-        constructor(private config = injectConfig(BaseConfig)) {}
+        constructor(private config = inject(BaseConfig)) {}
         getValue() {
           return this.config.value;
         }
@@ -79,7 +78,7 @@ describe('config token', () => {
   });
 
   describe('fallback: @Config + defaults', () => {
-    it('defaults に fallback を含めると injectConfig(root) で fallback が返る', () => {
+    it('defaults に fallback を含めると inject(root) で fallback が返る', () => {
       @Config
       class BaseConfig {
         get value() {
@@ -96,7 +95,7 @@ describe('config token', () => {
 
       @injectable()
       class Service {
-        constructor(private config = injectConfig(BaseConfig)) {}
+        constructor(private config = inject(BaseConfig)) {}
         getValue() {
           return this.config.value;
         }
@@ -132,7 +131,7 @@ describe('config token', () => {
 
       @injectable()
       class Service {
-        constructor(private config = injectConfig(BaseConfig)) {}
+        constructor(private config = inject(BaseConfig)) {}
         getValue() {
           return this.config.value;
         }
@@ -166,7 +165,7 @@ describe('config token', () => {
 
       @injectable()
       class Service {
-        constructor(private config = injectConfig(BaseConfig)) {}
+        constructor(private config = inject(BaseConfig)) {}
         getValue() {
           return this.config.value;
         }
@@ -193,7 +192,7 @@ describe('config token', () => {
 
       @injectable()
       class Service {
-        constructor(private config = injectConfig(BaseConfig)) {}
+        constructor(private config = inject(BaseConfig)) {}
         getValue() {
           return this.config.value;
         }
@@ -213,7 +212,7 @@ describe('config token', () => {
 
       @injectable()
       class Service {
-        constructor(private config = injectConfig(BaseConfig)) {}
+        constructor(private config = inject(BaseConfig)) {}
         getValue() {
           return this.config.value;
         }
@@ -257,8 +256,8 @@ describe('config token', () => {
       @injectable()
       class Service {
         constructor(
-          private db = injectConfig(DbConfig),
-          private cache = injectConfig(CacheConfig),
+          private db = inject(DbConfig),
+          private cache = inject(CacheConfig),
         ) {}
         getDbUrl() {
           return this.db.url;

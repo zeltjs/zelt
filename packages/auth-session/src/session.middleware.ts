@@ -1,5 +1,5 @@
 import type { Next, RequestContext } from '@zeltjs/core';
-import { injectConfig, Middleware } from '@zeltjs/core';
+import { inject, Middleware } from '@zeltjs/core';
 import { getCookie } from 'hono/cookie';
 
 import { SessionConfig } from './session.config';
@@ -9,7 +9,7 @@ import type { StoredSession } from './session.types';
 
 @Middleware
 export class SessionMiddleware {
-  constructor(private readonly config = injectConfig(SessionConfig)) {}
+  constructor(private readonly config = inject(SessionConfig)) {}
 
   async use(c: RequestContext, next: Next): Promise<Response | undefined> {
     const { sessionId, session, isNew } = await this.loadOrCreateSession(c);
