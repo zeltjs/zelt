@@ -8,6 +8,7 @@ export {
   type ReadyOptions,
   type ReadyResult,
 } from './app/create-app';
+export type { ControllerClass } from './app/modules/http-module';
 export type { CommandContextStore } from './command/command-context';
 export { runInCommandContext } from './command/command-context';
 export { Command } from './command/decorator';
@@ -47,6 +48,7 @@ export type {
   ValidationErrorBody,
   ValidationIssue,
 } from './http/error-schema';
+export { getControllerMetadata } from './http/internal/metadata';
 export type {
   ErrorHandlerClass,
   ErrorHandlerInstance,

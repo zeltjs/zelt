@@ -23,10 +23,10 @@ describe('metadata', () => {
   class B {}
 
   it('stores controller metadata per class', () => {
-    setControllerMetadata(A, { basePath: '/users' });
-    setControllerMetadata(B, { basePath: '/posts' });
-    expect(getControllerMetadata(A)).toEqual({ basePath: '/users' });
-    expect(getControllerMetadata(B)).toEqual({ basePath: '/posts' });
+    setControllerMetadata(A, { basePath: '/users', sourceFile: undefined });
+    setControllerMetadata(B, { basePath: '/posts', sourceFile: undefined });
+    expect(getControllerMetadata(A)?.basePath).toBe('/users');
+    expect(getControllerMetadata(B)?.basePath).toBe('/posts');
   });
 
   it('returns undefined for unknown class', () => {

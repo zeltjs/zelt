@@ -23,6 +23,7 @@ export type HttpOptions = {
 export type HttpModule = Module & {
   fetch: (req: Request) => Promise<Response>;
   request: (input: string | Request, init?: RequestInit) => Promise<Response>;
+  getControllers: () => readonly ControllerClass[];
 };
 
 type HttpModuleState = {
@@ -181,11 +182,14 @@ export const createHttpModule = (options: HttpOptions): HttpModule => {
 
   const request = createRequest(fetch);
 
+  const getControllers = (): readonly ControllerClass[] => options.controllers;
+
   return {
     setup,
     ready,
     shutdown,
     fetch,
     request,
+    getControllers,
   };
 };

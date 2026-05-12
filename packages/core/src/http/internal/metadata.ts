@@ -4,6 +4,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 type ControllerMetadata = {
   readonly basePath: string;
+  readonly sourceFile: string | undefined;
 };
 
 type RouteMetadata = {

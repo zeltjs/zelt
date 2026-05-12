@@ -8,10 +8,12 @@ import {
   resolveSkipMiddlewareMetadata,
   setControllerMetadata,
 } from '../internal/metadata';
+import { getCallerFile } from '../internal/source-file';
 
 export const Controller =
   (basePath: string) =>
   (...args: unknown[]): void => {
+    const sourceFile = getCallerFile();
     const { cls, pendingKey, injectableClass } = resolveClassArgs(args);
 
     resolveRouteMetadata(pendingKey, cls);
@@ -19,6 +21,6 @@ export const Controller =
     resolveSkipMiddlewareMetadata(pendingKey, cls);
     resolveAuthorizedMetadata(pendingKey, cls);
 
-    setControllerMetadata(cls, { basePath });
+    setControllerMetadata(cls, { basePath, sourceFile });
     injectable()(injectableClass);
   };
