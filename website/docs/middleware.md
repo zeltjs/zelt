@@ -26,15 +26,17 @@ Zelt supports middleware at three levels, executed in order: **global → contro
 
 ### Global Middleware
 
-Apply to all routes via `createHttpApp()`:
+Apply to all routes via `createApp()`:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 import { loggingMiddleware } from './middlewares/logging';
 
-export const app = createHttpApp({
-  controllers: [UserController],
-  middlewares: [loggingMiddleware],
+export const app = createApp({
+  http: {
+    controllers: [UserController],
+    middlewares: [loggingMiddleware],
+  },
 });
 ```
 
@@ -177,6 +179,34 @@ export class AdminController {
   // ...
 }
 ```
+
+## Parameterized Middleware
+
+For middleware that requires configuration options, use the tuple syntax `[MiddlewareClass, options]`:
+
+```typescript
+@Middleware
+export class RateLimitMiddleware {
+  async use(c: RequestContext, next: Next, options?: { limit: number; windowSec: number }) {
+    const limit = options?.limit ?? 100;
+    const windowSec = options?.windowSec ?? 60;
+    // ... rate limiting logic
+    await next();
+    return undefined;
+  }
+}
+
+@Controller('/api')
+export class ApiController {
+  @UseMiddleware([RateLimitMiddleware, { limit: 10, windowSec: 60 }])
+  @Post('/submit')
+  submit() {
+    return { submitted: true };
+  }
+}
+```
+
+The options parameter is passed to the middleware's `use()` method at runtime.
 
 ## Request Flow
 

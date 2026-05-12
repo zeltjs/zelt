@@ -59,18 +59,20 @@ export class HelloController {
 Create `src/app.ts` to wire up your controllers and prepare for the Node.js runtime:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 import { HelloController } from './controllers/hello.controller';
 
-export const app = createHttpApp({
-  controllers: [HelloController],
+export const app = createApp({
+  http: {
+    controllers: [HelloController],
+  },
 });
 
 export default await onNode(app);
 ```
 
-The `onNode()` function prepares your app for the Node.js runtime, returning a `NodeApp` with `listen()` and `get()` methods.
+The `onNode()` function prepares your app for the Node.js runtime, returning a `NodeApp` with `listen()`, `get()`, and `args` properties.
 
 ### Step 3: Start the Server
 
@@ -172,10 +174,12 @@ export class ConfigController {
 Register the config in your app:
 
 ```typescript
-import { createHttpApp, EnvConfig } from '@zeltjs/core';
+import { createApp, EnvConfig } from '@zeltjs/core';
 
-export const app = createHttpApp({
-  controllers: [ConfigController],
+export const app = createApp({
+  http: {
+    controllers: [ConfigController],
+  },
   configs: [EnvConfig],
 });
 ```

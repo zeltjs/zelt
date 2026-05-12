@@ -50,15 +50,15 @@ import { currentUser, headerParam } from '@zeltjs/core';
 
 ## Programmatic Usage
 
-Use `RateLimiter` service for custom rate limiting logic:
+Use `RateLimitService` for custom rate limiting logic:
 
 ```typescript
 import { Controller, Post, inject, response } from '@zeltjs/core';
-import { RateLimiter } from '@zeltjs/rate-limit';
+import { RateLimitService } from '@zeltjs/rate-limit';
 
 @Controller('/auth')
 export class AuthController {
-  constructor(private rateLimiter = inject(RateLimiter)) {}
+  constructor(private rateLimiter = inject(RateLimitService)) {}
 
   @Post('/login')
   async login(body = validated(LoginSchema), res = response()) {

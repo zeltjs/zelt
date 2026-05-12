@@ -335,12 +335,12 @@ pnpm add @zeltjs/auth-session @zeltjs/kv
 
 ```typescript
 import { createApp, Config, inject } from '@zeltjs/core';
-import { MemoryKV } from '@zeltjs/kv';
+import { MemoryKVService } from '@zeltjs/kv';
 import { SessionMiddleware, SessionConfig } from '@zeltjs/auth-session';
 
 @Config
 class MySessionConfig extends SessionConfig {
-  private kv = inject(MemoryKV);
+  private kv = inject(MemoryKVService);
 
   override get store() {
     return this.kv.namespace('sessions');
@@ -353,7 +353,7 @@ const app = createApp({
     middlewares: [SessionMiddleware],
   },
   configs: [MySessionConfig],
-  injectables: [MemoryKV],
+  injectables: [MemoryKVService],
 });
 ```
 

@@ -29,14 +29,26 @@ export class GreetCommand {
 
 ## Configuration
 
-Add the `commands` option to your `zelt.config.ts`:
+Create a `src/cli.ts` entry point for your CLI:
+
+```typescript
+import { createApp } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
+import { GreetCommand } from './commands/greet.command';
+
+const app = createApp({ commands: [GreetCommand] });
+const nodeApp = await onNode(app);
+await nodeApp.exec(nodeApp.args);
+```
+
+Then configure `cli.entry` in your `zelt.config.ts`:
 
 ```typescript
 import { defineConfig } from '@zeltjs/cli';
 
 export default defineConfig({
   controllers: 'src/controllers/**/*.ts',
-  commands: 'src/commands/**/*.ts',
+  cli: { entry: './src/cli.ts' },
 });
 ```
 
