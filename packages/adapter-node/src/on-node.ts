@@ -35,7 +35,7 @@ export type HttpNodeApp = ReadyResult &
 
 export type CommandNodeApp = ReadyResult &
   NodeAppBase & {
-    readonly exec: (argv: string[]) => Promise<ExecResult>;
+    readonly execCommand: (argv: string[]) => Promise<ExecResult>;
     readonly shutdown: () => Promise<void>;
   };
 
@@ -158,7 +158,7 @@ const buildCommandNodeApp = (
   return {
     ...resolver,
     args,
-    exec: createExecForCommands(caps.hasCommand, caps.getCommands, resolver.get, stderr),
+    execCommand: createExecForCommands(caps.hasCommand, caps.getCommands, resolver.get, stderr),
     shutdown,
   };
 };
@@ -182,7 +182,7 @@ const mergeNodeApps = (
 ): NodeApp => {
   const { httpResult, commandResult } = result;
   if (httpResult && commandResult) {
-    const fullApp: FullNodeApp = { ...httpResult, exec: commandResult.exec };
+    const fullApp: FullNodeApp = { ...httpResult, execCommand: commandResult.execCommand };
     return fullApp;
   }
   if (httpResult) return httpResult;
