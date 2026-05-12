@@ -1,4 +1,7 @@
 [[repository_settings]]
 repository = '.'
-copy_files = ['lefthook-local.yml', '.codepolicy/cache']
-setup_commands = ['pnpm i']
+copy_files = ['lefthook-local.yml']
+setup_commands = [
+  'cp -r "$(git worktree list --porcelain | grep -m1 "^worktree " | cut -d" " -f2-)/.codepolicy/cache" .codepolicy/ 2>/dev/null || true',
+  'pnpm i',
+]
