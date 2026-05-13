@@ -277,17 +277,14 @@ export default tseslint.config(
   },
   {
     // KV adaptor uses throw for TTL validation.
-    files: ['packages/kv/src/adaptor-memory/memory-kv-adaptor.ts'],
+    files: ['packages/kv/src/adaptor-memory/memory-kv.adaptor.ts'],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
     },
   },
   {
     // Redis KV wraps ioredis errors into KVError at the driver boundary.
-    files: [
-      'packages/kv-driver-redis/src/redis-kv-store.ts',
-      'packages/kv/src/adaptor-redis/redis-kv-store.ts',
-    ],
+    files: ['packages/kv/src/adaptor-redis/redis-kv-store.ts'],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
@@ -303,7 +300,7 @@ export default tseslint.config(
   {
     // EventBus uses generic event schema with keyof - type assertions needed at emit/subscribe boundary.
     files: [
-      'packages/eventbus/src/adaptor-memory/memory-event-bus-adaptor.ts',
+      'packages/eventbus/src/adaptor-memory/memory-event-bus.adaptor.ts',
       'packages/eventbus/src/adaptor-redis/redis-event-bus-adaptor.ts',
     ],
     rules: {
@@ -313,13 +310,6 @@ export default tseslint.config(
   {
     // JSON.parse returns `any`; type assertion unavoidable at this generic boundary.
     files: ['packages/kv/src/serialize.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // eval() returns unknown; type assertion needed at Lua script boundary.
-    files: ['packages/kv-driver-redis/src/zelt-redis.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },

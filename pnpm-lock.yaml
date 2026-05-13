@@ -428,22 +428,6 @@ importers:
         specifier: 5.10.1
         version: 5.10.1
 
-  packages/kv-driver-redis:
-    dependencies:
-      ioredis:
-        specifier: 5.10.1
-        version: 5.10.1
-    devDependencies:
-      '@types/node':
-        specifier: 22.19.17
-        version: 22.19.17
-      '@zeltjs/core':
-        specifier: workspace:*
-        version: link:../core
-      '@zeltjs/kv':
-        specifier: workspace:*
-        version: link:../kv
-
   packages/rate-limit:
     devDependencies:
       '@types/node':
@@ -487,9 +471,9 @@ importers:
       '@jest/globals':
         specifier: 29.7.0
         version: 29.7.0
-      '@zeltjs/kv-driver-redis':
+      '@zeltjs/redis':
         specifier: workspace:*
-        version: link:../kv-driver-redis
+        version: link:../redis
       bun-types:
         specifier: 1.2.14
         version: 1.2.14

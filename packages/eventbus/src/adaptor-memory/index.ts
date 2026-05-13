@@ -1,1 +1,1 @@
-export { MemoryEventBusAdaptor } from './memory-event-bus-adaptor';
+export { MemoryEventBusAdaptor } from './memory-event-bus.adaptor';

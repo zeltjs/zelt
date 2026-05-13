@@ -1,1 +1,1 @@
-export { MemoryKVAdaptor } from './memory-kv-adaptor';
+export { MemoryKVAdaptor } from './memory-kv.adaptor';
