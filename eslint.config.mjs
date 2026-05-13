@@ -112,6 +112,14 @@ export default tseslint.config(
     },
   },
   {
+    // Global: allow throw/try-catch everywhere (contract overrides below)
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      '@9wick/strict-type-rules/no-throw': 'off',
+      '@9wick/strict-type-rules/no-try-catch': 'off',
+    },
+  },
+  {
     files: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
     rules: {
       'no-console': 'off',
