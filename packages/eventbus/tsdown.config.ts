@@ -13,9 +13,6 @@ export default defineConfig({
       '@zeltjs/redis',
       /^@zeltjs\/redis\//,
       'ioredis',
-      'vitest',
-      /^vitest\//,
-      /^@vitest\//,
     ],
   },
 });

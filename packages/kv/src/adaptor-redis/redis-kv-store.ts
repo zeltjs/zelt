@@ -1,15 +1,28 @@
-import type { AtomicKVStore, Defined, NonEmptyString, SetOptions } from '@zeltjs/kv';
-import { deserialize, joinPrefix, KVError, serialize } from '@zeltjs/kv';
+import type Redis from 'ioredis';
+import { KVError } from '../errors';
+import { joinPrefix } from '../namespace';
+import { deserialize, serialize } from '../serialize';
+import type { AtomicKVStore, Defined, NonEmptyString, SetOptions } from '../types';
 
-import type { ZeltRedis } from './zelt-redis';
+import { INCR_WITH_TTL_LUA } from './lua-scripts';
 
 const validateTtl = (ttlSec: number | undefined): void => {
   if (ttlSec !== undefined && ttlSec <= 0) throw KVError.invalidTtl(ttlSec);
 };
 
+const incrWithTtl = async (
+  client: Redis,
+  key: string,
+  by: number,
+  ttlSec: number | undefined,
+): Promise<number> => {
+  const ttlArg = ttlSec !== undefined ? String(ttlSec) : '';
+  return client.eval(INCR_WITH_TTL_LUA, 1, key, by, ttlArg) as Promise<number>;
+};
+
 export class RedisKVStore implements AtomicKVStore {
   constructor(
-    private readonly client: ZeltRedis,
+    private readonly client: Redis,
     private readonly prefix: string,
   ) {}
 
@@ -74,7 +87,7 @@ export class RedisKVStore implements AtomicKVStore {
   async incr(key: string, by = 1, opts?: { ttlSec?: number }): Promise<number> {
     validateTtl(opts?.ttlSec);
     try {
-      return await this.client.incrWithTtl(this.k(key), by, opts?.ttlSec);
+      return await incrWithTtl(this.client, this.k(key), by, opts?.ttlSec);
     } catch (cause) {
       throw KVError.storeOperationFailed('incr', cause);
     }

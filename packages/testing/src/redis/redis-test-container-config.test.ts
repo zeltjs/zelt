@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@zeltjs/core';
-import { RedisConfig, RedisKV } from '@zeltjs/kv-driver-redis';
+import { RedisConfig, RedisService } from '@zeltjs/redis';
 import { describe, expect, it } from 'vitest';
 
 import { createTestTarget } from '../test-target';
@@ -12,18 +12,15 @@ describe('RedisTestContainerConfig', () => {
     class TestService {
       constructor(
         private config = inject(RedisConfig),
-        private redis = inject(RedisKV),
+        private redis = inject(RedisService),
       ) {}
 
       getUrl(): string {
         return this.config.url;
       }
 
-      async ping(): Promise<boolean> {
-        const store = this.redis.namespace('test:');
-        await store.set('ping', 'pong');
-        const result = await store.get<string>('ping');
-        return result === 'pong';
+      async ping(): Promise<string> {
+        return await this.redis.client.ping();
       }
     }
 
@@ -32,7 +29,7 @@ describe('RedisTestContainerConfig', () => {
     });
 
     expect(target.getUrl()).toMatch(/^redis:\/\/localhost:\d+$/);
-    expect(await target.ping()).toBe(true);
+    expect(await target.ping()).toBe('PONG');
 
     await shutdown();
   }, 60_000);

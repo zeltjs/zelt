@@ -12,5 +12,6 @@
     "erasableSyntaxOnly": false,
     "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "references": [{ "path": "../core" }, { "path": "../kv" }]
 }

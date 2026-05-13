@@ -9,7 +9,8 @@
     { "path": "packages/auth-jwt" },
     { "path": "packages/auth-session" },
     { "path": "packages/kv" },
-    { "path": "packages/kv-driver-redis" },
+    { "path": "packages/redis" },
+    { "path": "packages/eventbus" },
     { "path": "packages/rate-limit" },
     { "path": "packages/validate-valibot" }
   ],

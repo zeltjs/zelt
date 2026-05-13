@@ -7,6 +7,6 @@ export default defineConfig({
   clean: true,
   fixedExtension: false,
   deps: {
-    neverBundle: ['@zeltjs/core', /^@zeltjs\/core\//, '@zeltjs/kv', /^@zeltjs\/kv\//, 'ioredis'],
+    neverBundle: ['@zeltjs/core', /^@zeltjs\/core\//, 'ioredis'],
   },
 });
