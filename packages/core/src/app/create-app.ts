@@ -77,9 +77,13 @@ const createReadyResult = (context: ReadyContext): ReadyResult => ({
     context.resolver.getConfig(configClass),
 });
 
-const awaitSafe = async (p: Promise<unknown>): Promise<void> => {
-  await p.catch(() => {});
-};
+type AwaitSafeResult = { ok: true } | { ok: false; error: unknown };
+
+const awaitSafe = async (p: Promise<unknown>): Promise<AwaitSafeResult> =>
+  p.then(
+    () => ({ ok: true }) as const,
+    (error: unknown) => ({ ok: false, error }) as const,
+  );
 
 type AppModules = {
   configModule: ConfigModule;
@@ -125,7 +129,7 @@ type ReadyDeps = {
   state: AppState;
   modules: Module[];
   configModule: ConfigModule;
-  configs: readonly ConfigClass<object>[] | undefined;
+  configs: readonly ConfigClass<object>[];
 };
 
 const createReady =
@@ -140,7 +144,7 @@ const createReady =
     state.readyPromise = (async (): Promise<ReadyResult> => {
       const resolver = createContainer({
         defaults: configModule.getDefaults(),
-        configs: configs ?? [],
+        configs,
         overrides: configModule.getOverrides(),
       });
       const lifecycle = resolver.get(LifecycleManager);
@@ -176,11 +180,7 @@ const createShutdown = (deps: ShutdownDeps) => async (): Promise<void> => {
   }
 };
 
-const createSchedulerMethods = (
-  schedulerModule: SchedulerModule | undefined,
-): SchedulerCapabilities | object => {
-  if (!schedulerModule) return {};
-
+const createSchedulerMethods = (schedulerModule: SchedulerModule): SchedulerCapabilities => {
   const startScheduler = async (): Promise<void> => {
     const runner = schedulerModule.getRunner();
     if (runner && !runner.isRunning()) {
@@ -201,7 +201,7 @@ const createSchedulerMethods = (
 const buildAppObject = (
   appModules: AppModules,
   state: AppState,
-  configs: readonly ConfigClass<object>[] | undefined,
+  configs: readonly ConfigClass<object>[],
 ): App<CreateAppOptions> => {
   const { configModule, httpModule, commandModule, schedulerModule, all: modules } = appModules;
 
@@ -222,7 +222,7 @@ const buildAppObject = (
   const commandMethods = commandModule
     ? { hasCommand: commandModule.hasCommand, getCommands: commandModule.getCommands }
     : {};
-  const schedulerMethods = createSchedulerMethods(schedulerModule);
+  const schedulerMethods = schedulerModule ? createSchedulerMethods(schedulerModule) : {};
 
   return { ...baseApp, ...httpMethods, ...commandMethods, ...schedulerMethods };
 };
@@ -240,5 +240,5 @@ export function createApp(options: CreateAppOptions): App<CreateAppOptions> {
     m.setup();
   }
 
-  return buildAppObject(appModules, state, options.configs);
+  return buildAppObject(appModules, state, options.configs ?? []);
 }
