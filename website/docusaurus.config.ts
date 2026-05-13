@@ -84,6 +84,17 @@ const config: Config = {
         editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
       },
     ],
+    [
+      'docusaurus-plugin-llms',
+      {
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: 'docs',
+        title: 'Zelt Documentation',
+        description: 'A fast, type-safe application framework for TypeScript',
+      },
+    ],
+    'docusaurus-markdown-source-plugin',
   ],
 
   themes: [
