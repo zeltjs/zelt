@@ -122,7 +122,7 @@ export default tseslint.config(
   {
     // contract package uses neverthrow (ROP) — enforce no throw/try-catch
     files: ['packages/contract/src/**/*.{ts,tsx}'],
-    ignores: ['**/*.test.{ts,tsx}'],
+    ignores: [...TEST_FILES, ...FIXTURE_FILES],
     rules: {
       '@9wick/strict-type-rules/no-throw': 'error',
       '@9wick/strict-type-rules/no-try-catch': 'error',
@@ -137,22 +137,12 @@ export default tseslint.config(
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@9wick/strict-type-rules/no-throw': 'off',
     },
   },
   {
-    // framework error strategy: throw + global error handler (spec §4.9 / koya phase2)
-    files: ['packages/core/src/**/*.{ts,tsx}', 'packages/validate-valibot/src/**/*.{ts,tsx}'],
-    rules: {
-      '@9wick/strict-type-rules/no-throw': 'off',
-      '@9wick/strict-type-rules/no-try-catch': 'off',
-    },
-  },
-  {
-    // build-time CLI tool: throw fatal errors that surface to the user via the CLI
+    // build-time CLI tool: throw fatal errors that surface to the user via the CLI.
+    // Type predicate needed for ContractError type guard.
     files: [
-      'packages/contract/src/analyzer/**/*.{ts,tsx}',
-      'packages/contract/src/emit/**/*.{ts,tsx}',
       'packages/contract/src/generate-client.ts',
       'packages/contract/src/watch.ts',
       'packages/contract/src/load-config.ts',
@@ -170,7 +160,6 @@ export default tseslint.config(
     // Type predicate and in operator needed for ContractError type guard.
     files: ['packages/contract/src/watch.ts', 'packages/contract/src/cli.ts'],
     rules: {
-      '@9wick/strict-type-rules/no-try-catch': 'off',
       '@9wick/strict-type-rules/no-type-predicate': 'off',
       '@9wick/strict-type-rules/no-in-operator': 'off',
     },
@@ -234,13 +223,11 @@ export default tseslint.config(
   },
   {
     // Example apps: relaxed rules for demo code clarity
-    // - HTTPException requires throw
     // - raw fetch returns untyped JSON
     // - DI rules too strict for simple samples
     // - Workers KV returns untyped data
     files: ['examples/**/*.{ts,tsx}'],
     rules: {
-      '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-as-assertion': 'off',
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
@@ -262,9 +249,7 @@ export default tseslint.config(
     },
   },
   {
-    // CLI entry points: throw/catch at user-facing boundaries for error reporting.
-    // Public API returns Promise (not ResultAsync) to avoid neverthrow leak.
-    // Type predicate needed for error type guard.
+    // CLI entry points: type predicate needed for error type guard.
     files: [
       'packages/cli/src/config/loader.ts',
       'packages/cli/src/builders/tsdown.ts',
@@ -275,8 +260,6 @@ export default tseslint.config(
       'packages/cli/src/commands/build.ts',
     ],
     rules: {
-      '@9wick/strict-type-rules/no-throw': 'off',
-      '@9wick/strict-type-rules/no-try-catch': 'off',
       '@9wick/strict-type-rules/no-type-predicate': 'off',
     },
   },
@@ -290,21 +273,6 @@ export default tseslint.config(
     files: ['**/*.types.ts'],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
-    // KV driver uses throw for TTL validation.
-    files: ['packages/kv/src/memory-kv.driver.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-throw': 'off',
-    },
-  },
-  {
-    // Redis KV wraps ioredis errors into KVError at the driver boundary.
-    files: ['packages/kv-driver-redis/src/redis-kv-store.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-throw': 'off',
-      '@9wick/strict-type-rules/no-try-catch': 'off',
     },
   },
   {
@@ -354,19 +322,10 @@ export default tseslint.config(
   },
   {
     // Command module uses AsyncLocalStorage and generic type inference at runtime boundaries.
-    // Type assertions are needed for inferred schema types. Throws for developer errors (calling
-    // args() outside command context) which should crash immediately during development.
+    // Type assertions are needed for inferred schema types.
     files: ['packages/core/src/command/primitives/args.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@9wick/strict-type-rules/no-throw': 'off',
-    },
-  },
-  {
-    // Rate limiter wraps KV errors at the service boundary.
-    files: ['packages/rate-limit/src/rate-limit.service.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-try-catch': 'off',
     },
   },
   {
