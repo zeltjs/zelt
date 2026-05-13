@@ -1,10 +1,10 @@
 import type { Lifecycle } from '@zeltjs/core';
 import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
 
-import { KVError } from './errors';
-import { joinPrefix } from './namespace';
-import { deserialize, serialize } from './serialize';
-import type { AtomicKVDriver, AtomicKVStore, Defined, NonEmptyString, SetOptions } from './types';
+import { KVError } from '../errors';
+import { joinPrefix } from '../namespace';
+import { deserialize, serialize } from '../serialize';
+import type { AtomicKVAdaptor, AtomicKVStore, Defined, NonEmptyString, SetOptions } from '../types';
 
 type Entry = {
   raw: string;
@@ -21,7 +21,7 @@ function makeEntry(raw: string, ttlSec?: number): Entry {
 }
 
 @Injectable()
-export class MemoryKVDriver implements AtomicKVDriver, Lifecycle {
+export class MemoryKVAdaptor implements AtomicKVAdaptor, Lifecycle {
   private readonly data = new Map<string, Entry>();
   private readonly gcInterval: ReturnType<typeof setInterval>;
 

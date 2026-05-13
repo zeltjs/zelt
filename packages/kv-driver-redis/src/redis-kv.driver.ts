@@ -1,13 +1,13 @@
 import type { Lifecycle } from '@zeltjs/core';
 import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
-import type { AtomicKVDriver, AtomicKVStore, NonEmptyString } from '@zeltjs/kv';
+import type { AtomicKVAdaptor, AtomicKVStore, NonEmptyString } from '@zeltjs/kv';
 
 import { RedisKVConfig } from './redis-kv.config';
 import { RedisKVStore } from './redis-kv-store';
 import { ZeltRedis } from './zelt-redis';
 
 @Injectable()
-export class RedisKVDriver implements AtomicKVDriver, Lifecycle {
+export class RedisKVDriver implements AtomicKVAdaptor, Lifecycle {
   private readonly client: ZeltRedis;
 
   constructor(config = inject(RedisKVConfig), lifecycle = inject(LifecycleManager)) {

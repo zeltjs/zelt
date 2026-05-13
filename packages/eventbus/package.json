@@ -1,12 +1,12 @@
 {
-  "name": "@zeltjs/kv",
+  "name": "@zeltjs/eventbus",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zeltjs/zelt.git",
-    "directory": "packages/kv"
+    "directory": "packages/eventbus"
   },
   "publishConfig": {
     "access": "public"
@@ -35,8 +35,7 @@
   },
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
-    "@zeltjs/redis": "workspace:*",
-    "vitest": ">=4 <5"
+    "@zeltjs/redis": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@zeltjs/redis": {

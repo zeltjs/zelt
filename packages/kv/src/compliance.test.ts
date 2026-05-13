@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { KVError } from './errors';
-import type { AtomicKVDriver, AtomicKVStore, KVDriver, KVStore } from './types';
+import type { AtomicKVAdaptor, AtomicKVStore, KVAdaptor, KVStore } from './types';
 
 export type ComplianceOptions = {
   /** Use real wall-clock sleeps instead of fake timers for TTL tests (needed for real backends like Redis). */
@@ -45,7 +45,7 @@ const runKVStoreGetSetDelTests = (getStore: () => KVStore): void => {
   });
 };
 
-const runKVStoreNamespaceTests = (getDriver: () => KVDriver, getStore: () => KVStore): void => {
+const runKVStoreNamespaceTests = (getDriver: () => KVAdaptor, getStore: () => KVStore): void => {
   it('chained namespace concatenates prefixes', async () => {
     const store = getStore();
     const sub = store.namespace('sub:');
@@ -72,11 +72,11 @@ const runKVStoreValidationTests = (getStore: () => KVStore): void => {
   });
 };
 
-const runKVStoreBasicTests = (factory: () => KVDriver): void => {
+const runKVStoreBasicTests = (factory: () => KVAdaptor): void => {
   describe('KVStore compliance', () => {
-    let driver: KVDriver;
+    let driver: KVAdaptor;
     let store: KVStore;
-    const getDriver = (): KVDriver => driver;
+    const getDriver = (): KVAdaptor => driver;
     const getStore = (): KVStore => store;
 
     beforeEach(() => {
@@ -90,7 +90,7 @@ const runKVStoreBasicTests = (factory: () => KVDriver): void => {
   });
 };
 
-const runKVStoreTTLTestsRealClock = (factory: () => KVDriver, sleepMs: number): void => {
+const runKVStoreTTLTestsRealClock = (factory: () => KVAdaptor, sleepMs: number): void => {
   describe('KVStore TTL compliance', () => {
     it(
       'TTL expires the key',
@@ -126,7 +126,7 @@ const runKVStoreTTLTestsRealClock = (factory: () => KVDriver, sleepMs: number): 
   });
 };
 
-const runKVStoreTTLTestsFakeClock = (factory: () => KVDriver): void => {
+const runKVStoreTTLTestsFakeClock = (factory: () => KVAdaptor): void => {
   describe('KVStore TTL compliance', () => {
     beforeEach(() => {
       vi.useFakeTimers();
@@ -161,7 +161,7 @@ const runKVStoreTTLTestsFakeClock = (factory: () => KVDriver): void => {
   });
 };
 
-const runKVStoreNamespaceIsolationTests = (factory: () => KVDriver): void => {
+const runKVStoreNamespaceIsolationTests = (factory: () => KVAdaptor): void => {
   describe('KVStore namespace compliance', () => {
     it('namespace isolates keys (cache:foo vs ratelimit:foo)', async () => {
       const a = factory().namespace('a:');
@@ -174,7 +174,7 @@ const runKVStoreNamespaceIsolationTests = (factory: () => KVDriver): void => {
 };
 
 export const runKVStoreComplianceTests = (
-  factory: () => KVDriver,
+  factory: () => KVAdaptor,
   options?: ComplianceOptions,
 ): void => {
   const realClock = options?.realClock ?? false;
@@ -189,7 +189,7 @@ export const runKVStoreComplianceTests = (
   runKVStoreNamespaceIsolationTests(factory);
 };
 
-const runAtomicKVStoreBasicTests = (factory: () => AtomicKVDriver): void => {
+const runAtomicKVStoreBasicTests = (factory: () => AtomicKVAdaptor): void => {
   describe('AtomicKVStore compliance', () => {
     let store: AtomicKVStore;
 
@@ -218,7 +218,7 @@ const runAtomicKVStoreBasicTests = (factory: () => AtomicKVDriver): void => {
 };
 
 const runAtomicKVStoreTTLTestsRealClock = (
-  factory: () => AtomicKVDriver,
+  factory: () => AtomicKVAdaptor,
   sleepMs: number,
 ): void => {
   describe('AtomicKVStore TTL compliance', () => {
@@ -238,7 +238,7 @@ const runAtomicKVStoreTTLTestsRealClock = (
   });
 };
 
-const runAtomicKVStoreTTLTestsFakeClock = (factory: () => AtomicKVDriver): void => {
+const runAtomicKVStoreTTLTestsFakeClock = (factory: () => AtomicKVAdaptor): void => {
   describe('AtomicKVStore TTL compliance', () => {
     beforeEach(() => {
       vi.useFakeTimers();
@@ -260,7 +260,7 @@ const runAtomicKVStoreTTLTestsFakeClock = (factory: () => AtomicKVDriver): void 
 };
 
 export const runAtomicKVStoreComplianceTests = (
-  factory: () => AtomicKVDriver,
+  factory: () => AtomicKVAdaptor,
   options?: ComplianceOptions,
 ): void => {
   runKVStoreComplianceTests(factory, options);
