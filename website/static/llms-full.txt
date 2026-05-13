@@ -1,3 +1,0 @@
-# Full LLM Documentation
-
-This file is a placeholder for full LLM documentation.
