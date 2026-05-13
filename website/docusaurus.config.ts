@@ -1,5 +1,6 @@
 import type * as Preset from '@docusaurus/preset-classic';
 import type { Config } from '@docusaurus/types';
+import type { PluginOptions as SearchPluginOptions } from '@easyops-cn/docusaurus-search-local';
 import kanagawa from './src/prism-theme-kanagawa';
 
 const config: Config = {
@@ -82,6 +83,20 @@ const config: Config = {
         sidebarPath: './sidebars-examples.ts',
         editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
       },
+    ],
+  ],
+
+  themes: [
+    [
+      '@easyops-cn/docusaurus-search-local',
+      {
+        hashed: true,
+        language: ['en', 'ja'],
+        indexDocs: true,
+        indexBlog: false,
+        docsRouteBasePath: '/',
+        highlightSearchTermsOnTargetPage: true,
+      } satisfies SearchPluginOptions,
     ],
   ],
 

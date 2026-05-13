@@ -76,7 +76,16 @@ const config: KnipConfig = {
       // wrangler is used by Cloudflare Workers build system for deployment
       // @docusaurus/theme-common is used by swizzled theme components
       // clsx is used by swizzled theme components
-      ignoreDependencies: ['@docusaurus/theme-common', 'clsx', 'prism-react-renderer', 'wrangler'],
+      // @easyops-cn/docusaurus-search-local is a Docusaurus theme loaded at runtime
+      // @easyops-cn/docusaurus-theme-docusaurus-search-local is an internal dependency of docusaurus-search-local
+      ignoreDependencies: [
+        '@docusaurus/theme-common',
+        '@easyops-cn/docusaurus-search-local',
+        '@easyops-cn/docusaurus-theme-docusaurus-search-local',
+        'clsx',
+        'prism-react-renderer',
+        'wrangler',
+      ],
       // Swizzled Docusaurus theme components are loaded by Docusaurus at runtime
       ignore: ['src/theme/**'],
     },
