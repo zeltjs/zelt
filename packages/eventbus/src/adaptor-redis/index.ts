@@ -1,1 +1,1 @@
-export { RedisEventBusAdaptor } from './redis-event-bus-adaptor';
+export { RedisEventBusAdaptor } from './redis-event-bus.adaptor';

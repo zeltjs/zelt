@@ -47,6 +47,7 @@ export default tseslint.config(
       '**/*.test.{ts,tsx}',
       '**/*.type.{ts,tsx}',
       '**/*.types.{ts,tsx}',
+      '**/*.adaptor.{ts,tsx}',
     ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
@@ -301,7 +302,7 @@ export default tseslint.config(
     // EventBus uses generic event schema with keyof - type assertions needed at emit/subscribe boundary.
     files: [
       'packages/eventbus/src/adaptor-memory/memory-event-bus.adaptor.ts',
-      'packages/eventbus/src/adaptor-redis/redis-event-bus-adaptor.ts',
+      'packages/eventbus/src/adaptor-redis/redis-event-bus.adaptor.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
