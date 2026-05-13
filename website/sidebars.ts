@@ -76,6 +76,23 @@ const sidebars: SidebarsConfig = {
       items: ['hono-client', 'openapi', 'bullmq'],
     },
     {
+      type: 'category',
+      label: 'LLM',
+      collapsed: true,
+      items: [
+        {
+          type: 'link',
+          label: 'llms.txt',
+          href: '/llms.txt',
+        },
+        {
+          type: 'link',
+          label: 'llms-full.txt',
+          href: '/llms-full.txt',
+        },
+      ],
+    },
+    {
       type: 'link',
       label: 'Examples',
       href: '/examples/drizzle-todo',
