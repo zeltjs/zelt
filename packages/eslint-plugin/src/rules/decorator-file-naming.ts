@@ -17,6 +17,7 @@ const SUFFIX_MAP: Record<string, string> = {
   Formatter: 'formatter',
   Transport: 'transport',
   Driver: 'driver',
+  Adaptor: 'adaptor',
 };
 
 function findDIDecorator(decorators: Decorator[]): string | null {

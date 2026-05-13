@@ -2,15 +2,16 @@
 export type NonEmptyString<S extends string> = S extends '' ? never : S;
 
 /** undefined を除外した値型 */
+// biome-ignore lint/complexity/noBannedTypes: Defined intentionally uses {} to mean "any non-undefined value"
 export type Defined = {} | null;
 
-/** Top-level driver. namespace で view を取り出すまで data ops は不可。 */
-export interface KVDriver {
+/** Top-level adaptor. namespace で view を取り出すまで data ops は不可。 */
+export interface KVAdaptor {
   namespace<const S extends string>(prefix: NonEmptyString<S>): KVStore;
 }
 
-/** atomic 操作対応の driver。namespace の戻り値が AtomicKVStore */
-export interface AtomicKVDriver extends KVDriver {
+/** atomic 操作対応の adaptor。namespace の戻り値が AtomicKVStore */
+export interface AtomicKVAdaptor extends KVAdaptor {
   namespace<const S extends string>(prefix: NonEmptyString<S>): AtomicKVStore;
 }
 

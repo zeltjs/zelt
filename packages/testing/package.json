@@ -47,7 +47,7 @@
   },
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
-    "@zeltjs/kv-driver-redis": "workspace:*",
+    "@zeltjs/redis": "workspace:*",
     "testcontainers": ">=10 <12",
     "vitest": ">=2",
     "@jest/globals": ">=29",
@@ -55,7 +55,7 @@
     "@types/node": ">=20"
   },
   "peerDependenciesMeta": {
-    "@zeltjs/kv-driver-redis": {
+    "@zeltjs/redis": {
       "optional": true
     },
     "testcontainers": {
@@ -75,7 +75,7 @@
     }
   },
   "devDependencies": {
-    "@zeltjs/kv-driver-redis": "workspace:*",
+    "@zeltjs/redis": "workspace:*",
     "@jest/globals": "29.7.0",
     "bun-types": "1.2.14",
     "testcontainers": "10.25.0",

@@ -1,12 +1,12 @@
 {
-  "name": "@zeltjs/kv-driver-redis",
+  "name": "@zeltjs/eventbus",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zeltjs/zelt.git",
-    "directory": "packages/kv-driver-redis"
+    "directory": "packages/eventbus"
   },
   "publishConfig": {
     "access": "public"
@@ -15,6 +15,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./adaptor-memory": {
+      "types": "./dist/adaptor-memory/index.d.ts",
+      "import": "./dist/adaptor-memory/index.js"
+    },
+    "./adaptor-redis": {
+      "types": "./dist/adaptor-redis/index.d.ts",
+      "import": "./dist/adaptor-redis/index.js"
     }
   },
   "files": [
@@ -27,14 +35,17 @@
   },
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
-    "@zeltjs/kv": "workspace:*"
+    "@zeltjs/redis": "workspace:*"
   },
-  "dependencies": {
-    "ioredis": "5.10.1"
+  "peerDependenciesMeta": {
+    "@zeltjs/redis": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@zeltjs/core": "workspace:*",
-    "@zeltjs/kv": "workspace:*",
-    "@types/node": "22.19.17"
+    "@zeltjs/redis": "workspace:*",
+    "@types/node": "22.19.17",
+    "ioredis": "5.10.1"
   }
 }
