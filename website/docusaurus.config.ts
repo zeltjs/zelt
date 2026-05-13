@@ -1,6 +1,6 @@
 import type * as Preset from '@docusaurus/preset-classic';
 import type { Config } from '@docusaurus/types';
-import { themes as prismThemes } from 'prism-react-renderer';
+import kanagawa from './src/prism-theme-kanagawa';
 
 const config: Config = {
   title: 'Zelt',
@@ -30,6 +30,31 @@ const config: Config = {
     locales: ['en', 'ja'],
   },
 
+  headTags: [
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'preconnect',
+        href: 'https://fonts.googleapis.com',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'preconnect',
+        href: 'https://fonts.gstatic.com',
+        crossorigin: 'anonymous',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap',
+      },
+    },
+  ],
+
   presets: [
     [
       'classic',
@@ -44,6 +69,19 @@ const config: Config = {
           customCss: './src/css/custom.css',
         },
       } satisfies Preset.Options,
+    ],
+  ],
+
+  plugins: [
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'examples',
+        path: 'examples',
+        routeBasePath: 'examples',
+        sidebarPath: './sidebars-examples.ts',
+        editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
+      },
     ],
   ],
 
@@ -66,47 +104,28 @@ const config: Config = {
           label: 'Docs',
         },
         {
+          to: '/examples/drizzle-todo',
+          position: 'left',
+          label: 'Examples',
+          activeBaseRegex: '/examples/',
+        },
+        {
           type: 'localeDropdown',
           position: 'right',
+          dropdownItemsAfter: [],
+          className: 'navbar__locale',
         },
         {
           href: 'https://github.com/zeltjs/zelt',
-          label: 'GitHub',
           position: 'right',
+          className: 'navbar__github',
+          'aria-label': 'GitHub repository',
         },
       ],
-    },
-    footer: {
-      style: 'dark',
-      links: [
-        {
-          title: 'Docs',
-          items: [
-            {
-              label: 'Introduction',
-              to: '/',
-            },
-            {
-              label: 'Getting Started',
-              to: '/getting-started/basic',
-            },
-          ],
-        },
-        {
-          title: 'More',
-          items: [
-            {
-              label: 'GitHub',
-              href: 'https://github.com/zeltjs/zelt',
-            },
-          ],
-        },
-      ],
-      copyright: `Copyright © ${new Date().getFullYear()} Zelt. Built with Docusaurus.`,
     },
     prism: {
-      theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      theme: kanagawa,
+      darkTheme: kanagawa,
       additionalLanguages: ['bash', 'typescript', 'json'],
     },
   } satisfies Preset.ThemeConfig,

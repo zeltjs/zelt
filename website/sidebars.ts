@@ -21,27 +21,29 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Authentication',
-      collapsed: false,
-      items: [
-        'authentication/overview',
-        'authentication/user-context',
-        'authentication/jwt',
-        'authentication/sessions',
-        'authentication/custom',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Authorization',
-      collapsed: false,
-      items: ['authorization/roles', 'authorization/access-control'],
-    },
-    {
-      type: 'category',
       label: 'Security',
       collapsed: false,
-      items: ['rate-limiting'],
+      items: [
+        'rate-limiting',
+        {
+          type: 'category',
+          label: 'Authentication',
+          collapsed: false,
+          items: [
+            'authentication/overview',
+            'authentication/user-context',
+            'authentication/jwt',
+            'authentication/sessions',
+            'authentication/custom',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Authorization',
+          collapsed: false,
+          items: ['authorization/roles', 'authorization/access-control'],
+        },
+      ],
     },
     {
       type: 'category',
@@ -74,10 +76,9 @@ const sidebars: SidebarsConfig = {
       items: ['hono-client', 'openapi', 'bullmq'],
     },
     {
-      type: 'category',
+      type: 'link',
       label: 'Examples',
-      collapsed: false,
-      items: ['examples/drizzle-todo', 'examples/workers-url-shortener'],
+      href: '/examples/drizzle-todo',
     },
   ],
 };

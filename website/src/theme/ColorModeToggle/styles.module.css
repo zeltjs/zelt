@@ -1,0 +1,62 @@
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 48px;
+  height: 24px;
+  padding: 0 4px;
+  border-radius: 12px;
+  background-color: var(--ifm-color-emphasis-300);
+  transition: background-color 0.25s ease;
+}
+
+[data-theme='dark'] .track {
+  background-color: var(--ifm-color-primary);
+}
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  z-index: 1;
+}
+
+.icon {
+  width: 12px;
+  height: 12px;
+  color: var(--ifm-font-color-base);
+  opacity: 0.6;
+}
+
+[data-theme='dark'] .icon {
+  color: #fff;
+}
+
+.thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.25s ease;
+}
+
+.thumbDark {
+  transform: translateX(24px);
+}
