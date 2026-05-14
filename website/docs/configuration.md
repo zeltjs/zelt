@@ -183,7 +183,7 @@ export class MyEnvConfig extends DotEnvConfig {
 
 ### Cloudflare Workers Environment
 
-For Cloudflare Workers, environment configuration is handled automatically by `onCloudflareWorkers()`. See the [Cloudflare Workers Getting Started guide](/getting-started/cloudflare-workers) for details.
+For Cloudflare Workers, environment configuration is handled automatically by `onCloudflareWorkers()`. See the [Cloudflare Workers Getting Started guide](./getting-started/cloudflare-workers) for details.
 
 ## TypeScript Decorator Configuration
 

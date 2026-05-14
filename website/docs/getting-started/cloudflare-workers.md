@@ -236,8 +236,8 @@ export default await onCloudflareWorkers(app, { warmup: true });
 
 Now that you have a basic worker running, explore more features:
 
-- [Controllers](/controllers) — Route handling and HTTP methods
-- [Services](/services) — Business logic and dependency injection
-- [Validation](/validation) — Request body validation with Valibot
-- [Middleware](/middleware) — Request/response interceptors
-- [Configuration](/configuration) — Advanced configuration patterns
+- [Controllers](../controllers) — Route handling and HTTP methods
+- [Services](../services) — Business logic and dependency injection
+- [Validation](../validation) — Request body validation with Valibot
+- [Middleware](../middleware) — Request/response interceptors
+- [Configuration](../configuration) — Advanced configuration patterns
