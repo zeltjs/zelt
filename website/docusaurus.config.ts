@@ -54,6 +54,24 @@ const config: Config = {
         href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap',
       },
     },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'alternate',
+        type: 'text/markdown',
+        href: '/llms.txt',
+        title: 'LLM Documentation Index',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'alternate',
+        type: 'text/markdown',
+        href: '/llms-full.txt',
+        title: 'LLM Full Documentation',
+      },
+    },
   ],
 
   presets: [
@@ -84,6 +102,17 @@ const config: Config = {
         editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
       },
     ],
+    [
+      'docusaurus-plugin-llms',
+      {
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: 'docs',
+        title: 'Zelt Documentation',
+        description: 'A fast, type-safe application framework for TypeScript',
+      },
+    ],
+    'docusaurus-markdown-source-plugin',
   ],
 
   themes: [

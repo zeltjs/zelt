@@ -529,6 +529,12 @@ importers:
       clsx:
         specifier: 2.1.1
         version: 2.1.1
+      docusaurus-markdown-source-plugin:
+        specifier: 2.2.5
+        version: 2.2.5(@docusaurus/core@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      docusaurus-plugin-llms:
+        specifier: 0.4.0
+        version: 0.4.0(@docusaurus/core@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2))
       prism-react-renderer:
         specifier: ^2.3.0
         version: 2.4.1(react@19.2.5)
@@ -6273,6 +6279,20 @@ packages:
   dockerode@4.0.12:
     resolution: {integrity: sha512-/bCZd6KlGcjZO8Buqmi/vXuqEGVEZ0PNjx/biBNqJD3MhK9DmdiAuKxqfNhflgDESDIiBz3qF+0e55+CpnrUcw==}
     engines: {node: '>= 8.0'}
+
+  docusaurus-markdown-source-plugin@2.2.5:
+    resolution: {integrity: sha512-UP/ilYJ66Yyt+8wjFzRK7xYLm6z4QxZy6fo6myvjtV5MNi1SKhbaPTBMD/sZjn2icCtsFlpwL+rf9JEpaw3VSA==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      '@docusaurus/core': ^3.0.0
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+
+  docusaurus-plugin-llms@0.4.0:
+    resolution: {integrity: sha512-jYlj2HJ5+gu7oJZuJ83Hk8KlB65YlZZ/7UpHXiL7Qr+qpNBkVocmt2Molc6F3HNr5RqcfhWD/98CvgyNztg/ow==}
+    engines: {node: '>=18.0'}
+    peerDependencies:
+      '@docusaurus/core': ^3.0.0
 
   dom-converter@0.2.0:
     resolution: {integrity: sha512-gd3ypIPfOMr9h5jIKq8E3sHOTCjeirnl0WK5ZdS1AW0Odt0b1PaWaHdJ4Qk4klv+YB9aJBS7mESXjFoDQPu6DA==}
@@ -15414,7 +15434,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@types/node@22.19.17)(@vitest/coverage-v8@4.1.5)(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.3))
+      vitest: 4.1.5(@types/node@24.12.4)(@vitest/coverage-v8@4.1.5)(vite@8.0.10(@types/node@24.12.4)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.3))
 
   '@vitest/expect@4.1.5':
     dependencies:
@@ -16703,6 +16723,20 @@ snapshots:
       uuid: 10.0.0
     transitivePeerDependencies:
       - supports-color
+
+  docusaurus-markdown-source-plugin@2.2.5(@docusaurus/core@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2))(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
+    dependencies:
+      '@docusaurus/core': 3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(debug@4.4.3)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2)
+      fs-extra: 11.3.4
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
+
+  docusaurus-plugin-llms@0.4.0(@docusaurus/core@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2)):
+    dependencies:
+      '@docusaurus/core': 3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(debug@4.4.3)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2)
+      gray-matter: 4.0.3
+      minimatch: 9.0.9
+      yaml: 2.8.3
 
   dom-converter@0.2.0:
     dependencies:
