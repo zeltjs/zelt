@@ -78,11 +78,16 @@ const config: KnipConfig = {
       // clsx is used by swizzled theme components
       // @easyops-cn/docusaurus-search-local is a Docusaurus theme loaded at runtime
       // @easyops-cn/docusaurus-theme-docusaurus-search-local is an internal dependency of docusaurus-search-local
+      // docusaurus-markdown-source-plugin / docusaurus-plugin-llms are Docusaurus plugins loaded at runtime
+      // docusaurus-plugin-docusaurus-markdown-source-plugin is internal Docusaurus plugin resolution
       ignoreDependencies: [
         '@docusaurus/theme-common',
         '@easyops-cn/docusaurus-search-local',
         '@easyops-cn/docusaurus-theme-docusaurus-search-local',
         'clsx',
+        'docusaurus-markdown-source-plugin',
+        'docusaurus-plugin-docusaurus-markdown-source-plugin',
+        'docusaurus-plugin-llms',
         'prism-react-renderer',
         'wrangler',
       ],
