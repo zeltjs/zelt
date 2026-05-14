@@ -3,9 +3,11 @@ import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
 
-import { ConfigLoadError, loadZeltConfig } from '../config/loader';
+import { loadZeltConfig } from '../config/loader';
 import type { DevConfig } from '../config/schema';
 import { startDevServer } from '../dev-server/server';
+import type { ZeltConfigLoadError } from '../errors';
+import { isZeltConfigLoadError, isZeltNoEntryError, ZeltNoEntryError } from '../errors';
 
 const cliConfig = new NodeCliConfig();
 
@@ -15,11 +17,7 @@ type DevArgs = {
   readonly port?: string;
 };
 
-class NoEntryError extends Error {
-  readonly type = 'NO_ENTRY' as const;
-}
-
-type DevError = ConfigLoadError | NoEntryError;
+type DevError = InstanceType<typeof ZeltConfigLoadError> | InstanceType<typeof ZeltNoEntryError>;
 
 const resolveDevConfig = (args: DevArgs, devConfig: DevConfig | undefined) => {
   const entry = args.entry ?? devConfig?.entry;
@@ -32,13 +30,14 @@ const resolveDevConfig = (args: DevArgs, devConfig: DevConfig | undefined) => {
   };
 };
 
+/** @throws {ZeltConfigLoadError | ZeltNoEntryError | InvalidConfigExportError} */
 const runDev = async (cwd: string, typedArgs: DevArgs): Promise<void> => {
   const configFile = typedArgs.config;
   const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
   const devConfig = resolveDevConfig(typedArgs, config.dev);
 
   if (devConfig.entry === undefined) {
-    throw new NoEntryError();
+    throw new ZeltNoEntryError({});
   }
 
   await startDevServer({ cwd, config: { ...devConfig, entry: devConfig.entry } });
@@ -46,13 +45,13 @@ const runDev = async (cwd: string, typedArgs: DevArgs): Promise<void> => {
 
 const handleError = (error: DevError): void => {
   match(error)
-    .with({ type: 'CONFIG_LOAD_FAILED' }, () => {
+    .when(isZeltConfigLoadError, () => {
       consola.error('Failed to load config');
     })
-    .with({ type: 'NO_ENTRY' }, () => {
+    .when(isZeltNoEntryError, () => {
       consola.error('No entry file specified. Use --entry or set dev.entry in zelt.config.ts');
     })
-    .exhaustive();
+    .otherwise(() => {});
 };
 
 export const devCommand = defineCommand({
@@ -84,7 +83,7 @@ export const devCommand = defineCommand({
     try {
       await runDev(cwd, typedArgs);
     } catch (error) {
-      if (error instanceof ConfigLoadError || error instanceof NoEntryError) {
+      if (isZeltConfigLoadError(error) || isZeltNoEntryError(error)) {
         handleError(error);
       } else {
         throw error;

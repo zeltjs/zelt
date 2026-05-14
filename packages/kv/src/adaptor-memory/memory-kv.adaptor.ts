@@ -1,7 +1,7 @@
 import type { Lifecycle } from '@zeltjs/core';
 import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
 
-import { KVError } from '../errors';
+import { ZeltKVInvalidTtlError } from '../errors';
 import { joinPrefix } from '../namespace';
 import { deserialize, serialize } from '../serialize';
 import type { AtomicKVAdaptor, AtomicKVStore, Defined, NonEmptyString, SetOptions } from '../types';
@@ -12,8 +12,9 @@ type Entry = {
   expiresAt?: number;
 };
 
+/** @throws {ZeltKVInvalidTtlError} */
 function validateTtl(ttlSec: number | undefined): void {
-  if (ttlSec !== undefined && ttlSec <= 0) throw KVError.invalidTtl(ttlSec);
+  if (ttlSec !== undefined && ttlSec <= 0) throw new ZeltKVInvalidTtlError({ ttlSec });
 }
 
 function makeEntry(raw: string, ttlSec?: number): Entry {

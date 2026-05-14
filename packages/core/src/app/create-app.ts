@@ -72,6 +72,7 @@ type AppState = {
   disposed: boolean;
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const createReadyResult = (context: ReadyContext): ReadyResult => ({
   get: <T extends object>(cls: new (...args: never[]) => T): T => context.resolver.get(cls),
   getConfig: <T extends object>(configClass: ConfigClass<T>): T =>
@@ -133,6 +134,7 @@ type ReadyDeps = {
   configs: readonly ConfigClass<object>[];
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const createReady =
   (deps: ReadyDeps) =>
   async (readyOptions?: ReadyOptions): Promise<ReadyResult> => {
@@ -183,6 +185,7 @@ const createShutdown = (deps: ShutdownDeps) => async (): Promise<void> => {
 };
 
 const createSchedulerMethods = (schedulerModule: SchedulerModule): SchedulerCapabilities => {
+  /** @throws {ZeltLifecycleStateError} */
   const startScheduler = async (): Promise<void> => {
     const runner = schedulerModule.getRunner();
     if (runner && !runner.isRunning()) {
@@ -200,6 +203,7 @@ const createSchedulerMethods = (schedulerModule: SchedulerModule): SchedulerCapa
   return { startScheduler, stopScheduler };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const buildAppObject = (
   appModules: AppModules,
   state: AppState,
@@ -229,7 +233,9 @@ const buildAppObject = (
   return { ...baseApp, ...httpMethods, ...commandMethods, ...schedulerMethods };
 };
 
+/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export function createApp<TOptions extends CreateAppOptions>(options: TOptions): App<TOptions>;
+/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export function createApp(options: CreateAppOptions): App<CreateAppOptions> {
   if (!options.http && !options.commands?.length) {
     throw new ZeltAppConfigurationError({ reason: 'no_http_or_commands' });

@@ -1,5 +1,6 @@
 import { getEntryContext } from '../internal/entry-context';
 
+/** @throws {ZeltContextNotAvailableError} */
 export const ip = (): string => {
   const honoCtx = getEntryContext().honoContext;
   return (

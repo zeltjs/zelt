@@ -5,6 +5,10 @@ export interface RequestContextSchema {
   authRoles: string[];
 }
 
+/**
+ * @throws {ZeltContextNotAvailableError}
+ * @throws {ZeltLifecycleStateError}
+ */
 export const getContext = <K extends keyof RequestContextSchema>(
   key: K,
 ): RequestContextSchema[K] | undefined => {
@@ -13,6 +17,7 @@ export const getContext = <K extends keyof RequestContextSchema>(
   return value;
 };
 
+/** @throws {ZeltContextNotAvailableError} */
 export const setContext = <K extends keyof RequestContextSchema>(
   key: K,
   value: RequestContextSchema[K],

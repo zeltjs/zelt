@@ -71,6 +71,7 @@ const createServeForHttp = (
   };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const runCommand = (
   CommandClass: CommandClass,
   get: <T extends object>(cls: new (...args: never[]) => T) => T,
@@ -82,6 +83,7 @@ const runCommand = (
     .catch(() => failureResult);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const createExecForCommands = (
   hasCommand: (name: string) => boolean,
   getCommands: () => ReadonlyMap<string, CommandClass>,
@@ -138,6 +140,7 @@ const buildHttpBunApp = (
   return { ...resolver, args, serve: createServeForHttp(caps.fetch, shutdown), shutdown };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const buildCommandBunApp = (
   caps: AppCapabilities,
   resolver: ReadyResult,
@@ -155,6 +158,7 @@ const buildCommandBunApp = (
   };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const buildBunApps = (
   caps: AppCapabilities,
   resolver: ReadyResult,
@@ -187,9 +191,13 @@ const mergeBunApps = (
   };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export function onBun(app: HttpApp & CommandApp, options?: BunAppOptions): Promise<FullBunApp>;
+/** @throws {ZeltLifecycleStateError} */
 export function onBun(app: HttpApp, options?: BunAppOptions): Promise<HttpBunApp>;
+/** @throws {ZeltLifecycleStateError} */
 export function onBun(app: CommandApp, options?: BunAppOptions): Promise<CommandBunApp>;
+/** @throws {ZeltLifecycleStateError} */
 export async function onBun(
   app: HttpApp | CommandApp | (HttpApp & CommandApp),
   options: BunAppOptions = {},

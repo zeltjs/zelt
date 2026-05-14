@@ -24,6 +24,7 @@ export type GenerateClientResult = {
   readonly openApiChanged: boolean;
 };
 
+/** @throws {ContractError | AnalyzerError} */
 export const generateClient = async (
   options: GenerateClientOptions,
 ): Promise<GenerateClientResult> => {

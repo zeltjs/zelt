@@ -3,6 +3,7 @@ import { resolveMethodArgs } from '../../internal/decorator-context';
 import type { HttpMethod } from '../internal/metadata';
 import { appendPendingRouteMetadata } from '../internal/metadata';
 
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 const makeDecorator =
   (method: HttpMethod) =>
   (path: string) =>

@@ -4,14 +4,17 @@ import { HTTPException } from 'hono/http-exception';
 import type { GenericSchema, InferOutput } from 'valibot';
 import { safeParse } from 'valibot';
 
+/** @throws {HTTPException | ZeltContextNotAvailableError} */
 export function validated<Schema extends GenericSchema>(
   schema: Schema,
   target?: 'json',
 ): ValidatedMarker<InferOutput<Schema>, 'json'>;
+/** @throws {HTTPException | ZeltContextNotAvailableError} */
 export function validated<Schema extends GenericSchema>(
   schema: Schema,
   target: 'form',
 ): ValidatedMarker<InferOutput<Schema>, 'form'>;
+/** @throws {HTTPException | ZeltContextNotAvailableError} */
 export function validated<Schema extends GenericSchema>(
   schema: Schema,
   target: ValidationTarget = 'json',

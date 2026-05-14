@@ -3,6 +3,7 @@ import { resolveMethodArgs } from '../../internal/decorator-context';
 import { appendPendingSkipMiddlewareMetadata } from '../internal/metadata';
 import type { MiddlewareIdentifier } from '../middleware/types';
 
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const SkipMiddleware =
   (...middlewares: MiddlewareIdentifier[]) =>
   (...args: unknown[]): void => {

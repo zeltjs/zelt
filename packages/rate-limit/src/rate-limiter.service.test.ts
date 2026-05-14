@@ -1,7 +1,7 @@
 import type { LoggerService } from '@zeltjs/core';
 import { createTestTargetBase } from '@zeltjs/core/internal-bridge/testing';
 import type { AtomicKVStore } from '@zeltjs/kv';
-import { KVError, MemoryKVService } from '@zeltjs/kv';
+import { MemoryKVService } from '@zeltjs/kv';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { RateLimitConfig } from './rate-limit.config';
@@ -71,7 +71,7 @@ describe('RateLimitService', () => {
     const failingConfig = new RateLimitConfig(memoryKv);
     Object.defineProperty(failingConfig, 'store', {
       value: {
-        incr: vi.fn().mockRejectedValue(KVError.storeOperationFailed('incr', new Error('boom'))),
+        incr: vi.fn().mockRejectedValue(new Error('redis connection refused')),
         del: vi.fn(),
       } as unknown as AtomicKVStore,
     });
@@ -86,7 +86,7 @@ describe('RateLimitService', () => {
     const failingConfig = new RateLimitConfig(memoryKv);
     Object.defineProperty(failingConfig, 'store', {
       value: {
-        incr: vi.fn().mockRejectedValue(KVError.storeOperationFailed('incr', new Error('boom'))),
+        incr: vi.fn().mockRejectedValue(new Error('redis connection refused')),
         del: vi.fn(),
       } as unknown as AtomicKVStore,
     });

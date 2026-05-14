@@ -11,6 +11,7 @@ const storage = new AsyncLocalStorage<CommandContextStore>();
 export const runInCommandContext = <T>(ctx: CommandContextStore, fn: () => T): T =>
   storage.run(ctx, fn);
 
+/** @throws {ZeltContextNotAvailableError} */
 export const getCommandContext = (): CommandContextStore => {
   const ctx = storage.getStore();
   if (!ctx) {

@@ -8,6 +8,7 @@ type DailyOptions = {
   readonly tz?: string;
 };
 
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const Daily =
   (options: DailyOptions) =>
   (...args: unknown[]): void => {

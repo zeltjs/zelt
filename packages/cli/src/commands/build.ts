@@ -3,9 +3,16 @@ import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
 
-import { BuildError, runTsdownBuild } from '../builders/tsdown';
-import { ConfigLoadError, loadZeltConfig } from '../config/loader';
+import { runTsdownBuild } from '../builders/tsdown';
+import { loadZeltConfig } from '../config/loader';
 import type { BuildConfig } from '../config/schema';
+import type { ZeltBuildError, ZeltConfigLoadError } from '../errors';
+import {
+  isZeltBuildError,
+  isZeltConfigLoadError,
+  isZeltNoEntryError,
+  ZeltNoEntryError,
+} from '../errors';
 
 const cliConfig = new NodeCliConfig();
 
@@ -15,11 +22,10 @@ type BuildArgs = {
   readonly outDir?: string;
 };
 
-class NoEntryError extends Error {
-  readonly type = 'NO_ENTRY' as const;
-}
-
-type RunBuildError = ConfigLoadError | BuildError | NoEntryError;
+type RunBuildError =
+  | InstanceType<typeof ZeltConfigLoadError>
+  | InstanceType<typeof ZeltBuildError>
+  | InstanceType<typeof ZeltNoEntryError>;
 
 const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefined) => ({
   ...buildConfig,
@@ -27,13 +33,14 @@ const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefine
   outDir: args.outDir ?? buildConfig?.outDir,
 });
 
+/** @throws {ZeltConfigLoadError | ZeltBuildError | ZeltNoEntryError | InvalidConfigExportError} */
 const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
   const configFile = typedArgs.config;
   const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
   const buildConfig = resolveBuildConfig(typedArgs, config.build);
 
   if (buildConfig.entry === undefined) {
-    throw new NoEntryError();
+    throw new ZeltNoEntryError({});
   }
 
   consola.start('Building...');
@@ -43,16 +50,16 @@ const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
 
 const handleError = (error: RunBuildError): void => {
   match(error)
-    .with({ type: 'CONFIG_LOAD_FAILED' }, () => {
+    .when(isZeltConfigLoadError, () => {
       consola.error('Failed to load config');
     })
-    .with({ type: 'NO_ENTRY' }, () => {
+    .when(isZeltNoEntryError, () => {
       consola.error('No entry file specified. Use --entry or set build.entry in zelt.config.ts');
     })
-    .with({ type: 'BUILD_FAILED' }, () => {
+    .when(isZeltBuildError, () => {
       consola.error('Build failed');
     })
-    .exhaustive();
+    .otherwise(() => {});
 };
 
 export const buildCommand = defineCommand({
@@ -84,11 +91,7 @@ export const buildCommand = defineCommand({
     try {
       await runBuild(cwd, typedArgs);
     } catch (error) {
-      if (
-        error instanceof ConfigLoadError ||
-        error instanceof BuildError ||
-        error instanceof NoEntryError
-      ) {
+      if (isZeltConfigLoadError(error) || isZeltBuildError(error) || isZeltNoEntryError(error)) {
         handleError(error);
       } else {
         throw error;

@@ -17,6 +17,10 @@ export default mergeConfig(
           __dirname,
           '../core/src/internal-bridge/testing.ts',
         ),
+        '@zeltjs/core/internal-bridge/errors': path.resolve(
+          __dirname,
+          '../core/src/internal-bridge/errors.ts',
+        ),
         '@zeltjs/core': path.resolve(__dirname, '../core/src/index.ts'),
       },
     },

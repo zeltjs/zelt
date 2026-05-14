@@ -7,7 +7,7 @@ import { cliError, cliPrint } from './cli-output';
 import type { GenerateClientOptions } from './config/options';
 import type { ConfigError, ContractError } from './errors';
 import { generateClient } from './generate-client';
-import { findConfigFile, isLoadConfigError, loadConfig } from './load-config';
+import { findConfigFile, isZeltLoadConfigError, loadConfig } from './load-config';
 import { watchClient } from './watch';
 
 const cliConfig = new NodeCliConfig();
@@ -92,6 +92,7 @@ const formatError = (error: ContractError): string =>
 const isContractError = (error: unknown): error is ContractError =>
   typeof error === 'object' && error !== null && 'type' in error;
 
+/** @throws {ZeltInvalidConfigExportError} */
 const resolveConfig = async (
   configPath: string | undefined,
 ): Promise<GenerateClientOptions | ConfigError> => {
@@ -103,8 +104,8 @@ const resolveConfig = async (
   try {
     return await loadConfig(cfgPath, cliConfig);
   } catch (error) {
-    if (isLoadConfigError(error)) {
-      return error;
+    if (isZeltLoadConfigError(error)) {
+      return { type: 'INVALID_CONFIG_EXPORT', path: error.context.path };
     }
     throw error;
   }
@@ -113,6 +114,7 @@ const resolveConfig = async (
 const isConfigError = (result: GenerateClientOptions | ConfigError): result is ConfigError =>
   'type' in result;
 
+/** @throws {ContractError | ZeltInvalidConfigExportError} */
 const buildAction = async (opts: { config?: string }): Promise<void> => {
   const configOrError = await resolveConfig(opts.config);
   if (isConfigError(configOrError)) {
@@ -134,6 +136,7 @@ const buildAction = async (opts: { config?: string }): Promise<void> => {
   }
 };
 
+/** @throws {ContractError | ZeltInvalidConfigExportError} */
 const watchAction = async (opts: { config?: string }): Promise<void> => {
   const configOrError = await resolveConfig(opts.config);
   if (isConfigError(configOrError)) {

@@ -4,8 +4,8 @@ import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { CliConfig } from '@zeltjs/core';
+import { defineError } from '@zeltjs/core/internal-bridge/errors';
 import type { GenerateClientOptions } from './config/options';
-import type { ConfigError } from './errors';
 
 const DEFAULT_CONFIG_NAMES = [
   'zelt.config.ts',
@@ -33,16 +33,12 @@ function narrowConfig(value: unknown): unknown {
   return value;
 }
 
-class InvalidConfigExportError extends Error {
-  readonly type = 'INVALID_CONFIG_EXPORT' as const;
-  readonly path: string;
-  constructor(path: string) {
-    super(`Invalid config export: ${path}`);
-    this.name = 'InvalidConfigExportError';
-    this.path = path;
-  }
-}
+const ZeltInvalidConfigExportError = defineError(
+  'ZeltInvalidConfigExportError',
+  (ctx: { path: string }) => `Invalid config export: ${ctx.path}`,
+);
 
+/** @throws {ZeltInvalidConfigExportError} */
 export const loadConfig = async (
   path: string,
   cliConfig: CliConfig,
@@ -54,22 +50,24 @@ export const loadConfig = async (
   try {
     mod = await import(url);
   } catch {
-    throw new InvalidConfigExportError(path);
+    throw new ZeltInvalidConfigExportError({ path });
   }
 
   if (typeof mod !== 'object' || mod === null) {
-    throw new InvalidConfigExportError(path);
+    throw new ZeltInvalidConfigExportError({ path });
   }
 
   const namespace: Record<string, unknown> = { ...mod };
   const defaultKey = 'default';
   const cfg = namespace[defaultKey];
   if (cfg === undefined) {
-    throw new InvalidConfigExportError(path);
+    throw new ZeltInvalidConfigExportError({ path });
   }
 
   return narrowConfig(cfg);
 };
 
-export const isLoadConfigError = (error: unknown): error is ConfigError =>
-  error instanceof InvalidConfigExportError;
+export const isZeltLoadConfigError = (
+  error: unknown,
+): error is InstanceType<typeof ZeltInvalidConfigExportError> =>
+  error instanceof ZeltInvalidConfigExportError;

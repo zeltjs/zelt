@@ -1,5 +1,4 @@
 import { Injectable, inject, Logger } from '@zeltjs/core';
-import { KVError } from '@zeltjs/kv';
 
 import type { RateLimitError } from './errors';
 import { kvFailed } from './errors';
@@ -28,7 +27,7 @@ export class RateLimitService {
       const count = await this.config.store.incr(key, 1, { ttlSec: windowSec });
       return { ok: true, value: this.buildResult(count, limit, windowSec) };
     } catch (err) {
-      return this.handleKVError(err, 'incr', key, limit);
+      return this.handleKVError(err, key, limit);
     }
   }
 
@@ -37,20 +36,13 @@ export class RateLimitService {
       await this.config.store.del(key);
       return { ok: true, value: this.openResult(this.config.defaultLimit) };
     } catch (err) {
-      const kvErr = err instanceof KVError ? err : KVError.storeOperationFailed('del', err);
-      return { ok: false, error: kvFailed(kvErr) };
+      return { ok: false, error: kvFailed(err) };
     }
   }
 
-  private handleKVError(
-    err: unknown,
-    op: string,
-    key: string,
-    limit: number,
-  ): RateLimiterHitResult {
-    const kvErr = err instanceof KVError ? err : KVError.storeOperationFailed(op, err);
+  private handleKVError(err: unknown, key: string, limit: number): RateLimiterHitResult {
     if (this.config.failureMode === 'closed') {
-      return { ok: false, error: kvFailed(kvErr) };
+      return { ok: false, error: kvFailed(err) };
     }
     this.logger.warn(`rate-limit: KV failure key=${key} error=${String(err)}`);
     return { ok: true, value: this.openResult(limit) };

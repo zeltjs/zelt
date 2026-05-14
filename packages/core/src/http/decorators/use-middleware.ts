@@ -10,6 +10,7 @@ import type { MiddlewareInput } from '../middleware/types';
 
 const tc39ClassPattern = P.shape({ kind: 'class', metadata: P.nonNullable });
 
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const UseMiddleware =
   (...middlewares: MiddlewareInput[]) =>
   (...args: unknown[]): void => {

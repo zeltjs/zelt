@@ -25,12 +25,14 @@ const createState = (): ConfigModuleState => ({
   isDisposed: false,
 });
 
+/** @throws {ZeltLifecycleStateError} */
 const assertNotDisposed = (state: ConfigModuleState, operation: string): void => {
   if (state.isDisposed) {
     throw new ZeltLifecycleStateError({ operation, currentState: 'disposed' });
   }
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const assertNotReady = (state: ConfigModuleState, operation: string): void => {
   if (state.isReady) {
     throw new ZeltLifecycleStateError({ operation, currentState: 'ready' });
@@ -44,6 +46,7 @@ export const createConfigModule = (): ConfigModule => {
     // config module has no setup logic
   };
 
+  /** @throws {ZeltLifecycleStateError} */
   const ready = async (_context: ReadyContext): Promise<void> => {
     assertNotDisposed(state, 'ready');
     state.isReady = true;
@@ -53,12 +56,14 @@ export const createConfigModule = (): ConfigModule => {
     state.isDisposed = true;
   };
 
+  /** @throws {ZeltLifecycleStateError} */
   const addFallbackConfig = (config: ConfigClass<object>): void => {
     assertNotDisposed(state, 'addFallbackConfig');
     assertNotReady(state, 'addFallbackConfig');
     state.defaults.push(config);
   };
 
+  /** @throws {ZeltLifecycleStateError} */
   const overrideConfig = (config: ConfigClass<object>): void => {
     assertNotDisposed(state, 'overrideConfig');
     assertNotReady(state, 'overrideConfig');

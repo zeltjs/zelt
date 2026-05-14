@@ -137,13 +137,23 @@ describe('ZeltRouteConfigurationError', () => {
 });
 
 describe('ZeltMiddlewareExecutionError', () => {
-  it('formats next_called_multiple_times reason correctly', () => {
+  it('formats error with middleware name', () => {
     const error = new ZeltMiddlewareExecutionError({
       reason: 'next_called_multiple_times',
+      middlewareName: 'AuthMiddleware',
     });
-    expect(error.message).toBe('next() called multiple times');
+    expect(error.message).toBe("next() called multiple times in middleware 'AuthMiddleware'");
     expect(error.name).toBe('ZeltMiddlewareExecutionError');
+    expect(error.context.middlewareName).toBe('AuthMiddleware');
     expect(error).toBeInstanceOf(ZeltMiddlewareExecutionError);
+  });
+
+  it('formats error with anonymous middleware', () => {
+    const error = new ZeltMiddlewareExecutionError({
+      reason: 'next_called_multiple_times',
+      middlewareName: '<anonymous>',
+    });
+    expect(error.message).toBe("next() called multiple times in middleware '<anonymous>'");
   });
 });
 

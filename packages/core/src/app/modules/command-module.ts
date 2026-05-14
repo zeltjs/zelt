@@ -13,6 +13,7 @@ type CommandModuleState = {
   isDisposed: boolean;
 };
 
+/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 const validateCommands = (commands: readonly CommandClass[]): Map<string, CommandClass> => {
   const commandMap = new Map<string, CommandClass>();
   for (const cls of commands) {
@@ -38,6 +39,7 @@ export const createCommandModule = (commands: readonly CommandClass[]): CommandM
     isDisposed: false,
   };
 
+  /** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
   const setup = (): void => {
     const validated = validateCommands(commands);
     for (const [name, cls] of validated) {

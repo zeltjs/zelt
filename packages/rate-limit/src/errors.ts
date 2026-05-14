@@ -1,5 +1,3 @@
-import type { KVError } from '@zeltjs/kv';
-
 import type { RateLimitResult } from './types';
 
 export const tooManyRequestsResponse = (result: RateLimitResult): Response =>
@@ -15,10 +13,10 @@ export const tooManyRequestsResponse = (result: RateLimitResult): Response =>
     },
   );
 
-export type RateLimitError = { type: 'KV_FAILED'; cause: KVError; message: string };
+export type RateLimitError = { type: 'KV_FAILED'; cause: unknown; message: string };
 
-export const kvFailed = (cause: KVError): RateLimitError => ({
+export const kvFailed = (cause: unknown): RateLimitError => ({
   type: 'KV_FAILED',
   cause,
-  message: `rate-limit KV operation failed: ${cause.message}`,
+  message: `rate-limit KV operation failed: ${cause instanceof Error ? cause.message : String(cause)}`,
 });

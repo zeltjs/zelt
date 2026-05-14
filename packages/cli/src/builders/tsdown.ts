@@ -4,21 +4,12 @@ import { resolve } from 'node:path';
 import consola from 'consola';
 
 import type { BuildConfig } from '../config/schema';
+import { ZeltBuildError } from '../errors';
 
 export type BuildOptions = {
   readonly cwd: string;
   readonly config: BuildConfig;
 };
-
-export class BuildError extends Error {
-  readonly type = 'BUILD_FAILED' as const;
-  readonly exitCode: number;
-  constructor(exitCode: number) {
-    super(`Build failed with exit code ${exitCode}`);
-    this.name = 'BuildError';
-    this.exitCode = exitCode;
-  }
-}
 
 const buildArgs = (config: BuildConfig): string[] => {
   const args: string[] = [];
@@ -49,6 +40,7 @@ const buildArgs = (config: BuildConfig): string[] => {
   return args;
 };
 
+/** @throws {ZeltBuildError} */
 export const runTsdownBuild = async (options: BuildOptions): Promise<void> => {
   const { cwd, config } = options;
   const args = buildArgs(config);
@@ -74,6 +66,6 @@ export const runTsdownBuild = async (options: BuildOptions): Promise<void> => {
   });
 
   if (exitCode !== 0) {
-    throw new BuildError(exitCode);
+    throw new ZeltBuildError({ exitCode });
   }
 };

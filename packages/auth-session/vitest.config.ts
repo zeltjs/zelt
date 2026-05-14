@@ -15,6 +15,10 @@ export default defineConfig({
         __dirname,
         '../core/src/internal-bridge/testing.ts',
       ),
+      '@zeltjs/core/internal-bridge/errors': resolve(
+        __dirname,
+        '../core/src/internal-bridge/errors.ts',
+      ),
       '@zeltjs/core': resolve(__dirname, '../core/src/index.ts'),
       '@zeltjs/kv': resolve(__dirname, '../kv/src/index.ts'),
     },

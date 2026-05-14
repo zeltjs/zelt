@@ -38,6 +38,7 @@ export { Injectable } from './di/injectable';
 export type { CoreErrorContextMap } from './errors';
 // Errors
 export {
+  defineHttpException,
   ZeltAppConfigurationError,
   ZeltContextNotAvailableError,
   ZeltDecoratorUsageError,
@@ -45,6 +46,7 @@ export {
   ZeltMiddlewareExecutionError,
   ZeltNotImplementedError,
   ZeltRouteConfigurationError,
+  ZeltSchemaValidationError,
 } from './errors';
 // HTTP decorators
 export { Authorized } from './http/decorators/authorized';

@@ -121,6 +121,26 @@ export default tseslint.config(
     },
   },
   {
+    // Forbid raw Error — use structured Zelt*Error classes instead
+    files: ['packages/core/src/**/*.{ts,tsx}'],
+    ignores: [
+      ...TEST_FILES,
+      ...FIXTURE_FILES,
+      '**/errors/**',
+      // Stack trace utility uses Error().stack, not for throwing
+      'packages/core/src/http/internal/source-file.ts',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ThrowStatement > NewExpression[callee.name="Error"]',
+          message: 'Use structured Zelt*Error classes instead of raw Error',
+        },
+      ],
+    },
+  },
+  {
     // contract package uses neverthrow (ROP) — enforce no throw/try-catch
     files: ['packages/contract/src/**/*.{ts,tsx}'],
     ignores: [...TEST_FILES, ...FIXTURE_FILES],
@@ -252,6 +272,7 @@ export default tseslint.config(
   {
     // CLI entry points: type predicate needed for error type guard.
     files: [
+      'packages/cli/src/errors.ts',
       'packages/cli/src/config/loader.ts',
       'packages/cli/src/builders/tsdown.ts',
       'packages/cli/src/commands/run/runner.ts',
@@ -352,6 +373,19 @@ export default tseslint.config(
     files: ['packages/core/src/errors/factory.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // defineError/defineHttpException return anonymous classes that cannot satisfy
+    // their return types without type assertion. isKVError uses instanceof union check.
+    files: [
+      'packages/core/src/errors/define-error.ts',
+      'packages/core/src/errors/define-http-exception.ts',
+      'packages/kv/src/errors.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@9wick/strict-type-rules/no-type-predicate': 'off',
     },
   },
   {

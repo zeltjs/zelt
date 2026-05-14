@@ -1,7 +1,7 @@
 import type { Next, RequestContext } from '@zeltjs/core';
 import { Injectable, inject } from '@zeltjs/core';
 
-import { tooManyRequestsResponse } from './errors';
+import { RateLimitExceededException, RateLimitUnavailableException } from './exceptions';
 import { RateLimitService } from './rate-limit.service';
 import type { RateLimitOptions } from './types';
 
@@ -9,6 +9,10 @@ import type { RateLimitOptions } from './types';
 export class RateLimitMiddleware {
   constructor(private readonly limiter = inject(RateLimitService)) {}
 
+  /**
+   * @throws {RateLimitExceededException} When rate limit is exceeded (429)
+   * @throws {RateLimitUnavailableException} When rate limit service is unavailable (503)
+   */
   async use(c: RequestContext, next: Next, opts: RateLimitOptions): Promise<Response | undefined> {
     const key = typeof opts.key === 'string' ? opts.key : opts.key();
     const r = await this.limiter.hit(key, {
@@ -17,7 +21,7 @@ export class RateLimitMiddleware {
     });
 
     if (!r.ok) {
-      return c.json({ code: 'RATE_LIMIT_UNAVAILABLE' }, 503);
+      throw new RateLimitUnavailableException({});
     }
 
     const result = r.value;
@@ -25,7 +29,11 @@ export class RateLimitMiddleware {
     c.header('X-RateLimit-Remaining', String(result.remaining));
 
     if (!result.allowed) {
-      return tooManyRequestsResponse(result);
+      throw new RateLimitExceededException({
+        limit: result.limit,
+        remaining: result.remaining,
+        retryAfterSec: result.retryAfterSec,
+      });
     }
 
     await next();

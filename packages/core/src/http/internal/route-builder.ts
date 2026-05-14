@@ -48,6 +48,7 @@ type Route = {
   readonly controllerClass: ControllerClass;
 };
 
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const collectRoutes = (controllers: readonly ControllerClass[]): readonly Route[] => {
   const routes: Route[] = [];
   for (const cls of controllers) {
@@ -71,6 +72,7 @@ export const collectRoutes = (controllers: readonly ControllerClass[]): readonly
   return routes;
 };
 
+/** @throws {ZeltLifecycleStateError | ZeltRouteConfigurationError} */
 const resolveHandler = (instance: object, methodName: string | symbol): (() => unknown) => {
   // Reflect.get returns `any` for dynamic keys; pinning the local to `unknown`
   // forces narrowing before any call, keeping the handler invocation typesafe.
@@ -91,6 +93,7 @@ type ParsedBodies = {
   formBody: FormBody | undefined;
 };
 
+/** @throws {ZeltContextNotAvailableError} */
 const parseRequestBodies = async (
   c: Parameters<Parameters<Hono['on']>[2]>[0],
 ): Promise<ParsedBodies> => {
@@ -112,15 +115,18 @@ const parseRequestBodies = async (
   return { jsonBody: undefined, formBody: undefined };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const hasUseMethod = (proto: unknown): boolean => {
   if (proto === null || proto === undefined) return false;
   if (typeof proto !== 'object') return false;
   return typeof Reflect.get(proto, 'use') === 'function';
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const checkMiddlewareClass = (input: MiddlewareInput): boolean =>
   typeof input === 'function' && input.prototype !== undefined && hasUseMethod(input.prototype);
 
+/** @throws {ZeltLifecycleStateError} */
 const checkMiddlewareWithOptions = (input: MiddlewareInput): boolean => {
   if (!Array.isArray(input)) return false;
   const tuple: MiddlewareInputWithOptions = input;
@@ -142,6 +148,7 @@ function narrowToFunction(middleware: MiddlewareInput): MiddlewareInput {
   return middleware;
 }
 
+/** @throws {ZeltLifecycleStateError} */
 const resolveMiddleware = (
   middleware: MiddlewareInput,
   resolver: ResolverHandle,
@@ -159,6 +166,7 @@ const resolveMiddleware = (
   return narrowToFunction(middleware);
 };
 
+/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
 const createAuthorizationMiddleware = (requiredRoles: readonly string[]): FunctionMiddleware => {
   return async (_c, next) => {
     const user = currentUser();
@@ -185,6 +193,7 @@ const createAuthorizationMiddleware = (requiredRoles: readonly string[]): Functi
   };
 };
 
+/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
 const collectRouteMiddlewares = (
   globalMiddlewares: readonly MiddlewareInput[],
   controllerClass: ControllerClass,
@@ -217,6 +226,7 @@ const collectRouteMiddlewares = (
   return resolvedMiddlewares;
 };
 
+/** @throws {ZeltMiddlewareExecutionError} */
 const composeHandler = (
   middlewares: readonly FunctionMiddleware[],
   finalHandler: (c: MiddlewareContext) => Promise<Response>,
@@ -229,9 +239,14 @@ const composeHandler = (
     let index = -1;
     let response: Response | undefined;
 
+    /** @throws {ZeltMiddlewareExecutionError} */
     const dispatch = async (i: number): Promise<void> => {
-      if (i <= index)
-        throw new ZeltMiddlewareExecutionError({ reason: 'next_called_multiple_times' });
+      if (i <= index) {
+        throw new ZeltMiddlewareExecutionError({
+          reason: 'next_called_multiple_times',
+          middlewareName: middlewares[index]?.name || '<anonymous>',
+        });
+      }
       index = i;
       if (i < middlewares.length) {
         const mw = middlewares[i];
@@ -259,6 +274,7 @@ type RouteBuilderContext = {
   readonly instanceCache: Map<ControllerClass, object>;
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const getOrCreateInstance = (
   ctx: RouteBuilderContext,
   controllerClass: ControllerClass,
@@ -270,6 +286,7 @@ const getOrCreateInstance = (
   return instance;
 };
 
+/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
 const registerRoute = (
   hono: Hono,
   ctx: RouteBuilderContext,
@@ -283,6 +300,7 @@ const registerRoute = (
     ctx.resolver,
   );
 
+  /** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError | ZeltMiddlewareExecutionError | ZeltRouteConfigurationError} */
   const handler = async (c: MiddlewareContext): Promise<Response> => {
     const instance = getOrCreateInstance(ctx, route.controllerClass);
     await ctx.lifecycle.startupPending();
@@ -323,6 +341,7 @@ export type BuildRoutesOptions = {
   readonly globalMiddlewares?: readonly MiddlewareInput[];
 };
 
+/** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const buildRoutes = (options: BuildRoutesOptions): void => {
   const ctx: RouteBuilderContext = {
     resolver: options.resolver,
@@ -335,6 +354,7 @@ export const buildRoutes = (options: BuildRoutesOptions): void => {
   }
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const warmupControllers = async (
   controllers: readonly ControllerClass[],
   resolver: ResolverHandle,

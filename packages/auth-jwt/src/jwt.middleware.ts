@@ -2,6 +2,7 @@ import type { Next, RequestContext } from '@zeltjs/core';
 import { inject, Middleware, setUser } from '@zeltjs/core';
 import { getCookie } from 'hono/cookie';
 
+import { UnauthorizedException } from './exceptions';
 import { JwtConfig } from './jwt.config';
 import { JwtService } from './jwt.service';
 
@@ -12,11 +13,15 @@ export class JwtMiddleware {
     private readonly config = inject(JwtConfig),
   ) {}
 
+  /**
+   * @throws {UnauthorizedException} When token is missing (401)
+   * @throws {UnauthorizedException} When token is invalid or expired (401)
+   */
   async use(c: RequestContext, next: Next): Promise<Response | undefined> {
     const token = this.extractToken(c);
 
     if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
+      throw new UnauthorizedException({ reason: 'missing_token' });
     }
 
     const verified = await this.jwtService.verify(token).then(
@@ -25,7 +30,7 @@ export class JwtMiddleware {
     );
 
     if (!verified.ok) {
-      return c.json({ error: 'Unauthorized' }, 401);
+      throw new UnauthorizedException({ reason: 'invalid_token' });
     }
 
     const { user, roles } = await this.config.resolveUser(verified.payload);

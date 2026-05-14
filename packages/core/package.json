@@ -39,6 +39,10 @@
     "./internal-bridge/testing": {
       "types": "./dist/internal-bridge/testing.d.ts",
       "import": "./dist/internal-bridge/testing.js"
+    },
+    "./internal-bridge/errors": {
+      "types": "./dist/internal-bridge/errors.d.ts",
+      "import": "./dist/internal-bridge/errors.js"
     }
   },
   "files": [

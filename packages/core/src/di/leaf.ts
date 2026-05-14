@@ -30,6 +30,7 @@ export const registerAsLeaf = (cls: AnyClass): void => {
   leafCategoryCache.set(cls, 'direct');
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const isLeafClass = (cls: AnyClass): boolean => {
   const cached = leafCategoryCache.get(cls);
   if (cached !== undefined) return true;
@@ -65,6 +66,7 @@ export const findRootLeafClass = (cls: AnyClass): RootLeafClass => {
   return toRootLeafClass(root);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const getLeafToken = (rootClass: RootLeafClass): LeafInjectionToken => {
   const existing = leafTokenMap.get(rootClass);
   if (existing) return existing;
@@ -74,9 +76,11 @@ const getLeafToken = (rootClass: RootLeafClass): LeafInjectionToken => {
   return token;
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const isTokenBound = (container: ContainerType, token: LeafInjectionToken): boolean =>
   boundTokens.get(container)?.has(token) ?? false;
 
+/** @throws {ZeltLifecycleStateError} */
 const markTokenBound = (container: ContainerType, token: LeafInjectionToken): void => {
   const existing = boundTokens.get(container);
   if (existing) {
@@ -86,6 +90,7 @@ const markTokenBound = (container: ContainerType, token: LeafInjectionToken): vo
   boundTokens.set(container, new Set([token]));
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const bindLeafInternal = (
   container: ContainerType,
   token: LeafInjectionToken,
@@ -101,6 +106,7 @@ const bindLeafInternal = (
   markTokenBound(container, token);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const overrideLeaf = (
   container: ContainerType,
   cls: AnyClass,
@@ -120,6 +126,7 @@ export const overrideLeaf = (
   }
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const ensureLeafBound = (container: ContainerType, cls: AnyClass): LeafInjectionToken => {
   const rootClass = findRootLeafClass(cls);
   const token = getLeafToken(rootClass);
@@ -131,6 +138,7 @@ export const ensureLeafBound = (container: ContainerType, cls: AnyClass): LeafIn
   return token;
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getLeaf = <T extends object>(
   container: ContainerType,
   cls: new (...args: never[]) => T,

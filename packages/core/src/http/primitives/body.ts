@@ -12,11 +12,19 @@ type BodyTypeMap = {
 
 type BodyType = keyof BodyTypeMap;
 
+/** @throws {ZeltContextNotAvailableError} */
 export function body(type: 'text'): Promise<string>;
+/** @throws {ZeltContextNotAvailableError} */
 export function body(type: 'json'): Promise<unknown>;
+/** @throws {ZeltContextNotAvailableError} */
 export function body(type: 'form'): Promise<FormData>;
+/** @throws {ZeltContextNotAvailableError} */
 export function body(type: 'arrayBuffer'): Promise<ArrayBuffer>;
+/** @throws {ZeltContextNotAvailableError} */
 export function body(type: 'blob'): Promise<Blob>;
+/**
+ * @throws {ZeltContextNotAvailableError}
+ */
 export function body(type: BodyType): Promise<BodyTypeMap[BodyType]> {
   const req = getEntryContext().honoContext.req;
   return match(type)

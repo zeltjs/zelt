@@ -5,6 +5,7 @@ import type { RequestContextSchema } from '../primitives/get-context';
 
 type Roles = RequestContextSchema['authRoles'];
 
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const Authorized =
   (roles: Roles = []) =>
   (...args: unknown[]): void => {

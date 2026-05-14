@@ -60,6 +60,7 @@ const formatError = (error: ContractError): string =>
 const isContractError = (error: unknown): error is ContractError =>
   typeof error === 'object' && error !== null && 'type' in error;
 
+/** @throws {ContractError} */
 export const watchClient = async (options: GenerateClientOptions): Promise<() => Promise<void>> => {
   const watchedPaths = fg.sync([...options.controllers], { absolute: true });
 

@@ -1,3 +1,4 @@
+export { type SessionConfigErrorReason, ZeltSessionConfigError } from './errors';
 export { SessionConfig } from './session.config';
 export {
   destroySession,

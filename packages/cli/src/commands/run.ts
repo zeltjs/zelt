@@ -5,26 +5,23 @@ import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
 
-import { ConfigLoadError, loadZeltConfig } from '../config/loader';
+import { loadZeltConfig } from '../config/loader';
 import type { CliConfig } from '../config/schema';
+import type { ZeltConfigLoadError } from '../errors';
+import {
+  isZeltCliExecutionError,
+  isZeltConfigLoadError,
+  isZeltNoCliEntryError,
+  ZeltCliExecutionError,
+  ZeltNoCliEntryError,
+} from '../errors';
 
 const cliConfig = new NodeCliConfig();
 
-class NoCliEntryError extends Error {
-  readonly type = 'NO_CLI_ENTRY' as const;
-}
-
-class CliExecutionError extends Error {
-  readonly type = 'CLI_EXECUTION_FAILED' as const;
-  readonly exitCode: number;
-  constructor(exitCode: number) {
-    super(`CLI execution failed with exit code ${exitCode}`);
-    this.name = 'CliExecutionError';
-    this.exitCode = exitCode;
-  }
-}
-
-type RunError = ConfigLoadError | NoCliEntryError | CliExecutionError;
+type RunError =
+  | InstanceType<typeof ZeltConfigLoadError>
+  | InstanceType<typeof ZeltNoCliEntryError>
+  | InstanceType<typeof ZeltCliExecutionError>;
 
 const resolveCliConfig = (cliConfigFromFile: CliConfig | undefined) => ({
   entry: cliConfigFromFile?.entry,
@@ -42,7 +39,7 @@ const executeCliEntry = (cwd: string, entry: string, args: readonly string[]): P
       if (code === 0 || code === null) {
         resolve();
       } else {
-        reject(new CliExecutionError(code));
+        reject(new ZeltCliExecutionError({ exitCode: code }));
       }
     });
 
@@ -51,6 +48,7 @@ const executeCliEntry = (cwd: string, entry: string, args: readonly string[]): P
     });
   });
 
+/** @throws {ZeltConfigLoadError | ZeltNoCliEntryError | InvalidConfigExportError} */
 const runCli = async (
   cwd: string,
   configFile: string | undefined,
@@ -60,7 +58,7 @@ const runCli = async (
   const cliConf = resolveCliConfig(config.cli);
 
   if (cliConf.entry === undefined) {
-    throw new NoCliEntryError();
+    throw new ZeltNoCliEntryError({});
   }
 
   await executeCliEntry(cwd, cliConf.entry, args);
@@ -68,22 +66,20 @@ const runCli = async (
 
 const handleError = (error: RunError, setExitCode: (code: number) => void): void => {
   match(error)
-    .with({ type: 'CONFIG_LOAD_FAILED' }, () => {
+    .when(isZeltConfigLoadError, () => {
       consola.error('Failed to load config');
     })
-    .with({ type: 'NO_CLI_ENTRY' }, () => {
+    .when(isZeltNoCliEntryError, () => {
       consola.error('No CLI entry specified. Set cli.entry in zelt.config.ts');
     })
-    .with({ type: 'CLI_EXECUTION_FAILED' }, (e) => {
-      setExitCode(e.exitCode);
+    .when(isZeltCliExecutionError, (e) => {
+      setExitCode(e.context.exitCode);
     })
-    .exhaustive();
+    .otherwise(() => {});
 };
 
-const runErrorClasses = [ConfigLoadError, NoCliEntryError, CliExecutionError] as const;
-
 const isRunError = (error: unknown): error is RunError =>
-  runErrorClasses.some((ErrorClass) => error instanceof ErrorClass);
+  isZeltConfigLoadError(error) || isZeltNoCliEntryError(error) || isZeltCliExecutionError(error);
 
 export const runCommandDef = defineCommand({
   meta: {

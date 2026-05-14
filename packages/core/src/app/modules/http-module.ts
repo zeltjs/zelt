@@ -1,7 +1,11 @@
 import { Hono } from 'hono';
 import { match, P } from 'ts-pattern';
 import type { ResolverHandle } from '../../di/container';
-import { ZeltLifecycleStateError } from '../../errors';
+import {
+  ZeltContextNotAvailableError,
+  ZeltDecoratorUsageError,
+  ZeltLifecycleStateError,
+} from '../../errors';
 import { DefaultErrorHandler } from '../../http/default.error-handler';
 import { buildRoutes, warmupControllers } from '../../http/internal/route-builder';
 import type {
@@ -47,6 +51,7 @@ const createErrorHandler =
     );
   };
 
+/** @throws {ZeltLifecycleStateError} */
 const resolveErrorHandler = (
   cls: ErrorHandlerClass,
   resolver: ResolverHandle,
@@ -55,11 +60,13 @@ const resolveErrorHandler = (
   return instance;
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const resolveErrorHandlers = (
   classes: readonly ErrorHandlerClass[],
   resolver: ResolverHandle,
 ): ErrorHandlerInstance[] => classes.map((cls) => resolveErrorHandler(cls, resolver));
 
+/** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 const setupHono = (
   httpOptions: HttpOptions,
   resolver: ResolverHandle,
@@ -79,56 +86,78 @@ const setupHono = (
   return hono;
 };
 
-type HttpResult = { hono: Hono } | { error: Error; cleanup: () => Promise<void> };
+type HttpModuleError =
+  | ZeltContextNotAvailableError
+  | ZeltDecoratorUsageError
+  | ZeltLifecycleStateError;
+type HttpResult = { hono: Hono } | { error: HttpModuleError; cleanup: () => Promise<void> };
 
-const toHttpError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
-
+/** @throws {HttpModuleError} */
 const initializeHttpSetup = (
   httpOptions: HttpOptions,
   resolver: ResolverHandle,
   lifecycle: LifecycleManager,
-): HttpResult =>
-  match(
-    (() => {
-      try {
-        return { hono: setupHono(httpOptions, resolver, lifecycle) };
-      } catch (e) {
-        return { error: toHttpError(e), cleanup: () => lifecycle.shutdown() };
-      }
-    })(),
-  )
-    .with({ hono: P._ }, (r) => r)
-    .with({ error: P._ }, (r) => r)
-    .exhaustive();
+): HttpResult => {
+  try {
+    return { hono: setupHono(httpOptions, resolver, lifecycle) };
+  } catch (e) {
+    if (e instanceof ZeltContextNotAvailableError) {
+      return { error: e, cleanup: () => lifecycle.shutdown() };
+    }
+    if (e instanceof ZeltDecoratorUsageError) {
+      return { error: e, cleanup: () => lifecycle.shutdown() };
+    }
+    if (e instanceof ZeltLifecycleStateError) {
+      return { error: e, cleanup: () => lifecycle.shutdown() };
+    }
+    throw e;
+  }
+};
 
+/** @throws {HttpModuleError} */
 const initializeHttpWarmup = async (
   httpOptions: HttpOptions,
   resolver: ResolverHandle,
   lifecycle: LifecycleManager,
-): Promise<HttpResult> =>
-  warmupControllers(httpOptions.controllers, resolver, lifecycle)
-    .then((): HttpResult => ({ hono: setupHono(httpOptions, resolver, lifecycle) }))
-    .catch((e): HttpResult => ({ error: toHttpError(e), cleanup: () => lifecycle.shutdown() }));
-
-const handleHttpSetupResult = async (result: HttpResult): Promise<Hono> =>
-  match(result)
-    .with({ hono: P._ }, (r) => r.hono)
-    .with({ error: P._ }, async (r) => {
-      await r.cleanup();
-      throw r.error;
-    })
-    .exhaustive();
-
-const handleHttpWarmupResult = async (result: HttpResult): Promise<void> => {
-  await match(result)
-    .with({ hono: P._ }, () => Promise.resolve())
-    .with({ error: P._ }, async (r) => {
-      await r.cleanup();
-      throw r.error;
-    })
-    .exhaustive();
+): Promise<HttpResult> => {
+  try {
+    await warmupControllers(httpOptions.controllers, resolver, lifecycle);
+    return { hono: setupHono(httpOptions, resolver, lifecycle) };
+  } catch (e) {
+    if (e instanceof ZeltContextNotAvailableError) {
+      return { error: e, cleanup: () => lifecycle.shutdown() };
+    }
+    if (e instanceof ZeltDecoratorUsageError) {
+      return { error: e, cleanup: () => lifecycle.shutdown() };
+    }
+    if (e instanceof ZeltLifecycleStateError) {
+      return { error: e, cleanup: () => lifecycle.shutdown() };
+    }
+    throw e;
+  }
 };
 
+/** @throws {HttpModuleError} */
+const handleHttpSetupResult = async (result: HttpResult): Promise<Hono> =>
+  match(result)
+    .with({ hono: P.select() }, (hono) => hono)
+    .with({ error: P._, cleanup: P._ }, async (r) => {
+      await r.cleanup();
+      throw r.error;
+    })
+    .exhaustive();
+
+/** @throws {HttpModuleError} */
+const handleHttpWarmupResult = async (result: HttpResult): Promise<void> =>
+  match(result)
+    .with({ hono: P._ }, () => undefined)
+    .with({ error: P._, cleanup: P._ }, async (r) => {
+      await r.cleanup();
+      throw r.error;
+    })
+    .exhaustive();
+
+/** @throws {HttpModuleError} */
 const initializeHttp = async (
   httpOptions: HttpOptions,
   resolver: ResolverHandle,
@@ -165,6 +194,7 @@ export const createHttpModule = (options: HttpOptions): HttpModule => {
     // http module has no sync setup logic
   };
 
+  /** @throws {HttpModuleError} */
   const ready = async (context: ReadyContext): Promise<void> => {
     state.hono = await initializeHttp(options, context.resolver, context.lifecycle, context.warmup);
     state.isReady = true;
@@ -174,6 +204,7 @@ export const createHttpModule = (options: HttpOptions): HttpModule => {
     state.isDisposed = true;
   };
 
+  /** @throws {ZeltLifecycleStateError} */
   const fetch = async (req: Request): Promise<Response> => {
     if (!state.hono) {
       throw new ZeltLifecycleStateError({ operation: 'fetch', currentState: 'not_ready' });

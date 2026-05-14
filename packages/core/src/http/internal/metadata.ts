@@ -48,9 +48,11 @@ export const setControllerMetadata = (cls: object, meta: ControllerMetadata): vo
   controllerStore.set(cls, meta);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getControllerMetadata = (cls: object): ControllerMetadata | undefined =>
   controllerStore.get(cls);
 
+/** @throws {ZeltLifecycleStateError} */
 export const appendRouteMetadata = (cls: object, meta: RouteMetadata): void => {
   const existing = routeStore.get(cls) ?? [];
   const exists = existing.some(
@@ -60,6 +62,7 @@ export const appendRouteMetadata = (cls: object, meta: RouteMetadata): void => {
   routeStore.set(cls, [...existing, meta]);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getRouteMetadata = (cls: object): readonly RouteMetadata[] =>
   routeStore.get(cls) ?? [];
 
@@ -70,10 +73,12 @@ export const setControllerMiddlewareMetadata = (
   controllerMiddlewareStore.set(cls, { middlewares });
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getControllerMiddlewareMetadata = (
   cls: object,
 ): ControllerMiddlewareMetadata | undefined => controllerMiddlewareStore.get(cls);
 
+/** @throws {ZeltLifecycleStateError} */
 export const appendMethodMiddlewareMetadata = (
   cls: object,
   methodName: string | symbol,
@@ -83,9 +88,11 @@ export const appendMethodMiddlewareMetadata = (
   methodMiddlewareStore.set(cls, [...existing, { methodName, middlewares }]);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getMethodMiddlewareMetadata = (cls: object): readonly MethodMiddlewareMetadata[] =>
   methodMiddlewareStore.get(cls) ?? [];
 
+/** @throws {ZeltLifecycleStateError} */
 export const appendSkipMiddlewareMetadata = (
   cls: object,
   methodName: string | symbol,
@@ -95,9 +102,11 @@ export const appendSkipMiddlewareMetadata = (
   skipMiddlewareStore.set(cls, [...existing, { methodName, skipped }]);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getSkipMiddlewareMetadata = (cls: object): readonly SkipMiddlewareMetadata[] =>
   skipMiddlewareStore.get(cls) ?? [];
 
+/** @throws {ZeltLifecycleStateError} */
 export const setAuthorizedMetadata = (
   cls: object,
   methodName: string | symbol,
@@ -107,6 +116,7 @@ export const setAuthorizedMetadata = (
   authorizedStore.set(cls, [...existing, { methodName, roles }]);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getAuthorizedMetadata = (
   cls: object,
   methodName: string | symbol,
@@ -115,11 +125,13 @@ export const getAuthorizedMetadata = (
   return all.find((m) => m.methodName === methodName);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const appendPendingRouteMetadata = (pendingKey: object, meta: RouteMetadata): void => {
   const existing = pendingRouteStore.get(pendingKey) ?? [];
   pendingRouteStore.set(pendingKey, [...existing, meta]);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const resolveRouteMetadata = (pendingKey: object, cls: object): void => {
   const pending = pendingRouteStore.get(pendingKey) ?? [];
   for (const meta of pending) {
@@ -128,6 +140,7 @@ export const resolveRouteMetadata = (pendingKey: object, cls: object): void => {
   pendingRouteStore.delete(pendingKey);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const appendPendingMethodMiddlewareMetadata = (
   pendingKey: object,
   methodName: string | symbol,
@@ -137,6 +150,7 @@ export const appendPendingMethodMiddlewareMetadata = (
   pendingMethodMiddlewareStore.set(pendingKey, [...existing, { methodName, middlewares }]);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const resolveMethodMiddlewareMetadata = (pendingKey: object, cls: object): void => {
   const pending = pendingMethodMiddlewareStore.get(pendingKey) ?? [];
   for (const { methodName, middlewares } of pending) {
@@ -145,6 +159,7 @@ export const resolveMethodMiddlewareMetadata = (pendingKey: object, cls: object)
   pendingMethodMiddlewareStore.delete(pendingKey);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const appendPendingSkipMiddlewareMetadata = (
   pendingKey: object,
   methodName: string | symbol,
@@ -154,6 +169,7 @@ export const appendPendingSkipMiddlewareMetadata = (
   pendingSkipMiddlewareStore.set(pendingKey, [...existing, { methodName, skipped }]);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const resolveSkipMiddlewareMetadata = (pendingKey: object, cls: object): void => {
   const pending = pendingSkipMiddlewareStore.get(pendingKey) ?? [];
   for (const { methodName, skipped } of pending) {
@@ -162,6 +178,7 @@ export const resolveSkipMiddlewareMetadata = (pendingKey: object, cls: object): 
   pendingSkipMiddlewareStore.delete(pendingKey);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const appendPendingAuthorizedMetadata = (
   pendingKey: object,
   methodName: string | symbol,
@@ -171,6 +188,7 @@ export const appendPendingAuthorizedMetadata = (
   pendingAuthorizedStore.set(pendingKey, [...existing, { methodName, roles }]);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const resolveAuthorizedMetadata = (pendingKey: object, cls: object): void => {
   const pending = pendingAuthorizedStore.get(pendingKey) ?? [];
   for (const { methodName, roles } of pending) {

@@ -12,13 +12,16 @@ export const setScheduledMetadata = (cls: object): void => {
   scheduledStore.set(cls, true);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getScheduledMetadata = (cls: object): true | undefined => scheduledStore.get(cls);
 
+/** @throws {ZeltLifecycleStateError} */
 export const appendPendingScheduleMetadata = (pendingKey: object, meta: ScheduleMetadata): void => {
   const existing = pendingScheduleStore.get(pendingKey) ?? [];
   pendingScheduleStore.set(pendingKey, [...existing, meta]);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const resolveScheduleMetadata = (pendingKey: object, cls: object): void => {
   const pending = pendingScheduleStore.get(pendingKey);
   if (pending) {
@@ -28,5 +31,6 @@ export const resolveScheduleMetadata = (pendingKey: object, cls: object): void =
   }
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getScheduleMetadata = (cls: object): readonly ScheduleMetadata[] =>
   scheduleStore.get(cls) ?? [];

@@ -7,6 +7,7 @@ type HourlyOptions = {
   readonly tz?: string;
 };
 
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const Hourly =
   (options?: HourlyOptions) =>
   (...args: unknown[]): void => {

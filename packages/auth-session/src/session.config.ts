@@ -1,12 +1,17 @@
 import { Config } from '@zeltjs/core';
 import type { KVStore } from '@zeltjs/kv';
 
+import { ZeltSessionConfigError } from './errors';
+
 @Config
 export class SessionConfig {
   static readonly Token = SessionConfig;
 
+  /**
+   * @throws {ZeltSessionConfigError} When store is not overridden
+   */
   get store(): KVStore {
-    throw new Error('SessionConfig.store must be overridden');
+    throw new ZeltSessionConfigError({ reason: 'store_not_overridden' });
   }
 
   get cookieName(): string {
@@ -17,10 +22,13 @@ export class SessionConfig {
     return 86400; // 24h
   }
 
+  /**
+   * @throws {ZeltSessionConfigError} When SESSION_SECRET is not set
+   */
   get secret(): string {
     const secret = process.env['SESSION_SECRET'];
     if (!secret) {
-      throw new Error('SESSION_SECRET environment variable is required');
+      throw new ZeltSessionConfigError({ reason: 'missing_secret' });
     }
     return secret;
   }

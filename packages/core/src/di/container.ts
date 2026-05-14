@@ -18,6 +18,7 @@ export type ResolverHandle = {
   readonly getConfig: <T extends object>(configClass: ConfigClass<T>) => T;
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const bindConfigs = (
   container: Container,
   configs: readonly Class<unknown>[],
@@ -28,12 +29,14 @@ const bindConfigs = (
   }
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const resolveConfigs = (container: Container, configs: readonly Class<unknown>[]): void => {
   for (const configClass of configs) {
     resolveConfig(container, configClass);
   }
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const createContainer = (options: CreateContainerOptions = {}): ResolverHandle => {
   const container = new Container();
   const configs = options.configs ?? [];
@@ -72,6 +75,7 @@ const bindOverrides = (container: Container, overrides: readonly Override<unknow
   }
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const createTestTargetBase = async <T extends object>(
   targetClass: Class<T>,
   options: CreateTestTargetOptions = {},
@@ -104,6 +108,7 @@ export const createTestTargetBase = async <T extends object>(
     await lifecycle.shutdown();
   };
 
+  /** @throws {ZeltLifecycleStateError} */
   const get = <U extends object>(cls: Class<U>): U => {
     if (disposed) {
       throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });

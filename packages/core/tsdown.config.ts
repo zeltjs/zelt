@@ -9,6 +9,7 @@ export default defineConfig({
     'src/modules/env/index.ts',
     'src/runtime/index.ts',
     'src/internal-bridge/testing.ts',
+    'src/internal-bridge/errors.ts',
   ],
   format: ['esm'],
   dts: true,

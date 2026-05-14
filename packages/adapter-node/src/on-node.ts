@@ -91,6 +91,7 @@ const createListenForHttp = (
   };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const runCommand = (
   CommandClass: CommandClass,
   get: <T extends object>(cls: new (...args: never[]) => T) => T,
@@ -102,6 +103,7 @@ const runCommand = (
     .catch(() => failureResult);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const createExecForCommands = (
   hasCommand: (name: string) => boolean,
   getCommands: () => ReadonlyMap<string, CommandClass>,
@@ -162,6 +164,7 @@ const buildHttpNodeApp = (
   return { ...resolver, args, listen: createListenForHttp(caps.fetch, shutdown), shutdown };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const buildCommandNodeApp = (
   caps: AppCapabilities,
   resolver: ReadyResult,
@@ -188,6 +191,7 @@ const buildSchedulerPart = (caps: AppCapabilities): SchedulerNodeAppPart | undef
   };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const buildNodeApps = (
   caps: AppCapabilities,
   resolver: ReadyResult,
@@ -222,21 +226,28 @@ const mergeNodeApps = (
   return { ...resolver, args, shutdown, listen: () => new Promise(() => {}), ...schedulerMethods };
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export function onNode(
   app: HttpApp & CommandApp & SchedulerApp,
   options?: NodeAppOptions,
 ): Promise<FullNodeApp & SchedulerNodeAppPart>;
+/** @throws {ZeltLifecycleStateError} */
 export function onNode(
   app: HttpApp & SchedulerApp,
   options?: NodeAppOptions,
 ): Promise<HttpNodeApp & SchedulerNodeAppPart>;
+/** @throws {ZeltLifecycleStateError} */
 export function onNode(
   app: CommandApp & SchedulerApp,
   options?: NodeAppOptions,
 ): Promise<CommandNodeApp & SchedulerNodeAppPart>;
+/** @throws {ZeltLifecycleStateError} */
 export function onNode(app: HttpApp & CommandApp, options?: NodeAppOptions): Promise<FullNodeApp>;
+/** @throws {ZeltLifecycleStateError} */
 export function onNode(app: HttpApp, options?: NodeAppOptions): Promise<HttpNodeApp>;
+/** @throws {ZeltLifecycleStateError} */
 export function onNode(app: CommandApp, options?: NodeAppOptions): Promise<CommandNodeApp>;
+/** @throws {ZeltLifecycleStateError} */
 export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise<NodeApp> {
   app.addFallbackConfig(NodeCliConfig);
   app.addFallbackConfig(ProcessEnvConfig);

@@ -9,5 +9,6 @@ export const setCommandMetadata = (cls: object, meta: CommandMetadata): void => 
   commandStore.set(cls, meta);
 };
 
+/** @throws {ZeltLifecycleStateError} */
 export const getCommandMetadata = (cls: object): CommandMetadata | undefined =>
   commandStore.get(cls);

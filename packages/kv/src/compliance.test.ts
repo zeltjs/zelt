@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { KVError } from './errors';
+import { ZeltKVInvalidTtlError } from './errors';
 import type { AtomicKVAdaptor, AtomicKVStore, KVAdaptor, KVStore } from './types';
 
 export type ComplianceOptions = {
@@ -58,17 +58,17 @@ const runKVStoreNamespaceTests = (getDriver: () => KVAdaptor, getStore: () => KV
 
 const runKVStoreValidationTests = (getStore: () => KVStore): void => {
   it('set with ttlSec=0 throws INVALID_TTL', async () => {
-    await expect(getStore().set('foo', 1, { ttlSec: 0 })).rejects.toThrow(KVError);
+    await expect(getStore().set('foo', 1, { ttlSec: 0 })).rejects.toThrow(ZeltKVInvalidTtlError);
   });
 
   it('set with negative ttlSec throws INVALID_TTL', async () => {
-    await expect(getStore().set('foo', 1, { ttlSec: -1 })).rejects.toThrow(KVError);
+    await expect(getStore().set('foo', 1, { ttlSec: -1 })).rejects.toThrow(ZeltKVInvalidTtlError);
   });
 
   it('expire with ttlSec=0 throws INVALID_TTL', async () => {
     const store = getStore();
     await store.set('foo', 1);
-    await expect(store.expire('foo', 0)).rejects.toThrow(KVError);
+    await expect(store.expire('foo', 0)).rejects.toThrow(ZeltKVInvalidTtlError);
   });
 };
 

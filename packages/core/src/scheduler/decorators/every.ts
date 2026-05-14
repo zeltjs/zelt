@@ -6,6 +6,7 @@ type EveryOptions =
   | { readonly minutes: number; readonly seconds?: never }
   | { readonly seconds: number; readonly minutes?: never };
 
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const Every =
   (options: EveryOptions) =>
   (...args: unknown[]): void => {

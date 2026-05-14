@@ -1,33 +1,37 @@
 import { describe, expect, it } from 'vitest';
 
-import { KVError } from './errors';
+import { isZeltKVInvalidTtlError, ZeltKVInvalidTtlError } from './errors';
 
-describe('errors', () => {
-  it('invalidTtl returns INVALID_TTL with correct fields', () => {
-    const e = KVError.invalidTtl(0);
-    expect(e.type).toBe('INVALID_TTL');
-    expect(e.details['ttlSec']).toBe(0);
-    expect(e.message).toContain('0');
+describe('ZeltKVInvalidTtlError', () => {
+  it('creates error with correct name and message', () => {
+    const err = new ZeltKVInvalidTtlError({ ttlSec: 0 });
+    expect(err.name).toBe('ZeltKVInvalidTtlError');
+    expect(err.message).toContain('0');
+    expect(err.context.ttlSec).toBe(0);
   });
 
-  it('invalidTtl with negative value', () => {
-    const e = KVError.invalidTtl(-5);
-    expect(e.type).toBe('INVALID_TTL');
-    expect(e.details['ttlSec']).toBe(-5);
+  it('works with negative value', () => {
+    const err = new ZeltKVInvalidTtlError({ ttlSec: -5 });
+    expect(err.context.ttlSec).toBe(-5);
+    expect(err.message).toContain('-5');
   });
 
-  it('storeOperationFailed returns STORE_OPERATION_FAILED with Error cause', () => {
-    const cause = new Error('redis down');
-    const e = KVError.storeOperationFailed('get', cause);
-    expect(e.type).toBe('STORE_OPERATION_FAILED');
-    expect(e.details['op']).toBe('get');
-    expect(e.details['cause']).toBe(cause);
-    expect(e.message).toContain('redis down');
+  it('works with instanceof', () => {
+    const err = new ZeltKVInvalidTtlError({ ttlSec: 0 });
+    expect(err instanceof ZeltKVInvalidTtlError).toBe(true);
+    expect(err instanceof Error).toBe(true);
+  });
+});
+
+describe('isZeltKVInvalidTtlError', () => {
+  it('returns true for ZeltKVInvalidTtlError', () => {
+    const err = new ZeltKVInvalidTtlError({ ttlSec: 0 });
+    expect(isZeltKVInvalidTtlError(err)).toBe(true);
   });
 
-  it('storeOperationFailed with non-Error cause uses String()', () => {
-    const e = KVError.storeOperationFailed('set', 'timeout');
-    expect(e.type).toBe('STORE_OPERATION_FAILED');
-    expect(e.message).toContain('timeout');
+  it('returns false for other errors', () => {
+    expect(isZeltKVInvalidTtlError(new Error('other'))).toBe(false);
+    expect(isZeltKVInvalidTtlError(null)).toBe(false);
+    expect(isZeltKVInvalidTtlError(undefined)).toBe(false);
   });
 });

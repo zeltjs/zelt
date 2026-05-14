@@ -26,6 +26,7 @@ export const createSchedulerRunner = (
   const jobInfos: JobInfo[] = [];
   let running = false;
 
+  /** @throws {ZeltLifecycleStateError} */
   const startup = async (): Promise<void> => {
     if (running) return;
 

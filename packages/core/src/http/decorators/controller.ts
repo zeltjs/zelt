@@ -10,6 +10,7 @@ import {
 } from '../internal/metadata';
 import { getCallerFile } from '../internal/source-file';
 
+/** @throws {ZeltLifecycleStateError} */
 export const Controller =
   (basePath: string) =>
   (...args: unknown[]): void => {

@@ -8,6 +8,7 @@ const isClassToken = <T>(token: Token<T>): boolean =>
 
 const needleInject: typeof InjectFn = inject;
 
+/** @throws {ZeltLifecycleStateError} */
 function unifiedInject<T>(token: InjectionToken<T>): T;
 function unifiedInject<T>(token: Token<T>): T;
 function unifiedInject<T>(token: Token<T>, options: { multi: true }): T[];
@@ -26,6 +27,7 @@ function unifiedInject<T>(
   token: Token<T>,
   options: { lazy: true; multi: true; optional: true },
 ): () => T[] | undefined;
+/** @throws {ZeltLifecycleStateError} */
 function unifiedInject<T>(
   token: Token<T>,
   options?: { multi?: boolean; optional?: boolean; lazy?: boolean },
