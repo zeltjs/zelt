@@ -75,23 +75,24 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: ['hono-client', 'openapi', 'bullmq'],
     },
-    {
-      type: 'category',
-      label: 'LLM',
-      collapsed: true,
-      items: [
-        {
-          type: 'link',
-          label: 'llms.txt',
-          href: '/llms.txt',
-        },
-        {
-          type: 'link',
-          label: 'llms-full.txt',
-          href: '/llms-full.txt',
-        },
-      ],
-    },
+    // TODO: Re-enable LLM section once docusaurus-markdown-source-plugin generates the files
+    // {
+    //   type: 'category',
+    //   label: 'LLM',
+    //   collapsed: true,
+    //   items: [
+    //     {
+    //       type: 'link',
+    //       label: 'llms.txt',
+    //       href: '/llms.txt',
+    //     },
+    //     {
+    //       type: 'link',
+    //       label: 'llms-full.txt',
+    //       href: '/llms-full.txt',
+    //     },
+    //   ],
+    // },
     {
       type: 'link',
       label: 'Examples',

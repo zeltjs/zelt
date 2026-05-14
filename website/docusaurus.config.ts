@@ -54,24 +54,25 @@ const config: Config = {
         href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap',
       },
     },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'alternate',
-        type: 'text/markdown',
-        href: '/llms.txt',
-        title: 'LLM Documentation Index',
-      },
-    },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'alternate',
-        type: 'text/markdown',
-        href: '/llms-full.txt',
-        title: 'LLM Full Documentation',
-      },
-    },
+    // TODO: Re-enable these once docusaurus-markdown-source-plugin generates the files
+    // {
+    //   tagName: 'link',
+    //   attributes: {
+    //     rel: 'alternate',
+    //     type: 'text/markdown',
+    //     href: '/llms.txt',
+    //     title: 'LLM Documentation Index',
+    //   },
+    // },
+    // {
+    //   tagName: 'link',
+    //   attributes: {
+    //     rel: 'alternate',
+    //     type: 'text/markdown',
+    //     href: '/llms-full.txt',
+    //     title: 'LLM Full Documentation',
+    //   },
+    // },
   ],
 
   presets: [
