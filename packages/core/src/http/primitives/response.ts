@@ -1,6 +1,30 @@
 import type { Context, TypedResponse } from 'hono';
 import { deleteCookie, setCookie } from 'hono/cookie';
+import { stream, streamSSE, streamText } from 'hono/streaming';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+
+export type ZeltStreamWriter = {
+  readonly aborted: boolean;
+  readonly closed: boolean;
+  write(input: Uint8Array | string): Promise<ZeltStreamWriter>;
+  writeln(input: string): Promise<ZeltStreamWriter>;
+  sleep(ms: number): Promise<unknown>;
+  close(): Promise<void>;
+  pipe(body: ReadableStream): Promise<void>;
+  onAbort(listener: () => void | Promise<void>): void;
+  abort(): void;
+};
+
+export type ZeltSSEMessage = {
+  data: string | Promise<string>;
+  event?: string;
+  id?: string;
+  retry?: number;
+};
+
+export type ZeltSSEWriter = ZeltStreamWriter & {
+  writeSSE(message: ZeltSSEMessage): Promise<void>;
+};
 
 import { getEntryContext } from '../internal/entry-context';
 
@@ -45,6 +69,21 @@ export type ResponseBuilder = {
   setCookie(name: string, value: string, options?: CookieOptions): ResponseBuilder;
 
   deleteCookie(name: string, options?: CookieOptions): ResponseBuilder;
+
+  stream(
+    cb: (stream: ZeltStreamWriter) => Promise<void>,
+    onError?: (e: Error, stream: ZeltStreamWriter) => Promise<void>,
+  ): Response;
+
+  streamText(
+    cb: (stream: ZeltStreamWriter) => Promise<void>,
+    onError?: (e: Error, stream: ZeltStreamWriter) => Promise<void>,
+  ): Response;
+
+  sse(
+    cb: (stream: ZeltSSEWriter) => Promise<void>,
+    onError?: (e: Error, stream: ZeltSSEWriter) => Promise<void>,
+  ): Response;
 };
 
 // Minimal structural view of hono Context for building responses.
@@ -116,6 +155,9 @@ const buildResponseBuilder = (c: Context): ResponseBuilder => {
       deleteCookie(c, name, options);
       return builder;
     },
+    stream: (cb, onError) => stream(c, cb, onError),
+    streamText: (cb, onError) => streamText(c, cb, onError),
+    sse: (cb, onError) => streamSSE(c, cb, onError),
   };
   return builder;
 };

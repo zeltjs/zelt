@@ -87,7 +87,13 @@ export { ip } from './http/primitives/ip';
 export { pathParam } from './http/primitives/path-param';
 export { queryParam, queryParams } from './http/primitives/query-param';
 export { requestContext } from './http/primitives/request-context';
-export type { CookieOptions, ResponseBuilder } from './http/primitives/response';
+export type {
+  CookieOptions,
+  ResponseBuilder,
+  ZeltSSEMessage,
+  ZeltSSEWriter,
+  ZeltStreamWriter,
+} from './http/primitives/response';
 export { response } from './http/primitives/response';
 export { method, path, url } from './http/primitives/url';
 export type {
