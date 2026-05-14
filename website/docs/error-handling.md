@@ -269,6 +269,54 @@ class LoggingErrorHandler {
 }
 ```
 
+## Framework Error Classes
+
+Zelt provides structured error classes for framework-level errors. These classes follow a consistent naming convention (`Zelt*Error`) and include typed context for debugging:
+
+| Error Class | Description |
+|------------|-------------|
+| `ZeltDecoratorUsageError` | Invalid decorator usage (e.g., applied to static method) |
+| `ZeltLifecycleStateError` | Invalid lifecycle state (e.g., calling method after shutdown) |
+| `ZeltContextNotAvailableError` | Primitive called outside execution context |
+| `ZeltAppConfigurationError` | Invalid app configuration |
+| `ZeltRouteConfigurationError` | Invalid route configuration |
+| `ZeltMiddlewareExecutionError` | Middleware execution error (e.g., next() called multiple times) |
+| `ZeltNotImplementedError` | Method not implemented |
+| `ZeltSchemaValidationError` | Invalid schema definition |
+
+### Usage
+
+```typescript
+import { ZeltAppConfigurationError } from '@zeltjs/core';
+
+try {
+  // ...
+} catch (error) {
+  if (error instanceof ZeltAppConfigurationError) {
+    console.log(error.context.reason); // 'no_http_or_commands' | 'duplicate_command'
+  }
+}
+```
+
+### Error Context
+
+Each error class includes a `context` property with structured information:
+
+```typescript
+// ZeltDecoratorUsageError context
+{
+  decoratorName: string;
+  reason: 'static_method' | 'missing_decorator';
+  targetName?: string;
+}
+
+// ZeltLifecycleStateError context
+{
+  operation: string;
+  currentState: 'disposed' | 'ready' | 'not_ready';
+}
+```
+
 ## Best Practices
 
 1. **Use descriptive error codes** — Prefer `USER_NOT_FOUND` over `NOT_FOUND`
@@ -276,3 +324,4 @@ class LoggingErrorHandler {
 3. **Avoid exposing internal details** — In production, don't include stack traces or internal error messages
 4. **Document error responses** — Use OpenAPI schemas to document all possible error codes
 5. **Order error handlers by specificity** — Place specific handlers before generic ones
+6. **Use framework errors** — Catch `Zelt*Error` classes to handle framework-specific issues
