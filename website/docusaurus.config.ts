@@ -6,7 +6,7 @@ import kanagawa from './src/prism-theme-kanagawa';
 const config: Config = {
   title: 'Zelt',
   tagline: 'A fast, type-safe application framework for TypeScript',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.png',
 
   future: {
     v4: true,
@@ -52,6 +52,14 @@ const config: Config = {
       attributes: {
         rel: 'stylesheet',
         href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'apple-touch-icon',
+        sizes: '180x180',
+        href: '/img/apple-touch-icon.png',
       },
     },
     {
