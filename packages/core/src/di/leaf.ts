@@ -1,5 +1,5 @@
-import type { Container as ContainerType, inject as InjectFn } from '@needle-di/core';
-import { Container, InjectionToken, inject } from '@needle-di/core';
+import type { Container as ContainerType } from '@needle-di/core';
+import { InjectionToken } from '@needle-di/core';
 
 type AnyClass = new (...args: never[]) => unknown;
 type AnyInstance = object;
@@ -135,14 +135,6 @@ export const getLeaf = <T extends object>(
   container: ContainerType,
   cls: new (...args: never[]) => T,
 ): T => container.get(ensureLeafBound(container, cls)) as T;
-
-const needleInject: typeof InjectFn = inject;
-
-export const injectLeaf = <T extends object>(cls: new (...args: never[]) => T): T => {
-  const container: ContainerType = needleInject(Container);
-  const token = ensureLeafBound(container, cls);
-  return needleInject(token) as T;
-};
 
 export const resolveLeaf = (container: ContainerType, cls: AnyClass): void => {
   const rootClass = findRootLeafClass(cls);
