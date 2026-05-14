@@ -179,6 +179,27 @@ static schema = cliSchema({
 });
 ```
 
+## Transient Scope
+
+Commands are registered as **transient** — a new instance is created for each execution. This ensures:
+
+- Clean state for each command run
+- No shared mutable state between executions
+- Dependencies injected via `inject()` remain singletons
+
+```typescript
+@Command({ name: 'process' })
+export class ProcessCommand {
+  private startTime = Date.now(); // Fresh for each execution
+
+  constructor(private db = inject(DatabaseService)) {} // Singleton, shared
+
+  run() {
+    console.log(`Started at: ${this.startTime}`);
+  }
+}
+```
+
 ## Dependency Injection
 
 Commands support dependency injection:
