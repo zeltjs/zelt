@@ -9,7 +9,7 @@ import type { CommandModule } from './modules/command-module';
 import { createCommandModule } from './modules/command-module';
 import type { ConfigModule } from './modules/config-module';
 import { createConfigModule } from './modules/config-module';
-import type { ControllerClass, HttpModule, HttpOptions } from './modules/http-module';
+import type { ControllerClass, HttpMetadata, HttpModule, HttpOptions } from './modules/http-module';
 import { createHttpModule } from './modules/http-module';
 import type { SchedulerClass, SchedulerModule } from './modules/scheduler-module';
 import { createSchedulerModule } from './modules/scheduler-module';
@@ -43,6 +43,7 @@ type HttpCapabilities = {
   readonly fetch: (request: Request) => Promise<Response>;
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
   readonly getControllers: () => readonly ControllerClass[];
+  readonly getMetadata: () => HttpMetadata;
 };
 
 type CommandCapabilities = {
@@ -223,6 +224,7 @@ const buildAppObject = (
         fetch: httpModule.fetch,
         request: httpModule.request,
         getControllers: httpModule.getControllers,
+        getMetadata: httpModule.getMetadata,
       }
     : {};
   const commandMethods = commandModule
