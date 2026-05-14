@@ -1,9 +1,7 @@
 import type { inject as InjectFn, InjectionToken, Token } from '@needle-di/core';
-import { inject } from '@needle-di/core';
+import { Container, inject } from '@needle-di/core';
 
-import { injectLeaf, isLeafClass } from './leaf';
-
-type AnyClass = new (...args: never[]) => unknown;
+import { resolve } from './resolve';
 
 const isClassToken = <T>(token: Token<T>): boolean =>
   typeof token === 'function' && token.prototype !== undefined;
@@ -32,8 +30,9 @@ function unifiedInject<T>(
   token: Token<T>,
   options?: { multi?: boolean; optional?: boolean; lazy?: boolean },
 ): unknown {
-  if (options === undefined && isClassToken(token) && isLeafClass(token as AnyClass)) {
-    return injectLeaf(token as new (...args: never[]) => object);
+  if (options === undefined && isClassToken(token)) {
+    const container = needleInject(Container);
+    return resolve(container, token as new (...args: never[]) => object);
   }
   return needleInject(token, options as never);
 }

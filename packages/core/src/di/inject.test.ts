@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { inject } from './inject';
 import { overrideLeaf, registerAsLeaf } from './leaf';
+import { registerAsTransient } from './transient';
 
 @injectable()
 class Service {
@@ -110,5 +111,24 @@ describe('inject (unified)', () => {
 
       expect(container.get(TokenConsumer).value).toBe('token-value');
     });
+  });
+});
+
+describe('inject with transient', () => {
+  it('injects transient class as new instance each time', () => {
+    @injectable()
+    class TransientDep {}
+    registerAsTransient(TransientDep);
+
+    @injectable()
+    class Consumer {
+      dep1: TransientDep = inject(TransientDep);
+      dep2: TransientDep = inject(TransientDep);
+    }
+
+    const container = new Container();
+    const consumer = container.get(Consumer);
+
+    expect(consumer.dep1).not.toBe(consumer.dep2);
   });
 });
