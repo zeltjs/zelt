@@ -248,6 +248,37 @@ describe('onNode with commands', () => {
   });
 });
 
+describe('command transient behavior', () => {
+  it('creates new command instance for each execCommand call', async () => {
+    const instanceIds: number[] = [];
+
+    @Command({ name: 'track' })
+    class TrackCommand {
+      static schema = cliSchema({});
+      private id = Math.random();
+
+      run() {
+        instanceIds.push(this.id);
+      }
+    }
+
+    const app = createApp({
+      commands: [TrackCommand],
+    });
+
+    const nodeApp = await onNode(app);
+
+    await nodeApp.execCommand(['track']);
+    await nodeApp.execCommand(['track']);
+    await nodeApp.execCommand(['track']);
+
+    await nodeApp.shutdown();
+
+    expect(instanceIds).toHaveLength(3);
+    expect(new Set(instanceIds).size).toBe(3); // All different IDs
+  });
+});
+
 describe('onNode with schedulers', () => {
   let nodeApp: (HttpNodeApp & SchedulerNodeAppPart) | undefined;
 
