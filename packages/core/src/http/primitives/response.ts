@@ -120,6 +120,7 @@ const buildResponseBuilder = (c: Context): ResponseBuilder => {
   return builder;
 };
 
+/** @throws {ZeltContextNotAvailableError} */
 export const response = (): ResponseBuilder => {
   const ctx = getEntryContext();
   return buildResponseBuilder(ctx.honoContext);

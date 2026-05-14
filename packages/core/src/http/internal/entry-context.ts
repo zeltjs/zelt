@@ -21,6 +21,7 @@ const storage = new AsyncLocalStorage<EntryContext>();
 
 export const runInEntryContext = <T>(ctx: EntryContext, fn: () => T): T => storage.run(ctx, fn);
 
+/** @throws {ZeltContextNotAvailableError} */
 export const getEntryContext = (): EntryContext => {
   const ctx = storage.getStore();
   if (!ctx)

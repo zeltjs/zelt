@@ -1,6 +1,10 @@
 import { ZeltRouteConfigurationError } from '../../errors';
 import { getEntryContext } from '../internal/entry-context';
 
+/**
+ * @throws {ZeltContextNotAvailableError}
+ * @throws {ZeltRouteConfigurationError}
+ */
 export const pathParam = (name: string): string => {
   const value = getEntryContext().input.pathParams[name];
   if (value === undefined) {
