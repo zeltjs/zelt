@@ -7,6 +7,8 @@ import {
   ZeltLifecycleStateError,
 } from '../../errors';
 import { DefaultErrorHandler } from '../../http/default.error-handler';
+import type { ControllerRouteInfo } from '../../http/internal/metadata';
+import { collectControllerRouteInfo } from '../../http/internal/metadata';
 import { buildRoutes, warmupControllers } from '../../http/internal/route-builder';
 import type {
   ErrorHandlerClass,
@@ -25,10 +27,15 @@ export type HttpOptions = {
   readonly errorHandlers?: readonly ErrorHandlerClass[];
 };
 
+export type HttpMetadata = {
+  readonly controllers: readonly ControllerRouteInfo[];
+};
+
 export type HttpModule = Module & {
   fetch: (req: Request) => Promise<Response>;
   request: (input: string | Request, init?: RequestInit) => Promise<Response>;
   getControllers: () => readonly ControllerClass[];
+  getMetadata: () => HttpMetadata;
 };
 
 type HttpModuleState = {
@@ -216,6 +223,10 @@ export const createHttpModule = (options: HttpOptions): HttpModule => {
 
   const getControllers = (): readonly ControllerClass[] => options.controllers;
 
+  const getMetadata = (): HttpMetadata => ({
+    controllers: options.controllers.map(collectControllerRouteInfo),
+  });
+
   return {
     setup,
     ready,
@@ -223,5 +234,6 @@ export const createHttpModule = (options: HttpOptions): HttpModule => {
     fetch,
     request,
     getControllers,
+    getMetadata,
   };
 };

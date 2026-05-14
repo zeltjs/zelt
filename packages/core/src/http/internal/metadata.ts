@@ -32,6 +32,20 @@ type AuthorizedMetadata = {
   readonly roles: readonly string[];
 };
 
+export type RouteInfo = {
+  readonly method: HttpMethod;
+  readonly path: string;
+  readonly fullPath: string;
+  readonly methodName: string;
+};
+
+export type ControllerRouteInfo = {
+  readonly basePath: string;
+  readonly sourceFile: string | undefined;
+  readonly name: string;
+  readonly routes: readonly RouteInfo[];
+};
+
 const controllerStore = new WeakMap<object, ControllerMetadata>();
 const routeStore = new WeakMap<object, RouteMetadata[]>();
 const controllerMiddlewareStore = new WeakMap<object, ControllerMiddlewareMetadata>();
@@ -195,4 +209,39 @@ export const resolveAuthorizedMetadata = (pendingKey: object, cls: object): void
     setAuthorizedMetadata(cls, methodName, roles);
   }
   pendingAuthorizedStore.delete(pendingKey);
+};
+
+const joinPath = (base: string, sub: string): string => {
+  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const normalizedSub = sub.startsWith('/') ? sub : `/${sub}`;
+  const joined = `${normalizedBase}${normalizedSub}`;
+  return joined === '' ? '/' : joined;
+};
+
+export const collectControllerRouteInfo = (
+  cls: new (...args: never[]) => object,
+): ControllerRouteInfo => {
+  const controllerMeta = controllerStore.get(cls);
+  const basePath = controllerMeta?.basePath ?? '/';
+  const routeMeta = routeStore.get(cls) ?? [];
+
+  const routes = routeMeta.flatMap((r) =>
+    typeof r.methodName === 'string'
+      ? [
+          {
+            method: r.method,
+            path: r.path,
+            fullPath: joinPath(basePath, r.path),
+            methodName: r.methodName,
+          },
+        ]
+      : [],
+  );
+
+  return {
+    basePath,
+    sourceFile: controllerMeta?.sourceFile,
+    name: cls.name,
+    routes,
+  };
 };

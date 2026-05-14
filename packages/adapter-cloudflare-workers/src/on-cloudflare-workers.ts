@@ -1,17 +1,16 @@
-import type { HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
-import { getControllerMetadata } from '@zeltjs/core';
+import type {
+  ControllerRouteInfo,
+  HttpApp,
+  HttpMetadata,
+  ReadyOptions,
+  ReadyResult,
+} from '@zeltjs/core';
 
 import { CloudflareWorkersEnvConfig } from './cloudflare-workers-env.config';
 
-export type DynamicControllerMeta = {
-  readonly basePath: string;
-  readonly name: string;
-  readonly sourceFile: string | undefined;
-};
+export type { ControllerRouteInfo, HttpMetadata };
 
-export type DynamicMeta = {
-  readonly controllers: readonly DynamicControllerMeta[];
-};
+export type DynamicMeta = HttpMetadata;
 
 export type CloudflareWorkersOptions = {
   readonly warmup?: boolean;
@@ -25,20 +24,6 @@ type BaseCloudflareWorkersApp = ReadyResult & {
 
 export type CloudflareWorkersApp = BaseCloudflareWorkersApp & {
   readonly __dynamicMeta?: DynamicMeta;
-};
-
-const collectDynamicMeta = (
-  controllers: readonly (new (...args: never[]) => object)[],
-): DynamicMeta => {
-  const controllerMetas = controllers.map((ctrl) => {
-    const meta = getControllerMetadata(ctrl);
-    return {
-      basePath: meta?.basePath ?? '/',
-      name: ctrl.name,
-      sourceFile: meta?.sourceFile,
-    };
-  });
-  return { controllers: controllerMetas };
 };
 
 export const onCloudflareWorkers = async (
@@ -63,7 +48,7 @@ export const onCloudflareWorkers = async (
   const base: BaseCloudflareWorkersApp = { ...resolver, fetch, shutdown: app.shutdown };
 
   if (options.dynamic) {
-    const __dynamicMeta = collectDynamicMeta(app.getControllers());
+    const __dynamicMeta = app.getMetadata();
     return { ...base, __dynamicMeta };
   }
 
