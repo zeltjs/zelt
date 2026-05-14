@@ -1,0 +1,36 @@
+{
+  "name": "@zeltjs/hono-client",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/hono-client"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "peerDependencies": {
+    "@zeltjs/core": "workspace:*",
+    "hono": "4.12.16"
+  },
+  "devDependencies": {
+    "@zeltjs/core": "workspace:*",
+    "hono": "4.12.16"
+  }
+}

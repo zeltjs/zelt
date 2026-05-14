@@ -8,9 +8,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
-    "erasableSyntaxOnly": false,
-    "types": ["node"]
+    "erasableSyntaxOnly": false
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../core" }, { "path": "../adapter-node" }, { "path": "../hono-client" }]
+  "references": [{ "path": "../core" }]
 }

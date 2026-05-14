@@ -2,7 +2,6 @@ import type { ExtractValidated, IsValidated, ValidationErrorBody } from '@zeltjs
 import type { TypedResponse } from 'hono';
 import type { StatusCode } from 'hono/utils/http-status';
 
-// '/users/:id/posts/:postId' → { id: string; postId: string }
 export type ExtractPathParams<P extends string> = string extends P
   ? Record<string, string>
   : P extends `${infer _Head}:${infer Param}/${infer Rest}`
@@ -11,10 +10,6 @@ export type ExtractPathParams<P extends string> = string extends P
       ? { [K in Param]: string }
       : Record<string, never>;
 
-// Scans handler args in order and returns the inner T of the first ValidatedMarker<T> found.
-// Uses function-type inference (H extends (a0: infer A0, ...) => unknown) instead of
-// Parameters<H>[number] to avoid TypeScript deferred-evaluation of tuple index unions,
-// which prevents ExtractValidated from resolving under tsc -b composite mode.
 export type ExtractRequestBody<H extends (...args: never[]) => unknown> = H extends (
   a0: infer A0,
   ...r0: infer _R0
@@ -30,20 +25,17 @@ export type ExtractRequestBody<H extends (...args: never[]) => unknown> = H exte
     : ExtractValidated<A0>
   : never;
 
-// handler 戻り値の Awaited を取り、TypedResponse ならそのまま、素データなら 200/json で wrap
 type WrapRaw<T> =
   T extends TypedResponse<infer _D, infer _S extends StatusCode, infer _F extends string>
     ? T
     : T extends Response
-      ? never // Response は contract 上 omit (spec §4.3)
+      ? never
       : TypedResponse<T, 200, 'json'>;
 
 export type ExtractResponse<H extends (...args: never[]) => unknown> = WrapRaw<
   Awaited<ReturnType<H>>
 >;
 
-// Returns TypedResponse<ValidationErrorBody, 400> if any handler arg is ValidatedMarker<T>.
-// Uses the same function-type inference approach as ExtractRequestBody (see above).
 export type ExtractValidationErrors<H extends (...args: never[]) => unknown> = (
   H extends (a0: infer A0, ...r0: infer _R0) => unknown
     ? IsValidated<A0> extends true
