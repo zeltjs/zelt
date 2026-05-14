@@ -192,8 +192,8 @@ import { ProcessEnvConfig, DotEnvConfig } from '@zeltjs/adapter-node';
 
 基本的なアプリケーションが動作するようになったら、さらに多くの機能を探索しましょう:
 
-- [コントローラー](/controllers) — ルーティングとHTTPメソッド
-- [サービス](/services) — ビジネスロジックと依存性注入
-- [バリデーション](/validation) — Valibotによるリクエストボディの検証
-- [ミドルウェア](/middleware) — リクエスト/レスポンスインターセプター
-- [設定](/configuration) — 高度な設定パターン
+- [コントローラー](../controllers) — ルーティングとHTTPメソッド
+- [サービス](../services) — ビジネスロジックと依存性注入
+- [バリデーション](../validation) — Valibotによるリクエストボディの検証
+- [ミドルウェア](../middleware) — リクエスト/レスポンスインターセプター
+- [設定](../configuration) — 高度な設定パターン

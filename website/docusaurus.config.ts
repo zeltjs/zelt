@@ -89,7 +89,7 @@ const config: Config = {
         docs: {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
-          routeBasePath: '/',
+          routeBasePath: 'docs',
         },
         blog: false,
         theme: {
@@ -131,7 +131,7 @@ const config: Config = {
         language: ['en', 'ja'],
         indexDocs: true,
         indexBlog: false,
-        docsRouteBasePath: '/',
+        docsRouteBasePath: 'docs',
         highlightSearchTermsOnTargetPage: true,
       } satisfies SearchPluginOptions,
     ],
@@ -154,6 +154,7 @@ const config: Config = {
           sidebarId: 'docsSidebar',
           position: 'left',
           label: 'Docs',
+          to: '/docs',
         },
         {
           to: '/examples/drizzle-todo',

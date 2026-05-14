@@ -19,7 +19,7 @@ describe('emitAppGen', () => {
     if (!irResult.isOk()) return;
     const ir = irResult.value;
     const out = emitAppGen(ir, { distDir: resolve(import.meta.dirname, '../../generated') });
-    expect(out).toContain("import type { Route, BuildAppType } from '@zeltjs/openapi'");
+    expect(out).toContain("import type { Route, BuildAppType } from '@zeltjs/hono-client'");
     expect(out).toContain('UserController');
     expect(out).toMatch(/Route<'GET',\s*'\/users\/:id',\s*typeof UserController\.prototype\.show>/);
     expect(out).toMatch(/Route<'POST',\s*'\/users',\s*typeof UserController\.prototype\.create>/);

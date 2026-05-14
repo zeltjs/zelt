@@ -31,4 +31,4 @@ export class UserRepository {
 }
 ```
 
-See the [Services](/services) documentation for practical usage patterns.
+See the [Services](./services) documentation for practical usage patterns.
