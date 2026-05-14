@@ -24,6 +24,7 @@ const config: KnipConfig = {
       ignore: ['generated/**'],
       ignoreDependencies: [
         '@zeltjs/openapi',
+        '@zeltjs/hono-client',
         '@zeltjs/adapter-node',
         '@zeltjs/core',
         '@zeltjs/cli',
