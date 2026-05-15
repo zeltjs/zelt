@@ -36,7 +36,10 @@ const resolveConfigs = (container: Container, configs: readonly Class<unknown>[]
   }
 };
 
-/** @throws {ZeltLifecycleStateError} */
+/**
+ * @internal Test-only utility
+ * @throws {ZeltLifecycleStateError}
+ */
 export const createContainer = (options: CreateContainerOptions = {}): ResolverHandle => {
   const container = new Container();
   const configs = options.configs ?? [];
