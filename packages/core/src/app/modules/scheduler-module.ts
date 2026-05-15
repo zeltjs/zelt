@@ -1,45 +1,55 @@
+import { Container, injectable } from '@needle-di/core';
+
+import { inject } from '../../di/inject';
+import { resolve } from '../../di/resolve';
+import { ZeltNotImplementedError } from '../../errors';
+import type { Lifecycle } from '../../lifecycle';
+import { LifecycleManager } from '../../lifecycle';
 import type { SchedulerRunner } from '../../scheduler/runner';
 import { createSchedulerRunner } from '../../scheduler/runner';
-import type { Module, ReadyContext } from '../module';
+import { SCHEDULER_OPTIONS } from '../tokens';
 
 export type SchedulerClass = new (...args: never[]) => object;
 
-export type SchedulerModule = Module & {
-  readonly startScheduler: () => Promise<void>;
-  readonly stopScheduler: () => Promise<void>;
-};
+@injectable()
+export class SchedulerModule implements Lifecycle {
+  private runner: SchedulerRunner | undefined;
 
-export const createSchedulerModule = (schedulers: readonly SchedulerClass[]): SchedulerModule => {
-  let runner: SchedulerRunner | undefined;
+  constructor(
+    private readonly schedulers: readonly SchedulerClass[] = inject(SCHEDULER_OPTIONS),
+    private readonly container: Container = inject(Container),
+    private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
+  ) {
+    this.lifecycleManager.register(this);
+  }
 
-  const setup = (): void => {};
+  async startup(): Promise<void> {
+    if (this.schedulers.length === 0) return;
+    const resolver = {
+      get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
+      getConfig: () => {
+        throw new ZeltNotImplementedError({
+          className: 'SchedulerModule',
+          methodName: 'getConfig',
+        });
+      },
+    };
+    this.runner = createSchedulerRunner(this.schedulers, resolver);
+  }
 
-  const ready = async (context: ReadyContext): Promise<void> => {
-    if (schedulers.length === 0) return;
-    runner = createSchedulerRunner(schedulers, context.resolver);
-  };
+  async shutdown(): Promise<void> {
+    await this.stopScheduler();
+  }
 
-  const startScheduler = async (): Promise<void> => {
-    if (runner && !runner.isRunning()) {
-      await runner.startup();
+  async startScheduler(): Promise<void> {
+    if (this.runner && !this.runner.isRunning()) {
+      await this.runner.startup();
     }
-  };
+  }
 
-  const stopScheduler = async (): Promise<void> => {
-    if (runner?.isRunning()) {
-      await runner.shutdown();
+  async stopScheduler(): Promise<void> {
+    if (this.runner?.isRunning()) {
+      await this.runner.shutdown();
     }
-  };
-
-  const shutdown = async (): Promise<void> => {
-    await stopScheduler();
-  };
-
-  return {
-    setup,
-    ready,
-    shutdown,
-    startScheduler,
-    stopScheduler,
-  };
-};
+  }
+}

@@ -1,30 +1,6 @@
 import { relative } from 'node:path';
 
-export type RouteInfo = {
-  readonly method: string;
-  readonly path: string;
-  readonly fullPath: string;
-  readonly methodName: string;
-};
-
-export type ControllerRouteInfo = {
-  readonly basePath: string;
-  readonly sourceFile: string | undefined;
-  readonly name: string;
-  readonly routes: readonly RouteInfo[];
-};
-
-export type HttpMetadata = {
-  readonly controllers: readonly ControllerRouteInfo[];
-};
-
-export type GenerateOptions = {
-  readonly distDir: string;
-};
-
-type HttpAppLike = {
-  getMetadata: () => HttpMetadata;
-};
+import type { ControllerRouteInfo, HttpMetadata, RouteInfo } from './types';
 
 const stripTsExtension = (p: string): string => p.replace(/\.tsx?$/, '');
 
@@ -45,7 +21,7 @@ const renderImport = (distDir: string, c: ControllerRouteInfo): string => {
 const renderRouteLine = (c: ControllerRouteInfo, r: RouteInfo): string =>
   `  Route<'${r.method}', '${r.fullPath}', typeof ${c.name}.prototype.${r.methodName}>,`;
 
-const emitAppType = (metadata: HttpMetadata, distDir: string): string => {
+export const emitAppType = (metadata: HttpMetadata, distDir: string): string => {
   const imports = metadata.controllers.map((c) => renderImport(distDir, c)).join('\n');
 
   const routes = metadata.controllers.flatMap((c) => c.routes.map((r) => renderRouteLine(c, r)));
@@ -61,6 +37,3 @@ const emitAppType = (metadata: HttpMetadata, distDir: string): string => {
     '',
   ].join('\n');
 };
-
-export const generateHonoAppType = (app: HttpAppLike, options: GenerateOptions): string =>
-  emitAppType(app.getMetadata(), options.distDir);

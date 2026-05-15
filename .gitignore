@@ -12,3 +12,4 @@ coverage/
 lefthook-local.yml
 .worktrees/
 .codepolicy/
+plans/*.md

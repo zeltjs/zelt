@@ -1,57 +1,54 @@
+import { injectable } from '@needle-di/core';
+
 import { getCommandMetadata } from '../../command/metadata';
 import type { CommandClass } from '../../command/types';
+import { inject } from '../../di/inject';
 import { ZeltAppConfigurationError, ZeltDecoratorUsageError } from '../../errors';
-import type { Module, ReadyContext } from '../module';
+import type { Lifecycle } from '../../lifecycle';
+import { LifecycleManager } from '../../lifecycle';
+import { COMMAND_OPTIONS } from '../tokens';
 
-export type CommandModule = Module & {
-  hasCommand: (name: string) => boolean;
-  getCommands: () => ReadonlyMap<string, CommandClass>;
-};
+@injectable()
+export class CommandModule implements Lifecycle {
+  private readonly commandMap = new Map<string, CommandClass>();
 
-/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-const validateCommands = (commands: readonly CommandClass[]): Map<string, CommandClass> => {
-  const commandMap = new Map<string, CommandClass>();
-  for (const cls of commands) {
-    const meta = getCommandMetadata(cls);
-    if (!meta) {
-      throw new ZeltDecoratorUsageError({
-        decoratorName: 'Command',
-        reason: 'missing_decorator',
-        targetName: cls.name,
-      });
-    }
-    if (commandMap.has(meta.name)) {
-      throw new ZeltAppConfigurationError({ reason: 'duplicate_command', details: meta.name });
-    }
-    commandMap.set(meta.name, cls);
+  /** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError} */
+  constructor(
+    private readonly commands: readonly CommandClass[] = inject(COMMAND_OPTIONS),
+    private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
+  ) {
+    this.lifecycleManager.register(this);
+    this.validateAndRegisterCommands();
   }
-  return commandMap;
-};
 
-export const createCommandModule = (commands: readonly CommandClass[]): CommandModule => {
-  const commandMap = new Map<string, CommandClass>();
+  async startup(): Promise<void> {}
 
-  /** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-  const setup = (): void => {
-    const validated = validateCommands(commands);
-    for (const [name, cls] of validated) {
-      commandMap.set(name, cls);
+  async shutdown(): Promise<void> {
+    this.commandMap.clear();
+  }
+
+  private validateAndRegisterCommands(): void {
+    for (const cls of this.commands) {
+      const meta = getCommandMetadata(cls);
+      if (!meta) {
+        throw new ZeltDecoratorUsageError({
+          decoratorName: 'Command',
+          reason: 'missing_decorator',
+          targetName: cls.name,
+        });
+      }
+      if (this.commandMap.has(meta.name)) {
+        throw new ZeltAppConfigurationError({ reason: 'duplicate_command', details: meta.name });
+      }
+      this.commandMap.set(meta.name, cls);
     }
-  };
+  }
 
-  const ready = async (_context: ReadyContext): Promise<void> => {};
+  hasCommand(name: string): boolean {
+    return this.commandMap.has(name);
+  }
 
-  const shutdown = async (): Promise<void> => {};
-
-  const hasCommand = (name: string): boolean => commandMap.has(name);
-
-  const getCommands = (): ReadonlyMap<string, CommandClass> => commandMap;
-
-  return {
-    setup,
-    ready,
-    shutdown,
-    hasCommand,
-    getCommands,
-  };
-};
+  getCommands(): ReadonlyMap<string, CommandClass> {
+    return this.commandMap;
+  }
+}

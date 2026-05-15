@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { HttpMetadata } from '../emit';
-import { generateHonoAppType } from '../emit';
+import { emitAppType } from './emit.lib';
+import type { HttpMetadata } from './types';
 
-const createMockApp = (metadata: HttpMetadata) => ({
-  getMetadata: () => metadata,
-});
-
-describe('generateHonoAppType', () => {
+describe('emitAppType', () => {
   const metadata: HttpMetadata = {
     controllers: [
       {
@@ -23,7 +19,7 @@ describe('generateHonoAppType', () => {
   };
 
   it('emits valid TypeScript with Route entries', () => {
-    const out = generateHonoAppType(createMockApp(metadata), { distDir: '/app/generated' });
+    const out = emitAppType(metadata, '/app/generated');
     expect(out).toContain("import type { Route, BuildAppType } from '@zeltjs/hono-client'");
     expect(out).toContain('import type { UserController }');
     expect(out).toMatch(/Route<'GET', '\/users\/:id', typeof UserController\.prototype\.show>/);
@@ -32,17 +28,17 @@ describe('generateHonoAppType', () => {
   });
 
   it('uses relative import path from distDir', () => {
-    const out = generateHonoAppType(createMockApp(metadata), { distDir: '/app/generated' });
+    const out = emitAppType(metadata, '/app/generated');
     expect(out).toContain("from '../src/controllers/user.controller'");
   });
 
   it('strips .ts extension from import path', () => {
-    const out = generateHonoAppType(createMockApp(metadata), { distDir: '/app/generated' });
+    const out = emitAppType(metadata, '/app/generated');
     expect(out).not.toContain('.ts');
   });
 
   it('marks file as generated', () => {
-    const out = generateHonoAppType(createMockApp(metadata), { distDir: '/app/generated' });
+    const out = emitAppType(metadata, '/app/generated');
     expect(out).toContain('GENERATED');
     expect(out).toContain('DO NOT EDIT');
   });
@@ -58,8 +54,8 @@ describe('generateHonoAppType', () => {
         },
       ],
     };
-    expect(() =>
-      generateHonoAppType(createMockApp(noSourceMeta), { distDir: '/app/generated' }),
-    ).toThrow('Controller "AnonymousController" has no sourceFile');
+    expect(() => emitAppType(noSourceMeta, '/app/generated')).toThrow(
+      'Controller "AnonymousController" has no sourceFile',
+    );
   });
 });
