@@ -95,21 +95,4 @@ describe('loadZeltConfig', () => {
 
     expect(config.cli?.entry).toBe('./src/cli.ts');
   });
-
-  it('loads legacy top-level fields for backward compatibility', async () => {
-    const configContent = `
-      export default {
-        controllers: ['./src/**/*.controller.ts'],
-        dist: './generated',
-        tsconfig: './tsconfig.json',
-      };
-    `;
-    await writeFile(join(testDir, 'zelt.config.ts'), configContent);
-
-    const config = await loadZeltConfig({ cwd: testDir });
-
-    expect(config.controllers).toEqual(['./src/**/*.controller.ts']);
-    expect(config.dist).toBe('./generated');
-    expect(config.tsconfig).toBe('./tsconfig.json');
-  });
 });

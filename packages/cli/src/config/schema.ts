@@ -1,10 +1,7 @@
+// packages/cli/src/config/schema.ts
 import * as v from 'valibot';
 
-const OpenApiConfigSchema = v.object({
-  controllers: v.optional(v.array(v.string())),
-  outDir: v.optional(v.string()),
-  tsconfig: v.optional(v.string()),
-});
+import type { ZeltPlugin } from '../plugin/types';
 
 const BuildConfigSchema = v.object({
   entry: v.optional(v.string()),
@@ -27,19 +24,16 @@ const CliConfigSchema = v.object({
 });
 
 export const ZeltConfigSchema = v.object({
-  openapi: v.optional(OpenApiConfigSchema),
+  entry: v.optional(v.string()),
+  plugins: v.optional(v.array(v.any())),
   build: v.optional(BuildConfigSchema),
   dev: v.optional(DevConfigSchema),
   cli: v.optional(CliConfigSchema),
-
-  // Legacy top-level fields for backward compatibility
-  controllers: v.optional(v.array(v.string())),
-  dist: v.optional(v.string()),
-  tsconfig: v.optional(v.string()),
 });
 
-export type ZeltConfig = v.InferOutput<typeof ZeltConfigSchema>;
+export type ZeltConfig = v.InferOutput<typeof ZeltConfigSchema> & {
+  readonly plugins?: readonly ZeltPlugin[];
+};
 export type BuildConfig = v.InferOutput<typeof BuildConfigSchema>;
 export type DevConfig = v.InferOutput<typeof DevConfigSchema>;
 export type CliConfig = v.InferOutput<typeof CliConfigSchema>;
-export type OpenApiConfig = v.InferOutput<typeof OpenApiConfigSchema>;
