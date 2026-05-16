@@ -5,7 +5,7 @@ sidebar_position: 1
 
 # イントロダクション
 
-ZeltJSは、DIを組み込んだポータブルなTypeScriptアプリケーションフレームワークです。Node.js、Bun、Cloudflare Workers、AWS Lambdaなど、どこでも動きます。
+ZeltJSは、DIを組み込んだポータブルなTypeScriptアプリケーションフレームワークです。アダプターを切り替えることで、Node.js、Bun、Cloudflare Workers、AWS Lambdaで動作します。
 大規模なアプリケーションを、インフラを変えても動くように書けること。これがZeltJSの目指すところです。
 
 ## 設計思想

@@ -2,9 +2,9 @@
 
 [![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
 
-> Portable application framework with DI — Node, Workers, Lambda... anywhere.
+> Portable application framework with DI — swap adapters for different runtimes.
 
-ZeltJS is a portable TypeScript application framework with built-in DI. It runs anywhere — Node.js, Bun, Cloudflare Workers, AWS Lambda.
+ZeltJS is a portable TypeScript application framework with built-in DI. Swap adapters to run on Node.js, Bun, Cloudflare Workers, or AWS Lambda.
 
 ```typescript
 import { Controller, Get, Post, validated, pathParam, createApp } from '@zeltjs/core';
@@ -52,7 +52,7 @@ export const handler = lambda.handler;
 
 ## Why ZeltJS?
 
-- **Run Anywhere** — Node, Bun, Workers, Lambda — portable across runtimes
+- **Portable** — Swap adapters for Node, Bun, Workers, Lambda
 - **DI Built-in** — First-class dependency injection, type-safe
 - **Fast Startup** — Minimal wake-up time, serverless-ready
 - **Future-proof Decorators** — TC39 & reflect-metadata dual support
@@ -61,7 +61,7 @@ export const handler = lambda.handler;
 
 ## Status
 
-**pre-alpha** — Breaking changes may occur in minor versions during 0.x.
+**alpha** — Breaking changes may occur in minor versions during 0.x.
 
 ## License
 

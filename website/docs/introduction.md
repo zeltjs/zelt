@@ -4,7 +4,7 @@ slug: /
 
 # Introduction
 
-ZeltJS is a portable TypeScript application framework with built-in DI. It runs anywhere — Node.js, Bun, Cloudflare Workers, AWS Lambda.
+ZeltJS is a portable TypeScript application framework with built-in DI. Swap adapters to run on Node.js, Bun, Cloudflare Workers, or AWS Lambda.
 Building large-scale applications that work across different infrastructure. That's what ZeltJS aims for.
 
 ## Philosophy

@@ -5,7 +5,7 @@ import kanagawa from './src/prism-theme-kanagawa';
 
 const config: Config = {
   title: 'ZeltJS',
-  tagline: 'Portable application framework with DI — runs anywhere',
+  tagline: 'Portable application framework with DI — swap adapters for different runtimes',
   favicon: 'img/favicon.png',
 
   future: {
