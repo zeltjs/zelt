@@ -13,6 +13,7 @@ import {
   isZeltNoEntryError,
   ZeltNoEntryError,
 } from '../errors';
+import { runPreBuildHooks } from '../plugin/runner';
 
 const cliConfig = new NodeCliConfig();
 
@@ -37,6 +38,10 @@ const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefine
 const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
   const configFile = typedArgs.config;
   const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
+
+  // Run preBuild hooks first
+  await runPreBuildHooks({ cwd, config });
+
   const buildConfig = resolveBuildConfig(typedArgs, config.build);
 
   if (buildConfig.entry === undefined) {
