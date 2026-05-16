@@ -23,6 +23,7 @@
   /* Warm gray text */
   --ifm-font-color-base: #2d2520;
   --ifm-heading-color: #1f1a16;
+  --ifm-menu-color: #2d2520;
 
   /* Borders and subtle elements */
   --ifm-color-emphasis-200: #e8e0d8;
@@ -53,6 +54,7 @@
   /* Warm light text */
   --ifm-font-color-base: #e8e0d8;
   --ifm-heading-color: #f5f0ea;
+  --ifm-menu-color: #e8e0d8;
 
   /* Borders and subtle elements */
   --ifm-color-emphasis-200: #3d3530;
@@ -197,6 +199,17 @@ code:not(pre code)::after {
 /* Hide breadcrumbs */
 .theme-doc-breadcrumbs {
   display: none;
+}
+
+/* ===== Navbar link colors ===== */
+
+.navbar__link {
+  color: var(--ifm-font-color-base);
+}
+
+.navbar__link:hover,
+.navbar__link--active {
+  color: var(--ifm-font-color-base);
 }
 
 /* ===== VitePress-style navbar right items ===== */

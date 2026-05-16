@@ -1,5 +1,6 @@
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+import CodeBlock from '@theme/CodeBlock';
 import Layout from '@theme/Layout';
 
 const features = [
@@ -26,34 +27,35 @@ const features = [
   },
 ];
 
-const codeExample = `import { HttpApp, controller, get, post, body, param } from '@zeltjs/core';
-import { z } from 'zod';
+const codeExample = `import { Controller, Get, Post, body, pathParam, createApp } from '@zeltjs/core';
+import * as v from 'valibot';
 
-const UserSchema = z.object({
-  name: z.string(),
-  email: z.string().email(),
+const UserSchema = v.object({
+  name: v.string(),
+  email: v.pipe(v.string(), v.email()),
 });
 
-const userController = controller('/users', [
-  get('/', async () => {
-    return { users: await db.users.findMany() };
-  }),
+@Controller('/users')
+class UserController {
+  @Get('/')
+  list() {
+    return { users: db.users.findMany() };
+  }
 
-  get('/:id', async (c) => {
-    const id = param(c, 'id');
-    return { user: await db.users.find(id) };
-  }),
+  @Get('/:id')
+  findOne(id = pathParam('id')) {
+    return { user: db.users.find(id) };
+  }
 
-  post('/', async (c) => {
-    const data = body(c, UserSchema);
-    return { user: await db.users.create(data) };
-  }),
-]);
+  @Post('/')
+  create(data = body(UserSchema)) {
+    return { user: db.users.create(data) };
+  }
+}
 
-const app = new HttpApp()
-  .use(userController);
-
-export default app;`;
+export const app = createApp({
+  http: { controllers: [UserController] },
+});`;
 
 function HeroSection() {
   const { siteConfig } = useDocusaurusContext();
@@ -84,9 +86,7 @@ function CodeShowcase() {
     <section className="code-showcase">
       <div className="code-showcase__container">
         <h2 className="code-showcase__title">Simple, Intuitive API</h2>
-        <pre className="code-showcase__code">
-          <code>{codeExample}</code>
-        </pre>
+        <CodeBlock language="typescript">{codeExample}</CodeBlock>
       </div>
     </section>
   );
