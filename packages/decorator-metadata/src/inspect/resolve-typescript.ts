@@ -19,8 +19,3 @@ export const resolveTypeScript = async (): Promise<TypeScriptModule> => {
   cachedTs = userTs;
   return cachedTs;
 };
-
-export const getTypeScriptVersion = async (): Promise<string> => {
-  const ts = await resolveTypeScript();
-  return ts.version;
-};

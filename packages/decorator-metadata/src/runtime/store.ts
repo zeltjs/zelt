@@ -63,10 +63,12 @@ export const setMethodMetadata = (
   });
 };
 
-export const getMethodMetadata = (cls: object, name: string): MethodMeta | undefined => {
+const getMethodMetadata = (cls: object, name: string): MethodMeta | undefined => {
   const meta = classStore.get(cls);
   return meta?.methods.find((m) => m.name === name);
 };
+
+void getMethodMetadata;
 
 export const setPropertyMetadata = (
   cls: object,
@@ -88,7 +90,9 @@ export const setPropertyMetadata = (
   });
 };
 
-export const getPropertyMetadata = (cls: object, name: string): PropertyMeta | undefined => {
+const getPropertyMetadata = (cls: object, name: string): PropertyMeta | undefined => {
   const meta = classStore.get(cls);
   return meta?.properties.find((p) => p.name === name);
 };
+
+void getPropertyMetadata;
