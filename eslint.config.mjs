@@ -162,7 +162,7 @@ export default tseslint.config(
     files: ['packages/decorator-metadata/src/inspect/**/*.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
-      complexity: ['error', { max: 15 }],
+      complexity: ['error', { max: 10 }],
     },
   },
   {
