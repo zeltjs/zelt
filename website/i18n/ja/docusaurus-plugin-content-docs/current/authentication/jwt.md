@@ -2,33 +2,35 @@
 sidebar_position: 3
 ---
 
-# JWT認証
+# JWT Authentication
 
-`@zeltjs/auth-jwt`はSPA、モバイルアプリ、API向けのステートレスなJWTベース認証を提供します。
+`@zeltjs/auth-jwt` provides stateless JWT-based authentication for SPAs, mobile apps, and APIs.
 
-## インストール
+## Installation
 
 ```bash
 pnpm add @zeltjs/auth-jwt
 ```
 
-## クイックスタート
+## Quick Start
 
-### 1. シークレットを設定
+### 1. Set the Secret
 
-`JWT_SECRET`環境変数を設定：
+Set the `JWT_SECRET` environment variable:
 
 ```bash
 # .env
 JWT_SECRET=your-secret-key-at-least-32-characters
 ```
 
-### 2. ミドルウェアを登録
+### 2. Register Middleware
 
 ```typescript
 import { createApp } from '@zeltjs/core';
 import { JwtMiddleware, JwtConfig } from '@zeltjs/auth-jwt';
-
+declare const AuthController: never;
+declare const UserController: never;
+// ---cut---
 const app = createApp({
   http: {
     controllers: [AuthController, UserController],
@@ -38,15 +40,18 @@ const app = createApp({
 });
 ```
 
-### 3. トークンを生成
+### 3. Generate Tokens
 
-ログイン時に`JwtService`を使用してトークンに署名：
+Use `JwtService` to sign tokens at login:
 
 ```typescript
-import { Controller, Post, bodyParam, inject } from '@zeltjs/core';
+import { Controller, Post, inject } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import { JwtService } from '@zeltjs/auth-jwt';
+import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
-
+declare function validateCredentials(email: string, password: string): Promise<{ id: string; roles: string[] } | null>;
+// ---cut---
 const LoginSchema = v.object({
   email: v.pipe(v.string(), v.email()),
   password: v.string(),
@@ -57,10 +62,10 @@ class AuthController {
   constructor(private jwtService = inject(JwtService)) {}
 
   @Post('/login')
-  async login(body = bodyParam(LoginSchema)) {
+  async login(body = validated(LoginSchema)) {
     const user = await validateCredentials(body.email, body.password);
     if (!user) {
-      throw new HTTPException(401, { message: '認証情報が無効です' });
+      throw new HTTPException(401, { message: 'Invalid credentials' });
     }
     
     const token = await this.jwtService.sign({
@@ -73,13 +78,13 @@ class AuthController {
 }
 ```
 
-### 4. ルートを保護
+### 4. Protect Routes
 
-`@Authorized()`を使用して認証を要求：
+Use `@Authorized()` to require authentication:
 
 ```typescript
 import { Controller, Get, Authorized, currentUser } from '@zeltjs/core';
-
+// ---cut---
 @Controller('/users')
 class UserController {
   @Authorized()
@@ -92,17 +97,21 @@ class UserController {
 
 ## JwtService API
 
-| メソッド | 説明 |
-|----------|------|
-| `sign(payload)` | 署名済みJWTトークンを作成 |
-| `verify(token)` | トークンを検証・デコード（無効な場合はスロー） |
-| `decode(token)` | 検証なしでデコード（エラー時は`null`を返す） |
+| Method | Description |
+|--------|-------------|
+| `sign(payload)` | Create a signed JWT token |
+| `verify(token)` | Verify and decode a token (throws on invalid) |
+| `decode(token)` | Decode without verification (returns `null` on error) |
 
-### sign
+### Sign
 
-カスタムペイロードで署名済みトークンを作成：
+Create a signed token with custom payload:
 
 ```typescript
+import { JwtService } from '@zeltjs/auth-jwt';
+declare const jwtService: JwtService;
+declare const user: { id: string };
+// ---cut---
 const token = await jwtService.sign({
   sub: user.id,
   roles: ['admin', 'user'],
@@ -110,51 +119,68 @@ const token = await jwtService.sign({
 });
 ```
 
-### verify
+### Verify
 
-トークンを検証してペイロードを取得（無効または期限切れの場合はスロー）：
+Verify a token and get its payload (throws if invalid or expired):
 
 ```typescript
+import { JwtService } from '@zeltjs/auth-jwt';
+declare const jwtService: JwtService;
+declare const token: string;
+// ---cut---
 try {
   const payload = await jwtService.verify(token);
-  console.log(payload.sub); // ユーザーID
+  console.log(payload.sub); // user ID
 } catch (error) {
-  // トークンが無効または期限切れ
+  // Token is invalid or expired
 }
 ```
 
-### decode
+### Decode
 
-検証なしでデコード（期限切れトークンの読み取りに便利）：
+Decode without verification (useful for reading expired tokens):
 
 ```typescript
+import { JwtService } from '@zeltjs/auth-jwt';
+declare const jwtService: JwtService;
+declare const token: string;
+// ---cut---
 const payload = jwtService.decode(token);
 if (payload) {
   console.log(payload.sub);
 }
 ```
 
-## 設定
+## Configuration
 
-`JwtConfig`を継承して動作をカスタマイズ：
+Extend `JwtConfig` to customize behavior:
 
 ```typescript
 import { JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
-import { Config } from '@zeltjs/core';
-
+import { Config, EnvConfig, inject } from '@zeltjs/core';
+declare const db: {
+  users: {
+    findById(id: string): Promise<{ id: string; name: string; email: string; roles: string[] }>;
+  };
+};
+// ---cut---
 @Config
 class CustomJwtConfig extends JwtConfig {
+  constructor(private env = inject(EnvConfig)) {
+    super();
+  }
+
   override get secret(): string {
-    return process.env.JWT_SECRET!;
+    return this.env.get('JWT_SECRET')!;
   }
 
   override get expiresIn(): string {
-    return '7d';  // トークン有効期限（デフォルト: '1h'）
+    return '7d';  // Token expiration (default: '1h')
   }
 
   override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {
     return async (payload) => {
-      const user = await db.users.findById(payload.sub);
+      const user = await db.users.findById(payload.sub!);
       return {
         user: { id: user.id, name: user.name, email: user.email },
         roles: user.roles,
@@ -164,33 +190,41 @@ class CustomJwtConfig extends JwtConfig {
 }
 ```
 
-カスタム設定を登録：
+Register your custom config:
 
 ```typescript
+import { createApp } from '@zeltjs/core';
+import { JwtMiddleware } from '@zeltjs/auth-jwt';
+declare const AuthController: never;
+declare const UserController: never;
+declare const CustomJwtConfig: never;
+// ---cut---
 const app = createApp({
   http: {
     controllers: [AuthController, UserController],
     middlewares: [JwtMiddleware],
   },
-  configs: [CustomJwtConfig],  // JwtConfigを置き換え
+  configs: [CustomJwtConfig],  // Your config replaces JwtConfig
 });
 ```
 
-### 設定オプション
+### Configuration Options
 
-| オプション | 型 | デフォルト | 説明 |
-|------------|------|---------|------|
-| `secret` | `string` | `process.env.JWT_SECRET` | 署名用シークレットキー |
-| `expiresIn` | `string` | `'1h'` | トークン有効期限（例: `'15m'`, `'7d'`） |
-| `resolveUser` | `function` | `{ user: sub, roles: [] }`を返す | JWTペイロードからユーザーを解決 |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `secret` | `string` | `env.get('JWT_SECRET')` | Secret key for signing |
+| `expiresIn` | `string` | `'1h'` | Token expiration (e.g., `'15m'`, `'7d'`) |
+| `resolveUser` | `function` | Returns `{ user: sub, roles: [] }` | Resolves user from JWT payload |
 
-## クライアント連携
+## Client Integration
 
-### トークンの送信
+### Sending the Token
 
-クライアントは`Authorization`ヘッダーにトークンを含める：
+Clients should include the token in the `Authorization` header:
 
 ```typescript
+declare const token: string;
+// ---cut---
 fetch('/api/users/me', {
   headers: {
     'Authorization': `Bearer ${token}`,
@@ -198,30 +232,41 @@ fetch('/api/users/me', {
 });
 ```
 
-### トークンの保存
+### Token Storage
 
-クライアントでトークンを安全に保存：
+Store tokens securely on the client:
 
-| プラットフォーム | 推奨ストレージ |
-|------------------|----------------|
-| ブラウザSPA | `httpOnly` Cookieまたはメモリ（`localStorage`は避ける） |
-| モバイルアプリ | セキュアストレージ（Keychain / Keystore） |
-| サーバー間通信 | 環境変数 |
+| Platform | Recommended Storage |
+|----------|---------------------|
+| Browser SPA | `httpOnly` cookie or memory (avoid `localStorage`) |
+| Mobile App | Secure storage (Keychain / Keystore) |
+| Server-to-Server | Environment variable |
 
-## トークンリフレッシュパターン
+## Token Refresh Pattern
 
-長期セッションの場合、リフレッシュトークンフローを実装：
+For long-lived sessions, implement a refresh token flow:
 
 ```typescript
+import { Controller, Post, inject } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import { JwtService } from '@zeltjs/auth-jwt';
+import * as v from 'valibot';
+const RefreshSchema = v.object({ refreshToken: v.string() });
+declare const db: {
+  users: {
+    findById(id: string): Promise<{ id: string; roles: string[] }>;
+  };
+};
+// ---cut---
 @Controller('/auth')
 class AuthController {
   constructor(private jwtService = inject(JwtService)) {}
 
   @Post('/refresh')
-  async refresh(body = bodyParam(RefreshSchema)) {
+  async refresh(body = validated(RefreshSchema)) {
     const payload = await this.jwtService.verify(body.refreshToken);
     
-    const user = await db.users.findById(payload.sub);
+    const user = await db.users.findById(payload.sub!);
     const accessToken = await this.jwtService.sign({
       sub: user.id,
       roles: user.roles,
@@ -232,12 +277,12 @@ class AuthController {
 }
 ```
 
-## エラーレスポンス
+## Error Responses
 
-| ステータス | コード | 条件 |
-|------------|--------|------|
-| 401 | `UNAUTHORIZED` | トークンなし、無効なトークン、または期限切れトークン |
-| 403 | `FORBIDDEN` | 有効なトークンだが必要なロールがない |
+| Status | Code | When |
+|--------|------|------|
+| 401 | `UNAUTHORIZED` | No token, invalid token, or expired token |
+| 403 | `FORBIDDEN` | Valid token but missing required role |
 
 ```json
 {
@@ -246,9 +291,9 @@ class AuthController {
 }
 ```
 
-## エッジランタイムサポート
+## Edge Runtime Support
 
-`@zeltjs/auth-jwt`はWeb Crypto APIをサポートする`jose`ライブラリを使用しており、以下と互換性があります：
+`@zeltjs/auth-jwt` uses the `jose` library which supports Web Crypto API, making it compatible with:
 
 - Cloudflare Workers
 - Vercel Edge Functions

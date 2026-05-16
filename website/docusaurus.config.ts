@@ -1,7 +1,71 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type * as Preset from '@docusaurus/preset-classic';
 import type { Config } from '@docusaurus/types';
 import type { PluginOptions as SearchPluginOptions } from '@easyops-cn/docusaurus-search-local';
-import kanagawa from './src/prism-theme-kanagawa';
+import rehypeShiki from '@shikijs/rehype';
+import { transformerTwoslash } from '@shikijs/twoslash';
+import { createTwoslasher } from 'twoslash';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, '..');
+const tsLibDirectory = path.resolve(__dirname, '../node_modules/typescript/lib');
+
+const twoslasher = createTwoslasher({
+  vfsRoot: rootDir,
+  tsLibDirectory,
+  compilerOptions: {
+    module: 99, // ESNext
+    moduleResolution: 99, // NodeNext
+    target: 99, // ESNext
+    lib: ['lib.esnext.full.d.ts'],
+    strict: true,
+    esModuleInterop: true,
+    skipLibCheck: true,
+    baseUrl: rootDir,
+    paths: {
+      '@zeltjs/*': ['./packages/*/dist/index.d.ts'],
+      valibot: [
+        './node_modules/.pnpm/valibot@1.0.0_typescript@6.0.2/node_modules/valibot/dist/index.d.ts',
+      ],
+      hono: ['./node_modules/.pnpm/hono@4.12.16/node_modules/hono/dist/types/index.d.ts'],
+      'hono/*': ['./node_modules/.pnpm/hono@4.12.16/node_modules/hono/dist/types/*.d.ts'],
+      ioredis: ['./node_modules/.pnpm/ioredis@5.10.1/node_modules/ioredis/built/index.d.ts'],
+      bullmq: ['./node_modules/.pnpm/bullmq@5.76.9/node_modules/bullmq/dist/esm/index.d.ts'],
+    },
+  },
+});
+
+const shikiBaseConfig = {
+  themes: {
+    light: 'kanagawa-wave',
+    dark: 'kanagawa-wave',
+  },
+  defaultLanguage: 'text',
+  langs: [
+    'typescript',
+    'javascript',
+    'tsx',
+    'jsx',
+    'bash',
+    'json',
+    'yaml',
+    'css',
+    'html',
+    'markdown',
+    'text',
+  ],
+};
+
+const shikiWithTwoslash = {
+  ...shikiBaseConfig,
+  transformers: [transformerTwoslash({ twoslasher })],
+};
+
+const shikiOnly = {
+  ...shikiBaseConfig,
+  transformers: [],
+};
 
 const config: Config = {
   title: 'ZeltJS',
@@ -90,6 +154,7 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
           routeBasePath: 'docs',
+          rehypePlugins: [[rehypeShiki, shikiWithTwoslash]],
         },
         blog: false,
         theme: {
@@ -108,6 +173,7 @@ const config: Config = {
         routeBasePath: 'examples',
         sidebarPath: './sidebars-examples.ts',
         editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
+        rehypePlugins: [[rehypeShiki, shikiOnly]],
       },
     ],
     [
@@ -175,11 +241,6 @@ const config: Config = {
           'aria-label': 'GitHub repository',
         },
       ],
-    },
-    prism: {
-      theme: kanagawa,
-      darkTheme: kanagawa,
-      additionalLanguages: ['bash', 'typescript', 'json'],
     },
   } satisfies Preset.ThemeConfig,
 };

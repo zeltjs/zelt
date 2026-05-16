@@ -1,14 +1,13 @@
 ---
-sidebar_position: 4
 ---
 
-# ミドルウェア
+# Middleware
 
-ミドルウェア関数はルートハンドラーの前に実行され、リクエスト、レスポンス、コンテキストを変更できます。
+Middleware functions execute before the route handler and can modify requests, responses, or context.
 
-## 関数ミドルウェア
+## Function Middleware
 
-最もシンプルなミドルウェアは、コンテキストとnext関数を受け取る関数です：
+The simplest form of middleware is a function that receives the context and next function:
 
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
@@ -21,31 +20,41 @@ export const loggingMiddleware: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-## ミドルウェアのレベル
+## Middleware Levels
 
-Zeltは3つのレベルでミドルウェアをサポートし、**グローバル → コントローラー → メソッド**の順序で実行されます。
+Zelt supports middleware at three levels, executed in order: **global → controller → method**.
 
-### グローバルミドルウェア
+### Global Middleware
 
-`createHttpApp()`ですべてのルートに適用：
+Apply to all routes via `createApp()`:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
-import { loggingMiddleware } from './middlewares/logging';
+import { createApp, Controller, Get, type FunctionMiddleware } from '@zeltjs/core';
 
-export const app = createHttpApp({
-  controllers: [UserController],
-  middlewares: [loggingMiddleware],
+const loggingMiddleware: FunctionMiddleware = async (c, next) => {
+  const start = Date.now();
+  await next();
+  console.log(`[${c.req.method}] ${c.req.path} ${Date.now() - start}ms`);
+};
+@Controller('/users') class UserController { @Get('/') findAll() { return []; } }
+// ---cut---
+export const app = createApp({
+  http: {
+    controllers: [UserController],
+    middlewares: [loggingMiddleware],
+  },
 });
 ```
 
-### コントローラーミドルウェア
+### Controller Middleware
 
-`@UseMiddleware`でコントローラー内のすべてのメソッドに適用：
+Apply to all methods in a controller with `@UseMiddleware`:
 
 ```typescript
-import { Controller, Get, UseMiddleware } from '@zeltjs/core';
+import { Controller, Get, UseMiddleware, type FunctionMiddleware } from '@zeltjs/core';
 
+const authMiddleware: FunctionMiddleware = async (c, next) => { await next(); };
+// ---cut---
 @UseMiddleware(authMiddleware)
 @Controller('/admin')
 export class AdminController {
@@ -56,11 +65,15 @@ export class AdminController {
 }
 ```
 
-### メソッドミドルウェア
+### Method Middleware
 
-特定のメソッドにのみ適用：
+Apply to specific methods:
 
 ```typescript
+import { Controller, Get, Delete, UseMiddleware, pathParam, type FunctionMiddleware } from '@zeltjs/core';
+
+const adminOnlyMiddleware: FunctionMiddleware = async (c, next) => { await next(); };
+// ---cut---
 @Controller('/posts')
 export class PostController {
   @Get('/')
@@ -76,13 +89,15 @@ export class PostController {
 }
 ```
 
-## ミドルウェアのスキップ
+## Skipping Middleware
 
-`@SkipMiddleware`を使用して特定のメソッドからミドルウェアを除外：
+Use `@SkipMiddleware` to exclude specific middleware from a method:
 
 ```typescript
-import { Controller, Get, SkipMiddleware } from '@zeltjs/core';
+import { Controller, Get, SkipMiddleware, type FunctionMiddleware } from '@zeltjs/core';
 
+const authMiddleware: FunctionMiddleware = async (c, next) => { await next(); };
+// ---cut---
 @Controller('/api')
 export class ApiController {
   @Get('/protected')
@@ -98,15 +113,19 @@ export class ApiController {
 }
 ```
 
-## コンテキストの共有
+## Context Sharing
 
-ミドルウェアは`setContext()`と`getContext()`を通じてハンドラーとデータを共有できます。
+Middleware can share data with handlers via `setContext()` and `getContext()`.
 
-### 型安全なコンテキスト
+### Type-Safe Context
 
-モジュール拡張を使用してコンテキストの型を定義：
+Define your context shape using module augmentation:
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+import '@zeltjs/core';
+// ---cut---
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
     user: { id: number; name: string };
@@ -114,11 +133,16 @@ declare module '@zeltjs/core' {
 }
 ```
 
-### ミドルウェアでのコンテキスト設定
+### Setting Context in Middleware
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
 import type { FunctionMiddleware } from '@zeltjs/core';
 
+declare function verifyToken(token: string | undefined): Promise<{ id: number; name: string }>;
+declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+// ---cut---
 export const authMiddleware: FunctionMiddleware = async (c, next) => {
   const token = c.req.header('Authorization');
   const user = await verifyToken(token);
@@ -127,11 +151,15 @@ export const authMiddleware: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-### ハンドラーでのコンテキスト読み取り
+### Reading Context in Handlers
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
 import { Controller, Get, getContext } from '@zeltjs/core';
 
+declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+// ---cut---
 @Controller('/profile')
 export class ProfileController {
   @Get('/')
@@ -141,79 +169,119 @@ export class ProfileController {
 }
 ```
 
-## クラスミドルウェア
+## Class Middleware
 
-依存性注入が必要なミドルウェアには`@Middleware`を使用：
+For middleware that requires dependency injection, use `@Middleware`:
 
 ```typescript
-import { Middleware, inject, Injectable } from '@zeltjs/core';
+import { Config, EnvConfig, Middleware, inject } from '@zeltjs/core';
 import type { RequestContext, Next } from '@zeltjs/core';
 
-@Injectable()
-class ConfigService {
-  getSecret() {
-    return process.env.SECRET;
+@Config
+class AuthConfig {
+  static readonly Token = AuthConfig;
+
+  constructor(private env = inject(EnvConfig)) {}
+
+  get secret() {
+    return this.env.get('AUTH_SECRET');
   }
 }
 
 @Middleware
 export class AuthMiddleware {
-  constructor(private config = inject(ConfigService)) {}
+  constructor(private config = inject(AuthConfig)) {}
 
   async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const secret = this.config.getSecret();
-    // ... 認証ロジック
+    const secret = this.config.secret;
+    // ... authentication logic
     await next();
     return undefined;
   }
 }
 ```
 
-クラスミドルウェアは関数ミドルウェアと同様に使用：
+Use class middleware the same way as function middleware:
 
 ```typescript
+import { Controller, UseMiddleware, Middleware, Get, type RequestContext, type Next } from '@zeltjs/core';
+
+@Middleware class AuthMiddleware { async use(c: RequestContext, next: Next) { await next(); return undefined; } }
+// ---cut---
 @UseMiddleware(AuthMiddleware)
 @Controller('/admin')
 export class AdminController {
-  // ...
+  @Get('/') index() { return { ok: true }; }
 }
 ```
 
-## リクエストフロー
+## Parameterized Middleware
+
+For middleware that requires configuration options, use the tuple syntax `[MiddlewareClass, options]`:
+
+```typescript
+import { Controller, UseMiddleware, Middleware, Post, type RequestContext, type Next } from '@zeltjs/core';
+// ---cut---
+@Middleware
+export class RateLimitMiddleware {
+  async use(c: RequestContext, next: Next, options?: { limit: number; windowSec: number }) {
+    const limit = options?.limit ?? 100;
+    const windowSec = options?.windowSec ?? 60;
+    // ... rate limiting logic
+    await next();
+    return undefined;
+  }
+}
+
+@Controller('/api')
+export class ApiController {
+  @UseMiddleware([RateLimitMiddleware, { limit: 10, windowSec: 60 }])
+  @Post('/submit')
+  submit() {
+    return { submitted: true };
+  }
+}
+```
+
+The options parameter is passed to the middleware's `use()` method at runtime.
+
+## Request Flow
 
 ```
 Request
     ↓
-グローバルミドルウェア (next前)
+Global Middleware (before next)
     ↓
-コントローラーミドルウェア (next前)
+Controller Middleware (before next)
     ↓
-メソッドミドルウェア (next前)
+Method Middleware (before next)
     ↓
-ルートハンドラー
+Route Handler
     ↓
-メソッドミドルウェア (next後)
+Method Middleware (after next)
     ↓
-コントローラーミドルウェア (next後)
+Controller Middleware (after next)
     ↓
-グローバルミドルウェア (next後)
+Global Middleware (after next)
     ↓
 Response
 ```
 
-ミドルウェアは`await next()`の前後にロジックを配置することで、ルートハンドラーの前後両方で処理を行えます。
+Middleware can process both before and after the route handler by placing logic before or after `await next()`.
 
-## 実行順序
+## Execution Order
 
-ミドルウェアは以下の順序で実行されます：
+Middleware executes in this order:
 
-1. **グローバルミドルウェア**（配列順）
-2. **コントローラーミドルウェア**（デコレーター順）
-3. **メソッドミドルウェア**（デコレーター順）
-4. **ルートハンドラー**
-5. **ハンドラー後のミドルウェア**（`next()`後、逆順）
+1. **Global middleware** (in array order)
+2. **Controller middleware** (in decorator order)
+3. **Method middleware** (in decorator order)
+4. **Route handler**
+5. **Post-handler middleware** (reverse order after `next()`)
 
 ```typescript
+import type { FunctionMiddleware } from '@zeltjs/core';
+// ---cut---
 const globalMw: FunctionMiddleware = async (c, next) => {
   console.log('1. global before');
   await next();
@@ -233,15 +301,22 @@ const methodMw: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-## よくあるパターン
+## Common Patterns
 
-ミドルウェアは関数またはクラスで記述できます。シンプルな場合は関数を、依存性注入や状態が必要な場合はクラスを使用します。
+You can write middleware as functions or classes. Use functions for simple cases, and classes when you need dependency injection or state.
 
-### アクセス制限
+### Restrict Access
 
-サービスを注入する必要がある場合はクラスミドルウェアを使用：
+Use class middleware when you need to inject services:
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+import { Middleware, Injectable, inject, type RequestContext, type Next } from '@zeltjs/core';
+
+declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+@Injectable() class AuthService { isAdmin(user: unknown) { return false; } }
+// ---cut---
 @Middleware
 export class RequireAdmin {
   constructor(private authService = inject(AuthService)) {}
@@ -257,11 +332,13 @@ export class RequireAdmin {
 }
 ```
 
-### レスポンスの変換
+### Transform Response
 
-シンプルな変換には関数ミドルウェアが適しています：
+Function middleware works well for simple transformations:
 
 ```typescript
+import type { FunctionMiddleware } from '@zeltjs/core';
+// ---cut---
 const wrapResponse: FunctionMiddleware = async (c, next) => {
   await next();
   const body = await c.res.json();
@@ -269,9 +346,11 @@ const wrapResponse: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-### レスポンス時間の計測
+### Measure Response Time
 
 ```typescript
+import type { FunctionMiddleware } from '@zeltjs/core';
+// ---cut---
 const timing: FunctionMiddleware = async (c, next) => {
   const start = Date.now();
   await next();
@@ -279,11 +358,13 @@ const timing: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-### レスポンスのキャッシュ
+### Cache Response
 
-状態を保持する必要がある場合はクラスミドルウェアを使用：
+Use class middleware when you need to maintain state:
 
 ```typescript
+import { Middleware, type RequestContext, type Next } from '@zeltjs/core';
+// ---cut---
 @Middleware
 export class CacheResponse {
   private cache = new Map<string, Response>();

@@ -29,9 +29,15 @@ Zelt supports middleware at three levels, executed in order: **global → contro
 Apply to all routes via `createApp()`:
 
 ```typescript
-import { createApp } from '@zeltjs/core';
-import { loggingMiddleware } from './middlewares/logging';
+import { createApp, Controller, Get, type FunctionMiddleware } from '@zeltjs/core';
 
+const loggingMiddleware: FunctionMiddleware = async (c, next) => {
+  const start = Date.now();
+  await next();
+  console.log(`[${c.req.method}] ${c.req.path} ${Date.now() - start}ms`);
+};
+@Controller('/users') class UserController { @Get('/') findAll() { return []; } }
+// ---cut---
 export const app = createApp({
   http: {
     controllers: [UserController],
@@ -45,8 +51,10 @@ export const app = createApp({
 Apply to all methods in a controller with `@UseMiddleware`:
 
 ```typescript
-import { Controller, Get, UseMiddleware } from '@zeltjs/core';
+import { Controller, Get, UseMiddleware, type FunctionMiddleware } from '@zeltjs/core';
 
+const authMiddleware: FunctionMiddleware = async (c, next) => { await next(); };
+// ---cut---
 @UseMiddleware(authMiddleware)
 @Controller('/admin')
 export class AdminController {
@@ -62,6 +70,10 @@ export class AdminController {
 Apply to specific methods:
 
 ```typescript
+import { Controller, Get, Delete, UseMiddleware, pathParam, type FunctionMiddleware } from '@zeltjs/core';
+
+const adminOnlyMiddleware: FunctionMiddleware = async (c, next) => { await next(); };
+// ---cut---
 @Controller('/posts')
 export class PostController {
   @Get('/')
@@ -82,8 +94,10 @@ export class PostController {
 Use `@SkipMiddleware` to exclude specific middleware from a method:
 
 ```typescript
-import { Controller, Get, SkipMiddleware } from '@zeltjs/core';
+import { Controller, Get, SkipMiddleware, type FunctionMiddleware } from '@zeltjs/core';
 
+const authMiddleware: FunctionMiddleware = async (c, next) => { await next(); };
+// ---cut---
 @Controller('/api')
 export class ApiController {
   @Get('/protected')
@@ -108,6 +122,10 @@ Middleware can share data with handlers via `setContext()` and `getContext()`.
 Define your context shape using module augmentation:
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+import '@zeltjs/core';
+// ---cut---
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
     user: { id: number; name: string };
@@ -118,8 +136,13 @@ declare module '@zeltjs/core' {
 ### Setting Context in Middleware
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
 import type { FunctionMiddleware } from '@zeltjs/core';
 
+declare function verifyToken(token: string | undefined): Promise<{ id: number; name: string }>;
+declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+// ---cut---
 export const authMiddleware: FunctionMiddleware = async (c, next) => {
   const token = c.req.header('Authorization');
   const user = await verifyToken(token);
@@ -131,8 +154,12 @@ export const authMiddleware: FunctionMiddleware = async (c, next) => {
 ### Reading Context in Handlers
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
 import { Controller, Get, getContext } from '@zeltjs/core';
 
+declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+// ---cut---
 @Controller('/profile')
 export class ProfileController {
   @Get('/')
@@ -147,14 +174,14 @@ export class ProfileController {
 For middleware that requires dependency injection, use `@Middleware`:
 
 ```typescript
-import { Config, EnvConfig, Middleware, injectConfig } from '@zeltjs/core';
+import { Config, EnvConfig, Middleware, inject } from '@zeltjs/core';
 import type { RequestContext, Next } from '@zeltjs/core';
 
 @Config
 class AuthConfig {
   static readonly Token = AuthConfig;
 
-  constructor(private env = injectConfig(EnvConfig)) {}
+  constructor(private env = inject(EnvConfig)) {}
 
   get secret() {
     return this.env.get('AUTH_SECRET');
@@ -163,7 +190,7 @@ class AuthConfig {
 
 @Middleware
 export class AuthMiddleware {
-  constructor(private config = injectConfig(AuthConfig)) {}
+  constructor(private config = inject(AuthConfig)) {}
 
   async use(c: RequestContext, next: Next): Promise<Response | undefined> {
     const secret = this.config.secret;
@@ -177,10 +204,14 @@ export class AuthMiddleware {
 Use class middleware the same way as function middleware:
 
 ```typescript
+import { Controller, UseMiddleware, Middleware, Get, type RequestContext, type Next } from '@zeltjs/core';
+
+@Middleware class AuthMiddleware { async use(c: RequestContext, next: Next) { await next(); return undefined; } }
+// ---cut---
 @UseMiddleware(AuthMiddleware)
 @Controller('/admin')
 export class AdminController {
-  // ...
+  @Get('/') index() { return { ok: true }; }
 }
 ```
 
@@ -189,6 +220,8 @@ export class AdminController {
 For middleware that requires configuration options, use the tuple syntax `[MiddlewareClass, options]`:
 
 ```typescript
+import { Controller, UseMiddleware, Middleware, Post, type RequestContext, type Next } from '@zeltjs/core';
+// ---cut---
 @Middleware
 export class RateLimitMiddleware {
   async use(c: RequestContext, next: Next, options?: { limit: number; windowSec: number }) {
@@ -247,6 +280,8 @@ Middleware executes in this order:
 5. **Post-handler middleware** (reverse order after `next()`)
 
 ```typescript
+import type { FunctionMiddleware } from '@zeltjs/core';
+// ---cut---
 const globalMw: FunctionMiddleware = async (c, next) => {
   console.log('1. global before');
   await next();
@@ -275,6 +310,13 @@ You can write middleware as functions or classes. Use functions for simple cases
 Use class middleware when you need to inject services:
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+import { Middleware, Injectable, inject, type RequestContext, type Next } from '@zeltjs/core';
+
+declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+@Injectable() class AuthService { isAdmin(user: unknown) { return false; } }
+// ---cut---
 @Middleware
 export class RequireAdmin {
   constructor(private authService = inject(AuthService)) {}
@@ -295,6 +337,8 @@ export class RequireAdmin {
 Function middleware works well for simple transformations:
 
 ```typescript
+import type { FunctionMiddleware } from '@zeltjs/core';
+// ---cut---
 const wrapResponse: FunctionMiddleware = async (c, next) => {
   await next();
   const body = await c.res.json();
@@ -305,6 +349,8 @@ const wrapResponse: FunctionMiddleware = async (c, next) => {
 ### Measure Response Time
 
 ```typescript
+import type { FunctionMiddleware } from '@zeltjs/core';
+// ---cut---
 const timing: FunctionMiddleware = async (c, next) => {
   const start = Date.now();
   await next();
@@ -317,6 +363,8 @@ const timing: FunctionMiddleware = async (c, next) => {
 Use class middleware when you need to maintain state:
 
 ```typescript
+import { Middleware, type RequestContext, type Next } from '@zeltjs/core';
+// ---cut---
 @Middleware
 export class CacheResponse {
   private cache = new Map<string, Response>();

@@ -81,6 +81,8 @@ throw new HTTPException(404, { res: errorResponse });
 With custom headers:
 
 ```typescript
+import { HTTPException } from '@zeltjs/core';
+// ---cut---
 const errorResponse = new Response('Unauthorized', {
   status: 401,
   headers: {
@@ -96,6 +98,10 @@ throw new HTTPException(401, { res: errorResponse });
 Use the `cause` option to attach the original error for debugging:
 
 ```typescript
+import { HTTPException } from '@zeltjs/core';
+declare function authorize(c: unknown): Promise<void>;
+declare const c: unknown;
+// ---cut---
 try {
   await authorize(c);
 } catch (cause) {
@@ -128,6 +134,8 @@ throw new HTTPException(403, { res: forbiddenResponse });
 Or create a factory function:
 
 ```typescript
+import { HTTPException } from '@zeltjs/core';
+// ---cut---
 const createErrorResponse = (
   status: number,
   code: string,
@@ -141,18 +149,18 @@ const response = createErrorResponse(404, 'USER_NOT_FOUND', 'User not found');
 throw new HTTPException(404, { res: response });
 ```
 
-## Error Schema for OpenAPI
+## Error Types for OpenAPI
 
-Use the built-in error schemas to document error responses in your OpenAPI spec:
+Use the built-in error types to document error responses in your OpenAPI spec:
 
 ```typescript
-import { errorBodySchema, validationErrorBodySchema } from '@zeltjs/core';
+import type { ErrorBody, ValidationErrorBody } from '@zeltjs/core';
 ```
 
-These schemas define the structure of error responses:
+These types define the structure of error responses:
 
-- `errorBodySchema` — Union of all error types (VALIDATION_FAILED | INTERNAL_ERROR)
-- `validationErrorBodySchema` — Only the validation error type
+- `ErrorBody` — Union of all error types (VALIDATION_FAILED | INTERNAL_ERROR)
+- `ValidationErrorBody` — Only the validation error type
 
 ## Error Handling Flow
 
@@ -208,15 +216,20 @@ Return a `Response` to handle the error, or `undefined` to pass it to the next h
 
 ### Registering Error Handlers
 
-Pass error handlers to `createHttpApp` via the `errorHandlers` option:
+Pass error handlers to `createApp` via the `errorHandlers` option:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp, Controller, Get, ErrorHandler, RequestContext } from '@zeltjs/core';
 
-const app = createHttpApp({
-  controllers: [UserController],
-  middlewares: [LoggingMiddleware],
-  errorHandlers: [DatabaseErrorHandler, ValidationErrorHandler],
+@Controller('/users') class UserController { @Get('/') findAll() { return { users: [] }; } }
+@ErrorHandler class DatabaseErrorHandler { onError(error: Error, c: RequestContext) { return undefined; } }
+@ErrorHandler class ValidationErrorHandler { onError(error: Error, c: RequestContext) { return undefined; } }
+// ---cut---
+const app = createApp({
+  http: {
+    controllers: [UserController],
+    errorHandlers: [DatabaseErrorHandler, ValidationErrorHandler],
+  },
 });
 ```
 
@@ -229,6 +242,11 @@ Error handlers execute in the order they are registered:
 3. If all handlers return `undefined`, the default error handler runs
 
 ```typescript
+import { createApp, Controller, Get, ErrorHandler, RequestContext } from '@zeltjs/core';
+
+class CustomError extends Error {}
+@Controller('/') class MyController { @Get('/') index() { return { ok: true }; } }
+// ---cut---
 @ErrorHandler
 class FirstHandler {
   onError(error: Error, c: RequestContext) {
@@ -247,9 +265,11 @@ class FallbackHandler {
   }
 }
 
-createHttpApp({
-  controllers: [MyController],
-  errorHandlers: [FirstHandler, FallbackHandler],
+createApp({
+  http: {
+    controllers: [MyController],
+    errorHandlers: [FirstHandler, FallbackHandler],
+  },
 });
 ```
 
@@ -258,9 +278,12 @@ createHttpApp({
 Error handlers support dependency injection. Use constructor injection to access services:
 
 ```typescript
+import { ErrorHandler, RequestContext, inject } from '@zeltjs/core';
+declare class LoggerService { error(msg: string, ctx: object): void; }
+// ---cut---
 @ErrorHandler
 class LoggingErrorHandler {
-  constructor(private logger: LoggerService) {}
+  constructor(private logger = inject(LoggerService)) {}
 
   onError(error: Error, c: RequestContext) {
     this.logger.error('Request failed', { error, path: c.req.path });
@@ -302,16 +325,18 @@ try {
 
 Each error class includes a `context` property with structured information:
 
-```typescript
+```ts twoslash
+// @noErrors
+// Reason: type-only example without runtime code
 // ZeltDecoratorUsageError context
-{
+type DecoratorUsageErrorContext = {
   decoratorName: string;
   reason: 'static_method' | 'missing_decorator';
   targetName?: string;
 }
 
 // ZeltLifecycleStateError context
-{
+type LifecycleStateErrorContext = {
   operation: string;
   currentState: 'disposed' | 'ready' | 'not_ready';
 }

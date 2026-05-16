@@ -1,26 +1,26 @@
 ---
-sidebar_label: 基本
+sidebar_label: Basic
 ---
 
-# はじめに
+# Getting Started
 
-Zeltは、TypeScript向けの高速で型安全なアプリケーションフレームワークです。[Hono](https://hono.dev/)上に構築され、依存性注入、バリデーション、デコレータベースのAPIを提供し、Webアプリケーションやコマンドラインツールを構築できます。
+Zelt is a fast, type-safe application framework for TypeScript. Built on [Hono](https://hono.dev/), it provides dependency injection, validation, and a decorator-based API for building web applications and CLI tools.
 
-## 環境を選択
+## Choose Your Environment
 
-ターゲットランタイムを選択してください:
+Select your target runtime to get started:
 
-- **[Node.js](./node.md)** — Node.js APIへのフルアクセスを持つ従来のサーバー環境
-- **[Cloudflare Workers](./cloudflare-workers.md)** — グローバル分散と低レイテンシを実現するエッジランタイム
+- **[Node.js](./node.md)** — Traditional server environment with full Node.js API access
+- **[Cloudflare Workers](./cloudflare-workers.md)** — Edge runtime with global distribution and low latency
 
-## コアコンセプト
+## Core Concepts
 
-Zeltアプリケーションは以下のプリミティブで構成されています:
+Zelt applications are built around these primitives:
 
-| コンセプト | 説明 |
+| Concept | Description |
 |---------|-------------|
-| **Controller** | `@Get`、`@Post`などのデコレータを使用してHTTPリクエストを処理 |
-| **Service** | `@Injectable`で注入可能なビジネスロジックを含む |
-| **Config** | `@Config`で注入可能な設定値を管理 |
+| **Controller** | Handles HTTP requests using decorators like `@Get`, `@Post` |
+| **Service** | Contains business logic, injectable via `@Injectable` |
+| **Config** | Manages configuration values, injectable via `@Config` |
 
-各環境ガイドでは、これらのコンセプトを完全な実行可能サンプルで説明します。
+Each environment guide covers these concepts with complete, runnable examples.

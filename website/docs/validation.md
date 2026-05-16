@@ -73,17 +73,24 @@ The second argument to `validated()` specifies the request body format:
 ### Multiple Files
 
 ```typescript
+import { Controller, Post } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import * as v from 'valibot';
+// ---cut---
 const MultiUploadSchema = v.object({
   files: v.array(v.instance(File)),
   category: v.string(),
 });
 
-@Post('/bulk')
-bulkUpload(body = validated(MultiUploadSchema, 'form')) {
-  for (const file of body.files) {
-    console.log(file.name);
+@Controller('/upload')
+class BulkUploadController {
+  @Post('/bulk')
+  bulkUpload(body = validated(MultiUploadSchema, 'form')) {
+    for (const file of body.files) {
+      console.log(file.name);
+    }
+    return { count: body.files.length };
   }
-  return { count: body.files.length };
 }
 ```
 
@@ -125,6 +132,8 @@ See [Error Handling](./error-handling.md) for more details on error responses.
 ### String Validations
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const schema = v.object({
   username: v.pipe(
     v.string(),
@@ -141,6 +150,8 @@ const schema = v.object({
 ### Number Validations
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const schema = v.object({
   age: v.pipe(v.number(), v.minValue(0), v.maxValue(150)),
   price: v.pipe(v.number(), v.minValue(0)),
@@ -151,6 +162,8 @@ const schema = v.object({
 ### Array Validations
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const schema = v.object({
   tags: v.pipe(
     v.array(v.string()),
@@ -164,6 +177,8 @@ const schema = v.object({
 ### Optional and Nullable
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const schema = v.object({
   required: v.string(),
   optional: v.optional(v.string()),
@@ -176,6 +191,8 @@ const schema = v.object({
 ### Nested Objects
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const AddressSchema = v.object({
   street: v.string(),
   city: v.string(),
@@ -195,6 +212,8 @@ const UserSchema = v.object({
 Valibot schemas provide automatic TypeScript type inference:
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const UserSchema = v.object({
   name: v.string(),
   age: v.number(),

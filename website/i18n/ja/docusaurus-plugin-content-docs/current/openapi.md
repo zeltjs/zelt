@@ -1,28 +1,32 @@
 ---
-sidebar_position: 10
 ---
 
 # OpenAPI
 
-Zelt はコントローラーから OpenAPI 3.1 仕様を自動生成します。デコレーターやアノテーションは不要です。
+Zelt automatically generates OpenAPI 3.1 specifications from your controllers — no decorators or annotations required.
 
-## 概要
+## Overview
 
-`@zeltjs/openapi` パッケージは、ビルド時にコントローラーメソッドのシグネチャを解析し、標準の OpenAPI 3.1 仕様を生成します。
+The `@zeltjs/openapi` package analyzes your controller method signatures at build time and generates a standard OpenAPI 3.1 specification.
 
-## インストール
+## Installation
 
 ```bash
 pnpm add @zeltjs/openapi
 ```
 
-## 設定
+## Configuration
 
-プロジェクトルートに `zelt.config.ts` を作成します:
+Create a `zelt.config.ts` file in your project root:
 
 ```typescript
-import { defineConfig } from '@zeltjs/openapi';
-
+type OpenApiConfig = {
+  controllers: string[];
+  dist: string;
+  tsconfig: string;
+};
+declare function defineConfig(config: OpenApiConfig): OpenApiConfig;
+// ---cut---
 export default defineConfig({
   controllers: ['./src/**/*.controller.ts'],
   dist: './generated',
@@ -30,37 +34,37 @@ export default defineConfig({
 });
 ```
 
-### 設定オプション
+### Configuration Options
 
-| オプション | 型 | 説明 |
+| Option | Type | Description |
 |--------|------|-------------|
-| `controllers` | `string[]` | コントローラーファイルを検索する glob パターン |
-| `dist` | `string` | 生成ファイルの出力ディレクトリ |
-| `tsconfig` | `string` | tsconfig.json へのパス（OpenAPI 生成に必須） |
+| `controllers` | `string[]` | Glob patterns to find controller files |
+| `dist` | `string` | Output directory for generated files |
+| `tsconfig` | `string` | Path to tsconfig.json (required for OpenAPI generation) |
 
-`@Controller` デコレーターを持つクラスは、glob パターンにマッチするファイルをスキャンして自動検出されます。
+Controllers are automatically discovered by scanning files matching the glob patterns and detecting classes with `@Controller` decorator.
 
-## OpenAPI 仕様の生成
+## Generating OpenAPI Spec
 
-### 一度だけビルド
+### One-time Build
 
 ```bash
 pnpm zelt-openapi build
 ```
 
-`<dist>/openapi.json` が生成されます。
+This generates `<dist>/openapi.json`.
 
-### ウォッチモード
+### Watch Mode
 
 ```bash
 pnpm zelt-openapi watch
 ```
 
-コントローラーの変更時に継続的に再生成します。
+Continuously regenerates when controllers change.
 
-### npm スクリプト
+### npm Scripts
 
-`package.json` に追加:
+Add to your `package.json`:
 
 ```json
 {
@@ -71,9 +75,9 @@ pnpm zelt-openapi watch
 }
 ```
 
-## 生成される openapi.json
+## Generated openapi.json
 
-標準の OpenAPI 3.1 仕様:
+Standard OpenAPI 3.1 specification:
 
 ```json
 {
@@ -96,12 +100,12 @@ pnpm zelt-openapi watch
 }
 ```
 
-## 仕組み
+## How It Works
 
-Zelt は [Scramble](https://scramble.dedoc.co/) にインスパイアされた「ゼロアノテーション」アプローチを採用しています:
+Zelt uses a "zero-annotation" approach inspired by [Scramble](https://scramble.dedoc.co/):
 
-1. **静的解析** — ビルド時にコントローラーメソッドのシグネチャを解析
-2. **型抽出** — TypeScript の型からリクエスト/レスポンス型を抽出
-3. **スキーマ生成** — TypeScript 型を OpenAPI 用 JSON Schema に変換
+1. **Static Analysis** — Analyzes controller method signatures at build time
+2. **Type Extraction** — Extracts request/response types from TypeScript types
+3. **Schema Generation** — Converts TypeScript types to JSON Schema for OpenAPI
 
-これにより、ランタイムコードはクリーンなまま保たれます。バリデーションのために書いた定義以外に、デコレーターやスキーマ定義は不要です。
+This means your runtime code stays clean — no decorators or schema definitions needed beyond what you already write for validation.

@@ -2,22 +2,22 @@
 sidebar_label: Node.js
 ---
 
-# Node.jsではじめる
+# Getting Started with Node.js
 
-このガイドでは、Node.js上でZeltアプリケーションをゼロから構築する方法を説明します。
+This guide walks you through building a Zelt application on Node.js from scratch.
 
-## 前提条件
+## Prerequisites
 
-- [Node.js](https://nodejs.org/) v20以上
-- パッケージマネージャー: [pnpm](https://pnpm.io/)（推奨）、npm、またはbun
+- [Node.js](https://nodejs.org/) v20 or higher
+- A package manager: [pnpm](https://pnpm.io/) (recommended), npm, or bun
 
-## インストール
+## Installation
 
 ```bash
 pnpm add @zeltjs/core @zeltjs/adapter-node
 ```
 
-## プロジェクト構成
+## Project Structure
 
 ```
 my-app/
@@ -32,15 +32,15 @@ my-app/
 
 ## Hello World
 
-### ステップ1: コントローラーの作成
+### Step 1: Create the Controller
 
-コントローラーは受信HTTPリクエストを処理し、レスポンスを返します。各コントローラーは`@Controller`でデコレートされたクラスで、ルートプレフィックスを定義します。
+Controllers handle incoming HTTP requests and return responses. Each controller is a class decorated with `@Controller` that defines a route prefix.
 
-`src/controllers/hello.controller.ts`を作成:
+Create `src/controllers/hello.controller.ts`:
 
 ```typescript
 import { Controller, Get, pathParam } from '@zeltjs/core';
-
+// ---cut---
 @Controller('/hello')
 export class HelloController {
   @Get('/:name')
@@ -50,39 +50,50 @@ export class HelloController {
 }
 ```
 
-- `@Controller('/hello')` — このコントローラー内のすべてのルートのベースパスを設定
-- `@Get('/:name')` — `/hello/:name`へのGETリクエストを処理
-- `pathParam('name')` — URLパスから`name`パラメータを抽出
+- `@Controller('/hello')` — Sets the base path for all routes in this controller
+- `@Get('/:name')` — Handles GET requests to `/hello/:name`
+- `pathParam('name')` — Extracts the `name` parameter from the URL path
 
-### ステップ2: アプリケーションの作成
+### Step 2: Create the Application
 
-`src/app.ts`を作成してコントローラーを接続:
-
-```typescript
-import { createHttpApp } from '@zeltjs/core';
-import { HelloController } from './controllers/hello.controller';
-
-export const app = createHttpApp({
-  controllers: [HelloController],
-});
-```
-
-### ステップ3: サーバーの起動
-
-Node.jsエントリーポイント`src/main.ts`を作成:
+Create `src/app.ts` to wire up your controllers and prepare for the Node.js runtime:
 
 ```typescript
-import { serve } from '@zeltjs/adapter-node';
-import { app } from './app';
-
-serve(app, { port: 3000 }, (info) => {
-  console.log(`Server running at http://localhost:${info.port}`);
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+// ---cut---
+export const app = createApp({
+  http: {
+    controllers: [HelloController],
+  },
 });
+
+export default await onNode(app);
 ```
 
-### ステップ4: TypeScriptの設定
+The `onNode()` function prepares your app for the Node.js runtime, returning a `NodeApp` with `listen()`, `get()`, and `args` properties.
 
-`tsconfig.json`を作成:
+### Step 3: Start the Server
+
+Create `src/main.ts` to start the server:
+
+```typescript
+declare const nodeApp: {
+  listen(options?: { port?: number }): Promise<{ address: { port: number } }>;
+};
+// ---cut---
+const server = await nodeApp.listen({ port: 3000 });
+console.log(`Server running at http://localhost:${server.address.port}`);
+```
+
+### Step 4: Configure TypeScript
+
+Create `tsconfig.json`:
 
 ```json
 {
@@ -99,27 +110,27 @@ serve(app, { port: 3000 }, (info) => {
 }
 ```
 
-### ステップ5: アプリケーションの実行
+### Step 5: Run the Application
 
 ```bash
 npx tsx src/main.ts
 ```
 
-`http://localhost:3000/hello/world`にアクセスすると:
+Visit `http://localhost:3000/hello/world` to see:
 
 ```json
 { "message": "Hello, world!" }
 ```
 
-## サービスの追加
+## Adding Services
 
-サービスはビジネスロジックを含み、コントローラーに注入できます。`@Injectable`を使用してクラスをサービスとしてマークします。
+Services contain business logic and can be injected into controllers. Use `@Injectable` to mark a class as a service.
 
-`src/services/greeting.service.ts`を作成:
+Create `src/services/greeting.service.ts`:
 
 ```typescript
 import { Injectable } from '@zeltjs/core';
-
+// ---cut---
 @Injectable()
 export class GreetingService {
   greet(name: string): string {
@@ -128,12 +139,15 @@ export class GreetingService {
 }
 ```
 
-サービスを使用するようにコントローラーを更新:
+Update your controller to use the service:
 
 ```typescript
-import { Controller, Get, pathParam, inject } from '@zeltjs/core';
-import { GreetingService } from '../services/greeting.service';
-
+import { Controller, Get, pathParam, inject, Injectable } from '@zeltjs/core';
+@Injectable()
+class GreetingService {
+  greet(name: string): string { return `Hello, ${name}!`; }
+}
+// ---cut---
 @Controller('/hello')
 export class HelloController {
   constructor(private greetingService = inject(GreetingService)) {}
@@ -145,55 +159,64 @@ export class HelloController {
 }
 ```
 
-## 設定
+## Configuration
 
-Zeltは環境変数を管理するための設定クラスを提供します。
+Zelt provides configuration classes for managing environment variables.
 
-### 環境変数の使用
+### Using Environment Variables
 
 ```typescript
-import { Controller, Get, inject } from '@zeltjs/core';
-import { EnvService } from '@zeltjs/core';
-
+import { Controller, Get, inject, EnvService } from '@zeltjs/core';
+// ---cut---
 @Controller('/config')
 export class ConfigController {
   constructor(private env = inject(EnvService)) {}
 
   @Get('/api-host')
   getApiHost() {
-    return { apiHost: this.env.get('API_HOST') ?? 'localhost' };
+    return { apiHost: this.env.getString('API_HOST', 'localhost') };
   }
 }
 ```
 
-アプリに設定を登録:
+Register the config in your app:
 
 ```typescript
-import { createHttpApp, EnvConfig } from '@zeltjs/core';
-
-export const app = createHttpApp({
-  controllers: [ConfigController],
+import { createApp, EnvConfig, Controller, Get, inject, EnvService } from '@zeltjs/core';
+@Controller('/config')
+class ConfigController {
+  constructor(private env = inject(EnvService)) {}
+  @Get('/api-host')
+  getApiHost() { return { apiHost: this.env.getString('API_HOST', 'localhost') }; }
+}
+// ---cut---
+export const app = createApp({
+  http: {
+    controllers: [ConfigController],
+  },
   configs: [EnvConfig],
 });
 ```
 
-### Node.js固有の設定
+### Node.js-Specific Configs
 
-`@zeltjs/adapter-node`パッケージは追加の設定オプションを提供します:
+The `@zeltjs/adapter-node` package provides additional configuration options:
 
 ```typescript
 import { ProcessEnvConfig, DotEnvConfig } from '@zeltjs/adapter-node';
-
-// ProcessEnvConfig: process.envから読み取り（デフォルト動作）
-// DotEnvConfig: .envファイルから読み取り
+// ---cut---
+// ProcessEnvConfig: Reads from process.env (default behavior)
+// DotEnvConfig: Reads from .env file
+void ProcessEnvConfig;
+void DotEnvConfig;
 ```
 
-## 次のステップ
+## What's Next?
 
-基本的なアプリケーションが動作するようになったら、さらに多くの機能を探索しましょう:
+Now that you have a basic application running, explore more features:
 
-- [コントローラー](../controllers) — ルーティングとHTTPメソッド
-- [サービス](../services) — ビジネスロジックと依存性注入
-- [バリデーション](../validation) — Valibotによるリクエストボディの検証
-- [ミドルウェア](../middleware) — リクエスト/レスポンスインターセプター
-- [設定](../configuration) — 高度な設定パターン
+- [Controllers](../controllers) — Route handling and HTTP methods
+- [Services](../services) — Business logic and dependency injection
+- [Validation](../validation) — Request body validation with Valibot
+- [Middleware](../middleware) — Request/response interceptors
+- [Configuration](../configuration) — Advanced configuration patterns

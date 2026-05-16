@@ -76,7 +76,8 @@ pnpm add @zeltjs/auth-session @zeltjs/kv
 ```typescript
 import { createApp } from '@zeltjs/core';
 import { JwtMiddleware, JwtConfig } from '@zeltjs/auth-jwt';
-
+declare const UserController: never;
+// ---cut---
 const app = createApp({
   http: {
     controllers: [UserController],
@@ -90,12 +91,14 @@ const app = createApp({
 
 ```typescript
 import { Controller, Get, Authorized, currentUser } from '@zeltjs/core';
-
+interface User { name: string }
+// ---cut---
 @Controller('/dashboard')
 class DashboardController {
   @Authorized()
   @Get('/')
-  index(user = currentUser()) {
+  index() {
+    const user = currentUser() as User;
     return { message: `Hello, ${user.name}` };
   }
 }

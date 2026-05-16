@@ -32,13 +32,18 @@ export class GreetCommand {
 Create a `src/cli.ts` entry point for your CLI:
 
 ```typescript
-import { createApp } from '@zeltjs/core';
+import { createApp, Command, cliSchema, args } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
-import { GreetCommand } from './commands/greet.command';
 
+@Command({ name: 'greet', description: 'Greet a user' })
+class GreetCommand {
+  static schema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
+  run(ctx = args(GreetCommand)) { console.log(`Hello, ${ctx.name}!`); }
+}
+// ---cut---
 const app = createApp({ commands: [GreetCommand] });
 const nodeApp = await onNode(app);
-await nodeApp.exec(nodeApp.args);
+await nodeApp.execCommand([...nodeApp.args]);
 ```
 
 Then configure `cli.entry` in your `zelt.config.ts`:
@@ -71,6 +76,8 @@ The `cliSchema()` function defines typed arguments and options:
 ### Positional Arguments
 
 ```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
 @Command({ name: 'copy' })
 export class CopyCommand {
   static schema = cliSchema({
@@ -89,6 +96,8 @@ export class CopyCommand {
 ### Options (Flags)
 
 ```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
 @Command({ name: 'build' })
 export class BuildCommand {
   static schema = cliSchema({
@@ -116,6 +125,8 @@ zelt run build -w -o out
 ### Combined Arguments and Options
 
 ```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
 @Command({ name: 'deploy' })
 export class DeployCommand {
   static schema = cliSchema({
@@ -152,7 +163,9 @@ export class DeployCommand {
 Arguments can be marked as optional:
 
 ```typescript
-static schema = cliSchema({
+import { cliSchema } from '@zeltjs/core';
+// ---cut---
+const schema = cliSchema({
   args: [
     { name: 'file', type: 'string' },
     { name: 'count', type: 'number', optional: true },
@@ -171,7 +184,9 @@ static schema = cliSchema({
 Options can have defaults:
 
 ```typescript
-static schema = cliSchema({
+import { cliSchema } from '@zeltjs/core';
+// ---cut---
+const schema = cliSchema({
   options: [
     { name: 'port', type: 'number', default: 3000 },
     { name: 'verbose', type: 'boolean' },  // defaults to false
@@ -188,6 +203,9 @@ Commands are registered as **transient** — a new instance is created for each 
 - Dependencies injected via `inject()` remain singletons
 
 ```typescript
+import { Command, inject } from '@zeltjs/core';
+declare class DatabaseService {}
+// ---cut---
 @Command({ name: 'process' })
 export class ProcessCommand {
   private startTime = Date.now(); // Fresh for each execution
@@ -206,8 +224,8 @@ Commands support dependency injection:
 
 ```typescript
 import { Command, cliSchema, args, inject } from '@zeltjs/core';
-import { DatabaseService } from '../services/database.service';
-
+declare class DatabaseService { runMigrations(): Promise<void>; }
+// ---cut---
 @Command({ name: 'migrate' })
 export class MigrateCommand {
   static schema = cliSchema({
@@ -233,14 +251,18 @@ export class MigrateCommand {
 Commands can be executed programmatically using `onNode()`:
 
 ```typescript
-import { createApp } from '@zeltjs/core';
+import { createApp, Command, cliSchema, args } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
-import { MigrateCommand } from './commands/migrate.command';
-
+@Command({ name: 'migrate' })
+class MigrateCommand {
+  static schema = cliSchema({ options: [{ name: 'force', type: 'boolean' }] });
+  run(ctx = args(MigrateCommand)) {}
+}
+// ---cut---
 const app = createApp({ commands: [MigrateCommand] });
 const nodeApp = await onNode(app);
 
-const result = await nodeApp.exec(['migrate', '--force']);
+const result = await nodeApp.execCommand(['migrate', '--force']);
 console.log(`Exit code: ${result.exitCode}`);
 ```
 
@@ -249,6 +271,8 @@ console.log(`Exit code: ${result.exitCode}`);
 Commands can be async:
 
 ```typescript
+import { Command } from '@zeltjs/core';
+// ---cut---
 @Command({ name: 'sync' })
 export class SyncCommand {
   async run() {

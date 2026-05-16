@@ -343,15 +343,23 @@ type SSEMessage = {
 Both streaming methods accept an optional error handler:
 
 ```typescript
-res.stream(
-  async (stream) => {
-    // ... stream logic
-  },
-  async (error, stream) => {
-    await stream.write(`Error: ${error.message}`);
-    await stream.close();
+import { Controller, Get, response } from '@zeltjs/core';
+// ---cut---
+@Controller('/stream')
+class StreamController {
+  @Get('/data')
+  streamData(res = response()) {
+    return res.stream(
+      async (stream) => {
+        // ... stream logic
+      },
+      async (error, stream) => {
+        await stream.write(`Error: ${error.message}`);
+        await stream.close();
+      }
+    );
   }
-);
+}
 ```
 
 ## Chaining Response Methods
@@ -359,12 +367,17 @@ res.stream(
 Response methods that modify state (`header`, `setCookie`, `deleteCookie`) return the builder, allowing method chaining:
 
 ```typescript
-@Get('/download')
-download(res = response()) {
-  return res
-    .header('Content-Disposition', 'attachment; filename="report.csv"')
-    .header('Cache-Control', 'no-cache')
-    .setCookie('download_started', 'true')
-    .text('id,name\n1,Alice\n2,Bob');
+import { Controller, Get, response } from '@zeltjs/core';
+// ---cut---
+@Controller('/files')
+class FileController {
+  @Get('/download')
+  download(res = response()) {
+    return res
+      .header('Content-Disposition', 'attachment; filename="report.csv"')
+      .header('Cache-Control', 'no-cache')
+      .setCookie('download_started', 'true')
+      .text('id,name\n1,Alice\n2,Bob');
+  }
 }
 ```

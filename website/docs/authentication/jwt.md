@@ -28,7 +28,9 @@ JWT_SECRET=your-secret-key-at-least-32-characters
 ```typescript
 import { createApp } from '@zeltjs/core';
 import { JwtMiddleware, JwtConfig } from '@zeltjs/auth-jwt';
-
+declare const AuthController: never;
+declare const UserController: never;
+// ---cut---
 const app = createApp({
   http: {
     controllers: [AuthController, UserController],
@@ -43,10 +45,13 @@ const app = createApp({
 Use `JwtService` to sign tokens at login:
 
 ```typescript
-import { Controller, Post, bodyParam, inject } from '@zeltjs/core';
+import { Controller, Post, inject } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import { JwtService } from '@zeltjs/auth-jwt';
+import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
-
+declare function validateCredentials(email: string, password: string): Promise<{ id: string; roles: string[] } | null>;
+// ---cut---
 const LoginSchema = v.object({
   email: v.pipe(v.string(), v.email()),
   password: v.string(),
@@ -57,7 +62,7 @@ class AuthController {
   constructor(private jwtService = inject(JwtService)) {}
 
   @Post('/login')
-  async login(body = bodyParam(LoginSchema)) {
+  async login(body = validated(LoginSchema)) {
     const user = await validateCredentials(body.email, body.password);
     if (!user) {
       throw new HTTPException(401, { message: 'Invalid credentials' });
@@ -79,7 +84,7 @@ Use `@Authorized()` to require authentication:
 
 ```typescript
 import { Controller, Get, Authorized, currentUser } from '@zeltjs/core';
-
+// ---cut---
 @Controller('/users')
 class UserController {
   @Authorized()
@@ -103,6 +108,10 @@ class UserController {
 Create a signed token with custom payload:
 
 ```typescript
+import { JwtService } from '@zeltjs/auth-jwt';
+declare const jwtService: JwtService;
+declare const user: { id: string };
+// ---cut---
 const token = await jwtService.sign({
   sub: user.id,
   roles: ['admin', 'user'],
@@ -115,6 +124,10 @@ const token = await jwtService.sign({
 Verify a token and get its payload (throws if invalid or expired):
 
 ```typescript
+import { JwtService } from '@zeltjs/auth-jwt';
+declare const jwtService: JwtService;
+declare const token: string;
+// ---cut---
 try {
   const payload = await jwtService.verify(token);
   console.log(payload.sub); // user ID
@@ -128,6 +141,10 @@ try {
 Decode without verification (useful for reading expired tokens):
 
 ```typescript
+import { JwtService } from '@zeltjs/auth-jwt';
+declare const jwtService: JwtService;
+declare const token: string;
+// ---cut---
 const payload = jwtService.decode(token);
 if (payload) {
   console.log(payload.sub);
@@ -140,11 +157,16 @@ Extend `JwtConfig` to customize behavior:
 
 ```typescript
 import { JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
-import { Config, EnvConfig, injectConfig } from '@zeltjs/core';
-
+import { Config, EnvConfig, inject } from '@zeltjs/core';
+declare const db: {
+  users: {
+    findById(id: string): Promise<{ id: string; name: string; email: string; roles: string[] }>;
+  };
+};
+// ---cut---
 @Config
 class CustomJwtConfig extends JwtConfig {
-  constructor(private env = injectConfig(EnvConfig)) {
+  constructor(private env = inject(EnvConfig)) {
     super();
   }
 
@@ -158,7 +180,7 @@ class CustomJwtConfig extends JwtConfig {
 
   override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {
     return async (payload) => {
-      const user = await db.users.findById(payload.sub);
+      const user = await db.users.findById(payload.sub!);
       return {
         user: { id: user.id, name: user.name, email: user.email },
         roles: user.roles,
@@ -171,6 +193,12 @@ class CustomJwtConfig extends JwtConfig {
 Register your custom config:
 
 ```typescript
+import { createApp } from '@zeltjs/core';
+import { JwtMiddleware } from '@zeltjs/auth-jwt';
+declare const AuthController: never;
+declare const UserController: never;
+declare const CustomJwtConfig: never;
+// ---cut---
 const app = createApp({
   http: {
     controllers: [AuthController, UserController],
@@ -195,6 +223,8 @@ const app = createApp({
 Clients should include the token in the `Authorization` header:
 
 ```typescript
+declare const token: string;
+// ---cut---
 fetch('/api/users/me', {
   headers: {
     'Authorization': `Bearer ${token}`,
@@ -217,15 +247,26 @@ Store tokens securely on the client:
 For long-lived sessions, implement a refresh token flow:
 
 ```typescript
+import { Controller, Post, inject } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import { JwtService } from '@zeltjs/auth-jwt';
+import * as v from 'valibot';
+const RefreshSchema = v.object({ refreshToken: v.string() });
+declare const db: {
+  users: {
+    findById(id: string): Promise<{ id: string; roles: string[] }>;
+  };
+};
+// ---cut---
 @Controller('/auth')
 class AuthController {
   constructor(private jwtService = inject(JwtService)) {}
 
   @Post('/refresh')
-  async refresh(body = bodyParam(RefreshSchema)) {
+  async refresh(body = validated(RefreshSchema)) {
     const payload = await this.jwtService.verify(body.refreshToken);
     
-    const user = await db.users.findById(payload.sub);
+    const user = await db.users.findById(payload.sub!);
     const accessToken = await this.jwtService.sign({
       sub: user.id,
       roles: user.roles,

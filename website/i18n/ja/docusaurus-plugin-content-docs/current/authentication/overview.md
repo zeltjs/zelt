@@ -2,81 +2,82 @@
 sidebar_position: 1
 ---
 
-# 概要
+# Overview
 
-Zeltは**認証**（ユーザーは誰か？）と**認可**（ユーザーは何ができるか？）を分離した柔軟な認証システムを提供します。
+Zelt provides a flexible authentication system that separates **authentication** (who is the user?) from **authorization** (what can they do?).
 
-## 認証 vs 認可
+## Authentication vs Authorization
 
-| 概念 | 質問 | Zelt API |
-|------|------|----------|
-| **認証** | ユーザーは誰か？ | `setUser()`, `currentUser()` |
-| **認可** | ユーザーは何ができるか？ | `@Authorized()`, `currentRoles()` |
+| Concept | Question | Zelt API |
+|---------|----------|----------|
+| **Authentication** | Who is the user? | `setUser()`, `currentUser()` |
+| **Authorization** | What can they do? | `@Authorized()`, `currentRoles()` |
 
-認証が最初に行われ（通常はミドルウェアで）、その後保護されたルートで認可チェックが実行されます。
+Authentication happens first (typically in middleware), then authorization checks run on protected routes.
 
-## 認証戦略の選択
+## Choose Your Strategy
 
-Zeltは複数の認証戦略をサポートしています。アーキテクチャに合ったものを選択してください：
+Zelt supports multiple authentication strategies. Pick the one that fits your architecture:
 
-| 戦略 | 適したユースケース | パッケージ |
-|------|-------------------|------------|
-| **JWT** | SPA、モバイルアプリ、API | `@zeltjs/auth-jwt` |
-| **セッション** | サーバーレンダリングアプリ、従来のWebアプリ | `@zeltjs/auth-session` |
-| **カスタム** | APIキー、OAuth、その他 | 組み込みプリミティブ |
+| Strategy | Best For | Package |
+|----------|----------|---------|
+| **JWT** | SPAs, Mobile apps, APIs | `@zeltjs/auth-jwt` |
+| **Sessions** | Server-rendered apps, Traditional web apps | `@zeltjs/auth-session` |
+| **Custom** | API keys, OAuth, or any other method | Built-in primitives |
 
-### 選択ガイド
-
-```
-クライアントはサーバーサイドレンダリングを使用するブラウザですか？
-├── はい → セッション（Cookieベース、自動CSRF処理）
-└── いいえ
-    ├── SPAまたはモバイルアプリ？ → JWT（ステートレス、スケーラブル）
-    └── マシン間API？ → カスタム（APIキー、mTLS）
-```
-
-## 認証フロー
+### Decision Guide
 
 ```
-リクエスト
+Is your client a browser with server-side rendering?
+├── Yes → Sessions (cookie-based, automatic CSRF handling)
+└── No
+    ├── SPA or Mobile app? → JWT (stateless, scalable)
+    └── Machine-to-machine API? → Custom (API keys, mTLS)
+```
+
+## Authentication Flow
+
+```
+Request
     ↓
 ┌─────────────────────────────┐
-│ 認証ミドルウェア             │
-│ • 認証情報を抽出             │
-│ • 検証（JWT/セッション等）    │
+│ Authentication Middleware   │
+│ • Extract credentials       │
+│ • Verify (JWT/Session/etc)  │
 │ • setUser(user, roles)      │
 └─────────────────────────────┘
     ↓
 ┌─────────────────────────────┐
-│ @Authorized() チェック       │
-│ • ユーザーなし？ → 401       │
-│ • ロール不足？ → 403         │
-│ • OK → 続行                 │
+│ @Authorized() Check         │
+│ • No user? → 401            │
+│ • Missing role? → 403       │
+│ • OK → Continue             │
 └─────────────────────────────┘
     ↓
-ルートハンドラー
+Route Handler
     ↓
-レスポンス
+Response
 ```
 
-## クイックスタート
+## Quick Start
 
-### 1. パッケージをインストール（または組み込みプリミティブを使用）
+### 1. Install a package (or use built-in primitives)
 
 ```bash
-# JWT認証の場合
+# For JWT authentication
 pnpm add @zeltjs/auth-jwt
 
-# セッション認証の場合
+# For session authentication
 pnpm add @zeltjs/auth-session @zeltjs/kv
 ```
 
-### 2. ミドルウェアを登録
+### 2. Register middleware
 
 ```typescript
 import { createApp } from '@zeltjs/core';
 import { JwtMiddleware, JwtConfig } from '@zeltjs/auth-jwt';
-
+declare const UserController: never;
+// ---cut---
 const app = createApp({
   http: {
     controllers: [UserController],
@@ -86,24 +87,26 @@ const app = createApp({
 });
 ```
 
-### 3. ルートを保護
+### 3. Protect routes
 
 ```typescript
 import { Controller, Get, Authorized, currentUser } from '@zeltjs/core';
-
+interface User { name: string }
+// ---cut---
 @Controller('/dashboard')
 class DashboardController {
   @Authorized()
   @Get('/')
-  index(user = currentUser()) {
-    return { message: `こんにちは、${user.name}さん` };
+  index() {
+    const user = currentUser() as User;
+    return { message: `Hello, ${user.name}` };
   }
 }
 ```
 
-## 次のステップ
+## Next Steps
 
-- [ユーザーコンテキスト](./user-context) — 認証済みユーザーの型定義とアクセス方法
-- [JWT認証](./jwt) — ステートレスなトークンベース認証
-- [セッション認証](./sessions) — Cookieベースのセッション管理
-- [カスタム認証](./custom) — 独自の認証ミドルウェアを構築
+- [User Context](./user-context) — How to type and access the authenticated user
+- [JWT Authentication](./jwt) — Stateless token-based authentication
+- [Session Authentication](./sessions) — Cookie-based session management
+- [Custom Authentication](./custom) — Build your own authentication middleware

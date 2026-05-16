@@ -1,153 +1,146 @@
 ---
-sidebar_position: 13
 ---
 
-# コマンド
+# Commands
 
-Zeltは依存性注入をサポートしたCLIコマンドを構築するための`@zeltjs/command`パッケージを提供しています。
+Zelt provides CLI command support with dependency injection through `@zeltjs/core`.
 
-## インストール
+## Creating a Command
 
-```bash
-pnpm add @zeltjs/command
-```
-
-## コマンドの作成
-
-`@Command`デコレータを使用してCLIコマンドを定義します：
+Use the `@Command` decorator with `cliSchema()` and `args()` for type-safe CLI commands:
 
 ```typescript
-import { Command, type CommandContext } from '@zeltjs/command';
+import { Command, cliSchema, args } from '@zeltjs/core';
 
 @Command({
   name: 'greet',
   description: 'Greet a user',
 })
 export class GreetCommand {
-  args = {
-    name: { type: 'positional' as const, description: 'Name to greet' },
-  };
+  static schema = cliSchema({
+    args: [{ name: 'name', type: 'string' }],
+  });
 
-  run(ctx: CommandContext<typeof this.args>) {
-    console.log(`Hello, ${ctx.args.name}!`);
+  run(ctx = args(GreetCommand)) {
+    console.log(`Hello, ${ctx.name}!`);
   }
 }
 ```
 
-## 設定
+## Configuration
 
-`zelt.config.ts`に`commands`オプションを追加します：
+Create a `src/cli.ts` entry point for your CLI:
+
+```typescript
+import { createApp, Command, cliSchema, args } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
+
+@Command({ name: 'greet', description: 'Greet a user' })
+class GreetCommand {
+  static schema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
+  run(ctx = args(GreetCommand)) { console.log(`Hello, ${ctx.name}!`); }
+}
+// ---cut---
+const app = createApp({ commands: [GreetCommand] });
+const nodeApp = await onNode(app);
+await nodeApp.execCommand([...nodeApp.args]);
+```
+
+Then configure `cli.entry` in your `zelt.config.ts`:
 
 ```typescript
 import { defineConfig } from '@zeltjs/cli';
 
 export default defineConfig({
   controllers: 'src/controllers/**/*.ts',
-  commands: 'src/commands/**/*.ts',
+  cli: { entry: './src/cli.ts' },
 });
 ```
 
-## コマンドの実行
+## Running Commands
 
-`zelt run`を使用してコマンドを実行します：
+Use `zelt run` to execute commands:
 
 ```bash
-# コマンドを実行
+# Run a command
 zelt run greet Alice
 
-# カスタム設定ファイルを指定
+# With custom config
 zelt run -c ./config/zelt.config.ts greet Alice
 ```
 
-## 引数とオプション
+## Schema Definition
 
-### 位置引数
+The `cliSchema()` function defines typed arguments and options:
+
+### Positional Arguments
 
 ```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
 @Command({ name: 'copy' })
 export class CopyCommand {
-  args = {
-    source: { 
-      type: 'positional' as const,
-      required: true,
-      description: 'Source file path',
-    },
-    destination: {
-      type: 'positional' as const,
-      required: true,
-      description: 'Destination file path',
-    },
-  };
+  static schema = cliSchema({
+    args: [
+      { name: 'source', type: 'string' },
+      { name: 'destination', type: 'string' },
+    ],
+  });
 
-  run(ctx: CommandContext<typeof this.args>) {
-    console.log(`Copying ${ctx.args.source} to ${ctx.args.destination}`);
+  run(ctx = args(CopyCommand)) {
+    console.log(`Copying ${ctx.source} to ${ctx.destination}`);
   }
 }
 ```
 
-### オプション（フラグ）
+### Options (Flags)
 
 ```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
 @Command({ name: 'build' })
 export class BuildCommand {
-  options = {
-    watch: {
-      type: 'boolean' as const,
-      alias: 'w',
-      default: false,
-      description: 'Watch for changes',
-    },
-    outDir: {
-      type: 'string' as const,
-      alias: 'o',
-      default: 'dist',
-      description: 'Output directory',
-    },
-  };
+  static schema = cliSchema({
+    options: [
+      { name: 'watch', type: 'boolean', alias: 'w' },
+      { name: 'outDir', type: 'string', alias: 'o', default: 'dist' },
+    ],
+  });
 
-  run(ctx: CommandContext<Record<string, never>, typeof this.options>) {
-    if (ctx.options.watch) {
+  run(ctx = args(BuildCommand)) {
+    if (ctx.watch) {
       console.log('Watching for changes...');
     }
-    console.log(`Output directory: ${ctx.options.outDir}`);
+    console.log(`Output directory: ${ctx.outDir}`);
   }
 }
 ```
 
 ```bash
-# 使用例
+# Usage
 zelt run build --watch --outDir=out
 zelt run build -w -o out
 ```
 
-### 引数とオプションの組み合わせ
+### Combined Arguments and Options
 
 ```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
 @Command({ name: 'deploy' })
 export class DeployCommand {
-  args = {
-    environment: {
-      type: 'positional' as const,
-      required: true,
-      description: 'Target environment (staging, production)',
-    },
-  };
+  static schema = cliSchema({
+    args: [
+      { name: 'environment', type: 'string' },
+    ],
+    options: [
+      { name: 'dryRun', type: 'boolean' },
+      { name: 'tag', type: 'string' },
+    ],
+  });
 
-  options = {
-    dryRun: {
-      type: 'boolean' as const,
-      default: false,
-      description: 'Simulate deployment without making changes',
-    },
-    tag: {
-      type: 'string' as const,
-      description: 'Docker image tag to deploy',
-    },
-  };
-
-  run(ctx: CommandContext<typeof this.args, typeof this.options>) {
-    const { environment } = ctx.args;
-    const { dryRun, tag } = ctx.options;
+  run(ctx = args(DeployCommand)) {
+    const { environment, dryRun, tag } = ctx;
 
     if (dryRun) {
       console.log(`[DRY RUN] Would deploy to ${environment}`);
@@ -158,60 +151,131 @@ export class DeployCommand {
 }
 ```
 
-## 依存性注入
+## Schema Types
 
-コマンドは依存性注入をサポートしており、サービスを使用できます：
+### Argument Types
+
+| Type | Description |
+|------|-------------|
+| `string` | String value |
+| `number` | Numeric value (automatically parsed) |
+
+Arguments can be marked as optional:
 
 ```typescript
-import { Command, type CommandContext } from '@zeltjs/command';
-import { inject } from '@zeltjs/core';
-import { DatabaseService } from '../services/database.service';
+import { cliSchema } from '@zeltjs/core';
+// ---cut---
+const schema = cliSchema({
+  args: [
+    { name: 'file', type: 'string' },
+    { name: 'count', type: 'number', optional: true },
+  ],
+});
+```
 
+### Option Types
+
+| Type | Description |
+|------|-------------|
+| `string` | String option |
+| `number` | Numeric option (automatically parsed) |
+| `boolean` | Boolean flag |
+
+Options can have defaults:
+
+```typescript
+import { cliSchema } from '@zeltjs/core';
+// ---cut---
+const schema = cliSchema({
+  options: [
+    { name: 'port', type: 'number', default: 3000 },
+    { name: 'verbose', type: 'boolean' },  // defaults to false
+  ],
+});
+```
+
+## Transient Scope
+
+Commands are registered as **transient** — a new instance is created for each execution. This ensures:
+
+- Clean state for each command run
+- No shared mutable state between executions
+- Dependencies injected via `inject()` remain singletons
+
+```typescript
+import { Command, inject } from '@zeltjs/core';
+declare class DatabaseService {}
+// ---cut---
+@Command({ name: 'process' })
+export class ProcessCommand {
+  private startTime = Date.now(); // Fresh for each execution
+
+  constructor(private db = inject(DatabaseService)) {} // Singleton, shared
+
+  run() {
+    console.log(`Started at: ${this.startTime}`);
+  }
+}
+```
+
+## Dependency Injection
+
+Commands support dependency injection:
+
+```typescript
+import { Command, cliSchema, args, inject } from '@zeltjs/core';
+declare class DatabaseService { runMigrations(): Promise<void>; }
+// ---cut---
 @Command({ name: 'migrate' })
 export class MigrateCommand {
+  static schema = cliSchema({
+    options: [
+      { name: 'force', type: 'boolean' },
+    ],
+  });
+
   constructor(private readonly db = inject(DatabaseService)) {}
 
-  async run(ctx: CommandContext) {
+  async run(ctx = args(MigrateCommand)) {
+    if (ctx.force) {
+      console.log('Force migration enabled');
+    }
     await this.db.runMigrations();
     console.log('Migrations completed');
   }
 }
 ```
 
-## 型推論
+## Programmatic Execution
 
-`CommandContext`型は引数とオプションの型を自動的に推論します：
+Commands can be executed programmatically using `onNode()`:
 
 ```typescript
-@Command({ name: 'example' })
-export class ExampleCommand {
-  args = {
-    file: { type: 'positional' as const, required: true },
-    count: { type: 'positional' as const, default: '10' },
-  };
-
-  options = {
-    verbose: { type: 'boolean' as const, default: false },
-    format: { type: 'string' as const },
-  };
-
-  run(ctx: CommandContext<typeof this.args, typeof this.options>) {
-    // ctx.args.file: string（必須）
-    // ctx.args.count: string（デフォルト値あり）
-    // ctx.options.verbose: boolean（デフォルト値あり）
-    // ctx.options.format: string | undefined（オプション）
-  }
+import { createApp, Command, cliSchema, args } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
+@Command({ name: 'migrate' })
+class MigrateCommand {
+  static schema = cliSchema({ options: [{ name: 'force', type: 'boolean' }] });
+  run(ctx = args(MigrateCommand)) {}
 }
+// ---cut---
+const app = createApp({ commands: [MigrateCommand] });
+const nodeApp = await onNode(app);
+
+const result = await nodeApp.execCommand(['migrate', '--force']);
+console.log(`Exit code: ${result.exitCode}`);
 ```
 
-## 非同期コマンド
+## Async Commands
 
-コマンドは非同期にできます：
+Commands can be async:
 
 ```typescript
+import { Command } from '@zeltjs/core';
+// ---cut---
 @Command({ name: 'sync' })
 export class SyncCommand {
-  async run(ctx: CommandContext) {
+  async run() {
     console.log('Starting sync...');
     await this.fetchData();
     await this.processData();

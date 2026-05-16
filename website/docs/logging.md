@@ -10,8 +10,7 @@ Zelt provides a built-in `Logger` module with structured logging, configurable t
 Inject the `Logger` into your services or controllers:
 
 ```typescript
-import { Injectable, inject } from '@zeltjs/core';
-import { Logger } from '@zeltjs/core/modules/logger';
+import { Injectable, inject, Logger } from '@zeltjs/core';
 
 @Injectable()
 export class OrderService {
@@ -49,7 +48,11 @@ Messages are only output if their level is equal to or higher than the configure
 Pass context as the second argument to include structured data:
 
 ```typescript
-this.logger.info('Order processed', { orderId, userId, duration: 150 });
+import { inject, Logger } from '@zeltjs/core';
+const logger = inject(Logger);
+const orderId = '123', userId = '456';
+// ---cut---
+logger.info('Order processed', { orderId, userId, duration: 150 });
 // Output: 13:45:23 INFO  Order processed {"orderId":"123","userId":"456","duration":150}
 ```
 
@@ -58,6 +61,8 @@ this.logger.info('Order processed', { orderId, userId, duration: 150 });
 Create child loggers with bound context that persists across all log calls:
 
 ```typescript
+import { Injectable, inject, Logger } from '@zeltjs/core';
+// ---cut---
 @Injectable()
 export class OrderService {
   private logger: Logger;
@@ -79,8 +84,10 @@ export class OrderService {
 Use `withLogContext` to propagate context across async boundaries using `AsyncLocalStorage`:
 
 ```typescript
-import { withLogContext, Logger } from '@zeltjs/core/modules/logger';
+import { withLogContext, Logger, inject } from '@zeltjs/core';
 
+declare const someService: { process(): void };
+// ---cut---
 const logger = inject(Logger);
 
 withLogContext({ requestId: 'abc-123' }, () => {
@@ -97,21 +104,24 @@ withLogContext({ requestId: 'abc-123' }, () => {
 Configure the Logger using `LoggerConfig`:
 
 ```typescript
-import { Config, EnvConfig, inject, injectConfig } from '@zeltjs/core';
 import {
+  Config,
+  EnvConfig,
+  inject,
   LoggerConfig,
   ConsoleTransport,
   JsonlFormatter,
-  type TransportBinding,
   type LogLevel,
-} from '@zeltjs/core/modules/logger';
+} from '@zeltjs/core';
 
+type TransportBinding = { transport: { write(msg: string): void }; formatter: { format(entry: unknown): string } };
+// ---cut---
 @Config
 export class AppLoggerConfig extends LoggerConfig {
   constructor(
-    private env = injectConfig(EnvConfig),
-    private console = inject(ConsoleTransport),
-    private jsonl = inject(JsonlFormatter),
+    private env = inject(EnvConfig),
+    private consoleTransport = inject(ConsoleTransport),
+    private jsonlFormatter = inject(JsonlFormatter),
   ) {
     super();
   }
@@ -121,7 +131,7 @@ export class AppLoggerConfig extends LoggerConfig {
   }
 
   override get transports(): readonly TransportBinding[] {
-    return [{ transport: this.console, formatter: this.jsonl }];
+    return [{ transport: this.consoleTransport, formatter: this.jsonlFormatter }];
   }
 }
 ```
@@ -131,19 +141,21 @@ export class AppLoggerConfig extends LoggerConfig {
 For human-readable output in development, use `PrettyFormatter`:
 
 ```typescript
-import { Config, inject } from '@zeltjs/core';
 import {
+  Config,
+  inject,
   LoggerConfig,
   ConsoleTransport,
   PrettyFormatter,
-  type TransportBinding,
-} from '@zeltjs/core/modules/logger';
+} from '@zeltjs/core';
 
+type TransportBinding = { transport: { write(msg: string): void }; formatter: { format(entry: unknown): string } };
+// ---cut---
 @Config
 export class DevLoggerConfig extends LoggerConfig {
   constructor(
-    private console = inject(ConsoleTransport),
-    private pretty = inject(PrettyFormatter),
+    private consoleTransport = inject(ConsoleTransport),
+    private prettyFormatter = inject(PrettyFormatter),
   ) {
     super();
   }
@@ -153,7 +165,7 @@ export class DevLoggerConfig extends LoggerConfig {
   }
 
   override get transports(): readonly TransportBinding[] {
-    return [{ transport: this.console, formatter: this.pretty }];
+    return [{ transport: this.consoleTransport, formatter: this.prettyFormatter }];
   }
 }
 ```
@@ -168,12 +180,15 @@ export class DevLoggerConfig extends LoggerConfig {
 Register the config when creating the app:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
-import { AppLoggerConfig } from './logger.config';
-import { AppController } from './app.controller';
+import { createApp, Config, LoggerConfig, Controller, Get } from '@zeltjs/core';
 
-const app = createHttpApp({
-  controllers: [AppController],
+@Config class AppLoggerConfig extends LoggerConfig {}
+@Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
+// ---cut---
+const app = createApp({
+  http: {
+    controllers: [AppController],
+  },
   configs: [AppLoggerConfig],
 });
 ```
@@ -193,7 +208,7 @@ The Logger uses a pluggable transport/formatter architecture:
 Implement `LoggerTransport` for custom output destinations:
 
 ```typescript
-import type { LoggerTransport } from '@zeltjs/core/modules/logger';
+import type { LoggerTransport } from '@zeltjs/core';
 
 export class FileTransport implements LoggerTransport {
   write(message: string): void {
@@ -207,7 +222,7 @@ export class FileTransport implements LoggerTransport {
 Implement `LoggerFormatter` for custom output formats:
 
 ```typescript
-import type { LoggerFormatter, LogEntry } from '@zeltjs/core/modules/logger';
+import type { LoggerFormatter, LogEntry } from '@zeltjs/core';
 
 export class CustomFormatter implements LoggerFormatter {
   format(entry: LogEntry): string {

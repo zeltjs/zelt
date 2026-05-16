@@ -22,6 +22,20 @@ To achieve this, we build with these five policies:
 - Cold-Start Friendly — Runs on serverless/Worker/Edge. No startup cost penalty
 - Least Astonishment — Follow ecosystem standards. No extra learning cost
 
+## Quick Example
+
+```typescript
+import { Controller, Get } from '@zeltjs/core';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/')
+  greet() {
+    return { message: 'Hello, World!' };
+  }
+}
+```
+
 ## Status
 
 **pre-alpha** — Breaking changes may occur in minor versions during 0.x.

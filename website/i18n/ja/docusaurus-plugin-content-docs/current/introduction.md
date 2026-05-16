@@ -1,29 +1,41 @@
 ---
 slug: /
-sidebar_position: 1
 ---
 
-# イントロダクション
+# Introduction
 
-ZeltJSは、DIを組み込んだポータブルなTypeScriptアプリケーションフレームワークです。Node.js、Bun、Cloudflare Workers、AWS Lambdaなど、どこでも動きます。
-大規模なアプリケーションを、インフラを変えても動くように書けること。これがZeltJSの目指すところです。
+ZeltJS is a portable TypeScript application framework with built-in DI. It runs anywhere — Node.js, Bun, Cloudflare Workers, AWS Lambda.
+Building large-scale applications that work across different infrastructure. That's what ZeltJS aims for.
 
-## 設計思想
+## Philosophy
 
-TypeScriptのバックエンド開発には、本当の意味での「フレームワーク」がほとんど存在しません。HonoやExpressは優秀なライブラリですが、それだけではアプリケーションのフレームワークとしては足りません。ライブラリは「便利な道具」ですが、フレームワークは「アプリケーションをどう組み立てるかの答え」を持っています。DIの仕組み、ディレクトリ構造、認証・バリデーション・ロギングの統合された作法 ── そういった「組み立て方の答え」が揃って初めて、開発者は本質的な機能開発に集中できます。
+In TypeScript backend development, there are almost no true "frameworks." Hono and Express are excellent libraries, but they're not enough as application frameworks. Libraries are "convenient tools," but frameworks provide "answers to how to build applications." DI mechanisms, directory structure, integrated patterns for authentication, validation, and logging — only when these "answers to how to build" are in place can developers focus on essential feature development.
 
-NestJSは数少ないフレームワークと呼べるものですが、独自のモジュールシステムやRxJSベースの抽象を持ち込んでおり、TSの標準的な書き方とは離れています。また起動時のメタデータ解析が重く、サーバーレス環境では実用的ではありません。
+NestJS is one of the few that can be called a framework, but it brings in its own module system and RxJS-based abstractions, diverging from standard TypeScript conventions. Its heavy metadata analysis at startup also makes it impractical for serverless environments.
 
-ZeltJSは「フレームワーク」として、アプリケーションを作るときにどうしたらいいか悩まないこと、それを目指しています。
-そのために次の5つのポリシーで作っています。
+ZeltJS aims to be a "framework" where you don't have to wonder how to build your application.
+To achieve this, we build with these five policies:
 
-- TS-Native — TSが持つものを再発明しない。import/exportを使う、async/awaitを使う、型を使う
-- Web-Standard — Request/Response、Fetch APIなどWeb標準に寄せる。独自抽象をつくらない
-- Transport-Agnostic — REST/GraphQL/CLI/Queueは入口の違いに過ぎない。アプリケーションの中身は同じ
-- Cold-Start Friendly — サーバーレス/Worker/Edgeで動く。起動コストを払わない
-- Least Astonishment — エコシステム標準に従う。学習コストを払わない
+- TS-Native — Don't reinvent what TS already has. Use import/export, use async/await, use types
+- Web-Standard — Align with web standards like Request/Response, Fetch API. No custom abstractions
+- Transport-Agnostic — REST/GraphQL/CLI/Queue are just different entry points. The application core stays the same
+- Cold-Start Friendly — Runs on serverless/Worker/Edge. No startup cost penalty
+- Least Astonishment — Follow ecosystem standards. No extra learning cost
 
+## Quick Example
 
-## ステータス
+```typescript
+import { Controller, Get } from '@zeltjs/core';
 
-**プレアルファ** — 0.xの間はマイナーバージョンで破壊的変更が入る可能性があります。
+@Controller('/hello')
+class HelloController {
+  @Get('/')
+  greet() {
+    return { message: 'Hello, World!' };
+  }
+}
+```
+
+## Status
+
+**pre-alpha** — Breaking changes may occur in minor versions during 0.x.

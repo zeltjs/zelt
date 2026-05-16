@@ -40,7 +40,7 @@ Create `src/controllers/hello.controller.ts`:
 
 ```typescript
 import { Controller, Get, pathParam } from '@zeltjs/core';
-
+// ---cut---
 @Controller('/hello')
 export class HelloController {
   @Get('/:name')
@@ -59,10 +59,14 @@ export class HelloController {
 Create `src/app.ts` to wire up your controllers and prepare for the Node.js runtime:
 
 ```typescript
-import { createApp } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
-import { HelloController } from './controllers/hello.controller';
-
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+// ---cut---
 export const app = createApp({
   http: {
     controllers: [HelloController],
@@ -79,8 +83,10 @@ The `onNode()` function prepares your app for the Node.js runtime, returning a `
 Create `src/main.ts` to start the server:
 
 ```typescript
-import nodeApp from './app';
-
+declare const nodeApp: {
+  listen(options?: { port?: number }): Promise<{ address: { port: number } }>;
+};
+// ---cut---
 const server = await nodeApp.listen({ port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
@@ -124,7 +130,7 @@ Create `src/services/greeting.service.ts`:
 
 ```typescript
 import { Injectable } from '@zeltjs/core';
-
+// ---cut---
 @Injectable()
 export class GreetingService {
   greet(name: string): string {
@@ -136,9 +142,12 @@ export class GreetingService {
 Update your controller to use the service:
 
 ```typescript
-import { Controller, Get, pathParam, inject } from '@zeltjs/core';
-import { GreetingService } from '../services/greeting.service';
-
+import { Controller, Get, pathParam, inject, Injectable } from '@zeltjs/core';
+@Injectable()
+class GreetingService {
+  greet(name: string): string { return `Hello, ${name}!`; }
+}
+// ---cut---
 @Controller('/hello')
 export class HelloController {
   constructor(private greetingService = inject(GreetingService)) {}
@@ -157,16 +166,15 @@ Zelt provides configuration classes for managing environment variables.
 ### Using Environment Variables
 
 ```typescript
-import { Controller, Get, inject } from '@zeltjs/core';
-import { EnvService } from '@zeltjs/core';
-
+import { Controller, Get, inject, EnvService } from '@zeltjs/core';
+// ---cut---
 @Controller('/config')
 export class ConfigController {
   constructor(private env = inject(EnvService)) {}
 
   @Get('/api-host')
   getApiHost() {
-    return { apiHost: this.env.get('API_HOST') ?? 'localhost' };
+    return { apiHost: this.env.getString('API_HOST', 'localhost') };
   }
 }
 ```
@@ -174,8 +182,14 @@ export class ConfigController {
 Register the config in your app:
 
 ```typescript
-import { createApp, EnvConfig } from '@zeltjs/core';
-
+import { createApp, EnvConfig, Controller, Get, inject, EnvService } from '@zeltjs/core';
+@Controller('/config')
+class ConfigController {
+  constructor(private env = inject(EnvService)) {}
+  @Get('/api-host')
+  getApiHost() { return { apiHost: this.env.getString('API_HOST', 'localhost') }; }
+}
+// ---cut---
 export const app = createApp({
   http: {
     controllers: [ConfigController],
@@ -190,9 +204,11 @@ The `@zeltjs/adapter-node` package provides additional configuration options:
 
 ```typescript
 import { ProcessEnvConfig, DotEnvConfig } from '@zeltjs/adapter-node';
-
+// ---cut---
 // ProcessEnvConfig: Reads from process.env (default behavior)
 // DotEnvConfig: Reads from .env file
+void ProcessEnvConfig;
+void DotEnvConfig;
 ```
 
 ## What's Next?

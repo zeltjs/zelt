@@ -2,37 +2,42 @@
 sidebar_position: 5
 ---
 
-# カスタム認証
+# Custom Authentication
 
-Zeltの組み込みプリミティブを使用して独自の認証を構築します。パッケージは不要です。
+Build your own authentication using Zelt's built-in primitives. No package required.
 
-## カスタム認証を使用するケース
+## When to Use Custom Auth
 
-- APIキー認証
-- OAuth/OIDCの独自フロー
-- mTLSまたは証明書ベースの認証
-- 独自の認証システム
-- シンプルなプロトタイプ
+- API key authentication
+- OAuth/OIDC with your own flow
+- mTLS or certificate-based auth
+- Proprietary authentication systems
+- Simple prototypes
 
-## コアプリミティブ
+## Core Primitives
 
-| 関数 | 説明 |
-|------|------|
-| `setUser(user, roles)` | リクエストコンテキストに認証済みユーザーを設定 |
-| `currentUser()` | 現在のユーザーを取得 |
-| `currentRoles()` | 現在のユーザーのロールを取得 |
-| `@Authorized(roles?)` | ルートで認証/ロールを要求 |
+| Function | Description |
+|----------|-------------|
+| `setUser(user, roles)` | Set the authenticated user in request context |
+| `currentUser()` | Get the current user |
+| `currentRoles()` | Get the current user's roles |
+| `@Authorized(roles?)` | Require authentication/roles on routes |
 
-これらは`@zeltjs/core`から利用可能で、追加パッケージは不要です。
+These are available from `@zeltjs/core` — no additional packages needed.
 
-## APIキー認証
+## API Key Authentication
 
-### シンプルなヘッダーベース
+### Simple Header-Based
 
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-
+declare const db: {
+  apiKeys: {
+    findByKey(key: string): Promise<{ id: string; name: string; scopes: string[] } | null>;
+  };
+};
+// ---cut---
 export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
   const apiKey = c.req.header('X-API-Key');
   
@@ -41,7 +46,7 @@ export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
     if (client) {
       setUser(
         { id: client.id, name: client.name, type: 'api' },
-        client.scopes  // 例: ['read:users', 'write:posts']
+        client.scopes  // e.g., ['read:users', 'write:posts']
       );
     }
   }
@@ -50,12 +55,19 @@ export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-### レート制限付き
+### With Rate Limiting per Key
 
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-
+import { HTTPException } from 'hono/http-exception';
+declare const db: {
+  apiKeys: {
+    findByKey(key: string): Promise<{ id: string; name: string; tier: string; scopes: string[]; revokedAt?: Date } | null>;
+    updateLastUsed(key: string): Promise<void>;
+  };
+};
+// ---cut---
 export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
   const apiKey = c.req.header('X-API-Key');
   
@@ -66,11 +78,11 @@ export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
   
   const client = await db.apiKeys.findByKey(apiKey);
   if (!client) {
-    throw new HTTPException(401, { message: '無効なAPIキー' });
+    throw new HTTPException(401, { message: 'Invalid API key' });
   }
   
   if (client.revokedAt) {
-    throw new HTTPException(401, { message: 'APIキーは失効しています' });
+    throw new HTTPException(401, { message: 'API key revoked' });
   }
   
   await db.apiKeys.updateLastUsed(apiKey);
@@ -84,12 +96,13 @@ export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-## Basic認証
+## Basic Authentication
 
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-
+declare function validateCredentials(username: string, password: string): Promise<{ id: string; name: string; roles: string[] } | null>;
+// ---cut---
 export const basicAuth: FunctionMiddleware = async (c, next) => {
   const auth = c.req.header('Authorization');
   
@@ -111,48 +124,94 @@ export const basicAuth: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-## OAuth連携
+## OAuth Integration
 
-### OAuthライブラリを使用
+### With an OAuth Library
+
+For OAuth integration, use a `@Config` class to manage credentials:
 
 ```typescript
-import type { FunctionMiddleware } from '@zeltjs/core';
-import { setUser } from '@zeltjs/core';
-import { OAuth2Client } from 'your-oauth-library';
-
-const oauth = new OAuth2Client({
-  clientId: process.env.OAUTH_CLIENT_ID,
-  clientSecret: process.env.OAUTH_CLIENT_SECRET,
-});
-
-export const oauthAuth: FunctionMiddleware = async (c, next) => {
-  const token = c.req.header('Authorization')?.replace('Bearer ', '');
-  
-  if (token) {
-    try {
-      const tokenInfo = await oauth.verifyAccessToken(token);
-      const user = await db.users.findByOAuthId(tokenInfo.sub);
-      
-      if (user) {
-        setUser(
-          { id: user.id, name: user.name, email: user.email },
-          user.roles
-        );
-      }
-    } catch {
-      // 無効なトークン — ユーザーなしで続行
-    }
-  }
-  
-  await next();
+declare class OAuth2Client {
+  constructor(config: { clientId: string | undefined; clientSecret: string | undefined });
+  verifyAccessToken(token: string): Promise<{ sub: string }>;
+}
+declare const db: {
+  users: {
+    findByOAuthId(sub: string): Promise<{ id: string; name: string; email: string; roles: string[] } | null>;
+  };
 };
+// ---cut---
+import { Config, EnvConfig, inject, Middleware } from '@zeltjs/core';
+import { setUser } from '@zeltjs/core';
+import type { RequestContext, Next } from '@zeltjs/core';
+
+@Config
+class OAuthConfig {
+  static readonly Token = OAuthConfig;
+
+  constructor(private env = inject(EnvConfig)) {}
+
+  get clientId() {
+    return this.env.get('OAUTH_CLIENT_ID');
+  }
+
+  get clientSecret() {
+    return this.env.get('OAUTH_CLIENT_SECRET');
+  }
+}
+
+@Middleware
+export class OAuthMiddleware {
+  private oauth: OAuth2Client;
+
+  constructor(config = inject(OAuthConfig)) {
+    this.oauth = new OAuth2Client({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+    });
+  }
+
+  async use(c: RequestContext, next: Next) {
+    const token = c.req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (token) {
+      try {
+        const tokenInfo = await this.oauth.verifyAccessToken(token);
+        const user = await db.users.findByOAuthId(tokenInfo.sub);
+        
+        if (user) {
+          setUser(
+            { id: user.id, name: user.name, email: user.email },
+            user.roles
+          );
+        }
+      } catch {
+        // Invalid token — continue without user
+      }
+    }
+  
+    await next();
+    return undefined;
+  }
+}
 ```
 
-### OAuthコールバックハンドラー
+### OAuth Callback Handler
 
 ```typescript
 import { Controller, Get, queryParam } from '@zeltjs/core';
-
+declare const oauth: {
+  exchangeCode(code: string | undefined): Promise<{ access_token: string }>;
+  getUserInfo(token: string): Promise<{ sub: string; name: string; email: string }>;
+};
+declare const db: {
+  users: {
+    findByOAuthId(sub: string): Promise<{ id: string } | null>;
+    create(data: { oauthId: string; name: string; email: string }): Promise<{ id: string }>;
+  };
+};
+declare function createSession(user: { id: string }): Promise<string>;
+// ---cut---
 @Controller('/auth')
 class OAuthController {
   @Get('/callback')
@@ -169,7 +228,7 @@ class OAuthController {
       });
     }
     
-    // 独自のセッション/JWTをここで作成
+    // Create your own session/JWT here
     const token = await createSession(user);
     
     return { token };
@@ -177,19 +236,25 @@ class OAuthController {
 }
 ```
 
-## マルチプロバイダー認証
+## Multi-Provider Authentication
 
-1つのミドルウェアで複数の認証方式をサポート：
+Support multiple auth methods in one middleware:
 
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-
+declare const db: {
+  apiKeys: {
+    findByKey(key: string): Promise<{ id: string; scopes: string[] } | null>;
+  };
+};
+declare function verifyJwt(token: string): Promise<{ sub: string; roles: string[] }>;
+// ---cut---
 export const multiAuth: FunctionMiddleware = async (c, next) => {
   const auth = c.req.header('Authorization');
   const apiKey = c.req.header('X-API-Key');
   
-  // まずAPIキーを試行
+  // Try API key first
   if (apiKey) {
     const client = await db.apiKeys.findByKey(apiKey);
     if (client) {
@@ -199,14 +264,14 @@ export const multiAuth: FunctionMiddleware = async (c, next) => {
     }
   }
   
-  // 次にBearerトークンを試行
+  // Then try Bearer token
   if (auth?.startsWith('Bearer ')) {
     const token = auth.slice(7);
     try {
       const payload = await verifyJwt(token);
       setUser({ id: payload.sub, type: 'user' }, payload.roles);
     } catch {
-      // 無効なトークン
+      // Invalid token
     }
   }
   
@@ -214,15 +279,23 @@ export const multiAuth: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-## リクエスト署名（HMAC）
+## Request Signing (HMAC)
 
-セキュアなマシン間通信用：
+For secure machine-to-machine communication:
 
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-import { createHmac, timingSafeEqual } from 'crypto';
-
+import { HTTPException } from 'hono/http-exception';
+declare const db: {
+  clients: {
+    findById(id: string): Promise<{ id: string; name: string; secret: string; permissions: string[] } | null>;
+  };
+};
+declare function createHmac(algorithm: string, key: string): { update(data: string): { digest(encoding: string): string }; };
+declare function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean;
+declare const Buffer: { from(str: string): Uint8Array };
+// ---cut---
 export const hmacAuth: FunctionMiddleware = async (c, next) => {
   const signature = c.req.header('X-Signature');
   const timestamp = c.req.header('X-Timestamp');
@@ -233,20 +306,20 @@ export const hmacAuth: FunctionMiddleware = async (c, next) => {
     return;
   }
   
-  // タイムスタンプチェック（5分ウィンドウ）
+  // Check timestamp (5 minute window)
   const now = Date.now();
   const requestTime = parseInt(timestamp, 10);
   if (Math.abs(now - requestTime) > 5 * 60 * 1000) {
-    throw new HTTPException(401, { message: 'リクエストの有効期限切れ' });
+    throw new HTTPException(401, { message: 'Request expired' });
   }
   
-  // クライアントシークレットを取得
+  // Get client secret
   const client = await db.clients.findById(clientId);
   if (!client) {
-    throw new HTTPException(401, { message: '不明なクライアント' });
+    throw new HTTPException(401, { message: 'Unknown client' });
   }
   
-  // 署名を検証
+  // Verify signature
   const body = await c.req.text();
   const payload = `${timestamp}.${body}`;
   const expected = createHmac('sha256', client.secret)
@@ -254,7 +327,7 @@ export const hmacAuth: FunctionMiddleware = async (c, next) => {
     .digest('hex');
   
   if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
-    throw new HTTPException(401, { message: '無効な署名' });
+    throw new HTTPException(401, { message: 'Invalid signature' });
   }
   
   setUser({ id: client.id, name: client.name }, client.permissions);
@@ -262,33 +335,34 @@ export const hmacAuth: FunctionMiddleware = async (c, next) => {
 };
 ```
 
-## カスタム認証のテスト
+## Testing Custom Auth
 
-テストでユーザーコンテキストをモック：
+Mock the user context in tests:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { createTestClient } from '@zeltjs/testing';
-import { setUser } from '@zeltjs/core';
-
-describe('保護されたルート', () => {
-  it('認証済みの場合ユーザーデータを返す', async () => {
-    const client = createTestClient(app);
+import { onTest } from '@zeltjs/testing';
+import { setUser, HttpApp } from '@zeltjs/core';
+declare const app: HttpApp;
+// ---cut---
+describe('Protected routes', () => {
+  it('returns user data when authenticated', async () => {
+    const testApp = await onTest(app);
     
-    // 認証をモック
+    // Mock authentication
     setUser({ id: '123', name: 'Test User' }, ['admin']);
     
-    const res = await client.get('/users/me');
+    const res = await testApp.request('/users/me');
     expect(res.status).toBe(200);
-    expect(res.json()).toEqual({ id: '123', name: 'Test User' });
+    expect(await res.json()).toEqual({ id: '123', name: 'Test User' });
   });
 });
 ```
 
-## ベストプラクティス
+## Best Practices
 
-1. **ミドルウェアではフェイルオープン** — 認証がない場合はエラーをスローしない。アクセス制御は`@Authorized`に任せる
-2. **定数時間比較を使用** — シークレットと署名には`timingSafeEqual`を使用
-3. **タイムスタンプを検証** — 署名付きリクエストでは、リプレイ攻撃を防ぐため古いタイムスタンプを拒否
-4. **認証失敗をログ** — ただしパスワードや完全なトークンなどの機密データはログしない
-5. **関心を分離** — ミドルウェアは認証（誰？）、`@Authorized`は認可（できる？）
+1. **Fail open in middleware** — Don't throw errors for missing auth; let `@Authorized` handle access control
+2. **Use constant-time comparison** — For secrets and signatures, use `timingSafeEqual`
+3. **Validate timestamps** — For signed requests, reject old timestamps to prevent replay attacks
+4. **Log authentication failures** — But don't log sensitive data like passwords or full tokens
+5. **Separate concerns** — Middleware authenticates (who?), `@Authorized` authorizes (can they?)

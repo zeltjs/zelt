@@ -2,24 +2,24 @@
 sidebar_label: Cloudflare Workers
 ---
 
-# Cloudflare Workersではじめる
+# Getting Started with Cloudflare Workers
 
-このガイドでは、Cloudflare Workers上でZeltアプリケーションをゼロから構築する方法を説明します。
+This guide walks you through building a Zelt application on Cloudflare Workers from scratch.
 
-## 前提条件
+## Prerequisites
 
-- [Node.js](https://nodejs.org/) v20以上
+- [Node.js](https://nodejs.org/) v20 or higher
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
-- [Cloudflareアカウント](https://dash.cloudflare.com/sign-up)（無料プランあり）
+- A [Cloudflare account](https://dash.cloudflare.com/sign-up) (free tier available)
 
-## インストール
+## Installation
 
 ```bash
 pnpm add @zeltjs/core @zeltjs/adapter-cloudflare-workers
 pnpm add -D wrangler @cloudflare/workers-types
 ```
 
-## プロジェクト構成
+## Project Structure
 
 ```
 my-worker/
@@ -35,15 +35,15 @@ my-worker/
 
 ## Hello World
 
-### ステップ1: コントローラーの作成
+### Step 1: Create the Controller
 
-コントローラーは受信HTTPリクエストを処理し、レスポンスを返します。各コントローラーは`@Controller`でデコレートされたクラスで、ルートプレフィックスを定義します。
+Controllers handle incoming HTTP requests and return responses. Each controller is a class decorated with `@Controller` that defines a route prefix.
 
-`src/controllers/hello.controller.ts`を作成:
+Create `src/controllers/hello.controller.ts`:
 
 ```typescript
 import { Controller, Get, pathParam } from '@zeltjs/core';
-
+// ---cut---
 @Controller('/hello')
 export class HelloController {
   @Get('/:name')
@@ -53,41 +53,48 @@ export class HelloController {
 }
 ```
 
-- `@Controller('/hello')` — このコントローラー内のすべてのルートのベースパスを設定
-- `@Get('/:name')` — `/hello/:name`へのGETリクエストを処理
-- `pathParam('name')` — URLパスから`name`パラメータを抽出
+- `@Controller('/hello')` — Sets the base path for all routes in this controller
+- `@Get('/:name')` — Handles GET requests to `/hello/:name`
+- `pathParam('name')` — Extracts the `name` parameter from the URL path
 
-### ステップ2: アプリケーションの作成
+### Step 2: Create the Application
 
-`src/app.ts`を作成してコントローラーを接続:
+Create `src/app.ts` to wire up your controllers:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
-import { HelloController } from './controllers/hello.controller';
-
-export const app = createHttpApp({
-  controllers: [HelloController],
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+// ---cut---
+export const app = createApp({
+  http: {
+    controllers: [HelloController],
+  },
 });
 ```
 
-### ステップ3: Workerエントリーポイントの作成
+### Step 3: Create the Worker Entry Point
 
-Cloudflare Workersのエントリーポイント`src/index.ts`を作成:
+Create `src/index.ts` as the Cloudflare Workers entry point:
 
 ```typescript
+import { type HttpApp } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
-import { app } from './app';
-
+declare const app: HttpApp;
+// ---cut---
 const workers = await onCloudflareWorkers(app);
 
 export default { fetch: workers.fetch };
 ```
 
-`onCloudflareWorkers()`関数は非同期で、アプリをWorkersランタイム用に準備します。戻り値には`fetch`ハンドラーの他に、`shutdown`やサービスにアクセスするための`get`などのユーティリティが含まれます。デフォルトでは**遅延初期化**を使用します — コントローラーは起動時ではなく最初のリクエスト時に解決されます。これにより、サーバーレス環境でのコールドスタート時間が最適化されます。
+The `onCloudflareWorkers()` function is async and prepares your app for the Workers runtime. The returned object contains the `fetch` handler along with other utilities like `shutdown` and `get` for accessing services. By default, it uses **lazy initialization** (`warmup: false`) — controllers are resolved on the first request rather than at startup. This optimizes cold start times in serverless environments.
 
-### ステップ4: Wranglerの設定
+### Step 4: Configure Wrangler
 
-`wrangler.toml`を作成:
+Create `wrangler.toml`:
 
 ```toml
 name = "my-zelt-worker"
@@ -99,9 +106,9 @@ compatibility_flags = ["nodejs_compat"]
 API_HOST = "https://api.example.com"
 ```
 
-### ステップ5: TypeScriptの設定
+### Step 5: Configure TypeScript
 
-`tsconfig.json`を作成:
+Create `tsconfig.json`:
 
 ```json
 {
@@ -118,72 +125,83 @@ API_HOST = "https://api.example.com"
 }
 ```
 
-### ステップ6: ローカルで実行
+### Step 6: Run Locally
 
 ```bash
 npx wrangler dev
 ```
 
-`http://localhost:8787/hello/world`にアクセスすると:
+Visit `http://localhost:8787/hello/world` to see:
 
 ```json
 { "message": "Hello, world!" }
 ```
 
-## 設定
+## Configuration
 
-### 環境変数
+### Environment Variables
 
-Cloudflare Workersでは、環境変数は`wrangler.toml`で設定し、`EnvService`経由でアクセスします。
+In Cloudflare Workers, environment variables are configured in `wrangler.toml` and accessed via `EnvService`.
 
 ```typescript
 import { Controller, Get, inject, EnvService } from '@zeltjs/core';
-
+// ---cut---
 @Controller('/config')
 export class ConfigController {
   constructor(private env = inject(EnvService)) {}
 
   @Get('/api-host')
   getApiHost() {
-    return { apiHost: this.env.get('API_HOST') ?? 'localhost' };
+    return { apiHost: this.env.getString('API_HOST', 'localhost') };
   }
 }
 ```
 
-アプリに`EnvConfig`を登録:
+Register `EnvConfig` in your app:
 
 ```typescript
-import { createHttpApp, EnvConfig } from '@zeltjs/core';
-
-export const app = createHttpApp({
-  controllers: [ConfigController],
+import { createApp, EnvConfig, Controller, Get, inject, EnvService } from '@zeltjs/core';
+@Controller('/config')
+class ConfigController {
+  constructor(private env = inject(EnvService)) {}
+  @Get('/api-host')
+  getApiHost() { return { apiHost: this.env.getString('API_HOST', 'localhost') }; }
+}
+// ---cut---
+export const app = createApp({
+  http: {
+    controllers: [ConfigController],
+  },
   configs: [EnvConfig],
 });
 ```
 
-**重要:** `EnvConfig`を登録して`onCloudflareWorkers()`を使用すると、アダプターが自動的に`CloudflareWorkersEnvConfig`に置換します。これにより、`process.env`ではなくWorkersランタイム（`cloudflare:workers`モジュール）から環境変数を読み取ります。
+**Important:** When you register `EnvConfig` and use `onCloudflareWorkers()`, the adapter automatically replaces it with `CloudflareWorkersEnvConfig`. This reads environment variables from the Workers runtime (`cloudflare:workers` module) instead of `process.env`.
 
-### シークレット
+### Secrets
 
-機密性の高い値には、`[vars]`の代わりにWranglerシークレットを使用:
+For sensitive values, use Wrangler secrets instead of `[vars]`:
 
 ```bash
 npx wrangler secret put DATABASE_URL
 ```
 
-`EnvService`経由で同じ方法でアクセスできます:
+Access them the same way via `EnvService`:
 
 ```typescript
-const dbUrl = this.env.get('DATABASE_URL');
+import { EnvService, inject } from '@zeltjs/core';
+declare const env: EnvService;
+// ---cut---
+const dbUrl = env.getString('DATABASE_URL', '');
 ```
 
-## サービス
+## Services
 
-サービスはNode.jsと同じように動作します。`@Injectable`を使用してクラスをサービスとしてマークします。
+Services work identically to Node.js. Use `@Injectable` to mark a class as a service.
 
 ```typescript
 import { Injectable } from '@zeltjs/core';
-
+// ---cut---
 @Injectable()
 export class GreetingService {
   greet(name: string): string {
@@ -192,12 +210,15 @@ export class GreetingService {
 }
 ```
 
-コントローラーに注入:
+Inject into controllers:
 
 ```typescript
-import { Controller, Get, pathParam, inject } from '@zeltjs/core';
-import { GreetingService } from '../services/greeting.service';
-
+import { Controller, Get, pathParam, inject, Injectable } from '@zeltjs/core';
+@Injectable()
+class GreetingService {
+  greet(name: string): string { return `Hello, ${name}!`; }
+}
+// ---cut---
 @Controller('/hello')
 export class HelloController {
   constructor(private greetingService = inject(GreetingService)) {}
@@ -209,39 +230,43 @@ export class HelloController {
 }
 ```
 
-## デプロイ
+## Deploy
 
-Cloudflareのグローバルネットワークにワーカーをデプロイ:
+Deploy your worker to Cloudflare's global network:
 
 ```bash
 npx wrangler deploy
 ```
 
-ワーカーは`https://my-zelt-worker.<your-subdomain>.workers.dev`で利用可能になります。
+Your worker will be available at `https://my-zelt-worker.<your-subdomain>.workers.dev`.
 
-## 上級: Warmupオプション
+## Advanced: Warmup Option
 
-デフォルトでは、`onCloudflareWorkers()`は遅延初期化（`warmup: false`）を使用してコールドスタート時間を最小化します。コントローラーは最初のリクエスト時に解決されます。
+By default, `onCloudflareWorkers()` uses lazy initialization (`warmup: false`) to minimize cold start time. Controllers are resolved on the first request.
 
-すべてのコントローラーを初期化時に解決したい場合（デバッグや、コールドスタート時間があまり重要でない場合に便利）、`warmup: true`を設定:
+If you prefer to resolve all controllers at initialization (useful for debugging or when cold start time is less critical), set `warmup: true`:
 
 ```typescript
+import { type HttpApp } from '@zeltjs/core';
+import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
+declare const app: HttpApp;
+// ---cut---
 const workers = await onCloudflareWorkers(app, { warmup: true });
 
 export default { fetch: workers.fetch };
 ```
 
-| オプション | 動作 | ユースケース |
+| Option | Behavior | Use Case |
 |--------|----------|----------|
-| `warmup: false`（デフォルト） | 最初のリクエスト時にコントローラーを解決 | コールドスタートの最適化 |
-| `warmup: true` | 初期化時にすべてのコントローラーを解決 | デバッグ、ウォーム環境 |
+| `warmup: false` (default) | Controllers resolved on first request | Optimized cold starts |
+| `warmup: true` | All controllers resolved at initialization | Debugging, warm environments |
 
-## 次のステップ
+## What's Next?
 
-基本的なワーカーが動作するようになったら、さらに多くの機能を探索しましょう:
+Now that you have a basic worker running, explore more features:
 
-- [コントローラー](../controllers) — ルーティングとHTTPメソッド
-- [サービス](../services) — ビジネスロジックと依存性注入
-- [バリデーション](../validation) — Valibotによるリクエストボディの検証
-- [ミドルウェア](../middleware) — リクエスト/レスポンスインターセプター
-- [設定](../configuration) — 高度な設定パターン
+- [Controllers](../controllers) — Route handling and HTTP methods
+- [Services](../services) — Business logic and dependency injection
+- [Validation](../validation) — Request body validation with Valibot
+- [Middleware](../middleware) — Request/response interceptors
+- [Configuration](../configuration) — Advanced configuration patterns

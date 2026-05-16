@@ -1,14 +1,13 @@
 ---
-sidebar_position: 4
 ---
 
-# サービス
+# Services
 
-サービスは**ビジネスロジック**を処理し、コントローラーや他のサービスに**注入**できるクラスです。この関心の分離により、コードはよりテストしやすく保守しやすくなります。
+Services are classes that handle **business logic** and can be **injected** into controllers or other services. This separation of concerns makes your code more testable and maintainable.
 
-## サービスの定義
+## Defining Services
 
-サービスは`@Injectable()`デコレーターで装飾されたクラスです：
+A service is a class decorated with `@Injectable()`:
 
 ```typescript
 import { Injectable } from '@zeltjs/core';
@@ -34,19 +33,24 @@ export class UserService {
 }
 ```
 
-## 依存性注入
+## Dependency Injection
 
-`inject()`を使用してサービスをコントローラーに注入します：
+Use `inject()` to inject services into controllers:
 
 ```typescript
-import { Controller, Get, Post, inject, pathParam, validated } from '@zeltjs/core';
+import { Controller, Get, Post, inject, pathParam, Injectable } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
-import { UserService } from './user.service';
 
-const CreateUserBody = v.object({
-  name: v.string(),
-});
+@Injectable() class UserService {
+  private users = new Map<string, { id: string; name: string }>();
+  findAll() { return Array.from(this.users.values()); }
+  findOne(id: string) { return this.users.get(id); }
+  create(name: string) { const id = crypto.randomUUID(); const user = { id, name }; this.users.set(id, user); return user; }
+}
 
+const CreateUserBody = v.object({ name: v.string() });
+// ---cut---
 @Controller('/users')
 export class UserController {
   constructor(private userService = inject(UserService)) {}
@@ -72,15 +76,16 @@ export class UserController {
 }
 ```
 
-## サービス間の注入
+## Service-to-Service Injection
 
-サービスは他のサービスを注入できます：
+Services can inject other services:
 
 ```typescript
 import { Injectable, inject } from '@zeltjs/core';
-import { DatabaseService } from './database.service';
-import { LoggerService } from './logger.service';
 
+@Injectable() class DatabaseService { query(sql: string) { return Promise.resolve([]); } }
+@Injectable() class LoggerService { log(msg: string) { console.log(msg); } }
+// ---cut---
 @Injectable()
 export class UserService {
   constructor(
@@ -95,47 +100,56 @@ export class UserService {
 }
 ```
 
-## シングルトンスコープ
+## Singleton Scope
 
-デフォルトで、サービスは**シングルトン**です。アプリケーションのライフサイクル内で同じインスタンスがすべての注入で共有されます。これは以下に最適です：
+By default, services are **singletons** — the same instance is shared across all injections within the application lifecycle. This is ideal for:
 
-- データベース接続
-- 設定サービス
-- キャッシュサービス
+- Database connections
+- Configuration services
+- Caching services
 
 ```typescript
+import { Injectable, EnvConfig, inject } from '@zeltjs/core';
+
 @Injectable()
 export class ConfigService {
-  private config: Record<string, string>;
+  constructor(private env = inject(EnvConfig)) {}
 
-  constructor() {
-    this.config = {
-      DATABASE_URL: process.env.DATABASE_URL ?? '',
-      API_KEY: process.env.API_KEY ?? '',
-    };
+  get databaseUrl() {
+    return this.env.get('DATABASE_URL') ?? '';
   }
 
-  get(key: string): string {
-    return this.config[key] ?? '';
+  get apiKey() {
+    return this.env.get('API_KEY') ?? '';
   }
 }
 ```
 
-## モックサービスを使ったテスト
+:::tip
+For configuration, prefer using `@Config` classes with `inject()`. See [Configuration](./configuration.md) for details.
+:::
 
-シングルトンパターンにより、テストは簡単です。モック実装を提供できます：
+## Testing with Mock Services
+
+The singleton pattern makes testing straightforward — you can provide mock implementations:
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
-import { createTestTarget } from '@zeltjs/testing';
-import { UserController } from './user.controller';
-import { UserService } from './user.service';
+import { Controller, Get, inject, Injectable } from '@zeltjs/core';
 
+@Injectable() class UserService { findAll(): { id: string; name: string }[] { return []; } }
+@Controller('/users') class UserController {
+  constructor(private userService = inject(UserService)) {}
+  @Get('/') findAll() { return { users: this.userService.findAll() }; }
+}
+type TestContainer = { override(cls: unknown, impl: unknown): TestContainer; resolve<T>(cls: new (...args: never[]) => T): T; };
+declare function createTestContainer(): TestContainer;
+// ---cut---
 describe('UserController', () => {
   it('should return all users', async () => {
     const mockUsers = [{ id: '1', name: 'John' }];
     
-    const container = createTestTarget()
+    const container = createTestContainer()
       .override(UserService, {
         findAll: () => mockUsers,
       });
@@ -148,9 +162,9 @@ describe('UserController', () => {
 });
 ```
 
-## ベストプラクティス
+## Best Practices
 
-1. **単一責任** — 各サービスは1つの明確な目的を持つべき
-2. **インターフェース分離** — サービスメソッドは焦点を絞り凝集性を保つ
-3. **依存性注入** — 依存関係は直接作成せず常に注入する
-4. **テスト容易性** — サービスはテストで簡単にモックできるよう設計する
+1. **Single Responsibility** — Each service should have one clear purpose
+2. **Interface Segregation** — Keep service methods focused and cohesive
+3. **Dependency Injection** — Always inject dependencies rather than creating them directly
+4. **Testability** — Design services to be easily mockable in tests

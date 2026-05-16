@@ -13,7 +13,7 @@ Zelt uses [needle-di](https://github.com/nicosommi/needle-di) under the hood for
 
 ```typescript
 import { Injectable, inject } from '@zeltjs/core';
-
+// ---cut---
 @Injectable()
 export class DatabaseService {
   query(sql: string) {

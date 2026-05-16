@@ -1,20 +1,19 @@
 ---
-sidebar_position: 6
 ---
 
-# 依存性注入
+# Dependency Injection
 
-:::info 準備中
-依存性注入の詳細なドキュメントは作成中です。
+:::info Coming Soon
+Detailed dependency injection documentation is under development.
 :::
 
-Zeltは内部で[needle-di](https://github.com/nicosommi/needle-di)を使用し、軽量で型安全なDIコンテナを提供しています。
+Zelt uses [needle-di](https://github.com/nicosommi/needle-di) under the hood for dependency injection, providing a lightweight and type-safe DI container.
 
-## 概要
+## Quick Overview
 
 ```typescript
 import { Injectable, inject } from '@zeltjs/core';
-
+// ---cut---
 @Injectable()
 export class DatabaseService {
   query(sql: string) {
@@ -32,4 +31,4 @@ export class UserRepository {
 }
 ```
 
-実践的な使用パターンについては[サービス](./services)のドキュメントを参照してください。
+See the [Services](./services) documentation for practical usage patterns.

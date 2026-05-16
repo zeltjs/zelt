@@ -1,17 +1,17 @@
 ---
-sidebar_position: 3
 ---
 
-# コントローラー
+# Controllers
 
-コントローラーは、受信**リクエスト**を処理し、クライアントに**レスポンス**を返す役割を担います。
+Controllers are responsible for handling incoming **requests** and returning **responses** to the client.
 
-## コントローラーの定義
+## Defining Controllers
 
-コントローラーは`@Controller()`デコレーターで装飾されたクラスです。デコレーターはパスプレフィックスを受け取り、コントローラー内で定義されたすべてのルートに付加されます。
+A controller is a class decorated with `@Controller()`. The decorator accepts a path prefix that will be prepended to all routes defined in the controller.
 
 ```typescript
-import { Controller, Get, Post, pathParam, validated, response } from '@zeltjs/core';
+import { Controller, Get, Post, pathParam, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({
@@ -38,11 +38,11 @@ export class UserController {
 }
 ```
 
-## HTTPメソッドデコレーター
+## HTTP Method Decorators
 
-Zeltは標準的なHTTPメソッドすべてにデコレーターを提供します：
+Zelt provides decorators for all standard HTTP methods:
 
-| デコレーター | HTTPメソッド |
+| Decorator | HTTP Method |
 |-----------|-------------|
 | `@Get()` | GET |
 | `@Post()` | POST |
@@ -51,6 +51,11 @@ Zeltは標準的なHTTPメソッドすべてにデコレーターを提供しま
 | `@Delete()` | DELETE |
 
 ```typescript
+import { Controller, Get, Post, Put, Patch, Delete, pathParam } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import * as v from 'valibot';
+const schema = v.object({ name: v.string() });
+// ---cut---
 @Controller('/items')
 export class ItemController {
   @Get('/')
@@ -73,73 +78,104 @@ export class ItemController {
 }
 ```
 
-## ルートパラメーター
+## Route Parameters
 
-`pathParam()`を使用してルートパラメーターを抽出します：
+Use `pathParam()` to extract route parameters:
 
 ```typescript
-@Get('/:category/:id')
-findOne(
-  category = pathParam('category'),
-  id = pathParam('id')
-) {
-  return { category, id };
+import { Controller, Get, pathParam } from '@zeltjs/core';
+// ---cut---
+@Controller('/items')
+class ItemController {
+  @Get('/:category/:id')
+  findOne(
+    category = pathParam('category'),
+    id = pathParam('id')
+  ) {
+    return { category, id };
+  }
 }
 ```
 
-## リクエストボディのバリデーション
+## Request Body Validation
 
-`validated()`とValibotスキーマを使用してリクエストボディを検証・型付けします：
+Use `validated()` with a Valibot schema to validate and type the request body:
 
 ```typescript
+import { Controller, Post } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
-
+// ---cut---
 const CreatePostBody = v.object({
   title: v.pipe(v.string(), v.minLength(1), v.maxLength(100)),
   content: v.string(),
   tags: v.optional(v.array(v.string())),
 });
 
-@Post('/')
-create(body = validated(CreatePostBody)) {
-  // bodyは完全に型付け: { title: string; content: string; tags?: string[] }
-  return { id: '1', ...body };
+@Controller('/posts')
+class PostController {
+  @Post('/')
+  create(body = validated(CreatePostBody)) {
+    // body is fully typed as { title: string; content: string; tags?: string[] }
+    return { id: '1', ...body };
+  }
 }
 ```
 
-バリデーションが失敗した場合、Zeltは自動的に詳細なエラー情報を含む400レスポンスを返します。
+If validation fails, Zelt automatically returns a 400 response with detailed error information.
 
-## カスタムレスポンスステータス
+## Custom Response Status
 
-`response()`を使用してHTTPステータスコードを制御します：
+Use `response()` to control the HTTP status code:
 
 ```typescript
-@Post('/')
-create(body = validated(schema), res = response()) {
-  const created = { id: '1', ...body };
-  return res.json(created, 201); // 201 Createdを返す
-}
+import { Controller, Post, Delete, pathParam, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import * as v from 'valibot';
+const schema = v.object({ name: v.string() });
+// ---cut---
+@Controller('/items')
+class ItemController {
+  @Post('/')
+  create(body = validated(schema), res = response()) {
+    const created = { id: '1', ...body };
+    return res.json(created, 201); // Returns 201 Created
+  }
 
-@Delete('/:id')
-remove(id = pathParam('id'), res = response()) {
-  return res.json(null, 204); // 204 No Contentを返す
+  @Delete('/:id')
+  remove(id = pathParam('id')) {
+    // Perform delete operation
+    return new Response(null, { status: 204 }); // Returns 204 No Content
+  }
 }
 ```
 
-## コントローラーの登録
+## Registering Controllers
 
-コントローラーは`createHttpApp()`で登録する必要があります：
+Controllers must be registered in `createApp()`:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
-import { UserController } from './controllers/user.controller';
-import { PostController } from './controllers/post.controller';
+import { createApp, Controller, Get, Post, pathParam, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import * as v from 'valibot';
 
-export const app = createHttpApp({
-  controllers: [UserController, PostController],
+const CreateUserBody = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
+@Controller('/users') class UserController {
+  @Get('/') findAll() { return { users: [] }; }
+  @Get('/:id') findOne(id = pathParam('id')) { return { id }; }
+  @Post('/') create(body = validated(CreateUserBody), res = response()) { return res.json({ id: '1', ...body }, 201); }
+}
+@Controller('/posts') class PostController {
+  @Get('/') findAll() { return { posts: [] }; }
+}
+// ---cut---
+export const app = createApp({
+  http: {
+    controllers: [UserController, PostController],
+  },
 });
 ```
 
-## 次のステップ
+## Next Steps
 
-- [ミドルウェア](./middleware.md)でリクエスト/レスポンスの処理について学ぶ
+- Learn about [Middleware](./middleware.md) for request/response processing

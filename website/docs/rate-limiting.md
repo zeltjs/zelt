@@ -15,7 +15,7 @@ import { RateLimit } from '@zeltjs/rate-limit';
 
 @Controller('/api')
 export class ApiController {
-  @RateLimit({ limit: 100, windowSec: 60 })
+  @RateLimit({ limit: 100, windowSec: 60, key: 'ip' })
   @Get('/data')
   getData() {
     return { items: [] };
@@ -28,24 +28,42 @@ export class ApiController {
 Rate limiting keys determine how requests are grouped. Use static strings or functions:
 
 ```typescript
-import { currentUser, headerParam } from '@zeltjs/core';
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+import { Controller, Get, currentUser, header } from '@zeltjs/core';
+import { RateLimit } from '@zeltjs/rate-limit';
 
-// By IP address
-@RateLimit({ limit: 100, windowSec: 60, key: 'ip' })
+declare module '@zeltjs/core' {
+  interface RequestContextSchema {
+    user: { id: string };
+  }
+}
+// ---cut---
+@Controller('/api')
+class ApiController {
+  // By IP address
+  @RateLimit({ limit: 100, windowSec: 60, key: 'ip' })
+  @Get('/public')
+  publicData() { return { data: [] }; }
 
-// By user ID
-@RateLimit({
-  limit: 1000,
-  windowSec: 60,
-  key: () => `user:${currentUser()?.id ?? 'anonymous'}`,
-})
+  // By user ID
+  @RateLimit({
+    limit: 1000,
+    windowSec: 60,
+    key: () => `user:${currentUser()?.id ?? 'anonymous'}`,
+  })
+  @Get('/user-data')
+  userData() { return { data: [] }; }
 
-// By API key
-@RateLimit({
-  limit: 500,
-  windowSec: 60,
-  key: () => `apikey:${headerParam('X-API-Key')}`,
-})
+  // By API key
+  @RateLimit({
+    limit: 500,
+    windowSec: 60,
+    key: () => `apikey:${header('X-API-Key')}`,
+  })
+  @Get('/api-data')
+  apiData() { return { data: [] }; }
+}
 ```
 
 ## Programmatic Usage
@@ -54,8 +72,12 @@ Use `RateLimitService` for custom rate limiting logic:
 
 ```typescript
 import { Controller, Post, inject, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import { RateLimitService } from '@zeltjs/rate-limit';
+import * as v from 'valibot';
 
+const LoginSchema = v.object({ email: v.pipe(v.string(), v.email()), password: v.string() });
+// ---cut---
 @Controller('/auth')
 export class AuthController {
   constructor(private rateLimiter = inject(RateLimitService)) {}
@@ -89,20 +111,19 @@ export class AuthController {
 Extend `RateLimitConfig` to customize behavior:
 
 ```typescript
-import { Config, EnvConfig, injectConfig } from '@zeltjs/core';
+import { Config, EnvConfig, inject } from '@zeltjs/core';
 import { RateLimitConfig } from '@zeltjs/rate-limit';
-import { createRedisKVStore } from '@zeltjs/kv-redis';
+import type { AtomicKVStore } from '@zeltjs/kv';
 
+declare function createRedisKVStore(opts: { url: string | undefined }): AtomicKVStore;
+// ---cut---
 @Config
 class CustomRateLimitConfig extends RateLimitConfig {
-  constructor(private env = injectConfig(EnvConfig)) {
-    super();
-  }
+  override readonly store: AtomicKVStore;
 
-  override get store() {
-    return createRedisKVStore({
-      url: this.env.get('REDIS_URL'),
-    });
+  constructor(private env = inject(EnvConfig)) {
+    super();
+    this.store = createRedisKVStore({ url: this.env.get('REDIS_URL') });
   }
 
   override readonly defaultLimit = 200;
@@ -136,11 +157,13 @@ Use `'open'` for non-critical rate limiting where availability is prioritized. U
 The `hit()` method returns `Promise<RateLimiterHitResult>`:
 
 ```typescript
-type RateLimiterHitResult =
+import type { RateLimitResult, RateLimitError, RateLimiterHitResult } from '@zeltjs/rate-limit';
+// ---cut---
+type HitResult =
   | { ok: true; value: RateLimitResult }
   | { ok: false; error: RateLimitError };
 
-type RateLimitResult = {
+type Result = {
   allowed: boolean;      // Whether the request is permitted
   remaining: number;     // Requests remaining in current window
   limit: number;         // Maximum requests allowed

@@ -43,7 +43,7 @@ Create `src/controllers/hello.controller.ts`:
 
 ```typescript
 import { Controller, Get, pathParam } from '@zeltjs/core';
-
+// ---cut---
 @Controller('/hello')
 export class HelloController {
   @Get('/:name')
@@ -62,11 +62,17 @@ export class HelloController {
 Create `src/app.ts` to wire up your controllers:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
-import { HelloController } from './controllers/hello.controller';
-
-export const app = createHttpApp({
-  controllers: [HelloController],
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+// ---cut---
+export const app = createApp({
+  http: {
+    controllers: [HelloController],
+  },
 });
 ```
 
@@ -75,9 +81,10 @@ export const app = createHttpApp({
 Create `src/index.ts` as the Cloudflare Workers entry point:
 
 ```typescript
+import { type HttpApp } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
-import { app } from './app';
-
+declare const app: HttpApp;
+// ---cut---
 const workers = await onCloudflareWorkers(app);
 
 export default { fetch: workers.fetch };
@@ -138,14 +145,14 @@ In Cloudflare Workers, environment variables are configured in `wrangler.toml` a
 
 ```typescript
 import { Controller, Get, inject, EnvService } from '@zeltjs/core';
-
+// ---cut---
 @Controller('/config')
 export class ConfigController {
   constructor(private env = inject(EnvService)) {}
 
   @Get('/api-host')
   getApiHost() {
-    return { apiHost: this.env.get('API_HOST') ?? 'localhost' };
+    return { apiHost: this.env.getString('API_HOST', 'localhost') };
   }
 }
 ```
@@ -153,10 +160,18 @@ export class ConfigController {
 Register `EnvConfig` in your app:
 
 ```typescript
-import { createHttpApp, EnvConfig } from '@zeltjs/core';
-
-export const app = createHttpApp({
-  controllers: [ConfigController],
+import { createApp, EnvConfig, Controller, Get, inject, EnvService } from '@zeltjs/core';
+@Controller('/config')
+class ConfigController {
+  constructor(private env = inject(EnvService)) {}
+  @Get('/api-host')
+  getApiHost() { return { apiHost: this.env.getString('API_HOST', 'localhost') }; }
+}
+// ---cut---
+export const app = createApp({
+  http: {
+    controllers: [ConfigController],
+  },
   configs: [EnvConfig],
 });
 ```
@@ -174,7 +189,10 @@ npx wrangler secret put DATABASE_URL
 Access them the same way via `EnvService`:
 
 ```typescript
-const dbUrl = this.env.get('DATABASE_URL');
+import { EnvService, inject } from '@zeltjs/core';
+declare const env: EnvService;
+// ---cut---
+const dbUrl = env.getString('DATABASE_URL', '');
 ```
 
 ## Services
@@ -183,7 +201,7 @@ Services work identically to Node.js. Use `@Injectable` to mark a class as a ser
 
 ```typescript
 import { Injectable } from '@zeltjs/core';
-
+// ---cut---
 @Injectable()
 export class GreetingService {
   greet(name: string): string {
@@ -195,9 +213,12 @@ export class GreetingService {
 Inject into controllers:
 
 ```typescript
-import { Controller, Get, pathParam, inject } from '@zeltjs/core';
-import { GreetingService } from '../services/greeting.service';
-
+import { Controller, Get, pathParam, inject, Injectable } from '@zeltjs/core';
+@Injectable()
+class GreetingService {
+  greet(name: string): string { return `Hello, ${name}!`; }
+}
+// ---cut---
 @Controller('/hello')
 export class HelloController {
   constructor(private greetingService = inject(GreetingService)) {}
@@ -226,6 +247,10 @@ By default, `onCloudflareWorkers()` uses lazy initialization (`warmup: false`) t
 If you prefer to resolve all controllers at initialization (useful for debugging or when cold start time is less critical), set `warmup: true`:
 
 ```typescript
+import { type HttpApp } from '@zeltjs/core';
+import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
+declare const app: HttpApp;
+// ---cut---
 const workers = await onCloudflareWorkers(app, { warmup: true });
 
 export default { fetch: workers.fetch };

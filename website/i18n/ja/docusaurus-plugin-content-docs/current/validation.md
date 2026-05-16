@@ -1,17 +1,23 @@
 ---
-sidebar_position: 8
 ---
 
-# バリデーション
+# Validation
 
-Zeltはリクエストの検証に[Valibot](https://valibot.dev/)を使用し、型安全で軽量なバリデーションソリューションを提供します。
+Zelt uses [Valibot](https://valibot.dev/) for request validation, providing a type-safe and lightweight validation solution.
 
-## 基本的な使い方
+## Installation
 
-`validated()`とValibotスキーマを使用してリクエストボディを検証します：
+```bash
+pnpm add @zeltjs/validate-valibot valibot
+```
+
+## Basic Usage
+
+Use `validated()` with a Valibot schema to validate request bodies:
 
 ```typescript
-import { Controller, Post, validated, response } from '@zeltjs/core';
+import { Controller, Post, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
 
 const CreateUserSchema = v.object({
@@ -24,18 +30,19 @@ const CreateUserSchema = v.object({
 export class UserController {
   @Post('/')
   create(body = validated(CreateUserSchema), res = response()) {
-    // bodyは完全に型付け: { name: string; email: string; age?: number }
+    // body is fully typed: { name: string; email: string; age?: number }
     return res.json({ id: '1', ...body }, 201);
   }
 }
 ```
 
-## フォームデータとファイルアップロード
+## Form Data and File Uploads
 
-`validated(schema, 'form')`を使用して、ファイルアップロードを含む`multipart/form-data`リクエストを検証します：
+Use `validated(schema, 'form')` to validate `multipart/form-data` requests, including file uploads:
 
 ```typescript
-import { Controller, Post, validated, response } from '@zeltjs/core';
+import { Controller, Post, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
 
 const UploadSchema = v.object({
@@ -47,42 +54,49 @@ const UploadSchema = v.object({
 export class UploadController {
   @Post('/')
   upload(body = validated(UploadSchema, 'form'), res = response()) {
-    // body.fileはFileオブジェクト
+    // body.file is a File object
     console.log(body.file.name, body.file.size, body.file.type);
     return res.json({ filename: body.file.name, size: body.file.size }, 201);
   }
 }
 ```
 
-### ターゲットオプション
+### Target Options
 
-`validated()`の第2引数でリクエストボディのフォーマットを指定します：
+The second argument to `validated()` specifies the request body format:
 
-| ターゲット | Content-Type | 用途 |
+| Target | Content-Type | Use Case |
 |--------|-------------|----------|
-| `'json'`（デフォルト） | `application/json` | JSON APIリクエスト |
-| `'form'` | `multipart/form-data`、`application/x-www-form-urlencoded` | ファイルアップロード、HTMLフォーム |
+| `'json'` (default) | `application/json` | JSON API requests |
+| `'form'` | `multipart/form-data`, `application/x-www-form-urlencoded` | File uploads, HTML forms |
 
-### 複数ファイル
+### Multiple Files
 
 ```typescript
+import { Controller, Post } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import * as v from 'valibot';
+// ---cut---
 const MultiUploadSchema = v.object({
   files: v.array(v.instance(File)),
   category: v.string(),
 });
 
-@Post('/bulk')
-bulkUpload(body = validated(MultiUploadSchema, 'form')) {
-  for (const file of body.files) {
-    console.log(file.name);
+@Controller('/upload')
+class BulkUploadController {
+  @Post('/bulk')
+  bulkUpload(body = validated(MultiUploadSchema, 'form')) {
+    for (const file of body.files) {
+      console.log(file.name);
+    }
+    return { count: body.files.length };
   }
-  return { count: body.files.length };
 }
 ```
 
-### OpenAPI生成
+### OpenAPI Generation
 
-`'form'`ターゲットを使用すると、OpenAPI出力は自動的に`multipart/form-data`をコンテンツタイプとして使用します：
+When using `'form'` target, OpenAPI output automatically uses `multipart/form-data` as the content type:
 
 ```yaml
 requestBody:
@@ -93,9 +107,9 @@ requestBody:
         $ref: '#/components/schemas/UploadSchema'
 ```
 
-## バリデーションエラーレスポンス
+## Validation Error Response
 
-バリデーションが失敗すると、Zeltは自動的に400レスポンスを返します：
+When validation fails, Zelt automatically returns a 400 response:
 
 ```json
 {
@@ -111,13 +125,15 @@ requestBody:
 }
 ```
 
-エラーレスポンスの詳細は[エラー処理](./error-handling.md)を参照してください。
+See [Error Handling](./error-handling.md) for more details on error responses.
 
-## 一般的なバリデーション
+## Common Validations
 
-### 文字列のバリデーション
+### String Validations
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const schema = v.object({
   username: v.pipe(
     v.string(),
@@ -131,9 +147,11 @@ const schema = v.object({
 });
 ```
 
-### 数値のバリデーション
+### Number Validations
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const schema = v.object({
   age: v.pipe(v.number(), v.minValue(0), v.maxValue(150)),
   price: v.pipe(v.number(), v.minValue(0)),
@@ -141,9 +159,11 @@ const schema = v.object({
 });
 ```
 
-### 配列のバリデーション
+### Array Validations
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const schema = v.object({
   tags: v.pipe(
     v.array(v.string()),
@@ -154,9 +174,11 @@ const schema = v.object({
 });
 ```
 
-### オプショナルとNullable
+### Optional and Nullable
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const schema = v.object({
   required: v.string(),
   optional: v.optional(v.string()),
@@ -166,9 +188,11 @@ const schema = v.object({
 });
 ```
 
-### ネストされたオブジェクト
+### Nested Objects
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const AddressSchema = v.object({
   street: v.string(),
   city: v.string(),
@@ -183,24 +207,26 @@ const UserSchema = v.object({
 });
 ```
 
-## 型推論
+## Type Inference
 
-Valibotスキーマは自動的にTypeScriptの型推論を提供します：
+Valibot schemas provide automatic TypeScript type inference:
 
 ```typescript
+import * as v from 'valibot';
+// ---cut---
 const UserSchema = v.object({
   name: v.string(),
   age: v.number(),
 });
 
-// スキーマから型を推論
+// Infer the type from schema
 type User = v.InferOutput<typeof UserSchema>;
-// 等価: { name: string; age: number }
+// Equivalent to: { name: string; age: number }
 ```
 
-## なぜValibot？
+## Why Valibot?
 
-- **型安全** — 自動型推論による完全なTypeScriptサポート
-- **軽量** — ツリーシェイキング対応、使用するものだけを含む
-- **高速** — 実行時パフォーマンスに最適化
-- **構成可能** — シンプルなビルディングブロックから複雑なスキーマを構築
+- **Type-safe** — Full TypeScript support with automatic type inference
+- **Lightweight** — Tree-shakeable, only includes what you use
+- **Fast** — Optimized for runtime performance
+- **Composable** — Build complex schemas from simple building blocks

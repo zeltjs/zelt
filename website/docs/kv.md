@@ -28,6 +28,8 @@ Inject `MemoryKV` and create a namespaced store:
 import { Injectable, inject } from '@zeltjs/core';
 import { MemoryKV, type AtomicKVStore } from '@zeltjs/kv';
 
+interface User { id: string; name: string; }
+// ---cut---
 @Injectable()
 export class CacheService {
   private store: AtomicKVStore;
@@ -60,6 +62,11 @@ export class CacheService {
 ### TTL (Time-To-Live)
 
 ```typescript
+import { inject } from '@zeltjs/core';
+import { MemoryKV } from '@zeltjs/kv';
+
+const store = inject(MemoryKV).namespace('sessions');
+// ---cut---
 await store.set('session:abc', { userId: '123' }, { ttlSec: 1800 });
 
 // Extend TTL for an existing key (useful for session touch)
@@ -78,6 +85,9 @@ await store.expire('session:abc', 1800);
 ### Rate Limiting with incr
 
 ```typescript
+import { Injectable, inject } from '@zeltjs/core';
+import { MemoryKV, type AtomicKVStore } from '@zeltjs/kv';
+// ---cut---
 @Injectable()
 export class RateLimiter {
   private store: AtomicKVStore;
@@ -96,6 +106,11 @@ export class RateLimiter {
 ### Distributed Locks with setnx
 
 ```typescript
+import { inject } from '@zeltjs/core';
+import { MemoryKV } from '@zeltjs/kv';
+
+const store = inject(MemoryKV).namespace('locks');
+// ---cut---
 const acquired = await store.setnx('lock:resource', true, { ttlSec: 30 });
 if (acquired) {
   // Lock acquired, do work, then release
@@ -108,6 +123,11 @@ if (acquired) {
 Namespaces provide logical separation of keys. They can be nested:
 
 ```typescript
+import { inject } from '@zeltjs/core';
+import { MemoryKV } from '@zeltjs/kv';
+
+const kv = inject(MemoryKV);
+// ---cut---
 const users = kv.namespace('users');
 const sessions = kv.namespace('sessions');
 
@@ -119,11 +139,17 @@ const adminSessions = sessions.namespace('admin');
 KV operations throw errors on failure. Use try-catch for error handling:
 
 ```typescript
+import { inject } from '@zeltjs/core';
+import { MemoryKV } from '@zeltjs/kv';
+
+const store = inject(MemoryKV).namespace('data');
+const value = { data: 'test' };
+// ---cut---
 try {
   await store.set('key', value, { ttlSec: -1 });
   console.log('Success');
 } catch (error) {
-  console.error(error.message);
+  console.error((error as Error).message);
 }
 ```
 
@@ -134,11 +160,15 @@ Error types: `INVALID_TTL`, `EMPTY_NAMESPACE`, `INVALID_VALUE`, `STORE_OPERATION
 `MemoryKV` is an in-memory implementation for development and testing. It serializes values to JSON and runs garbage collection every 60 seconds.
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
+import { createApp, Controller, Get } from '@zeltjs/core';
 import { MemoryKV } from '@zeltjs/kv';
 
-const app = createHttpApp({
-  controllers: [AppController],
+@Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
+// ---cut---
+const app = createApp({
+  http: {
+    controllers: [AppController],
+  },
   injectables: [MemoryKV],
 });
 ```

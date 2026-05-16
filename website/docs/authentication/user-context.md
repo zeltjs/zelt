@@ -21,7 +21,8 @@ Call `setUser()` in your authentication middleware after validating credentials:
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-
+declare function verifyToken(token: string): Promise<{ sub: string; name: string; email: string; roles: string[] }>;
+// ---cut---
 export const authMiddleware: FunctionMiddleware = async (c, next) => {
   const token = c.req.header('Authorization')?.replace('Bearer ', '');
   
@@ -50,7 +51,8 @@ Use `currentUser()` to access the authenticated user:
 
 ```typescript
 import { Controller, Get, currentUser, currentRoles } from '@zeltjs/core';
-
+import { HTTPException } from 'hono/http-exception';
+// ---cut---
 @Controller('/profile')
 class ProfileController {
   @Get('/me')
@@ -72,6 +74,8 @@ class ProfileController {
 For cleaner handler signatures, use default parameters:
 
 ```typescript
+import { Controller, Get, currentUser } from '@zeltjs/core';
+// ---cut---
 @Controller('/profile')
 class ProfileController {
   @Get('/me')
@@ -86,6 +90,10 @@ class ProfileController {
 By default, `currentUser()` returns `unknown`. Extend `RequestContextSchema` to get full type safety:
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+import '@zeltjs/core';
+// ---cut---
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
     user: {
@@ -101,6 +109,18 @@ declare module '@zeltjs/core' {
 Now all user-related functions are typed:
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+import '@zeltjs/core';
+declare module '@zeltjs/core' {
+  interface RequestContextSchema {
+    user: { id: string; name: string; email: string };
+    authRoles: ('admin' | 'editor' | 'user')[];
+  }
+}
+// ---cut---
+import { currentUser, currentRoles, setUser } from '@zeltjs/core';
+
 const user = currentUser();
 // TypeScript knows: user?.id, user?.name, user?.email
 
@@ -119,7 +139,11 @@ setUser(
 Create a `types/zelt.d.ts` file in your project:
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
 // types/zelt.d.ts
+import '@zeltjs/core';
+// ---cut---
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
     user: {
@@ -150,8 +174,9 @@ Make sure your `tsconfig.json` includes this file:
 Only include fields you need in handlers. Don't copy the entire database record:
 
 ```typescript
+// ---cut---
 // ✅ Good — minimal context
-interface RequestContextSchema {
+interface RequestContextSchemaGood {
   user: {
     id: string;
     name: string;
@@ -159,7 +184,7 @@ interface RequestContextSchema {
 }
 
 // ❌ Avoid — too much data
-interface RequestContextSchema {
+interface RequestContextSchemaBad {
   user: {
     id: string;
     name: string;
@@ -178,11 +203,20 @@ interface RequestContextSchema {
 Use the user ID to fetch more data in specific handlers:
 
 ```typescript
+import { Controller, Get, Authorized, currentUser } from '@zeltjs/core';
+interface User { id: string; }
+declare const db: {
+  users: {
+    findById(id: string): Promise<{ preferences: object }>;
+  };
+};
+// ---cut---
 @Controller('/settings')
 class SettingsController {
   @Authorized()
   @Get('/')
-  async getSettings(user = currentUser()) {
+  async getSettings() {
+    const user = currentUser() as User;
     const fullUser = await db.users.findById(user.id);
     return { preferences: fullUser.preferences };
   }
@@ -194,21 +228,26 @@ class SettingsController {
 Roles should be simple strings. Complex permission logic belongs in services:
 
 ```typescript
+// ---cut---
 // ✅ Good — simple roles
-authRoles: ('admin' | 'editor' | 'viewer')[];
+type GoodRoles = ('admin' | 'editor' | 'viewer')[];
 
 // ❌ Avoid — overly specific roles
-authRoles: ('can_edit_posts' | 'can_delete_posts' | 'can_view_analytics' | ...)[];
+type BadRoles = ('can_edit_posts' | 'can_delete_posts' | 'can_view_analytics')[];
 ```
 
 For fine-grained permissions, check roles in your service layer:
 
 ```typescript
-class PostService {
-  canEdit(post: Post, user = currentUser(), roles = currentRoles()): boolean {
-    if (roles.includes('admin')) return true;
-    if (roles.includes('editor') && post.authorId === user.id) return true;
-    return false;
-  }
+import { currentUser, currentRoles } from '@zeltjs/core';
+interface Post { authorId: string; }
+interface User { id: string; }
+// ---cut---
+function canEdit(post: Post): boolean {
+  const user = currentUser() as User | undefined;
+  const roles = currentRoles();
+  if (roles.includes('admin')) return true;
+  if (roles.includes('editor') && post.authorId === user?.id) return true;
+  return false;
 }
 ```

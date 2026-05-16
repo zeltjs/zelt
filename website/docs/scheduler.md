@@ -42,8 +42,14 @@ class ReportScheduler {
 Pass scheduler classes to `createApp()`:
 
 ```typescript
-import { createApp } from '@zeltjs/core';
+import { createApp, Controller, Get, Scheduled, Daily, Hourly } from '@zeltjs/core';
 
+@Controller('/users') class UserController { @Get('/') findAll() { return { users: [] }; } }
+@Scheduled() class ReportScheduler {
+  @Daily({ hour: 9 }) async sendDailyReport() { console.log('Sending daily report...'); }
+  @Hourly() async checkHealth() { console.log('Health check...'); }
+}
+// ---cut---
 const app = createApp({
   http: { controllers: [UserController] },
   schedulers: [ReportScheduler],
@@ -55,12 +61,16 @@ const app = createApp({
 The scheduler requires explicit startup. After calling `onNode()` and `ready()`, call `startScheduler()` to begin executing scheduled tasks:
 
 ```typescript
+declare const nodeApp: { startScheduler(): Promise<void>; stopScheduler(): Promise<void> };
+// ---cut---
 await nodeApp.startScheduler();
 ```
 
 To stop the scheduler gracefully:
 
 ```typescript
+declare const nodeApp: { startScheduler(): Promise<void>; stopScheduler(): Promise<void> };
+// ---cut---
 await nodeApp.stopScheduler();
 ```
 
@@ -77,6 +87,8 @@ The scheduler is **not started automatically** when the app becomes ready. This 
 Run at specific cron expression:
 
 ```typescript
+import { Scheduled, Cron } from '@zeltjs/core';
+// ---cut---
 @Scheduled()
 class BackupScheduler {
   @Cron('0 2 * * *')
@@ -94,9 +106,14 @@ class BackupScheduler {
 With timezone:
 
 ```typescript
-@Cron('0 9 * * *', { tz: 'Asia/Tokyo' })
-async morningTask() {
-  // Runs at 9:00 AM JST
+import { Scheduled, Cron } from '@zeltjs/core';
+// ---cut---
+@Scheduled()
+class TimezoneScheduler {
+  @Cron('0 9 * * *', { tz: 'Asia/Tokyo' })
+  async morningTask() {
+    // Runs at 9:00 AM JST
+  }
 }
 ```
 
@@ -105,6 +122,8 @@ async morningTask() {
 Run once per day at specified hour:
 
 ```typescript
+import { Scheduled, Daily } from '@zeltjs/core';
+// ---cut---
 @Scheduled()
 class DailyTasks {
   @Daily({ hour: 6 })
@@ -129,6 +148,8 @@ class DailyTasks {
 Run once per hour:
 
 ```typescript
+import { Scheduled, Hourly } from '@zeltjs/core';
+// ---cut---
 @Scheduled()
 class HourlyTasks {
   @Hourly()
@@ -148,6 +169,8 @@ class HourlyTasks {
 Run once per week:
 
 ```typescript
+import { Scheduled, Weekly } from '@zeltjs/core';
+// ---cut---
 @Scheduled()
 class WeeklyTasks {
   @Weekly({ day: 'monday', hour: 9 })
@@ -169,6 +192,8 @@ Available days: `'sunday'`, `'monday'`, `'tuesday'`, `'wednesday'`, `'thursday'`
 Run at fixed intervals:
 
 ```typescript
+import { Scheduled, Every } from '@zeltjs/core';
+// ---cut---
 @Scheduled()
 class PollingTasks {
   @Every({ minutes: 5 })
@@ -188,8 +213,11 @@ class PollingTasks {
 Schedulers support dependency injection like controllers:
 
 ```typescript
-import { Scheduled, Daily, inject } from '@zeltjs/core';
+import { Scheduled, Daily, inject, Injectable } from '@zeltjs/core';
 
+@Injectable() class EmailService { send(email: string, subject: string, body: string) { return Promise.resolve(); } }
+@Injectable() class UserRepository { findWithPendingReminders() { return Promise.resolve([{ email: 'user@example.com' }]); } }
+// ---cut---
 @Scheduled()
 class NotificationScheduler {
   constructor(
@@ -213,8 +241,11 @@ For Node.js applications, use `onNode()` and explicitly start the scheduler:
 
 ```typescript
 import { onNode } from '@zeltjs/adapter-node';
-import { app } from './app';
+import { createApp, Scheduled, Daily } from '@zeltjs/core';
 
+@Scheduled() class MyScheduler { @Daily({ hour: 9 }) async task() {} }
+const app = createApp({ http: { controllers: [] }, schedulers: [MyScheduler] });
+// ---cut---
 const nodeApp = await onNode(app);
 const handle = await nodeApp.listen(3000);
 
@@ -230,13 +261,16 @@ process.on('SIGTERM', async () => {
 You can conditionally enable the scheduler using configuration:
 
 ```typescript
-import { Config, EnvConfig, injectConfig } from '@zeltjs/core';
+import { Config, EnvConfig, inject } from '@zeltjs/core';
 
+type Container = { resolve<T>(cls: new (...args: never[]) => T): T };
+declare const nodeApp: { startScheduler(): Promise<void> };
+// ---cut---
 @Config
 export class SchedulerConfig {
   static readonly Token = SchedulerConfig;
 
-  constructor(private env = injectConfig(EnvConfig)) {}
+  constructor(private env = inject(EnvConfig)) {}
 
   get enabled() {
     return this.env.get('ENABLE_SCHEDULER') !== 'false';
@@ -244,6 +278,7 @@ export class SchedulerConfig {
 }
 
 // In your app setup
+declare const container: Container;
 const config = container.resolve(SchedulerConfig);
 if (config.enabled) {
   await nodeApp.startScheduler();

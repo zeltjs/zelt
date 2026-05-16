@@ -10,7 +10,8 @@ Controllers are responsible for handling incoming **requests** and returning **r
 A controller is a class decorated with `@Controller()`. The decorator accepts a path prefix that will be prepended to all routes defined in the controller.
 
 ```typescript
-import { Controller, Get, Post, pathParam, validated, response } from '@zeltjs/core';
+import { Controller, Get, Post, pathParam, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({
@@ -50,6 +51,11 @@ Zelt provides decorators for all standard HTTP methods:
 | `@Delete()` | DELETE |
 
 ```typescript
+import { Controller, Get, Post, Put, Patch, Delete, pathParam } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import * as v from 'valibot';
+const schema = v.object({ name: v.string() });
+// ---cut---
 @Controller('/items')
 export class ItemController {
   @Get('/')
@@ -77,12 +83,17 @@ export class ItemController {
 Use `pathParam()` to extract route parameters:
 
 ```typescript
-@Get('/:category/:id')
-findOne(
-  category = pathParam('category'),
-  id = pathParam('id')
-) {
-  return { category, id };
+import { Controller, Get, pathParam } from '@zeltjs/core';
+// ---cut---
+@Controller('/items')
+class ItemController {
+  @Get('/:category/:id')
+  findOne(
+    category = pathParam('category'),
+    id = pathParam('id')
+  ) {
+    return { category, id };
+  }
 }
 ```
 
@@ -91,18 +102,23 @@ findOne(
 Use `validated()` with a Valibot schema to validate and type the request body:
 
 ```typescript
+import { Controller, Post } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
-
+// ---cut---
 const CreatePostBody = v.object({
   title: v.pipe(v.string(), v.minLength(1), v.maxLength(100)),
   content: v.string(),
   tags: v.optional(v.array(v.string())),
 });
 
-@Post('/')
-create(body = validated(CreatePostBody)) {
-  // body is fully typed as { title: string; content: string; tags?: string[] }
-  return { id: '1', ...body };
+@Controller('/posts')
+class PostController {
+  @Post('/')
+  create(body = validated(CreatePostBody)) {
+    // body is fully typed as { title: string; content: string; tags?: string[] }
+    return { id: '1', ...body };
+  }
 }
 ```
 
@@ -113,29 +129,50 @@ If validation fails, Zelt automatically returns a 400 response with detailed err
 Use `response()` to control the HTTP status code:
 
 ```typescript
-@Post('/')
-create(body = validated(schema), res = response()) {
-  const created = { id: '1', ...body };
-  return res.json(created, 201); // Returns 201 Created
-}
+import { Controller, Post, Delete, pathParam, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import * as v from 'valibot';
+const schema = v.object({ name: v.string() });
+// ---cut---
+@Controller('/items')
+class ItemController {
+  @Post('/')
+  create(body = validated(schema), res = response()) {
+    const created = { id: '1', ...body };
+    return res.json(created, 201); // Returns 201 Created
+  }
 
-@Delete('/:id')
-remove(id = pathParam('id'), res = response()) {
-  return res.json(null, 204); // Returns 204 No Content
+  @Delete('/:id')
+  remove(id = pathParam('id')) {
+    // Perform delete operation
+    return new Response(null, { status: 204 }); // Returns 204 No Content
+  }
 }
 ```
 
 ## Registering Controllers
 
-Controllers must be registered in `createHttpApp()`:
+Controllers must be registered in `createApp()`:
 
 ```typescript
-import { createHttpApp } from '@zeltjs/core';
-import { UserController } from './controllers/user.controller';
-import { PostController } from './controllers/post.controller';
+import { createApp, Controller, Get, Post, pathParam, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import * as v from 'valibot';
 
-export const app = createHttpApp({
-  controllers: [UserController, PostController],
+const CreateUserBody = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
+@Controller('/users') class UserController {
+  @Get('/') findAll() { return { users: [] }; }
+  @Get('/:id') findOne(id = pathParam('id')) { return { id }; }
+  @Post('/') create(body = validated(CreateUserBody), res = response()) { return res.json({ id: '1', ...body }, 201); }
+}
+@Controller('/posts') class PostController {
+  @Get('/') findAll() { return { posts: [] }; }
+}
+// ---cut---
+export const app = createApp({
+  http: {
+    controllers: [UserController, PostController],
+  },
 });
 ```
 

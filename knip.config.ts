@@ -81,15 +81,23 @@ const config: KnipConfig = {
       // @easyops-cn/docusaurus-theme-docusaurus-search-local is an internal dependency of docusaurus-search-local
       // docusaurus-markdown-source-plugin / docusaurus-plugin-llms are Docusaurus plugins loaded at runtime
       // docusaurus-plugin-docusaurus-markdown-source-plugin is internal Docusaurus plugin resolution
+      // Twoslash VFS requires these packages for TypeScript path resolution in docs code blocks
       ignoreDependencies: [
         '@docusaurus/theme-common',
         '@easyops-cn/docusaurus-search-local',
         '@easyops-cn/docusaurus-theme-docusaurus-search-local',
+        '@zeltjs/adapter-node',
+        '@zeltjs/core',
+        '@zeltjs/db',
+        'better-sqlite3',
+        'bullmq',
         'clsx',
         'docusaurus-markdown-source-plugin',
         'docusaurus-plugin-docusaurus-markdown-source-plugin',
         'docusaurus-plugin-llms',
+        'drizzle-orm',
         'prism-react-renderer',
+        'valibot',
         'wrangler',
       ],
       // Swizzled Docusaurus theme components are loaded by Docusaurus at runtime

@@ -8,9 +8,13 @@ Test your application's HTTP endpoints end-to-end using Hono's built-in request 
 ## HTTP Testing
 
 ```typescript
-import { describe, it, expect } from 'vitest';
-import { app } from './app';
-
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+declare function describe(name: string, fn: () => void): void;
+declare function it(name: string, fn: () => void | Promise<void>): void;
+declare function expect<T>(value: T): { toBe(expected: T): void; toEqual(expected: unknown): void; };
+@Controller('/hello') class HelloController { @Get('/:name') greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; } }
+const app = createApp({ http: { controllers: [HelloController] } });
+// ---cut---
 describe('Hello API', () => {
   it('should return greeting', async () => {
     const res = await app.request('/hello/world');
@@ -27,14 +31,18 @@ describe('Hello API', () => {
 Use the generated `AppType` with Hono's client for fully typed tests. See [OpenAPI & Type Generation](../openapi.md) for how to generate `AppType`.
 
 ```typescript
-import { hc } from 'hono/client';
-import { describe, it, expect } from 'vitest';
-import { app } from './app';
-import type { AppType } from './generated/app.gen';
-
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+declare function hc<T>(baseUrl: string, options?: { fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> }): T;
+declare function describe(name: string, fn: () => void): void;
+declare function it(name: string, fn: () => void | Promise<void>): void;
+declare function expect<T>(value: T): { toBe(expected: T): void; };
+@Controller('/hello') class HelloController { @Get('/:name') greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; } }
+const app = createApp({ http: { controllers: [HelloController] } });
+type AppType = { hello: { ':name': { $get: (opts: { param: { name: string } }) => Promise<Response & { json(): Promise<{ message: string }> }> } } };
+// ---cut---
 describe('Hello API', () => {
   const client = hc<AppType>('http://localhost', {
-    fetch: (input, init) => app.fetch(new Request(input, init)),
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(input, init)),
   });
 
   it('should return greeting with type safety', async () => {
@@ -54,22 +62,38 @@ describe('Hello API', () => {
 For complete E2E tests with real dependencies, combine with [Integration Testing](./integration.md):
 
 ```typescript
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { hc } from 'hono/client';
-import { createApp } from './app';
-import { RedisTestContainerConfig } from '@zeltjs/testing/redis';
-import type { AppType } from './generated/app.gen';
-
+import { createApp, Controller, Get, Post, pathParam, response, HttpApp, ConfigClass } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
+import * as v from 'valibot';
+declare function hc<T>(baseUrl: string, options?: { fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> }): T;
+declare function describe(name: string, fn: () => void): void;
+declare function it(name: string, fn: () => void | Promise<void>): void;
+declare function beforeAll(fn: () => void | Promise<void>): void;
+declare function expect<T>(value: T): { toBe(expected: T): void; };
+declare const RedisTestContainerConfig: ConfigClass<object>;
+const UserBody = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
+@Controller('/users') class UserController {
+  @Get('/:id') findOne(id = pathParam('id')) { return { id, name: 'Alice', email: 'alice@example.com' }; }
+  @Post('/') create(body = validated(UserBody), res = response()) { return res.json({ id: '1', ...body }, 201); }
+}
+type AppType = {
+  users: {
+    $post: (opts: { json: { name: string; email: string } }) => Promise<Response & { json(): Promise<{ id: string }> }>;
+    ':id': { $get: (opts: { param: { id: string } }) => Promise<Response & { json(): Promise<{ id: string; name: string }> }> };
+  };
+};
+// ---cut---
 describe('API E2E', () => {
-  let app: ReturnType<typeof createApp>;
-  let client: ReturnType<typeof hc<AppType>>;
+  let app: HttpApp;
+  let client: AppType;
 
   beforeAll(async () => {
-    app = await createApp({
+    app = createApp({
       configs: [RedisTestContainerConfig],
+      http: { controllers: [UserController] },
     });
     client = hc<AppType>('http://localhost', {
-      fetch: (input, init) => app.fetch(new Request(input, init)),
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(input, init)),
     });
   });
 

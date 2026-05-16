@@ -20,8 +20,13 @@ pnpm add @zeltjs/openapi
 Create a `zelt.config.ts` file in your project root:
 
 ```typescript
-import { defineConfig } from '@zeltjs/openapi';
-
+type OpenApiConfig = {
+  controllers: string[];
+  dist: string;
+  tsconfig: string;
+};
+declare function defineConfig(config: OpenApiConfig): OpenApiConfig;
+// ---cut---
 export default defineConfig({
   controllers: ['./src/**/*.controller.ts'],
   dist: './generated',

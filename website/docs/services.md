@@ -38,14 +38,19 @@ export class UserService {
 Use `inject()` to inject services into controllers:
 
 ```typescript
-import { Controller, Get, Post, inject, pathParam, validated } from '@zeltjs/core';
+import { Controller, Get, Post, inject, pathParam, Injectable } from '@zeltjs/core';
+import { validated } from '@zeltjs/validate-valibot';
 import * as v from 'valibot';
-import { UserService } from './user.service';
 
-const CreateUserBody = v.object({
-  name: v.string(),
-});
+@Injectable() class UserService {
+  private users = new Map<string, { id: string; name: string }>();
+  findAll() { return Array.from(this.users.values()); }
+  findOne(id: string) { return this.users.get(id); }
+  create(name: string) { const id = crypto.randomUUID(); const user = { id, name }; this.users.set(id, user); return user; }
+}
 
+const CreateUserBody = v.object({ name: v.string() });
+// ---cut---
 @Controller('/users')
 export class UserController {
   constructor(private userService = inject(UserService)) {}
@@ -77,9 +82,10 @@ Services can inject other services:
 
 ```typescript
 import { Injectable, inject } from '@zeltjs/core';
-import { DatabaseService } from './database.service';
-import { LoggerService } from './logger.service';
 
+@Injectable() class DatabaseService { query(sql: string) { return Promise.resolve([]); } }
+@Injectable() class LoggerService { log(msg: string) { console.log(msg); } }
+// ---cut---
 @Injectable()
 export class UserService {
   constructor(
@@ -103,11 +109,11 @@ By default, services are **singletons** — the same instance is shared across a
 - Caching services
 
 ```typescript
-import { Injectable, EnvConfig, injectConfig } from '@zeltjs/core';
+import { Injectable, EnvConfig, inject } from '@zeltjs/core';
 
 @Injectable()
 export class ConfigService {
-  constructor(private env = injectConfig(EnvConfig)) {}
+  constructor(private env = inject(EnvConfig)) {}
 
   get databaseUrl() {
     return this.env.get('DATABASE_URL') ?? '';
@@ -120,7 +126,7 @@ export class ConfigService {
 ```
 
 :::tip
-For configuration, prefer using `@Config` classes with `injectConfig()`. See [Configuration](./configuration.md) for details.
+For configuration, prefer using `@Config` classes with `inject()`. See [Configuration](./configuration.md) for details.
 :::
 
 ## Testing with Mock Services
@@ -129,10 +135,16 @@ The singleton pattern makes testing straightforward — you can provide mock imp
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
-import { createTestContainer } from '@zeltjs/testing';
-import { UserController } from './user.controller';
-import { UserService } from './user.service';
+import { Controller, Get, inject, Injectable } from '@zeltjs/core';
 
+@Injectable() class UserService { findAll(): { id: string; name: string }[] { return []; } }
+@Controller('/users') class UserController {
+  constructor(private userService = inject(UserService)) {}
+  @Get('/') findAll() { return { users: this.userService.findAll() }; }
+}
+type TestContainer = { override(cls: unknown, impl: unknown): TestContainer; resolve<T>(cls: new (...args: never[]) => T): T; };
+declare function createTestContainer(): TestContainer;
+// ---cut---
 describe('UserController', () => {
   it('should return all users', async () => {
     const mockUsers = [{ id: '1', name: 'John' }];

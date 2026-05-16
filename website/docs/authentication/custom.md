@@ -32,7 +32,12 @@ These are available from `@zeltjs/core` — no additional packages needed.
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-
+declare const db: {
+  apiKeys: {
+    findByKey(key: string): Promise<{ id: string; name: string; scopes: string[] } | null>;
+  };
+};
+// ---cut---
 export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
   const apiKey = c.req.header('X-API-Key');
   
@@ -55,7 +60,14 @@ export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-
+import { HTTPException } from 'hono/http-exception';
+declare const db: {
+  apiKeys: {
+    findByKey(key: string): Promise<{ id: string; name: string; tier: string; scopes: string[]; revokedAt?: Date } | null>;
+    updateLastUsed(key: string): Promise<void>;
+  };
+};
+// ---cut---
 export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
   const apiKey = c.req.header('X-API-Key');
   
@@ -89,7 +101,8 @@ export const apiKeyAuth: FunctionMiddleware = async (c, next) => {
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-
+declare function validateCredentials(username: string, password: string): Promise<{ id: string; name: string; roles: string[] } | null>;
+// ---cut---
 export const basicAuth: FunctionMiddleware = async (c, next) => {
   const auth = c.req.header('Authorization');
   
@@ -118,16 +131,25 @@ export const basicAuth: FunctionMiddleware = async (c, next) => {
 For OAuth integration, use a `@Config` class to manage credentials:
 
 ```typescript
-import { Config, EnvConfig, injectConfig, Middleware } from '@zeltjs/core';
+declare class OAuth2Client {
+  constructor(config: { clientId: string | undefined; clientSecret: string | undefined });
+  verifyAccessToken(token: string): Promise<{ sub: string }>;
+}
+declare const db: {
+  users: {
+    findByOAuthId(sub: string): Promise<{ id: string; name: string; email: string; roles: string[] } | null>;
+  };
+};
+// ---cut---
+import { Config, EnvConfig, inject, Middleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
 import type { RequestContext, Next } from '@zeltjs/core';
-import { OAuth2Client } from 'your-oauth-library';
 
 @Config
 class OAuthConfig {
   static readonly Token = OAuthConfig;
 
-  constructor(private env = injectConfig(EnvConfig)) {}
+  constructor(private env = inject(EnvConfig)) {}
 
   get clientId() {
     return this.env.get('OAUTH_CLIENT_ID');
@@ -142,7 +164,7 @@ class OAuthConfig {
 export class OAuthMiddleware {
   private oauth: OAuth2Client;
 
-  constructor(config = injectConfig(OAuthConfig)) {
+  constructor(config = inject(OAuthConfig)) {
     this.oauth = new OAuth2Client({
       clientId: config.clientId,
       clientSecret: config.clientSecret,
@@ -178,7 +200,18 @@ export class OAuthMiddleware {
 
 ```typescript
 import { Controller, Get, queryParam } from '@zeltjs/core';
-
+declare const oauth: {
+  exchangeCode(code: string | undefined): Promise<{ access_token: string }>;
+  getUserInfo(token: string): Promise<{ sub: string; name: string; email: string }>;
+};
+declare const db: {
+  users: {
+    findByOAuthId(sub: string): Promise<{ id: string } | null>;
+    create(data: { oauthId: string; name: string; email: string }): Promise<{ id: string }>;
+  };
+};
+declare function createSession(user: { id: string }): Promise<string>;
+// ---cut---
 @Controller('/auth')
 class OAuthController {
   @Get('/callback')
@@ -210,7 +243,13 @@ Support multiple auth methods in one middleware:
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-
+declare const db: {
+  apiKeys: {
+    findByKey(key: string): Promise<{ id: string; scopes: string[] } | null>;
+  };
+};
+declare function verifyJwt(token: string): Promise<{ sub: string; roles: string[] }>;
+// ---cut---
 export const multiAuth: FunctionMiddleware = async (c, next) => {
   const auth = c.req.header('Authorization');
   const apiKey = c.req.header('X-API-Key');
@@ -247,8 +286,16 @@ For secure machine-to-machine communication:
 ```typescript
 import type { FunctionMiddleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
-import { createHmac, timingSafeEqual } from 'crypto';
-
+import { HTTPException } from 'hono/http-exception';
+declare const db: {
+  clients: {
+    findById(id: string): Promise<{ id: string; name: string; secret: string; permissions: string[] } | null>;
+  };
+};
+declare function createHmac(algorithm: string, key: string): { update(data: string): { digest(encoding: string): string }; };
+declare function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean;
+declare const Buffer: { from(str: string): Uint8Array };
+// ---cut---
 export const hmacAuth: FunctionMiddleware = async (c, next) => {
   const signature = c.req.header('X-Signature');
   const timestamp = c.req.header('X-Timestamp');
@@ -294,19 +341,20 @@ Mock the user context in tests:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { createTestClient } from '@zeltjs/testing';
-import { setUser } from '@zeltjs/core';
-
+import { onTest } from '@zeltjs/testing';
+import { setUser, HttpApp } from '@zeltjs/core';
+declare const app: HttpApp;
+// ---cut---
 describe('Protected routes', () => {
   it('returns user data when authenticated', async () => {
-    const client = createTestClient(app);
+    const testApp = await onTest(app);
     
     // Mock authentication
     setUser({ id: '123', name: 'Test User' }, ['admin']);
     
-    const res = await client.get('/users/me');
+    const res = await testApp.request('/users/me');
     expect(res.status).toBe(200);
-    expect(res.json()).toEqual({ id: '123', name: 'Test User' });
+    expect(await res.json()).toEqual({ id: '123', name: 'Test User' });
   });
 });
 ```

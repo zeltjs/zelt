@@ -14,11 +14,14 @@ pnpm add -D @zeltjs/testing testcontainers
 ## Redis Integration Testing
 
 ```typescript
-import { describe, it, expect } from 'vitest';
-import { createTestTarget } from '@zeltjs/testing/vitest';
-import { RedisTestContainerConfig } from '@zeltjs/testing/redis';
-import { CacheService } from './cache.service';
-
+import { ConfigClass } from '@zeltjs/core';
+declare function describe(name: string, fn: () => void): void;
+declare function it(name: string, fn: () => void | Promise<void>): void;
+declare function expect<T>(value: T): { toBe(expected: T): void; };
+declare function createTestTarget<T extends object>(cls: new (...args: never[]) => T, opts?: { configs?: readonly ConfigClass<object>[] }): Promise<{ target: T; shutdown: () => Promise<void> }>;
+declare const RedisTestContainerConfig: ConfigClass<object>;
+declare class CacheService { set(key: string, value: string): Promise<void>; get(key: string): Promise<string>; }
+// ---cut---
 describe('CacheService', () => {
   it('should cache values in Redis', async () => {
     const { target } = await createTestTarget(CacheService, {
@@ -44,8 +47,18 @@ Create your own container config by implementing the `Lifecycle` interface:
 
 ```typescript
 import { Config, inject, LifecycleManager, type Lifecycle } from '@zeltjs/core';
-import { GenericContainer, type StartedTestContainer } from 'testcontainers';
-
+declare class GenericContainer {
+  constructor(image: string);
+  withEnvironment(env: Record<string, string>): this;
+  withExposedPorts(port: number): this;
+  start(): Promise<StartedTestContainer>;
+}
+declare interface StartedTestContainer {
+  getHost(): string;
+  getMappedPort(port: number): number;
+  stop(): Promise<void>;
+}
+// ---cut---
 @Config
 export class PostgresTestContainerConfig implements Lifecycle {
   private container: StartedTestContainer | undefined;
@@ -85,12 +98,16 @@ export class PostgresTestContainerConfig implements Lifecycle {
 Integration tests with Testcontainers are ideal for "Sociable Unit Tests" — testing units that collaborate with real dependencies rather than mocks:
 
 ```typescript
-import { describe, it, expect } from 'vitest';
-import { createTestTarget } from '@zeltjs/testing/vitest';
-import { RedisTestContainerConfig } from '@zeltjs/testing/redis';
-import { SessionService } from './session.service';
-import { UserService } from './user.service';
-
+import { ConfigClass } from '@zeltjs/core';
+declare function describe(name: string, fn: () => void): void;
+declare function it(name: string, fn: () => void | Promise<void>): void;
+declare function expect<T>(value: T): { toBe(expected: T): void; };
+type TestTargetResult<T> = { target: T; get: <U>(cls: new (...args: never[]) => U) => U; shutdown: () => Promise<void> };
+declare function createTestTarget<T extends object>(cls: new (...args: never[]) => T, opts?: { configs?: readonly ConfigClass<object>[] }): Promise<TestTargetResult<T>>;
+declare const RedisTestContainerConfig: ConfigClass<object>;
+declare class SessionService { create(data: { userId: string }): Promise<{ id: string }>; }
+declare class UserService { fromSession(sessionId: string): Promise<{ id: string }>; }
+// ---cut---
 describe('SessionService with real Redis', () => {
   it('should persist session across service calls', async () => {
     const { target, get } = await createTestTarget(SessionService, {
