@@ -1,10 +1,19 @@
-export type { BuildAppType } from './build-app-type';
-export type { ControllerRouteInfo, GenerateOptions, HttpMetadata, RouteInfo } from './emit';
-export { generateHonoAppType } from './emit';
+export { app } from './app';
+export { GenerateCommand } from './commands';
 export type {
+  BuildAppType,
   ExtractPathParams,
   ExtractRequestBody,
   ExtractResponse,
   ExtractValidationErrors,
-} from './extract';
-export type { Route } from './route';
+  Route,
+} from './func2hono.types';
+export type {
+  ControllerRouteInfo,
+  GenerateOptions,
+  HttpAppLike,
+  HttpMetadata,
+  RouteInfo,
+} from './generator';
+export { GeneratorService } from './generator';
+export { generateHonoAppType, generateHonoAppTypeFromApp } from './legacy';

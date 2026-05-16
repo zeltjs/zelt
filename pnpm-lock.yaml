@@ -417,9 +417,15 @@ importers:
       '@types/node':
         specifier: 22.19.17
         version: 22.19.17
+      '@zeltjs/adapter-node':
+        specifier: workspace:*
+        version: link:../adapter-node
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
+      '@zeltjs/testing':
+        specifier: workspace:*
+        version: link:../testing
       hono:
         specifier: 4.12.16
         version: 4.12.16

@@ -59,8 +59,15 @@ export default tseslint.config(
             'Middleware',
             'ErrorHandler',
             'Config',
+            'Command',
+            'Scheduled',
           ],
-          allowClassFieldsInPaths: ['**/*.driver.ts', '**/*.adaptor.ts', '**/*.service.ts'],
+          allowClassFieldsInPaths: [
+            '**/*.driver.ts',
+            '**/*.adaptor.ts',
+            '**/*.service.ts',
+            '**/*.command.ts',
+          ],
         },
       ],
     },
@@ -365,6 +372,24 @@ export default tseslint.config(
     files: ['packages/core/src/command/primitives/args.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // CLI generate command uses dynamic import for user app files.
+    // The imported module type is unknown at compile time.
+    // static schema is required for Command pattern but detected as class field.
+    files: ['packages/hono-client/src/commands/generate.command.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
+  {
+    // RedisService needs a private field to hold the Redis client instance.
+    // This is necessary for stateful connection management.
+    files: ['packages/redis/src/redis.service.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
     },
   },
   {

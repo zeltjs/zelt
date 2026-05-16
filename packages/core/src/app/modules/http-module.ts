@@ -1,10 +1,13 @@
+import { Container, injectable } from '@needle-di/core';
 import { Hono } from 'hono';
-import { match, P } from 'ts-pattern';
-import type { ResolverHandle } from '../../di/container';
+
+import { inject } from '../../di/inject';
+import { resolve } from '../../di/resolve';
 import {
   ZeltContextNotAvailableError,
   ZeltDecoratorUsageError,
   ZeltLifecycleStateError,
+  ZeltNotImplementedError,
 } from '../../errors';
 import { DefaultErrorHandler } from '../../http/default.error-handler';
 import type { ControllerRouteInfo } from '../../http/internal/metadata';
@@ -16,8 +19,9 @@ import type {
   MiddlewareInput,
   RequestContext,
 } from '../../http/middleware/types';
-import type { LifecycleManager } from '../../lifecycle';
-import type { Module, ReadyContext } from '../module';
+import type { Lifecycle } from '../../lifecycle';
+import { LifecycleManager } from '../../lifecycle';
+import { HTTP_OPTIONS } from '../tokens';
 
 export type ControllerClass = new (...args: never[]) => object;
 
@@ -29,17 +33,6 @@ export type HttpOptions = {
 
 export type HttpMetadata = {
   readonly controllers: readonly ControllerRouteInfo[];
-};
-
-export type HttpModule = Module & {
-  fetch: (req: Request) => Promise<Response>;
-  request: (input: string | Request, init?: RequestInit) => Promise<Response>;
-  getControllers: () => readonly ControllerClass[];
-  getMetadata: () => HttpMetadata;
-};
-
-type HttpModuleState = {
-  hono: Hono | undefined;
 };
 
 const createErrorHandler =
@@ -56,175 +49,105 @@ const createErrorHandler =
     );
   };
 
-/** @throws {ZeltLifecycleStateError} */
 const resolveErrorHandler = (
   cls: ErrorHandlerClass,
-  resolver: ResolverHandle,
+  container: Container,
 ): ErrorHandlerInstance => {
-  const instance: ErrorHandlerInstance = resolver.get(cls);
+  const instance: ErrorHandlerInstance = resolve(container, cls);
   return instance;
 };
 
-/** @throws {ZeltLifecycleStateError} */
 const resolveErrorHandlers = (
   classes: readonly ErrorHandlerClass[],
-  resolver: ResolverHandle,
-): ErrorHandlerInstance[] => classes.map((cls) => resolveErrorHandler(cls, resolver));
+  container: Container,
+): ErrorHandlerInstance[] => classes.map((cls) => resolveErrorHandler(cls, container));
 
-/** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-const setupHono = (
-  httpOptions: HttpOptions,
-  resolver: ResolverHandle,
-  lifecycle: LifecycleManager,
-): Hono => {
-  const hono = new Hono({ strict: false });
-  const errorHandlers = resolveErrorHandlers(httpOptions.errorHandlers ?? [], resolver);
-  const fallbackHandler = resolver.get(DefaultErrorHandler);
-  hono.onError(createErrorHandler(errorHandlers, fallbackHandler));
-  buildRoutes({
-    hono,
-    controllers: httpOptions.controllers,
-    resolver,
-    lifecycle,
-    globalMiddlewares: httpOptions.middlewares ?? [],
-  });
-  return hono;
-};
+@injectable()
+export class HttpModule implements Lifecycle {
+  private hono: Hono | undefined;
 
-type HttpModuleError =
-  | ZeltContextNotAvailableError
-  | ZeltDecoratorUsageError
-  | ZeltLifecycleStateError;
-type HttpResult = { hono: Hono } | { error: HttpModuleError; cleanup: () => Promise<void> };
-
-/** @throws {HttpModuleError} */
-const initializeHttpSetup = (
-  httpOptions: HttpOptions,
-  resolver: ResolverHandle,
-  lifecycle: LifecycleManager,
-): HttpResult => {
-  try {
-    return { hono: setupHono(httpOptions, resolver, lifecycle) };
-  } catch (e) {
-    if (e instanceof ZeltContextNotAvailableError) {
-      return { error: e, cleanup: () => lifecycle.shutdown() };
-    }
-    if (e instanceof ZeltDecoratorUsageError) {
-      return { error: e, cleanup: () => lifecycle.shutdown() };
-    }
-    if (e instanceof ZeltLifecycleStateError) {
-      return { error: e, cleanup: () => lifecycle.shutdown() };
-    }
-    throw e;
-  }
-};
-
-/** @throws {HttpModuleError} */
-const initializeHttpWarmup = async (
-  httpOptions: HttpOptions,
-  resolver: ResolverHandle,
-  lifecycle: LifecycleManager,
-): Promise<HttpResult> => {
-  try {
-    await warmupControllers(httpOptions.controllers, resolver, lifecycle);
-    return { hono: setupHono(httpOptions, resolver, lifecycle) };
-  } catch (e) {
-    if (e instanceof ZeltContextNotAvailableError) {
-      return { error: e, cleanup: () => lifecycle.shutdown() };
-    }
-    if (e instanceof ZeltDecoratorUsageError) {
-      return { error: e, cleanup: () => lifecycle.shutdown() };
-    }
-    if (e instanceof ZeltLifecycleStateError) {
-      return { error: e, cleanup: () => lifecycle.shutdown() };
-    }
-    throw e;
-  }
-};
-
-/** @throws {HttpModuleError} */
-const handleHttpSetupResult = async (result: HttpResult): Promise<Hono> =>
-  match(result)
-    .with({ hono: P.select() }, (hono) => hono)
-    .with({ error: P._, cleanup: P._ }, async (r) => {
-      await r.cleanup();
-      throw r.error;
-    })
-    .exhaustive();
-
-/** @throws {HttpModuleError} */
-const handleHttpWarmupResult = async (result: HttpResult): Promise<void> =>
-  match(result)
-    .with({ hono: P._ }, () => undefined)
-    .with({ error: P._, cleanup: P._ }, async (r) => {
-      await r.cleanup();
-      throw r.error;
-    })
-    .exhaustive();
-
-/** @throws {HttpModuleError} */
-const initializeHttp = async (
-  httpOptions: HttpOptions,
-  resolver: ResolverHandle,
-  lifecycle: LifecycleManager,
-  warmup: boolean,
-): Promise<Hono> => {
-  const setupResult = initializeHttpSetup(httpOptions, resolver, lifecycle);
-  const hono = await handleHttpSetupResult(setupResult);
-
-  if (warmup) {
-    const warmupResult = await initializeHttpWarmup(httpOptions, resolver, lifecycle);
-    await handleHttpWarmupResult(warmupResult);
+  constructor(
+    private readonly options: HttpOptions = inject(HTTP_OPTIONS),
+    private readonly container: Container = inject(Container),
+    private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
+  ) {
+    this.lifecycleManager.register(this);
+    this.lifecycleManager.registerWarmup(async () => {
+      await warmupControllers(
+        this.options.controllers,
+        {
+          get: <T extends object>(cls: new (...args: never[]) => T): T =>
+            resolve(this.container, cls),
+          getConfig: () => {
+            throw new ZeltNotImplementedError({ className: 'HttpModule', methodName: 'getConfig' });
+          },
+        },
+        this.lifecycleManager,
+      );
+    });
   }
 
-  return hono;
-};
+  async startup(): Promise<void> {
+    this.hono = await this.initializeHono();
+  }
 
-const createRequest =
-  (fetchFn: (req: Request) => Promise<Response>) =>
-  (input: string | Request, init?: RequestInit): Promise<Response> => {
-    const req =
-      typeof input === 'string' ? new Request(new URL(input, 'http://localhost'), init) : input;
-    return fetchFn(req);
-  };
+  async shutdown(): Promise<void> {
+    this.hono = undefined;
+  }
 
-export const createHttpModule = (options: HttpOptions): HttpModule => {
-  const state: HttpModuleState = {
-    hono: undefined,
-  };
-
-  const setup = (): void => {};
-
-  /** @throws {HttpModuleError} */
-  const ready = async (context: ReadyContext): Promise<void> => {
-    state.hono = await initializeHttp(options, context.resolver, context.lifecycle, context.warmup);
-  };
-
-  const shutdown = async (): Promise<void> => {};
+  private async initializeHono(): Promise<Hono> {
+    try {
+      const hono = new Hono({ strict: false });
+      const errorHandlers = resolveErrorHandlers(this.options.errorHandlers ?? [], this.container);
+      const fallbackHandler = resolve(this.container, DefaultErrorHandler);
+      hono.onError(createErrorHandler(errorHandlers, fallbackHandler));
+      buildRoutes({
+        hono,
+        controllers: this.options.controllers,
+        resolver: {
+          get: <T extends object>(cls: new (...args: never[]) => T): T =>
+            resolve(this.container, cls),
+          getConfig: () => {
+            throw new ZeltNotImplementedError({ className: 'HttpModule', methodName: 'getConfig' });
+          },
+        },
+        lifecycle: this.lifecycleManager,
+        globalMiddlewares: this.options.middlewares ?? [],
+      });
+      return hono;
+    } catch (e) {
+      if (
+        e instanceof ZeltContextNotAvailableError ||
+        e instanceof ZeltDecoratorUsageError ||
+        e instanceof ZeltLifecycleStateError
+      ) {
+        throw e;
+      }
+      throw e;
+    }
+  }
 
   /** @throws {ZeltLifecycleStateError} */
-  const fetch = async (req: Request): Promise<Response> => {
-    if (!state.hono) {
+  async fetch(req: Request): Promise<Response> {
+    if (!this.hono) {
       throw new ZeltLifecycleStateError({ operation: 'fetch', currentState: 'not_ready' });
     }
-    return state.hono.fetch(req);
-  };
+    return this.hono.fetch(req);
+  }
 
-  const request = createRequest(fetch);
+  request(input: string | Request, init?: RequestInit): Promise<Response> {
+    const req =
+      typeof input === 'string' ? new Request(new URL(input, 'http://localhost'), init) : input;
+    return this.fetch(req);
+  }
 
-  const getControllers = (): readonly ControllerClass[] => options.controllers;
+  getControllers(): readonly ControllerClass[] {
+    return this.options.controllers;
+  }
 
-  const getMetadata = (): HttpMetadata => ({
-    controllers: options.controllers.map(collectControllerRouteInfo),
-  });
-
-  return {
-    setup,
-    ready,
-    shutdown,
-    fetch,
-    request,
-    getControllers,
-    getMetadata,
-  };
-};
+  getMetadata(): HttpMetadata {
+    return {
+      controllers: this.options.controllers.map(collectControllerRouteInfo),
+    };
+  }
+}

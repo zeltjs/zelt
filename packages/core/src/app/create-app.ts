@@ -1,18 +1,17 @@
+import { Container } from '@needle-di/core';
+
 import type { CommandClass } from '../command/types';
 import type { ConfigClass } from '../config';
-import { createContainer } from '../di/container';
-import { ZeltAppConfigurationError, ZeltLifecycleStateError } from '../errors';
-import { LifecycleManager } from '../lifecycle';
-
-import type { Module, ReadyContext } from './module';
-import type { CommandModule } from './modules/command-module';
-import { createCommandModule } from './modules/command-module';
-import type { ConfigModule } from './modules/config-module';
-import { createConfigModule } from './modules/config-module';
-import type { ControllerClass, HttpMetadata, HttpModule, HttpOptions } from './modules/http-module';
-import { createHttpModule } from './modules/http-module';
-import type { SchedulerClass, SchedulerModule } from './modules/scheduler-module';
-import { createSchedulerModule } from './modules/scheduler-module';
+import { ZeltAppConfigurationError } from '../errors';
+import type { ReadyOptions, ReadyResult } from './app-runtime';
+import { AppRuntime } from './app-runtime';
+import { ConfigRegistry } from './config-registry';
+import { CommandModule } from './modules/command-module';
+import type { ControllerClass, HttpMetadata, HttpOptions } from './modules/http-module';
+import { HttpModule } from './modules/http-module';
+import type { SchedulerClass } from './modules/scheduler-module';
+import { SchedulerModule } from './modules/scheduler-module';
+import { COMMAND_OPTIONS, HTTP_OPTIONS, SCHEDULER_OPTIONS } from './tokens';
 
 // --- Types ---
 
@@ -21,15 +20,6 @@ export type CreateAppOptions = {
   readonly commands?: readonly CommandClass[];
   readonly schedulers?: readonly SchedulerClass[];
   readonly configs?: readonly ConfigClass<object>[];
-};
-
-export type ReadyOptions = {
-  readonly warmup?: boolean;
-};
-
-export type ReadyResult = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => T;
-  readonly getConfig: <T extends object>(configClass: ConfigClass<T>) => T;
 };
 
 type BaseApp = {
@@ -67,181 +57,109 @@ export type CommandApp = App<{ commands: readonly CommandClass[] }>;
 
 export type SchedulerApp = App<{ schedulers: readonly SchedulerClass[] }>;
 
-type AppState = {
-  readyPromise: Promise<ReadyResult> | undefined;
-  readyContext: ReadyContext | undefined;
-  disposed: boolean;
+export type { ReadyOptions, ReadyResult } from './app-runtime';
+
+// --- Helpers ---
+
+const registerInitialConfigs = (
+  configRegistry: ConfigRegistry,
+  configs: readonly ConfigClass<object>[] | undefined,
+): void => {
+  for (const config of configs ?? []) {
+    configRegistry.overrideConfig(config);
+  }
 };
 
-/** @throws {ZeltLifecycleStateError} */
-const createReadyResult = (context: ReadyContext): ReadyResult => ({
-  get: <T extends object>(cls: new (...args: never[]) => T): T => context.resolver.get(cls),
-  getConfig: <T extends object>(configClass: ConfigClass<T>): T =>
-    context.resolver.getConfig(configClass),
+const bindHttp = (container: Container, http: HttpOptions | undefined): void => {
+  if (http) {
+    container.bind({ provide: HTTP_OPTIONS, useValue: http });
+  }
+};
+
+const bindCommands = (
+  container: Container,
+  commands: readonly CommandClass[] | undefined,
+): void => {
+  if (commands?.length) {
+    container.bind({ provide: COMMAND_OPTIONS, useValue: commands });
+  }
+};
+
+const bindSchedulers = (
+  container: Container,
+  schedulers: readonly SchedulerClass[] | undefined,
+): void => {
+  if (schedulers?.length) {
+    container.bind({ provide: SCHEDULER_OPTIONS, useValue: schedulers });
+  }
+};
+
+const bindOptions = (container: Container, options: CreateAppOptions): void => {
+  bindHttp(container, options.http);
+  bindCommands(container, options.commands);
+  bindSchedulers(container, options.schedulers);
+};
+
+const buildBaseApp = (runtime: AppRuntime, configRegistry: ConfigRegistry): BaseApp => ({
+  ready: (opts) => runtime.ready(opts),
+  shutdown: () => runtime.shutdown(),
+  addFallbackConfig: (config) => {
+    runtime.assertCanModifyConfig('addFallbackConfig');
+    configRegistry.addFallbackConfig(config);
+  },
+  overrideConfig: (config) => {
+    runtime.assertCanModifyConfig('overrideConfig');
+    configRegistry.overrideConfig(config);
+  },
 });
 
-type AwaitSafeResult = { ok: true } | { ok: false; error: unknown };
+const buildHttpMethods = (httpModule: HttpModule | undefined): Partial<HttpCapabilities> =>
+  httpModule
+    ? {
+        fetch: (req: Request) => httpModule.fetch(req),
+        request: (input: string | Request, init?: RequestInit) => httpModule.request(input, init),
+        getControllers: () => httpModule.getControllers(),
+        getMetadata: () => httpModule.getMetadata(),
+      }
+    : {};
 
-const awaitSafe = async (p: Promise<unknown>): Promise<AwaitSafeResult> =>
-  p.then(
-    () => ({ ok: true }) as const,
-    (error: unknown) => ({ ok: false, error }) as const,
-  );
+const buildCommandMethods = (
+  commandModule: CommandModule | undefined,
+): Partial<CommandCapabilities> =>
+  commandModule
+    ? {
+        hasCommand: (name: string) => commandModule.hasCommand(name),
+        getCommands: () => commandModule.getCommands(),
+      }
+    : {};
 
-type AppModules = {
-  configModule: ConfigModule;
+const buildSchedulerMethods = (
+  schedulerModule: SchedulerModule | undefined,
+): Partial<SchedulerCapabilities> =>
+  schedulerModule
+    ? {
+        startScheduler: () => schedulerModule.startScheduler(),
+        stopScheduler: () => schedulerModule.stopScheduler(),
+      }
+    : {};
+
+type ResolvedModules = {
+  runtime: AppRuntime;
+  configRegistry: ConfigRegistry;
   httpModule: HttpModule | undefined;
   commandModule: CommandModule | undefined;
   schedulerModule: SchedulerModule | undefined;
-  all: Module[];
 };
 
-const createHttpModuleIfNeeded = (options: CreateAppOptions): HttpModule | undefined =>
-  options.http ? createHttpModule(options.http) : undefined;
+const resolveModules = (container: Container, options: CreateAppOptions): ResolvedModules => ({
+  runtime: container.get(AppRuntime),
+  configRegistry: container.get(ConfigRegistry),
+  httpModule: options.http ? container.get(HttpModule) : undefined,
+  commandModule: options.commands?.length ? container.get(CommandModule) : undefined,
+  schedulerModule: options.schedulers?.length ? container.get(SchedulerModule) : undefined,
+});
 
-const createCommandModuleIfNeeded = (options: CreateAppOptions): CommandModule | undefined =>
-  options.commands?.length ? createCommandModule(options.commands) : undefined;
-
-const createSchedulerModuleIfNeeded = (options: CreateAppOptions): SchedulerModule | undefined =>
-  options.schedulers?.length ? createSchedulerModule(options.schedulers) : undefined;
-
-const collectAllModules = (
-  configModule: ConfigModule,
-  httpModule: HttpModule | undefined,
-  commandModule: CommandModule | undefined,
-  schedulerModule: Module | undefined,
-): Module[] => {
-  const modules: Module[] = [configModule];
-  if (httpModule) modules.push(httpModule);
-  if (commandModule) modules.push(commandModule);
-  if (schedulerModule) modules.push(schedulerModule);
-  return modules;
-};
-
-const createAppModules = (options: CreateAppOptions): AppModules => {
-  const configModule = createConfigModule();
-  const httpModule = createHttpModuleIfNeeded(options);
-  const commandModule = createCommandModuleIfNeeded(options);
-  const schedulerModule = createSchedulerModuleIfNeeded(options);
-  const all = collectAllModules(configModule, httpModule, commandModule, schedulerModule);
-
-  return { configModule, httpModule, commandModule, schedulerModule, all };
-};
-
-type ReadyDeps = {
-  state: AppState;
-  modules: Module[];
-  configModule: ConfigModule;
-  configs: readonly ConfigClass<object>[];
-};
-
-/** @throws {ZeltLifecycleStateError} */
-const createReady =
-  (deps: ReadyDeps) =>
-  async (readyOptions?: ReadyOptions): Promise<ReadyResult> => {
-    const { state, modules, configModule, configs } = deps;
-    if (state.disposed)
-      throw new ZeltLifecycleStateError({ operation: 'ready', currentState: 'disposed' });
-    if (state.readyPromise) return state.readyPromise;
-
-    const warmup = readyOptions?.warmup ?? false;
-
-    state.readyPromise = (async (): Promise<ReadyResult> => {
-      const resolver = createContainer({
-        defaults: configModule.getDefaults(),
-        configs,
-        overrides: configModule.getOverrides(),
-      });
-      const lifecycle = resolver.get(LifecycleManager);
-      const context: ReadyContext = { resolver, lifecycle, warmup };
-      state.readyContext = context;
-
-      for (const m of modules) {
-        await m.ready(context);
-      }
-      await lifecycle.startupPending();
-
-      return createReadyResult(context);
-    })();
-
-    return state.readyPromise;
-  };
-
-type ShutdownDeps = {
-  state: AppState;
-  modules: Module[];
-};
-
-const createShutdown = (deps: ShutdownDeps) => async (): Promise<void> => {
-  const { state, modules } = deps;
-  if (state.disposed) return;
-  state.disposed = true;
-  if (state.readyPromise) await awaitSafe(state.readyPromise);
-  if (state.readyContext) {
-    await state.readyContext.lifecycle.shutdown();
-  }
-  for (const m of modules) {
-    await m.shutdown();
-  }
-};
-
-/** @throws {ZeltLifecycleStateError} */
-const assertCanModifyConfig = (state: AppState, operation: string): void => {
-  if (state.disposed) {
-    throw new ZeltLifecycleStateError({ operation, currentState: 'disposed' });
-  }
-  if (state.readyContext) {
-    throw new ZeltLifecycleStateError({ operation, currentState: 'ready' });
-  }
-};
-
-/** @throws {ZeltLifecycleStateError} */
-const buildAppObject = (
-  appModules: AppModules,
-  state: AppState,
-  configs: readonly ConfigClass<object>[],
-): App<CreateAppOptions> => {
-  const { configModule, httpModule, commandModule, schedulerModule, all: modules } = appModules;
-
-  /** @throws {ZeltLifecycleStateError} */
-  const addFallbackConfig = (config: ConfigClass<object>): void => {
-    assertCanModifyConfig(state, 'addFallbackConfig');
-    configModule.addFallbackConfig(config);
-  };
-
-  /** @throws {ZeltLifecycleStateError} */
-  const overrideConfig = (config: ConfigClass<object>): void => {
-    assertCanModifyConfig(state, 'overrideConfig');
-    configModule.overrideConfig(config);
-  };
-
-  const baseApp = {
-    ready: createReady({ state, modules, configModule, configs }),
-    shutdown: createShutdown({ state, modules }),
-    addFallbackConfig,
-    overrideConfig,
-  };
-
-  const httpMethods = httpModule
-    ? {
-        fetch: httpModule.fetch,
-        request: httpModule.request,
-        getControllers: httpModule.getControllers,
-        getMetadata: httpModule.getMetadata,
-      }
-    : {};
-  const commandMethods = commandModule
-    ? { hasCommand: commandModule.hasCommand, getCommands: commandModule.getCommands }
-    : {};
-  const schedulerMethods = schedulerModule
-    ? {
-        startScheduler: schedulerModule.startScheduler,
-        stopScheduler: schedulerModule.stopScheduler,
-      }
-    : {};
-
-  return { ...baseApp, ...httpMethods, ...commandMethods, ...schedulerMethods };
-};
+// --- Main ---
 
 /** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export function createApp<TOptions extends CreateAppOptions>(options: TOptions): App<TOptions>;
@@ -251,12 +169,20 @@ export function createApp(options: CreateAppOptions): App<CreateAppOptions> {
     throw new ZeltAppConfigurationError({ reason: 'no_http_or_commands' });
   }
 
-  const appModules = createAppModules(options);
-  const state: AppState = { readyPromise: undefined, readyContext: undefined, disposed: false };
+  const container = new Container();
+  bindOptions(container, options);
 
-  for (const m of appModules.all) {
-    m.setup();
-  }
+  const { runtime, configRegistry, httpModule, commandModule, schedulerModule } = resolveModules(
+    container,
+    options,
+  );
 
-  return buildAppObject(appModules, state, options.configs ?? []);
+  registerInitialConfigs(configRegistry, options.configs);
+
+  return {
+    ...buildBaseApp(runtime, configRegistry),
+    ...buildHttpMethods(httpModule),
+    ...buildCommandMethods(commandModule),
+    ...buildSchedulerMethods(schedulerModule),
+  };
 }

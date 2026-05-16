@@ -8,13 +8,20 @@ export interface Lifecycle extends Disposable {
   startup(): Promise<void>;
 }
 
+type WarmupHandler = () => Promise<void>;
+
 @injectable()
 export class LifecycleManager {
   private readonly lifecycles: Lifecycle[] = [];
   private startedIndex = 0;
+  private readonly warmupHandlers: WarmupHandler[] = [];
 
   register(lifecycle: Lifecycle): void {
     this.lifecycles.push(lifecycle);
+  }
+
+  registerWarmup(handler: WarmupHandler): void {
+    this.warmupHandlers.push(handler);
   }
 
   async startup(): Promise<void> {
@@ -26,6 +33,12 @@ export class LifecycleManager {
       const lc = this.lifecycles[this.startedIndex];
       if (lc) await lc.startup();
       this.startedIndex++;
+    }
+  }
+
+  async warmup(): Promise<void> {
+    for (const handler of this.warmupHandlers) {
+      await handler();
     }
   }
 
