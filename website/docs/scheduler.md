@@ -227,10 +227,25 @@ process.on('SIGTERM', async () => {
 });
 ```
 
-You can conditionally enable the scheduler:
+You can conditionally enable the scheduler using configuration:
 
 ```typescript
-if (process.env.ENABLE_SCHEDULER !== 'false') {
+import { Config, EnvConfig, injectConfig } from '@zeltjs/core';
+
+@Config
+export class SchedulerConfig {
+  static readonly Token = SchedulerConfig;
+
+  constructor(private env = injectConfig(EnvConfig)) {}
+
+  get enabled() {
+    return this.env.get('ENABLE_SCHEDULER') !== 'false';
+  }
+}
+
+// In your app setup
+const config = container.resolve(SchedulerConfig);
+if (config.enabled) {
   await nodeApp.startScheduler();
 }
 ```

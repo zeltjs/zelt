@@ -103,22 +103,25 @@ By default, services are **singletons** — the same instance is shared across a
 - Caching services
 
 ```typescript
+import { Injectable, EnvConfig, injectConfig } from '@zeltjs/core';
+
 @Injectable()
 export class ConfigService {
-  private config: Record<string, string>;
+  constructor(private env = injectConfig(EnvConfig)) {}
 
-  constructor() {
-    this.config = {
-      DATABASE_URL: process.env.DATABASE_URL ?? '',
-      API_KEY: process.env.API_KEY ?? '',
-    };
+  get databaseUrl() {
+    return this.env.get('DATABASE_URL') ?? '';
   }
 
-  get(key: string): string {
-    return this.config[key] ?? '';
+  get apiKey() {
+    return this.env.get('API_KEY') ?? '';
   }
 }
 ```
+
+:::tip
+For configuration, prefer using `@Config` classes with `injectConfig()`. See [Configuration](./configuration.md) for details.
+:::
 
 ## Testing with Mock Services
 

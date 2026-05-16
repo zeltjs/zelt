@@ -89,15 +89,22 @@ export class AuthController {
 Extend `RateLimitConfig` to customize behavior:
 
 ```typescript
-import { Config } from '@zeltjs/core';
+import { Config, EnvConfig, injectConfig } from '@zeltjs/core';
 import { RateLimitConfig } from '@zeltjs/rate-limit';
 import { createRedisKVStore } from '@zeltjs/kv-redis';
 
 @Config
 class CustomRateLimitConfig extends RateLimitConfig {
-  override readonly store = createRedisKVStore({
-    url: process.env.REDIS_URL,
-  });
+  constructor(private env = injectConfig(EnvConfig)) {
+    super();
+  }
+
+  override get store() {
+    return createRedisKVStore({
+      url: this.env.get('REDIS_URL'),
+    });
+  }
+
   override readonly defaultLimit = 200;
   override readonly defaultWindowSec = 120;
   override readonly failureMode = 'closed' as const;

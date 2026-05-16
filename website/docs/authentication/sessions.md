@@ -205,7 +205,7 @@ class MySessionConfig extends SessionConfig {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `store` | `KVNamespace` | Required | KV namespace for session storage |
-| `secret` | `string` | `process.env.SESSION_SECRET` | Secret for signing session IDs |
+| `secret` | `string` | `env.get('SESSION_SECRET')` | Secret for signing session IDs |
 | `cookieName` | `string` | `'session'` | Cookie name |
 | `ttlSec` | `number` | `86400` (1 day) | Session TTL in seconds |
 | `cookieOptions` | `object` | See below | Cookie configuration |
@@ -215,7 +215,7 @@ class MySessionConfig extends SessionConfig {
 ```typescript
 {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: env.get('NODE_ENV') === 'production',
   sameSite: 'Lax',
   path: '/',
 }

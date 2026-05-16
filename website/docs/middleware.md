@@ -147,22 +147,26 @@ export class ProfileController {
 For middleware that requires dependency injection, use `@Middleware`:
 
 ```typescript
-import { Middleware, inject, Injectable } from '@zeltjs/core';
+import { Config, EnvConfig, Middleware, injectConfig } from '@zeltjs/core';
 import type { RequestContext, Next } from '@zeltjs/core';
 
-@Injectable()
-class ConfigService {
-  getSecret() {
-    return process.env.SECRET;
+@Config
+class AuthConfig {
+  static readonly Token = AuthConfig;
+
+  constructor(private env = injectConfig(EnvConfig)) {}
+
+  get secret() {
+    return this.env.get('AUTH_SECRET');
   }
 }
 
 @Middleware
 export class AuthMiddleware {
-  constructor(private config = inject(ConfigService)) {}
+  constructor(private config = injectConfig(AuthConfig)) {}
 
   async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const secret = this.config.getSecret();
+    const secret = this.config.secret;
     // ... authentication logic
     await next();
     return undefined;

@@ -97,7 +97,7 @@ withLogContext({ requestId: 'abc-123' }, () => {
 Configure the Logger using `LoggerConfig`:
 
 ```typescript
-import { Config, inject } from '@zeltjs/core';
+import { Config, EnvConfig, inject, injectConfig } from '@zeltjs/core';
 import {
   LoggerConfig,
   ConsoleTransport,
@@ -109,6 +109,7 @@ import {
 @Config
 export class AppLoggerConfig extends LoggerConfig {
   constructor(
+    private env = injectConfig(EnvConfig),
     private console = inject(ConsoleTransport),
     private jsonl = inject(JsonlFormatter),
   ) {
@@ -116,7 +117,7 @@ export class AppLoggerConfig extends LoggerConfig {
   }
 
   override get level(): LogLevel {
-    return (process.env.LOG_LEVEL as LogLevel) ?? 'info';
+    return (this.env.get('LOG_LEVEL') as LogLevel) ?? 'info';
   }
 
   override get transports(): readonly TransportBinding[] {

@@ -10,18 +10,20 @@ Zelt provides a type-safe configuration system using the `@Config` decorator and
 Use the `@Config` decorator to define a configuration class. Each config class must have a static `Token` property:
 
 ```typescript
-import { Config } from '@zeltjs/core';
+import { Config, EnvConfig, injectConfig } from '@zeltjs/core';
 
 @Config
 export class DatabaseConfig {
   static readonly Token = DatabaseConfig;
 
+  constructor(private env = injectConfig(EnvConfig)) {}
+
   get host() {
-    return process.env.DATABASE_HOST ?? 'localhost';
+    return this.env.get('DATABASE_HOST') ?? 'localhost';
   }
 
   get port() {
-    return Number(process.env.DATABASE_PORT ?? 5432);
+    return Number(this.env.get('DATABASE_PORT') ?? 5432);
   }
 
   get connectionString() {

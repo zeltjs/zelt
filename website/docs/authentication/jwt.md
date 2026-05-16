@@ -140,12 +140,16 @@ Extend `JwtConfig` to customize behavior:
 
 ```typescript
 import { JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
-import { Config } from '@zeltjs/core';
+import { Config, EnvConfig, injectConfig } from '@zeltjs/core';
 
 @Config
 class CustomJwtConfig extends JwtConfig {
+  constructor(private env = injectConfig(EnvConfig)) {
+    super();
+  }
+
   override get secret(): string {
-    return process.env.JWT_SECRET!;
+    return this.env.get('JWT_SECRET')!;
   }
 
   override get expiresIn(): string {
@@ -180,7 +184,7 @@ const app = createApp({
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `secret` | `string` | `process.env.JWT_SECRET` | Secret key for signing |
+| `secret` | `string` | `env.get('JWT_SECRET')` | Secret key for signing |
 | `expiresIn` | `string` | `'1h'` | Token expiration (e.g., `'15m'`, `'7d'`) |
 | `resolveUser` | `function` | Returns `{ user: sub, roles: [] }` | Resolves user from JWT payload |
 

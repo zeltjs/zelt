@@ -54,14 +54,18 @@ By default, `RedisConfig` reads the connection URL from the `REDIS_URL` environm
 Extend `RedisConfig` to customize connection settings:
 
 ```typescript
-import { Config } from '@zeltjs/core';
+import { Config, EnvConfig, injectConfig } from '@zeltjs/core';
 import { RedisConfig } from '@zeltjs/kv-driver-redis';
 import type { RedisOptions } from 'ioredis';
 
 @Config
 class CustomRedisConfig extends RedisConfig {
+  constructor(private env = injectConfig(EnvConfig)) {
+    super();
+  }
+
   override get url(): string {
-    return process.env['REDIS_URL'] ?? 'redis://localhost:6379';
+    return this.env.get('REDIS_URL') ?? 'redis://localhost:6379';
   }
 
   override get options(): RedisOptions {

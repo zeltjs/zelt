@@ -115,37 +115,63 @@ export const basicAuth: FunctionMiddleware = async (c, next) => {
 
 ### With an OAuth Library
 
+For OAuth integration, use a `@Config` class to manage credentials:
+
 ```typescript
-import type { FunctionMiddleware } from '@zeltjs/core';
+import { Config, EnvConfig, injectConfig, Middleware } from '@zeltjs/core';
 import { setUser } from '@zeltjs/core';
+import type { RequestContext, Next } from '@zeltjs/core';
 import { OAuth2Client } from 'your-oauth-library';
 
-const oauth = new OAuth2Client({
-  clientId: process.env.OAUTH_CLIENT_ID,
-  clientSecret: process.env.OAUTH_CLIENT_SECRET,
-});
+@Config
+class OAuthConfig {
+  static readonly Token = OAuthConfig;
 
-export const oauthAuth: FunctionMiddleware = async (c, next) => {
-  const token = c.req.header('Authorization')?.replace('Bearer ', '');
-  
-  if (token) {
-    try {
-      const tokenInfo = await oauth.verifyAccessToken(token);
-      const user = await db.users.findByOAuthId(tokenInfo.sub);
-      
-      if (user) {
-        setUser(
-          { id: user.id, name: user.name, email: user.email },
-          user.roles
-        );
-      }
-    } catch {
-      // Invalid token — continue without user
-    }
+  constructor(private env = injectConfig(EnvConfig)) {}
+
+  get clientId() {
+    return this.env.get('OAUTH_CLIENT_ID');
   }
+
+  get clientSecret() {
+    return this.env.get('OAUTH_CLIENT_SECRET');
+  }
+}
+
+@Middleware
+export class OAuthMiddleware {
+  private oauth: OAuth2Client;
+
+  constructor(config = injectConfig(OAuthConfig)) {
+    this.oauth = new OAuth2Client({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+    });
+  }
+
+  async use(c: RequestContext, next: Next) {
+    const token = c.req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (token) {
+      try {
+        const tokenInfo = await this.oauth.verifyAccessToken(token);
+        const user = await db.users.findByOAuthId(tokenInfo.sub);
+        
+        if (user) {
+          setUser(
+            { id: user.id, name: user.name, email: user.email },
+            user.roles
+          );
+        }
+      } catch {
+        // Invalid token — continue without user
+      }
+    }
   
-  await next();
-};
+    await next();
+    return undefined;
+  }
+}
 ```
 
 ### OAuth Callback Handler

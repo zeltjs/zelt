@@ -16,16 +16,20 @@ pnpm add bullmq ioredis
 Create a service that manages the Redis connection and exposes the BullMQ client:
 
 ```typescript
-import { Injectable, inject, Config, LifecycleManager, type Lifecycle } from '@zeltjs/core';
+import { Injectable, inject, Config, EnvConfig, injectConfig, LifecycleManager, type Lifecycle } from '@zeltjs/core';
 import { Redis } from 'ioredis';
 import { Queue, Worker, type Processor, type ConnectionOptions } from 'bullmq';
 
 @Config
 class BullMQConfig {
+  static readonly Token = BullMQConfig;
+
+  constructor(private env = injectConfig(EnvConfig)) {}
+
   get connection(): ConnectionOptions {
     return {
-      host: process.env['REDIS_HOST'] ?? 'localhost',
-      port: Number(process.env['REDIS_PORT'] ?? 6379),
+      host: this.env.get('REDIS_HOST') ?? 'localhost',
+      port: Number(this.env.get('REDIS_PORT') ?? 6379),
     };
   }
 }
@@ -188,10 +192,10 @@ Extend `BullMQConfig` for different environments:
 class ProductionBullMQConfig extends BullMQConfig {
   override get connection(): ConnectionOptions {
     return {
-      host: process.env['REDIS_HOST']!,
-      port: Number(process.env['REDIS_PORT'] ?? 6379),
-      password: process.env['REDIS_PASSWORD'],
-      tls: process.env['REDIS_TLS'] === 'true' ? {} : undefined,
+      host: this.env.get('REDIS_HOST')!,
+      port: Number(this.env.get('REDIS_PORT') ?? 6379),
+      password: this.env.get('REDIS_PASSWORD'),
+      tls: this.env.get('REDIS_TLS') === 'true' ? {} : undefined,
     };
   }
 }
@@ -253,12 +257,23 @@ describe('EmailService', () => {
 });
 ```
 
-For integration tests, use Testcontainers:
+For integration tests, use Testcontainers with a test config override:
 
 ```typescript
 import { GenericContainer } from 'testcontainers';
+import { Config } from '@zeltjs/core';
 
 const redis = await new GenericContainer('redis:7').withExposedPorts(6379).start();
-process.env['REDIS_HOST'] = redis.getHost();
-process.env['REDIS_PORT'] = String(redis.getMappedPort(6379));
+
+@Config
+class TestBullMQConfig extends BullMQConfig {
+  override get connection() {
+    return {
+      host: redis.getHost(),
+      port: redis.getMappedPort(6379),
+    };
+  }
+}
+
+// Use TestBullMQConfig in your test app setup
 ```
