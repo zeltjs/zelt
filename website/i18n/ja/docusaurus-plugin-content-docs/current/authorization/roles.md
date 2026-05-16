@@ -117,23 +117,36 @@ const rolePermissions: Record<string, Permission[]> = {
 Store roles with the user record:
 
 ```typescript
-import { setUser } from '@zeltjs/core';
-declare const db: { users: { findById(id: string): Promise<{ id: string; name: string; roles: string[] }> } };
-declare const payload: { sub: string };
-// ---cut---
-// User table
-interface User {
-  id: string;
-  name: string;
-  roles: string[];  // ['admin', 'user']
+import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { JwtService } from '@zeltjs/auth-jwt';
+
+type User = { id: string; name: string; roles: string[] };
+
+@Injectable()
+class UserRepository {
+  async findById(id: string): Promise<User> {
+    return { id, name: '', roles: [] };
+  }
 }
 
-// In authentication middleware
-const user = await db.users.findById(payload.sub);
-setUser(
-  { id: user.id, name: user.name },
-  user.roles
-);
+@Middleware
+class AuthMiddleware {
+  constructor(
+    private jwtService = inject(JwtService),
+    private userRepo = inject(UserRepository)
+  ) {}
+
+  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+    const token = c.req.header('Authorization')?.replace('Bearer ', '');
+    if (token) {
+      const payload = await this.jwtService.verify(token);
+      const user = await this.userRepo.findById(payload.sub!);
+      setUser({ id: user.id, name: user.name }, user.roles);
+    }
+    await next();
+    return undefined;
+  }
+}
 ```
 
 ### JWT Claims
@@ -141,27 +154,30 @@ setUser(
 Include roles in the JWT payload:
 
 ```typescript
-import { Config } from '@zeltjs/core';
-declare const jwtService: { sign(payload: Record<string, unknown>): Promise<string> };
-declare const user: { id: string; roles: string[] };
-type JwtPayload = { sub: string; roles: unknown };
-@Config class JwtConfig {
-  static readonly Token = JwtConfig;
-  get resolveUser() { return async (p: JwtPayload) => ({ user: { id: p.sub }, roles: p.roles as string[] }); }
-}
-// ---cut---
-// When signing
-const token = await jwtService.sign({
-  sub: user.id,
-  roles: user.roles,
-});
+import { Controller, Post, Config, inject } from '@zeltjs/core';
+import { JwtService, JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
 
-// When verifying (extend JwtConfig)
+type User = { id: string; roles: string[] };
+
+@Controller('/auth')
+class AuthController {
+  constructor(private jwtService = inject(JwtService)) {}
+
+  @Post('/login')
+  async login(user: User) {
+    const token = await this.jwtService.sign({
+      sub: user.id,
+      roles: user.roles,
+    });
+    return { token };
+  }
+}
+
 @Config
 class MyJwtConfig extends JwtConfig {
-  override get resolveUser() {
-    return async (payload: JwtPayload) => ({
-      user: { id: payload.sub },
+  override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {
+    return async (payload) => ({
+      user: { id: payload.sub! },
       roles: payload.roles as string[],
     });
   }
@@ -173,20 +189,43 @@ class MyJwtConfig extends JwtConfig {
 Store roles in the session:
 
 ```typescript
-import { setUser } from '@zeltjs/core';
-declare function setSession(data: { userId: string; roles: string[] }): void;
-declare function getSession(): { userId: string; roles: string[] } | null;
-declare const db: { users: { findById(id: string): Promise<{ id: string; name: string }> } };
-declare const user: { id: string; roles: string[] };
-// ---cut---
-// At login
-setSession({ userId: user.id, roles: user.roles });
+import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
 
-// In auth middleware
-const session = getSession();
-if (session) {
-  const user = await db.users.findById(session.userId);
-  setUser(user, session.roles);
+type Session = { userId: string; roles: string[] };
+type User = { id: string; name: string };
+
+@Injectable()
+class SessionService {
+  getSession(): Session | null {
+    return null;
+  }
+
+  setSession(_data: Session): void {}
+}
+
+@Injectable()
+class UserRepository {
+  async findById(id: string): Promise<User> {
+    return { id, name: '' };
+  }
+}
+
+@Middleware
+class SessionAuthMiddleware {
+  constructor(
+    private sessionService = inject(SessionService),
+    private userRepo = inject(UserRepository)
+  ) {}
+
+  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+    const session = this.sessionService.getSession();
+    if (session) {
+      const user = await this.userRepo.findById(session.userId);
+      setUser(user, session.roles);
+    }
+    await next();
+    return undefined;
+  }
 }
 ```
 
@@ -217,19 +256,25 @@ setUser(
 Roles are set once and rarely change:
 
 ```typescript
-import { Controller, Authorized, Post, pathParam } from '@zeltjs/core';
+import { Controller, Authorized, Post, Injectable, inject, pathParam } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
+
 const RolesSchema = v.object({ roles: v.array(v.string()) });
-declare const db: { users: { update(id: string, data: { roles: string[] }): Promise<void> } };
-// ---cut---
-// Admin assigns roles via API
+
+@Injectable()
+class UserRepository {
+  async updateRoles(id: string, roles: string[]): Promise<void> {}
+}
+
 @Controller('/users')
 class UserRolesController {
+  constructor(private userRepo = inject(UserRepository)) {}
+
   @Authorized(['admin'])
   @Post('/:id/roles')
   async assignRoles(id = pathParam('id'), data = validated(RolesSchema)) {
-    await db.users.update(id, { roles: data.roles });
+    await this.userRepo.updateRoles(id, data.roles);
     return { success: true };
   }
 }
@@ -240,23 +285,44 @@ class UserRolesController {
 Roles are computed based on context:
 
 ```typescript
-import { setUser } from '@zeltjs/core';
-declare const db: { projects: { findById(id: string): Promise<{ ownerId: string; memberIds: string[] }> } };
-declare const projectId: string;
-declare const user: { id: string; name: string };
-// ---cut---
-// Roles depend on resource ownership
-const project = await db.projects.findById(projectId);
-const roles: string[] = [];
+import { Middleware, Injectable, inject, setUser, currentUser, type RequestContext, type Next } from '@zeltjs/core';
 
-if (project.ownerId === user.id) {
-  roles.push('project:owner');
-}
-if (project.memberIds.includes(user.id)) {
-  roles.push('project:member');
+type Project = { ownerId: string; memberIds: string[] };
+type User = { id: string; name: string };
+
+@Injectable()
+class ProjectRepository {
+  async findById(id: string): Promise<Project> {
+    return { ownerId: '', memberIds: [] };
+  }
 }
 
-setUser(user, roles);
+@Middleware
+class ProjectRolesMiddleware {
+  constructor(private projectRepo = inject(ProjectRepository)) {}
+
+  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+    const user = currentUser() as User | undefined;
+    const projectId = c.req.param('projectId');
+
+    if (user && projectId) {
+      const project = await this.projectRepo.findById(projectId);
+      const roles: string[] = [];
+
+      if (project.ownerId === user.id) {
+        roles.push('project:owner');
+      }
+      if (project.memberIds.includes(user.id)) {
+        roles.push('project:member');
+      }
+
+      setUser(user, roles);
+    }
+
+    await next();
+    return undefined;
+  }
+}
 ```
 
 ### Time-Based Roles

@@ -108,15 +108,21 @@ class UserController {
 Create a signed token with custom payload:
 
 ```typescript
+import { Injectable, inject } from '@zeltjs/core';
 import { JwtService } from '@zeltjs/auth-jwt';
-declare const jwtService: JwtService;
-declare const user: { id: string };
-// ---cut---
-const token = await jwtService.sign({
-  sub: user.id,
-  roles: ['admin', 'user'],
-  customClaim: 'value',
-});
+
+@Injectable()
+class TokenService {
+  constructor(private jwtService = inject(JwtService)) {}
+
+  async createToken(userId: string) {
+    return this.jwtService.sign({
+      sub: userId,
+      roles: ['admin', 'user'],
+      customClaim: 'value',
+    });
+  }
+}
 ```
 
 ### Verify
@@ -124,15 +130,22 @@ const token = await jwtService.sign({
 Verify a token and get its payload (throws if invalid or expired):
 
 ```typescript
+import { Injectable, inject } from '@zeltjs/core';
 import { JwtService } from '@zeltjs/auth-jwt';
-declare const jwtService: JwtService;
-declare const token: string;
-// ---cut---
-try {
-  const payload = await jwtService.verify(token);
-  console.log(payload.sub); // user ID
-} catch (error) {
-  // Token is invalid or expired
+
+@Injectable()
+class TokenService {
+  constructor(private jwtService = inject(JwtService)) {}
+
+  async validateToken(token: string) {
+    try {
+      const payload = await this.jwtService.verify(token);
+      console.log(payload.sub);
+      return payload;
+    } catch {
+      return null;
+    }
+  }
 }
 ```
 
@@ -141,13 +154,20 @@ try {
 Decode without verification (useful for reading expired tokens):
 
 ```typescript
+import { Injectable, inject } from '@zeltjs/core';
 import { JwtService } from '@zeltjs/auth-jwt';
-declare const jwtService: JwtService;
-declare const token: string;
-// ---cut---
-const payload = jwtService.decode(token);
-if (payload) {
-  console.log(payload.sub);
+
+@Injectable()
+class TokenService {
+  constructor(private jwtService = inject(JwtService)) {}
+
+  readToken(token: string) {
+    const payload = this.jwtService.decode(token);
+    if (payload) {
+      console.log(payload.sub);
+    }
+    return payload;
+  }
 }
 ```
 
@@ -157,16 +177,23 @@ Extend `JwtConfig` to customize behavior:
 
 ```typescript
 import { JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
-import { Config, EnvConfig, inject } from '@zeltjs/core';
-declare const db: {
-  users: {
-    findById(id: string): Promise<{ id: string; name: string; email: string; roles: string[] }>;
-  };
-};
-// ---cut---
+import { Config, EnvConfig, Injectable, inject } from '@zeltjs/core';
+
+type User = { id: string; name: string; email: string; roles: string[] };
+
+@Injectable()
+class UserRepository {
+  async findById(id: string): Promise<User> {
+    return { id, name: '', email: '', roles: [] };
+  }
+}
+
 @Config
 class CustomJwtConfig extends JwtConfig {
-  constructor(private env = inject(EnvConfig)) {
+  constructor(
+    private env = inject(EnvConfig),
+    private userRepo = inject(UserRepository)
+  ) {
     super();
   }
 
@@ -175,12 +202,12 @@ class CustomJwtConfig extends JwtConfig {
   }
 
   override get expiresIn(): string {
-    return '7d';  // Token expiration (default: '1h')
+    return '7d';
   }
 
   override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {
     return async (payload) => {
-      const user = await db.users.findById(payload.sub!);
+      const user = await this.userRepo.findById(payload.sub!);
       return {
         user: { id: user.id, name: user.name, email: user.email },
         roles: user.roles,
@@ -247,31 +274,39 @@ Store tokens securely on the client:
 For long-lived sessions, implement a refresh token flow:
 
 ```typescript
-import { Controller, Post, inject } from '@zeltjs/core';
+import { Controller, Post, Injectable, inject } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
 import { JwtService } from '@zeltjs/auth-jwt';
 import * as v from 'valibot';
+
 const RefreshSchema = v.object({ refreshToken: v.string() });
-declare const db: {
-  users: {
-    findById(id: string): Promise<{ id: string; roles: string[] }>;
-  };
-};
-// ---cut---
+
+type User = { id: string; roles: string[] };
+
+@Injectable()
+class UserRepository {
+  async findById(id: string): Promise<User> {
+    return { id, roles: [] };
+  }
+}
+
 @Controller('/auth')
 class AuthController {
-  constructor(private jwtService = inject(JwtService)) {}
+  constructor(
+    private jwtService = inject(JwtService),
+    private userRepo = inject(UserRepository)
+  ) {}
 
   @Post('/refresh')
   async refresh(body = validated(RefreshSchema)) {
     const payload = await this.jwtService.verify(body.refreshToken);
-    
-    const user = await db.users.findById(payload.sub!);
+
+    const user = await this.userRepo.findById(payload.sub!);
     const accessToken = await this.jwtService.sign({
       sub: user.id,
       roles: user.roles,
     });
-    
+
     return { accessToken };
   }
 }
