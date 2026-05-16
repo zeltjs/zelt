@@ -1,33 +1,57 @@
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+import {
+  ArrowsPointingInIcon,
+  BeakerIcon,
+  BoltIcon,
+  CubeTransparentIcon,
+  GlobeAltIcon,
+  SparklesIcon,
+} from '@heroicons/react/24/outline';
 import CodeBlock from '@theme/CodeBlock';
 import Layout from '@theme/Layout';
+import type { ComponentType, SVGProps } from 'react';
 
-const features = [
+type FeatureItem = {
+  title: string;
+  description: string;
+  Icon: ComponentType<SVGProps<SVGSVGElement>>;
+};
+
+const features: FeatureItem[] = [
   {
-    title: 'Type-Safe by Default',
-    description:
-      'End-to-end type safety from routes to handlers. Catch errors at compile time, not runtime.',
-    icon: '🔒',
+    title: 'Run Anywhere',
+    description: 'Node, Bun, Workers, Lambda — portable across runtimes.',
+    Icon: GlobeAltIcon,
   },
   {
-    title: 'Zero Config',
-    description: 'Start building immediately. Sensible defaults that work out of the box.',
-    icon: '⚡',
+    title: 'DI Built-in',
+    description: 'First-class dependency injection, type-safe.',
+    Icon: CubeTransparentIcon,
   },
   {
-    title: 'Lightweight',
-    description: 'Minimal footprint with no heavy dependencies. Fast startup and low memory usage.',
-    icon: '🪶',
+    title: 'Fast Startup',
+    description: 'Minimal wake-up time, serverless-ready.',
+    Icon: BoltIcon,
   },
   {
-    title: 'Hono Compatible',
-    description: 'Built on top of Hono. Use the familiar API and ecosystem you already know.',
-    icon: '🔥',
+    title: 'Future-proof Decorators',
+    description: 'TC39 & reflect-metadata dual support.',
+    Icon: SparklesIcon,
+  },
+  {
+    title: 'Test-friendly',
+    description: 'DI-based testing, easy mock injection, Testcontainers integration.',
+    Icon: BeakerIcon,
+  },
+  {
+    title: 'Minimal Size',
+    description: 'Tree-shakable, loads only what you need — no unused dependencies.',
+    Icon: ArrowsPointingInIcon,
   },
 ];
 
-const codeExample = `import { Controller, Get, Post, body, pathParam, createApp } from '@zeltjs/core';
+const codeExample = `import { Controller, Get, Post, validated, pathParam, createApp } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const UserSchema = v.object({
@@ -48,14 +72,26 @@ class UserController {
   }
 
   @Post('/')
-  create(data = body(UserSchema)) {
+  create(data = validated(UserSchema)) {
     return { user: db.users.create(data) };
   }
 }
 
-export const app = createApp({
+const app = createApp({
   http: { controllers: [UserController] },
-});`;
+});
+
+// Node.js
+const node = await onNode(app);
+node.listen(3000);
+
+// Cloudflare Workers
+const workers = await onCloudflareWorkers(app);
+export default { fetch: workers.fetch };
+
+// Lambda
+const lambda = await onLambda(app);
+export const handler = lambda.handler;`;
 
 function HeroSection() {
   const { siteConfig } = useDocusaurusContext();
@@ -67,13 +103,13 @@ function HeroSection() {
         <p className="hero__tagline">{siteConfig.tagline}</p>
         <div className="hero__buttons">
           <Link className="hero__button hero__button--primary" to="/docs">
-            Get Started
+            Documentation
           </Link>
           <Link
             className="hero__button hero__button--secondary"
             to="https://github.com/zeltjs/zelt"
           >
-            GitHub
+            Star on GitHub
           </Link>
         </div>
       </div>
@@ -100,7 +136,7 @@ function FeaturesSection() {
         <div className="features__grid">
           {features.map((feature) => (
             <div key={feature.title} className="feature-card">
-              <span className="feature-card__icon">{feature.icon}</span>
+              <feature.Icon className="feature-card__icon" />
               <h3 className="feature-card__title">{feature.title}</h3>
               <p className="feature-card__description">{feature.description}</p>
             </div>

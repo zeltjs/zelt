@@ -4,33 +4,23 @@ slug: /
 
 # Introduction
 
-Zelt is a fast, type-safe application framework for TypeScript, bringing Laravel/FuelPHP-like productivity to edge and serverless runtimes.
+ZeltJS is a portable TypeScript application framework with built-in DI. It runs anywhere — Node.js, Bun, Cloudflare Workers, AWS Lambda.
+Building large-scale applications that work across different infrastructure. That's what ZeltJS aims for.
 
 ## Philosophy
 
-Zelt provides a complete application skeleton that integrates controllers, services, configuration, lifecycle management, error handling, testing, and more — all connected through a unified type contract.
+In TypeScript backend development, there are almost no true "frameworks." Hono and Express are excellent libraries, but they're not enough as application frameworks. Libraries are "convenient tools," but frameworks provide "answers to how to build applications." DI mechanisms, directory structure, integrated patterns for authentication, validation, and logging — only when these "answers to how to build" are in place can developers focus on essential feature development.
 
-### Core Values
+NestJS is one of the few that can be called a framework, but it brings in its own module system and RxJS-based abstractions, diverging from standard TypeScript conventions. Its heavy metadata analysis at startup also makes it impractical for serverless environments.
 
-- **Fast** — Practical startup and execution speed for Cloudflare Workers and serverless cold starts
-- **Type-safe** — Schema → request → controller → response → DI → test double are all connected through the same type contract
-- **Application-oriented** — Provides the "application backbone" that integrates controller / service / repository / config / lifecycle / error handling / testing
+ZeltJS aims to be a "framework" where you don't have to wonder how to build your application.
+To achieve this, we build with these five policies:
 
-## Why Zelt?
-
-Modern TypeScript backend development often requires piecing together multiple libraries for routing, validation, dependency injection, and testing. Zelt provides these out of the box with a cohesive, type-safe API.
-
-Unlike traditional frameworks, Zelt is designed from the ground up for edge and serverless environments where cold start performance matters.
-
-## Packages
-
-| Package | Description |
-|---------|-------------|
-| `@zeltjs/core` | DI, lifecycle, validation, error handling, and HTTP core |
-| `@zeltjs/adapter-node` | Node.js server adapter |
-| `@zeltjs/adapter-cloudflare-workers` | Cloudflare Workers adapter |
-| `@zeltjs/openapi` | Type generation and OpenAPI output |
-| `@zeltjs/testing` | Test utilities |
+- TS-Native — Don't reinvent what TS already has. Use import/export, use async/await, use types
+- Web-Standard — Align with web standards like Request/Response, Fetch API. No custom abstractions
+- Transport-Agnostic — REST/GraphQL/CLI/Queue are just different entry points. The application core stays the same
+- Cold-Start Friendly — Runs on serverless/Worker/Edge. No startup cost penalty
+- Least Astonishment — Follow ecosystem standards. No extra learning cost
 
 ## Status
 

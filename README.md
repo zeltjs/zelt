@@ -1,29 +1,67 @@
-# zeltjs
+# ZeltJS
 
 [![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
 
-> Edge/serverless 時代のための、Laravel/FuelPHP 的な型安全 TypeScript アプリケーションフレームワーク。
->
-> A fast, type-safe application framework for TypeScript, bringing Laravel/FuelPHP-like productivity to edge and serverless runtimes.
+> Portable application framework with DI — Node, Workers, Lambda... anywhere.
 
-## Core values
+ZeltJS is a portable TypeScript application framework with built-in DI. It runs anywhere — Node.js, Bun, Cloudflare Workers, AWS Lambda.
 
-- **Fast** — Cloudflare Workers / serverless cold start で実用的な起動・実行速度
-- **Type-safe** — schema → request → controller → response → DI → test double が同一の型契約でつながる
-- **Application-oriented** — controller / service / repository / config / lifecycle / error handling / testing / CLI/worker を統合した「アプリケーションの骨格」を提供
+```typescript
+import { Controller, Get, Post, validated, pathParam, createApp } from '@zeltjs/core';
+import * as v from 'valibot';
+
+const UserSchema = v.object({
+  name: v.string(),
+  email: v.pipe(v.string(), v.email()),
+});
+
+@Controller('/users')
+class UserController {
+  @Get('/')
+  list() {
+    return { users: db.users.findMany() };
+  }
+
+  @Get('/:id')
+  findOne(id = pathParam('id')) {
+    return { user: db.users.find(id) };
+  }
+
+  @Post('/')
+  create(data = validated(UserSchema)) {
+    return { user: db.users.create(data) };
+  }
+}
+
+const app = createApp({
+  http: { controllers: [UserController] },
+});
+
+// Node.js
+const node = await onNode(app);
+node.listen(3000);
+
+// Cloudflare Workers
+const workers = await onCloudflareWorkers(app);
+export default { fetch: workers.fetch };
+
+// Lambda
+const lambda = await onLambda(app);
+export const handler = lambda.handler;
+```
+
+## Why ZeltJS?
+
+- **Run Anywhere** — Node, Bun, Workers, Lambda — portable across runtimes
+- **DI Built-in** — First-class dependency injection, type-safe
+- **Fast Startup** — Minimal wake-up time, serverless-ready
+- **Future-proof Decorators** — TC39 & reflect-metadata dual support
+- **Test-friendly** — DI-based testing, easy mock injection, Testcontainers integration
+- **Minimal Size** — Tree-shakable, loads only what you need — no unused dependencies
 
 ## Status
 
-**pre-alpha**. 0.x の間は minor で破壊的変更を許容します。
-
-## Packages
-
-- `@zeltjs/core` — DI / lifecycle / validation / error / HTTP の中核
-- `@zeltjs/adapter-node` — Node.js 用 listen
-- `@zeltjs/testing` — テストユーティリティ
-- `@zeltjs/openapi` — OpenAPI / 型生成ツール
-
-Workers / Lambda 用アダプタは `@zeltjs/core` の subpath (`@zeltjs/core/workers`, `@zeltjs/core/lambda`) として提供予定です。
+**pre-alpha** — Breaking changes may occur in minor versions during 0.x.
 
 ## License
 

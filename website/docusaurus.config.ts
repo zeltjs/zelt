@@ -4,8 +4,8 @@ import type { PluginOptions as SearchPluginOptions } from '@easyops-cn/docusauru
 import kanagawa from './src/prism-theme-kanagawa';
 
 const config: Config = {
-  title: 'Zelt',
-  tagline: 'A fast, type-safe application framework for TypeScript',
+  title: 'ZeltJS',
+  tagline: 'Portable application framework with DI — runs anywhere',
   favicon: 'img/favicon.png',
 
   future: {
@@ -143,7 +143,7 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'Zelt',
+      title: 'ZeltJS',
       logo: {
         alt: 'Zelt Logo',
         src: 'img/logo.svg',
