@@ -1,9 +1,4 @@
-export type {
-  ControllerRouteInfo,
-  GenerateOpenApiOptions,
-  GenerateOpenApiResult,
-  HttpMetadata,
-  RouteInfo,
-} from './generate-openapi';
+export type { GenerateOpenApiOptions, GenerateOpenApiResult } from './generate-openapi';
 export { generateOpenApi } from './generate-openapi';
-export type { JsonSchema, SchemaAdapter } from './schema-adapter';
+export type { OpenApiPluginOptions } from './plugin';
+export { openapiPlugin } from './plugin';

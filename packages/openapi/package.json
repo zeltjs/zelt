@@ -26,6 +26,7 @@
     "typecheck": "tsc -b"
   },
   "peerDependencies": {
+    "@zeltjs/cli": "workspace:*",
     "@zeltjs/core": "workspace:*"
   },
   "dependencies": {
