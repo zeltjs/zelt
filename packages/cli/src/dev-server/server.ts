@@ -1,3 +1,4 @@
+// packages/cli/src/dev-server/server.ts
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 
@@ -5,7 +6,8 @@ import { NodeCliConfig } from '@zeltjs/adapter-node';
 import type { SignalHandler } from '@zeltjs/core';
 import consola from 'consola';
 
-import type { DevConfig } from '../config/schema';
+import type { DevConfig, ZeltConfig } from '../config/schema';
+import { runPreBuildHooks } from '../plugin/runner';
 
 import type { WatcherHandle } from './watcher';
 import { createWatcher } from './watcher';
@@ -14,7 +16,8 @@ const cliConfig = new NodeCliConfig();
 
 export type DevServerOptions = {
   readonly cwd: string;
-  readonly config: DevConfig & { entry: string };
+  readonly config: ZeltConfig;
+  readonly devConfig: DevConfig & { entry: string };
 };
 
 type DevServerState = {
@@ -97,7 +100,12 @@ const createShutdownHandler = (state: DevServerState) => {
   };
 };
 
-const createRestartHandler = (state: DevServerState, cwd: string, entry: string) => {
+const createRestartHandler = (
+  state: DevServerState,
+  cwd: string,
+  entry: string,
+  config: ZeltConfig,
+) => {
   return async (): Promise<void> => {
     if (state.isShuttingDown) {
       return;
@@ -108,6 +116,9 @@ const createRestartHandler = (state: DevServerState, cwd: string, entry: string)
     if (state.childProcess !== undefined) {
       await killProcess(state.childProcess);
     }
+
+    // Run preBuild hooks before restarting
+    await runPreBuildHooks({ cwd, config });
 
     state.childProcess = startProcess(cwd, entry);
   };
@@ -128,7 +139,7 @@ const registerSignalHandlers = (onSignal: () => Promise<void>): SignalHandler =>
 };
 
 export const startDevServer = async (options: DevServerOptions): Promise<void> => {
-  const { cwd, config } = options;
+  const { cwd, config, devConfig } = options;
 
   const state: DevServerState = {
     childProcess: undefined,
@@ -136,12 +147,12 @@ export const startDevServer = async (options: DevServerOptions): Promise<void> =
     isShuttingDown: false,
   };
 
-  const watchPatterns = config.watch ?? DEFAULT_WATCH_PATTERNS;
-  const ignorePatterns = config.ignore ?? DEFAULT_IGNORE_PATTERNS;
-  const debounceMs = config.debounceMs ?? 300;
+  const watchPatterns = devConfig.watch ?? DEFAULT_WATCH_PATTERNS;
+  const ignorePatterns = devConfig.ignore ?? DEFAULT_IGNORE_PATTERNS;
+  const debounceMs = devConfig.debounceMs ?? 300;
 
   const shutdown = createShutdownHandler(state);
-  const restart = createRestartHandler(state, cwd, config.entry);
+  const restart = createRestartHandler(state, cwd, devConfig.entry, config);
 
   registerSignalHandlers(shutdown);
 
@@ -155,10 +166,13 @@ export const startDevServer = async (options: DevServerOptions): Promise<void> =
     },
   });
 
-  state.childProcess = startProcess(cwd, config.entry);
+  // Run preBuild hooks on initial start
+  await runPreBuildHooks({ cwd, config });
+
+  state.childProcess = startProcess(cwd, devConfig.entry);
 
   consola.success(`Dev server started. Watching for changes...`);
-  consola.info(`  Entry: ${config.entry}`);
+  consola.info(`  Entry: ${devConfig.entry}`);
   consola.info(`  Watch: ${watchPatterns.join(', ')}`);
   consola.info(`  Ignore: ${ignorePatterns.join(', ')}`);
 

@@ -1,3 +1,4 @@
+// packages/cli/src/commands/dev.ts
 import { NodeCliConfig } from '@zeltjs/adapter-node';
 import { defineCommand } from 'citty';
 import consola from 'consola';
@@ -40,7 +41,7 @@ const runDev = async (cwd: string, typedArgs: DevArgs): Promise<void> => {
     throw new ZeltNoEntryError({});
   }
 
-  await startDevServer({ cwd, config: { ...devConfig, entry: devConfig.entry } });
+  await startDevServer({ cwd, config, devConfig: { ...devConfig, entry: devConfig.entry } });
 };
 
 const handleError = (error: DevError): void => {
