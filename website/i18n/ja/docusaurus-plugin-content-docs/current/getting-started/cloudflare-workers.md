@@ -78,10 +78,12 @@ Cloudflare Workersのエントリーポイント`src/index.ts`を作成:
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 import { app } from './app';
 
-export default onCloudflareWorkers(app);
+const workers = await onCloudflareWorkers(app);
+
+export default { fetch: workers.fetch };
 ```
 
-`onCloudflareWorkers()`関数は、アプリをWorkersランタイム用にラップします。デフォルトでは**遅延初期化**を使用します — コントローラーは起動時ではなく最初のリクエスト時に解決されます。これにより、サーバーレス環境でのコールドスタート時間が最適化されます。
+`onCloudflareWorkers()`関数は非同期で、アプリをWorkersランタイム用に準備します。戻り値には`fetch`ハンドラーの他に、`shutdown`やサービスにアクセスするための`get`などのユーティリティが含まれます。デフォルトでは**遅延初期化**を使用します — コントローラーは起動時ではなく最初のリクエスト時に解決されます。これにより、サーバーレス環境でのコールドスタート時間が最適化されます。
 
 ### ステップ4: Wranglerの設定
 
@@ -224,7 +226,9 @@ npx wrangler deploy
 すべてのコントローラーを初期化時に解決したい場合（デバッグや、コールドスタート時間があまり重要でない場合に便利）、`warmup: true`を設定:
 
 ```typescript
-export default onCloudflareWorkers(app, { warmup: true });
+const workers = await onCloudflareWorkers(app, { warmup: true });
+
+export default { fetch: workers.fetch };
 ```
 
 | オプション | 動作 | ユースケース |

@@ -24,7 +24,9 @@ class HelloController {
 
 const app = createHttpApp({ controllers: [HelloController] });
 
-export default onCloudflareWorkers(app);
+const workers = await onCloudflareWorkers(app);
+
+export default { fetch: workers.fetch };
 ```
 
 ## Options
@@ -61,5 +63,7 @@ const app = createHttpApp({
   configs: [EnvConfig],
 });
 
-export default onCloudflareWorkers(app);
+const workers = await onCloudflareWorkers(app);
+
+export default { fetch: workers.fetch };
 ```
