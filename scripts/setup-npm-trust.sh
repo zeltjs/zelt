@@ -76,7 +76,7 @@ check_npm_version() {
 }
 
 get_zeltjs_packages() {
-  pnpm -r exec -- node -p "require('./package.json').name" 2>/dev/null \
+  pnpm -r exec -- node -p "const p=require('./package.json'); p.private ? '' : p.name" 2>/dev/null \
     | grep "^${SCOPE}/" \
     | sort
 }
