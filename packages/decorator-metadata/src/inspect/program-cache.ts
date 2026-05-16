@@ -1,24 +1,32 @@
+import { errAsync, okAsync, ResultAsync } from 'neverthrow';
+
 import { resolveTypeScript } from './resolve-typescript';
 
 type TypeScriptModule = typeof import('typescript');
 
-type CachedProgram = {
+export type CachedProgram = {
   readonly program: import('typescript').Program;
   readonly checker: import('typescript').TypeChecker;
   readonly ts: TypeScriptModule;
 };
 
+export type ProgramCacheError = {
+  code: 'TSCONFIG_ERROR';
+  readonly message: string;
+};
+
 const cache = new Map<string, CachedProgram>();
 
-export const getOrCreateProgram = async (tsconfigPath: string): Promise<CachedProgram> => {
-  const cached = cache.get(tsconfigPath);
-  if (cached) return cached;
-
-  const ts = await resolveTypeScript();
-
+const createProgramResult = (
+  tsconfigPath: string,
+  ts: TypeScriptModule,
+): ResultAsync<CachedProgram, ProgramCacheError> => {
   const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
   if (configFile.error) {
-    throw new Error(`Failed to read tsconfig: ${tsconfigPath}`);
+    return errAsync({
+      code: 'TSCONFIG_ERROR',
+      message: `Failed to read tsconfig: ${tsconfigPath}`,
+    });
   }
 
   const parsedConfig = ts.parseJsonConfigFileContent(
@@ -33,10 +41,21 @@ export const getOrCreateProgram = async (tsconfigPath: string): Promise<CachedPr
   });
 
   const checker = program.getTypeChecker();
-  const result: CachedProgram = { program, checker, ts };
+  return okAsync({ program, checker, ts });
+};
 
-  cache.set(tsconfigPath, result);
-  return result;
+export const getOrCreateProgram = (
+  tsconfigPath: string,
+): ResultAsync<CachedProgram, ProgramCacheError> => {
+  const cached = cache.get(tsconfigPath);
+  if (cached) return okAsync(cached);
+
+  return ResultAsync.fromSafePromise(resolveTypeScript())
+    .andThen((ts) => createProgramResult(tsconfigPath, ts))
+    .map((result) => {
+      cache.set(tsconfigPath, result);
+      return result;
+    });
 };
 
 export const clearProgramCache = (tsconfigPath?: string): void => {

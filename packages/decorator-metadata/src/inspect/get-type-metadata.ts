@@ -1,0 +1,187 @@
+import { resolve } from 'node:path';
+
+import type { ResultAsync } from 'neverthrow';
+import { errAsync, okAsync } from 'neverthrow';
+
+import type { Position } from '../runtime/position';
+import { getClassMetadata } from '../runtime/store';
+import type { ProgramCacheError } from './program-cache';
+import { getOrCreateProgram } from './program-cache';
+import { createTypeExtractor } from './type-extractor';
+import type {
+  ClassMetadata,
+  InspectError,
+  InspectOptions,
+  MethodInfo,
+  ParamInfo,
+  PropertyInfo,
+  TypeInfo,
+} from './types';
+
+const DEFAULT_TSCONFIG = './tsconfig.json';
+const DEFAULT_EXPAND_STRATEGY = 'exported-only' as const;
+
+type TypeScriptModule = typeof import('typescript');
+type TSClassDeclaration = import('typescript').ClassDeclaration;
+type TSMethodDeclaration = import('typescript').MethodDeclaration;
+type TSPropertyDeclaration = import('typescript').PropertyDeclaration;
+type TSSourceFile = import('typescript').SourceFile;
+type TSNode = import('typescript').Node;
+type TSTypeChecker = import('typescript').TypeChecker;
+type ExtractTypeFn = (type: import('typescript').Type) => TypeInfo;
+
+type StoredMethodMeta = { readonly name: string; readonly pos: Position; readonly props: object };
+type StoredPropertyMeta = { readonly name: string; readonly pos: Position; readonly props: object };
+
+const findClassAtPosition = (
+  sourceFile: TSSourceFile,
+  pos: number,
+  ts: TypeScriptModule,
+): TSClassDeclaration | undefined => {
+  const find = (node: TSNode): TSClassDeclaration | undefined => {
+    if (ts.isClassDeclaration(node) && node.pos <= pos && pos < node.end) {
+      return node;
+    }
+    return ts.forEachChild(node, find);
+  };
+  return find(sourceFile);
+};
+
+const findMethodInClass = (
+  cls: TSClassDeclaration,
+  name: string,
+  ts: TypeScriptModule,
+): TSMethodDeclaration | undefined => {
+  for (const member of cls.members) {
+    if (ts.isMethodDeclaration(member) && member.name.getText() === name) {
+      return member;
+    }
+  }
+  return undefined;
+};
+
+const findPropertyInClass = (
+  cls: TSClassDeclaration,
+  name: string,
+  ts: TypeScriptModule,
+): TSPropertyDeclaration | undefined => {
+  for (const member of cls.members) {
+    if (ts.isPropertyDeclaration(member) && member.name.getText() === name) {
+      return member;
+    }
+  }
+  return undefined;
+};
+
+const extractMethodInfo = (
+  m: StoredMethodMeta,
+  classNode: TSClassDeclaration,
+  ts: TypeScriptModule,
+  checker: TSTypeChecker,
+  extractType: ExtractTypeFn,
+): MethodInfo => {
+  const methodNode = findMethodInClass(classNode, m.name, ts);
+  const params: ParamInfo[] = [];
+  let returnType: TypeInfo = { kind: 'unknown' };
+
+  if (methodNode) {
+    const sig = checker.getSignatureFromDeclaration(methodNode);
+    if (sig) {
+      for (const param of sig.getParameters()) {
+        const paramType = checker.getTypeOfSymbol(param);
+        params.push({ name: param.getName(), type: extractType(paramType) });
+      }
+
+      let retType = sig.getReturnType();
+      const retTypeStr = checker.typeToString(retType);
+      if (retTypeStr.startsWith('Promise<')) {
+        const typeRef = retType as import('typescript').TypeReference;
+        retType = typeRef.typeArguments?.[0] ?? retType;
+      }
+      returnType = extractType(retType);
+    }
+  }
+
+  return { name: m.name, pos: m.pos, props: m.props, params, returnType };
+};
+
+const extractPropertyInfo = (
+  p: StoredPropertyMeta,
+  classNode: TSClassDeclaration,
+  ts: TypeScriptModule,
+  checker: TSTypeChecker,
+  extractType: ExtractTypeFn,
+): PropertyInfo => {
+  const propNode = findPropertyInClass(classNode, p.name, ts);
+  let type: TypeInfo = { kind: 'unknown' };
+  let optional = false;
+
+  if (propNode) {
+    const propSymbol = checker.getSymbolAtLocation(propNode.name);
+    if (propSymbol) {
+      const propType = checker.getTypeOfSymbol(propSymbol);
+      type = extractType(propType);
+      optional = (propSymbol.flags & ts.SymbolFlags.Optional) !== 0;
+    }
+  }
+
+  return { name: p.name, pos: p.pos, props: p.props, type, optional };
+};
+
+export const getTypeMetadata = <T extends object>(
+  cls: new (...args: unknown[]) => T,
+  options?: InspectOptions,
+): ResultAsync<ClassMetadata, InspectError | ProgramCacheError> => {
+  const storedMeta = getClassMetadata(cls);
+  if (!storedMeta) {
+    return errAsync({
+      code: 'NO_METADATA',
+      message: `No decorator metadata found for class ${cls.name}`,
+    });
+  }
+
+  const tsconfigPath = resolve(options?.tsconfig ?? DEFAULT_TSCONFIG);
+  const expandStrategy = options?.expandStrategy ?? DEFAULT_EXPAND_STRATEGY;
+
+  return getOrCreateProgram(tsconfigPath).andThen((cached) => {
+    const { program, checker, ts } = cached;
+    const { extractType } = createTypeExtractor(ts, checker, expandStrategy);
+
+    const sourceFile = program.getSourceFile(storedMeta.pos.sourceFile);
+    if (!sourceFile) {
+      return errAsync<ClassMetadata, InspectError>({
+        code: 'SOURCE_NOT_FOUND',
+        message: `Source file not found: ${storedMeta.pos.sourceFile}`,
+      });
+    }
+
+    const pos = ts.getPositionOfLineAndCharacter(
+      sourceFile,
+      storedMeta.pos.line - 1,
+      storedMeta.pos.column - 1,
+    );
+
+    const classNode = findClassAtPosition(sourceFile, pos, ts);
+    if (!classNode || !ts.isClassDeclaration(classNode)) {
+      return errAsync<ClassMetadata, InspectError>({
+        code: 'POSITION_INVALID',
+        message: `No class found at position ${storedMeta.pos.line}:${storedMeta.pos.column}`,
+      });
+    }
+
+    const methods = storedMeta.methods.map((m) =>
+      extractMethodInfo(m, classNode, ts, checker, extractType),
+    );
+    const properties = storedMeta.properties.map((p) =>
+      extractPropertyInfo(p, classNode, ts, checker, extractType),
+    );
+
+    return okAsync({
+      name: cls.name,
+      pos: storedMeta.pos,
+      props: storedMeta.props,
+      methods,
+      properties,
+    });
+  });
+};
