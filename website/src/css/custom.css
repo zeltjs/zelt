@@ -201,6 +201,17 @@ code:not(pre code)::after {
   display: none;
 }
 
+/* ===== Navbar link colors ===== */
+
+.navbar__link {
+  color: var(--ifm-font-color-base);
+}
+
+.navbar__link:hover,
+.navbar__link--active {
+  color: var(--ifm-font-color-base);
+}
+
 /* ===== VitePress-style navbar right items ===== */
 
 /* Navbar right items layout with separators */
