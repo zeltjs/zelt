@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Update versions
+        run: pnpm -r exec npm version ${{ github.event.release.tag_name }} --no-git-tag-version --allow-same-version
+
+      - name: Build
+        run: pnpm build
+
+      - name: Publish packages
+        run: pnpm -r publish --access public --no-git-checks --provenance

@@ -31,9 +31,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check release-please config sync
-        run: ./scripts/check-release-please-config.sh
-
       - name: Format check
         run: pnpm format:check
 
