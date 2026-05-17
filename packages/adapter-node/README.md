@@ -16,9 +16,9 @@ npm install @zeltjs/adapter-node @zeltjs/core
 
 ```typescript
 import { serve } from '@zeltjs/adapter-node';
-import { createHttpApp } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 
-const app = createHttpApp({ controllers: [...] });
+const app = createApp({ controllers: [...] });
 
 serve(app, { port: 3000 });
 ```

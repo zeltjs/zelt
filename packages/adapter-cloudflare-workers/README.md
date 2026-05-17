@@ -15,7 +15,7 @@ pnpm add @zeltjs/adapter-cloudflare-workers
 ## Usage
 
 ```typescript
-import { createHttpApp, Controller, Get } from '@zeltjs/core';
+import { createApp, Controller, Get } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 
 @Controller('/hello')
@@ -26,7 +26,7 @@ class HelloController {
   }
 }
 
-const app = createHttpApp({ controllers: [HelloController] });
+const app = createApp({ controllers: [HelloController] });
 
 const workers = await onCloudflareWorkers(app);
 
@@ -49,7 +49,7 @@ onCloudflareWorkers(app, {
 When using `EnvConfig`, it is automatically replaced with `CloudflareWorkersEnvConfig` which reads from `cloudflare:workers` env:
 
 ```typescript
-import { createHttpApp, Controller, Get, EnvConfig, EnvService, inject } from '@zeltjs/core';
+import { createApp, Controller, Get, EnvConfig, EnvService, inject } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 
 @Controller('/config')
@@ -62,7 +62,7 @@ class ConfigController {
   }
 }
 
-const app = createHttpApp({
+const app = createApp({
   controllers: [ConfigController],
   configs: [EnvConfig],
 });
