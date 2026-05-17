@@ -15,6 +15,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
     }
   },
   "files": [
@@ -26,13 +30,25 @@
     "typecheck": "tsc -b"
   },
   "peerDependencies": {
-    "@zeltjs/core": "workspace:*"
+    "@zeltjs/core": "workspace:*",
+    "@zeltjs/testing": "workspace:*",
+    "testcontainers": ">=10 <12"
+  },
+  "peerDependenciesMeta": {
+    "@zeltjs/testing": {
+      "optional": true
+    },
+    "testcontainers": {
+      "optional": true
+    }
   },
   "dependencies": {
     "ioredis": "5.10.1"
   },
   "devDependencies": {
     "@zeltjs/core": "workspace:*",
-    "@types/node": "22.19.17"
+    "@zeltjs/testing": "workspace:*",
+    "@types/node": "22.19.17",
+    "testcontainers": "10.25.0"
   }
 }

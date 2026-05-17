@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@zeltjs/core';
-import { RedisConfig, RedisService } from '@zeltjs/redis';
+import { createTestTarget } from '@zeltjs/testing';
 import { describe, expect, it } from 'vitest';
 
-import { createTestTarget } from '../test-target';
+import { RedisConfig } from '../redis.config';
+import { RedisService } from '../redis.service';
 
 import { RedisTestContainerConfig } from './redis-test-container.config';
 

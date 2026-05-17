@@ -1,8 +1,9 @@
 import type { Lifecycle } from '@zeltjs/core';
 import { Config, inject, LifecycleManager } from '@zeltjs/core';
-import { RedisConfig } from '@zeltjs/redis';
 import type { StartedTestContainer } from 'testcontainers';
 import { GenericContainer } from 'testcontainers';
+
+import { RedisConfig } from '../redis.config';
 
 @Config
 export class RedisTestContainerConfig extends RedisConfig implements Lifecycle {

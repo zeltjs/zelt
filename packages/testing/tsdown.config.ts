@@ -3,7 +3,6 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   entry: [
     'src/index.ts',
-    'src/redis/index.ts',
     'src/adapters/vitest.ts',
     'src/adapters/jest.ts',
     'src/adapters/bun.ts',
@@ -24,7 +23,6 @@ export default defineConfig({
       'bun:test',
       'node:test',
       'testcontainers',
-      'ioredis',
     ],
   },
 });
