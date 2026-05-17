@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/zeltjs/zelt/compare/eventbus-v0.4.0...eventbus-v0.5.0) (2026-05-17)
+
+
+### Miscellaneous Chores
+
+* **eventbus:** Synchronize zeltjs versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @zeltjs/core bumped to 0.5.0
+    * @zeltjs/redis bumped to 0.5.0
+  * peerDependencies
+    * @zeltjs/core bumped to 0.5.0
+    * @zeltjs/redis bumped to 0.5.0
+
 ## [0.4.0](https://github.com/zeltjs/zelt/compare/eventbus-v0.3.0...eventbus-v0.4.0) (2026-05-17)
 
 
