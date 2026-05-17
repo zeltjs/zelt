@@ -61,7 +61,8 @@
       "!.nx",
       "!pnpm-lock.yaml",
       "!**/generated",
-      "!website/src/theme"
+      "!website/src/theme",
+      "!scripts"
     ]
   }
 }

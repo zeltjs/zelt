@@ -1,7 +1,14 @@
 import type { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
-  ignore: ['**/zelt.config.ts', '**/src/test/**', '**/src/test-helpers/**', 'vitest.shared.ts'],
+  ignore: [
+    '**/zelt.config.ts',
+    '**/src/test/**',
+    '**/src/test-helpers/**',
+    'vitest.shared.ts',
+    'scripts/**',
+  ],
+  ignoreDependencies: ['node-pty'],
   ignoreExportsUsedInFile: true,
   // GreetBody/GreetResponse: used via ts-morph AST resolution and AppType inference, invisible to static analysis
   // CreateUserBody/User: used by fixture file consumed via ts-morph at runtime, not traceable by static analysis

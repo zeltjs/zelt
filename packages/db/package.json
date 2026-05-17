@@ -31,5 +31,8 @@
   "devDependencies": {
     "@zeltjs/core": "workspace:*",
     "@types/node": "22.19.17"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

@@ -62,5 +62,8 @@
     "@needle-di/core": "1.1.2",
     "@types/node": "22.19.17",
     "neverthrow": "8.2.0"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

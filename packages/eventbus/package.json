@@ -47,5 +47,8 @@
     "@zeltjs/redis": "workspace:*",
     "@types/node": "22.19.17",
     "ioredis": "5.10.1"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

@@ -50,5 +50,8 @@
     "@zeltjs/testing": "workspace:*",
     "@types/node": "22.19.17",
     "testcontainers": "10.25.0"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

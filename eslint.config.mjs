@@ -24,6 +24,7 @@ export default tseslint.config(
       'website/**',
       'vitest.shared.ts',
       'packages/eslint-plugin/**',
+      'scripts/**',
     ],
   },
   tseslint.configs.recommended,
