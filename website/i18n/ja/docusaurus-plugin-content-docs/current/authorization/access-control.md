@@ -214,21 +214,27 @@ const app = createApp({
 Don't use `@Authorized` — check the user manually:
 
 ```typescript
-import { Controller, Get, pathParam, currentUser } from '@zeltjs/core';
-interface User { id: string; }
-declare const db: {
-  posts: {
-    findById(id: string): Promise<{ authorId: string }>;
-  };
-};
-// ---cut---
+import { Controller, Get, Injectable, inject, pathParam, currentUser } from '@zeltjs/core';
+
+type Post = { authorId: string };
+type User = { id: string };
+
+@Injectable()
+class PostRepository {
+  async findById(id: string): Promise<Post> {
+    return { authorId: '' };
+  }
+}
+
 @Controller('/posts')
 class PostController {
+  constructor(private postRepo = inject(PostRepository)) {}
+
   @Get('/:id')
   async getPost(id = pathParam('id')) {
     const user = currentUser() as User | undefined;
-    const post = await db.posts.findById(id);
-    
+    const post = await this.postRepo.findById(id);
+
     return {
       ...post,
       canEdit: user?.id === post.authorId,
@@ -242,32 +248,42 @@ class PostController {
 Combine `@Authorized` with ownership checks:
 
 ```typescript
-import { Controller, Authorized, Put, pathParam, currentUser, currentRoles } from '@zeltjs/core';
+import { Controller, Authorized, Put, Injectable, inject, pathParam, currentUser, currentRoles } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
 import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
+
 const UpdateSchema = v.object({ title: v.string(), content: v.string() });
-interface User { id: string; }
-declare const db: {
-  posts: {
-    findById(id: string): Promise<{ authorId: string }>;
-    update(id: string, data: unknown): Promise<unknown>;
-  };
-};
-// ---cut---
+
+type Post = { authorId: string };
+type User = { id: string };
+
+@Injectable()
+class PostRepository {
+  async findById(id: string): Promise<Post> {
+    return { authorId: '' };
+  }
+
+  async update(id: string, _data: unknown): Promise<Post> {
+    return { authorId: '' };
+  }
+}
+
 @Controller('/posts')
 class PostController {
+  constructor(private postRepo = inject(PostRepository)) {}
+
   @Authorized()
   @Put('/:id')
   async updatePost(id = pathParam('id'), data = validated(UpdateSchema)) {
     const user = currentUser() as User;
-    const post = await db.posts.findById(id);
-    
+    const post = await this.postRepo.findById(id);
+
     if (post.authorId !== user.id && !currentRoles().includes('admin')) {
       throw new HTTPException(403, { message: 'Not your post' });
     }
-    
-    return db.posts.update(id, data);
+
+    return this.postRepo.update(id, data);
   }
 }
 ```
@@ -301,47 +317,59 @@ class PostController {
 For complex scenarios, move logic to a service:
 
 ```typescript
-import { Controller, Delete, Authorized, pathParam, currentUser, currentRoles } from '@zeltjs/core';
+import { Controller, Delete, Authorized, Injectable, inject, pathParam, currentUser, currentRoles } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
-interface Post { isPublic: boolean; authorId: string; }
-interface User { id: string; }
-declare const db: {
-  posts: {
-    findById(id: string): Promise<Post>;
-    delete(id: string): Promise<void>;
-  };
-};
-// ---cut---
-function canView(post: Post): boolean {
-  if (post.isPublic) return true;
-  const user = currentUser() as User | undefined;
-  return user?.id === post.authorId;
+
+type Post = { isPublic: boolean; authorId: string };
+type User = { id: string };
+
+@Injectable()
+class PostRepository {
+  async findById(id: string): Promise<Post> {
+    return { isPublic: false, authorId: '' };
+  }
+
+  async delete(_id: string): Promise<void> {}
 }
 
-function canEdit(post: Post): boolean {
-  const user = currentUser() as User | undefined;
-  const roles = currentRoles();
-  if (roles.includes('admin')) return true;
-  return user?.id === post.authorId;
-}
+@Injectable()
+class PostAuthorizationService {
+  canView(post: Post): boolean {
+    if (post.isPublic) return true;
+    const user = currentUser() as User | undefined;
+    return user?.id === post.authorId;
+  }
 
-function canDelete(): boolean {
-  const roles = currentRoles();
-  return roles.includes('admin');
+  canEdit(post: Post): boolean {
+    const user = currentUser() as User | undefined;
+    const roles = currentRoles();
+    if (roles.includes('admin')) return true;
+    return user?.id === post.authorId;
+  }
+
+  canDelete(): boolean {
+    const roles = currentRoles();
+    return roles.includes('admin');
+  }
 }
 
 @Controller('/posts')
 class PostController {
+  constructor(
+    private postRepo = inject(PostRepository),
+    private authService = inject(PostAuthorizationService)
+  ) {}
+
   @Authorized()
   @Delete('/:id')
   async delete(id = pathParam('id')) {
-    const post = await db.posts.findById(id);
-    
-    if (!canDelete()) {
+    const post = await this.postRepo.findById(id);
+
+    if (!this.authService.canDelete()) {
       throw new HTTPException(403, { message: 'Cannot delete this post' });
     }
-    
-    await db.posts.delete(id);
+
+    await this.postRepo.delete(id);
     return { deleted: true };
   }
 }

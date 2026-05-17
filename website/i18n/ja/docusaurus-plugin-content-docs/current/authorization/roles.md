@@ -234,19 +234,38 @@ class SessionAuthMiddleware {
 Fetch roles from an identity provider:
 
 ```typescript
-import { setUser } from '@zeltjs/core';
-declare const identityProvider: {
-  getUserInfo(token: string): Promise<{ sub: string; name: string }>;
-  getRoles(sub: string): Promise<string[]>;
-};
-declare const token: string;
-// ---cut---
-const userInfo = await identityProvider.getUserInfo(token);
-const roles = await identityProvider.getRoles(userInfo.sub);
-setUser(
-  { id: userInfo.sub, name: userInfo.name },
-  roles
-);
+import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+
+type UserInfo = { sub: string; name: string };
+
+@Injectable()
+class IdentityProviderService {
+  async getUserInfo(token: string): Promise<UserInfo> {
+    return { sub: '', name: '' };
+  }
+
+  async getRoles(sub: string): Promise<string[]> {
+    return [];
+  }
+}
+
+@Middleware
+class ExternalAuthMiddleware {
+  constructor(private idp = inject(IdentityProviderService)) {}
+
+  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+    const token = c.req.header('Authorization')?.replace('Bearer ', '');
+
+    if (token) {
+      const userInfo = await this.idp.getUserInfo(token);
+      const roles = await this.idp.getRoles(userInfo.sub);
+      setUser({ id: userInfo.sub, name: userInfo.name }, roles);
+    }
+
+    await next();
+    return undefined;
+  }
+}
 ```
 
 ## Role Assignment Strategies

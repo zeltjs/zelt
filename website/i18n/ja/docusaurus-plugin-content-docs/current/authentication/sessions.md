@@ -299,45 +299,53 @@ class MySessionConfig extends SessionConfig {
 Sessions don't automatically set the user context. Add middleware to bridge them:
 
 ```typescript
-import type { FunctionMiddleware } from '@zeltjs/core';
-import { setUser } from '@zeltjs/core';
+import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
 import { getSession } from '@zeltjs/auth-session';
-declare const db: {
-  users: {
-    findById(id: string): Promise<{ id: string; name: string; email: string; roles: string[] }>;
-  };
-};
-// ---cut---
-export const sessionAuthMiddleware: FunctionMiddleware = async (c, next) => {
-  const session = getSession() as { userId?: string } | undefined;
-  
-  if (session?.userId) {
-    const user = await db.users.findById(session.userId);
-    setUser(
-      { id: user.id, name: user.name, email: user.email },
-      user.roles
-    );
+
+type User = { id: string; name: string; email: string; roles: string[] };
+
+@Injectable()
+class UserRepository {
+  async findById(id: string): Promise<User> {
+    return { id, name: '', email: '', roles: [] };
   }
-  
-  await next();
-};
+}
+
+@Middleware
+export class SessionAuthMiddleware {
+  constructor(private userRepo = inject(UserRepository)) {}
+
+  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+    const session = getSession() as { userId?: string } | undefined;
+
+    if (session?.userId) {
+      const user = await this.userRepo.findById(session.userId);
+      setUser(
+        { id: user.id, name: user.name, email: user.email },
+        user.roles
+      );
+    }
+
+    await next();
+    return undefined;
+  }
+}
 ```
 
 Register after `SessionMiddleware`:
 
 ```typescript
-import { createApp } from '@zeltjs/core';
+import { createApp, Middleware, type RequestContext, type Next } from '@zeltjs/core';
 import { MemoryKVService } from '@zeltjs/kv';
 import { SessionMiddleware } from '@zeltjs/auth-session';
-import type { FunctionMiddleware } from '@zeltjs/core';
 declare const UserController: never;
 declare const MySessionConfig: never;
-declare const sessionAuthMiddleware: FunctionMiddleware;
+@Middleware class SessionAuthMiddleware { async use(c: RequestContext, next: Next) { await next(); return undefined; } }
 // ---cut---
 const app = createApp({
   http: {
     controllers: [UserController],
-    middlewares: [SessionMiddleware, sessionAuthMiddleware],
+    middlewares: [SessionMiddleware, SessionAuthMiddleware],
   },
   configs: [MySessionConfig],
   injectables: [MemoryKVService],
