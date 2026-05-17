@@ -43,6 +43,7 @@
     "@zeltjs/auth-session": "workspace:*",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/db": "workspace:*",
+    "@zeltjs/hono-client": "workspace:*",
     "@zeltjs/kv": "workspace:*",
     "@zeltjs/rate-limit": "workspace:*",
     "@zeltjs/redis": "workspace:*",

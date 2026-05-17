@@ -601,6 +601,9 @@ importers:
       '@zeltjs/db':
         specifier: workspace:*
         version: link:../packages/db
+      '@zeltjs/hono-client':
+        specifier: workspace:*
+        version: link:../packages/hono-client
       '@zeltjs/kv':
         specifier: workspace:*
         version: link:../packages/kv

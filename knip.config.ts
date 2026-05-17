@@ -94,6 +94,7 @@ const config: KnipConfig = {
         '@zeltjs/auth-session',
         '@zeltjs/core',
         '@zeltjs/db',
+        '@zeltjs/hono-client',
         '@zeltjs/kv',
         '@zeltjs/rate-limit',
         '@zeltjs/redis',
