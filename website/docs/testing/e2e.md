@@ -64,7 +64,7 @@ For complete E2E tests with real dependencies, use `onTest()` to apply test conf
 ```typescript
 import { createApp, Controller, Get, Post, pathParam, response } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
-import { onTest } from '@zeltjs/testing/vitest';
+import { onTest, type TestApp } from '@zeltjs/testing/vitest';
 import { RedisConfig } from '@zeltjs/redis';
 import { RedisTestContainerConfig } from '@zeltjs/redis/testing';
 import * as v from 'valibot';
@@ -73,7 +73,6 @@ declare function describe(name: string, fn: () => void): void;
 declare function it(name: string, fn: () => void | Promise<void>): void;
 declare function beforeAll(fn: () => void | Promise<void>): void;
 declare function expect<T>(value: T): { toBe(expected: T): void; };
-type TestApp = Awaited<ReturnType<typeof onTest>>;
 const UserBody = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
 @Controller('/users') class UserController {
   @Get('/:id') findOne(id = pathParam('id')) { return { id, name: 'Alice', email: 'alice@example.com' }; }
