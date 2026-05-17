@@ -1,6 +1,7 @@
 import Head from '@docusaurus/Head';
 import { useLocation } from '@docusaurus/router';
 import type { ReactNode } from 'react';
+import { TwoslashPortalManager } from './TwoslashPortal';
 
 type RootProps = {
   children: ReactNode;
@@ -16,6 +17,7 @@ const Root = ({ children }: RootProps): ReactNode => {
         <link rel="alternate" type="text/markdown" href={mdUrl} title="Markdown version" />
       </Head>
       {children}
+      <TwoslashPortalManager />
     </>
   );
 };

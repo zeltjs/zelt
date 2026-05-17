@@ -78,14 +78,10 @@
 }
 
 /* ===== Twoslash Styles =====
-   Adapted from @shikijs/twoslash/style-rich.css
-   Modified to work without .twoslash parent class wrapper.
-   Note: Popup cannot escape parent overflow:hidden - this is a known limitation
-   that requires JS (floating-vue) to fix properly. See: github.com/antfu/shikiji/issues/60 */
+   Using FloatingPortal to render popups outside code block overflow boundaries */
 
 @media (prefers-reduced-motion: reduce) {
-  .twoslash-hover,
-  .twoslash-popup-container {
+  .twoslash-hover {
     transition: none !important;
   }
 }
@@ -100,37 +96,22 @@ pre:hover .twoslash-hover {
   position: relative;
 }
 
+/* Hide original popup - FloatingPortal handles display */
 .twoslash-popup-container {
-  position: absolute;
-  opacity: 0;
-  display: none;
-  flex-direction: column;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: 4px;
+  display: none !important;
+}
+
+/* Floating popup rendered via portal */
+.twoslash-floating-popup {
   background: var(--twoslash-popup-bg);
   color: var(--twoslash-popup-color);
   border: 1px solid var(--twoslash-border-color);
-  transition: opacity 0.3s;
   border-radius: 4px;
-  pointer-events: none;
-  z-index: 100;
-  user-select: none;
-  text-align: left;
   box-shadow: var(--twoslash-popup-shadow);
   max-width: 500px;
   white-space: normal;
-}
-
-.twoslash-hover:hover .twoslash-popup-container,
-.twoslash-query-presisted .twoslash-popup-container {
-  display: inline-flex;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.twoslash-popup-container:hover {
-  user-select: auto;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.875rem;
 }
 
 .twoslash-popup-code,
