@@ -1,0 +1,15 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: 'website/**'
+
+feature:
+  - changed-files:
+      - any-glob-to-any-file: 'packages/*/src/**'
+
+chore:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - '*.config.*'
+          - 'package.json'
+          - 'pnpm-lock.yaml'
