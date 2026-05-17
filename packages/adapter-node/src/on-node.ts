@@ -42,7 +42,7 @@ export type HttpNodeApp = ReadyResult &
 
 export type CommandNodeApp = ReadyResult &
   NodeAppBase & {
-    readonly execCommand: (argv: string[]) => Promise<ExecResult>;
+    readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
     readonly shutdown: () => Promise<void>;
   };
 
@@ -109,8 +109,8 @@ const createExecForCommands = (
   getCommands: () => ReadonlyMap<string, CommandClass>,
   get: <T extends object>(cls: new (...args: never[]) => T) => T,
   stderr: Stderr,
-): ((argv: string[]) => Promise<ExecResult>) => {
-  return async (argv: string[]): Promise<ExecResult> => {
+): ((argv: readonly string[]) => Promise<ExecResult>) => {
+  return async (argv: readonly string[]): Promise<ExecResult> => {
     const commandName = argv[0];
     if (!commandName) {
       stderr.write('No command specified\n');
