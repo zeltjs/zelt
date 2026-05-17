@@ -13,3 +13,5 @@ lefthook-local.yml
 .worktrees/
 .codepolicy/
 plans/*.md
+docs/superpowers/
+.claude/settings.local.json
