@@ -23,6 +23,9 @@ const twoslasher = createTwoslasher({
     esModuleInterop: true,
     skipLibCheck: true,
     baseUrl: rootDir,
+    // @zeltjs/* packages: resolved via explicit paths because pnpm's strict
+    // node_modules structure doesn't work with Twoslash VFS.
+    // Corresponding devDependencies in package.json ensure nx builds them first.
     paths: {
       '@zeltjs/validator-valibot': ['./packages/validator-valibot/dist/index.d.ts'],
       '@zeltjs/*': ['./packages/*/dist/index.d.ts'],

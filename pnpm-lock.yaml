@@ -583,15 +583,39 @@ importers:
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
+      '@zeltjs/adapter-cloudflare-workers':
+        specifier: workspace:*
+        version: link:../packages/adapter-cloudflare-workers
       '@zeltjs/adapter-node':
         specifier: workspace:*
         version: link:../packages/adapter-node
+      '@zeltjs/auth-jwt':
+        specifier: workspace:*
+        version: link:../packages/auth-jwt
+      '@zeltjs/auth-session':
+        specifier: workspace:*
+        version: link:../packages/auth-session
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../packages/core
       '@zeltjs/db':
         specifier: workspace:*
         version: link:../packages/db
+      '@zeltjs/kv':
+        specifier: workspace:*
+        version: link:../packages/kv
+      '@zeltjs/rate-limit':
+        specifier: workspace:*
+        version: link:../packages/rate-limit
+      '@zeltjs/redis':
+        specifier: workspace:*
+        version: link:../packages/redis
+      '@zeltjs/testing':
+        specifier: workspace:*
+        version: link:../packages/testing
+      '@zeltjs/validator-valibot':
+        specifier: workspace:*
+        version: link:../packages/validator-valibot
       better-sqlite3:
         specifier: 12.10.0
         version: 12.10.0
@@ -16133,7 +16157,7 @@ snapshots:
 
   axios@1.15.2:
     dependencies:
-      follow-redirects: 1.16.0
+      follow-redirects: 1.16.0(debug@4.4.3)
       form-data: 4.0.5
       proxy-from-env: 2.1.0
     transitivePeerDependencies:
@@ -17929,8 +17953,6 @@ snapshots:
   flat@5.0.2: {}
 
   flatted@3.4.2: {}
-
-  follow-redirects@1.16.0: {}
 
   follow-redirects@1.16.0(debug@4.4.3):
     optionalDependencies:
