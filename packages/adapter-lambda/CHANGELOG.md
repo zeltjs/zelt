@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/zeltjs/zelt/compare/adapter-lambda-v0.3.0...adapter-lambda-v0.4.0) (2026-05-17)
+
+
+### Miscellaneous Chores
+
+* **adapter-lambda:** Synchronize zeltjs versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @zeltjs/core bumped to 0.4.0
+
 ## [0.3.0](https://github.com/zeltjs/zelt/compare/adapter-lambda-v0.2.1...adapter-lambda-v0.3.0) (2026-05-17)
 
 

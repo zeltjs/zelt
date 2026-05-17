@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.0](https://github.com/zeltjs/zelt/compare/hono-client-v0.3.0...hono-client-v0.4.0) (2026-05-17)
+
+
+### Miscellaneous Chores
+
+* **hono-client:** Synchronize zeltjs versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @zeltjs/adapter-node bumped to 0.4.0
+    * @zeltjs/cli bumped to 0.4.0
+    * @zeltjs/core bumped to 0.4.0
+    * @zeltjs/testing bumped to 0.4.0
+  * peerDependencies
+    * @zeltjs/adapter-node bumped to 0.4.0
+    * @zeltjs/cli bumped to 0.4.0
+    * @zeltjs/core bumped to 0.4.0
+
 ## [0.3.0](https://github.com/zeltjs/zelt/compare/hono-client-v0.2.1...hono-client-v0.3.0) (2026-05-17)
 
 

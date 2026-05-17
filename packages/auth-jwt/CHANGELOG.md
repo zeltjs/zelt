@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/zeltjs/zelt/compare/auth-jwt-v0.3.0...auth-jwt-v0.4.0) (2026-05-17)
+
+
+### Miscellaneous Chores
+
+* **auth-jwt:** Synchronize zeltjs versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @zeltjs/core bumped to 0.4.0
+    * @zeltjs/testing bumped to 0.4.0
+  * peerDependencies
+    * @zeltjs/core bumped to 0.4.0
+
 ## [0.3.0](https://github.com/zeltjs/zelt/compare/auth-jwt-v0.2.1...auth-jwt-v0.3.0) (2026-05-17)
 
 
