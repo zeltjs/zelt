@@ -11,7 +11,7 @@
     "packages/adapter-node": {
       "component": "adapter-node"
     },
-    "packages/contract": {
+    "packages/openapi": {
       "component": "openapi"
     },
     "packages/testing": {
