@@ -1,0 +1,133 @@
+---
+sidebar_label: Electron
+---
+
+# Getting Started with Electron
+
+This guide walks you through embedding a Zelt application in an Electron app for local API handling.
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) v20 or higher
+- [Electron](https://www.electronjs.org/) v28 or higher
+
+## Installation
+
+```bash
+pnpm add @zeltjs/core @zeltjs/adapter-electron
+pnpm add -D electron
+```
+
+## Use Case
+
+The Electron adapter allows you to handle HTTP requests within your Electron app without running a separate server. This is useful for:
+
+- Local API endpoints for the renderer process
+- Offline-capable applications
+- Desktop apps with embedded backends
+
+## Hello World
+
+### Step 1: Create the Application
+
+Create `src/api/app.ts`:
+
+```typescript
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+// ---cut---
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) {
+    return { message: `Hello, ${name}!` };
+  }
+}
+
+export const app = createApp({
+  http: {
+    controllers: [HelloController],
+  },
+});
+```
+
+### Step 2: Initialize in Main Process
+
+Create `src/main.ts`:
+
+```typescript
+// @noErrors
+import { app as electronApp, BrowserWindow, protocol } from 'electron';
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { onElectron } from '@zeltjs/adapter-electron';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp({ http: { controllers: [HelloController] } });
+// ---cut---
+const electronZelt = await onElectron(app);
+
+electronApp.whenReady().then(() => {
+  protocol.handle('api', async (request) => {
+    return electronZelt.fetch(request);
+  });
+
+  const win = new BrowserWindow({ width: 800, height: 600 });
+  win.loadFile('index.html');
+});
+
+electronApp.on('window-all-closed', async () => {
+  await electronZelt.shutdown();
+  electronApp.quit();
+});
+```
+
+The `onElectron()` function prepares your app for the Electron runtime. It returns:
+
+- `fetch(request)` — Handles a Request and returns a Response
+- `shutdown()` — Gracefully shuts down the application
+- `get<T>(Class)` — Resolves a service from the DI container
+
+### Step 3: Call API from Renderer
+
+In your renderer process or preload script:
+
+```typescript
+const response = await fetch('api://localhost/hello/world');
+const data = await response.json();
+console.log(data.message); // "Hello, world!"
+```
+
+## Warmup Option
+
+By default, `onElectron()` uses eager initialization (`warmup: true`) — all controllers are resolved at startup.
+
+For lazy initialization:
+
+```typescript
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { onElectron } from '@zeltjs/adapter-electron';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp({ http: { controllers: [HelloController] } });
+// ---cut---
+const electronZelt = await onElectron(app, { warmup: false });
+```
+
+| Option | Behavior | Use Case |
+|--------|----------|----------|
+| `warmup: true` (default) | All controllers resolved at startup | Desktop apps |
+| `warmup: false` | Controllers resolved on first request | Faster startup |
+
+## What's Next?
+
+- [Controllers](../controllers) — Route handling and HTTP methods
+- [Services](../services) — Business logic and dependency injection
