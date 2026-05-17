@@ -28,6 +28,7 @@ const twoslasher = createTwoslasher({
     // Corresponding devDependencies in package.json ensure nx builds them first.
     paths: {
       '@zeltjs/validator-valibot': ['./packages/validator-valibot/dist/index.d.ts'],
+      '@zeltjs/redis/testing': ['./packages/redis/dist/testing/index.d.ts'],
       '@zeltjs/*': ['./packages/*/dist/index.d.ts'],
       valibot: [
         './node_modules/.pnpm/valibot@1.0.0_typescript@6.0.2/node_modules/valibot/dist/index.d.ts',
