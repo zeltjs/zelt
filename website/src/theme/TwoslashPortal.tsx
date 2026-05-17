@@ -14,8 +14,16 @@ type PopupData = {
   content: HTMLElement;
 };
 
+const normalizePopupHtml = (html: string): string => {
+  return html
+    .replace(/>\s+</g, '><')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
 const TwoslashPopup = ({ trigger, content }: { trigger: HTMLElement; content: HTMLElement }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [normalizedHtml, setNormalizedHtml] = useState('');
 
   const { refs, floatingStyles } = useFloating({
     open: isOpen,
@@ -27,7 +35,10 @@ const TwoslashPopup = ({ trigger, content }: { trigger: HTMLElement; content: HT
   useEffect(() => {
     refs.setReference(trigger);
 
-    const handleMouseEnter = () => setIsOpen(true);
+    const handleMouseEnter = () => {
+      setNormalizedHtml(normalizePopupHtml(content.innerHTML));
+      setIsOpen(true);
+    };
     const handleMouseLeave = () => setIsOpen(false);
 
     trigger.addEventListener('mouseenter', handleMouseEnter);
@@ -37,7 +48,7 @@ const TwoslashPopup = ({ trigger, content }: { trigger: HTMLElement; content: HT
       trigger.removeEventListener('mouseenter', handleMouseEnter);
       trigger.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [trigger, refs]);
+  }, [trigger, content, refs]);
 
   if (!isOpen) return null;
 
@@ -49,7 +60,7 @@ const TwoslashPopup = ({ trigger, content }: { trigger: HTMLElement; content: HT
           ...floatingStyles,
           zIndex: 9999,
         }}
-        dangerouslySetInnerHTML={{ __html: content.innerHTML }}
+        dangerouslySetInnerHTML={{ __html: normalizedHtml }}
         className="twoslash-floating-popup"
       />
     </FloatingPortal>

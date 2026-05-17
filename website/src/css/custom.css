@@ -109,9 +109,29 @@ pre:hover .twoslash-hover {
   border-radius: 4px;
   box-shadow: var(--twoslash-popup-shadow);
   max-width: 500px;
-  white-space: normal;
+  white-space: pre;
   font-family: var(--ifm-font-family-monospace);
   font-size: 0.875rem;
+}
+
+.twoslash-floating-popup pre {
+  margin: 0 !important;
+  padding: 6px 8px !important;
+  background: transparent !important;
+  white-space: pre !important;
+  line-height: 1.4 !important;
+}
+
+.twoslash-floating-popup pre pre {
+  padding: 0 !important;
+}
+
+.twoslash-floating-popup code {
+  background: transparent !important;
+}
+
+.twoslash-floating-popup .line {
+  display: block;
 }
 
 .twoslash-popup-code,
