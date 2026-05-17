@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/zeltjs/zelt/compare/redis-v0.2.1...redis-v0.3.0) (2026-05-17)
+
+
+### Miscellaneous Chores
+
+* **redis:** Synchronize zeltjs versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @zeltjs/core bumped to 0.3.0
+    * @zeltjs/testing bumped to 0.3.0
+  * peerDependencies
+    * @zeltjs/core bumped to 0.3.0
+    * @zeltjs/testing bumped to 0.3.0
+
 ## [0.2.1](https://github.com/zeltjs/zelt/compare/redis-v0.1.0...redis-v0.2.1) (2026-05-17)
 
 

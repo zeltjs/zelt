@@ -1,6 +1,6 @@
 {
   "name": "@zeltjs/decorator-metadata",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Runtime decorator metadata capture and TypeScript type extraction",
   "type": "module",
   "license": "MIT",
