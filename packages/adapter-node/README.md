@@ -4,6 +4,8 @@
 
 Node.js HTTP server adapter for Zelt applications.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -20,7 +22,3 @@ const app = createHttpApp({ controllers: [...] });
 
 serve(app, { port: 3000 });
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

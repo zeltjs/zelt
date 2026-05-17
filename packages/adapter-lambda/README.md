@@ -4,6 +4,8 @@
 
 AWS Lambda adapter for Zelt applications.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -32,7 +34,3 @@ const lambda = await onLambda(app);
 
 export const handler = lambda.handler;
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

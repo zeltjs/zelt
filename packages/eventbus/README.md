@@ -4,6 +4,8 @@
 
 Event bus abstraction for Zelt applications.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -29,7 +31,3 @@ eventbus.on('user.created', (data) => {
 
 eventbus.emit('user.created', { id: '1', name: 'Alice' });
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

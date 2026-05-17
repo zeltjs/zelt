@@ -4,6 +4,8 @@
 
 CLI for the Zelt framework.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -28,7 +30,3 @@ export default defineConfig({
   // configuration options
 });
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

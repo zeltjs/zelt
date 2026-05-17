@@ -4,6 +4,8 @@
 
 ESLint plugin for Zelt DI naming conventions.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -33,7 +35,3 @@ export default [
 
 - `config-di-scope` - Enforce DI scope conventions in Config classes
 - `decorator-file-naming` - Enforce decorator file naming conventions
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

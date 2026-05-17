@@ -4,6 +4,8 @@
 
 Valibot validation integration for Zelt applications.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -30,7 +32,3 @@ class UserController {
   }
 }
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

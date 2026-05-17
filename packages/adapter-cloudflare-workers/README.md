@@ -4,6 +4,8 @@
 
 Cloudflare Workers adapter for Zelt.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -69,7 +71,3 @@ const workers = await onCloudflareWorkers(app);
 
 export default { fetch: workers.fetch };
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

@@ -4,6 +4,8 @@
 
 Session management middleware for Zelt applications.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -33,7 +35,3 @@ const app = createApp({
   configs: [SessionConfig],
 });
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

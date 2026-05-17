@@ -4,6 +4,8 @@
 
 Generate type-safe Hono client types from Zelt controllers.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -43,7 +45,3 @@ import type { AppType } from './client';
 const client = hc<AppType>('http://localhost:3000');
 const res = await client.users.$get();
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

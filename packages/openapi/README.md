@@ -4,6 +4,8 @@
 
 OpenAPI schema generator for Zelt applications.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -25,7 +27,3 @@ import { generateOpenApiSpec } from '@zeltjs/openapi';
 
 const spec = await generateOpenApiSpec({ controllers: [...] });
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

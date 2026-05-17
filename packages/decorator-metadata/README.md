@@ -4,6 +4,8 @@
 
 Runtime decorator metadata capture and TypeScript type extraction for TC39 decorators.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -58,10 +60,6 @@ if (result.isOk()) {
   // }
 }
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.
 
 ## License
 

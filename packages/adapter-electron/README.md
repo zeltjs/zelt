@@ -4,6 +4,8 @@
 
 Electron adapter for Zelt applications.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -30,7 +32,3 @@ const app = createApp({
 
 const electron = await onElectron(app);
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

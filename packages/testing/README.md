@@ -4,6 +4,8 @@
 
 Testing utilities for Zelt applications.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -24,7 +26,3 @@ describe('HelloController', () => {
   });
 });
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.

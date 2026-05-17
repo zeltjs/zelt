@@ -4,6 +4,8 @@
 
 Key-value store abstraction for Zelt applications.
 
+**[Read the Documentation](https://zeltjs.com)**
+
 ## Installation
 
 ```bash
@@ -28,7 +30,3 @@ await kv.set('session:abc', { userId: '1' }, { ttl: 3600 });
 
 - `MemoryKVAdaptor` - In-memory store (for testing/development)
 - `@zeltjs/redis` - Redis-backed store
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.
