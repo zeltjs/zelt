@@ -28,11 +28,11 @@ jobs:
       - name: Build website
         run: npx nx run-many -t build --projects=website
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: website
           packageManager: 'pnpm'
-          command: pages deploy build --project-name=zelt --branch=${{ github.head_ref || github.ref_name }}
+          command: deploy
