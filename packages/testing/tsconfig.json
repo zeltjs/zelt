@@ -12,5 +12,5 @@
     "types": ["bun-types"]
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../core" }, { "path": "../redis" }]
+  "references": [{ "path": "../core" }]
 }

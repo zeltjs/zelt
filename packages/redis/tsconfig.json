@@ -11,6 +11,6 @@
     "erasableSyntaxOnly": false,
     "types": ["node"]
   },
-  "references": [{ "path": "../core" }],
+  "references": [{ "path": "../core" }, { "path": "../testing" }],
   "include": ["src/**/*"]
 }
