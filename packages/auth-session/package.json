@@ -35,5 +35,8 @@
     "@zeltjs/core": "workspace:*",
     "@zeltjs/kv": "workspace:*",
     "hono": "4.12.16"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

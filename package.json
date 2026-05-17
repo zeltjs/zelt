@@ -37,6 +37,7 @@
     "eslint-plugin-sonarjs": "4.0.3",
     "knip": "6.10.0",
     "lefthook": "2.1.6",
+    "node-pty": "1.0.0",
     "nx": "21.6.10",
     "oxlint": "1.62.0",
     "precommit-verify": "0.1.8",
@@ -47,6 +48,12 @@
     "vitest": "4.1.5"
   },
   "volta": {
-    "node": "26.1.0"
+    "node": "26.1.0",
+    "npm": "11.14.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "node-pty"
+    ]
   }
 }

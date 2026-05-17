@@ -10,21 +10,25 @@ set -euo pipefail
 REPO="zeltjs/zelt"
 WORKFLOW="release-please.yml"
 SCOPE="@zeltjs"
-SLEEP_INTERVAL=2
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
 Options:
-  -y, --yes        Skip confirmation prompt
+  -y, --yes        Skip confirmation prompts
   -n, --dry-run    Show what would be done without making changes
   -h, --help       Show this help message
 
+Steps (each requires confirmation):
+  1. List packages (no auth required)
+  2. Check trusted publisher status (2FA required)
+  3. Setup trusted publishers (2FA required)
+
 Examples:
-  $(basename "$0")           # Run setup for all @zeltjs/* packages
+  $(basename "$0")           # Run interactively
   $(basename "$0") --dry-run # Preview without changes
-  $(basename "$0") --yes     # Skip confirmation
+  $(basename "$0") --yes     # Skip all confirmations
 EOF
 }
 
@@ -57,6 +61,15 @@ log() {
   echo "[$(date '+%H:%M:%S')] $*"
 }
 
+confirm() {
+  local prompt=$1
+  if [[ "$SKIP_CONFIRM" == true ]]; then
+    return 0
+  fi
+  read -rp "$prompt [y/N] " answer
+  [[ "$answer" =~ ^[Yy]$ ]]
+}
+
 check_npm_version() {
   local current_version
   current_version=$(npm --version 2>/dev/null)
@@ -81,31 +94,27 @@ get_zeltjs_packages() {
     | sort
 }
 
+get_private_packages() {
+  pnpm -r exec -- node -p "const p=require('./package.json'); p.private && p.name?.startsWith('${SCOPE}/') ? p.name : ''" 2>/dev/null \
+    | grep "^${SCOPE}/" \
+    | sort \
+    || true
+}
+
 package_exists_on_npm() {
   local pkg=$1
   npm view "$pkg" --json >/dev/null 2>&1 || return 1
   return 0
 }
 
-check_packages_status() {
-  local packages=$1
-  local -n published_ref=$2
-  local -n empty_ref=$3
-
-  while IFS= read -r pkg; do
-    if package_exists_on_npm "$pkg"; then
-      published_ref+=("$pkg")
-    else
-      empty_ref+=("$pkg")
-    fi
-  done <<< "$packages"
-}
 
 setup_package() {
   local pkg=$1
   local needs_placeholder=$2
 
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   log "Processing: $pkg"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   if [[ "$needs_placeholder" == true ]]; then
     log "  → Creating placeholder package..."
@@ -120,12 +129,11 @@ setup_package() {
 
   log "  → Setting up trusted publisher..."
   if [[ "$DRY_RUN" == true ]]; then
-    log "  [DRY-RUN] Would run: npm trust github \"$pkg\" --repository \"$REPO\" --workflow \"$WORKFLOW\" --yes"
+    log "  [DRY-RUN] Would run: npm trust github \"$pkg\" --repository \"$REPO\" --file \"$WORKFLOW\" --yes"
   else
-    npm trust github "$pkg" --repository "$REPO" --workflow "$WORKFLOW" --yes
+    npm trust github "$pkg" --repository "$REPO" --file "$WORKFLOW" --yes
   fi
-
-  sleep "$SLEEP_INTERVAL"
+  echo
 }
 
 main() {
@@ -138,17 +146,32 @@ main() {
 
   check_npm_version
 
+  # ============================================================
+  # Step 1: List packages (no auth required)
+  # ============================================================
+  log "Step 1: Listing packages..."
+  echo
+
   local packages
   packages=$(get_zeltjs_packages)
+  local private_packages
+  private_packages=$(get_private_packages)
   local count
   count=$(echo "$packages" | wc -l)
 
-  log "Checking $count packages on npm..."
+  log "Checking $count public packages on npm..."
   echo
 
   local published=()
-  local empty=()
-  check_packages_status "$packages" published empty
+  local not_on_npm=()
+
+  while IFS= read -r pkg; do
+    if package_exists_on_npm "$pkg"; then
+      published+=("$pkg")
+    else
+      not_on_npm+=("$pkg")
+    fi
+  done <<< "$packages"
 
   echo "Published (${#published[@]} packages):"
   if [[ ${#published[@]} -eq 0 ]]; then
@@ -158,28 +181,90 @@ main() {
   fi
   echo
 
-  echo "Not on npm - will create placeholder (${#empty[@]} packages):"
-  if [[ ${#empty[@]} -eq 0 ]]; then
+  echo "Not on npm (${#not_on_npm[@]} packages):"
+  if [[ ${#not_on_npm[@]} -eq 0 ]]; then
     echo "  (none)"
   else
-    printf '  - %s\n' "${empty[@]}"
+    printf '  - %s\n' "${not_on_npm[@]}"
   fi
   echo
 
-  log "All $count packages will have trusted publisher configured."
+  local private_count=0
+  if [[ -n "$private_packages" ]]; then
+    private_count=$(echo "$private_packages" | wc -l)
+  fi
+  echo "Private (${private_count} packages):"
+  if [[ $private_count -eq 0 ]]; then
+    echo "  (none)"
+  else
+    echo "$private_packages" | while read -r pkg; do
+      echo "  - $pkg"
+    done
+  fi
   echo
 
-  if [[ "$SKIP_CONFIRM" == false ]]; then
-    read -rp "Proceed? [y/N] " answer
-    if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+  # ============================================================
+  # Step 2: Check trusted publisher status (2FA required)
+  # ============================================================
+  if [[ ${#published[@]} -gt 0 ]]; then
+    if ! confirm "Step 2: Check trusted publisher status? (requires 2FA)"; then
       log "Aborted."
       exit 0
     fi
     echo
+
+    log "Step 2: Checking trusted publisher status..."
+    log "NOTE: 2FA authentication will be required for each package."
+    echo
+
+    local configured=()
+    local needs_setup=()
+
+    for pkg in "${published[@]}"; do
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "Checking: $pkg"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      npm trust list "$pkg"
+      echo
+      read -rp "Is trusted publisher configured? [y/N] " answer
+      if [[ "$answer" =~ ^[Yy]$ ]]; then
+        configured+=("$pkg")
+        echo "  → $pkg ✓"
+      else
+        needs_setup+=("$pkg")
+        echo "  → $pkg ✗"
+      fi
+      echo
+    done
+
+    log "${#configured[@]} configured, ${#needs_setup[@]} needs setup."
+    echo
+
+    # Update published to only those needing setup
+    published=("${needs_setup[@]+"${needs_setup[@]}"}")
   fi
 
+  # ============================================================
+  # Step 3: Setup trusted publishers (2FA required)
+  # ============================================================
+  local to_process=$((${#published[@]} + ${#not_on_npm[@]}))
+
+  if [[ $to_process -eq 0 ]]; then
+    log "Nothing to configure. All packages are already set up."
+    exit 0
+  fi
+
+  log "$to_process packages to configure."
+  echo
+
+  if ! confirm "Step 3: Setup trusted publishers? (requires 2FA)"; then
+    log "Aborted."
+    exit 0
+  fi
+  echo
+
   if [[ "$DRY_RUN" == false ]]; then
-    log "NOTE: First 2FA prompt will appear. Select 'skip for next 5 minutes' to batch process."
+    log "NOTE: 2FA authentication will be required for each package."
     echo
   fi
 
@@ -195,7 +280,7 @@ main() {
     fi
   done
 
-  for pkg in "${empty[@]}"; do
+  for pkg in "${not_on_npm[@]}"; do
     if setup_package "$pkg" true; then
       processed=$((processed + 1))
     else
@@ -206,7 +291,7 @@ main() {
 
   echo
   log "=== Complete ==="
-  log "Processed: $processed / $count"
+  log "Processed: $processed / $to_process"
   if [[ $failed -gt 0 ]]; then
     log "Failed: $failed"
     return 1
