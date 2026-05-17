@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/zeltjs/zelt/compare/decorator-metadata-v0.4.0...decorator-metadata-v0.5.0) (2026-05-17)
+
+
+### Bug Fixes
+
+* **build:** transform TC39 decorators with SWC at build time ([c681663](https://github.com/zeltjs/zelt/commit/c6816636d04e85690115fd64c00aaf02a11fc70b))
+* **build:** transform TC39 decorators with SWC at build time ([3430ff3](https://github.com/zeltjs/zelt/commit/3430ff33f0dc31981a7da55246c7ca43baa2d281))
+
 ## [0.4.0](https://github.com/zeltjs/zelt/compare/decorator-metadata-v0.3.0...decorator-metadata-v0.4.0) (2026-05-17)
 
 
