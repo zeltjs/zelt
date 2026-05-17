@@ -33,6 +33,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '3.114.6'
+          workingDirectory: website
           packageManager: 'pnpm'
-          command: pages deploy website/build --project-name=zelt --branch=${{ github.head_ref || github.ref_name }}
+          command: pages deploy build --project-name=zelt --branch=${{ github.head_ref || github.ref_name }}
