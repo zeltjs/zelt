@@ -11,6 +11,7 @@ import {
 import CodeBlock from '@theme/CodeBlock';
 import Layout from '@theme/Layout';
 import type { ComponentType, SVGProps } from 'react';
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 type FeatureItem = {
   title: string;
@@ -147,6 +148,104 @@ function FeaturesSection() {
   );
 }
 
+const benchmarkData = [
+  { name: 'Fastify', value: 44033, color: '#6b7280' },
+  { name: 'Zelt', value: 37331, color: '#ea580c' },
+  { name: 'Hono', value: 37262, color: '#6b7280' },
+  { name: 'AdonisJS', value: 33548, color: '#6b7280' },
+  { name: 'NestJS', value: 23597, color: '#6b7280' },
+];
+
+const coldStartData = [
+  { name: 'Hono', value: 37, color: '#6b7280' },
+  { name: 'Zelt', value: 68, color: '#ea580c' },
+  { name: 'Fastify', value: 101, color: '#6b7280' },
+  { name: 'AdonisJS', value: 149, color: '#6b7280' },
+  { name: 'NestJS', value: 268, color: '#6b7280' },
+];
+
+function BenchmarkSection() {
+  return (
+    <section className="benchmark">
+      <div className="benchmark__container">
+        <h2 className="benchmark__title">Benchmark</h2>
+        <p className="benchmark__subtitle">
+          Performance comparison with popular TypeScript frameworks
+        </p>
+        <div className="benchmark__grid">
+          <div className="benchmark__card">
+            <h3 className="benchmark__card-title">Requests/sec</h3>
+            <p className="benchmark__card-description">Higher is better</p>
+            <div className="benchmark__chart">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={benchmarkData} layout="vertical" margin={{ left: 0, right: 20 }}>
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={70}
+                    tick={{ fontSize: 12, fill: 'var(--ifm-font-color-base)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [value.toLocaleString(), 'req/s']}
+                    contentStyle={{
+                      backgroundColor: 'var(--ifm-background-surface-color)',
+                      border: '1px solid var(--ifm-color-emphasis-200)',
+                      borderRadius: '0.375rem',
+                    }}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {benchmarkData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="benchmark__card">
+            <h3 className="benchmark__card-title">Cold Start (ms)</h3>
+            <p className="benchmark__card-description">Lower is better</p>
+            <div className="benchmark__chart">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={coldStartData} layout="vertical" margin={{ left: 0, right: 20 }}>
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={70}
+                    tick={{ fontSize: 12, fill: 'var(--ifm-font-color-base)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [`${value} ms`, 'listen']}
+                    contentStyle={{
+                      backgroundColor: 'var(--ifm-background-surface-color)',
+                      border: '1px solid var(--ifm-color-emphasis-200)',
+                      borderRadius: '0.375rem',
+                    }}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {coldStartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+        <p className="benchmark__footer">
+          <Link to="https://github.com/zeltjs/benchmarks">View full benchmark details →</Link>
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function InstallSection() {
   return (
     <section className="install">
@@ -163,7 +262,7 @@ function InstallSection() {
   );
 }
 
-export default function Home(): JSX.Element {
+export default function Home(): React.ReactNode {
   const { siteConfig } = useDocusaurusContext();
 
   return (
@@ -172,6 +271,7 @@ export default function Home(): JSX.Element {
         <HeroSection />
         <CodeShowcase />
         <FeaturesSection />
+        <BenchmarkSection />
         <InstallSection />
       </main>
     </Layout>

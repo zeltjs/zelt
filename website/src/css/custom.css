@@ -705,6 +705,75 @@ article .markdown header h1 {
   color: var(--ifm-color-primary-dark);
 }
 
+/* ===== Benchmark Section ===== */
+
+.benchmark {
+  padding: var(--section-padding);
+}
+
+.benchmark__container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.benchmark__title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.benchmark__subtitle {
+  text-align: center;
+  color: var(--ifm-font-color-base);
+  opacity: 0.7;
+  margin-bottom: 2.5rem;
+}
+
+.benchmark__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+}
+
+.benchmark__card {
+  padding: 1.5rem;
+  background-color: var(--ifm-background-surface-color);
+  border-radius: 0.75rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.benchmark__card-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.benchmark__card-description {
+  font-size: 0.875rem;
+  color: var(--ifm-font-color-base);
+  opacity: 0.6;
+  margin-bottom: 1rem;
+}
+
+.benchmark__chart {
+  width: 100%;
+}
+
+.benchmark__footer {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.9375rem;
+}
+
+.benchmark__footer a {
+  color: var(--ifm-color-primary);
+}
+
+.benchmark__footer a:hover {
+  color: var(--ifm-color-primary-dark);
+}
+
 @media (max-width: 768px) {
   .hero {
     padding: 4rem 1.5rem;
@@ -724,6 +793,10 @@ article .markdown header h1 {
   }
 
   .features__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .benchmark__grid {
     grid-template-columns: 1fr;
   }
 }

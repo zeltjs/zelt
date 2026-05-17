@@ -36,6 +36,20 @@ class HelloController {
 }
 ```
 
+## Benchmark
+
+Zeltはランタイム性能とコールドスタート速度のバランスを実現 — サーバーレスに最適。
+
+| Framework | Requests/sec | Cold Start (ms) |
+| --------- | -----------: | --------------: |
+| Fastify   |       44,033 |             101 |
+| **Zelt**  |   **37,331** |          **68** |
+| Hono      |       37,262 |              37 |
+| AdonisJS  |       33,548 |             149 |
+| NestJS    |       23,597 |             268 |
+
+[ベンチマーク詳細 →](https://github.com/zeltjs/benchmarks)
+
 ## Status
 
 **pre-alpha** — Breaking changes may occur in minor versions during 0.x.
