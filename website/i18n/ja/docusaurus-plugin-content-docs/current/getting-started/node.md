@@ -83,9 +83,17 @@ The `onNode()` function prepares your app for the Node.js runtime, returning a `
 Create `src/main.ts` to start the server:
 
 ```typescript
-declare const nodeApp: {
-  listen(options?: { port?: number }): Promise<{ address: { port: number } }>;
-};
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp({ http: { controllers: [HelloController] } });
+const nodeApp = await onNode(app);
 // ---cut---
 const server = await nodeApp.listen({ port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);

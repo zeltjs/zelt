@@ -443,8 +443,15 @@ Mock the user context in tests:
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { onTest } from '@zeltjs/testing';
-import { setUser, HttpApp } from '@zeltjs/core';
-declare const app: HttpApp;
+import { createApp, setUser, Controller, Get, Authorized, currentUser } from '@zeltjs/core';
+
+@Controller('/users')
+class UserController {
+  @Authorized() @Get('/me')
+  me() { return currentUser(); }
+}
+
+const app = createApp({ http: { controllers: [UserController] } });
 // ---cut---
 describe('Protected routes', () => {
   it('returns user data when authenticated', async () => {

@@ -45,12 +45,35 @@ class MySessionConfig extends SessionConfig {
 ### 3. Register Middleware
 
 ```typescript
-import { createApp } from '@zeltjs/core';
+import { createApp, Config, Controller, Post, Get, inject } from '@zeltjs/core';
 import { MemoryKVService } from '@zeltjs/kv';
-import { SessionMiddleware } from '@zeltjs/auth-session';
-declare const AuthController: never;
-declare const UserController: never;
-declare const MySessionConfig: never;
+import { SessionMiddleware, SessionConfig, getSession, setSession, destroySession } from '@zeltjs/auth-session';
+import { HTTPException } from 'hono/http-exception';
+
+@Config
+class MySessionConfig extends SessionConfig {
+  private kv = inject(MemoryKVService);
+  override get store() { return this.kv.namespace('sessions'); }
+}
+
+@Controller('/auth')
+class AuthController {
+  @Post('/login')
+  login() { setSession({ userId: '1' }); return { success: true }; }
+  @Get('/me')
+  me() {
+    const session = getSession();
+    if (!session) throw new HTTPException(401, { message: 'Not logged in' });
+    return session;
+  }
+  @Post('/logout')
+  logout() { destroySession(); return { success: true }; }
+}
+
+@Controller('/users')
+class UserController {
+  @Get('/') findAll() { return { users: [] }; }
+}
 // ---cut---
 const app = createApp({
   http: {
@@ -232,14 +255,22 @@ class MySessionConfig extends SessionConfig {
 ### Default Cookie Options
 
 ```typescript
-declare const env: { get(key: string): string | undefined };
+import { Config, EnvService, inject } from '@zeltjs/core';
+import { SessionConfig } from '@zeltjs/auth-session';
+
+@Config
+class MySessionConfig extends SessionConfig {
+  constructor(private env = inject(EnvService)) { super(); }
 // ---cut---
-const defaultCookieOptions = {
-  httpOnly: true,
-  secure: env.get('NODE_ENV') === 'production',
-  sameSite: 'Lax' as const,
-  path: '/',
-};
+  override get cookieOptions() {
+    return {
+      httpOnly: true,
+      secure: this.env.getString('NODE_ENV', '') === 'production',
+      sameSite: 'Lax' as const,
+      path: '/',
+    };
+  }
+}
 ```
 
 ## Storage Backends
@@ -335,12 +366,43 @@ export class SessionAuthMiddleware {
 Register after `SessionMiddleware`:
 
 ```typescript
-import { createApp, Middleware, type RequestContext, type Next } from '@zeltjs/core';
+import { createApp, Config, Controller, Get, Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
 import { MemoryKVService } from '@zeltjs/kv';
-import { SessionMiddleware } from '@zeltjs/auth-session';
-declare const UserController: never;
-declare const MySessionConfig: never;
-@Middleware class SessionAuthMiddleware { async use(c: RequestContext, next: Next) { await next(); return undefined; } }
+import { SessionMiddleware, SessionConfig, getSession } from '@zeltjs/auth-session';
+
+type User = { id: string; name: string; email: string; roles: string[] };
+
+@Injectable()
+class UserRepository {
+  async findById(id: string): Promise<User> {
+    return { id, name: '', email: '', roles: [] };
+  }
+}
+
+@Config
+class MySessionConfig extends SessionConfig {
+  private kv = inject(MemoryKVService);
+  override get store() { return this.kv.namespace('sessions'); }
+}
+
+@Middleware
+class SessionAuthMiddleware {
+  constructor(private userRepo = inject(UserRepository)) {}
+  async use(c: RequestContext, next: Next) {
+    const session = getSession() as { userId?: string } | undefined;
+    if (session?.userId) {
+      const user = await this.userRepo.findById(session.userId);
+      setUser({ id: user.id, name: user.name, email: user.email }, user.roles);
+    }
+    await next();
+    return undefined;
+  }
+}
+
+@Controller('/users')
+class UserController {
+  @Get('/') findAll() { return { users: [] }; }
+}
 // ---cut---
 const app = createApp({
   http: {

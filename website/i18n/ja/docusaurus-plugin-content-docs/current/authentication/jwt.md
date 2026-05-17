@@ -26,10 +26,21 @@ JWT_SECRET=your-secret-key-at-least-32-characters
 ### 2. Register Middleware
 
 ```typescript
-import { createApp } from '@zeltjs/core';
-import { JwtMiddleware, JwtConfig } from '@zeltjs/auth-jwt';
-declare const AuthController: never;
-declare const UserController: never;
+import { createApp, Controller, Post, Get, Authorized, currentUser, inject } from '@zeltjs/core';
+import { JwtMiddleware, JwtConfig, JwtService } from '@zeltjs/auth-jwt';
+
+@Controller('/auth')
+class AuthController {
+  constructor(private jwtService = inject(JwtService)) {}
+  @Post('/login')
+  async login() { return { token: await this.jwtService.sign({ sub: '1' }) }; }
+}
+
+@Controller('/users')
+class UserController {
+  @Authorized() @Get('/me')
+  me() { return currentUser(); }
+}
 // ---cut---
 const app = createApp({
   http: {
@@ -220,11 +231,48 @@ class CustomJwtConfig extends JwtConfig {
 Register your custom config:
 
 ```typescript
-import { createApp } from '@zeltjs/core';
-import { JwtMiddleware } from '@zeltjs/auth-jwt';
-declare const AuthController: never;
-declare const UserController: never;
-declare const CustomJwtConfig: never;
+import { createApp, Controller, Post, Get, Authorized, currentUser, inject } from '@zeltjs/core';
+import { JwtMiddleware, JwtService } from '@zeltjs/auth-jwt';
+import { JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
+import { Config, EnvConfig, Injectable } from '@zeltjs/core';
+
+type User = { id: string; name: string; email: string; roles: string[] };
+
+@Injectable()
+class UserRepository {
+  async findById(id: string): Promise<User> {
+    return { id, name: '', email: '', roles: [] };
+  }
+}
+
+@Config
+class CustomJwtConfig extends JwtConfig {
+  constructor(
+    private env = inject(EnvConfig),
+    private userRepo = inject(UserRepository)
+  ) { super(); }
+  override get secret(): string { return this.env.get('JWT_SECRET')!; }
+  override get expiresIn(): string { return '7d'; }
+  override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {
+    return async (payload) => {
+      const user = await this.userRepo.findById(payload.sub!);
+      return { user: { id: user.id, name: user.name, email: user.email }, roles: user.roles };
+    };
+  }
+}
+
+@Controller('/auth')
+class AuthController {
+  constructor(private jwtService = inject(JwtService)) {}
+  @Post('/login')
+  async login() { return { token: await this.jwtService.sign({ sub: '1' }) }; }
+}
+
+@Controller('/users')
+class UserController {
+  @Authorized() @Get('/me')
+  me() { return currentUser(); }
+}
 // ---cut---
 const app = createApp({
   http: {

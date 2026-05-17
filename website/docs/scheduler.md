@@ -61,7 +61,17 @@ const app = createApp({
 The scheduler requires explicit startup. After calling `onNode()` and `ready()`, call `startScheduler()` to begin executing scheduled tasks:
 
 ```typescript
-declare const nodeApp: { startScheduler(): Promise<void>; stopScheduler(): Promise<void> };
+import { createApp, Controller, Get, Scheduled, Daily, Hourly } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
+
+@Controller('/users') class UserController { @Get('/') findAll() { return { users: [] }; } }
+@Scheduled() class ReportScheduler {
+  @Daily({ hour: 9 }) async sendDailyReport() {}
+  @Hourly() async checkHealth() {}
+}
+
+const app = createApp({ http: { controllers: [UserController] }, schedulers: [ReportScheduler] });
+const nodeApp = await onNode(app);
 // ---cut---
 await nodeApp.startScheduler();
 ```
@@ -69,7 +79,17 @@ await nodeApp.startScheduler();
 To stop the scheduler gracefully:
 
 ```typescript
-declare const nodeApp: { startScheduler(): Promise<void>; stopScheduler(): Promise<void> };
+import { createApp, Controller, Get, Scheduled, Daily, Hourly } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
+
+@Controller('/users') class UserController { @Get('/') findAll() { return { users: [] }; } }
+@Scheduled() class ReportScheduler {
+  @Daily({ hour: 9 }) async sendDailyReport() {}
+  @Hourly() async checkHealth() {}
+}
+
+const app = createApp({ http: { controllers: [UserController] }, schedulers: [ReportScheduler] });
+const nodeApp = await onNode(app);
 // ---cut---
 await nodeApp.stopScheduler();
 ```
@@ -261,25 +281,26 @@ process.on('SIGTERM', async () => {
 You can conditionally enable the scheduler using configuration:
 
 ```typescript
-import { Config, EnvConfig, inject } from '@zeltjs/core';
+import { createApp, Config, EnvConfig, inject, Scheduled, Daily } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
 
-type Container = { resolve<T>(cls: new (...args: never[]) => T): T };
-declare const nodeApp: { startScheduler(): Promise<void> };
-// ---cut---
 @Config
-export class SchedulerConfig {
+class SchedulerConfig {
   static readonly Token = SchedulerConfig;
-
   constructor(private env = inject(EnvConfig)) {}
-
-  get enabled() {
-    return this.env.get('ENABLE_SCHEDULER') !== 'false';
-  }
+  get enabled() { return this.env.get('ENABLE_SCHEDULER') !== 'false'; }
 }
 
-// In your app setup
-declare const container: Container;
-const config = container.resolve(SchedulerConfig);
+@Scheduled() class MyScheduler { @Daily({ hour: 9 }) async task() {} }
+
+const app = createApp({
+  http: { controllers: [] },
+  schedulers: [MyScheduler],
+  configs: [SchedulerConfig],
+});
+const nodeApp = await onNode(app);
+// ---cut---
+const config = nodeApp.get(SchedulerConfig);
 if (config.enabled) {
   await nodeApp.startScheduler();
 }

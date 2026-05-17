@@ -98,14 +98,25 @@ throw new HTTPException(401, { res: errorResponse });
 Use the `cause` option to attach the original error for debugging:
 
 ```typescript
-import { HTTPException } from '@zeltjs/core';
-declare function authorize(c: unknown): Promise<void>;
-declare const c: unknown;
+import { Middleware, HTTPException, type RequestContext, type Next } from '@zeltjs/core';
+
+async function authorize(c: RequestContext): Promise<void> {
+  const token = c.req.header('Authorization');
+  if (!token) throw new Error('No token');
+}
+
+@Middleware
+class AuthMiddleware {
 // ---cut---
-try {
-  await authorize(c);
-} catch (cause) {
-  throw new HTTPException(401, { message: 'Authorization failed', cause });
+  async use(c: RequestContext, next: Next) {
+    try {
+      await authorize(c);
+    } catch (cause) {
+      throw new HTTPException(401, { message: 'Authorization failed', cause });
+    }
+    await next();
+    return undefined;
+  }
 }
 ```
 

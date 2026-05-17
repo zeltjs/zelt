@@ -243,7 +243,8 @@ BullMQ supports many job options. Use them directly:
 
 ```typescript
 import { Queue } from 'bullmq';
-declare const queue: Queue;
+
+const queue = new Queue('reports', { connection: { host: 'localhost', port: 6379 } });
 // ---cut---
 await queue.add('report', { userId: 123 }, {
   delay: 60000,                    // Delay 1 minute
@@ -261,7 +262,8 @@ For recurring jobs, use BullMQ's repeat feature:
 
 ```typescript
 import { Queue } from 'bullmq';
-declare const queue: Queue;
+
+const queue = new Queue('reports', { connection: { host: 'localhost', port: 6379 } });
 // ---cut---
 await queue.add('daily-report', {}, {
   repeat: {

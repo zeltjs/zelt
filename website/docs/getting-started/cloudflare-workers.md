@@ -81,9 +81,16 @@ export const app = createApp({
 Create `src/index.ts` as the Cloudflare Workers entry point:
 
 ```typescript
-import { type HttpApp } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
-declare const app: HttpApp;
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp({ http: { controllers: [HelloController] } });
 // ---cut---
 const workers = await onCloudflareWorkers(app);
 
@@ -189,10 +196,16 @@ npx wrangler secret put DATABASE_URL
 Access them the same way via `EnvService`:
 
 ```typescript
-import { EnvService, inject } from '@zeltjs/core';
-declare const env: EnvService;
+import { Injectable, EnvService, inject } from '@zeltjs/core';
+
+@Injectable()
+class DatabaseService {
+  constructor(private env = inject(EnvService)) {}
 // ---cut---
-const dbUrl = env.getString('DATABASE_URL', '');
+  get connectionUrl() {
+    return this.env.getString('DATABASE_URL', '');
+  }
+}
 ```
 
 ## Services
@@ -247,9 +260,16 @@ By default, `onCloudflareWorkers()` uses lazy initialization (`warmup: false`) t
 If you prefer to resolve all controllers at initialization (useful for debugging or when cold start time is less critical), set `warmup: true`:
 
 ```typescript
-import { type HttpApp } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
-declare const app: HttpApp;
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp({ http: { controllers: [HelloController] } });
 // ---cut---
 const workers = await onCloudflareWorkers(app, { warmup: true });
 

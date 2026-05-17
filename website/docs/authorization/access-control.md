@@ -151,16 +151,17 @@ class PostController {
 `@Authorized` works with other method decorators:
 
 ```typescript
-import { Controller, Authorized, Post, UseMiddleware, FunctionMiddleware } from '@zeltjs/core';
+import { Controller, Authorized, Post } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
+import { RateLimit } from '@zeltjs/rate-limit';
 import * as v from 'valibot';
+
 const CreatePostSchema = v.object({ title: v.string(), content: v.string() });
-declare const rateLimitMiddleware: FunctionMiddleware;
 // ---cut---
 @Controller('/api')
 class ApiController {
   @Authorized()
-  @UseMiddleware(rateLimitMiddleware)
+  @RateLimit({ limit: 100, windowSec: 60, key: 'posts' })
   @Post('/posts')
   create(data = validated(CreatePostSchema)) {
     return { created: true };
@@ -180,12 +181,23 @@ class ApiController {
 Handle authorization errors in your error handler:
 
 ```typescript
-import { createApp, HTTPException, type RequestContext } from '@zeltjs/core';
-declare const controllers: never[];
+import { createApp, Controller, Get, Authorized, HTTPException, type RequestContext } from '@zeltjs/core';
+
+@Controller('/dashboard')
+class DashboardController {
+  @Authorized() @Get('/')
+  index() { return { stats: [] }; }
+}
+
+@Controller('/admin')
+class AdminController {
+  @Authorized(['admin']) @Get('/users')
+  listUsers() { return { users: [] }; }
+}
 // ---cut---
 const app = createApp({
   http: {
-    controllers,
+    controllers: [DashboardController, AdminController],
     onError: (error: Error, c: RequestContext) => {
       if (error instanceof HTTPException) {
         if (error.status === 401) {
@@ -381,12 +393,18 @@ class PostController {
 
 ```typescript
 import { it, expect } from 'vitest';
-declare function createTestClient(app: unknown): { get(path: string): Promise<{ status: number }> };
-declare const app: unknown;
+import { createApp, Controller, Get, Authorized } from '@zeltjs/core';
+
+@Controller('/dashboard')
+class DashboardController {
+  @Authorized() @Get('/')
+  index() { return { stats: [] }; }
+}
+
+const app = createApp({ http: { controllers: [DashboardController] } });
 // ---cut---
 it('returns 401 for unauthenticated requests', async () => {
-  const client = createTestClient(app);
-  const res = await client.get('/dashboard');
+  const res = await app.request('/dashboard');
   
   expect(res.status).toBe(401);
 });
@@ -396,17 +414,21 @@ it('returns 401 for unauthenticated requests', async () => {
 
 ```typescript
 import { it, expect } from 'vitest';
-import { setUser } from '@zeltjs/core';
-declare function createTestClient(app: unknown): { get(path: string): Promise<{ status: number }> };
-declare const app: unknown;
+import { createApp, Controller, Get, Authorized, setUser } from '@zeltjs/core';
+
+@Controller('/dashboard')
+class DashboardController {
+  @Authorized() @Get('/')
+  index() { return { stats: [] }; }
+}
+
+const app = createApp({ http: { controllers: [DashboardController] } });
 // ---cut---
 it('returns data for authenticated users', async () => {
-  const client = createTestClient(app);
-  
   // Set up authentication context
   setUser({ id: '123', name: 'Test' }, ['user']);
   
-  const res = await client.get('/dashboard');
+  const res = await app.request('/dashboard');
   expect(res.status).toBe(200);
 });
 ```
@@ -415,25 +437,27 @@ it('returns data for authenticated users', async () => {
 
 ```typescript
 import { it, expect } from 'vitest';
-import { setUser } from '@zeltjs/core';
-declare function createTestClient(app: unknown): { get(path: string): Promise<{ status: number }> };
-declare const app: unknown;
+import { createApp, Controller, Get, Authorized, setUser } from '@zeltjs/core';
+
+@Controller('/admin')
+class AdminController {
+  @Authorized(['admin']) @Get('/users')
+  listUsers() { return { users: [] }; }
+}
+
+const app = createApp({ http: { controllers: [AdminController] } });
 // ---cut---
 it('returns 403 for non-admin users', async () => {
-  const client = createTestClient(app);
-  
   setUser({ id: '123', name: 'Test' }, ['user']);  // Not admin
   
-  const res = await client.get('/admin/users');
+  const res = await app.request('/admin/users');
   expect(res.status).toBe(403);
 });
 
 it('allows admin access', async () => {
-  const client = createTestClient(app);
-  
   setUser({ id: '123', name: 'Test' }, ['admin']);
   
-  const res = await client.get('/admin/users');
+  const res = await app.request('/admin/users');
   expect(res.status).toBe(200);
 });
 ```

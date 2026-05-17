@@ -65,17 +65,19 @@ afterAll(shutdownAll);
 `createTestTarget` is the primary testing utility for instantiating services with dependency injection. It automatically handles lifecycle management and cleanup.
 
 ```typescript
-import { ConfigClass } from '@zeltjs/core';
-declare function describe(name: string, fn: () => void): void;
-declare function it(name: string, fn: () => void | Promise<void>): void;
-declare function expect<T>(value: T): { toBe(expected: T): void; };
-declare function createTestTarget<T extends object>(cls: new (...args: never[]) => T, opts?: { configs?: readonly ConfigClass<object>[] }): Promise<{ target: T; shutdown: () => Promise<void> }>;
-declare class UserService { create(data: { name: string }): Promise<{ name: string }>; }
-declare const ProcessEnvConfig: ConfigClass<object>;
+import { describe, it, expect } from 'vitest';
+import { createTestTarget } from '@zeltjs/testing';
+import { ProcessEnvConfig } from '@zeltjs/adapter-node';
+import { Injectable } from '@zeltjs/core';
+
+@Injectable()
+class UserService {
+  async create(data: { name: string }) { return data; }
+}
 // ---cut---
 describe('UserService', () => {
   it('should create user', async () => {
-    const { target, shutdown } = await createTestTarget(UserService, {
+    const { target } = await createTestTarget(UserService, {
       configs: [ProcessEnvConfig],
     });
 
@@ -105,16 +107,22 @@ describe('UserService', () => {
 Use `overrides` to replace real implementations with mocks (Solitary Unit Test):
 
 ```typescript
-import { ConfigClass } from '@zeltjs/core';
-declare function describe(name: string, fn: () => void): void;
-declare function it(name: string, fn: () => void | Promise<void>): void;
-interface ExpectStatic { <T>(value: T): { toBe(expected: T): void; toHaveBeenCalledWith(...args: unknown[]): void }; stringContaining(str: string): unknown; }
-declare const expect: ExpectStatic;
-declare const vi: { fn: () => { mockResolvedValue: (val: unknown) => { send: unknown } } };
-type Override<T> = { provide: new (...args: never[]) => T; useValue: unknown };
-declare function createTestTarget<T extends object>(cls: new (...args: never[]) => T, opts?: { configs?: readonly ConfigClass<object>[]; overrides?: Override<unknown>[] }): Promise<{ target: T }>;
-declare class UserService { register(data: { email: string }): Promise<void>; }
-declare class EmailService { send(to: string, subject: string): Promise<void>; }
+import { describe, it, expect, vi } from 'vitest';
+import { createTestTarget } from '@zeltjs/testing';
+import { Injectable, inject } from '@zeltjs/core';
+
+@Injectable()
+class EmailService {
+  async send(to: string, subject: string) { return { to, subject }; }
+}
+
+@Injectable()
+class UserService {
+  constructor(private emailService = inject(EmailService)) {}
+  async register(data: { email: string }) {
+    await this.emailService.send(data.email, 'Welcome!');
+  }
+}
 // ---cut---
 describe('UserService', () => {
   it('should send welcome email', async () => {
