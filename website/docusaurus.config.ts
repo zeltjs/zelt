@@ -29,6 +29,10 @@ const twoslasher = createTwoslasher({
     paths: {
       '@zeltjs/validator-valibot': ['./packages/validator-valibot/dist/index.d.ts'],
       '@zeltjs/redis/testing': ['./packages/redis/dist/testing/index.d.ts'],
+      '@zeltjs/testing/vitest': ['./packages/testing/dist/adapters/vitest.d.ts'],
+      '@zeltjs/testing/jest': ['./packages/testing/dist/adapters/jest.d.ts'],
+      '@zeltjs/testing/bun': ['./packages/testing/dist/adapters/bun.d.ts'],
+      '@zeltjs/testing/node': ['./packages/testing/dist/adapters/node.d.ts'],
       '@zeltjs/*': ['./packages/*/dist/index.d.ts'],
       valibot: [
         './node_modules/.pnpm/valibot@1.0.0_typescript@6.0.2/node_modules/valibot/dist/index.d.ts',
