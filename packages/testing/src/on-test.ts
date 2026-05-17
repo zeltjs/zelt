@@ -9,7 +9,7 @@ type OnTestOptions = {
   readonly configs?: readonly AnyConfigClass[];
 };
 
-type TestApp = {
+export type TestApp = {
   readonly fetch: (request: Request) => Promise<Response>;
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
