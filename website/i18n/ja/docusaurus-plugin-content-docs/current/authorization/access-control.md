@@ -225,7 +225,7 @@ class PostRepository {
     return { authorId: '' };
   }
 }
-
+// ---cut---
 @Controller('/posts')
 class PostController {
   constructor(private postRepo = inject(PostRepository)) {}
@@ -268,7 +268,7 @@ class PostRepository {
     return { authorId: '' };
   }
 }
-
+// ---cut---
 @Controller('/posts')
 class PostController {
   constructor(private postRepo = inject(PostRepository)) {}
@@ -331,7 +331,7 @@ class PostRepository {
 
   async delete(_id: string): Promise<void> {}
 }
-
+// ---cut---
 @Injectable()
 class PostAuthorizationService {
   canView(post: Post): boolean {

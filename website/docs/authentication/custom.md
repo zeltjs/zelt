@@ -37,11 +37,10 @@ import { Middleware, Injectable, inject, setUser, type RequestContext, type Next
 @Injectable()
 class ApiKeyRepository {
   async findByKey(key: string): Promise<{ id: string; name: string; scopes: string[] } | null> {
-    // Database lookup here
     return null;
   }
 }
-
+// ---cut---
 @Middleware
 export class ApiKeyAuthMiddleware {
   constructor(private apiKeyRepo = inject(ApiKeyRepository)) {}
@@ -79,11 +78,9 @@ class ApiKeyService {
     return null;
   }
 
-  async updateLastUsed(key: string): Promise<void> {
-    // Update timestamp in database
-  }
+  async updateLastUsed(key: string): Promise<void> {}
 }
-
+// ---cut---
 @Middleware
 export class ApiKeyAuthMiddleware {
   constructor(private apiKeyService = inject(ApiKeyService)) {}
@@ -129,11 +126,10 @@ class UserService {
     username: string,
     password: string
   ): Promise<{ id: string; name: string; roles: string[] } | null> {
-    // Validate against database
     return null;
   }
 }
-
+// ---cut---
 @Middleware
 export class BasicAuthMiddleware {
   constructor(private userService = inject(UserService)) {}
@@ -193,14 +189,13 @@ class UserRepository {
 
 @Injectable()
 class OAuth2Service {
-  constructor(private config = inject(OAuthConfig)) {}
+  constructor(private _config = inject(OAuthConfig)) {}
 
   async verifyAccessToken(token: string): Promise<{ sub: string }> {
-    // Verify token with OAuth provider
     return { sub: '' };
   }
 }
-
+// ---cut---
 @Middleware
 export class OAuthMiddleware {
   constructor(
@@ -268,7 +263,7 @@ class SessionService {
     return '';
   }
 }
-
+// ---cut---
 @Controller('/auth')
 class OAuthController {
   constructor(
@@ -312,7 +307,7 @@ class ApiKeyRepository {
     return null;
   }
 }
-
+// ---cut---
 @Middleware
 export class MultiAuthMiddleware {
   constructor(
@@ -394,7 +389,7 @@ class CryptoService {
     return result === 0;
   }
 }
-
+// ---cut---
 @Middleware
 export class HmacAuthMiddleware {
   constructor(

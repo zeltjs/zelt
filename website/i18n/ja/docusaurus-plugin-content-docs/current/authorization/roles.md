@@ -128,7 +128,7 @@ class UserRepository {
     return { id, name: '', roles: [] };
   }
 }
-
+// ---cut---
 @Middleware
 class AuthMiddleware {
   constructor(
@@ -158,7 +158,7 @@ import { Controller, Post, Config, inject } from '@zeltjs/core';
 import { JwtService, JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
 
 type User = { id: string; roles: string[] };
-
+// ---cut---
 @Controller('/auth')
 class AuthController {
   constructor(private jwtService = inject(JwtService)) {}
@@ -209,7 +209,7 @@ class UserRepository {
     return { id, name: '' };
   }
 }
-
+// ---cut---
 @Middleware
 class SessionAuthMiddleware {
   constructor(
@@ -248,7 +248,7 @@ class IdentityProviderService {
     return [];
   }
 }
-
+// ---cut---
 @Middleware
 class ExternalAuthMiddleware {
   constructor(private idp = inject(IdentityProviderService)) {}
@@ -285,7 +285,7 @@ const RolesSchema = v.object({ roles: v.array(v.string()) });
 class UserRepository {
   async updateRoles(id: string, roles: string[]): Promise<void> {}
 }
-
+// ---cut---
 @Controller('/users')
 class UserRolesController {
   constructor(private userRepo = inject(UserRepository)) {}
@@ -315,7 +315,7 @@ class ProjectRepository {
     return { ownerId: '', memberIds: [] };
   }
 }
-
+// ---cut---
 @Middleware
 class ProjectRolesMiddleware {
   constructor(private projectRepo = inject(ProjectRepository)) {}

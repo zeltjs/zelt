@@ -310,7 +310,7 @@ class UserRepository {
     return { id, name: '', email: '', roles: [] };
   }
 }
-
+// ---cut---
 @Middleware
 export class SessionAuthMiddleware {
   constructor(private userRepo = inject(UserRepository)) {}

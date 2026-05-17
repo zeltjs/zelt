@@ -114,7 +114,7 @@ import { JwtService } from '@zeltjs/auth-jwt';
 @Injectable()
 class TokenService {
   constructor(private jwtService = inject(JwtService)) {}
-
+// ---cut---
   async createToken(userId: string) {
     return this.jwtService.sign({
       sub: userId,
@@ -136,7 +136,7 @@ import { JwtService } from '@zeltjs/auth-jwt';
 @Injectable()
 class TokenService {
   constructor(private jwtService = inject(JwtService)) {}
-
+// ---cut---
   async validateToken(token: string) {
     try {
       const payload = await this.jwtService.verify(token);
@@ -160,7 +160,7 @@ import { JwtService } from '@zeltjs/auth-jwt';
 @Injectable()
 class TokenService {
   constructor(private jwtService = inject(JwtService)) {}
-
+// ---cut---
   readToken(token: string) {
     const payload = this.jwtService.decode(token);
     if (payload) {
@@ -187,7 +187,7 @@ class UserRepository {
     return { id, name: '', email: '', roles: [] };
   }
 }
-
+// ---cut---
 @Config
 class CustomJwtConfig extends JwtConfig {
   constructor(
@@ -289,7 +289,7 @@ class UserRepository {
     return { id, roles: [] };
   }
 }
-
+// ---cut---
 @Controller('/auth')
 class AuthController {
   constructor(
