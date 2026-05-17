@@ -3,6 +3,12 @@
   "version": "0.3.0",
   "description": "ESLint plugin for Zelt DI naming conventions",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/eslint-plugin"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -37,7 +43,6 @@
     "di",
     "naming-conventions"
   ],
-  "license": "MIT",
   "volta": {
     "extends": "../../package.json"
   }
