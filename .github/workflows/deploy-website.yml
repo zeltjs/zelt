@@ -48,17 +48,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: website
           packageManager: 'pnpm'
-          command: versions upload --tag production --message "Production deploy from ${{ github.sha }}"
-
-      - name: Promote to Production
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: cloudflare/wrangler-action@v3.14.1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: website
-          packageManager: 'pnpm'
-          command: versions deploy --yes
+          command: deploy
 
       - name: Comment Preview URL on PR
         if: github.event_name == 'pull_request'
