@@ -1,5 +1,7 @@
 # @zeltjs/decorator-metadata
 
+[![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
+
 Runtime decorator metadata capture and TypeScript type extraction for TC39 decorators.
 
 ## Installation
@@ -56,6 +58,10 @@ if (result.isOk()) {
   // }
 }
 ```
+
+## Documentation
+
+See [zeltjs.com](https://zeltjs.com) for full documentation.
 
 ## License
 

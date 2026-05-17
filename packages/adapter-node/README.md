@@ -1,5 +1,7 @@
 # @zeltjs/adapter-node
 
+[![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
+
 Node.js HTTP server adapter for Zelt applications.
 
 ## Installation

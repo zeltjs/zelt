@@ -1,5 +1,7 @@
 # @zeltjs/testing
 
+[![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
+
 Testing utilities for Zelt applications.
 
 ## Installation

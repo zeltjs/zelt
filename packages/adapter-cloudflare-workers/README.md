@@ -1,5 +1,7 @@
 # @zeltjs/adapter-cloudflare-workers
 
+[![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
+
 Cloudflare Workers adapter for Zelt.
 
 ## Installation
@@ -67,3 +69,7 @@ const workers = await onCloudflareWorkers(app);
 
 export default { fetch: workers.fetch };
 ```
+
+## Documentation
+
+See [zeltjs.com](https://zeltjs.com) for full documentation.

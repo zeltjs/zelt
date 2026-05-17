@@ -1,5 +1,7 @@
 # @zeltjs/openapi
 
+[![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
+
 OpenAPI schema generator for Zelt applications.
 
 ## Installation
