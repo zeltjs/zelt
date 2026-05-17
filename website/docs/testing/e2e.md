@@ -59,10 +59,10 @@ describe('Hello API', () => {
 
 ## Full Application Testing
 
-For complete E2E tests with real dependencies, combine with [Integration Testing](./integration.md):
+For complete E2E tests with real dependencies, use `onTest()` to apply test config overrides to your production app:
 
 ```typescript
-import { createApp, Controller, Get, Post, pathParam, response, HttpApp, ConfigClass } from '@zeltjs/core';
+import { createApp, Controller, Get, Post, pathParam, response, ConfigClass } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 declare function hc<T>(baseUrl: string, options?: { fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> }): T;
@@ -70,7 +70,10 @@ declare function describe(name: string, fn: () => void): void;
 declare function it(name: string, fn: () => void | Promise<void>): void;
 declare function beforeAll(fn: () => void | Promise<void>): void;
 declare function expect<T>(value: T): { toBe(expected: T): void; };
+declare const RedisConfig: ConfigClass<object>;
 declare const RedisTestContainerConfig: ConfigClass<object>;
+type TestApp = { fetch: (req: Request) => Promise<Response>; request: (input: string | Request, init?: RequestInit) => Promise<Response> };
+declare function onTest(app: { overrideConfig: (cls: ConfigClass<object>) => void; ready: () => Promise<void>; fetch: (req: Request) => Promise<Response>; request: (input: string | Request, init?: RequestInit) => Promise<Response> }, opts?: { configs?: readonly ConfigClass<object>[] }): Promise<TestApp>;
 const UserBody = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
 @Controller('/users') class UserController {
   @Get('/:id') findOne(id = pathParam('id')) { return { id, name: 'Alice', email: 'alice@example.com' }; }
@@ -83,17 +86,24 @@ type AppType = {
   };
 };
 // ---cut---
+// Production app - same as your real application
+const app = createApp({
+  configs: [RedisConfig],
+  http: { controllers: [UserController] },
+});
+
 describe('API E2E', () => {
-  let app: HttpApp;
+  let testApp: TestApp;
   let client: AppType;
 
   beforeAll(async () => {
-    app = createApp({
+    // onTest() overrides RedisConfig with RedisTestContainerConfig
+    testApp = await onTest(app, {
       configs: [RedisTestContainerConfig],
-      http: { controllers: [UserController] },
     });
     client = hc<AppType>('http://localhost', {
-      fetch: (input: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(input, init)),
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => 
+        testApp.fetch(new Request(input, init)),
     });
   });
 
