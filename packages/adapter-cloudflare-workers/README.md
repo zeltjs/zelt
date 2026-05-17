@@ -1,6 +1,10 @@
 # @zeltjs/adapter-cloudflare-workers
 
+[![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
+
 Cloudflare Workers adapter for Zelt.
+
+**[Read the Documentation](https://zeltjs.com)**
 
 ## Installation
 

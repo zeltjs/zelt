@@ -1,6 +1,10 @@
 # @zeltjs/testing
 
+[![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
+
 Testing utilities for Zelt applications.
+
+**[Read the Documentation](https://zeltjs.com)**
 
 ## Installation
 
@@ -22,7 +26,3 @@ describe('HelloController', () => {
   });
 });
 ```
-
-## Documentation
-
-See [zeltjs.com](https://zeltjs.com) for full documentation.
