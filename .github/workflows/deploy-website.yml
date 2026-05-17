@@ -26,7 +26,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm build
+        run: pnpm --filter '!website' build
 
       - name: Build website
         run: pnpm --filter website build
