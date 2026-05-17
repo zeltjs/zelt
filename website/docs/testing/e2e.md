@@ -62,7 +62,6 @@ describe('Hello API', () => {
 For complete E2E tests with real dependencies, use `onTest()` to apply test config overrides to your production app:
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, Post, pathParam, response } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
 import { onTest } from '@zeltjs/testing/vitest';
