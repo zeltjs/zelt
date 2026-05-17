@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.2.1](https://github.com/zeltjs/zelt/compare/openapi-v0.2.0...openapi-v0.2.1) (2026-05-17)
+
+
+### Features
+
+* **cli:** add plugin system for extensible build hooks ([a2b188f](https://github.com/zeltjs/zelt/commit/a2b188fc079b3367242dd80b48c18422cbc16002))
+* **cli:** export ZeltPlugin and BuildContext types ([dce29fa](https://github.com/zeltjs/zelt/commit/dce29fa164be1ced8684b4547a27b33d314ef933))
+* **openapi:** add openapiPlugin for CLI integration ([f0db5fa](https://github.com/zeltjs/zelt/commit/f0db5fae0eac846c6498d828ddca1d9f3aa3b413))
+
+
+### Bug Fixes
+
+* **cli,openapi:** handle plugin errors in dev server and add missing devDep ([5b8b586](https://github.com/zeltjs/zelt/commit/5b8b58690426855385c08c87edba270ca06cb92b))
+* correct website URL in package README files ([35e5de8](https://github.com/zeltjs/zelt/commit/35e5de8305998e90f1fa1a31268ac7508d26bfbd))
+* correct website URL in package README files ([636eae3](https://github.com/zeltjs/zelt/commit/636eae3110aece0a1c020d1847dcc311d024a757))
+* **openapi:** add cli to tsconfig references for type resolution ([4eca5a1](https://github.com/zeltjs/zelt/commit/4eca5a1b80cfec2f2e29d9aa6bb00616c9a54285))
+* **scripts:** correct npm trust command flag and improve interactive flow ([1d979e3](https://github.com/zeltjs/zelt/commit/1d979e3df81b77230dfa55819876b64019c49683))
+* **scripts:** correct npm trust setup and add interactive flow ([ec493a6](https://github.com/zeltjs/zelt/commit/ec493a642972c55e93eb7d3ec34fa3024047484a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @zeltjs/cli bumped to 0.2.1
+  * peerDependencies
+    * @zeltjs/cli bumped to 0.2.1
+    * @zeltjs/core bumped to 0.2.1
+
 ## [0.1.1](https://github.com/zeltjs/zelt/compare/openapi-v0.1.0...openapi-v0.1.1) (2026-05-05)
 
 
