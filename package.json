@@ -27,6 +27,7 @@
     "@9wick/eslint-plugin-strict-type-rules": "1.2.0",
     "@biomejs/biome": "2.4.14",
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.1",
+    "@rollup/plugin-swc": "0.4.0",
     "@swc/core": "1.15.33",
     "@vitest/coverage-v8": "4.1.5",
     "@zeltjs/eslint-plugin": "workspace:*",
