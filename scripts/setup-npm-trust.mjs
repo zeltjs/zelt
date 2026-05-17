@@ -4,7 +4,7 @@ import { createInterface } from 'node:readline';
 import pty from 'node-pty';
 
 const REPO = 'zeltjs/zelt';
-const WORKFLOW = 'release-please.yml';
+const WORKFLOW = 'release.yml';
 const SCOPE = '@zeltjs';
 
 const args = process.argv.slice(2);
