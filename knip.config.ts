@@ -86,6 +86,8 @@ const config: KnipConfig = {
         '@docusaurus/theme-common',
         '@easyops-cn/docusaurus-search-local',
         '@easyops-cn/docusaurus-theme-docusaurus-search-local',
+        '@shikijs/rehype',
+        '@shikijs/twoslash',
         '@zeltjs/adapter-node',
         '@zeltjs/core',
         '@zeltjs/db',
