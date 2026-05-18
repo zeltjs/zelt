@@ -23,3 +23,6 @@ export type ZeltNotImplementedError = InstanceType<typeof ZeltNotImplementedErro
 
 export const ZeltSchemaValidationError = createErrorClass('ZeltSchemaValidationError');
 export type ZeltSchemaValidationError = InstanceType<typeof ZeltSchemaValidationError>;
+
+export const ZeltCommandExecutionError = createErrorClass('ZeltCommandExecutionError');
+export type ZeltCommandExecutionError = InstanceType<typeof ZeltCommandExecutionError>;

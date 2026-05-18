@@ -1,4 +1,4 @@
-import type { CommandApp, CommandClass, HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
+import type { CommandApp, ExecResult, HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
 
 import { BunEnvConfig } from './bun-env.config';
 
@@ -16,9 +16,7 @@ export type BunAppOptions = {
   readonly warmup?: boolean;
 };
 
-export type ExecResult = {
-  readonly exitCode: 0 | 1;
-};
+export type { ExecResult } from '@zeltjs/core';
 
 type BunAppBase = {
   readonly args: readonly string[];
@@ -41,9 +39,6 @@ export type FullBunApp = HttpBunApp & CommandBunApp;
 export type BunApp = HttpBunApp | CommandBunApp | FullBunApp;
 
 type Stderr = { write: (s: string) => void };
-
-const successResult: ExecResult = { exitCode: 0 };
-const failureResult: ExecResult = { exitCode: 1 };
 
 const createServeForHttp = (
   appFetch: (request: Request) => Promise<Response>,
@@ -71,55 +66,13 @@ const createServeForHttp = (
   };
 };
 
-/** @throws {ZeltLifecycleStateError} */
-const runCommand = (
-  CommandClass: CommandClass,
-  get: <T extends object>(cls: new (...args: never[]) => T) => T,
-): Promise<ExecResult> => {
-  const instance = get(CommandClass);
-  return Promise.resolve()
-    .then(() => instance.run())
-    .then(() => successResult)
-    .catch(() => failureResult);
-};
-
-/** @throws {ZeltLifecycleStateError} */
-const createExecForCommands = (
-  hasCommand: (name: string) => boolean,
-  getCommands: () => ReadonlyMap<string, CommandClass>,
-  get: <T extends object>(cls: new (...args: never[]) => T) => T,
-  stderr: Stderr,
-): ((argv: readonly string[]) => Promise<ExecResult>) => {
-  return async (argv: readonly string[]): Promise<ExecResult> => {
-    const commandName = argv[0];
-    if (!commandName) {
-      stderr.write('No command specified\n');
-      return failureResult;
-    }
-
-    if (!hasCommand(commandName)) {
-      stderr.write(`Command not found: ${commandName}\n`);
-      return failureResult;
-    }
-
-    const commandMap = getCommands();
-    const CommandClass = commandMap.get(commandName);
-    if (!CommandClass) {
-      return failureResult;
-    }
-
-    return runCommand(CommandClass, get);
-  };
-};
-
 const getStderr = (): Stderr => globalThis.process.stderr;
 
 const getArgs = (): readonly string[] => Bun.argv.slice(2);
 
 type AppCapabilities = {
   fetch?: (request: Request) => Promise<Response>;
-  hasCommand?: (name: string) => boolean;
-  getCommands?: () => ReadonlyMap<string, CommandClass>;
+  execCommand?: (argv: readonly string[]) => Promise<ExecResult>;
 };
 
 const extractCapabilities = (app: HttpApp | CommandApp | (HttpApp & CommandApp)): AppCapabilities =>
@@ -140,7 +93,6 @@ const buildHttpBunApp = (
   return { ...resolver, args, serve: createServeForHttp(caps.fetch, shutdown), shutdown };
 };
 
-/** @throws {ZeltLifecycleStateError} */
 const buildCommandBunApp = (
   caps: AppCapabilities,
   resolver: ReadyResult,
@@ -148,17 +100,20 @@ const buildCommandBunApp = (
   stderr: Stderr,
   args: readonly string[],
 ): CommandBunApp | undefined => {
-  if (typeof caps.hasCommand !== 'function' || typeof caps.getCommands !== 'function')
-    return undefined;
-  return {
-    ...resolver,
-    args,
-    execCommand: createExecForCommands(caps.hasCommand, caps.getCommands, resolver.get, stderr),
-    shutdown,
+  if (typeof caps.execCommand !== 'function') return undefined;
+
+  const coreExecCommand = caps.execCommand;
+  const execCommand = async (argv: readonly string[]): Promise<ExecResult> => {
+    const result = await coreExecCommand(argv);
+    if (result.exitCode === 1) {
+      stderr.write(`${result.reason.message}\n`);
+    }
+    return result;
   };
+
+  return { ...resolver, args, execCommand, shutdown };
 };
 
-/** @throws {ZeltLifecycleStateError} */
 const buildBunApps = (
   caps: AppCapabilities,
   resolver: ReadyResult,

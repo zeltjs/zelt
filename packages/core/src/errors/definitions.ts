@@ -1,3 +1,5 @@
+import { match } from 'ts-pattern';
+
 export const coreErrorDefinitions = {
   ZeltDecoratorUsageError: (ctx: {
     decoratorName: string;
@@ -50,6 +52,18 @@ export const coreErrorDefinitions = {
 
   ZeltSchemaValidationError: (ctx: { schemaType: string; reason: string }) =>
     `Invalid ${ctx.schemaType} schema: ${ctx.reason}`,
+
+  ZeltCommandExecutionError: (ctx: {
+    reason: 'command_not_found' | 'no_command_specified' | 'argv_parse_error' | 'run_error';
+    commandName?: string;
+    details?: string;
+  }): string =>
+    match(ctx.reason)
+      .with('command_not_found', () => `Command not found: ${ctx.commandName}`)
+      .with('no_command_specified', () => 'No command specified')
+      .with('argv_parse_error', () => `Failed to parse arguments: ${ctx.details}`)
+      .with('run_error', () => `Command execution failed: ${ctx.details}`)
+      .exhaustive(),
 } as const;
 
 export type CoreErrorContextMap = {

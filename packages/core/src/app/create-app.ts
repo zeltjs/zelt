@@ -1,5 +1,6 @@
 import { Container } from '@needle-di/core';
 
+import type { ExecResult } from '../command/exec-result';
 import type { CommandClass } from '../command/types';
 import type { ConfigClass } from '../config';
 import { ZeltAppConfigurationError } from '../errors';
@@ -39,6 +40,7 @@ type HttpCapabilities = {
 type CommandCapabilities = {
   readonly hasCommand: (name: string) => boolean;
   readonly getCommands: () => ReadonlyMap<string, CommandClass>;
+  readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
 };
 
 type SchedulerCapabilities = {
@@ -130,6 +132,7 @@ const buildCommandMethods = (
     ? {
         hasCommand: (name: string) => commandModule.hasCommand(name),
         getCommands: () => commandModule.getCommands(),
+        execCommand: (argv: readonly string[]) => commandModule.exec(argv),
       }
     : {};
 

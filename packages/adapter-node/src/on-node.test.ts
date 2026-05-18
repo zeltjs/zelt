@@ -1,4 +1,5 @@
 import {
+  args,
   CliConfig,
   Command,
   Controller,
@@ -245,6 +246,58 @@ describe('onNode with commands', () => {
     const result = await nodeApp.execCommand(['failing']);
 
     expect(result.exitCode).toBe(1);
+  });
+
+  it('args() returns parsed arguments within command', async () => {
+    let capturedName: string | undefined;
+
+    class GreetCommand {
+      static schema = cliSchema({
+        args: [{ name: 'name', type: 'string' }],
+      });
+
+      run() {
+        const parsed = args(GreetCommand);
+        capturedName = parsed.name;
+      }
+    }
+    Command({ name: 'greet' })(GreetCommand);
+
+    const app = createApp({ commands: [GreetCommand] });
+    nodeApp = await onNode(app);
+    const result = await nodeApp.execCommand(['greet', 'Alice']);
+
+    expect(result.exitCode).toBe(0);
+    expect(capturedName).toBe('Alice');
+  });
+
+  it('args() returns parsed options with defaults', async () => {
+    let capturedVerbose: boolean | undefined;
+    let capturedPort: number | undefined;
+
+    class ServeCommand {
+      static schema = cliSchema({
+        options: [
+          { name: 'verbose', type: 'boolean', alias: 'v' },
+          { name: 'port', type: 'number', default: 3000 },
+        ],
+      });
+
+      run() {
+        const parsed = args(ServeCommand);
+        capturedVerbose = parsed.verbose;
+        capturedPort = parsed.port;
+      }
+    }
+    Command({ name: 'serve' })(ServeCommand);
+
+    const app = createApp({ commands: [ServeCommand] });
+    nodeApp = await onNode(app);
+    const result = await nodeApp.execCommand(['serve', '-v']);
+
+    expect(result.exitCode).toBe(0);
+    expect(capturedVerbose).toBe(true);
+    expect(capturedPort).toBe(3000);
   });
 });
 
