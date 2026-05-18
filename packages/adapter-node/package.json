@@ -27,11 +27,11 @@
   },
   "dependencies": {
     "@hono/node-server": "2.0.1",
-    "@zeltjs/core": "workspace:*",
-    "dotenv": "17.4.2"
+    "@zeltjs/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "22.19.17"
+    "@types/node": "22.19.17",
+    "dotenv": "17.4.2"
   },
   "volta": {
     "extends": "../../package.json"

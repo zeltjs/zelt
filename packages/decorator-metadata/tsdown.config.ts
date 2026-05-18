@@ -15,4 +15,8 @@ export default defineConfig({
   dts: true,
   clean: true,
   fixedExtension: false,
+  deps: {
+    alwaysBundle: ['neverthrow', 'ts-pattern'],
+    neverBundle: ['typescript', /^typescript-/],
+  },
 });

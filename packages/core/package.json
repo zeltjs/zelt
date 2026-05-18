@@ -54,14 +54,14 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "croner": "9.1.0",
-    "hono": "4.12.16",
-    "ts-pattern": "5.6.2"
+    "hono": "4.12.16"
   },
   "devDependencies": {
     "@needle-di/core": "1.1.2",
     "@types/node": "22.19.17",
-    "neverthrow": "8.2.0"
+    "croner": "9.1.0",
+    "neverthrow": "8.2.0",
+    "ts-pattern": "5.6.2"
   },
   "volta": {
     "extends": "../../package.json"
