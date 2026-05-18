@@ -8,10 +8,10 @@ import {
   GlobeAltIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
-import CodeBlock from '@theme/CodeBlock';
 import Layout from '@theme/Layout';
 import type { ComponentType, SVGProps } from 'react';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import HeroCode from './_hero-code.mdx';
 
 type FeatureItem = {
   title: string;
@@ -52,48 +52,6 @@ const features: FeatureItem[] = [
   },
 ];
 
-const codeExample = `import { Controller, Get, Post, validated, pathParam, createApp } from '@zeltjs/core';
-import * as v from 'valibot';
-
-const UserSchema = v.object({
-  name: v.string(),
-  email: v.pipe(v.string(), v.email()),
-});
-
-@Controller('/users')
-class UserController {
-  @Get('/')
-  list() {
-    return { users: db.users.findMany() };
-  }
-
-  @Get('/:id')
-  findOne(id = pathParam('id')) {
-    return { user: db.users.find(id) };
-  }
-
-  @Post('/')
-  create(data = validated(UserSchema)) {
-    return { user: db.users.create(data) };
-  }
-}
-
-const app = createApp({
-  http: { controllers: [UserController] },
-});
-
-// Node.js
-const node = await onNode(app);
-node.listen(3000);
-
-// Cloudflare Workers
-const workers = await onCloudflareWorkers(app);
-export default { fetch: workers.fetch };
-
-// Lambda
-const lambda = await onLambda(app);
-export const handler = lambda.handler;`;
-
 function HeroSection() {
   const { siteConfig } = useDocusaurusContext();
 
@@ -123,7 +81,7 @@ function CodeShowcase() {
     <section className="code-showcase">
       <div className="code-showcase__container">
         <h2 className="code-showcase__title">Simple, Intuitive API</h2>
-        <CodeBlock language="typescript">{codeExample}</CodeBlock>
+        <HeroCode />
       </div>
     </section>
   );

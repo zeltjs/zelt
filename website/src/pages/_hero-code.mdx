@@ -1,0 +1,49 @@
+```typescript twoslash
+import { Controller, Get, Post, pathParam, createApp } from '@zeltjs/core';
+import { validated } from '@zeltjs/validator-valibot';
+import { onNode } from '@zeltjs/adapter-node';
+import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
+import { onLambda } from '@zeltjs/adapter-lambda';
+import * as v from 'valibot';
+
+declare const db: { users: { findMany: () => unknown[]; find: (id: string) => unknown; create: (data: unknown) => unknown } };
+// ---cut---
+const UserSchema = v.object({
+  name: v.string(),
+  email: v.pipe(v.string(), v.email()),
+});
+
+@Controller('/users')
+class UserController {
+  @Get('/')
+  list() {
+    return { users: db.users.findMany() };
+  }
+
+  @Get('/:id')
+  findOne(id = pathParam('id')) {
+    return { user: db.users.find(id) };
+  }
+
+  @Post('/')
+  create(data = validated(UserSchema)) {
+    return { user: db.users.create(data) };
+  }
+}
+
+const app = createApp({
+  http: { controllers: [UserController] },
+});
+
+// Node.js
+const node = await onNode(app);
+node.listen(3000);
+
+// Cloudflare Workers
+const workers = await onCloudflareWorkers(app);
+export default { fetch: workers.fetch };
+
+// Lambda
+const lambda = await onLambda(app);
+export const handler = lambda.handler;
+```

@@ -23,7 +23,18 @@ npx zelt-openapi generate --config zelt.config.ts
 ### Programmatic
 
 ```typescript
-import { generateOpenApiSpec } from '@zeltjs/openapi';
+import { createApp, Controller, Get } from '@zeltjs/core';
+import { generateOpenApi } from '@zeltjs/openapi';
 
-const spec = await generateOpenApiSpec({ controllers: [...] });
+@Controller('/hello')
+class HelloController {
+  @Get('/')
+  greet() {
+    return { message: 'Hello!' };
+  }
+}
+
+const app = createApp({ controllers: [HelloController] });
+const result = await generateOpenApi(app, { distDir: './dist', info: { title: 'API', version: '1.0.0' } });
+console.log(result);
 ```

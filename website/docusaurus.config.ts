@@ -168,6 +168,9 @@ const config: Config = {
           rehypePlugins: [[rehypeShiki, shikiWithTwoslash]],
         },
         blog: false,
+        pages: {
+          rehypePlugins: [[rehypeShiki, shikiWithTwoslash]],
+        },
         theme: {
           customCss: './src/css/custom.css',
         },

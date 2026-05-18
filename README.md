@@ -1,67 +1,47 @@
-# ZeltJS
+<p align="center">
+  <img src="website/static/img/logo.svg" alt="ZeltJS" height="80">
+</p>
 
-[![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
+<p align="center">
+  <a href="https://www.npmjs.com/package/@zeltjs/core"><img src="https://img.shields.io/npm/v/@zeltjs/core.svg" alt="npm"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
-> Portable application framework with DI — swap adapters for different runtimes.
+ZeltJS is a portable TypeScript application framework with built-in DI. Swap adapters to run on Node.js, Bun, Cloudflare Workers, or AWS Lambda. Building large-scale applications that work across different infrastructure. That's what ZeltJS aims for.
 
-ZeltJS is a portable TypeScript application framework with built-in DI. Swap adapters to run on Node.js, Bun, Cloudflare Workers, or AWS Lambda.
+📖 **Documentation**: [zeltjs.com](https://zeltjs.com)
 
-```typescript
-import { Controller, Get, Post, validated, pathParam, createApp } from '@zeltjs/core';
-import * as v from 'valibot';
+## Installation
 
-const UserSchema = v.object({
-  name: v.string(),
-  email: v.pipe(v.string(), v.email()),
-});
-
-@Controller('/users')
-class UserController {
-  @Get('/')
-  list() {
-    return { users: db.users.findMany() };
-  }
-
-  @Get('/:id')
-  findOne(id = pathParam('id')) {
-    return { user: db.users.find(id) };
-  }
-
-  @Post('/')
-  create(data = validated(UserSchema)) {
-    return { user: db.users.create(data) };
-  }
-}
-
-const app = createApp({
-  http: { controllers: [UserController] },
-});
-
-// Node.js
-const node = await onNode(app);
-node.listen(3000);
-
-// Cloudflare Workers
-const workers = await onCloudflareWorkers(app);
-export default { fetch: workers.fetch };
-
-// Lambda
-const lambda = await onLambda(app);
-export const handler = lambda.handler;
+```bash
+npm i @zeltjs/core @zeltjs/adapter-node
 ```
 
-## Why ZeltJS?
+## Quick Example
 
-- **Portable** — Swap adapters for Node, Bun, Workers, Lambda
-- **DI Built-in** — First-class dependency injection, type-safe
-- **Fast Startup** — Minimal wake-up time, serverless-ready
-- **Future-proof Decorators** — TC39 & reflect-metadata dual support
-- **Test-friendly** — DI-based testing, easy mock injection, Testcontainers integration
-- **Minimal Size** — Tree-shakable, loads only what you need — no unused dependencies
+```typescript
+import { Controller, Get } from '@zeltjs/core';
 
-## Status
+@Controller('/hello')
+class HelloController {
+  @Get('/')
+  greet() {
+    return { message: 'Hello, World!' };
+  }
+}
+```
 
-**alpha** — Breaking changes may occur in minor versions during 0.x.
+## Benchmark
+
+Zelt balances runtime performance with cold-start speed — ideal for serverless.
+
+| Framework | Requests/sec | Cold Start (ms) |
+| --------- | -----------: | --------------: |
+| Fastify   |       44,033 |             101 |
+| **Zelt**  |   **37,331** |          **68** |
+| Hono      |       37,262 |              37 |
+| AdonisJS  |       33,548 |             149 |
+| NestJS    |       23,597 |             268 |
 
 ## License
 

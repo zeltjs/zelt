@@ -68,6 +68,9 @@ importers:
       typescript:
         specifier: 6.0.2
         version: 6.0.2
+      typescript-docs-verifier:
+        specifier: 3.0.2
+        version: 3.0.2(typescript@6.0.2)
       typescript-eslint:
         specifier: 8.59.1
         version: 8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2)
@@ -8889,6 +8892,10 @@ packages:
     resolution: {integrity: sha512-zAKMgGXUim0Jyd6CXK9lraBnD3H5yPGBPPOkC23a2BG6hsm4Zu6OQSjQuEtV0BHDf4aKHcUFvJiGRrFuW3MG8g==}
     engines: {node: '>=10'}
 
+  ora@5.4.1:
+    resolution: {integrity: sha512-5b6Y85tPxZZ7QytO+BQzysW31HJku27cRIlkbAXaNx+BdcVi+LlRFmVXzeF6a7JCwJpyw5c4b+YSVImQIrBpuQ==}
+    engines: {node: '>=10'}
+
   oxc-parser@0.128.0:
     resolution: {integrity: sha512-XkOw3eiIxAgQ19WRew/Bq9wc5Ga/guaWIzDBzq80z1PyuDNGvWBpPby9k6YGwV8A8uMw+Nlq3xqlzuDYmUFYUw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -10636,6 +10643,13 @@ packages:
 
   typedarray-to-buffer@3.1.5:
     resolution: {integrity: sha512-zdu8XMNEDepKKR+XYOXAVPtWui0ly0NtohUscw+UmaHiAWT8hrV1rr//H6V+0DvJ3OQ19S979M0laLfX8rm82Q==}
+
+  typescript-docs-verifier@3.0.2:
+    resolution: {integrity: sha512-UR40Nk+B8P5JaJlOOZyuLafmQkobjNALGeSNOHLFrSLsa9/n5clJsXtPXrWoLbEc6LS0/JVbZNo0zvNPaEbnZQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+    peerDependencies:
+      typescript: '>=4.7.2'
 
   typescript-eslint@8.59.1:
     resolution: {integrity: sha512-xqDcFVBmlrltH64lklOVp1wYxgJr6LVdg3NamBgH2OOQDLFdTKfIZXF5PfghrnXQKXZGTQs8tr1vL7fJvq8CTQ==}
@@ -20194,6 +20208,18 @@ snapshots:
       strip-ansi: 6.0.1
       wcwidth: 1.0.1
 
+  ora@5.4.1:
+    dependencies:
+      bl: 4.1.0
+      chalk: 4.1.2
+      cli-cursor: 3.1.0
+      cli-spinners: 2.6.1
+      is-interactive: 1.0.0
+      is-unicode-supported: 0.1.0
+      log-symbols: 4.1.0
+      strip-ansi: 6.0.1
+      wcwidth: 1.0.1
+
   oxc-parser@0.128.0:
     dependencies:
       '@oxc-project/types': 0.128.0
@@ -22319,6 +22345,13 @@ snapshots:
   typedarray-to-buffer@3.1.5:
     dependencies:
       is-typedarray: 1.0.0
+
+  typescript-docs-verifier@3.0.2(typescript@6.0.2):
+    dependencies:
+      chalk: 4.1.2
+      ora: 5.4.1
+      typescript: 6.0.2
+      yargs: 17.7.2
 
   typescript-eslint@8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.2):
     dependencies:
