@@ -5,6 +5,7 @@ export interface Disposable {
 }
 
 export interface Lifecycle extends Disposable {
+  /** @throws {ZeltNotImplementedError} */
   startup(): Promise<void>;
 }
 

@@ -44,6 +44,7 @@ const createProgramResult = (
   return okAsync({ program, checker, ts });
 };
 
+/** @throws {UnsupportedTypeScriptVersionError} */
 export const getOrCreateProgram = (
   tsconfigPath: string,
 ): ResultAsync<CachedProgram, ProgramCacheError> => {

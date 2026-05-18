@@ -94,7 +94,7 @@ describe('GenerateCommand', () => {
 
     const parsedArgs = { app: undefined, dist: tempDir, output: 'types.ts' };
     await expect(runInCommandContext({ parsedArgs }, () => command.run())).rejects.toThrow(
-      '--app option is required',
+      '[generate] --app: required',
     );
   });
 });

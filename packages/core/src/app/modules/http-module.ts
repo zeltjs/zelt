@@ -66,6 +66,7 @@ const resolveErrorHandlers = (
 export class HttpModule implements Lifecycle {
   private hono: Hono | undefined;
 
+  /** @throws {ZeltNotImplementedError} */
   constructor(
     private readonly options: HttpOptions = inject(HTTP_OPTIONS),
     private readonly container: Container = inject(Container),
@@ -95,6 +96,7 @@ export class HttpModule implements Lifecycle {
     this.hono = undefined;
   }
 
+  /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
   private async initializeHono(): Promise<Hono> {
     try {
       const hono = new Hono({ strict: false });

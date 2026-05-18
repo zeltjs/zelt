@@ -2,7 +2,16 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { args, CliConfig, Command, cliSchema, inject, Logger } from '@zeltjs/core';
+import {
+  args,
+  CliConfig,
+  Command,
+  cliSchema,
+  inject,
+  Logger,
+  ZeltCommandArgumentError,
+  ZeltPluginConfigurationError,
+} from '@zeltjs/core';
 
 import type { HttpAppLike } from '../generator';
 import { GeneratorService } from '../generator';
@@ -29,11 +38,16 @@ export class GenerateCommand {
     private readonly logger = inject(Logger),
   ) {}
 
+  /** @throws {ZeltCommandArgumentError | ZeltPluginConfigurationError | ZeltContextNotAvailableError} */
   async run(parsedArgs = args(GenerateCommand)): Promise<void> {
     const { app: appPath, dist, output } = parsedArgs;
 
     if (!appPath) {
-      throw new Error('--app option is required');
+      throw new ZeltCommandArgumentError({
+        commandName: 'generate',
+        argument: '--app',
+        reason: 'required',
+      });
     }
 
     const absolutePath = resolve(this.cli.cwd(), appPath);
@@ -42,7 +56,11 @@ export class GenerateCommand {
     const httpApp = mod.app ?? mod.default;
 
     if (!httpApp || typeof httpApp.getMetadata !== 'function') {
-      throw new Error(`Could not find app with getMetadata() in ${appPath}`);
+      throw new ZeltPluginConfigurationError({
+        pluginName: 'hono-client',
+        reason: 'app_not_found',
+        details: appPath,
+      });
     }
 
     const content = this.generator.generateFromApp(httpApp, { distDir: dist });

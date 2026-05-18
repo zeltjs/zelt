@@ -1,5 +1,7 @@
 import { relative } from 'node:path';
 
+import { ZeltDecoratorUsageError } from '@zeltjs/core';
+
 import type { ControllerRouteInfo, HttpMetadata, RouteInfo } from './types';
 
 const stripTsExtension = (p: string): string => p.replace(/\.tsx?$/, '');
@@ -9,11 +11,14 @@ const toRelativeImport = (distDir: string, modulePath: string): string => {
   return rel.startsWith('.') ? rel : `./${rel}`;
 };
 
+/** @throws {ZeltDecoratorUsageError} */
 const renderImport = (distDir: string, c: ControllerRouteInfo): string => {
   if (!c.sourceFile) {
-    throw new Error(
-      `Controller "${c.name}" has no sourceFile. Ensure @Controller decorator is applied.`,
-    );
+    throw new ZeltDecoratorUsageError({
+      decoratorName: 'Controller',
+      reason: 'missing_decorator',
+      targetName: c.name,
+    });
   }
   return `import type { ${c.name} } from '${toRelativeImport(distDir, c.sourceFile)}';`;
 };
@@ -21,6 +26,7 @@ const renderImport = (distDir: string, c: ControllerRouteInfo): string => {
 const renderRouteLine = (c: ControllerRouteInfo, r: RouteInfo): string =>
   `  Route<'${r.method}', '${r.fullPath}', typeof ${c.name}.prototype.${r.methodName}>,`;
 
+/** @throws {ZeltDecoratorUsageError} */
 export const emitAppType = (metadata: HttpMetadata, distDir: string): string => {
   const imports = metadata.controllers.map((c) => renderImport(distDir, c)).join('\n');
 

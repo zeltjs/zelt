@@ -27,6 +27,7 @@ export class CommandModule implements Lifecycle {
     this.commandMap.clear();
   }
 
+  /** @throws {ZeltDecoratorUsageError | ZeltAppConfigurationError} */
   private validateAndRegisterCommands(): void {
     for (const cls of this.commands) {
       const meta = getCommandMetadata(cls);
