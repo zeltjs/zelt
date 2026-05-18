@@ -23,6 +23,7 @@ export class SchedulerModule implements Lifecycle {
     this.lifecycleManager.register(this);
   }
 
+  /** @throws {ZeltNotImplementedError} */
   async startup(): Promise<void> {
     if (this.schedulers.length === 0) return;
     const resolver = {

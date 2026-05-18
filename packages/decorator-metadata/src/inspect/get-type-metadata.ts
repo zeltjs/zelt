@@ -128,6 +128,7 @@ const extractPropertyInfo = (
   return { name: p.name, pos: p.pos, props: p.props, type, optional };
 };
 
+/** @throws {UnsupportedTypeScriptVersionError} */
 export const getTypeMetadata = <T extends object>(
   cls: new (...args: unknown[]) => T,
   options?: InspectOptions,

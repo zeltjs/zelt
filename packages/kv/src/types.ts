@@ -18,10 +18,16 @@ export interface AtomicKVAdaptor extends KVAdaptor {
 /** namespaced view。実際の data ops はここ */
 export interface KVStore {
   get<T>(key: string): Promise<T | undefined>;
+  /**
+   * @throws {ZeltKVInvalidTtlError}
+   */
   set<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<void>;
   del(key: string): Promise<void>;
   has(key: string): Promise<boolean>;
-  /** TTL 延長 (session touch / lock extend 用)。key 不在時は false。 */
+  /**
+   * TTL 延長 (session touch / lock extend 用)。key 不在時は false。
+   * @throws {ZeltKVInvalidTtlError}
+   */
   expire(key: string, ttlSec: number): Promise<boolean>;
   /** 子 namespace。チェーン可能。 */
   namespace<const S extends string>(prefix: NonEmptyString<S>): KVStore;
@@ -29,9 +35,15 @@ export interface KVStore {
 
 /** atomic 操作対応 view */
 export interface AtomicKVStore extends KVStore {
-  /** atomic incr。最初の incr 時のみ TTL をセット。 */
+  /**
+   * atomic incr。最初の incr 時のみ TTL をセット。
+   * @throws {ZeltKVInvalidTtlError}
+   */
   incr(key: string, by?: number, opts?: { ttlSec?: number }): Promise<number>;
-  /** atomic set if not exists。set されたら true、既存なら false。 */
+  /**
+   * atomic set if not exists。set されたら true、既存なら false。
+   * @throws {ZeltKVInvalidTtlError}
+   */
   setnx<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<boolean>;
   namespace<const S extends string>(prefix: NonEmptyString<S>): AtomicKVStore;
 }

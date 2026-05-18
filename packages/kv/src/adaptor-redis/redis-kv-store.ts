@@ -36,6 +36,7 @@ export class RedisKVStore implements AtomicKVStore {
     return raw === null ? undefined : deserialize<T>(raw);
   }
 
+  /** @throws {ZeltKVInvalidTtlError} */
   async set<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<void> {
     validateTtl(opts?.ttlSec);
     const json = serialize(value);
@@ -55,6 +56,7 @@ export class RedisKVStore implements AtomicKVStore {
     return n === 1;
   }
 
+  /** @throws {ZeltKVInvalidTtlError} */
   async expire(key: string, ttlSec: number): Promise<boolean> {
     validateTtl(ttlSec);
     const n = await this.client.expire(this.k(key), ttlSec);
@@ -65,11 +67,13 @@ export class RedisKVStore implements AtomicKVStore {
     return new RedisKVStore(this.client, joinPrefix(this.prefix, sub));
   }
 
+  /** @throws {ZeltKVInvalidTtlError} */
   async incr(key: string, by = 1, opts?: { ttlSec?: number }): Promise<number> {
     validateTtl(opts?.ttlSec);
     return incrWithTtl(this.client, this.k(key), by, opts?.ttlSec);
   }
 
+  /** @throws {ZeltKVInvalidTtlError} */
   async setnx<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<boolean> {
     validateTtl(opts?.ttlSec);
     const json = serialize(value);

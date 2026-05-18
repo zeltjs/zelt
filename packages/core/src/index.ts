@@ -40,11 +40,13 @@ export type { CoreErrorContextMap } from './errors';
 export {
   defineHttpException,
   ZeltAppConfigurationError,
+  ZeltCommandArgumentError,
   ZeltContextNotAvailableError,
   ZeltDecoratorUsageError,
   ZeltLifecycleStateError,
   ZeltMiddlewareExecutionError,
   ZeltNotImplementedError,
+  ZeltPluginConfigurationError,
   ZeltRouteConfigurationError,
   ZeltSchemaValidationError,
 } from './errors';
