@@ -45,6 +45,7 @@ export class AppRuntime {
     return this.readyPromise;
   }
 
+  /** @throws {ZeltLifecycleStateError} */
   private async doReady(options?: ReadyOptions): Promise<ReadyResult> {
     this.bindConfigs();
     if (options?.warmup) {

@@ -53,6 +53,20 @@ export const coreErrorDefinitions = {
   ZeltSchemaValidationError: (ctx: { schemaType: string; reason: string }) =>
     `Invalid ${ctx.schemaType} schema: ${ctx.reason}`,
 
+  ZeltPluginConfigurationError: (
+    ctx:
+      | { pluginName: string; reason: 'missing_entry' }
+      | { pluginName: string; reason: 'app_not_found' | 'invalid_app'; details: string },
+  ) => {
+    if (ctx.reason === 'missing_entry') return `[${ctx.pluginName}] entry is required`;
+    if (ctx.reason === 'app_not_found')
+      return `[${ctx.pluginName}] Could not find app with getMetadata() in ${ctx.details}`;
+    return `[${ctx.pluginName}] Invalid app configuration: ${ctx.details}`;
+  },
+
+  ZeltCommandArgumentError: (ctx: { commandName: string; argument: string; reason: string }) =>
+    `[${ctx.commandName}] ${ctx.argument}: ${ctx.reason}`,
+
   ZeltCommandExecutionError: (ctx: {
     reason: 'command_not_found' | 'no_command_specified' | 'argv_parse_error' | 'run_error';
     commandName?: string;

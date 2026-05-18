@@ -16,6 +16,7 @@ export class JwtMiddleware {
   /**
    * @throws {UnauthorizedException} When token is missing (401)
    * @throws {UnauthorizedException} When token is invalid or expired (401)
+   * @throws {ZeltContextNotAvailableError}
    */
   async use(c: RequestContext, next: Next): Promise<Response | undefined> {
     const token = this.extractToken(c);

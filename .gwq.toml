@@ -1,4 +1,7 @@
 [[repository_settings]]
 repository = '.'
 copy_files = ['lefthook-local.yml', '.codepolicy/cache/*']
-setup_commands = ['pnpm i']
+setup_commands = [
+  'pnpm i',
+  './scripts/gwq-bg-build.sh $PWD',
+]

@@ -55,7 +55,7 @@ describe('emitAppType', () => {
       ],
     };
     expect(() => emitAppType(noSourceMeta, '/app/generated')).toThrow(
-      'Controller "AnonymousController" has no sourceFile',
+      'AnonymousController is missing @Controller decorator',
     );
   });
 });

@@ -77,6 +77,7 @@ class MemoryKVStore implements AtomicKVStore {
     return entry ? deserialize<T>(entry.raw) : undefined;
   }
 
+  /** @throws {ZeltKVInvalidTtlError} */
   async set<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<void> {
     validateTtl(opts?.ttlSec);
     const raw = serialize(value);
@@ -91,6 +92,7 @@ class MemoryKVStore implements AtomicKVStore {
     return this.current(key) !== undefined;
   }
 
+  /** @throws {ZeltKVInvalidTtlError} */
   async expire(key: string, ttlSec: number): Promise<boolean> {
     validateTtl(ttlSec);
     const entry = this.current(key);
@@ -103,6 +105,7 @@ class MemoryKVStore implements AtomicKVStore {
     return new MemoryKVStore(this.data, joinPrefix(this.prefix, sub));
   }
 
+  /** @throws {ZeltKVInvalidTtlError} */
   async incr(key: string, by = 1, opts?: { ttlSec?: number }): Promise<number> {
     validateTtl(opts?.ttlSec);
     const k = this.k(key);
@@ -117,6 +120,7 @@ class MemoryKVStore implements AtomicKVStore {
     return next;
   }
 
+  /** @throws {ZeltKVInvalidTtlError} */
   async setnx<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<boolean> {
     validateTtl(opts?.ttlSec);
     if (this.current(key)) return false;
