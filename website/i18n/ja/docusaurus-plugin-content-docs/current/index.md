@@ -1,7 +1,3 @@
----
-slug: /
----
-
 # Introduction
 
 ZeltJSは、DIを組み込んだポータブルなTypeScriptアプリケーションフレームワークです。アダプターを切り替えることで、Node.js、Bun、Cloudflare Workers、AWS Lambdaで動作します。

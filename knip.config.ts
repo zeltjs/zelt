@@ -79,7 +79,8 @@ const config: KnipConfig = {
     },
     website: {
       // prism-theme-kanagawa.ts is imported by docusaurus.config.ts but knip --production misses it
-      entry: ['docusaurus.config.ts', 'src/prism-theme-kanagawa.ts'],
+      // scripts/check-doc-slugs.ts is run via npm script lint:slugs
+      entry: ['docusaurus.config.ts', 'src/prism-theme-kanagawa.ts', 'scripts/check-doc-slugs.ts'],
       // prism-react-renderer is used internally by Docusaurus for code block syntax highlighting
       // wrangler is used by Cloudflare Workers build system for deployment
       // @docusaurus/theme-common is used by swizzled theme components
