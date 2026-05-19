@@ -163,8 +163,8 @@ When testing CLI commands, you need to create a fresh app instance for each test
 Reusing a global app instance causes errors:
 
 ```typescript
-import { describe, it } from 'vitest';
-import { createApp, Command, cliSchema } from '@zeltjs/core';
+import { describe, it, expect } from 'vitest';
+import { createApp, Command, cliSchema, ZeltLifecycleStateError } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Command({ name: 'greet' })
@@ -182,9 +182,9 @@ describe('GreetCommand', () => {
     // works
   });
 
-  it('test 2', async () => {
-    const nodeApp = await onNode(app);
-    // ❌ ZeltLifecycleStateError: Cannot addFallbackConfig() after ready()
+  it('test 2 — reusing the same app instance throws', async () => {
+    // ❌ Cannot call onNode() on an already-ready app
+    await expect(onNode(app)).rejects.toThrow(ZeltLifecycleStateError);
   });
 });
 ```
