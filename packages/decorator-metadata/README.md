@@ -103,42 +103,32 @@ import { getClassMetadata } from '@zeltjs/decorator-metadata/inspect';
 const meta = getClassMetadata(UserController);
 ```
 
-**Signature:**
+**Return Structure:**
 
-```typescript
-getClassMetadata(cls: object): ClassMeta | undefined
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| `pos` | `Position` | Where the class decorator was applied |
+| `props` | `object` | Props passed to `createClassDecorator` |
+| `methods` | `MethodMeta[]` | Methods with decorators |
+| `properties` | `PropertyMeta[]` | Properties with decorators |
 
-**Return Type:**
+**MethodMeta / PropertyMeta:**
 
-```typescript
-type ClassMeta = {
-  pos: Position;                // Where the class decorator was applied
-  props: object;                // Props passed to createClassDecorator
-  methods: MethodMeta[];        // Methods with decorators
-  properties: PropertyMeta[];   // Properties with decorators
-};
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Method or property name |
+| `pos` | `Position` | Where the decorator was applied |
+| `props` | `object` | Props passed to the decorator factory |
 
-type MethodMeta = {
-  name: string;                 // Method name
-  pos: Position;                // Where the method decorator was applied
-  props: object;                // Props passed to createMethodDecorator
-};
+**Position:**
 
-type PropertyMeta = {
-  name: string;                 // Property name
-  pos: Position;                // Where the property decorator was applied
-  props: object;                // Props passed to createPropertyDecorator
-};
+| Field | Type | Description |
+|-------|------|-------------|
+| `sourceFile` | `string` | Absolute path to source file |
+| `line` | `number` | Line number (1-based) |
+| `column` | `number` | Column number (1-based) |
 
-type Position = {
-  sourceFile: string;           // Absolute path to source file
-  line: number;                 // Line number (1-based)
-  column: number;               // Column number (1-based)
-};
-```
-
-**Example:**
+**Full Example:**
 
 ```typescript
 // Source
@@ -151,19 +141,19 @@ class UserController {
   cache?: Map<string, User>;
 }
 
-// Result
+// Extracted metadata
 {
   pos: { sourceFile: '/app/src/user.controller.ts', line: 1, column: 1 },
   props: { basePath: '/users' },
   methods: [{
     name: 'getUser',
     pos: { sourceFile: '/app/src/user.controller.ts', line: 3, column: 3 },
-    props: { method: 'GET', path: '/:id' }
+    props: { decorator: 'Get', method: 'GET', path: '/:id' }
   }],
   properties: [{
     name: 'cache',
     pos: { sourceFile: '/app/src/user.controller.ts', line: 6, column: 3 },
-    props: { nullable: true }
+    props: { decorator: 'Column', nullable: true }
   }]
 }
 ```
