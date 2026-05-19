@@ -16,7 +16,6 @@ export default defineConfig({
   clean: true,
   fixedExtension: false,
   deps: {
-    alwaysBundle: ['dotenv'],
     neverBundle: [/^@zeltjs\//, 'hono', /^hono\//, /^@hono\//],
   },
 });

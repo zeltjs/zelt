@@ -402,6 +402,7 @@ class DashboardController {
 }
 
 const app = createApp({ http: { controllers: [DashboardController] } });
+await app.ready();
 // ---cut---
 it('returns 401 for unauthenticated requests', async () => {
   const res = await app.request('/dashboard');
@@ -412,9 +413,22 @@ it('returns 401 for unauthenticated requests', async () => {
 
 ### With Authentication
 
+Use a middleware to inject the user within request context — `setUser()` must be called during request handling, not in test setup:
+
 ```typescript
 import { it, expect } from 'vitest';
-import { createApp, Controller, Get, Authorized, setUser } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, Middleware, setUser, type RequestContext, type Next } from '@zeltjs/core';
+
+@Middleware
+class MockAuthMiddleware {
+  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+    if (c.req.header('X-Test-User')) {
+      setUser({ id: '123', name: 'Test' }, ['user']);
+    }
+    await next();
+    return undefined;
+  }
+}
 
 @Controller('/dashboard')
 class DashboardController {
@@ -422,13 +436,11 @@ class DashboardController {
   index() { return { stats: [] }; }
 }
 
-const app = createApp({ http: { controllers: [DashboardController] } });
+const app = createApp({ http: { controllers: [DashboardController], middlewares: [MockAuthMiddleware] } });
+await app.ready();
 // ---cut---
 it('returns data for authenticated users', async () => {
-  // Set up authentication context
-  setUser({ id: '123', name: 'Test' }, ['user']);
-  
-  const res = await app.request('/dashboard');
+  const res = await app.request('/dashboard', { headers: { 'X-Test-User': 'true' } });
   expect(res.status).toBe(200);
 });
 ```
@@ -437,7 +449,19 @@ it('returns data for authenticated users', async () => {
 
 ```typescript
 import { it, expect } from 'vitest';
-import { createApp, Controller, Get, Authorized, setUser } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, Middleware, setUser, type RequestContext, type Next } from '@zeltjs/core';
+
+@Middleware
+class MockRoleMiddleware {
+  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+    const role = c.req.header('X-Test-Role');
+    if (role) {
+      setUser({ id: '123', name: 'Test' }, [role]);
+    }
+    await next();
+    return undefined;
+  }
+}
 
 @Controller('/admin')
 class AdminController {
@@ -445,19 +469,16 @@ class AdminController {
   listUsers() { return { users: [] }; }
 }
 
-const app = createApp({ http: { controllers: [AdminController] } });
+const app = createApp({ http: { controllers: [AdminController], middlewares: [MockRoleMiddleware] } });
+await app.ready();
 // ---cut---
 it('returns 403 for non-admin users', async () => {
-  setUser({ id: '123', name: 'Test' }, ['user']);  // Not admin
-  
-  const res = await app.request('/admin/users');
+  const res = await app.request('/admin/users', { headers: { 'X-Test-Role': 'user' } });
   expect(res.status).toBe(403);
 });
 
 it('allows admin access', async () => {
-  setUser({ id: '123', name: 'Test' }, ['admin']);
-  
-  const res = await app.request('/admin/users');
+  const res = await app.request('/admin/users', { headers: { 'X-Test-Role': 'admin' } });
   expect(res.status).toBe(200);
 });
 ```

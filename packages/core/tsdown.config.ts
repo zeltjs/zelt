@@ -25,7 +25,6 @@ export default defineConfig({
   clean: true,
   fixedExtension: false,
   deps: {
-    alwaysBundle: ['croner', 'ts-pattern'],
     neverBundle: ['hono', /^hono\//, /^@hono\//, 'valibot'],
   },
 });

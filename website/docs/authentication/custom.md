@@ -443,7 +443,7 @@ Mock the user context in tests:
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { onTest } from '@zeltjs/testing';
-import { createApp, setUser, Controller, Get, Authorized, currentUser } from '@zeltjs/core';
+import { createApp, setUser, Controller, Get, Authorized, currentUser, type FunctionMiddleware } from '@zeltjs/core';
 
 @Controller('/users')
 class UserController {
@@ -451,14 +451,22 @@ class UserController {
   me() { return currentUser(); }
 }
 
-const app = createApp({ http: { controllers: [UserController] } });
+// Middleware sets user within request context — required for setUser to work
+const mockAuthMiddleware: FunctionMiddleware = async (_c, next) => {
+  setUser({ id: '123', name: 'Test User' }, ['admin']);
+  await next();
+};
+
+const app = createApp({
+  http: {
+    controllers: [UserController],
+    middlewares: [mockAuthMiddleware],
+  },
+});
 // ---cut---
 describe('Protected routes', () => {
   it('returns user data when authenticated', async () => {
     const testApp = await onTest(app);
-    
-    // Mock authentication
-    setUser({ id: '123', name: 'Test User' }, ['admin']);
     
     const res = await testApp.request('/users/me');
     expect(res.status).toBe(200);

@@ -36,6 +36,14 @@ export class UserController {
     return res.json({ id: '1', ...body }, 201);
   }
 }
+
+// ---cut-after---
+import { expect, test } from 'vitest';
+
+test('UserController.findAll returns users array', () => {
+  const controller = new UserController();
+  expect(controller.findAll()).toEqual({ users: [] });
+});
 ```
 
 ## HTTP Method Decorators

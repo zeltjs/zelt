@@ -13,7 +13,9 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "lint:slugs": "bun scripts/check-doc-slugs.ts"
+    "lint:slugs": "bun scripts/check-doc-slugs.ts",
+    "test:docs": "bun scripts/extract-doc-tests.ts && vitest run",
+    "test:docs:watch": "bun scripts/extract-doc-tests.ts && vitest"
   },
   "dependencies": {
     "@docusaurus/core": "3.10.1",
@@ -58,6 +60,7 @@
     "twoslash": "0.3.8",
     "typescript": "~6.0.2",
     "valibot": "1.0.0",
+    "vitest": "4.1.5",
     "wrangler": "3.114.6"
   },
   "browserslist": {

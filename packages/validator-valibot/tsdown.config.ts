@@ -14,9 +14,6 @@ export default defineConfig({
       /^@zeltjs\/openapi\//,
       'hono',
       /^hono\//,
-      'valibot',
-      /^valibot\//,
-      '@valibot/to-json-schema',
     ],
   },
 });
