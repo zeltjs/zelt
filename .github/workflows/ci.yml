@@ -49,6 +49,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Verify dist imports
+        run: pnpm verify-dist
+
       - name: leak check on public d.ts
         run: |
           set -e
