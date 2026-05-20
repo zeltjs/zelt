@@ -6,6 +6,23 @@ import type { PluginOptions as SearchPluginOptions } from '@easyops-cn/docusauru
 import rehypeShiki from '@shikijs/rehype';
 import { rendererRich, transformerTwoslash } from '@shikijs/twoslash';
 import { createTwoslasher } from 'twoslash';
+import sidebars from './sidebars.js';
+
+type SidebarItem =
+  | string
+  | { type: 'category'; items: SidebarItem[] }
+  | { type: 'link' }
+  | { type: 'doc'; id: string };
+
+const extractDocPaths = (items: SidebarItem[]): string[] =>
+  items.flatMap((item): string[] => {
+    if (typeof item === 'string') return [`${item}.md`];
+    if (item.type === 'category') return extractDocPaths(item.items);
+    if (item.type === 'doc') return [`${item.id}.md`];
+    return [];
+  });
+
+const llmsIncludeOrder = extractDocPaths(sidebars.docsSidebar as SidebarItem[]);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -198,6 +215,8 @@ const config: Config = {
         docsDir: 'docs',
         title: 'Zelt Documentation',
         description: 'A fast, type-safe application framework for TypeScript',
+        includeOrder: llmsIncludeOrder,
+        includeUnmatchedLast: false,
       },
     ],
     'docusaurus-markdown-source-plugin',
