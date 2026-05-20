@@ -32,16 +32,22 @@
     "clsx": "2.1.1",
     "docusaurus-markdown-source-plugin": "2.2.5",
     "docusaurus-plugin-llms": "0.4.0",
+    "hast-util-to-html": "9.0.5",
+    "hast-util-to-string": "3.0.1",
     "prism-react-renderer": "^2.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "2.15.3"
+    "recharts": "2.15.3",
+    "shiki": "4.1.0",
+    "unist-util-visit": "5.1.0"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.10.1",
     "@docusaurus/tsconfig": "3.10.1",
     "@docusaurus/types": "3.10.1",
+    "@types/hast": "3.0.4",
     "@types/react": "^19.0.0",
+    "@types/unist": "3.0.3",
     "@zeltjs/adapter-cloudflare-workers": "workspace:*",
     "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/auth-jwt": "workspace:*",

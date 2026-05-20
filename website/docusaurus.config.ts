@@ -4,8 +4,8 @@ import type * as Preset from '@docusaurus/preset-classic';
 import type { Config } from '@docusaurus/types';
 import type { PluginOptions as SearchPluginOptions } from '@easyops-cn/docusaurus-search-local';
 import rehypeShiki from '@shikijs/rehype';
-import { rendererRich, transformerTwoslash } from '@shikijs/twoslash';
 import { createTwoslasher } from 'twoslash';
+import { remarkTwoslashBlock } from './src/remark/remark-twoslash-block';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -66,11 +66,10 @@ const shikiBaseConfig = {
   ],
 };
 
-const shikiWithTwoslash = {
-  ...shikiBaseConfig,
-  transformers: [
-    transformerTwoslash({ twoslasher, renderer: rendererRich(), explicitTrigger: false }),
-  ],
+const twoslashBlockOptions = {
+  twoslasher,
+  themes: shikiBaseConfig.themes,
+  langs: shikiBaseConfig.langs,
 };
 
 const shikiOnly = {
@@ -165,11 +164,13 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
           routeBasePath: 'docs',
-          rehypePlugins: [[rehypeShiki, shikiWithTwoslash]],
+          remarkPlugins: [[remarkTwoslashBlock, twoslashBlockOptions]],
+          rehypePlugins: [[rehypeShiki, shikiOnly]],
         },
         blog: false,
         pages: {
-          rehypePlugins: [[rehypeShiki, shikiWithTwoslash]],
+          remarkPlugins: [[remarkTwoslashBlock, twoslashBlockOptions]],
+          rehypePlugins: [[rehypeShiki, shikiOnly]],
         },
         theme: {
           customCss: './src/css/custom.css',
