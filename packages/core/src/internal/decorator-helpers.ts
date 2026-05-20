@@ -24,7 +24,7 @@ export type DefineInjectableClassDecoratorOptions = {
 
 const buildUniqueGuard =
   (decoratorName: string) =>
-  (existing: readonly object[]): Error | undefined => {
+  (existing: readonly object[]): ZeltDecoratorUsageError | undefined => {
     const conflict = existing.some((p) =>
       match(p)
         .with({ decorator: decoratorName }, () => true)
@@ -35,13 +35,14 @@ const buildUniqueGuard =
       : undefined;
   };
 
+/** @throws {ZeltDecoratorUsageError} */
 export const defineInjectableClassDecorator = <TProps extends { decorator: string }>(
   pos: Position | undefined,
   props: TProps,
   hooks?: InjectableClassDecoratorHooks,
   options?: DefineInjectableClassDecoratorOptions,
 ): ClassDecoratorFn => {
-  const base = defineClassDecorator(
+  const base = defineClassDecorator<TProps, ZeltDecoratorUsageError>(
     pos,
     props,
     options?.unique ? { rejectIfApplied: buildUniqueGuard(props.decorator) } : undefined,

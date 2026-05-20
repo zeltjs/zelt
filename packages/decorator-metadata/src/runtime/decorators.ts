@@ -78,19 +78,20 @@ const asObject = (v: unknown): object | undefined => {
   return undefined;
 };
 
-export type DefineClassDecoratorOptions = {
+export type DefineClassDecoratorOptions<E extends Error = Error> = {
   /**
    * Inspect the props already attached to the class before this decorator runs.
    * Return an Error to abort the application, or undefined to proceed.
    *
    * Callers decide the rejection rule (e.g. "no duplicate decorator name") —
-   * this package stays agnostic about the props shape.
+   * this package stays agnostic about the props shape. The error type E is
+   * propagated to call sites so consumers keep their concrete error class.
    */
-  readonly rejectIfApplied?: (existing: readonly object[]) => Error | undefined;
+  readonly rejectIfApplied?: (existing: readonly object[]) => E | undefined;
 };
 
-export type DefineMethodDecoratorOptions = {
-  readonly rejectStatic?: () => Error;
+export type DefineMethodDecoratorOptions<E extends Error = Error> = {
+  readonly rejectStatic?: () => E;
 };
 
 // Overloaded signatures so the same decorator works under both TC39 (the
@@ -115,26 +116,26 @@ export type PropertyDecoratorFn = {
   (target: object, propertyKey: string | symbol): void;
 };
 
-export const defineClassDecorator = <TProps extends object>(
+export const defineClassDecorator = <TProps extends object, E extends Error = Error>(
   pos: Position | undefined,
   props: TProps,
-  options?: DefineClassDecoratorOptions,
+  options?: DefineClassDecoratorOptions<E>,
 ): ClassDecoratorFn => {
-  /** @throws {Error} */
+  /** @throws {E} */
   function decorate<T extends abstract new (...args: never[]) => unknown>(
     value: T,
     context: ClassDecoratorContext,
   ): void;
-  /** @throws {Error} */
+  /** @throws {E} */
   function decorate<T extends new (...args: never[]) => unknown>(target: T): T | void;
-  /** @throws {Error} */
+  /** @throws {E} */
   function decorate(...args: unknown[]): unknown {
     const cls = asObject(args[0]);
     if (!cls) return undefined;
 
     if (options?.rejectIfApplied) {
       const existing = getClassMetadata(cls)?.props ?? [];
-      const err = options.rejectIfApplied(existing);
+      const err: E | undefined = options.rejectIfApplied(existing);
       if (err) throw err;
     }
 
@@ -156,30 +157,33 @@ export const defineClassDecorator = <TProps extends object>(
   return decorate;
 };
 
-export const defineMethodDecorator = <TProps extends object>(
+export const defineMethodDecorator = <TProps extends object, E extends Error = Error>(
   pos: Position | undefined,
   props: TProps,
-  options?: DefineMethodDecoratorOptions,
+  options?: DefineMethodDecoratorOptions<E>,
 ): MethodDecoratorFn => {
-  /** @throws {() => Error} */
+  /** @throws {E} */
   function decorate(
     value: (...args: never[]) => unknown,
     context: ClassMethodDecoratorContext,
   ): void;
-  /** @throws {() => Error} */
+  /** @throws {E} */
   function decorate(
     target: object,
     propertyKey: string | symbol,
     descriptor?: PropertyDescriptor,
   ): void;
-  /** @throws {() => Error} */
+  /** @throws {E} */
   function decorate(...args: unknown[]): unknown {
     const target = args[0];
     const contextOrName = args[1];
 
     return match(contextOrName)
       .with(tc39MethodContextPattern, (ctx) => {
-        if (ctx.static && options?.rejectStatic) throw options.rejectStatic();
+        if (ctx.static && options?.rejectStatic) {
+          const err: E = options.rejectStatic();
+          throw err;
+        }
         if (typeof ctx.name !== 'string') return undefined;
         if (!ctx.metadata) return undefined;
         appendEntry(pendingMethods, ctx.metadata, { name: ctx.name, pos, props });
@@ -190,7 +194,10 @@ export const defineMethodDecorator = <TProps extends object>(
         // class itself for static methods; isStatic is derived from typeof
         // target.
         const isStatic = typeof target === 'function';
-        if (isStatic && options?.rejectStatic) throw options.rejectStatic();
+        if (isStatic && options?.rejectStatic) {
+          const err: E = options.rejectStatic();
+          throw err;
+        }
         if (typeof contextOrName !== 'string') return undefined;
         const sharedKey = asObject(target);
         if (!sharedKey) return undefined;
