@@ -18,18 +18,16 @@ describe('@UseMiddleware', () => {
     class TestController {}
 
     const meta = getControllerMiddlewareMetadata(TestController);
-    expect(meta?.middlewares).toContain(testMiddleware);
+    expect(meta).toEqual([[testMiddleware]]);
   });
 
-  it('registers multiple middlewares on controller', () => {
+  it('registers multiple middlewares on controller as a single set', () => {
     @UseMiddleware(testMiddleware, anotherMiddleware)
     @Controller('/test')
     class TestController {}
 
     const meta = getControllerMiddlewareMetadata(TestController);
-    expect(meta?.middlewares).toHaveLength(2);
-    expect(meta?.middlewares).toContain(testMiddleware);
-    expect(meta?.middlewares).toContain(anotherMiddleware);
+    expect(meta).toEqual([[testMiddleware, anotherMiddleware]]);
   });
 
   it('appends middlewares on method metadata', () => {
@@ -65,7 +63,6 @@ describe('@UseMiddleware', () => {
 
   it('throws when applied to static method', () => {
     expect(() => {
-      @Controller('/test')
       @Controller('/test')
       class TestController {
         @UseMiddleware(testMiddleware)
@@ -118,9 +115,20 @@ describe('@UseMiddleware', () => {
     class TestController {}
 
     const meta = getControllerMiddlewareMetadata(TestController);
-    const entry = meta?.middlewares[0] as MiddlewareInputWithOptions;
+    const entry = meta?.[0]?.[0] as MiddlewareInputWithOptions;
     expect(Array.isArray(entry)).toBe(true);
     expect(entry[0]).toBe(OptionsMiddleware);
     expect(entry[1]).toEqual({ limit: 50 });
+  });
+
+  it('keeps each @UseMiddleware application as a separate set on the class', () => {
+    @UseMiddleware(testMiddleware)
+    @UseMiddleware(anotherMiddleware)
+    @Controller('/test')
+    class TestController {}
+
+    const meta = getControllerMiddlewareMetadata(TestController);
+    // Innermost decorator is evaluated first, so [anotherMiddleware] comes first.
+    expect(meta).toEqual([[anotherMiddleware], [testMiddleware]]);
   });
 });

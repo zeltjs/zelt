@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getScheduleMetadata, resolveScheduleMetadata } from '../internal/scheduler-metadata';
+import { getScheduleMetadata } from '../internal/scheduler-metadata';
 import { Scheduled } from './scheduled';
 import { Weekly } from './weekly';
 
@@ -32,11 +32,16 @@ describe('@Weekly', () => {
       class TestScheduler {
         task() {}
       }
-      Weekly({ day: day as Parameters<typeof Weekly>[0]['day'], hour: 0 })(
+      const method = Weekly({ day: day as Parameters<typeof Weekly>[0]['day'], hour: 0 });
+      (method as unknown as (target: unknown, name: string, desc: object) => void)(
         TestScheduler.prototype,
         'task',
+        { value: () => {} },
       );
-      resolveScheduleMetadata(TestScheduler.prototype, TestScheduler);
+      // Legacy class decorator flushes the pending method entries into the
+      // class metadata store.
+      const cls = Scheduled();
+      (cls as unknown as (target: unknown) => void)(TestScheduler);
       const schedules = getScheduleMetadata(TestScheduler);
       expect(schedules[0]?.cronExpression).toBe(`0 0 * * ${cronDay}`);
     }

@@ -15,7 +15,7 @@ export { runInCommandContext } from './command/command-context';
 export { Command } from './command/decorator';
 export type { ExecResult } from './command/exec-result';
 export type { CommandMetadata } from './command/metadata';
-export { getCommandMetadata, setCommandMetadata } from './command/metadata';
+export { getCommandMetadata } from './command/metadata';
 export { args } from './command/primitives/args';
 export type { ArgDef, InferSchema, OptionDef, SchemaDefinition } from './command/schema';
 export { cliSchema } from './command/schema';

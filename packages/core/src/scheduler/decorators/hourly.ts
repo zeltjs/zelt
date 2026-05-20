@@ -1,6 +1,7 @@
+import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
+
 import { ZeltDecoratorUsageError } from '../../errors';
-import { resolveMethodArgs } from '../../internal/decorator-context';
-import { appendPendingScheduleMetadata } from '../internal/scheduler-metadata';
+import { getCallerPositionForCore } from '../../internal/decorator-position';
 
 type HourlyOptions = {
   readonly minute?: number;
@@ -8,18 +9,19 @@ type HourlyOptions = {
 };
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-export const Hourly =
-  (options?: HourlyOptions) =>
-  (...args: unknown[]): void => {
-    const { pendingKey, methodName, isStatic } = resolveMethodArgs(args);
-    if (isStatic) {
-      throw new ZeltDecoratorUsageError({ decoratorName: 'Hourly', reason: 'static_method' });
-    }
-    const minute = options?.minute ?? 0;
-    const cronExpression = `${minute} * * * *`;
-    appendPendingScheduleMetadata(pendingKey, {
-      methodName,
+export const Hourly = (options?: HourlyOptions) => {
+  const minute = options?.minute ?? 0;
+  const cronExpression = `${minute} * * * *`;
+  return defineMethodDecorator(
+    getCallerPositionForCore(),
+    {
+      decorator: 'Schedule' as const,
       cronExpression,
       ...(options?.tz !== undefined ? { timezone: options.tz } : {}),
-    });
-  };
+    } as const,
+    {
+      rejectStatic: () =>
+        new ZeltDecoratorUsageError({ decoratorName: 'Hourly', reason: 'static_method' }),
+    },
+  );
+};

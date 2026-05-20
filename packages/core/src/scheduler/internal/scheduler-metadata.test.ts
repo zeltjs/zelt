@@ -1,95 +1,56 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  appendPendingScheduleMetadata,
-  getScheduledMetadata,
-  getScheduleMetadata,
-  resolveScheduleMetadata,
-  setScheduledMetadata,
-} from './scheduler-metadata';
+import { Cron } from '../decorators/cron';
+import { Daily } from '../decorators/daily';
+import { Scheduled } from '../decorators/scheduled';
 
-describe('scheduler-metadata', () => {
-  describe('setScheduledMetadata / getScheduledMetadata', () => {
-    it('stores and retrieves scheduled class marker', () => {
-      class TestScheduler {}
-      setScheduledMetadata(TestScheduler);
-      expect(getScheduledMetadata(TestScheduler)).toBe(true);
-    });
+import { getScheduledMetadata, getScheduleMetadata } from './scheduler-metadata';
 
-    it('returns undefined for unmarked class', () => {
-      class UnmarkedClass {}
-      expect(getScheduledMetadata(UnmarkedClass)).toBeUndefined();
+describe('scheduler-metadata (via decorators)', () => {
+  it('getScheduledMetadata returns true for @Scheduled class', () => {
+    @Scheduled()
+    class TestScheduler {}
+    expect(getScheduledMetadata(TestScheduler)).toBe(true);
+  });
+
+  it('getScheduledMetadata returns undefined for class without @Scheduled', () => {
+    class UnmarkedClass {}
+    expect(getScheduledMetadata(UnmarkedClass)).toBeUndefined();
+  });
+
+  it('getScheduleMetadata collects @Cron metadata', () => {
+    @Scheduled()
+    class TestScheduler {
+      @Cron('0 3 * * *', { tz: 'Asia/Tokyo' })
+      dailyTask(): void {}
+    }
+
+    const schedules = getScheduleMetadata(TestScheduler);
+    expect(schedules).toHaveLength(1);
+    expect(schedules[0]).toEqual({
+      methodName: 'dailyTask',
+      cronExpression: '0 3 * * *',
+      timezone: 'Asia/Tokyo',
     });
   });
 
-  describe('appendPendingScheduleMetadata / getScheduleMetadata', () => {
-    it('appends and retrieves schedule metadata with resolve', () => {
-      const pendingKey = {};
-      class TestScheduler {}
-      appendPendingScheduleMetadata(pendingKey, {
-        methodName: 'dailyTask',
-        cronExpression: '0 3 * * *',
-        timezone: 'Asia/Tokyo',
-      });
-      resolveScheduleMetadata(pendingKey, TestScheduler);
+  it('getScheduleMetadata collects multiple schedule decorators in declaration order', () => {
+    @Scheduled()
+    class TestScheduler {
+      @Cron('0 * * * *')
+      task1(): void {}
 
-      const schedules = getScheduleMetadata(TestScheduler);
-      expect(schedules).toHaveLength(1);
-      expect(schedules[0]).toEqual({
-        methodName: 'dailyTask',
-        cronExpression: '0 3 * * *',
-        timezone: 'Asia/Tokyo',
-      });
-    });
+      @Daily({ hour: 0 })
+      task2(): void {}
+    }
 
-    it('appends multiple schedules with resolve', () => {
-      const pendingKey = {};
-      class TestScheduler {}
-      appendPendingScheduleMetadata(pendingKey, {
-        methodName: 'task1',
-        cronExpression: '0 * * * *',
-      });
-      appendPendingScheduleMetadata(pendingKey, {
-        methodName: 'task2',
-        cronExpression: '0 0 * * *',
-      });
-      resolveScheduleMetadata(pendingKey, TestScheduler);
-
-      const schedules = getScheduleMetadata(TestScheduler);
-      expect(schedules).toHaveLength(2);
-    });
-
-    it('returns empty array for class without schedules', () => {
-      class EmptyScheduler {}
-      expect(getScheduleMetadata(EmptyScheduler)).toEqual([]);
-    });
+    const schedules = getScheduleMetadata(TestScheduler);
+    expect(schedules).toHaveLength(2);
+    expect(schedules.map((s) => s.methodName)).toEqual(['task1', 'task2']);
   });
 
-  describe('scheduler pending/resolve pattern', () => {
-    it('stores to pending and resolves to final', () => {
-      const pendingKey = {};
-      class TestClass {}
-      const meta = { methodName: 'run', cronExpression: '* * * * *' };
-
-      appendPendingScheduleMetadata(pendingKey, meta);
-      resolveScheduleMetadata(pendingKey, TestClass);
-
-      const result = getScheduleMetadata(TestClass);
-      expect(result).toEqual([meta]);
-    });
-
-    it('handles multiple schedules on same pending key', () => {
-      const pendingKey = {};
-      class TestClass {}
-      const meta1 = { methodName: 'a', cronExpression: '* * * * *' };
-      const meta2 = { methodName: 'b', cronExpression: '0 * * * *' };
-
-      appendPendingScheduleMetadata(pendingKey, meta1);
-      appendPendingScheduleMetadata(pendingKey, meta2);
-      resolveScheduleMetadata(pendingKey, TestClass);
-
-      const result = getScheduleMetadata(TestClass);
-      expect(result).toEqual([meta1, meta2]);
-    });
+  it('getScheduleMetadata returns empty array for class without schedules', () => {
+    class EmptyScheduler {}
+    expect(getScheduleMetadata(EmptyScheduler)).toEqual([]);
   });
 });

@@ -54,6 +54,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@zeltjs/decorator-metadata": "workspace:*",
     "hono": "4.12.16"
   },
   "devDependencies": {

@@ -131,13 +131,7 @@ export default tseslint.config(
   {
     // Forbid raw Error — use structured Zelt*Error classes instead
     files: ['packages/core/src/**/*.{ts,tsx}'],
-    ignores: [
-      ...TEST_FILES,
-      ...FIXTURE_FILES,
-      '**/errors/**',
-      // Stack trace utility uses Error().stack, not for throwing
-      'packages/core/src/http/internal/source-file.ts',
-    ],
+    ignores: [...TEST_FILES, ...FIXTURE_FILES, '**/errors/**'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -346,13 +340,16 @@ export default tseslint.config(
     },
   },
   {
-    // TC39/legacy decorator dual-mode adapter: runtime boundary where decorator args are unknown
-    files: ['packages/core/src/internal/decorator-context.ts'],
+    // Decorator-metadata bridge: turns decorator-metadata's TC39/legacy overloaded
+    // result back into core's domain shapes (InjectableClass, MiddlewareInput[]).
+    // The cross-boundary assertions are unavoidable here.
+    files: [
+      'packages/core/src/internal/decorator-helpers.ts',
+      'packages/core/src/http/decorators/use-middleware.ts',
+      'packages/core/src/http/internal/metadata.ts',
+    ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@9wick/strict-type-rules/no-type-predicate': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
   {

@@ -1,18 +1,16 @@
+import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
+
 import { ZeltDecoratorUsageError } from '../../errors';
-import { resolveMethodArgs } from '../../internal/decorator-context';
-import { appendPendingSkipMiddlewareMetadata } from '../internal/metadata';
+import { getCallerPositionForCore } from '../../internal/decorator-position';
 import type { MiddlewareIdentifier } from '../middleware/types';
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-export const SkipMiddleware =
-  (...middlewares: MiddlewareIdentifier[]) =>
-  (...args: unknown[]): void => {
-    const { pendingKey, methodName, isStatic } = resolveMethodArgs(args);
-    if (isStatic) {
-      throw new ZeltDecoratorUsageError({
-        decoratorName: 'SkipMiddleware',
-        reason: 'static_method',
-      });
-    }
-    appendPendingSkipMiddlewareMetadata(pendingKey, methodName, middlewares);
-  };
+export const SkipMiddleware = (...skipped: MiddlewareIdentifier[]) =>
+  defineMethodDecorator(
+    getCallerPositionForCore(),
+    { decorator: 'SkipMiddleware' as const, skipped } as const,
+    {
+      rejectStatic: () =>
+        new ZeltDecoratorUsageError({ decoratorName: 'SkipMiddleware', reason: 'static_method' }),
+    },
+  );

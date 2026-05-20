@@ -1,3 +1,6 @@
+import { getClassMetadata } from '@zeltjs/decorator-metadata';
+import { match, P } from 'ts-pattern';
+
 import type { MiddlewareIdentifier, MiddlewareInput } from '../middleware/types';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -13,9 +16,11 @@ type RouteMetadata = {
   readonly methodName: string | symbol;
 };
 
-type ControllerMiddlewareMetadata = {
-  readonly middlewares: readonly MiddlewareInput[];
-};
+// One entry per `@UseMiddleware(...)` application. The arguments passed to a
+// single application are kept together as a set — they are intentionally not
+// flattened across applications, because their meaning depends on grouping.
+type ControllerMiddlewareSet = readonly MiddlewareInput[];
+type ControllerMiddlewareMetadata = readonly ControllerMiddlewareSet[];
 
 type MethodMiddlewareMetadata = {
   readonly methodName: string | symbol;
@@ -46,169 +51,163 @@ export type ControllerRouteInfo = {
   readonly routes: readonly RouteInfo[];
 };
 
-const controllerStore = new WeakMap<object, ControllerMetadata>();
-const routeStore = new WeakMap<object, RouteMetadata[]>();
-const controllerMiddlewareStore = new WeakMap<object, ControllerMiddlewareMetadata>();
-const methodMiddlewareStore = new WeakMap<object, MethodMiddlewareMetadata[]>();
-const skipMiddlewareStore = new WeakMap<object, SkipMiddlewareMetadata[]>();
-const authorizedStore = new WeakMap<object, AuthorizedMetadata[]>();
-
-const pendingRouteStore = new WeakMap<object, RouteMetadata[]>();
-const pendingMethodMiddlewareStore = new WeakMap<object, MethodMiddlewareMetadata[]>();
-const pendingSkipMiddlewareStore = new WeakMap<object, SkipMiddlewareMetadata[]>();
-const pendingAuthorizedStore = new WeakMap<object, AuthorizedMetadata[]>();
-
-export const setControllerMetadata = (cls: object, meta: ControllerMetadata): void => {
-  controllerStore.set(cls, meta);
+const controllerPattern = {
+  decorator: 'Controller' as const,
+  basePath: P.string,
 };
 
-/** @throws {ZeltLifecycleStateError} */
-export const getControllerMetadata = (cls: object): ControllerMetadata | undefined =>
-  controllerStore.get(cls);
-
-/** @throws {ZeltLifecycleStateError} */
-export const appendRouteMetadata = (cls: object, meta: RouteMetadata): void => {
-  const existing = routeStore.get(cls) ?? [];
-  const exists = existing.some(
-    (r) => r.method === meta.method && r.path === meta.path && r.methodName === meta.methodName,
-  );
-  if (exists) return;
-  routeStore.set(cls, [...existing, meta]);
+const useMiddlewarePattern = {
+  decorator: 'UseMiddleware' as const,
+  middlewares: P.array(),
 };
 
-/** @throws {ZeltLifecycleStateError} */
-export const getRouteMetadata = (cls: object): readonly RouteMetadata[] =>
-  routeStore.get(cls) ?? [];
-
-export const setControllerMiddlewareMetadata = (
-  cls: object,
-  middlewares: readonly MiddlewareInput[],
-): void => {
-  controllerMiddlewareStore.set(cls, { middlewares });
+const routePattern = {
+  decorator: 'Route' as const,
+  method: P.union(
+    'GET' as const,
+    'POST' as const,
+    'PUT' as const,
+    'PATCH' as const,
+    'DELETE' as const,
+  ),
+  path: P.string,
 };
 
-/** @throws {ZeltLifecycleStateError} */
+const skipMiddlewarePattern = {
+  decorator: 'SkipMiddleware' as const,
+  skipped: P.array(),
+};
+
+const authorizedPattern = {
+  decorator: 'Authorized' as const,
+  roles: P.array(P.string),
+};
+
+export const getControllerMetadata = (cls: object): ControllerMetadata | undefined => {
+  const meta = getClassMetadata(cls);
+  if (!meta) return undefined;
+  for (const p of meta.props) {
+    const found = match(p)
+      .with(
+        controllerPattern,
+        (c): ControllerMetadata => ({
+          basePath: c.basePath,
+          sourceFile: meta.pos?.sourceFile,
+        }),
+      )
+      .otherwise(() => undefined);
+    if (found) return found;
+  }
+  return undefined;
+};
+
+export const getRouteMetadata = (cls: object): readonly RouteMetadata[] => {
+  const meta = getClassMetadata(cls);
+  if (!meta) return [];
+  const routes: RouteMetadata[] = [];
+  const seen = new Set<string>();
+  for (const m of meta.methods) {
+    for (const p of m.props) {
+      const entry = match(p)
+        .with(
+          routePattern,
+          (r): RouteMetadata => ({ method: r.method, path: r.path, methodName: m.name }),
+        )
+        .otherwise(() => undefined);
+      if (!entry) continue;
+      const key = `${entry.method}\0${entry.path}\0${String(entry.methodName)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      routes.push(entry);
+    }
+  }
+  return routes;
+};
+
+// Returns one entry per `@UseMiddleware(...)` application on the class, in the
+// order they were applied (innermost decorator first, per TC39 evaluation
+// order). Callers that need a single flat list should call `.flat()`.
+// MiddlewareInput / MiddlewareIdentifier are domain types we can't structurally
+// validate at this layer (functions and classes have no runtime tag). Trust
+// that core's own decorators wrote the right shape into props.
+const toMiddlewareInputs = (arr: readonly unknown[]): readonly MiddlewareInput[] =>
+  arr as readonly MiddlewareInput[];
+const toMiddlewareIdentifiers = (arr: readonly unknown[]): readonly MiddlewareIdentifier[] =>
+  arr as readonly MiddlewareIdentifier[];
+
 export const getControllerMiddlewareMetadata = (
   cls: object,
-): ControllerMiddlewareMetadata | undefined => controllerMiddlewareStore.get(cls);
-
-/** @throws {ZeltLifecycleStateError} */
-export const appendMethodMiddlewareMetadata = (
-  cls: object,
-  methodName: string | symbol,
-  middlewares: readonly MiddlewareInput[],
-): void => {
-  const existing = methodMiddlewareStore.get(cls) ?? [];
-  methodMiddlewareStore.set(cls, [...existing, { methodName, middlewares }]);
+): ControllerMiddlewareMetadata | undefined => {
+  const meta = getClassMetadata(cls);
+  if (!meta) return undefined;
+  const sets: ControllerMiddlewareSet[] = [];
+  for (const p of meta.props) {
+    const set = match(p)
+      .with(useMiddlewarePattern, (um) => toMiddlewareInputs(um.middlewares))
+      .otherwise(() => undefined);
+    if (set) sets.push(set);
+  }
+  return sets.length > 0 ? sets : undefined;
 };
 
-/** @throws {ZeltLifecycleStateError} */
-export const getMethodMiddlewareMetadata = (cls: object): readonly MethodMiddlewareMetadata[] =>
-  methodMiddlewareStore.get(cls) ?? [];
-
-/** @throws {ZeltLifecycleStateError} */
-export const appendSkipMiddlewareMetadata = (
-  cls: object,
-  methodName: string | symbol,
-  skipped: readonly MiddlewareIdentifier[],
-): void => {
-  const existing = skipMiddlewareStore.get(cls) ?? [];
-  skipMiddlewareStore.set(cls, [...existing, { methodName, skipped }]);
+export const getMethodMiddlewareMetadata = (cls: object): readonly MethodMiddlewareMetadata[] => {
+  const meta = getClassMetadata(cls);
+  if (!meta) return [];
+  const result: MethodMiddlewareMetadata[] = [];
+  for (const m of meta.methods) {
+    for (const p of m.props) {
+      const entry = match(p)
+        .with(
+          useMiddlewarePattern,
+          (um): MethodMiddlewareMetadata => ({
+            methodName: m.name,
+            middlewares: toMiddlewareInputs(um.middlewares),
+          }),
+        )
+        .otherwise(() => undefined);
+      if (entry) result.push(entry);
+    }
+  }
+  return result;
 };
 
-/** @throws {ZeltLifecycleStateError} */
-export const getSkipMiddlewareMetadata = (cls: object): readonly SkipMiddlewareMetadata[] =>
-  skipMiddlewareStore.get(cls) ?? [];
-
-/** @throws {ZeltLifecycleStateError} */
-export const setAuthorizedMetadata = (
-  cls: object,
-  methodName: string | symbol,
-  roles: readonly string[],
-): void => {
-  const existing = authorizedStore.get(cls) ?? [];
-  authorizedStore.set(cls, [...existing, { methodName, roles }]);
+export const getSkipMiddlewareMetadata = (cls: object): readonly SkipMiddlewareMetadata[] => {
+  const meta = getClassMetadata(cls);
+  if (!meta) return [];
+  const result: SkipMiddlewareMetadata[] = [];
+  for (const m of meta.methods) {
+    for (const p of m.props) {
+      const entry = match(p)
+        .with(
+          skipMiddlewarePattern,
+          (sm): SkipMiddlewareMetadata => ({
+            methodName: m.name,
+            skipped: toMiddlewareIdentifiers(sm.skipped),
+          }),
+        )
+        .otherwise(() => undefined);
+      if (entry) result.push(entry);
+    }
+  }
+  return result;
 };
 
-/** @throws {ZeltLifecycleStateError} */
 export const getAuthorizedMetadata = (
   cls: object,
   methodName: string | symbol,
 ): AuthorizedMetadata | undefined => {
-  const all = authorizedStore.get(cls) ?? [];
-  return all.find((m) => m.methodName === methodName);
-};
-
-/** @throws {ZeltLifecycleStateError} */
-export const appendPendingRouteMetadata = (pendingKey: object, meta: RouteMetadata): void => {
-  const existing = pendingRouteStore.get(pendingKey) ?? [];
-  pendingRouteStore.set(pendingKey, [...existing, meta]);
-};
-
-/** @throws {ZeltLifecycleStateError} */
-export const resolveRouteMetadata = (pendingKey: object, cls: object): void => {
-  const pending = pendingRouteStore.get(pendingKey) ?? [];
-  for (const meta of pending) {
-    appendRouteMetadata(cls, meta);
+  const meta = getClassMetadata(cls);
+  if (!meta) return undefined;
+  for (const m of meta.methods) {
+    if (m.name !== methodName) continue;
+    for (const p of m.props) {
+      const entry = match(p)
+        .with(authorizedPattern, (a): AuthorizedMetadata => ({ methodName, roles: a.roles }))
+        .otherwise(() => undefined);
+      if (entry) return entry;
+    }
   }
-  pendingRouteStore.delete(pendingKey);
-};
-
-/** @throws {ZeltLifecycleStateError} */
-export const appendPendingMethodMiddlewareMetadata = (
-  pendingKey: object,
-  methodName: string | symbol,
-  middlewares: readonly MiddlewareInput[],
-): void => {
-  const existing = pendingMethodMiddlewareStore.get(pendingKey) ?? [];
-  pendingMethodMiddlewareStore.set(pendingKey, [...existing, { methodName, middlewares }]);
-};
-
-/** @throws {ZeltLifecycleStateError} */
-export const resolveMethodMiddlewareMetadata = (pendingKey: object, cls: object): void => {
-  const pending = pendingMethodMiddlewareStore.get(pendingKey) ?? [];
-  for (const { methodName, middlewares } of pending) {
-    appendMethodMiddlewareMetadata(cls, methodName, middlewares);
-  }
-  pendingMethodMiddlewareStore.delete(pendingKey);
-};
-
-/** @throws {ZeltLifecycleStateError} */
-export const appendPendingSkipMiddlewareMetadata = (
-  pendingKey: object,
-  methodName: string | symbol,
-  skipped: readonly MiddlewareIdentifier[],
-): void => {
-  const existing = pendingSkipMiddlewareStore.get(pendingKey) ?? [];
-  pendingSkipMiddlewareStore.set(pendingKey, [...existing, { methodName, skipped }]);
-};
-
-/** @throws {ZeltLifecycleStateError} */
-export const resolveSkipMiddlewareMetadata = (pendingKey: object, cls: object): void => {
-  const pending = pendingSkipMiddlewareStore.get(pendingKey) ?? [];
-  for (const { methodName, skipped } of pending) {
-    appendSkipMiddlewareMetadata(cls, methodName, skipped);
-  }
-  pendingSkipMiddlewareStore.delete(pendingKey);
-};
-
-/** @throws {ZeltLifecycleStateError} */
-export const appendPendingAuthorizedMetadata = (
-  pendingKey: object,
-  methodName: string | symbol,
-  roles: readonly string[],
-): void => {
-  const existing = pendingAuthorizedStore.get(pendingKey) ?? [];
-  pendingAuthorizedStore.set(pendingKey, [...existing, { methodName, roles }]);
-};
-
-/** @throws {ZeltLifecycleStateError} */
-export const resolveAuthorizedMetadata = (pendingKey: object, cls: object): void => {
-  const pending = pendingAuthorizedStore.get(pendingKey) ?? [];
-  for (const { methodName, roles } of pending) {
-    setAuthorizedMetadata(cls, methodName, roles);
-  }
-  pendingAuthorizedStore.delete(pendingKey);
+  return undefined;
 };
 
 const joinPath = (base: string, sub: string): string => {
@@ -221,9 +220,9 @@ const joinPath = (base: string, sub: string): string => {
 export const collectControllerRouteInfo = (
   cls: new (...args: never[]) => object,
 ): ControllerRouteInfo => {
-  const controllerMeta = controllerStore.get(cls);
+  const controllerMeta = getControllerMetadata(cls);
   const basePath = controllerMeta?.basePath ?? '/';
-  const routeMeta = routeStore.get(cls) ?? [];
+  const routeMeta = getRouteMetadata(cls);
 
   const routes = routeMeta.flatMap((r) =>
     typeof r.methodName === 'string'

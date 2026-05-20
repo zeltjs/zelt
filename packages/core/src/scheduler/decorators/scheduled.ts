@@ -1,15 +1,11 @@
-import { injectable } from '@needle-di/core';
+import { defineInjectableClassDecorator } from '../../internal/decorator-helpers';
+import { getCallerPositionForCore } from '../../internal/decorator-position';
 
-import { resolveClassArgs } from '../../internal/decorator-context';
-import { resolveScheduleMetadata, setScheduledMetadata } from '../internal/scheduler-metadata';
-
-/** @throws {ZeltLifecycleStateError} */
-export const Scheduled =
-  () =>
-  (...args: unknown[]): void => {
-    const { cls, pendingKey, injectableClass } = resolveClassArgs(args);
-
-    resolveScheduleMetadata(pendingKey, cls);
-    setScheduledMetadata(cls);
-    injectable()(injectableClass);
-  };
+/** @throws {ZeltLifecycleStateError | ZeltDecoratorUsageError} */
+export const Scheduled = () =>
+  defineInjectableClassDecorator(
+    getCallerPositionForCore(),
+    { decorator: 'Scheduled' } as const,
+    undefined,
+    { unique: true },
+  );

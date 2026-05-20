@@ -213,7 +213,7 @@ const collectRouteMiddlewares = (
 
   const allMiddlewares: MiddlewareInput[] = [
     ...globalMiddlewares.filter((m) => !skippedSet.has(m)),
-    ...(controllerMeta?.middlewares.filter((m) => !skippedSet.has(m)) ?? []),
+    ...(controllerMeta?.flatMap((set) => set.filter((m) => !skippedSet.has(m))) ?? []),
     ...methodMetas.flatMap((m) => m.middlewares.filter((mw) => !skippedSet.has(mw))),
   ];
 

@@ -3,12 +3,15 @@ import { match } from 'ts-pattern';
 export const coreErrorDefinitions = {
   ZeltDecoratorUsageError: (ctx: {
     decoratorName: string;
-    reason: 'static_method' | 'missing_decorator';
+    reason: 'static_method' | 'missing_decorator' | 'duplicate';
     targetName?: string;
-  }) =>
-    ctx.reason === 'static_method'
-      ? `@${ctx.decoratorName} cannot be applied to static methods`
-      : `${ctx.targetName ?? 'class'} is missing @${ctx.decoratorName} decorator`,
+  }) => {
+    if (ctx.reason === 'static_method')
+      return `@${ctx.decoratorName} cannot be applied to static methods`;
+    if (ctx.reason === 'duplicate')
+      return `@${ctx.decoratorName} cannot be applied more than once to the same class`;
+    return `${ctx.targetName ?? 'class'} is missing @${ctx.decoratorName} decorator`;
+  },
 
   ZeltLifecycleStateError: (ctx: {
     operation: string;

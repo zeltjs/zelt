@@ -1,19 +1,19 @@
+import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
+
 import { ZeltDecoratorUsageError } from '../../errors';
-import { resolveMethodArgs } from '../../internal/decorator-context';
+import { getCallerPositionForCore } from '../../internal/decorator-position';
 import type { HttpMethod } from '../internal/metadata';
-import { appendPendingRouteMetadata } from '../internal/metadata';
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-const makeDecorator =
-  (method: HttpMethod) =>
-  (path: string) =>
-  (...args: unknown[]): void => {
-    const { pendingKey, methodName, isStatic } = resolveMethodArgs(args);
-    if (isStatic) {
-      throw new ZeltDecoratorUsageError({ decoratorName: method, reason: 'static_method' });
-    }
-    appendPendingRouteMetadata(pendingKey, { method, path, methodName });
-  };
+const makeDecorator = (method: HttpMethod) => (path: string) =>
+  defineMethodDecorator(
+    getCallerPositionForCore(),
+    { decorator: 'Route' as const, method, path } as const,
+    {
+      rejectStatic: () =>
+        new ZeltDecoratorUsageError({ decoratorName: method, reason: 'static_method' }),
+    },
+  );
 
 export const Get = makeDecorator('GET');
 export const Post = makeDecorator('POST');

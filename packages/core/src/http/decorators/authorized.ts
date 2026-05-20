@@ -1,17 +1,18 @@
+import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
+
 import { ZeltDecoratorUsageError } from '../../errors';
-import { resolveMethodArgs } from '../../internal/decorator-context';
-import { appendPendingAuthorizedMetadata } from '../internal/metadata';
+import { getCallerPositionForCore } from '../../internal/decorator-position';
 import type { RequestContextSchema } from '../primitives/get-context';
 
 type Roles = RequestContextSchema['authRoles'];
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-export const Authorized =
-  (roles: Roles = []) =>
-  (...args: unknown[]): void => {
-    const { pendingKey, methodName, isStatic } = resolveMethodArgs(args);
-    if (isStatic) {
-      throw new ZeltDecoratorUsageError({ decoratorName: 'Authorized', reason: 'static_method' });
-    }
-    appendPendingAuthorizedMetadata(pendingKey, methodName, roles);
-  };
+export const Authorized = (roles: Roles = []) =>
+  defineMethodDecorator(
+    getCallerPositionForCore(),
+    { decorator: 'Authorized' as const, roles } as const,
+    {
+      rejectStatic: () =>
+        new ZeltDecoratorUsageError({ decoratorName: 'Authorized', reason: 'static_method' }),
+    },
+  );

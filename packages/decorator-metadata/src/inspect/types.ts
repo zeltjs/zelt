@@ -31,32 +31,28 @@ export type ParamInfo = {
   readonly type: TypeInfo;
 };
 
-export type MethodInfo<TProps = unknown> = {
+export type MethodInfo = {
   readonly name: string;
-  readonly pos: Position;
-  readonly props: TProps;
+  readonly pos: Position | undefined;
+  readonly props: readonly object[];
   readonly params: readonly ParamInfo[];
   readonly returnType: TypeInfo;
 };
 
-export type PropertyInfo<TProps = unknown> = {
+export type PropertyInfo = {
   readonly name: string;
-  readonly pos: Position;
-  readonly props: TProps;
+  readonly pos: Position | undefined;
+  readonly props: readonly object[];
   readonly type: TypeInfo;
   readonly optional: boolean;
 };
 
-export type ClassMetadata<
-  TClassProps = unknown,
-  TMethodProps = unknown,
-  TPropertyProps = unknown,
-> = {
+export type ClassMetadata = {
   readonly name: string;
-  readonly pos: Position;
-  readonly props: TClassProps;
-  readonly methods: readonly MethodInfo<TMethodProps>[];
-  readonly properties: readonly PropertyInfo<TPropertyProps>[];
+  readonly pos: Position | undefined;
+  readonly props: readonly object[];
+  readonly methods: readonly MethodInfo[];
+  readonly properties: readonly PropertyInfo[];
 };
 
 export type InspectErrorCode =

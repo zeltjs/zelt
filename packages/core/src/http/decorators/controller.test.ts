@@ -44,4 +44,13 @@ describe('@Controller', () => {
     container.bind(XController);
     expect(container.get(XController).hello()).toBe('x');
   });
+
+  it('throws when applied more than once to the same class', () => {
+    expect(() => {
+      @Controller('/a')
+      @Controller('/b')
+      class DoubleController {}
+      void DoubleController;
+    }).toThrow(/@Controller cannot be applied more than once/);
+  });
 });

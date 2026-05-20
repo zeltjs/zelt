@@ -30,8 +30,16 @@ type TSNode = import('typescript').Node;
 type TSTypeChecker = import('typescript').TypeChecker;
 type ExtractTypeFn = (type: import('typescript').Type) => TypeInfo;
 
-type StoredMethodMeta = { readonly name: string; readonly pos: Position; readonly props: object };
-type StoredPropertyMeta = { readonly name: string; readonly pos: Position; readonly props: object };
+type StoredMethodMeta = {
+  readonly name: string;
+  readonly pos: Position | undefined;
+  readonly props: readonly object[];
+};
+type StoredPropertyMeta = {
+  readonly name: string;
+  readonly pos: Position | undefined;
+  readonly props: readonly object[];
+};
 
 const findClassAtPosition = (
   sourceFile: TSSourceFile,
@@ -128,18 +136,42 @@ const extractPropertyInfo = (
   return { name: p.name, pos: p.pos, props: p.props, type, optional };
 };
 
+type ResolvedStoredMeta = {
+  readonly storedMeta: NonNullable<ReturnType<typeof getClassMetadata>>;
+  readonly storedPos: import('../runtime/position').Position;
+};
+
+const resolveStoredMeta = <T extends object>(
+  cls: new (...args: unknown[]) => T,
+): { ok: true; value: ResolvedStoredMeta } | { ok: false; error: InspectError } => {
+  const storedMeta = getClassMetadata(cls);
+  if (!storedMeta) {
+    return {
+      ok: false,
+      error: { code: 'NO_METADATA', message: `No decorator metadata found for class ${cls.name}` },
+    };
+  }
+  const storedPos = storedMeta.pos;
+  if (!storedPos) {
+    return {
+      ok: false,
+      error: {
+        code: 'POSITION_INVALID',
+        message: `No source position captured for class ${cls.name}`,
+      },
+    };
+  }
+  return { ok: true, value: { storedMeta, storedPos } };
+};
+
 /** @throws {UnsupportedTypeScriptVersionError} */
 export const getTypeMetadata = <T extends object>(
   cls: new (...args: unknown[]) => T,
   options?: InspectOptions,
 ): ResultAsync<ClassMetadata, InspectError | ProgramCacheError> => {
-  const storedMeta = getClassMetadata(cls);
-  if (!storedMeta) {
-    return errAsync({
-      code: 'NO_METADATA',
-      message: `No decorator metadata found for class ${cls.name}`,
-    });
-  }
+  const resolved = resolveStoredMeta(cls);
+  if (!resolved.ok) return errAsync(resolved.error);
+  const { storedMeta, storedPos } = resolved.value;
 
   const tsconfigPath = resolve(options?.tsconfig ?? DEFAULT_TSCONFIG);
   const expandStrategy = options?.expandStrategy ?? DEFAULT_EXPAND_STRATEGY;
@@ -148,25 +180,25 @@ export const getTypeMetadata = <T extends object>(
     const { program, checker, ts } = cached;
     const { extractType } = createTypeExtractor(ts, checker, expandStrategy);
 
-    const sourceFile = program.getSourceFile(storedMeta.pos.sourceFile);
+    const sourceFile = program.getSourceFile(storedPos.sourceFile);
     if (!sourceFile) {
       return errAsync<ClassMetadata, InspectError>({
         code: 'SOURCE_NOT_FOUND',
-        message: `Source file not found: ${storedMeta.pos.sourceFile}`,
+        message: `Source file not found: ${storedPos.sourceFile}`,
       });
     }
 
     const pos = ts.getPositionOfLineAndCharacter(
       sourceFile,
-      storedMeta.pos.line - 1,
-      storedMeta.pos.column - 1,
+      storedPos.line - 1,
+      storedPos.column - 1,
     );
 
     const classNode = findClassAtPosition(sourceFile, pos, ts);
     if (!classNode || !ts.isClassDeclaration(classNode)) {
       return errAsync<ClassMetadata, InspectError>({
         code: 'POSITION_INVALID',
-        message: `No class found at position ${storedMeta.pos.line}:${storedMeta.pos.column}`,
+        message: `No class found at position ${storedPos.line}:${storedPos.column}`,
       });
     }
 
@@ -179,7 +211,7 @@ export const getTypeMetadata = <T extends object>(
 
     return okAsync({
       name: cls.name,
-      pos: storedMeta.pos,
+      pos: storedPos,
       props: storedMeta.props,
       methods,
       properties,

@@ -1,132 +1,124 @@
 import { describe, expect, it } from 'vitest';
 
+import { Authorized } from '../decorators/authorized';
+import { Controller } from '../decorators/controller';
+import { Get, Post } from '../decorators/http-method';
+import { SkipMiddleware } from '../decorators/skip-middleware';
+import { UseMiddleware } from '../decorators/use-middleware';
+
 import {
-  appendPendingAuthorizedMetadata,
-  appendPendingMethodMiddlewareMetadata,
-  appendPendingRouteMetadata,
-  appendPendingSkipMiddlewareMetadata,
-  appendRouteMetadata,
   getAuthorizedMetadata,
   getControllerMetadata,
+  getControllerMiddlewareMetadata,
   getMethodMiddlewareMetadata,
   getRouteMetadata,
   getSkipMiddlewareMetadata,
-  resolveAuthorizedMetadata,
-  resolveMethodMiddlewareMetadata,
-  resolveRouteMetadata,
-  resolveSkipMiddlewareMetadata,
-  setControllerMetadata,
 } from './metadata';
 
-describe('metadata', () => {
-  class A {}
-  class B {}
-
+describe('metadata collectors (via decorators)', () => {
   it('stores controller metadata per class', () => {
-    setControllerMetadata(A, { basePath: '/users', sourceFile: undefined });
-    setControllerMetadata(B, { basePath: '/posts', sourceFile: undefined });
+    @Controller('/users')
+    class A {}
+
+    @Controller('/posts')
+    class B {}
+
     expect(getControllerMetadata(A)?.basePath).toBe('/users');
     expect(getControllerMetadata(B)?.basePath).toBe('/posts');
   });
 
-  it('returns undefined for unknown class', () => {
+  it('returns undefined for class without @Controller', () => {
     class C {}
     expect(getControllerMetadata(C)).toBeUndefined();
   });
 
-  it('appends route metadata in declaration order', () => {
-    class D {}
-    appendRouteMetadata(D, { method: 'GET', path: '/', methodName: 'list' });
-    appendRouteMetadata(D, { method: 'POST', path: '/', methodName: 'create' });
+  it('collects route metadata in declaration order', () => {
+    @Controller('/d')
+    class D {
+      @Get('/')
+      list(): void {}
+
+      @Post('/')
+      create(): void {}
+    }
+
     expect(getRouteMetadata(D)).toEqual([
       { method: 'GET', path: '/', methodName: 'list' },
       { method: 'POST', path: '/', methodName: 'create' },
     ]);
   });
 
-  it('dedupes duplicate route metadata (safety net for repeated registrations)', () => {
-    class E {}
-    appendRouteMetadata(E, { method: 'GET', path: '/', methodName: 'list' });
-    appendRouteMetadata(E, { method: 'GET', path: '/', methodName: 'list' });
-    expect(getRouteMetadata(E)).toHaveLength(1);
-  });
-});
-
-describe('pending/resolve pattern', () => {
-  describe('route metadata', () => {
-    it('stores to pending and resolves to final', () => {
-      const pendingKey = {};
-      class TestClass {}
-      const meta = { method: 'GET' as const, path: '/test', methodName: 'test' };
-
-      appendPendingRouteMetadata(pendingKey, meta);
-      resolveRouteMetadata(pendingKey, TestClass);
-
-      const result = getRouteMetadata(TestClass);
-      expect(result).toEqual([meta]);
-    });
-
-    it('handles multiple routes on same pending key', () => {
-      const pendingKey = {};
-      class TestClass {}
-      const meta1 = { method: 'GET' as const, path: '/a', methodName: 'a' };
-      const meta2 = { method: 'POST' as const, path: '/b', methodName: 'b' };
-
-      appendPendingRouteMetadata(pendingKey, meta1);
-      appendPendingRouteMetadata(pendingKey, meta2);
-      resolveRouteMetadata(pendingKey, TestClass);
-
-      const result = getRouteMetadata(TestClass);
-      expect(result).toEqual([meta1, meta2]);
-    });
-  });
-
-  describe('method middleware metadata', () => {
-    it('stores to pending and resolves to final', () => {
-      const pendingKey = {};
-      class TestClass {}
-      class MiddlewareA {
-        async use() {
-          return undefined;
-        }
+  it('collects controller-level UseMiddleware', () => {
+    class MwA {
+      async use(): Promise<undefined> {
+        return undefined;
       }
+    }
+    @UseMiddleware(MwA)
+    @Controller('/x')
+    class X {}
 
-      appendPendingMethodMiddlewareMetadata(pendingKey, 'test', [MiddlewareA]);
-      resolveMethodMiddlewareMetadata(pendingKey, TestClass);
-
-      const result = getMethodMiddlewareMetadata(TestClass);
-      expect(result).toEqual([{ methodName: 'test', middlewares: [MiddlewareA] }]);
-    });
+    expect(getControllerMiddlewareMetadata(X)).toEqual([[MwA]]);
   });
 
-  describe('skip middleware metadata', () => {
-    it('stores to pending and resolves to final', () => {
-      const pendingKey = {};
-      class TestClass {}
-      class MiddlewareA {
-        async use() {
-          return undefined;
-        }
+  it('collects method-level UseMiddleware', () => {
+    class MwA {
+      async use(): Promise<undefined> {
+        return undefined;
       }
+    }
+    @Controller('/y')
+    class Y {
+      @UseMiddleware(MwA)
+      @Get('/list')
+      list(): void {}
+    }
 
-      appendPendingSkipMiddlewareMetadata(pendingKey, 'test', [MiddlewareA]);
-      resolveSkipMiddlewareMetadata(pendingKey, TestClass);
-
-      const result = getSkipMiddlewareMetadata(TestClass);
-      expect(result).toEqual([{ methodName: 'test', skipped: [MiddlewareA] }]);
-    });
+    expect(getMethodMiddlewareMetadata(Y)).toEqual([{ methodName: 'list', middlewares: [MwA] }]);
   });
 
-  describe('authorized metadata', () => {
-    it('stores to pending and resolves to final', () => {
-      const pendingKey = {};
-      class TestClass {}
+  it('collects SkipMiddleware metadata', () => {
+    class MwA {
+      async use(): Promise<undefined> {
+        return undefined;
+      }
+    }
+    @Controller('/z')
+    class Z {
+      @SkipMiddleware(MwA)
+      @Get('/free')
+      free(): void {}
+    }
 
-      appendPendingAuthorizedMetadata(pendingKey, 'test', ['admin']);
-      resolveAuthorizedMetadata(pendingKey, TestClass);
+    expect(getSkipMiddlewareMetadata(Z)).toEqual([{ methodName: 'free', skipped: [MwA] }]);
+  });
 
-      const result = getAuthorizedMetadata(TestClass, 'test');
-      expect(result).toEqual({ methodName: 'test', roles: ['admin'] });
+  it('collects Authorized metadata per method', () => {
+    @Controller('/u')
+    class U {
+      @Authorized(['admin'])
+      @Get('/admin')
+      adminOnly(): void {}
+    }
+
+    expect(getAuthorizedMetadata(U, 'adminOnly')).toEqual({
+      methodName: 'adminOnly',
+      roles: ['admin'],
     });
+    expect(getAuthorizedMetadata(U, 'unknownMethod')).toBeUndefined();
+  });
+
+  it('combines multiple class-level decorators (stacked props)', () => {
+    class MwA {
+      async use(): Promise<undefined> {
+        return undefined;
+      }
+    }
+    @UseMiddleware(MwA)
+    @Controller('/multi')
+    class Multi {}
+
+    expect(getControllerMetadata(Multi)?.basePath).toBe('/multi');
+    expect(getControllerMiddlewareMetadata(Multi)).toEqual([[MwA]]);
   });
 });

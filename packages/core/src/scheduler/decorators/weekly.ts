@@ -1,6 +1,7 @@
+import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
+
 import { ZeltDecoratorUsageError } from '../../errors';
-import { resolveMethodArgs } from '../../internal/decorator-context';
-import { appendPendingScheduleMetadata } from '../internal/scheduler-metadata';
+import { getCallerPositionForCore } from '../../internal/decorator-position';
 
 type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
 
@@ -22,19 +23,20 @@ const dayToCron: Record<DayOfWeek, string> = {
 };
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-export const Weekly =
-  (options: WeeklyOptions) =>
-  (...args: unknown[]): void => {
-    const { pendingKey, methodName, isStatic } = resolveMethodArgs(args);
-    if (isStatic) {
-      throw new ZeltDecoratorUsageError({ decoratorName: 'Weekly', reason: 'static_method' });
-    }
-    const minute = options.minute ?? 0;
-    const cronDay = dayToCron[options.day];
-    const cronExpression = `${minute} ${options.hour} * * ${cronDay}`;
-    appendPendingScheduleMetadata(pendingKey, {
-      methodName,
+export const Weekly = (options: WeeklyOptions) => {
+  const minute = options.minute ?? 0;
+  const cronDay = dayToCron[options.day];
+  const cronExpression = `${minute} ${options.hour} * * ${cronDay}`;
+  return defineMethodDecorator(
+    getCallerPositionForCore(),
+    {
+      decorator: 'Schedule' as const,
       cronExpression,
       ...(options.tz !== undefined ? { timezone: options.tz } : {}),
-    });
-  };
+    } as const,
+    {
+      rejectStatic: () =>
+        new ZeltDecoratorUsageError({ decoratorName: 'Weekly', reason: 'static_method' }),
+    },
+  );
+};

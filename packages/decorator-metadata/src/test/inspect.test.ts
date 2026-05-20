@@ -20,12 +20,12 @@ describe('getTypeMetadata', () => {
 
     const meta = result.value;
     expect(meta.name).toBe('UserController');
-    expect(meta.props).toEqual({ basePath: '/users' });
+    expect(meta.props).toEqual([{ basePath: '/users' }]);
     expect(meta.methods).toHaveLength(2);
 
     const getUser = meta.methods.find((m) => m.name === 'getUser');
     expect(getUser).toBeDefined();
-    expect(getUser?.props).toEqual({ method: 'GET', path: '/:id' });
+    expect(getUser?.props).toEqual([{ method: 'GET', path: '/:id' }]);
     expect(getUser?.params).toHaveLength(1);
     expect(getUser?.params[0]?.name).toBe('_id');
 
@@ -46,11 +46,11 @@ describe('getTypeMetadata', () => {
     expect(meta.properties).toHaveLength(2);
 
     const nameProp = meta.properties.find((p) => p.name === 'name');
-    expect(nameProp?.props).toEqual({ nullable: false });
+    expect(nameProp?.props).toEqual([{ nullable: false }]);
     expect(nameProp?.type.kind).toBe('primitive');
 
     const descProp = meta.properties.find((p) => p.name === 'description');
-    expect(descProp?.props).toEqual({ nullable: true });
+    expect(descProp?.props).toEqual([{ nullable: true }]);
     expect(descProp?.optional).toBe(true);
   });
 
