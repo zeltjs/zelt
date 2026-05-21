@@ -1,4 +1,6 @@
 import { rendererRich, transformerTwoslash } from '@shikijs/twoslash';
+import type { Highlighter } from 'shiki';
+import { createHighlighter } from 'shiki';
 import type { TwoslashInstance } from 'twoslash';
 import { visit } from 'unist-util-visit';
 
@@ -13,13 +15,11 @@ export interface RemarkTwoslashBlockOptions {
   langs: string[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let highlighterPromise: Promise<any> | null = null;
+let highlighterPromise: Promise<Highlighter> | null = null;
 
 const getHighlighter = async (options: RemarkTwoslashBlockOptions) => {
   if (!highlighterPromise) {
-    const shiki = await import('shiki');
-    highlighterPromise = shiki.createHighlighter({
+    highlighterPromise = createHighlighter({
       themes: Object.values(options.themes),
       langs: options.langs,
     });

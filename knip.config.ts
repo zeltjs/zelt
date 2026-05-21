@@ -80,9 +80,11 @@ const config: KnipConfig = {
     website: {
       // prism-theme-kanagawa.ts is imported by docusaurus.config.ts but knip --production misses it
       // scripts/*.ts are run via npm scripts (lint:slugs, test:docs)
+      // remark/*.ts are remark plugins imported by docusaurus.config.ts
       entry: [
         'docusaurus.config.ts',
         'src/prism-theme-kanagawa.ts',
+        'src/remark/*.ts',
         'scripts/check-doc-slugs.ts',
         'scripts/extract-doc-tests.ts',
       ],
@@ -122,6 +124,8 @@ const config: KnipConfig = {
         'docusaurus-plugin-llms',
         'drizzle-orm',
         'prism-react-renderer',
+        'shiki',
+        'unist-util-visit',
         'valibot',
         'wrangler',
       ],
