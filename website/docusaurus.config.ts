@@ -5,7 +5,24 @@ import type { Config } from '@docusaurus/types';
 import type { PluginOptions as SearchPluginOptions } from '@easyops-cn/docusaurus-search-local';
 import rehypeShiki from '@shikijs/rehype';
 import { createTwoslasher } from 'twoslash';
+import sidebars from './sidebars.js';
 import { remarkTwoslashBlock } from './src/remark/remark-twoslash-block';
+
+type SidebarItem =
+  | string
+  | { type: 'category'; items: SidebarItem[] }
+  | { type: 'link' }
+  | { type: 'doc'; id: string };
+
+const extractDocPaths = (items: SidebarItem[]): string[] =>
+  items.flatMap((item): string[] => {
+    if (typeof item === 'string') return [`${item}.md`];
+    if (item.type === 'category') return extractDocPaths(item.items);
+    if (item.type === 'doc') return [`${item.id}.md`];
+    return [];
+  });
+
+const llmsIncludeOrder = extractDocPaths(sidebars.docsSidebar as SidebarItem[]);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -199,6 +216,8 @@ const config: Config = {
         docsDir: 'docs',
         title: 'Zelt Documentation',
         description: 'A fast, type-safe application framework for TypeScript',
+        includeOrder: llmsIncludeOrder,
+        includeUnmatchedLast: false,
       },
     ],
     'docusaurus-markdown-source-plugin',

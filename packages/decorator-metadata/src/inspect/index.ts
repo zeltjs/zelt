@@ -1,3 +1,4 @@
+export { getClassMetadata } from '../runtime/store';
 export { getTypeMetadata } from './get-type-metadata';
 export { clearProgramCache } from './program-cache';
 export type {
