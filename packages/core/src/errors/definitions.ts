@@ -78,6 +78,9 @@ export const coreErrorDefinitions = {
       .with('argv_parse_error', () => `Failed to parse arguments: ${ctx.details ?? ''}`)
       .with('run_error', () => `Command execution failed: ${ctx.details ?? ''}`)
       .exhaustive(),
+
+  ZeltEnvError: (ctx: { key: string; reason: 'required_not_set' }) =>
+    `Required environment variable ${ctx.key} is not set`,
 } as const;
 
 export type CoreErrorContextMap = {
