@@ -105,7 +105,9 @@ class ItemController {
 }
 ```
 
-## Request Body Validation
+## Request Body
+
+### With Validation (Recommended)
 
 Use `validated()` with a Valibot schema to validate and type the request body:
 
@@ -131,6 +133,26 @@ class PostController {
 ```
 
 If validation fails, Zelt automatically returns a 400 response with detailed error information.
+
+### Without Validation
+
+For cases where you don't need validation (e.g., accepting arbitrary JSON), use the `body()` primitive:
+
+```typescript
+import { Controller, Post, body } from '@zeltjs/core';
+// ---cut---
+@Controller('/webhooks')
+class WebhookController {
+  @Post('/github')
+  async handleGithubWebhook() {
+    const payload = await body('json');
+    // payload is typed as unknown
+    return { received: true };
+  }
+}
+```
+
+See [Request & Response Primitives](./primitives.md) for more details on `body()` and other request helpers.
 
 ## Custom Response Status
 
