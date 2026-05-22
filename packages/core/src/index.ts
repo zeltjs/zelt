@@ -45,6 +45,7 @@ export {
   ZeltCommandExecutionError,
   ZeltContextNotAvailableError,
   ZeltDecoratorUsageError,
+  ZeltEnvError,
   ZeltLifecycleStateError,
   ZeltMiddlewareExecutionError,
   ZeltNotImplementedError,
