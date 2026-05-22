@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NodeCliConfig } from './cli.config';
 import type { CommandNodeApp, HttpNodeApp, SchedulerNodeAppPart, ServerHandle } from './on-node';
 import { onNode } from './on-node';
-import { ProcessEnvConfig } from './process-env.config';
+import { ProcessEnvSource } from './process-env-source';
 
 describe('onNode with HTTP', () => {
   let nodeApp: HttpNodeApp | undefined;
@@ -88,7 +88,7 @@ describe('onNode with HTTP', () => {
     expect(body.status).toBe('ok');
   });
 
-  it('auto-injects ProcessEnvConfig when EnvConfig token is in configs', async () => {
+  it('auto-injects ProcessEnvSource when EnvConfig token is in configs', async () => {
     const app = createApp({
       http: { controllers: [] },
       configs: [EnvConfig],
@@ -97,7 +97,7 @@ describe('onNode with HTTP', () => {
 
     nodeApp = await onNode(app);
 
-    expect(addFallbackConfigSpy).toHaveBeenCalledWith(ProcessEnvConfig);
+    expect(addFallbackConfigSpy).toHaveBeenCalledWith(ProcessEnvSource);
   });
 
   it('auto-injects NodeCliConfig when CliConfig token is in configs', async () => {
