@@ -3,6 +3,10 @@ import { Injectable } from '../../di/injectable';
 
 import { EnvConfig } from './env.config';
 
+/**
+ * @deprecated Use `inject(Env)` instead. Will be removed in next major version.
+ * @see Env
+ */
 @Injectable()
 export class EnvService {
   constructor(private config = inject(EnvConfig)) {}
