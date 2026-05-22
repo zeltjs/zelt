@@ -111,7 +111,7 @@ export type { Disposable, Lifecycle } from './lifecycle';
 export { LifecycleManager } from './lifecycle';
 export type { Signal, SignalHandler } from './modules/cli';
 export { CliConfig } from './modules/cli';
-export { EnvConfig, EnvService } from './modules/env';
+export { Env, EnvConfig, EnvService, EnvSource } from './modules/env';
 export type {
   LogContext,
   LogEntry,
