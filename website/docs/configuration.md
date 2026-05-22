@@ -5,25 +5,30 @@
 
 Zelt provides a type-safe configuration system using the `@Config` decorator and `inject()` helper.
 
+:::info Migration Note
+As of version X.X, use `inject(Env)` instead of `inject(EnvConfig)` or `inject(EnvService)`.
+The old classes are deprecated and will be removed in the next major version.
+:::
+
 ## Defining Configuration
 
 Use the `@Config` decorator to define a configuration class. Each config class must have a static `Token` property:
 
 ```typescript
-import { Config, EnvConfig, inject } from '@zeltjs/core';
+import { Config, Env, inject } from '@zeltjs/core';
 
 @Config
 export class DatabaseConfig {
   static readonly Token = DatabaseConfig;
 
-  constructor(private env = inject(EnvConfig)) {}
+  constructor(private env = inject(Env)) {}
 
   get host() {
-    return this.env.get('DATABASE_HOST') ?? 'localhost';
+    return this.env.getString('DATABASE_HOST', 'localhost');
   }
 
   get port() {
-    return Number(this.env.get('DATABASE_PORT') ?? 5432);
+    return this.env.getNumber('DATABASE_PORT', 5432);
   }
 
   get connectionString() {
@@ -37,14 +42,14 @@ export class DatabaseConfig {
 Inject configuration into services or controllers using `inject()`:
 
 ```typescript
-import { Injectable, inject, Config, EnvConfig } from '@zeltjs/core';
+import { Injectable, inject, Config, Env } from '@zeltjs/core';
 
 @Config
 class DatabaseConfig {
   static readonly Token = DatabaseConfig;
-  constructor(private env = inject(EnvConfig)) {}
-  get host() { return this.env.get('DATABASE_HOST') ?? 'localhost'; }
-  get port() { return Number(this.env.get('DATABASE_PORT') ?? 5432); }
+  constructor(private env = inject(Env)) {}
+  get host() { return this.env.getString('DATABASE_HOST', 'localhost'); }
+  get port() { return this.env.getNumber('DATABASE_PORT', 5432); }
   get connectionString() { return `postgres://${this.host}:${this.port}/mydb`; }
 }
 // ---cut---
@@ -63,14 +68,14 @@ export class DatabaseService {
 Register config classes when creating the app:
 
 ```typescript
-import { createApp, Config, EnvConfig, inject, Controller, Get } from '@zeltjs/core';
+import { createApp, Config, Env, inject, Controller, Get } from '@zeltjs/core';
 
 @Config
 class DatabaseConfig {
   static readonly Token = DatabaseConfig;
-  constructor(private env = inject(EnvConfig)) {}
-  get host() { return this.env.get('DATABASE_HOST') ?? 'localhost'; }
-  get port() { return Number(this.env.get('DATABASE_PORT') ?? 5432); }
+  constructor(private env = inject(Env)) {}
+  get host() { return this.env.getString('DATABASE_HOST', 'localhost'); }
+  get port() { return this.env.getNumber('DATABASE_PORT', 5432); }
   get connectionString() { return `postgres://${this.host}:${this.port}/mydb`; }
 }
 @Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
@@ -88,14 +93,14 @@ const app = createApp({
 Override configuration values for testing by extending the config class:
 
 ```typescript
-import { Config, createApp, EnvConfig, inject } from '@zeltjs/core';
+import { Config, createApp, Env, inject } from '@zeltjs/core';
 declare class AppController {}
 @Config
 class DatabaseConfig {
   static readonly Token = DatabaseConfig;
-  constructor(private env = inject(EnvConfig)) {}
-  get host() { return this.env.get('DATABASE_HOST') ?? 'localhost'; }
-  get port() { return Number(this.env.get('DATABASE_PORT') ?? 5432); }
+  constructor(private env = inject(Env)) {}
+  get host() { return this.env.getString('DATABASE_HOST', 'localhost'); }
+  get port() { return this.env.getNumber('DATABASE_PORT', 5432); }
   get connectionString() { return `postgres://${this.host}:${this.port}/mydb`; }
 }
 // ---cut---
@@ -123,19 +128,14 @@ The `Token` property is inherited from the parent class, so `inject(DatabaseConf
 
 ## Environment-Based Configuration
 
-Zelt provides environment configuration through platform-specific adapters.
+`inject(Env)` reads environment variables from the platform-specific source registered by the adapter. No additional setup is needed for the common case.
 
 ### Node.js Environment
 
-For Node.js applications, use the configs from `@zeltjs/adapter-node`:
-
-#### ProcessEnvConfig
-
-Reads from `process.env` directly:
+When using `onNode()`, `ProcessEnvSource` is registered automatically, so `inject(Env)` reads from `process.env` without any extra config:
 
 ```typescript
-import { Config, inject, createApp, Controller, Get } from '@zeltjs/core';
-import { ProcessEnvConfig } from '@zeltjs/adapter-node';
+import { Config, Env, inject, createApp, Controller, Get } from '@zeltjs/core';
 
 @Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
 // ---cut---
@@ -143,14 +143,14 @@ import { ProcessEnvConfig } from '@zeltjs/adapter-node';
 export class DatabaseConfig {
   static readonly Token = DatabaseConfig;
 
-  constructor(private env = inject(ProcessEnvConfig)) {}
+  constructor(private env = inject(Env)) {}
 
   get host() {
-    return this.env.get('DATABASE_HOST') ?? 'localhost';
+    return this.env.getString('DATABASE_HOST', 'localhost');
   }
 
   get port() {
-    return Number(this.env.get('DATABASE_PORT') ?? 5432);
+    return this.env.getNumber('DATABASE_PORT', 5432);
   }
 
   get connectionString() {
@@ -158,58 +158,26 @@ export class DatabaseConfig {
   }
 }
 
-// Register both configs
 const app = createApp({
   http: {
     controllers: [AppController],
   },
-  configs: [ProcessEnvConfig, DatabaseConfig],
+  configs: [DatabaseConfig],
 });
 ```
 
-#### DotEnvConfig
+### Loading `.env` Files
 
-Loads `.env` files using [dotenv](https://github.com/motdotla/dotenv), then reads from `process.env`:
-
-```typescript
-import { Config, inject, createApp, Controller, Get } from '@zeltjs/core';
-import { DotEnvConfig } from '@zeltjs/adapter-node';
-
-@Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
-// ---cut---
-@Config
-export class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
-
-  constructor(private env = inject(DotEnvConfig)) {}
-
-  get host() {
-    return this.env.get('DATABASE_HOST') ?? 'localhost';
-  }
-}
-
-// DotEnvConfig loads .env on construction
-const app = createApp({
-  http: {
-    controllers: [AppController],
-  },
-  configs: [DotEnvConfig, DatabaseConfig],
-});
-```
-
-#### Custom Env Paths
-
-Extend `DotEnvConfig` to load from custom paths:
+To load a `.env` file, import `dotenv/config` at the entry point of your application before anything else:
 
 ```typescript
-import { Config } from '@zeltjs/core';
-import { DotEnvConfig } from '@zeltjs/adapter-node';
-// ---cut---
-@Config
-export class MyEnvConfig extends DotEnvConfig {
-  protected override readonly paths = ['.env', '.env.local'];
-}
+// @errors: 2882
+import 'dotenv/config';
+import { onNode } from '@zeltjs/adapter-node';
+// ...rest of app setup
 ```
+
+`inject(Env)` will then read the variables populated by dotenv from `process.env`.
 
 ### Cloudflare Workers Environment
 
@@ -254,4 +222,3 @@ Zelt automatically detects the decorator mode based on the runtime context:
 - **Legacy mode**: Decorator receives `target`, `propertyKey`, and `descriptor` arguments
 
 Both modes work identically from an API perspective—you don't need to change your code when switching between them.
-

@@ -241,7 +241,11 @@ export default tseslint.config(
   },
   {
     // Env module needs process.env access
-    files: ['packages/core/src/modules/env/env.service.ts'],
+    files: [
+      'packages/core/src/modules/env/env.service.ts',
+      // ProcessEnvSource reads process.env as Node.js environment adapter
+      'packages/adapter-node/src/process-env-source.ts',
+    ],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
     },

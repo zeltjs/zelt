@@ -32,3 +32,6 @@ export type ZeltCommandArgumentError = InstanceType<typeof ZeltCommandArgumentEr
 
 export const ZeltCommandExecutionError = createErrorClass('ZeltCommandExecutionError');
 export type ZeltCommandExecutionError = InstanceType<typeof ZeltCommandExecutionError>;
+
+export const ZeltEnvError = createErrorClass('ZeltEnvError');
+export type ZeltEnvError = InstanceType<typeof ZeltEnvError>;

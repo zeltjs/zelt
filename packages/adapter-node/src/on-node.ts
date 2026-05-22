@@ -10,7 +10,7 @@ import type {
 } from '@zeltjs/core';
 
 import { NodeCliConfig } from './cli.config';
-import { ProcessEnvConfig } from './process-env.config';
+import { ProcessEnvSource } from './process-env-source';
 
 type ListenOptions = {
   readonly port?: number;
@@ -205,7 +205,7 @@ export function onNode(app: CommandApp, options?: NodeAppOptions): Promise<Comma
 /** @throws {ZeltLifecycleStateError} */
 export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise<NodeApp> {
   app.addFallbackConfig(NodeCliConfig);
-  app.addFallbackConfig(ProcessEnvConfig);
+  app.addFallbackConfig(ProcessEnvSource);
 
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
   const resolver = await app.ready(readyOptions);

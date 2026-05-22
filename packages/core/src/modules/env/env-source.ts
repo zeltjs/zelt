@@ -1,11 +1,10 @@
 import { Config } from '../../config';
 
 /**
- * @deprecated Use `inject(Env)` instead. Will be removed in next major version.
- * @see Env
+ * @internal Platform adapters extend this class; end users should use inject(Env) instead.
  */
 @Config
-export class EnvConfig {
+export class EnvSource {
   get(_key: string): string | undefined {
     return undefined;
   }

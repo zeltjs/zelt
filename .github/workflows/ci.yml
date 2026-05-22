@@ -64,10 +64,12 @@ jobs:
           #   TypedResponse — structural part of ResponseBuilder return types
           #   ContentfulStatusCode — structural part of ResponseBuilder status parameter types
           #   Context, Env, Input, MiddlewareHandler — middleware types for KoyaContext/FunctionMiddleware
+          #   Env as Env$1 — renamed to avoid collision with @zeltjs/core Env class
           UNEXPECTED=$(echo "$HONO_REFS" \
             | grep -v "^import { HTTPException } from ['\"]hono/http-exception['\"];$" \
             | grep -v "^import { TypedResponse } from ['\"]hono['\"];$" \
             | grep -v "^import { Context, Env, Input, MiddlewareHandler, TypedResponse } from ['\"]hono['\"];$" \
+            | grep -v "^import { Context, Env as Env\\\$1, Input, MiddlewareHandler, TypedResponse } from ['\"]hono['\"];$" \
             | grep -v "^import { ContentfulStatusCode } from ['\"]hono/utils/http-status['\"];$" \
             || true)
           if [ -n "$UNEXPECTED" ]; then
