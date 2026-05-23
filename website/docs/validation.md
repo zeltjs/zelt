@@ -7,9 +7,56 @@ Zelt uses [Valibot](https://valibot.dev/) for request validation, providing a ty
 
 ## Installation
 
-```bash
-pnpm add @zeltjs/validator-valibot valibot
-```
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+  <TabItem value="npm" label="npm" default>
+    ```bash
+    npm install @zeltjs/validator-valibot valibot
+    ```
+  </TabItem>
+  <TabItem value="pnpm" label="pnpm">
+    ```bash
+    pnpm add @zeltjs/validator-valibot valibot
+    ```
+  </TabItem>
+  <TabItem value="bun" label="bun">
+    ```bash
+    bun add @zeltjs/validator-valibot valibot
+    ```
+  </TabItem>
+</Tabs>
+
+### With OpenAPI Generation
+
+If you're using `@zeltjs/openapi` to generate OpenAPI specs, you also need `@valibot/to-json-schema`:
+
+<Tabs>
+  <TabItem value="npm" label="npm" default>
+    ```bash
+    npm install @zeltjs/validator-valibot valibot @valibot/to-json-schema
+    ```
+  </TabItem>
+  <TabItem value="pnpm" label="pnpm">
+    ```bash
+    pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
+    ```
+  </TabItem>
+  <TabItem value="bun" label="bun">
+    ```bash
+    bun add @zeltjs/validator-valibot valibot @valibot/to-json-schema
+    ```
+  </TabItem>
+</Tabs>
+
+:::tip Version Compatibility
+`@valibot/to-json-schema` must match your `valibot` version. For example:
+- `valibot@1.4.x` → `@valibot/to-json-schema@1.7.x`
+- `valibot@1.3.x` → `@valibot/to-json-schema@1.6.x`
+
+Check the [@valibot/to-json-schema releases](https://github.com/fabian-hiller/valibot/releases) for compatibility.
+:::
 
 ## Basic Usage
 

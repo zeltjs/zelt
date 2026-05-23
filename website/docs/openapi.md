@@ -11,9 +11,52 @@ The `@zeltjs/openapi` package analyzes your controller method signatures at buil
 
 ## Installation
 
-```bash
-pnpm add @zeltjs/openapi
-```
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+  <TabItem value="npm" label="npm" default>
+    ```bash
+    npm install @zeltjs/openapi
+    ```
+  </TabItem>
+  <TabItem value="pnpm" label="pnpm">
+    ```bash
+    pnpm add @zeltjs/openapi
+    ```
+  </TabItem>
+  <TabItem value="bun" label="bun">
+    ```bash
+    bun add @zeltjs/openapi
+    ```
+  </TabItem>
+</Tabs>
+
+### With @zeltjs/validator-valibot
+
+If you're using `@zeltjs/validator-valibot`, you also need `@valibot/to-json-schema`:
+
+<Tabs>
+  <TabItem value="npm" label="npm" default>
+    ```bash
+    npm install @zeltjs/openapi @valibot/to-json-schema
+    ```
+  </TabItem>
+  <TabItem value="pnpm" label="pnpm">
+    ```bash
+    pnpm add @zeltjs/openapi @valibot/to-json-schema
+    ```
+  </TabItem>
+  <TabItem value="bun" label="bun">
+    ```bash
+    bun add @zeltjs/openapi @valibot/to-json-schema
+    ```
+  </TabItem>
+</Tabs>
+
+:::tip Version Compatibility
+`@valibot/to-json-schema` must match your `valibot` version. See [Validation - Installation](./validation.md#installation) for details.
+:::
 
 ## Configuration
 

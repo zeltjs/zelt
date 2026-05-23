@@ -7,9 +7,56 @@ Zelt uses [Valibot](https://valibot.dev/) for request validation, providing a ty
 
 ## Installation
 
-```bash
-pnpm add @zeltjs/validator-valibot valibot
-```
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+  <TabItem value="npm" label="npm" default>
+    ```bash
+    npm install @zeltjs/validator-valibot valibot
+    ```
+  </TabItem>
+  <TabItem value="pnpm" label="pnpm">
+    ```bash
+    pnpm add @zeltjs/validator-valibot valibot
+    ```
+  </TabItem>
+  <TabItem value="bun" label="bun">
+    ```bash
+    bun add @zeltjs/validator-valibot valibot
+    ```
+  </TabItem>
+</Tabs>
+
+### OpenAPI 生成を使う場合
+
+`@zeltjs/openapi` で OpenAPI スペックを生成する場合は、`@valibot/to-json-schema` も必要です：
+
+<Tabs>
+  <TabItem value="npm" label="npm" default>
+    ```bash
+    npm install @zeltjs/validator-valibot valibot @valibot/to-json-schema
+    ```
+  </TabItem>
+  <TabItem value="pnpm" label="pnpm">
+    ```bash
+    pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
+    ```
+  </TabItem>
+  <TabItem value="bun" label="bun">
+    ```bash
+    bun add @zeltjs/validator-valibot valibot @valibot/to-json-schema
+    ```
+  </TabItem>
+</Tabs>
+
+:::tip バージョン互換性
+`@valibot/to-json-schema` は `valibot` のバージョンと合わせる必要があります。例：
+- `valibot@1.4.x` → `@valibot/to-json-schema@1.7.x`
+- `valibot@1.3.x` → `@valibot/to-json-schema@1.6.x`
+
+互換性については [@valibot/to-json-schema releases](https://github.com/fabian-hiller/valibot/releases) を参照してください。
+:::
 
 ## Basic Usage
 
