@@ -1,7 +1,7 @@
 import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
 
 import { ZeltDecoratorUsageError } from '../../errors';
-import { getCallerPositionForCore } from '../../internal/decorator-position';
+import { captureStackTraceForCore } from '../../internal/decorator-position';
 
 type CronOptions = {
   readonly tz?: string;
@@ -10,7 +10,7 @@ type CronOptions = {
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const Cron = (expression: string, options?: CronOptions) =>
   defineMethodDecorator(
-    getCallerPositionForCore(),
+    captureStackTraceForCore(),
     {
       decorator: 'Schedule' as const,
       cronExpression: expression,

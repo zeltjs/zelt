@@ -1,4 +1,5 @@
 #!/bin/sh
 set -e
-cd "$1"
-pnpm build > "/tmp/zelt-build-$(basename "$1").log" 2>&1 &
+DIR="${1:-$(pwd)}"
+cd "$DIR"
+pnpm build > "/tmp/zelt-build-$(basename "$DIR").log" 2>&1 &

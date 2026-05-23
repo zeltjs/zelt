@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { describe, expect, it } from 'vitest';
 import {
   createClassDecorator,
@@ -7,8 +8,8 @@ import {
   defineMethodDecorator,
   definePropertyDecorator,
 } from '../runtime/decorators';
-import type { Position } from '../runtime/position';
-import { getCallerPosition } from '../runtime/position';
+import type { StackTrace } from '../runtime/position';
+import { captureStackTrace, resolvePosition } from '../runtime/position';
 import {
   getClassMetadata,
   setClassMetadata,
@@ -16,9 +17,16 @@ import {
   setPropertyMetadata,
 } from '../runtime/store';
 
-describe('getCallerPosition', () => {
-  it('returns position with sourceFile, line, column', () => {
-    const pos = getCallerPosition();
+describe('captureStackTrace and resolvePosition', () => {
+  it('captureStackTrace returns StackTrace with error', () => {
+    const trace = captureStackTrace();
+    expect(trace).toBeDefined();
+    expect(trace?.error).toBeInstanceOf(Error);
+  });
+
+  it('resolvePosition extracts position from trace', () => {
+    const trace = captureStackTrace();
+    const pos = resolvePosition(trace);
 
     expect(pos).toBeDefined();
     expect(pos?.sourceFile).toContain('runtime.test.ts');
@@ -28,10 +36,7 @@ describe('getCallerPosition', () => {
     expect(pos?.column).toBeGreaterThan(0);
   });
 
-  // Some sandboxed runtimes (and certain instrumentation libraries) override
-  // Error.prototype.stack to block stack inspection. Returning undefined keeps
-  // metadata capture optional rather than crashing.
-  it('returns undefined when Error.prototype.stack is overridden', () => {
+  it('captureStackTrace returns undefined when Error.prototype.stack is overridden', () => {
     const originalDescriptor = Object.getOwnPropertyDescriptor(Error.prototype, 'stack');
     Object.defineProperty(Error.prototype, 'stack', {
       value: undefined,
@@ -39,7 +44,7 @@ describe('getCallerPosition', () => {
       configurable: true,
     });
     try {
-      expect(getCallerPosition()).toBeUndefined();
+      expect(captureStackTrace()).toBeUndefined();
     } finally {
       if (originalDescriptor) {
         Object.defineProperty(Error.prototype, 'stack', originalDescriptor);
@@ -49,14 +54,13 @@ describe('getCallerPosition', () => {
     }
   });
 
-  it('accepts custom isFrameworkPath filter to skip wrapper layers', () => {
-    // All paths treated as framework → nothing to capture
-    const allFramework = getCallerPosition({ isFrameworkPath: () => true });
+  it('resolvePosition accepts custom isFrameworkPath filter', () => {
+    const trace = captureStackTrace();
+
+    const allFramework = resolvePosition(trace, { isFrameworkPath: () => true });
     expect(allFramework).toBeUndefined();
 
-    // Custom filter completely replaces the default: it must include
-    // node_modules itself, otherwise vitest internals will leak through.
-    const skipTestAndNodeModules = getCallerPosition({
+    const skipTestAndNodeModules = resolvePosition(trace, {
       isFrameworkPath: (p) => p.includes('runtime.test.ts') || p.includes('/node_modules/'),
     });
     expect(skipTestAndNodeModules).toBeUndefined();
@@ -64,50 +68,44 @@ describe('getCallerPosition', () => {
 });
 
 describe('metadata store', () => {
-  const mockPos: Position = { sourceFile: '/test.ts', line: 10, column: 1 };
+  const mockTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
 
   it('stores and retrieves class metadata', () => {
     class TestClass {}
 
-    setClassMetadata(TestClass, mockPos, { basePath: '/api' });
+    setClassMetadata(TestClass, mockTrace, { basePath: '/api' });
     const meta = getClassMetadata(TestClass);
 
-    expect(meta).toEqual({
-      pos: mockPos,
-      props: [{ basePath: '/api' }],
-      methods: [],
-      properties: [],
-    });
+    expect(meta?.trace).toBe(mockTrace);
+    expect(meta?.props).toEqual([{ basePath: '/api' }]);
+    expect(meta?.methods).toEqual([]);
+    expect(meta?.properties).toEqual([]);
   });
 
   it('stores and retrieves method metadata', () => {
     class TestClass {}
 
-    setClassMetadata(TestClass, mockPos, {});
-    setMethodMetadata(TestClass, 'getUser', mockPos, { method: 'GET' });
+    setClassMetadata(TestClass, mockTrace, {});
+    setMethodMetadata(TestClass, 'getUser', mockTrace, { method: 'GET' });
 
     const meta = getClassMetadata(TestClass);
     expect(meta?.methods).toHaveLength(1);
-    expect(meta?.methods[0]).toEqual({
-      name: 'getUser',
-      pos: mockPos,
-      props: [{ method: 'GET' }],
-    });
+    expect(meta?.methods[0]?.name).toBe('getUser');
+    expect(meta?.methods[0]?.trace).toBe(mockTrace);
+    expect(meta?.methods[0]?.props).toEqual([{ method: 'GET' }]);
   });
 
   it('stores and retrieves property metadata', () => {
     class TestClass {}
 
-    setClassMetadata(TestClass, mockPos, {});
-    setPropertyMetadata(TestClass, 'name', mockPos, { nullable: false });
+    setClassMetadata(TestClass, mockTrace, {});
+    setPropertyMetadata(TestClass, 'name', mockTrace, { nullable: false });
 
     const meta = getClassMetadata(TestClass);
     expect(meta?.properties).toHaveLength(1);
-    expect(meta?.properties[0]).toEqual({
-      name: 'name',
-      pos: mockPos,
-      props: [{ nullable: false }],
-    });
+    expect(meta?.properties[0]?.name).toBe('name');
+    expect(meta?.properties[0]?.trace).toBe(mockTrace);
+    expect(meta?.properties[0]?.props).toEqual([{ nullable: false }]);
   });
 
   it('returns undefined for class without metadata', () => {
@@ -115,18 +113,18 @@ describe('metadata store', () => {
     expect(getClassMetadata(NoMetaClass)).toBeUndefined();
   });
 
-  it('accepts undefined pos and still stores metadata', () => {
+  it('accepts undefined trace and still stores metadata', () => {
     class TestClass {}
     setClassMetadata(TestClass, undefined, { kind: 'X' });
     const meta = getClassMetadata(TestClass);
-    expect(meta?.pos).toBeUndefined();
+    expect(meta?.trace).toBeUndefined();
     expect(meta?.props).toEqual([{ kind: 'X' }]);
   });
 
   it('appends props when the same class is decorated multiple times', () => {
     class TestClass {}
-    setClassMetadata(TestClass, mockPos, { decorator: 'Controller', basePath: '/api' });
-    setClassMetadata(TestClass, mockPos, { decorator: 'UseMiddleware', middlewares: ['auth'] });
+    setClassMetadata(TestClass, mockTrace, { decorator: 'Controller', basePath: '/api' });
+    setClassMetadata(TestClass, mockTrace, { decorator: 'UseMiddleware', middlewares: ['auth'] });
     const meta = getClassMetadata(TestClass);
     expect(meta?.props).toEqual([
       { decorator: 'Controller', basePath: '/api' },
@@ -136,8 +134,11 @@ describe('metadata store', () => {
 
   it('appends props when the same method receives multiple decorators', () => {
     class TestClass {}
-    setMethodMetadata(TestClass, 'handler', mockPos, { decorator: 'Route', method: 'GET' });
-    setMethodMetadata(TestClass, 'handler', mockPos, { decorator: 'Authorized', roles: ['admin'] });
+    setMethodMetadata(TestClass, 'handler', mockTrace, { decorator: 'Route', method: 'GET' });
+    setMethodMetadata(TestClass, 'handler', mockTrace, {
+      decorator: 'Authorized',
+      roles: ['admin'],
+    });
     const meta = getClassMetadata(TestClass);
     expect(meta?.methods).toHaveLength(1);
     expect(meta?.methods[0]?.props).toEqual([
@@ -157,7 +158,8 @@ describe('decorator factories', () => {
     const meta = getClassMetadata(UserController);
     expect(meta).toBeDefined();
     expect(meta?.props).toEqual([{ basePath: '/users' }]);
-    expect(meta?.pos?.sourceFile).toContain('runtime.test.ts');
+    const pos = resolvePosition(meta?.trace);
+    expect(pos?.sourceFile).toContain('runtime.test.ts');
   });
 
   it('createClassDecorator works alone without method/property decorators', () => {
@@ -210,35 +212,35 @@ describe('decorator factories', () => {
 });
 
 describe('define* primitives', () => {
-  it('defineClassDecorator accepts injected pos and saves metadata', () => {
-    const fakePos: Position = { sourceFile: '/inject.ts', line: 1, column: 1 };
+  it('defineClassDecorator accepts injected trace and saves metadata', () => {
+    const fakeTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
     const Controller = (basePath: string) =>
-      defineClassDecorator(fakePos, { decorator: 'Controller', basePath });
+      defineClassDecorator(fakeTrace, { decorator: 'Controller', basePath });
 
     @Controller('/api')
     class Foo {}
 
     const meta = getClassMetadata(Foo);
-    expect(meta?.pos).toEqual(fakePos);
+    expect(meta?.trace).toBe(fakeTrace);
     expect(meta?.props).toEqual([{ decorator: 'Controller', basePath: '/api' }]);
   });
 
-  it('defineClassDecorator with undefined pos still saves metadata', () => {
+  it('defineClassDecorator with undefined trace still saves metadata', () => {
     const Controller = () => defineClassDecorator(undefined, { decorator: 'Controller' });
 
     @Controller()
     class Foo {}
 
     const meta = getClassMetadata(Foo);
-    expect(meta?.pos).toBeUndefined();
+    expect(meta?.trace).toBeUndefined();
     expect(meta?.props).toEqual([{ decorator: 'Controller' }]);
   });
 
   it('defineMethodDecorator rejectStatic throws via injected error factory on static methods', () => {
-    const fakePos: Position = { sourceFile: '/inject.ts', line: 1, column: 1 };
+    const fakeTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
     const Get = () =>
       defineMethodDecorator(
-        fakePos,
+        fakeTrace,
         { decorator: 'Route', method: 'GET' },
         { rejectStatic: () => new Error('static not allowed for GET') },
       );
@@ -255,8 +257,8 @@ describe('define* primitives', () => {
   });
 
   it('defineMethodDecorator without rejectStatic accepts static methods', () => {
-    const fakePos: Position = { sourceFile: '/inject.ts', line: 1, column: 1 };
-    const Tag = () => defineMethodDecorator(fakePos, { decorator: 'Tag' });
+    const fakeTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
+    const Tag = () => defineMethodDecorator(fakeTrace, { decorator: 'Tag' });
 
     class Foo {
       @Tag()
@@ -271,10 +273,10 @@ describe('define* primitives', () => {
   });
 
   it('defineClassDecorator rejectIfApplied callback can veto a second application', () => {
-    const fakePos: Position = { sourceFile: '/inject.ts', line: 1, column: 1 };
+    const fakeTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
     const Once = () =>
       defineClassDecorator(
-        fakePos,
+        fakeTrace,
         { decorator: 'Once' },
         {
           rejectIfApplied: (existing) =>
@@ -295,9 +297,13 @@ describe('define* primitives', () => {
   });
 
   it('defineClassDecorator rejectIfApplied returns undefined when no conflict', () => {
-    const fakePos: Position = { sourceFile: '/inject.ts', line: 1, column: 1 };
+    const fakeTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
     const Marker = () =>
-      defineClassDecorator(fakePos, { decorator: 'Marker' }, { rejectIfApplied: () => undefined });
+      defineClassDecorator(
+        fakeTrace,
+        { decorator: 'Marker' },
+        { rejectIfApplied: () => undefined },
+      );
 
     @Marker()
     class Foo {}
@@ -306,10 +312,10 @@ describe('define* primitives', () => {
   });
 
   it('defineClassDecorator stacks multiple decorators by appending props', () => {
-    const fakePos: Position = { sourceFile: '/inject.ts', line: 1, column: 1 };
+    const fakeTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
     const Controller = (basePath: string) =>
-      defineClassDecorator(fakePos, { decorator: 'Controller', basePath });
-    const UseAuth = () => defineClassDecorator(fakePos, { decorator: 'UseAuth' });
+      defineClassDecorator(fakeTrace, { decorator: 'Controller', basePath });
+    const UseAuth = () => defineClassDecorator(fakeTrace, { decorator: 'UseAuth' });
 
     @UseAuth()
     @Controller('/users')
@@ -328,11 +334,11 @@ describe('define* primitives', () => {
   // instance methods get `(prototype, name, descriptor)`, static methods get
   // `(class, name, descriptor)`, and fields get `(prototype, name)`.
   describe('legacy decorator support', () => {
-    const fakePos: Position = { sourceFile: '/legacy.ts', line: 1, column: 1 };
+    const fakeTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
 
     it('legacy class decorator stores metadata and returns the target', () => {
       class Foo {}
-      const apply = defineClassDecorator(fakePos, { decorator: 'Controller', basePath: '/x' });
+      const apply = defineClassDecorator(fakeTrace, { decorator: 'Controller', basePath: '/x' });
       const result = (apply as unknown as (target: unknown) => unknown)(Foo);
       expect(result).toBe(Foo);
       const meta = getClassMetadata(Foo);
@@ -341,13 +347,13 @@ describe('define* primitives', () => {
 
     it('legacy instance method flushes via legacy class decorator', () => {
       class Foo {}
-      const method = defineMethodDecorator(fakePos, { decorator: 'Route', method: 'GET' });
+      const method = defineMethodDecorator(fakeTrace, { decorator: 'Route', method: 'GET' });
       (method as unknown as (target: unknown, name: string, desc: object) => void)(
         Foo.prototype,
         'handler',
         { value: () => {} },
       );
-      const cls = defineClassDecorator(fakePos, { decorator: 'Controller' });
+      const cls = defineClassDecorator(fakeTrace, { decorator: 'Controller' });
       (cls as unknown as (target: unknown) => void)(Foo);
       const meta = getClassMetadata(Foo);
       expect(meta?.methods).toHaveLength(1);
@@ -358,7 +364,7 @@ describe('define* primitives', () => {
     it('legacy static method invokes rejectStatic factory', () => {
       class Foo {}
       const method = defineMethodDecorator(
-        fakePos,
+        fakeTrace,
         { decorator: 'Route' },
         { rejectStatic: () => new Error('static not allowed (legacy)') },
       );
@@ -373,9 +379,9 @@ describe('define* primitives', () => {
 
     it('legacy property decorator flushes via legacy class decorator', () => {
       class Foo {}
-      const field = definePropertyDecorator(fakePos, { decorator: 'Column', nullable: false });
+      const field = definePropertyDecorator(fakeTrace, { decorator: 'Column', nullable: false });
       (field as unknown as (target: unknown, name: string) => void)(Foo.prototype, 'name');
-      const cls = defineClassDecorator(fakePos, { decorator: 'Container' });
+      const cls = defineClassDecorator(fakeTrace, { decorator: 'Container' });
       (cls as unknown as (target: unknown) => void)(Foo);
       const meta = getClassMetadata(Foo);
       expect(meta?.properties).toHaveLength(1);
@@ -384,7 +390,7 @@ describe('define* primitives', () => {
     });
 
     it('TC39 class decorator returns undefined to avoid replacement', () => {
-      const apply = defineClassDecorator(fakePos, { decorator: 'Controller' });
+      const apply = defineClassDecorator(fakeTrace, { decorator: 'Controller' });
       class Foo {}
       const ctx: ClassDecoratorContext = {
         kind: 'class',
@@ -401,10 +407,13 @@ describe('define* primitives', () => {
   });
 
   it('definePropertyDecorator accepts injected pos', () => {
-    const fakePos: Position = { sourceFile: '/inject.ts', line: 1, column: 1 };
-    const Container = () => defineClassDecorator(fakePos, { decorator: 'Container' });
+    const fakeTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
+    const Container = () => defineClassDecorator(fakeTrace, { decorator: 'Container' });
     const Column = (opts?: { nullable?: boolean }) =>
-      definePropertyDecorator(fakePos, { decorator: 'Column', nullable: opts?.nullable ?? false });
+      definePropertyDecorator(fakeTrace, {
+        decorator: 'Column',
+        nullable: opts?.nullable ?? false,
+      });
 
     @Container()
     class Foo {
@@ -417,3 +426,4 @@ describe('define* primitives', () => {
     expect(meta?.properties[0]?.props).toEqual([{ decorator: 'Column', nullable: false }]);
   });
 });
+/* eslint-enable complexity */

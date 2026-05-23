@@ -1,13 +1,13 @@
 import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
 
 import { ZeltDecoratorUsageError } from '../../errors';
-import { getCallerPositionForCore } from '../../internal/decorator-position';
+import { captureStackTraceForCore } from '../../internal/decorator-position';
 import type { MiddlewareIdentifier } from '../middleware/types';
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const SkipMiddleware = (...skipped: MiddlewareIdentifier[]) =>
   defineMethodDecorator(
-    getCallerPositionForCore(),
+    captureStackTraceForCore(),
     { decorator: 'SkipMiddleware' as const, skipped } as const,
     {
       rejectStatic: () =>

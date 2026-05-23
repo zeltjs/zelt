@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, okAsync } from 'neverthrow';
 
-import type { Position } from '../runtime/position';
+import type { Position, StackTrace } from '../runtime/position';
+import { resolvePosition } from '../runtime/position';
 import { getClassMetadata } from '../runtime/store';
 import type { ProgramCacheError } from './program-cache';
 import { getOrCreateProgram } from './program-cache';
@@ -32,12 +33,12 @@ type ExtractTypeFn = (type: import('typescript').Type) => TypeInfo;
 
 type StoredMethodMeta = {
   readonly name: string;
-  readonly pos: Position | undefined;
+  readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 type StoredPropertyMeta = {
   readonly name: string;
-  readonly pos: Position | undefined;
+  readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 
@@ -110,7 +111,8 @@ const extractMethodInfo = (
     }
   }
 
-  return { name: m.name, pos: m.pos, props: m.props, params, returnType };
+  const pos = resolvePosition(m.trace);
+  return { name: m.name, pos, props: m.props, params, returnType };
 };
 
 const extractPropertyInfo = (
@@ -133,12 +135,13 @@ const extractPropertyInfo = (
     }
   }
 
-  return { name: p.name, pos: p.pos, props: p.props, type, optional };
+  const pos = resolvePosition(p.trace);
+  return { name: p.name, pos, props: p.props, type, optional };
 };
 
 type ResolvedStoredMeta = {
   readonly storedMeta: NonNullable<ReturnType<typeof getClassMetadata>>;
-  readonly storedPos: import('../runtime/position').Position;
+  readonly storedPos: Position;
 };
 
 const resolveStoredMeta = <T extends object>(
@@ -151,7 +154,7 @@ const resolveStoredMeta = <T extends object>(
       error: { code: 'NO_METADATA', message: `No decorator metadata found for class ${cls.name}` },
     };
   }
-  const storedPos = storedMeta.pos;
+  const storedPos = resolvePosition(storedMeta.trace);
   if (!storedPos) {
     return {
       ok: false,

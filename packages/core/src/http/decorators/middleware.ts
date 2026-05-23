@@ -1,8 +1,8 @@
-import { injectable } from '@needle-di/core';
+import { defineInjectableClassDecorator } from '../../internal/decorator-helpers';
 
-type AnyClass = new (...args: never[]) => object;
-
-export const Middleware = <T extends AnyClass>(target: T): T => {
-  injectable<T>()(target);
-  return target;
-};
+export const Middleware = defineInjectableClassDecorator(
+  undefined,
+  { decorator: 'Middleware' } as const,
+  undefined,
+  { unique: true },
+);

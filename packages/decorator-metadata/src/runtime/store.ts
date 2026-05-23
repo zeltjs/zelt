@@ -1,19 +1,19 @@
-import type { Position } from './position';
+import type { StackTrace } from './position';
 
 export type MethodMeta = {
   readonly name: string;
-  readonly pos: Position | undefined;
+  readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 
 export type PropertyMeta = {
   readonly name: string;
-  readonly pos: Position | undefined;
+  readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 
 export type ClassMeta = {
-  readonly pos: Position | undefined;
+  readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
   readonly methods: readonly MethodMeta[];
   readonly properties: readonly PropertyMeta[];
@@ -22,18 +22,20 @@ export type ClassMeta = {
 const classStore = new WeakMap<object, ClassMeta>();
 
 const emptyMeta = (): ClassMeta => ({
-  pos: undefined,
+  trace: undefined,
   props: [],
   methods: [],
   properties: [],
 });
 
-export const setClassMetadata = (cls: object, pos: Position | undefined, props: object): void => {
+export const setClassMetadata = (
+  cls: object,
+  trace: StackTrace | undefined,
+  props: object,
+): void => {
   const existing = classStore.get(cls) ?? emptyMeta();
   classStore.set(cls, {
-    // Earliest position wins so the class decorator (or first applied decorator)
-    // owns the canonical source location.
-    pos: existing.pos ?? pos,
+    trace: existing.trace ?? trace,
     props: [...existing.props, props],
     methods: existing.methods,
     properties: existing.properties,
@@ -45,16 +47,16 @@ export const getClassMetadata = (cls: object): ClassMeta | undefined => classSto
 const upsertMethod = (
   methods: readonly MethodMeta[],
   name: string,
-  pos: Position | undefined,
+  trace: StackTrace | undefined,
   props: object,
 ): readonly MethodMeta[] => {
   const existing = methods.find((m) => m.name === name);
   if (!existing) {
-    return [...methods, { name, pos, props: [props] }];
+    return [...methods, { name, trace, props: [props] }];
   }
   const updated: MethodMeta = {
     name: existing.name,
-    pos: existing.pos ?? pos,
+    trace: existing.trace ?? trace,
     props: [...existing.props, props],
   };
   return methods.map((m) => (m === existing ? updated : m));
@@ -63,16 +65,16 @@ const upsertMethod = (
 const upsertProperty = (
   properties: readonly PropertyMeta[],
   name: string,
-  pos: Position | undefined,
+  trace: StackTrace | undefined,
   props: object,
 ): readonly PropertyMeta[] => {
   const existing = properties.find((p) => p.name === name);
   if (!existing) {
-    return [...properties, { name, pos, props: [props] }];
+    return [...properties, { name, trace, props: [props] }];
   }
   const updated: PropertyMeta = {
     name: existing.name,
-    pos: existing.pos ?? pos,
+    trace: existing.trace ?? trace,
     props: [...existing.props, props],
   };
   return properties.map((p) => (p === existing ? updated : p));
@@ -81,14 +83,14 @@ const upsertProperty = (
 export const setMethodMetadata = (
   cls: object,
   name: string,
-  pos: Position | undefined,
+  trace: StackTrace | undefined,
   props: object,
 ): void => {
   const existing = classStore.get(cls) ?? emptyMeta();
   classStore.set(cls, {
-    pos: existing.pos,
+    trace: existing.trace,
     props: existing.props,
-    methods: upsertMethod(existing.methods, name, pos, props),
+    methods: upsertMethod(existing.methods, name, trace, props),
     properties: existing.properties,
   });
 };
@@ -96,14 +98,14 @@ export const setMethodMetadata = (
 export const setPropertyMetadata = (
   cls: object,
   name: string,
-  pos: Position | undefined,
+  trace: StackTrace | undefined,
   props: object,
 ): void => {
   const existing = classStore.get(cls) ?? emptyMeta();
   classStore.set(cls, {
-    pos: existing.pos,
+    trace: existing.trace,
     props: existing.props,
     methods: existing.methods,
-    properties: upsertProperty(existing.properties, name, pos, props),
+    properties: upsertProperty(existing.properties, name, trace, props),
   });
 };

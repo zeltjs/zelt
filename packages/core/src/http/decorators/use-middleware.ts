@@ -2,7 +2,7 @@ import { defineClassDecorator, defineMethodDecorator } from '@zeltjs/decorator-m
 import { match, P } from 'ts-pattern';
 
 import { ZeltDecoratorUsageError } from '../../errors';
-import { getCallerPositionForCore } from '../../internal/decorator-position';
+import { captureStackTraceForCore } from '../../internal/decorator-position';
 import type { MiddlewareInput } from '../middleware/types';
 
 const tc39ClassPattern = { kind: 'class' as const, metadata: P.nonNullable };
@@ -26,10 +26,10 @@ type UseMiddlewareFn = {
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const UseMiddleware = (...middlewares: MiddlewareInput[]): UseMiddlewareFn => {
-  const pos = getCallerPositionForCore();
+  const trace = captureStackTraceForCore();
   const props = { decorator: 'UseMiddleware' as const, middlewares };
-  const classDecorate = defineClassDecorator(pos, props);
-  const methodDecorate = defineMethodDecorator(pos, props, {
+  const classDecorate = defineClassDecorator(trace, props);
+  const methodDecorate = defineMethodDecorator(trace, props, {
     rejectStatic: () =>
       new ZeltDecoratorUsageError({ decoratorName: 'UseMiddleware', reason: 'static_method' }),
   });

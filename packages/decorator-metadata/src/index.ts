@@ -13,7 +13,7 @@ export {
   defineMethodDecorator,
   definePropertyDecorator,
 } from './runtime/decorators';
-export type { GetCallerPositionOptions, Position } from './runtime/position';
-export { getCallerPosition } from './runtime/position';
+export type { Position, ResolvePositionOptions, StackTrace } from './runtime/position';
+export { captureStackTrace, resolvePosition } from './runtime/position';
 export type { ClassMeta, MethodMeta, PropertyMeta } from './runtime/store';
 export { getClassMetadata } from './runtime/store';

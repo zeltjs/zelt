@@ -1,7 +1,7 @@
 import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
 
 import { ZeltDecoratorUsageError } from '../../errors';
-import { getCallerPositionForCore } from '../../internal/decorator-position';
+import { captureStackTraceForCore } from '../../internal/decorator-position';
 import type { RequestContextSchema } from '../primitives/get-context';
 
 type Roles = RequestContextSchema['authRoles'];
@@ -9,7 +9,7 @@ type Roles = RequestContextSchema['authRoles'];
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const Authorized = (roles: Roles = []) =>
   defineMethodDecorator(
-    getCallerPositionForCore(),
+    captureStackTraceForCore(),
     { decorator: 'Authorized' as const, roles } as const,
     {
       rejectStatic: () =>

@@ -1,10 +1,10 @@
 import { defineInjectableClassDecorator } from '../../internal/decorator-helpers';
-import { getCallerPositionForCore } from '../../internal/decorator-position';
+import { captureStackTraceForCore } from '../../internal/decorator-position';
 
 /** @throws {ZeltLifecycleStateError | ZeltDecoratorUsageError} */
 export const Scheduled = () =>
   defineInjectableClassDecorator(
-    getCallerPositionForCore(),
+    captureStackTraceForCore(),
     { decorator: 'Scheduled' } as const,
     undefined,
     { unique: true },

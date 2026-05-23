@@ -1,13 +1,13 @@
 import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
 
 import { ZeltDecoratorUsageError } from '../../errors';
-import { getCallerPositionForCore } from '../../internal/decorator-position';
+import { captureStackTraceForCore } from '../../internal/decorator-position';
 import type { HttpMethod } from '../internal/metadata';
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 const makeDecorator = (method: HttpMethod) => (path: string) =>
   defineMethodDecorator(
-    getCallerPositionForCore(),
+    captureStackTraceForCore(),
     { decorator: 'Route' as const, method, path } as const,
     {
       rejectStatic: () =>
