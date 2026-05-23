@@ -1,6 +1,7 @@
 import { getClassMetadata } from '@zeltjs/decorator-metadata';
 import { match, P } from 'ts-pattern';
 
+import { resolvePositionForCore } from '../../internal/decorator-position';
 import type { MiddlewareIdentifier, MiddlewareInput } from '../middleware/types';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -92,7 +93,7 @@ export const getControllerMetadata = (cls: object): ControllerMetadata | undefin
         controllerPattern,
         (c): ControllerMetadata => ({
           basePath: c.basePath,
-          sourceFile: meta.pos?.sourceFile,
+          sourceFile: resolvePositionForCore(meta.trace)?.sourceFile,
         }),
       )
       .otherwise(() => undefined);

@@ -1,6 +1,6 @@
 import { registerAsTransient } from '../di/transient';
 import { defineInjectableClassDecorator } from '../internal/decorator-helpers';
-import { getCallerPositionForCore } from '../internal/decorator-position';
+import { captureStackTraceForCore } from '../internal/decorator-position';
 
 type CommandOptions = {
   readonly name: string;
@@ -9,7 +9,7 @@ type CommandOptions = {
 
 export const Command = (options: CommandOptions) =>
   defineInjectableClassDecorator(
-    getCallerPositionForCore(),
+    captureStackTraceForCore(),
     options.description
       ? {
           decorator: 'Command' as const,

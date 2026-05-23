@@ -4,7 +4,12 @@ export type Position = {
   readonly column: number;
 };
 
-export type GetCallerPositionOptions = {
+export type StackTrace = {
+  _brand: 'StackTrace';
+  readonly error: Error;
+};
+
+export type ResolvePositionOptions = {
   readonly isFrameworkPath?: (path: string) => boolean;
 };
 
@@ -47,8 +52,6 @@ const findFirstUserPosition = (
   stack: string,
   isFrameworkPath: (path: string) => boolean,
 ): Position | undefined => {
-  // Start at frame 2 to skip Error itself and the immediate caller (this
-  // function), so the first candidate is the user's stack frame.
   const lines = stack.split('\n').slice(2);
   for (const line of lines) {
     if (!line) continue;
@@ -58,11 +61,17 @@ const findFirstUserPosition = (
   return undefined;
 };
 
-export const getCallerPosition = (options?: GetCallerPositionOptions): Position | undefined => {
-  // Some sandboxed runtimes (and certain instrumentation libraries) override
-  // Error.prototype.stack to block stack inspection.
+export const captureStackTrace = (): StackTrace | undefined => {
   if (Object.getOwnPropertyDescriptor(Error.prototype, 'stack') !== undefined) return undefined;
-  const stack = new Error().stack;
+  return { _brand: 'StackTrace', error: new Error() };
+};
+
+export const resolvePosition = (
+  trace: StackTrace | undefined,
+  options?: ResolvePositionOptions,
+): Position | undefined => {
+  if (!trace) return undefined;
+  const stack = trace.error.stack;
   if (!stack) return undefined;
   return findFirstUserPosition(stack, options?.isFrameworkPath ?? defaultIsFrameworkPath);
 };

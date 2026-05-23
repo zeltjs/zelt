@@ -1,7 +1,7 @@
 import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
 
 import { ZeltDecoratorUsageError } from '../../errors';
-import { getCallerPositionForCore } from '../../internal/decorator-position';
+import { captureStackTraceForCore } from '../../internal/decorator-position';
 
 type DailyOptions = {
   readonly hour: number;
@@ -14,7 +14,7 @@ export const Daily = (options: DailyOptions) => {
   const minute = options.minute ?? 0;
   const cronExpression = `${minute} ${options.hour} * * *`;
   return defineMethodDecorator(
-    getCallerPositionForCore(),
+    captureStackTraceForCore(),
     {
       decorator: 'Schedule' as const,
       cronExpression,

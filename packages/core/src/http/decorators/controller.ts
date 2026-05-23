@@ -1,10 +1,10 @@
 import { defineInjectableClassDecorator } from '../../internal/decorator-helpers';
-import { getCallerPositionForCore } from '../../internal/decorator-position';
+import { captureStackTraceForCore } from '../../internal/decorator-position';
 
 /** @throws {ZeltLifecycleStateError | ZeltDecoratorUsageError} */
 export const Controller = (basePath: string) =>
   defineInjectableClassDecorator(
-    getCallerPositionForCore(),
+    captureStackTraceForCore(),
     { decorator: 'Controller', basePath } as const,
     undefined,
     { unique: true },

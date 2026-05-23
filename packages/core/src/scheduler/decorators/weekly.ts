@@ -1,7 +1,7 @@
 import { defineMethodDecorator } from '@zeltjs/decorator-metadata';
 
 import { ZeltDecoratorUsageError } from '../../errors';
-import { getCallerPositionForCore } from '../../internal/decorator-position';
+import { captureStackTraceForCore } from '../../internal/decorator-position';
 
 type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
 
@@ -28,7 +28,7 @@ export const Weekly = (options: WeeklyOptions) => {
   const cronDay = dayToCron[options.day];
   const cronExpression = `${minute} ${options.hour} * * ${cronDay}`;
   return defineMethodDecorator(
-    getCallerPositionForCore(),
+    captureStackTraceForCore(),
     {
       decorator: 'Schedule' as const,
       cronExpression,

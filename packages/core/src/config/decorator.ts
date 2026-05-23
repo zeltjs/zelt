@@ -1,10 +1,9 @@
-import { injectable } from '@needle-di/core';
-
 import { registerAsLeaf } from '../di/leaf';
+import { defineInjectableClassDecorator } from '../internal/decorator-helpers';
 
-type AnyConstructor = new (...args: never[]) => unknown;
-
-export const Config = (target: AnyConstructor): void => {
-  registerAsLeaf(target);
-  injectable()(target);
-};
+export const Config = defineInjectableClassDecorator(
+  undefined,
+  { decorator: 'Config' } as const,
+  { afterApply: registerAsLeaf },
+  { unique: true },
+);

@@ -1,7 +1,7 @@
 import { match, P } from 'ts-pattern';
 
-import type { Position } from './position';
-import { getCallerPosition } from './position';
+import type { StackTrace } from './position';
+import { captureStackTrace } from './position';
 import {
   getClassMetadata,
   setClassMetadata,
@@ -11,7 +11,7 @@ import {
 
 type PendingEntry = {
   readonly name: string;
-  readonly pos: Position | undefined;
+  readonly trace: StackTrace | undefined;
   readonly props: object;
 };
 
@@ -32,11 +32,11 @@ const appendEntry = (
 };
 
 const flushPendingToClass = (cls: object, sharedKey: object): void => {
-  for (const { name, pos, props } of pendingMethods.get(sharedKey) ?? []) {
-    setMethodMetadata(cls, name, pos, props);
+  for (const { name, trace, props } of pendingMethods.get(sharedKey) ?? []) {
+    setMethodMetadata(cls, name, trace, props);
   }
-  for (const { name, pos, props } of pendingFields.get(sharedKey) ?? []) {
-    setPropertyMetadata(cls, name, pos, props);
+  for (const { name, trace, props } of pendingFields.get(sharedKey) ?? []) {
+    setPropertyMetadata(cls, name, trace, props);
   }
   pendingMethods.delete(sharedKey);
   pendingFields.delete(sharedKey);
@@ -117,7 +117,7 @@ export type PropertyDecoratorFn = {
 };
 
 export const defineClassDecorator = <TProps extends object, E extends Error = Error>(
-  pos: Position | undefined,
+  trace: StackTrace | undefined,
   props: TProps,
   options?: DefineClassDecoratorOptions<E>,
 ): ClassDecoratorFn => {
@@ -139,7 +139,7 @@ export const defineClassDecorator = <TProps extends object, E extends Error = Er
       if (err) throw err;
     }
 
-    setClassMetadata(cls, pos, props);
+    setClassMetadata(cls, trace, props);
 
     return match(args[1])
       .with(tc39ClassContextPattern, (ctx) => {
@@ -158,7 +158,7 @@ export const defineClassDecorator = <TProps extends object, E extends Error = Er
 };
 
 export const defineMethodDecorator = <TProps extends object, E extends Error = Error>(
-  pos: Position | undefined,
+  trace: StackTrace | undefined,
   props: TProps,
   options?: DefineMethodDecoratorOptions<E>,
 ): MethodDecoratorFn => {
@@ -186,7 +186,7 @@ export const defineMethodDecorator = <TProps extends object, E extends Error = E
         }
         if (typeof ctx.name !== 'string') return undefined;
         if (!ctx.metadata) return undefined;
-        appendEntry(pendingMethods, ctx.metadata, { name: ctx.name, pos, props });
+        appendEntry(pendingMethods, ctx.metadata, { name: ctx.name, trace, props });
         return undefined;
       })
       .otherwise(() => {
@@ -201,7 +201,7 @@ export const defineMethodDecorator = <TProps extends object, E extends Error = E
         if (typeof contextOrName !== 'string') return undefined;
         const sharedKey = asObject(target);
         if (!sharedKey) return undefined;
-        appendEntry(pendingMethods, sharedKey, { name: contextOrName, pos, props });
+        appendEntry(pendingMethods, sharedKey, { name: contextOrName, trace, props });
         return undefined;
       });
   }
@@ -209,7 +209,7 @@ export const defineMethodDecorator = <TProps extends object, E extends Error = E
 };
 
 export const definePropertyDecorator = <TProps extends object>(
-  pos: Position | undefined,
+  trace: StackTrace | undefined,
   props: TProps,
 ): PropertyDecoratorFn => {
   function decorate(value: undefined, context: ClassFieldDecoratorContext): void;
@@ -222,14 +222,14 @@ export const definePropertyDecorator = <TProps extends object>(
       .with(tc39FieldContextPattern, (ctx) => {
         if (typeof ctx.name !== 'string') return undefined;
         if (!ctx.metadata) return undefined;
-        appendEntry(pendingFields, ctx.metadata, { name: ctx.name, pos, props });
+        appendEntry(pendingFields, ctx.metadata, { name: ctx.name, trace, props });
         return undefined;
       })
       .otherwise(() => {
         if (typeof contextOrName !== 'string') return undefined;
         const sharedKey = asObject(target);
         if (!sharedKey) return undefined;
-        appendEntry(pendingFields, sharedKey, { name: contextOrName, pos, props });
+        appendEntry(pendingFields, sharedKey, { name: contextOrName, trace, props });
         return undefined;
       });
   }
@@ -241,11 +241,11 @@ export const definePropertyDecorator = <TProps extends object>(
 const emptyProps: object = {};
 
 export const createClassDecorator = <TProps extends object>(props?: TProps): ClassDecoratorFn =>
-  defineClassDecorator(getCallerPosition(), props ?? emptyProps);
+  defineClassDecorator(captureStackTrace(), props ?? emptyProps);
 
 export const createMethodDecorator = <TProps extends object>(props?: TProps): MethodDecoratorFn =>
-  defineMethodDecorator(getCallerPosition(), props ?? emptyProps);
+  defineMethodDecorator(captureStackTrace(), props ?? emptyProps);
 
 export const createPropertyDecorator = <TProps extends object>(
   props?: TProps,
-): PropertyDecoratorFn => definePropertyDecorator(getCallerPosition(), props ?? emptyProps);
+): PropertyDecoratorFn => definePropertyDecorator(captureStackTrace(), props ?? emptyProps);

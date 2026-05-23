@@ -1,5 +1,5 @@
 import { injectable } from '@needle-di/core';
-import type { ClassDecoratorFn, Position } from '@zeltjs/decorator-metadata';
+import type { ClassDecoratorFn, StackTrace } from '@zeltjs/decorator-metadata';
 import { defineClassDecorator } from '@zeltjs/decorator-metadata';
 import { match } from 'ts-pattern';
 
@@ -37,13 +37,13 @@ const buildUniqueGuard =
 
 /** @throws {ZeltDecoratorUsageError} */
 export const defineInjectableClassDecorator = <TProps extends { decorator: string }>(
-  pos: Position | undefined,
+  trace: StackTrace | undefined,
   props: TProps,
   hooks?: InjectableClassDecoratorHooks,
   options?: DefineInjectableClassDecoratorOptions,
 ): ClassDecoratorFn => {
   const base = defineClassDecorator<TProps, ZeltDecoratorUsageError>(
-    pos,
+    trace,
     props,
     options?.unique ? { rejectIfApplied: buildUniqueGuard(props.decorator) } : undefined,
   );

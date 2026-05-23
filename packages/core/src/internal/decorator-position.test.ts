@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { getCallerPositionForCore } from './decorator-position';
+import { captureStackTraceForCore, resolvePositionForCore } from './decorator-position';
 
-describe('getCallerPositionForCore', () => {
-  it('skips core internal frames and points to the user file', () => {
-    const pos = getCallerPositionForCore();
+describe('captureStackTraceForCore and resolvePositionForCore', () => {
+  it('captures stack trace and resolves to user file position', () => {
+    const trace = captureStackTraceForCore();
+    expect(trace).toBeDefined();
+
+    const pos = resolvePositionForCore(trace);
     expect(pos).toBeDefined();
     expect(pos?.sourceFile).toContain('decorator-position.test.ts');
     expect(pos?.line).toBeGreaterThan(0);
