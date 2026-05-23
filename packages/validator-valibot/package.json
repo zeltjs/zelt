@@ -39,6 +39,9 @@
   "peerDependenciesMeta": {
     "@zeltjs/openapi": {
       "optional": true
+    },
+    "@valibot/to-json-schema": {
+      "optional": true
     }
   },
   "devDependencies": {
