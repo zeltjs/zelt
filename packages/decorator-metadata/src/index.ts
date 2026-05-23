@@ -7,6 +7,8 @@ export type {
 } from './runtime/decorators';
 export {
   composeClassDecorators,
+  composeMethodDecorators,
+  composePropertyDecorators,
   createClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,

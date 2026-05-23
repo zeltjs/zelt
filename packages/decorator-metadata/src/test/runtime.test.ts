@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   composeClassDecorators,
+  composeMethodDecorators,
+  composePropertyDecorators,
   createClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
@@ -463,6 +465,50 @@ describe('define* primitives', () => {
     const meta = getClassMetadata(Foo);
     expect(meta?.properties).toHaveLength(1);
     expect(meta?.properties[0]?.props).toEqual([{ decorator: 'Column', nullable: false }]);
+  });
+});
+describe('compose* functions', () => {
+  it('composeMethodDecorators combines multiple method decorators', () => {
+    const Controller = () => createClassDecorator({});
+    const Route = (method: string, path: string) =>
+      createMethodDecorator({ decorator: 'Route', method, path });
+    const Query = (path: string) =>
+      composeMethodDecorators(Route('GET', path), createMethodDecorator({ decorator: 'Query' }));
+
+    @Controller()
+    class TestController {
+      @Query('/users')
+      getUsers() {}
+    }
+
+    const meta = getClassMetadata(TestController);
+    expect(meta?.methods).toHaveLength(1);
+    expect(meta?.methods[0]?.props).toEqual([
+      { decorator: 'Route', method: 'GET', path: '/users' },
+      { decorator: 'Query' },
+    ]);
+  });
+
+  it('composePropertyDecorators combines multiple property decorators', () => {
+    const Entity = () => createClassDecorator({});
+    const Column = (opts?: { nullable?: boolean }) =>
+      createPropertyDecorator({ decorator: 'Column', nullable: opts?.nullable ?? false });
+    const Searchable = () => createPropertyDecorator({ decorator: 'Searchable' });
+    const SearchableColumn = (opts?: { nullable?: boolean }) =>
+      composePropertyDecorators(Column(opts), Searchable());
+
+    @Entity()
+    class User {
+      @SearchableColumn()
+      name!: string;
+    }
+
+    const meta = getClassMetadata(User);
+    expect(meta?.properties).toHaveLength(1);
+    expect(meta?.properties[0]?.props).toEqual([
+      { decorator: 'Column', nullable: false },
+      { decorator: 'Searchable' },
+    ]);
   });
 });
 /* eslint-enable complexity */

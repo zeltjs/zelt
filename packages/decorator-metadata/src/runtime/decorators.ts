@@ -269,6 +269,41 @@ export const composeClassDecorators = (...decorators: ClassDecoratorFn[]): Class
   return decorate;
 };
 
+export const composeMethodDecorators = (...decorators: MethodDecoratorFn[]): MethodDecoratorFn => {
+  function decorate(
+    value: (...args: never[]) => unknown,
+    context: ClassMethodDecoratorContext,
+  ): void;
+  function decorate(
+    target: object,
+    propertyKey: string | symbol,
+    descriptor?: PropertyDescriptor,
+  ): void;
+  function decorate(...args: unknown[]): unknown {
+    for (const dec of decorators) {
+      const fn = dec as unknown as (...a: unknown[]) => unknown;
+      fn(...args);
+    }
+    return undefined;
+  }
+  return decorate;
+};
+
+export const composePropertyDecorators = (
+  ...decorators: PropertyDecoratorFn[]
+): PropertyDecoratorFn => {
+  function decorate(value: undefined, context: ClassFieldDecoratorContext): void;
+  function decorate(target: object, propertyKey: string | symbol): void;
+  function decorate(...args: unknown[]): unknown {
+    for (const dec of decorators) {
+      const fn = dec as unknown as (...a: unknown[]) => unknown;
+      fn(...args);
+    }
+    return undefined;
+  }
+  return decorate;
+};
+
 // `props ?? {}` widens to `TProps | {}`; constraining `TProps` to `object`
 // (which `{}` satisfies) lets us pass it directly without an assertion.
 const emptyProps: object = {};

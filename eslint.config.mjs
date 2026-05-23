@@ -161,6 +161,14 @@ export default tseslint.config(
     },
   },
   {
+    // compose* functions forward overloaded decorator types through unknown[],
+    // which requires casting through unknown at this type-system boundary.
+    files: ['packages/decorator-metadata/src/runtime/decorators.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
     files: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
     rules: {
       'no-console': 'off',
