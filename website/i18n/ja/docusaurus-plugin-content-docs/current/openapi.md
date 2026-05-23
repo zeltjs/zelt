@@ -14,7 +14,7 @@ The `@zeltjs/openapi` package analyzes your controller method signatures at buil
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-<Tabs>
+<Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>
     ```bash
     npm install @zeltjs/openapi
@@ -36,7 +36,7 @@ import TabItem from '@theme/TabItem';
 
 `@zeltjs/validator-valibot` を使っている場合、`@valibot/to-json-schema` も必要です：
 
-<Tabs>
+<Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>
     ```bash
     npm install @zeltjs/openapi @valibot/to-json-schema

@@ -10,7 +10,7 @@ Zelt uses [Valibot](https://valibot.dev/) for request validation, providing a ty
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-<Tabs>
+<Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>
     ```bash
     npm install @zeltjs/validator-valibot valibot
@@ -32,7 +32,7 @@ import TabItem from '@theme/TabItem';
 
 If you're using `@zeltjs/openapi` to generate OpenAPI specs, you also need `@valibot/to-json-schema`:
 
-<Tabs>
+<Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>
     ```bash
     npm install @zeltjs/validator-valibot valibot @valibot/to-json-schema
