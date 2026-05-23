@@ -3,6 +3,7 @@ import { match, P } from 'ts-pattern';
 import type { StackTrace } from './position';
 import { captureStackTrace } from './position';
 import {
+  ensureClassMeta,
   getClassMetadata,
   setClassMetadata,
   setMethodMetadata,
@@ -121,6 +122,9 @@ export const defineClassDecorator = <TProps extends object, E extends Error = Er
   props: TProps,
   options?: DefineClassDecoratorOptions<E>,
 ): ClassDecoratorFn => {
+  // When no explicit trace is provided, defer captureStackTrace() to decorate()
+  // so the stack reflects the actual decoration site, not the factory call site.
+  const getTrace = trace !== undefined ? () => trace : captureStackTrace;
   /** @throws {E} */
   function decorate<T extends abstract new (...args: never[]) => unknown>(
     value: T,
@@ -139,7 +143,7 @@ export const defineClassDecorator = <TProps extends object, E extends Error = Er
       if (err) throw err;
     }
 
-    setClassMetadata(cls, trace, props);
+    setClassMetadata(cls, getTrace(), props);
 
     return match(args[1])
       .with(tc39ClassContextPattern, (ctx) => {
@@ -162,6 +166,7 @@ export const defineMethodDecorator = <TProps extends object, E extends Error = E
   props: TProps,
   options?: DefineMethodDecoratorOptions<E>,
 ): MethodDecoratorFn => {
+  const getTrace = trace !== undefined ? () => trace : captureStackTrace;
   /** @throws {E} */
   function decorate(
     value: (...args: never[]) => unknown,
@@ -186,7 +191,7 @@ export const defineMethodDecorator = <TProps extends object, E extends Error = E
         }
         if (typeof ctx.name !== 'string') return undefined;
         if (!ctx.metadata) return undefined;
-        appendEntry(pendingMethods, ctx.metadata, { name: ctx.name, trace, props });
+        appendEntry(pendingMethods, ctx.metadata, { name: ctx.name, trace: getTrace(), props });
         return undefined;
       })
       .otherwise(() => {
@@ -201,7 +206,7 @@ export const defineMethodDecorator = <TProps extends object, E extends Error = E
         if (typeof contextOrName !== 'string') return undefined;
         const sharedKey = asObject(target);
         if (!sharedKey) return undefined;
-        appendEntry(pendingMethods, sharedKey, { name: contextOrName, trace, props });
+        appendEntry(pendingMethods, sharedKey, { name: contextOrName, trace: getTrace(), props });
         return undefined;
       });
   }
@@ -212,6 +217,7 @@ export const definePropertyDecorator = <TProps extends object>(
   trace: StackTrace | undefined,
   props: TProps,
 ): PropertyDecoratorFn => {
+  const getTrace = trace !== undefined ? () => trace : captureStackTrace;
   function decorate(value: undefined, context: ClassFieldDecoratorContext): void;
   function decorate(target: object, propertyKey: string | symbol): void;
   function decorate(...args: unknown[]): unknown {
@@ -222,16 +228,81 @@ export const definePropertyDecorator = <TProps extends object>(
       .with(tc39FieldContextPattern, (ctx) => {
         if (typeof ctx.name !== 'string') return undefined;
         if (!ctx.metadata) return undefined;
-        appendEntry(pendingFields, ctx.metadata, { name: ctx.name, trace, props });
+        appendEntry(pendingFields, ctx.metadata, { name: ctx.name, trace: getTrace(), props });
         return undefined;
       })
       .otherwise(() => {
         if (typeof contextOrName !== 'string') return undefined;
         const sharedKey = asObject(target);
         if (!sharedKey) return undefined;
-        appendEntry(pendingFields, sharedKey, { name: contextOrName, trace, props });
+        appendEntry(pendingFields, sharedKey, { name: contextOrName, trace: getTrace(), props });
         return undefined;
       });
+  }
+  return decorate;
+};
+
+export const composeClassDecorators = (...decorators: ClassDecoratorFn[]): ClassDecoratorFn => {
+  // Capture trace at compose-call time (when the user factory returns the decorator),
+  // not inside decorate() which runs inside a transpiler helper and loses the user frame.
+  const trace = captureStackTrace();
+  function decorate<T extends abstract new (...args: never[]) => unknown>(
+    value: T,
+    context: ClassDecoratorContext,
+  ): void;
+  function decorate<T extends new (...args: never[]) => unknown>(target: T): T | void;
+  function decorate(...args: unknown[]): unknown {
+    const cls = asObject(args[0]);
+    if (!cls) return undefined;
+
+    if (trace) ensureClassMeta(cls, trace);
+
+    for (const dec of decorators) {
+      const fn: (...a: unknown[]) => unknown = dec;
+      const result = fn(...args);
+      if (result !== undefined) {
+        args[0] = result;
+      }
+    }
+
+    return match(args[1])
+      .with(tc39ClassContextPattern, () => undefined)
+      .otherwise(() => args[0]);
+  }
+  return decorate;
+};
+
+export const composeMethodDecorators = (...decorators: MethodDecoratorFn[]): MethodDecoratorFn => {
+  function decorate(
+    value: (...args: never[]) => unknown,
+    context: ClassMethodDecoratorContext,
+  ): void;
+  function decorate(
+    target: object,
+    propertyKey: string | symbol,
+    descriptor?: PropertyDescriptor,
+  ): void;
+  function decorate(...args: unknown[]): unknown {
+    for (const dec of decorators) {
+      const fn = dec as unknown as (...a: unknown[]) => unknown;
+      fn(...args);
+    }
+    return undefined;
+  }
+  return decorate;
+};
+
+export const composePropertyDecorators = (
+  ...decorators: PropertyDecoratorFn[]
+): PropertyDecoratorFn => {
+  function decorate(value: undefined, context: ClassFieldDecoratorContext): void;
+  function decorate(target: object, propertyKey: string | symbol): void;
+  function decorate(...args: unknown[]): unknown {
+    for (const dec of decorators) {
+      const fn = dec as unknown as (...a: unknown[]) => unknown;
+      fn(...args);
+    }
+    return undefined;
   }
   return decorate;
 };
@@ -244,8 +315,8 @@ export const createClassDecorator = <TProps extends object>(props?: TProps): Cla
   defineClassDecorator(captureStackTrace(), props ?? emptyProps);
 
 export const createMethodDecorator = <TProps extends object>(props?: TProps): MethodDecoratorFn =>
-  defineMethodDecorator(captureStackTrace(), props ?? emptyProps);
+  defineMethodDecorator(undefined, props ?? emptyProps);
 
 export const createPropertyDecorator = <TProps extends object>(
   props?: TProps,
-): PropertyDecoratorFn => definePropertyDecorator(captureStackTrace(), props ?? emptyProps);
+): PropertyDecoratorFn => definePropertyDecorator(undefined, props ?? emptyProps);

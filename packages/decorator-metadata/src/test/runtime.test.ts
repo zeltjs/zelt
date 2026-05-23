@@ -1,6 +1,9 @@
 /* eslint-disable complexity */
 import { describe, expect, it } from 'vitest';
 import {
+  composeClassDecorators,
+  composeMethodDecorators,
+  composePropertyDecorators,
   createClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
@@ -148,6 +151,43 @@ describe('metadata store', () => {
   });
 });
 
+describe('trace capture timing', () => {
+  it('createClassDecorator captures trace at decoration time, not factory time', () => {
+    const Controller = (basePath: string) => createClassDecorator({ basePath });
+
+    @Controller('/api')
+    class TestClass {}
+
+    const meta = getClassMetadata(TestClass);
+    const pos = resolvePosition(meta?.trace);
+
+    expect(pos?.sourceFile).toContain('runtime.test.ts');
+    expect(pos?.line).toBeGreaterThan(0);
+  });
+
+  it('composeClassDecorators captures trace at decoration site, not child factory time', () => {
+    const Controller = (path: string) => createClassDecorator({ path });
+    const Marker = () => createClassDecorator({ type: 'marker' });
+
+    // composeClassDecorators is defined here (factory time), but the trace must
+    // resolve to the @GraphqlController call site below, not this line.
+    const composeDefinitionLine = resolvePosition(captureStackTrace())?.line ?? 0;
+    const GraphqlController = (path: string) => composeClassDecorators(Controller(path), Marker());
+
+    @GraphqlController('/api')
+    class UserResolver {}
+
+    const meta = getClassMetadata(UserResolver);
+    const pos = resolvePosition(meta?.trace);
+
+    expect(pos?.sourceFile).toContain('runtime.test.ts');
+    expect(pos?.line).toBeGreaterThan(0);
+    // The trace must point after the compose definition, not at or before it.
+    expect(pos?.line).toBeGreaterThan(composeDefinitionLine);
+    expect(meta?.props).toEqual([{ path: '/api' }, { type: 'marker' }]);
+  });
+});
+
 describe('decorator factories', () => {
   it('createClassDecorator stores metadata on class', () => {
     const Controller = (basePath: string) => createClassDecorator({ basePath });
@@ -225,14 +265,15 @@ describe('define* primitives', () => {
     expect(meta?.props).toEqual([{ decorator: 'Controller', basePath: '/api' }]);
   });
 
-  it('defineClassDecorator with undefined trace still saves metadata', () => {
+  it('defineClassDecorator with undefined trace captures trace at decoration time', () => {
     const Controller = () => defineClassDecorator(undefined, { decorator: 'Controller' });
 
     @Controller()
     class Foo {}
 
     const meta = getClassMetadata(Foo);
-    expect(meta?.trace).toBeUndefined();
+    // When no explicit trace is provided, captureStackTrace() is called at decoration time.
+    expect(meta?.trace).toBeDefined();
     expect(meta?.props).toEqual([{ decorator: 'Controller' }]);
   });
 
@@ -424,6 +465,50 @@ describe('define* primitives', () => {
     const meta = getClassMetadata(Foo);
     expect(meta?.properties).toHaveLength(1);
     expect(meta?.properties[0]?.props).toEqual([{ decorator: 'Column', nullable: false }]);
+  });
+});
+describe('compose* functions', () => {
+  it('composeMethodDecorators combines multiple method decorators', () => {
+    const Controller = () => createClassDecorator({});
+    const Route = (method: string, path: string) =>
+      createMethodDecorator({ decorator: 'Route', method, path });
+    const Query = (path: string) =>
+      composeMethodDecorators(Route('GET', path), createMethodDecorator({ decorator: 'Query' }));
+
+    @Controller()
+    class TestController {
+      @Query('/users')
+      getUsers() {}
+    }
+
+    const meta = getClassMetadata(TestController);
+    expect(meta?.methods).toHaveLength(1);
+    expect(meta?.methods[0]?.props).toEqual([
+      { decorator: 'Route', method: 'GET', path: '/users' },
+      { decorator: 'Query' },
+    ]);
+  });
+
+  it('composePropertyDecorators combines multiple property decorators', () => {
+    const Entity = () => createClassDecorator({});
+    const Column = (opts?: { nullable?: boolean }) =>
+      createPropertyDecorator({ decorator: 'Column', nullable: opts?.nullable ?? false });
+    const Searchable = () => createPropertyDecorator({ decorator: 'Searchable' });
+    const SearchableColumn = (opts?: { nullable?: boolean }) =>
+      composePropertyDecorators(Column(opts), Searchable());
+
+    @Entity()
+    class User {
+      @SearchableColumn()
+      name!: string;
+    }
+
+    const meta = getClassMetadata(User);
+    expect(meta?.properties).toHaveLength(1);
+    expect(meta?.properties[0]?.props).toEqual([
+      { decorator: 'Column', nullable: false },
+      { decorator: 'Searchable' },
+    ]);
   });
 });
 /* eslint-enable complexity */

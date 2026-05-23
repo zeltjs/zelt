@@ -44,6 +44,18 @@ export const setClassMetadata = (
 
 export const getClassMetadata = (cls: object): ClassMeta | undefined => classStore.get(cls);
 
+export const ensureClassMeta = (cls: object, trace: StackTrace): void => {
+  const existing = classStore.get(cls);
+  if (existing?.trace) return;
+  const base = existing ?? emptyMeta();
+  classStore.set(cls, {
+    trace,
+    props: base.props,
+    methods: base.methods,
+    properties: base.properties,
+  });
+};
+
 const upsertMethod = (
   methods: readonly MethodMeta[],
   name: string,
