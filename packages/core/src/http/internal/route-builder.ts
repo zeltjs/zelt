@@ -89,10 +89,10 @@ const resolveHandler = (instance: object, methodName: string | symbol): (() => u
 type FormBody = Record<string, string | File | (string | File)[]>;
 
 type ParsedBody =
-  | { readonly type: 'json'; readonly val: unknown }
-  | { readonly type: 'form'; readonly val: FormBody }
-  | { readonly type: 'text'; readonly val: string }
-  | { readonly type: 'none'; readonly val: undefined };
+  | { type: 'json'; val: unknown }
+  | { type: 'form'; val: FormBody }
+  | { type: 'text'; val: string }
+  | { type: 'none'; val: undefined };
 
 /** @throws {ZeltContextNotAvailableError} */
 const parseRequestBody = async (

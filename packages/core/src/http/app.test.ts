@@ -54,8 +54,8 @@ class EchoController {
 class UploadController {
   @Post('/')
   upload(formData = body('form')) {
-    const description = formData?.['description'] as string;
-    const file = formData?.['file'] as File;
+    const description = formData['description'] as string;
+    const file = formData['file'] as File;
     return { description, filename: file.name, size: file.size };
   }
 }
