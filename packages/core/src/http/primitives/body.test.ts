@@ -85,6 +85,8 @@ describe('body', () => {
     const res = await app.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
+        body: 'plain text',
+        headers: { 'Content-Type': 'text/plain' },
       }),
     );
     expect(await res.json()).toEqual({ hasData: false });
