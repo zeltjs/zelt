@@ -1,37 +1,13 @@
-import { match } from 'ts-pattern';
-
 import { getEntryContext } from '../internal/entry-context';
 
-type BodyTypeMap = {
-  text: string;
-  json: unknown;
-  form: FormData;
-  arrayBuffer: ArrayBuffer;
-  blob: Blob;
-};
-
-type BodyType = keyof BodyTypeMap;
+type FormBody = Record<string, string | File | (string | File)[]>;
 
 /** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'text'): Promise<string>;
+export function body(type?: 'json'): unknown;
 /** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'json'): Promise<unknown>;
+export function body(type: 'form'): FormBody | undefined;
 /** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'form'): Promise<FormData>;
-/** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'arrayBuffer'): Promise<ArrayBuffer>;
-/** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'blob'): Promise<Blob>;
-/**
- * @throws {ZeltContextNotAvailableError}
- */
-export function body(type: BodyType): Promise<BodyTypeMap[BodyType]> {
-  const req = getEntryContext().honoContext.req;
-  return match(type)
-    .with('text', () => req.text())
-    .with('json', () => req.json())
-    .with('form', () => req.formData())
-    .with('arrayBuffer', () => req.arrayBuffer())
-    .with('blob', () => req.blob())
-    .exhaustive();
+export function body(type: 'json' | 'form' = 'json'): unknown {
+  const input = getEntryContext().input;
+  return type === 'json' ? input.jsonBody : input.formBody;
 }
