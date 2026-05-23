@@ -259,12 +259,15 @@ export const composeClassDecorators = (...decorators: ClassDecoratorFn[]): Class
 
     for (const dec of decorators) {
       const fn: (...a: unknown[]) => unknown = dec;
-      fn(...args);
+      const result = fn(...args);
+      if (result !== undefined) {
+        args[0] = result;
+      }
     }
 
     return match(args[1])
       .with(tc39ClassContextPattern, () => undefined)
-      .otherwise(() => cls);
+      .otherwise(() => args[0]);
   }
   return decorate;
 };
