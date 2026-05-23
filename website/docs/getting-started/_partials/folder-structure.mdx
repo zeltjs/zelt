@@ -1,0 +1,22 @@
+## Project Structure
+
+```
+my-app/
+├── src/
+│   ├── entry/
+│   │   ├── controllers/    # HTTP endpoints
+│   │   └── commands/       # CLI commands
+│   ├── services/           # Business logic
+│   ├── configs/            # Configuration classes
+│   ├── app.ts              # Application definition
+│   ├── cli.ts              # CLI entry point
+│   └── main.ts             # HTTP server entry point
+├── package.json
+└── tsconfig.json
+```
+
+| Directory | Purpose |
+|-----------|---------|
+| `entry/` | External entry points (HTTP, CLI) |
+| `services/` | Business logic, injected via DI |
+| `configs/` | Environment variables and settings |

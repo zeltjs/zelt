@@ -8,9 +8,12 @@ const sidebars: SidebarsConfig = {
       label: 'Getting Started',
       collapsed: false,
       items: [
-        'getting-started/basic',
+        'getting-started/index',
         'getting-started/node',
+        'getting-started/bun',
         'getting-started/cloudflare-workers',
+        'getting-started/lambda',
+        'getting-started/electron',
       ],
     },
     {

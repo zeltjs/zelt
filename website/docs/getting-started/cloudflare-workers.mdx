@@ -2,36 +2,29 @@
 sidebar_label: Cloudflare Workers
 ---
 
+import Prerequisites from './_partials/prerequisites.mdx';
+import FolderStructure from './_partials/folder-structure.mdx';
+
 # Getting Started with Cloudflare Workers
 
 This guide walks you through building a Zelt application on Cloudflare Workers from scratch.
 
-## Prerequisites
+<Prerequisites />
 
-- [Node.js](https://nodejs.org/) v20 or higher
+Additional requirements for Cloudflare Workers:
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
 - A [Cloudflare account](https://dash.cloudflare.com/sign-up) (free tier available)
 
 ## Installation
 
 ```bash
-pnpm add @zeltjs/core @zeltjs/adapter-cloudflare-workers
+pnpm add @zeltjs/core@0.6.1 @zeltjs/adapter-cloudflare-workers@0.6.1
 pnpm add -D wrangler @cloudflare/workers-types
 ```
 
-## Project Structure
+<FolderStructure />
 
-```
-my-worker/
-├── src/
-│   ├── app.ts
-│   ├── index.ts
-│   └── controllers/
-│       └── hello.controller.ts
-├── package.json
-├── tsconfig.json
-└── wrangler.toml
-```
+For Cloudflare Workers, also add `wrangler.toml` at the project root.
 
 ## Hello World
 
@@ -39,7 +32,7 @@ my-worker/
 
 Controllers handle incoming HTTP requests and return responses. Each controller is a class decorated with `@Controller` that defines a route prefix.
 
-Create `src/controllers/hello.controller.ts`:
+Create `src/entry/controllers/hello.controller.ts`:
 
 ```typescript
 import { Controller, Get, pathParam } from '@zeltjs/core';
