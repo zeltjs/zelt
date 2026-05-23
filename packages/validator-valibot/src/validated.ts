@@ -1,5 +1,5 @@
 import type { ValidatedMarker, ValidationTarget } from '@zeltjs/core';
-import { ZeltBodyTypeMismatchError, getEntryContext } from '@zeltjs/core/runtime';
+import { getEntryContext, ZeltBodyTypeMismatchError } from '@zeltjs/core/runtime';
 import { HTTPException } from 'hono/http-exception';
 import type { GenericSchema, InferOutput } from 'valibot';
 import { safeParse } from 'valibot';
