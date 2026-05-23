@@ -53,7 +53,7 @@ describe('body', () => {
     class TestController {
       @Post('/form')
       form(data = body('form')) {
-        return { receivedName: data?.['name'] };
+        return { receivedName: data['name'] };
       }
     }
 
@@ -71,12 +71,33 @@ describe('body', () => {
     expect(await res.json()).toEqual({ receivedName: 'John' });
   });
 
-  it('returns undefined for json body when content-type is not json', async () => {
+  it('provides text body synchronously as default parameter', async () => {
+    @Controller('/')
+    class TestController {
+      @Post('/text')
+      text(data = body('text')) {
+        return { received: data, length: data.length };
+      }
+    }
+
+    const app = createApp({ http: { controllers: [TestController] } });
+    await app.ready();
+    const res = await app.fetch(
+      new Request('http://localhost/text', {
+        method: 'POST',
+        body: 'hello world',
+        headers: { 'Content-Type': 'text/plain' },
+      }),
+    );
+    expect(await res.json()).toEqual({ received: 'hello world', length: 11 });
+  });
+
+  it('throws error when body type mismatches content-type', async () => {
     @Controller('/')
     class TestController {
       @Post('/json')
       json(data = body('json')) {
-        return { hasData: data !== undefined };
+        return { data };
       }
     }
 
@@ -89,6 +110,6 @@ describe('body', () => {
         headers: { 'Content-Type': 'text/plain' },
       }),
     );
-    expect(await res.json()).toEqual({ hasData: false });
+    expect(res.status).toBe(500);
   });
 });

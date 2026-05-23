@@ -7,7 +7,7 @@ import { getEntryContext, runInEntryContext } from './entry-context';
 describe('entry-context', () => {
   it('returns the running context inside runInEntryContext', () => {
     const ctx: EntryContext = {
-      input: { jsonBody: { hello: 'world' }, formBody: undefined, pathParams: {} },
+      input: { body: { type: 'json', val: { hello: 'world' } }, pathParams: {} },
       honoContext: {} as unknown as Context,
     };
     const got = runInEntryContext(ctx, () => getEntryContext());
@@ -20,19 +20,19 @@ describe('entry-context', () => {
 
   it('isolates concurrent contexts', async () => {
     const ctxA: EntryContext = {
-      input: { jsonBody: 'A', formBody: undefined, pathParams: {} },
+      input: { body: { type: 'json', val: 'A' }, pathParams: {} },
       honoContext: {} as unknown as Context,
     };
     const ctxB: EntryContext = {
-      input: { jsonBody: 'B', formBody: undefined, pathParams: {} },
+      input: { body: { type: 'json', val: 'B' }, pathParams: {} },
       honoContext: {} as unknown as Context,
     };
     const [a, b] = await Promise.all([
       runInEntryContext(ctxA, async () => {
         await new Promise((r) => setTimeout(r, 10));
-        return getEntryContext().input.jsonBody;
+        return getEntryContext().input.body.val;
       }),
-      runInEntryContext(ctxB, async () => getEntryContext().input.jsonBody),
+      runInEntryContext(ctxB, async () => getEntryContext().input.body.val),
     ]);
     expect(a).toBe('A');
     expect(b).toBe('B');

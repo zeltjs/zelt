@@ -18,7 +18,7 @@ describe('ip primitive', () => {
     });
     runInEntryContext(
       // @ts-expect-error narrow typed test fixture
-      { honoContext, input: { jsonBody: undefined, formBody: undefined, pathParams: {} } },
+      { honoContext, input: { body: { type: 'none', val: undefined }, pathParams: {} } },
       () => {
         expect(ip()).toBe('1.1.1.1');
       },
@@ -32,7 +32,7 @@ describe('ip primitive', () => {
     });
     runInEntryContext(
       // @ts-expect-error narrow typed test fixture
-      { honoContext, input: { jsonBody: undefined, formBody: undefined, pathParams: {} } },
+      { honoContext, input: { body: { type: 'none', val: undefined }, pathParams: {} } },
       () => {
         expect(ip()).toBe('3.3.3.3');
       },
@@ -45,7 +45,7 @@ describe('ip primitive', () => {
     });
     runInEntryContext(
       // @ts-expect-error narrow typed test fixture
-      { honoContext, input: { jsonBody: undefined, formBody: undefined, pathParams: {} } },
+      { honoContext, input: { body: { type: 'none', val: undefined }, pathParams: {} } },
       () => {
         expect(ip()).toBe('4.4.4.4');
       },
@@ -56,7 +56,7 @@ describe('ip primitive', () => {
     const honoContext = makeContext({});
     runInEntryContext(
       // @ts-expect-error narrow typed test fixture
-      { honoContext, input: { jsonBody: undefined, formBody: undefined, pathParams: {} } },
+      { honoContext, input: { body: { type: 'none', val: undefined }, pathParams: {} } },
       () => {
         expect(ip()).toBe('unknown');
       },

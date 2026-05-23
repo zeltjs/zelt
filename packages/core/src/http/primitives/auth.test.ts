@@ -9,7 +9,7 @@ import { currentRoles, currentUser, setUser } from './auth';
 const createMockEntryContext = (): EntryContext => {
   const store: Record<string, unknown> = {};
   return {
-    input: { jsonBody: {}, formBody: undefined, pathParams: {} },
+    input: { body: { type: 'none', val: undefined }, pathParams: {} },
     honoContext: {
       get: (key: string) => store[key],
       set: (key: string, value: unknown) => {

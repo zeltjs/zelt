@@ -4,11 +4,18 @@ import type { Context } from 'hono';
 
 import { ZeltContextNotAvailableError } from '../../errors';
 
+export type BodyType = 'json' | 'form' | 'text' | 'none';
+
 type FormBody = Record<string, string | File | (string | File)[]>;
 
+type ParsedBody =
+  | { readonly type: 'json'; readonly val: unknown }
+  | { readonly type: 'form'; readonly val: FormBody }
+  | { readonly type: 'text'; readonly val: string }
+  | { readonly type: 'none'; readonly val: undefined };
+
 type EntryInput = {
-  readonly jsonBody: unknown;
-  readonly formBody: FormBody | undefined;
+  readonly body: ParsedBody;
   readonly pathParams: Readonly<Record<string, string>>;
 };
 

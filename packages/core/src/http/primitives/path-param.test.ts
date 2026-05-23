@@ -9,7 +9,7 @@ describe('pathParam()', () => {
   it('returns the path param value', () => {
     const result = runInEntryContext(
       {
-        input: { jsonBody: undefined, formBody: undefined, pathParams: { id: '42' } },
+        input: { body: { type: 'none', val: undefined }, pathParams: { id: '42' } },
         honoContext: {} as unknown as Context,
       },
       () => pathParam('id'),
@@ -21,7 +21,7 @@ describe('pathParam()', () => {
     expect(() =>
       runInEntryContext(
         {
-          input: { jsonBody: undefined, formBody: undefined, pathParams: {} },
+          input: { body: { type: 'none', val: undefined }, pathParams: {} },
           honoContext: {} as unknown as Context,
         },
         () => pathParam('id'),
