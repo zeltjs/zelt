@@ -148,6 +148,21 @@ describe('metadata store', () => {
   });
 });
 
+describe('trace capture timing', () => {
+  it('createClassDecorator captures trace at decoration time, not factory time', () => {
+    const Controller = (basePath: string) => createClassDecorator({ basePath });
+
+    @Controller('/api')
+    class TestClass {}
+
+    const meta = getClassMetadata(TestClass);
+    const pos = resolvePosition(meta?.trace);
+
+    expect(pos?.sourceFile).toContain('runtime.test.ts');
+    expect(pos?.line).toBeGreaterThan(0);
+  });
+});
+
 describe('decorator factories', () => {
   it('createClassDecorator stores metadata on class', () => {
     const Controller = (basePath: string) => createClassDecorator({ basePath });
@@ -225,14 +240,15 @@ describe('define* primitives', () => {
     expect(meta?.props).toEqual([{ decorator: 'Controller', basePath: '/api' }]);
   });
 
-  it('defineClassDecorator with undefined trace still saves metadata', () => {
+  it('defineClassDecorator with undefined trace captures trace at decoration time', () => {
     const Controller = () => defineClassDecorator(undefined, { decorator: 'Controller' });
 
     @Controller()
     class Foo {}
 
     const meta = getClassMetadata(Foo);
-    expect(meta?.trace).toBeUndefined();
+    // When no explicit trace is provided, captureStackTrace() is called at decoration time.
+    expect(meta?.trace).toBeDefined();
     expect(meta?.props).toEqual([{ decorator: 'Controller' }]);
   });
 

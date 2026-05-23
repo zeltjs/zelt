@@ -21,6 +21,30 @@ const defaultIsFrameworkPath = (path: string): boolean => {
   );
 };
 
+// SWC, TypeScript, and Babel inject decorator helpers into transpiled output.
+// These helpers appear in user files but at synthesized positions that don't
+// correspond to any real TypeScript source line.
+const TRANSPILER_HELPER_NAMES = new Set([
+  'applyClassDecs', // SWC TC39 decorator helper
+  '__decorate', // TypeScript legacy experimentalDecorators
+  '_decorate', // Babel decorator helper
+  'applyDecs', // SWC older decorator helper
+  'applyDecs2305', // SWC versioned decorator helper
+]);
+
+const isTranspilerHelperFrame = (line: string): boolean => {
+  // Property accessor frames from transpiler-generated objects show "[as name]"
+  // in V8 stack traces — these are synthesized by SWC/Babel and have no
+  // corresponding source position.
+  if (line.includes('[as ')) return true;
+
+  const match = line.match(/^\s+at\s+([^\s(]+)/);
+  if (!match?.[1]) return false;
+  // Strip leading qualifiers like "Array.", "Object.", etc.
+  const name = match[1].split('.').pop() ?? '';
+  return TRANSPILER_HELPER_NAMES.has(name);
+};
+
 const tryParseMatch = (
   match: RegExpMatchArray | null,
   isFrameworkPath: (path: string) => boolean,
@@ -55,6 +79,10 @@ const findFirstUserPosition = (
   const lines = stack.split('\n').slice(2);
   for (const line of lines) {
     if (!line) continue;
+    // Skip transpiler-generated decorator helper frames even when they appear
+    // inside user files — their line numbers map to synthesized positions in
+    // the transpiled output, not to meaningful TypeScript source locations.
+    if (isTranspilerHelperFrame(line)) continue;
     const pos = parsePositionFromStackLine(line, isFrameworkPath);
     if (pos) return pos;
   }

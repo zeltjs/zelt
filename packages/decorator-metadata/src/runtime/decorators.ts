@@ -121,6 +121,9 @@ export const defineClassDecorator = <TProps extends object, E extends Error = Er
   props: TProps,
   options?: DefineClassDecoratorOptions<E>,
 ): ClassDecoratorFn => {
+  // When no explicit trace is provided, defer captureStackTrace() to decorate()
+  // so the stack reflects the actual decoration site, not the factory call site.
+  const getTrace = trace !== undefined ? () => trace : captureStackTrace;
   /** @throws {E} */
   function decorate<T extends abstract new (...args: never[]) => unknown>(
     value: T,
@@ -139,7 +142,7 @@ export const defineClassDecorator = <TProps extends object, E extends Error = Er
       if (err) throw err;
     }
 
-    setClassMetadata(cls, trace, props);
+    setClassMetadata(cls, getTrace(), props);
 
     return match(args[1])
       .with(tc39ClassContextPattern, (ctx) => {
