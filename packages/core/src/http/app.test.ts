@@ -45,18 +45,17 @@ class HelloController {
 @Controller('/echo')
 class EchoController {
   @Post('/')
-  async create() {
-    return body('json');
+  create(data = body('json')) {
+    return data;
   }
 }
 
 @Controller('/upload')
 class UploadController {
   @Post('/')
-  async upload() {
-    const formData = await body('form');
-    const description = formData.get('description') as string;
-    const file = formData.get('file') as File;
+  upload(formData = body('form')) {
+    const description = formData['description'] as string;
+    const file = formData['file'] as File;
     return { description, filename: file.name, size: file.size };
   }
 }

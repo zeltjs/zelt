@@ -12,7 +12,7 @@ describe('validated()', () => {
   it('returns parsed body when schema matches (json)', () => {
     const result = runInEntryContext(
       {
-        input: { jsonBody: { name: 'Ada', age: 36 }, formBody: undefined, pathParams: {} },
+        input: { body: { type: 'json', val: { name: 'Ada', age: 36 } }, pathParams: {} },
         honoContext: {} as unknown as Context,
       },
       () => validated(Schema),
@@ -24,7 +24,7 @@ describe('validated()', () => {
     const FormSchema = v.object({ name: v.string() });
     const result = runInEntryContext(
       {
-        input: { jsonBody: undefined, formBody: { name: 'Ada' }, pathParams: {} },
+        input: { body: { type: 'form', val: { name: 'Ada' } }, pathParams: {} },
         honoContext: {} as unknown as Context,
       },
       () => validated(FormSchema, 'form'),
@@ -36,7 +36,7 @@ describe('validated()', () => {
     expect(() =>
       runInEntryContext(
         {
-          input: { jsonBody: { name: 'Ada' }, formBody: undefined, pathParams: {} },
+          input: { body: { type: 'json', val: { name: 'Ada' } }, pathParams: {} },
           honoContext: {} as unknown as Context,
         },
         () => validated(Schema),
@@ -49,7 +49,7 @@ describe('validated()', () => {
     try {
       runInEntryContext(
         {
-          input: { jsonBody: { name: 'Ada' }, formBody: undefined, pathParams: {} },
+          input: { body: { type: 'json', val: { name: 'Ada' } }, pathParams: {} },
           honoContext: {} as unknown as Context,
         },
         () => validated(Schema),

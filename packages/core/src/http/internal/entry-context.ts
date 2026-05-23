@@ -6,9 +6,14 @@ import { ZeltContextNotAvailableError } from '../../errors';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
 
+type ParsedBody =
+  | { type: 'json'; val: unknown }
+  | { type: 'form'; val: FormBody }
+  | { type: 'text'; val: string }
+  | { type: 'none'; val: undefined };
+
 type EntryInput = {
-  readonly jsonBody: unknown;
-  readonly formBody: FormBody | undefined;
+  readonly body: ParsedBody;
   readonly pathParams: Readonly<Record<string, string>>;
 };
 

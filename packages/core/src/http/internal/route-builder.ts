@@ -88,31 +88,37 @@ const resolveHandler = (instance: object, methodName: string | symbol): (() => u
 
 type FormBody = Record<string, string | File | (string | File)[]>;
 
-type ParsedBodies = {
-  jsonBody: unknown;
-  formBody: FormBody | undefined;
-};
+type ParsedBody =
+  | { type: 'json'; val: unknown }
+  | { type: 'form'; val: FormBody }
+  | { type: 'text'; val: string }
+  | { type: 'none'; val: undefined };
 
 /** @throws {ZeltContextNotAvailableError} */
-const parseRequestBodies = async (
+const parseRequestBody = async (
   c: Parameters<Parameters<Hono['on']>[2]>[0],
-): Promise<ParsedBodies> => {
+): Promise<ParsedBody> => {
   const contentType = c.req.header('content-type') ?? '';
 
   if (contentType.includes('application/json')) {
-    const jsonBody = await c.req.json<unknown>().catch(() => undefined);
-    return { jsonBody, formBody: undefined };
+    const val = await c.req.json<unknown>().catch(() => undefined);
+    return { type: 'json', val };
   }
 
   if (
     contentType.includes('multipart/form-data') ||
     contentType.includes('application/x-www-form-urlencoded')
   ) {
-    const formBody: FormBody = await c.req.parseBody({ all: true }).catch(() => ({}));
-    return { jsonBody: undefined, formBody };
+    const val: FormBody = await c.req.parseBody({ all: true }).catch(() => ({}));
+    return { type: 'form', val };
   }
 
-  return { jsonBody: undefined, formBody: undefined };
+  if (contentType.startsWith('text/')) {
+    const val = await c.req.text().catch(() => '');
+    return { type: 'text', val };
+  }
+
+  return { type: 'none', val: undefined };
 };
 
 /** @throws {ZeltLifecycleStateError} */
@@ -315,9 +321,9 @@ const registerRoute = (
 
     const composedHandler = composeHandler(middlewares, finalHandler);
 
-    const { jsonBody, formBody } = await parseRequestBodies(c);
+    const body = await parseRequestBody(c);
     const pathParams: Readonly<Record<string, string>> = c.req.param();
-    return runInEntryContext({ input: { jsonBody, formBody, pathParams }, honoContext: c }, () =>
+    return runInEntryContext({ input: { body, pathParams }, honoContext: c }, () =>
       composedHandler(c),
     );
   };

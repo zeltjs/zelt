@@ -35,3 +35,6 @@ export type ZeltCommandExecutionError = InstanceType<typeof ZeltCommandExecution
 
 export const ZeltEnvError = createErrorClass('ZeltEnvError');
 export type ZeltEnvError = InstanceType<typeof ZeltEnvError>;
+
+export const ZeltBodyTypeMismatchError = createErrorClass('ZeltBodyTypeMismatchError');
+export type ZeltBodyTypeMismatchError = InstanceType<typeof ZeltBodyTypeMismatchError>;

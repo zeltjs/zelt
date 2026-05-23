@@ -1,37 +1,24 @@
-import { match } from 'ts-pattern';
-
+import { ZeltBodyTypeMismatchError } from '../../errors';
 import { getEntryContext } from '../internal/entry-context';
 
-type BodyTypeMap = {
-  text: string;
-  json: unknown;
-  form: FormData;
-  arrayBuffer: ArrayBuffer;
-  blob: Blob;
-};
+type FormBody = Record<string, string | File | (string | File)[]>;
 
-type BodyType = keyof BodyTypeMap;
+/** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
+export function body(type?: 'json'): unknown;
+/** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
+export function body(type: 'form'): FormBody;
+/** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
+export function body(type: 'text'): string;
+/** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
+export function body(type: 'json' | 'form' | 'text' = 'json'): unknown {
+  const { body: parsedBody } = getEntryContext().input;
 
-/** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'text'): Promise<string>;
-/** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'json'): Promise<unknown>;
-/** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'form'): Promise<FormData>;
-/** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'arrayBuffer'): Promise<ArrayBuffer>;
-/** @throws {ZeltContextNotAvailableError} */
-export function body(type: 'blob'): Promise<Blob>;
-/**
- * @throws {ZeltContextNotAvailableError}
- */
-export function body(type: BodyType): Promise<BodyTypeMap[BodyType]> {
-  const req = getEntryContext().honoContext.req;
-  return match(type)
-    .with('text', () => req.text())
-    .with('json', () => req.json())
-    .with('form', () => req.formData())
-    .with('arrayBuffer', () => req.arrayBuffer())
-    .with('blob', () => req.blob())
-    .exhaustive();
+  if (parsedBody.type !== type) {
+    throw new ZeltBodyTypeMismatchError({
+      expected: type,
+      actual: parsedBody.type,
+    });
+  }
+
+  return parsedBody.val;
 }
