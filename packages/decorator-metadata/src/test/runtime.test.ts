@@ -1,6 +1,7 @@
 /* eslint-disable complexity */
 import { describe, expect, it } from 'vitest';
 import {
+  composeClassDecorators,
   createClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
@@ -160,6 +161,28 @@ describe('trace capture timing', () => {
 
     expect(pos?.sourceFile).toContain('runtime.test.ts');
     expect(pos?.line).toBeGreaterThan(0);
+  });
+
+  it('composeClassDecorators captures trace at decoration site, not child factory time', () => {
+    const Controller = (path: string) => createClassDecorator({ path });
+    const Marker = () => createClassDecorator({ type: 'marker' });
+
+    // composeClassDecorators is defined here (factory time), but the trace must
+    // resolve to the @GraphqlController call site below, not this line.
+    const composeDefinitionLine = resolvePosition(captureStackTrace())?.line ?? 0;
+    const GraphqlController = (path: string) => composeClassDecorators(Controller(path), Marker());
+
+    @GraphqlController('/api')
+    class UserResolver {}
+
+    const meta = getClassMetadata(UserResolver);
+    const pos = resolvePosition(meta?.trace);
+
+    expect(pos?.sourceFile).toContain('runtime.test.ts');
+    expect(pos?.line).toBeGreaterThan(0);
+    // The trace must point after the compose definition, not at or before it.
+    expect(pos?.line).toBeGreaterThan(composeDefinitionLine);
+    expect(meta?.props).toEqual([{ path: '/api' }, { type: 'marker' }]);
   });
 });
 

@@ -6,6 +6,7 @@ export type {
   PropertyDecoratorFn,
 } from './runtime/decorators';
 export {
+  composeClassDecorators,
   createClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,

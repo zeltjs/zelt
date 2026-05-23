@@ -17,7 +17,8 @@ const defaultIsFrameworkPath = (path: string): boolean => {
   const normalized = path.replace(/\\/g, '/');
   return (
     normalized.includes('/node_modules/') ||
-    normalized.includes('/packages/decorator-metadata/src/runtime/')
+    normalized.includes('/packages/decorator-metadata/src/runtime/') ||
+    normalized.startsWith('node:')
   );
 };
 
@@ -30,6 +31,12 @@ const TRANSPILER_HELPER_NAMES = new Set([
   '_decorate', // Babel decorator helper
   'applyDecs', // SWC older decorator helper
   'applyDecs2305', // SWC versioned decorator helper
+  // SWC TC39 2022-03 member decorator helpers
+  'memberDec',
+  'applyMemberDec',
+  'applyMemberDecs',
+  'applyDecs2203R',
+  '_apply_decs_2203_r',
 ]);
 
 const isTranspilerHelperFrame = (line: string): boolean => {
@@ -72,17 +79,34 @@ const parsePositionFromStackLine = (
   return tryParseMatch(atMatch, isFrameworkPath);
 };
 
+// Returns true if the frame has no named function — just a bare file path.
+// Pattern: "    at /path/to/file.ts:line:col" (no function name before the path).
+const isAnonymousPathFrame = (line: string): boolean =>
+  /^\s+at\s+\//.test(line) || /^\s+at\s+[a-zA-Z]:\\/.test(line);
+
 const findFirstUserPosition = (
   stack: string,
   isFrameworkPath: (path: string) => boolean,
 ): Position | undefined => {
   const lines = stack.split('\n').slice(2);
+  let prevWasHelperFrame = false;
   for (const line of lines) {
     if (!line) continue;
     // Skip transpiler-generated decorator helper frames even when they appear
     // inside user files — their line numbers map to synthesized positions in
     // the transpiled output, not to meaningful TypeScript source locations.
-    if (isTranspilerHelperFrame(line)) continue;
+    if (isTranspilerHelperFrame(line)) {
+      prevWasHelperFrame = true;
+      continue;
+    }
+    // Anonymous continuation frames that immediately follow a transpiler helper
+    // frame are synthesized by the transpiler and do not correspond to real
+    // TypeScript source positions.
+    if (prevWasHelperFrame && isAnonymousPathFrame(line)) {
+      prevWasHelperFrame = true;
+      continue;
+    }
+    prevWasHelperFrame = false;
     const pos = parsePositionFromStackLine(line, isFrameworkPath);
     if (pos) return pos;
   }
