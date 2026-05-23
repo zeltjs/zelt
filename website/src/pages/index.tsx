@@ -122,9 +122,25 @@ const coldStartData = [
   { name: 'NestJS', value: 268, color: '#6b7280' },
 ];
 
+const benchmarkJson = JSON.stringify({
+  requestsPerSecond: {
+    description: 'Higher is better',
+    unit: 'req/s',
+    data: benchmarkData.map(({ name, value }) => ({ name, value })),
+  },
+  coldStart: {
+    description: 'Lower is better',
+    unit: 'ms',
+    data: coldStartData.map(({ name, value }) => ({ name, value })),
+  },
+});
+
 function BenchmarkSection() {
   return (
     <section className="benchmark">
+      <script id="zelt-benchmark-data" type="application/json">
+        {benchmarkJson}
+      </script>
       <div className="benchmark__container">
         <h2 className="benchmark__title">Benchmark</h2>
         <p className="benchmark__subtitle">

@@ -28,6 +28,9 @@
       "complexity": {
         "useLiteralKeys": "off"
       },
+      "security": {
+        "noDangerouslySetInnerHtml": "off"
+      },
       "style": {
         "useImportType": {
           "level": "error",
