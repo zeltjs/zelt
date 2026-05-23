@@ -2,38 +2,32 @@
 sidebar_label: Bun
 ---
 
+import Prerequisites from './_partials/prerequisites.mdx';
+import FolderStructure from './_partials/folder-structure.mdx';
+
 # Getting Started with Bun
 
 This guide walks you through building a Zelt application on Bun from scratch.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh/) v1.0 or higher
+<Prerequisites />
 
 ## Installation
 
 ```bash
-bun add @zeltjs/core @zeltjs/adapter-bun
+bun add @zeltjs/core@0.6.1 @zeltjs/adapter-bun@0.6.1
 ```
 
 ## Project Structure
 
-```
-my-app/
-├── src/
-│   ├── app.ts
-│   ├── index.ts
-│   └── controllers/
-│       └── hello.controller.ts
-├── package.json
-└── tsconfig.json
-```
+<FolderStructure />
 
 ## Hello World
 
 ### Step 1: Create the Controller
 
-Create `src/controllers/hello.controller.ts`:
+Create `src/entry/controllers/hello.controller.ts`:
 
 ```typescript
 // @noErrors

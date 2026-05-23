@@ -2,42 +2,35 @@
 sidebar_label: AWS Lambda
 ---
 
+import Prerequisites from './_partials/prerequisites.mdx';
+import FolderStructure from './_partials/folder-structure.mdx';
+
 # Getting Started with AWS Lambda
 
 This guide walks you through building a Zelt application on AWS Lambda from scratch.
 
-## Prerequisites
+<Prerequisites />
 
-- [Node.js](https://nodejs.org/) v20 or higher
+Additional requirements for AWS Lambda:
 - An [AWS account](https://aws.amazon.com/)
 - [AWS CLI](https://aws.amazon.com/cli/) or [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
 
 ## Installation
 
 ```bash
-pnpm add @zeltjs/core @zeltjs/adapter-lambda
+pnpm add @zeltjs/core@0.6.1 @zeltjs/adapter-lambda@0.6.1
 pnpm add -D @types/aws-lambda esbuild
 ```
 
-## Project Structure
+<FolderStructure />
 
-```
-my-lambda/
-├── src/
-│   ├── app.ts
-│   ├── handler.ts
-│   └── controllers/
-│       └── hello.controller.ts
-├── package.json
-├── tsconfig.json
-└── template.yaml
-```
+For AWS Lambda, also add `template.yaml` (SAM template) at the project root.
 
 ## Hello World
 
 ### Step 1: Create the Controller
 
-Create `src/controllers/hello.controller.ts`:
+Create `src/entry/controllers/hello.controller.ts`:
 
 ```typescript
 // @noErrors

@@ -2,19 +2,22 @@
 sidebar_label: Electron
 ---
 
+import Prerequisites from './_partials/prerequisites.mdx';
+import FolderStructure from './_partials/folder-structure.mdx';
+
 # Getting Started with Electron
 
 This guide walks you through embedding a Zelt application in an Electron app for local API handling.
 
-## Prerequisites
+<Prerequisites />
 
-- [Node.js](https://nodejs.org/) v20 or higher
+Additional requirements for Electron:
 - [Electron](https://www.electronjs.org/) v28 or higher
 
 ## Installation
 
 ```bash
-pnpm add @zeltjs/core @zeltjs/adapter-electron
+pnpm add @zeltjs/core@0.6.1 @zeltjs/adapter-electron@0.6.1
 pnpm add -D electron
 ```
 
@@ -25,6 +28,8 @@ The Electron adapter allows you to handle HTTP requests within your Electron app
 - Local API endpoints for the renderer process
 - Offline-capable applications
 - Desktop apps with embedded backends
+
+<FolderStructure />
 
 ## Hello World
 
