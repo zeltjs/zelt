@@ -4,8 +4,6 @@ import type { Context } from 'hono';
 
 import { ZeltContextNotAvailableError } from '../../errors';
 
-type BodyType = 'json' | 'form' | 'text' | 'none';
-
 type FormBody = Record<string, string | File | (string | File)[]>;
 
 type ParsedBody =
