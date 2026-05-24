@@ -4,9 +4,9 @@ import { Config } from '../built-in-service/config';
 import type { Lifecycle } from '../index';
 import { Injectable, inject, LifecycleManager } from '../index';
 
-import { createTestTargetBase } from './test-target';
+import { createApp } from './create-app';
 
-describe('createTestTargetBase', () => {
+describe('createApp for testing', () => {
   it('instantiates configs before calling startup', async () => {
     const events: string[] = [];
 
@@ -39,14 +39,13 @@ describe('createTestTargetBase', () => {
       }
     }
 
-    const { target, shutdown } = await createTestTargetBase(TestService, {
-      configs: [TestConfig],
-    });
+    const app = createApp({ configs: [TestConfig] });
+    const { get } = await app.ready();
 
     expect(events).toEqual(['config:constructor', 'config:startup']);
-    expect(target.getValue()).toBe('test-value');
+    expect(get(TestService).getValue()).toBe('test-value');
 
-    await shutdown();
+    await app.shutdown();
     expect(events).toEqual(['config:constructor', 'config:startup', 'config:shutdown']);
   });
 
@@ -66,27 +65,24 @@ describe('createTestTargetBase', () => {
       }
     }
 
-    @Injectable()
-    class SimpleService {}
+    const app = createApp({ configs: [IdempotentConfig] });
+    await app.ready();
 
-    const { shutdown } = await createTestTargetBase(SimpleService, {
-      configs: [IdempotentConfig],
-    });
+    await app.shutdown();
+    await app.shutdown();
+    await app.shutdown();
 
-    await shutdown();
-    await shutdown();
-    await shutdown();
-
-    expect(events).toEqual(['shutdown']); // Only called once
+    expect(events).toEqual(['shutdown']);
   });
 
   it('throws error when get is called after shutdown', async () => {
     @Injectable()
     class SomeService {}
 
-    const { get, shutdown } = await createTestTargetBase(SomeService);
+    const app = createApp({});
+    const { get } = await app.ready();
 
-    await shutdown();
+    await app.shutdown();
 
     expect(() => get(SomeService)).toThrow(/Cannot get\(\) after shutdown\(\)/);
   });

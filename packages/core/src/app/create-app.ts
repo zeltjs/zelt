@@ -3,13 +3,13 @@ import { Container } from '@needle-di/core';
 import type { ConfigClass } from '../built-in-service/config';
 import { CorsConfig } from '../built-in-service/http-security/cors.config';
 import { SecureHeadersConfig } from '../built-in-service/http-security/secure-headers.config';
-import { ZeltAppConfigurationError } from '../kernel/errors';
 import type { ModuleCapsMap } from '../modules/module';
 import type { ReadyOptions, ReadyResult } from './app-runtime';
 import { AppRuntime } from './app-runtime';
 import { ConfigRegistry } from './config-registry';
 import type { DefaultModules, DefaultModulesConfig } from './default-modules';
 import { bindDefaultModules, resolveDefaultModuleCaps } from './default-modules';
+import { attachContainer } from './override';
 
 // --- Types ---
 
@@ -61,14 +61,10 @@ const buildBaseApp = (runtime: AppRuntime, configRegistry: ConfigRegistry): Base
 
 // --- Main ---
 
-/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export function createApp<TOptions extends CreateAppOptions>(options: TOptions): App<TOptions>;
-/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export function createApp(options: CreateAppOptions): App<CreateAppOptions> {
-  if (!options.http && !options.commands?.length) {
-    throw new ZeltAppConfigurationError({ reason: 'no_http_or_commands' });
-  }
-
   const container = new Container();
   bindDefaultModules(container, options);
 
@@ -80,8 +76,10 @@ export function createApp(options: CreateAppOptions): App<CreateAppOptions> {
 
   registerInitialConfigs(configRegistry, options.configs);
 
-  return {
+  const baseApp = {
     ...buildBaseApp(runtime, configRegistry),
     ...resolveDefaultModuleCaps(container, options),
   };
+
+  return attachContainer(baseApp, container);
 }

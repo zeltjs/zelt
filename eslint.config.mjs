@@ -452,6 +452,13 @@ export default tseslint.config(
     },
   },
   {
+    // override accesses container via Symbol which requires type assertion at runtime boundary.
+    files: ['packages/core/src/app/override.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
     // defineError/defineHttpException return anonymous classes that cannot satisfy
     // their return types without type assertion. isKVError uses instanceof union check.
     files: [
@@ -499,6 +506,24 @@ export default tseslint.config(
     },
   },
   {
+    // core is runtime code — inspect module is for build-time tools only
+    files: ['packages/core/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@zeltjs/decorator-metadata/inspect',
+              message:
+                'inspect is for build-time tools only. Use @zeltjs/decorator-metadata (runtime) in core.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['packages/**/*.{ts,tsx}'],
     ignores: [
       'packages/core/**/*.{ts,tsx}',
@@ -514,6 +539,24 @@ export default tseslint.config(
               name: '@needle-di/core',
               message:
                 'Import from @zeltjs/core or @zeltjs/testing instead. Direct @needle-di/core imports are only allowed in packages/core, packages/command, and packages/cli.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/**/*.{ts,tsx}'],
+    ignores: ['packages/core/**/*.{ts,tsx}', 'packages/testing/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@zeltjs/core/internal-bridge/testing'],
+              message:
+                'internal-bridge/testing is reserved for @zeltjs/core and @zeltjs/testing. Use the public API from @zeltjs/core or @zeltjs/testing instead.',
             },
           ],
         },

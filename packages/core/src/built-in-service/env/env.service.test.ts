@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTestTargetBase } from '../../app/test-target';
+import type { App } from '../../app/create-app';
+import { createApp } from '../../app/create-app';
 import { Config } from '../config';
 
 import { EnvConfig } from './env.config';
@@ -14,13 +15,12 @@ class TestProcessEnvConfig extends EnvConfig {
 }
 
 let service: EnvService;
+let app: App;
 
 const setupEnvService = async () => {
-  const result = await createTestTargetBase(EnvService, {
-    configs: [TestProcessEnvConfig],
-  });
-  service = result.target;
-  return result;
+  app = createApp({ configs: [TestProcessEnvConfig] });
+  const { get } = await app.ready();
+  service = get(EnvService);
 };
 
 describe('EnvService', () => {

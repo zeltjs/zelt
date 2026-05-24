@@ -1,5 +1,5 @@
-import { createTestTargetBase } from '@zeltjs/core/internal-bridge/testing';
 import { MemoryKV } from '@zeltjs/kv';
+import { createTestTarget } from '@zeltjs/testing';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { RateLimitConfig } from './rate-limit.config';
@@ -7,7 +7,7 @@ import { RateLimitConfig } from './rate-limit.config';
 let memoryKv: MemoryKV;
 
 beforeAll(async () => {
-  const { target } = await createTestTargetBase(MemoryKV);
+  const { target } = await createTestTarget(MemoryKV);
   memoryKv = target;
 });
 

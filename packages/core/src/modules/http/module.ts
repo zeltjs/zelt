@@ -3,7 +3,6 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 
-import { getConfig } from '../../built-in-service/config';
 import { CorsConfig } from '../../built-in-service/http-security/cors.config';
 import { SecureHeadersConfig } from '../../built-in-service/http-security/secure-headers.config';
 import { inject } from '../../kernel/di/inject';
@@ -170,8 +169,8 @@ export class HttpRuntime implements Lifecycle {
   }
 
   private applySecurityMiddlewares(hono: Hono): void {
-    const corsConfig = getConfig(this.container, CorsConfig);
-    const secureHeadersConfig = getConfig(this.container, SecureHeadersConfig);
+    const corsConfig = resolve(this.container, CorsConfig);
+    const secureHeadersConfig = resolve(this.container, SecureHeadersConfig);
 
     const corsOrigin = corsConfig.origin;
     const hasCorsOrigin = Array.isArray(corsOrigin) ? corsOrigin.length > 0 : corsOrigin !== '';

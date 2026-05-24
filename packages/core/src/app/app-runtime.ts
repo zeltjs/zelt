@@ -1,7 +1,6 @@
 import { Container, injectable } from '@needle-di/core';
 
-import type { ConfigClass } from '../built-in-service/config';
-import { getConfig, overrideConfig, resolveConfig } from '../built-in-service/config';
+import { overrideConfig, resolveConfig } from '../built-in-service/config';
 import { inject } from '../kernel/di/inject';
 import { resolve } from '../kernel/di/resolve';
 import { ZeltLifecycleStateError } from '../kernel/errors';
@@ -14,7 +13,6 @@ export type ReadyOptions = {
 
 export type ReadyResult = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => T;
-  readonly getConfig: <T extends object>(configClass: ConfigClass<T>) => T;
 };
 
 type AppRuntimeState = 'idle' | 'starting' | 'ready' | 'disposed';
@@ -79,9 +77,12 @@ export class AppRuntime {
 
   private buildReadyResult(): ReadyResult {
     return {
-      get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
-      getConfig: <T extends object>(configClass: ConfigClass<T>): T =>
-        getConfig(this.container, configClass),
+      get: <T extends object>(cls: new (...args: never[]) => T): T => {
+        if (this.state === 'disposed') {
+          throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });
+        }
+        return resolve(this.container, cls);
+      },
     };
   }
 

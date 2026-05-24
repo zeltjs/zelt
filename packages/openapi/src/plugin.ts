@@ -4,11 +4,12 @@ import { pathToFileURL } from 'node:url';
 import type { ZeltPlugin } from '@zeltjs/cli';
 import { ZeltPluginConfigurationError } from '@zeltjs/core';
 
-import type { GenerateOpenApiOptions, HttpMetadata } from './generate-openapi';
+import type { ControllerClass, GenerateOpenApiOptions, HttpMetadata } from './generate-openapi';
 import { generateOpenApi } from './generate-openapi';
 
 type HttpAppLike = {
   getMetadata: () => HttpMetadata;
+  getControllers: () => readonly ControllerClass[];
 };
 
 type AppModule = {
@@ -30,7 +31,11 @@ const loadApp = async (cwd: string, entry: string): Promise<HttpAppLike> => {
   const fileUrl = pathToFileURL(absPath).href;
   const mod: AppModule = await import(fileUrl);
   const app = mod.app ?? mod.default;
-  if (app === undefined || typeof app.getMetadata !== 'function') {
+  if (
+    app == null ||
+    typeof app.getMetadata !== 'function' ||
+    typeof app.getControllers !== 'function'
+  ) {
     throw new ZeltPluginConfigurationError({
       pluginName: 'openapi',
       reason: 'app_not_found',

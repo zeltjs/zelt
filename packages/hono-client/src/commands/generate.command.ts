@@ -55,7 +55,11 @@ export class GenerateCommand {
     const mod: { app?: HttpAppLike; default?: HttpAppLike } = await import(fileUrl);
     const httpApp = mod.app ?? mod.default;
 
-    if (!httpApp || typeof httpApp.getMetadata !== 'function') {
+    if (
+      !httpApp ||
+      typeof httpApp.getMetadata !== 'function' ||
+      typeof httpApp.getControllers !== 'function'
+    ) {
       throw new ZeltPluginConfigurationError({
         pluginName: 'hono-client',
         reason: 'app_not_found',
