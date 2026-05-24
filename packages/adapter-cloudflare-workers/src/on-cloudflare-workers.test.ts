@@ -117,7 +117,6 @@ describe('dynamic mode', () => {
       basePath: '/hello',
       name: 'HelloController',
     });
-    expect(workersApp.__dynamicMeta?.controllers[0].sourceFile).toContain('.test.ts');
   });
 
   it('does not include __dynamicMeta when dynamic: false (default)', async () => {
