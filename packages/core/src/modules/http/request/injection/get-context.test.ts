@@ -11,39 +11,40 @@ declare module '@zeltjs/core' {
   }
 }
 
-const createMockHonoContext = (contextValues: Record<string, unknown> = {}) =>
-  ({
+const createMockEntryContext = (contextValues: Record<string, unknown> = {}) => ({
+  honoContext: {
     get: (key: string) => contextValues[key],
     set: vi.fn(),
     req: { header: () => undefined },
-  }) as unknown as Context;
+  } as unknown as Context,
+});
 
 describe('getContext', () => {
   it('returns value set in Hono context', () => {
-    const honoContext = createMockHonoContext({ user: { id: 1, name: 'alice' } });
-    const result = runInEntryContext({ honoContext }, () => getContext('user'));
+    const ctx = createMockEntryContext({ user: { id: 1, name: 'alice' } });
+    const result = runInEntryContext(ctx, () => getContext('user'));
     expect(result).toEqual({ id: 1, name: 'alice' });
   });
 
   it('returns undefined when key is not defined', () => {
-    const honoContext = createMockHonoContext({});
-    const result = runInEntryContext({ honoContext }, () => getContext('nonexistent'));
+    const ctx = createMockEntryContext({});
+    const result = runInEntryContext(ctx, () => getContext('nonexistent'));
     expect(result).toBeUndefined();
   });
 
-  it('throws when called outside http context', () => {
+  it('throws when called outside entry context', () => {
     expect(() => getContext('nonexistent')).toThrow(/outside entry execution/);
   });
 });
 
 describe('setContext', () => {
   it('calls Hono context.set with key and value', () => {
-    const honoContext = createMockHonoContext({});
-    runInEntryContext({ honoContext }, () => setContext('user', { id: 1, name: 'alice' }));
-    expect(honoContext.set).toHaveBeenCalledWith('user', { id: 1, name: 'alice' });
+    const ctx = createMockEntryContext({});
+    runInEntryContext(ctx, () => setContext('user', { id: 1, name: 'alice' }));
+    expect(ctx.honoContext.set).toHaveBeenCalledWith('user', { id: 1, name: 'alice' });
   });
 
-  it('throws when called outside http context', () => {
+  it('throws when called outside entry context', () => {
     expect(() => setContext('user', { id: 1, name: 'test' })).toThrow(/outside entry execution/);
   });
 });

@@ -6,7 +6,7 @@ import { body } from './injection/body';
 import { pathParam } from './injection/path-param';
 import { requestContext } from './request-context';
 
-describe('http-context', () => {
+describe('entry-context', () => {
   it('returns the running context inside runInEntryContext', () => {
     const honoContext = { marker: 'test' } as unknown as Context;
     const bodyVal = { type: 'json' as const, val: { hello: 'world' } };

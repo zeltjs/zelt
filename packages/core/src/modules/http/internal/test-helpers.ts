@@ -13,13 +13,13 @@ type ParsedBody =
   | { type: 'text'; val: string }
   | { type: 'none'; val: undefined };
 
-type TestHttpContext = {
+type TestEntryContext = {
   honoContext: Context;
   body?: ParsedBody;
   pathParams?: Readonly<Record<string, string>>;
 };
 
-export const runInEntryContext = <T>(ctx: TestHttpContext, fn: () => T): T => {
+export const runInEntryContext = <T>(ctx: TestEntryContext, fn: () => T): T => {
   return runInContext(() => {
     setHonoContext(ctx.honoContext);
     setBody(ctx.body ?? { type: 'none', val: undefined });

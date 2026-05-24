@@ -5,18 +5,17 @@ import { runInEntryContext } from '../../internal/test-helpers';
 
 import { currentRoles, currentUser, setUser } from './auth';
 
-const createMockHonoContext = () => {
-  const store = new Map<string, unknown>();
-  return {
+const createMockEntryContext = () => {
+  const honoContext = {
     req: { header: () => undefined },
-    get: (key: string) => store.get(key),
-    set: (key: string, value: unknown) => store.set(key, value),
   } as unknown as Context;
+  return { honoContext };
 };
 
 describe('setUser', () => {
   it('sets user and roles in context', () => {
-    runInEntryContext({ honoContext: createMockHonoContext() }, () => {
+    const ctx = createMockEntryContext();
+    runInEntryContext(ctx, () => {
       setUser({ id: 1, name: 'alice' }, ['admin', 'user']);
       expect(currentUser()).toEqual({ id: 1, name: 'alice' });
       expect(currentRoles()).toEqual(['admin', 'user']);
@@ -24,7 +23,8 @@ describe('setUser', () => {
   });
 
   it('defaults roles to empty array', () => {
-    runInEntryContext({ honoContext: createMockHonoContext() }, () => {
+    const ctx = createMockEntryContext();
+    runInEntryContext(ctx, () => {
       setUser({ id: 2, name: 'bob' });
       expect(currentUser()).toEqual({ id: 2, name: 'bob' });
       expect(currentRoles()).toEqual([]);
@@ -34,16 +34,16 @@ describe('setUser', () => {
 
 describe('currentUser', () => {
   it('returns undefined when user is not set', () => {
-    const result = runInEntryContext({ honoContext: createMockHonoContext() }, () => currentUser());
+    const ctx = createMockEntryContext();
+    const result = runInEntryContext(ctx, () => currentUser());
     expect(result).toBeUndefined();
   });
 });
 
 describe('currentRoles', () => {
   it('returns empty array when roles are not set', () => {
-    const result = runInEntryContext({ honoContext: createMockHonoContext() }, () =>
-      currentRoles(),
-    );
+    const ctx = createMockEntryContext();
+    const result = runInEntryContext(ctx, () => currentRoles());
     expect(result).toEqual([]);
   });
 });
