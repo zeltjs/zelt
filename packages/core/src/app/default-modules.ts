@@ -2,7 +2,7 @@ import type { Container } from '@needle-di/core';
 
 import { CommandModule } from '../modules/command/module';
 import { HttpModule } from '../modules/http/module';
-import type { Module, ModuleCapsMap, ModuleConfigMap } from '../modules/module';
+import type { Module, ModuleConfigMap } from '../modules/module';
 import { SchedulerModule } from '../modules/scheduler/module';
 
 export const DefaultModules = [HttpModule, CommandModule, SchedulerModule] as const;
@@ -23,10 +23,10 @@ export const bindDefaultModules = (container: Container, options: DefaultModules
   }
 };
 
-export const resolveDefaultModuleCaps = <TConfig extends DefaultModulesConfig>(
+export const resolveDefaultModuleCaps = (
   container: Container,
-  options: TConfig,
-): ModuleCapsMap<typeof DefaultModules, TConfig> => {
+  options: DefaultModulesConfig,
+): object => {
   const configs = new Map<string, unknown>(Object.entries(options));
   let caps: object = {};
   for (const mod of modules) {
@@ -34,5 +34,5 @@ export const resolveDefaultModuleCaps = <TConfig extends DefaultModulesConfig>(
       caps = { ...caps, ...mod.resolve(container) };
     }
   }
-  return caps as ModuleCapsMap<typeof DefaultModules, TConfig>;
+  return caps;
 };

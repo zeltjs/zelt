@@ -12,8 +12,13 @@ const FRAMEWORK_PATH_PATTERNS = [
 
 const isTestFile = (path: string): boolean => /\.(test|spec)\./.test(path);
 
-const isCoreDecoratorPath = (path: string): boolean =>
-  path.includes('/packages/core/src/modules/') && path.includes('/decorators/');
+const DECORATOR_FILES = ['/controller.ts', '/http-method.ts'] as const;
+
+const isCoreDecoratorPath = (path: string): boolean => {
+  if (!path.includes('/packages/core/src/modules/')) return false;
+  if (path.includes('/decorators/')) return true;
+  return DECORATOR_FILES.some((f) => path.endsWith(f));
+};
 
 const isCoreNonModulePath = (path: string): boolean =>
   path.includes('/packages/core/') && !path.includes('/modules/');
