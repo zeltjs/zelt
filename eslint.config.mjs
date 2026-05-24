@@ -18,7 +18,12 @@ export default tseslint.config(
       '**/dist',
       '**/.nx',
       '**/*.d.ts',
-      '**/*.config.{ts,mjs,js}',
+      '**/tsdown.config.ts',
+      '**/vitest.config.ts',
+      '**/drizzle.config.ts',
+      '**/zelt.config.ts',
+      'knip.config.ts',
+      '**/*.config.{mjs,js}',
       'eslint.config.mjs',
       '**/generated/**',
       'website/**',
@@ -253,7 +258,18 @@ export default tseslint.config(
       'packages/core/src/built-in-service/env/env.service.ts',
       // ProcessEnvSource reads process.env as Node.js environment adapter
       'packages/adapter-node/src/process-env-source.ts',
+      // EnvConfig implementations in adapters read process.env directly
+      'packages/adapter-node/src/process-env.config.ts',
+      'packages/adapter-electron/src/electron-env.config.ts',
+      'packages/adapter-lambda/src/lambda-env.config.ts',
     ],
+    rules: {
+      '@9wick/strict-type-rules/no-process-access': 'off',
+    },
+  },
+  {
+    // NodeCliConfig provides process.argv/cwd access for CLI applications
+    files: ['packages/adapter-node/src/cli.config.ts'],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
     },
@@ -454,6 +470,20 @@ export default tseslint.config(
     files: ['packages/rate-limit/src/rate-limit.decorator.ts'],
     rules: {
       'zelt/decorator-file-naming': 'off',
+    },
+  },
+  {
+    // @Config classes may have class fields for configuration values
+    files: ['packages/**/*.config.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
+  {
+    // CloudflareWorkersEnvConfig needs type assertion for cloudflare:workers env object.
+    files: ['packages/adapter-cloudflare-workers/src/cloudflare-workers-env.config.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {

@@ -1,5 +1,5 @@
 import type { RequestContextSchema } from '@zeltjs/core';
-import { Config } from '@zeltjs/core';
+import { Config, Env, inject } from '@zeltjs/core';
 
 import { ZeltJwtConfigError } from './errors';
 import type { JwtDriver, JwtPayload } from './jwt.types';
@@ -11,11 +11,13 @@ export interface ResolveUserResult {
 
 @Config
 export class JwtConfig {
+  constructor(private env = inject(Env)) {}
+
   /**
    * @throws {ZeltJwtConfigError} When JWT_SECRET is not set
    */
   get secret(): string {
-    const secret = process.env['JWT_SECRET'];
+    const secret = this.env.getString('JWT_SECRET');
     if (!secret) {
       throw new ZeltJwtConfigError({ reason: 'missing_secret' });
     }
