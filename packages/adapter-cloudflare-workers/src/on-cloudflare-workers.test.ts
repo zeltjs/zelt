@@ -105,4 +105,3 @@ describe('onCloudflareWorkers', () => {
     expect(env.get).toBeTypeOf('function');
   });
 });
-
