@@ -513,4 +513,3 @@ describe('compose* functions', () => {
     ]);
   });
 });
-/* eslint-enable complexity */
