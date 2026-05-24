@@ -3,12 +3,11 @@ import { emitAppType } from './generator';
 
 /**
  * @deprecated Use GeneratorService instead
- */
-export const generateHonoAppType = emitAppType;
-
-/**
- * @deprecated Use GeneratorService instead
  * @throws {ZeltDecoratorUsageError}
  */
 export const generateHonoAppTypeFromApp = (app: HttpAppLike, options: GenerateOptions): string =>
-  emitAppType(app.getMetadata(), options.distDir);
+  emitAppType({
+    metadata: app.getMetadata(),
+    controllers: app.getControllers(),
+    distDir: options.distDir,
+  });

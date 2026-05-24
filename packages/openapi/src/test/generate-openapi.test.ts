@@ -2,31 +2,63 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { Controller, Get, Post } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 
-import type { HttpMetadata } from '../generate-openapi';
+import type { ControllerClass, HttpMetadata } from '../generate-openapi';
 import { generateOpenApi } from '../generate-openapi';
 
-const createMockApp = (metadata: HttpMetadata) => ({
+@Controller('/users')
+class UserController {
+  @Get('/:id')
+  show() {
+    return { id: '1' };
+  }
+  @Post('/')
+  create() {
+    return { id: '2' };
+  }
+}
+
+@Controller('/items')
+class ItemController {
+  @Get('/')
+  list() {
+    return [];
+  }
+}
+
+@Controller('/posts')
+class PostController {
+  @Get('/:postId/comments/:commentId')
+  getComment() {
+    return {};
+  }
+}
+
+const createMockApp = (metadata: HttpMetadata, controllers: readonly ControllerClass[]) => ({
   getMetadata: () => metadata,
+  getControllers: () => controllers,
 });
 
 describe('generateOpenApi', () => {
   it('writes openapi.json with basic structure', async () => {
     const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
-    const app = createMockApp({
-      controllers: [
-        {
-          basePath: '/users',
-          sourceFile: '/app/src/user.controller.ts',
-          name: 'UserController',
-          routes: [
-            { method: 'GET', path: '/:id', fullPath: '/users/:id', methodName: 'show' },
-            { method: 'POST', path: '/', fullPath: '/users', methodName: 'create' },
-          ],
-        },
-      ],
-    });
+    const app = createMockApp(
+      {
+        controllers: [
+          {
+            basePath: '/users',
+            name: 'UserController',
+            routes: [
+              { method: 'GET', path: '/:id', fullPath: '/users/:id', methodName: 'show' },
+              { method: 'POST', path: '/', fullPath: '/users', methodName: 'create' },
+            ],
+          },
+        ],
+      },
+      [UserController],
+    );
 
     const result = await generateOpenApi(app, { distDir: dist });
 
@@ -43,16 +75,18 @@ describe('generateOpenApi', () => {
 
   it('returns changed=false on second run with no changes', async () => {
     const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
-    const app = createMockApp({
-      controllers: [
-        {
-          basePath: '/items',
-          sourceFile: '/app/src/item.controller.ts',
-          name: 'ItemController',
-          routes: [{ method: 'GET', path: '/', fullPath: '/items', methodName: 'list' }],
-        },
-      ],
-    });
+    const app = createMockApp(
+      {
+        controllers: [
+          {
+            basePath: '/items',
+            name: 'ItemController',
+            routes: [{ method: 'GET', path: '/', fullPath: '/items', methodName: 'list' }],
+          },
+        ],
+      },
+      [ItemController],
+    );
 
     await generateOpenApi(app, { distDir: dist });
     const secondResult = await generateOpenApi(app, { distDir: dist });
@@ -62,23 +96,25 @@ describe('generateOpenApi', () => {
 
   it('converts path params from :id to {id} format', async () => {
     const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
-    const app = createMockApp({
-      controllers: [
-        {
-          basePath: '/posts',
-          sourceFile: '/app/src/post.controller.ts',
-          name: 'PostController',
-          routes: [
-            {
-              method: 'GET',
-              path: '/:postId/comments/:commentId',
-              fullPath: '/posts/:postId/comments/:commentId',
-              methodName: 'getComment',
-            },
-          ],
-        },
-      ],
-    });
+    const app = createMockApp(
+      {
+        controllers: [
+          {
+            basePath: '/posts',
+            name: 'PostController',
+            routes: [
+              {
+                method: 'GET',
+                path: '/:postId/comments/:commentId',
+                fullPath: '/posts/:postId/comments/:commentId',
+                methodName: 'getComment',
+              },
+            ],
+          },
+        ],
+      },
+      [PostController],
+    );
 
     await generateOpenApi(app, { distDir: dist });
 
@@ -90,7 +126,7 @@ describe('generateOpenApi', () => {
 
   it('includes custom title and version', async () => {
     const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
-    const app = createMockApp({ controllers: [] });
+    const app = createMockApp({ controllers: [] }, []);
 
     await generateOpenApi(app, {
       distDir: dist,

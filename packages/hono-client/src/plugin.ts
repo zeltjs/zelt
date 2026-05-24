@@ -8,9 +8,13 @@ import { ZeltPluginConfigurationError } from '@zeltjs/core';
 import type { HttpAppLike } from './generator';
 import { emitAppType } from './generator';
 
+type HttpAppLikeWithControllers = HttpAppLike & {
+  getControllers: () => readonly (new (...args: never[]) => object)[];
+};
+
 type AppModule = {
-  app?: HttpAppLike;
-  default?: HttpAppLike;
+  app?: HttpAppLikeWithControllers;
+  default?: HttpAppLikeWithControllers;
 };
 
 export type HonoClientPluginOptions = {
@@ -20,16 +24,23 @@ export type HonoClientPluginOptions = {
 };
 
 /** @throws {ZeltPluginConfigurationError} */
-const loadApp = async (cwd: string, entry: string): Promise<HttpAppLike> => {
+const loadApp = async (cwd: string, entry: string): Promise<HttpAppLikeWithControllers> => {
   const absPath = resolve(cwd, entry);
   const fileUrl = pathToFileURL(absPath).href;
   const mod: AppModule = await import(fileUrl);
   const app = mod.app ?? mod.default;
-  if (app === undefined || typeof app.getMetadata !== 'function') {
+  if (app == null || typeof app.getMetadata !== 'function') {
     throw new ZeltPluginConfigurationError({
       pluginName: 'hono-client',
       reason: 'app_not_found',
       details: entry,
+    });
+  }
+  if (typeof app.getControllers !== 'function') {
+    throw new ZeltPluginConfigurationError({
+      pluginName: 'hono-client',
+      reason: 'app_not_found',
+      details: `${entry} (missing getControllers)`,
     });
   }
   return app;
@@ -52,7 +63,11 @@ export const honoClientPlugin = (options: HonoClientPluginOptions = {}): ZeltPlu
     const outputFilename = options.output ?? 'app-type.ts';
     const outputPath = resolve(ctx.cwd, distDir, outputFilename);
 
-    const content = emitAppType(app.getMetadata(), resolve(ctx.cwd, distDir));
+    const content = emitAppType({
+      metadata: app.getMetadata(),
+      controllers: app.getControllers(),
+      distDir: resolve(ctx.cwd, distDir),
+    });
 
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, content, 'utf-8');
