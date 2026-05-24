@@ -4,7 +4,8 @@ import type { Lifecycle } from '../../kernel/lifecycle';
 
 import { getScheduledMetadata, getScheduleMetadata } from './internal/scheduler-metadata';
 
-type SchedulerClass = new (...args: never[]) => object;
+import type { SchedulerClass } from './module';
+
 type Resolver = { get: <T extends object>(cls: new (...args: never[]) => T) => T };
 
 type JobInfo = {

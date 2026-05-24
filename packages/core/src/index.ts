@@ -9,7 +9,7 @@ export {
   type ReadyResult,
   type SchedulerApp,
 } from './app/create-app';
-export type { ControllerClass, HttpMetadata } from './app/modules/http-module';
+export type { DefaultModulesConfig } from './app/default-modules';
 export type { Signal, SignalHandler } from './built-in-service/cli';
 export { CliConfig } from './built-in-service/cli';
 export type { ConfigClass } from './built-in-service/config';
@@ -64,6 +64,7 @@ export { Command } from './modules/command/decorator';
 export type { ExecResult } from './modules/command/exec-result';
 export type { CommandMetadata } from './modules/command/metadata';
 export { getCommandMetadata } from './modules/command/metadata';
+export type { CommandCapabilities } from './modules/command/module';
 export { args } from './modules/command/primitives/args';
 export type { ArgDef, InferSchema, OptionDef, SchemaDefinition } from './modules/command/schema';
 export { cliSchema } from './modules/command/schema';
@@ -106,6 +107,7 @@ export type {
   Next,
   RequestContext,
 } from './modules/http/middleware/types';
+export type { ControllerClass, HttpCapabilities, HttpMetadata } from './modules/http/module';
 // HTTP primitives
 export { currentRoles, currentUser, setUser } from './modules/http/primitives/auth';
 export { body } from './modules/http/primitives/body';
@@ -133,6 +135,7 @@ export type {
   ValidatedMarker,
   ValidationTarget,
 } from './modules/http/primitives/validated-types';
+export type { Module, ModuleCapsMap, ModuleConfigMap } from './modules/module';
 // Scheduler decorators
 export { Cron } from './modules/scheduler/decorators/cron';
 export { Daily } from './modules/scheduler/decorators/daily';
@@ -140,3 +143,4 @@ export { Every } from './modules/scheduler/decorators/every';
 export { Hourly } from './modules/scheduler/decorators/hourly';
 export { Scheduled } from './modules/scheduler/decorators/scheduled';
 export { Weekly } from './modules/scheduler/decorators/weekly';
+export type { SchedulerCapabilities, SchedulerClass } from './modules/scheduler/module';

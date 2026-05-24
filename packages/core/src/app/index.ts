@@ -1,3 +1,6 @@
+export { COMMAND_OPTIONS } from '../modules/command/module';
+export { HTTP_OPTIONS } from '../modules/http/module';
+export { SCHEDULER_OPTIONS } from '../modules/scheduler/module';
 export { AppRuntime } from './app-runtime';
 export { ConfigRegistry } from './config-registry';
 export {
@@ -10,4 +13,4 @@ export {
   type ReadyResult,
   type SchedulerApp,
 } from './create-app';
-export { COMMAND_OPTIONS, HTTP_OPTIONS, SCHEDULER_OPTIONS } from './tokens';
+export { DefaultModules } from './default-modules';
