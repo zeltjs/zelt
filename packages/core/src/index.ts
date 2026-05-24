@@ -15,6 +15,7 @@ export { CliConfig } from './built-in-service/cli';
 export type { ConfigClass } from './built-in-service/config';
 export { Config, overrideConfig } from './built-in-service/config';
 export { Env, EnvConfig, EnvService, EnvSource } from './built-in-service/env';
+export { CorsConfig, SecureHeadersConfig } from './built-in-service/http-security';
 export type {
   LogContext,
   LogEntry,

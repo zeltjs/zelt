@@ -1,6 +1,8 @@
 import { Container } from '@needle-di/core';
 
 import type { ConfigClass } from '../built-in-service/config';
+import { CorsConfig } from '../built-in-service/http-security/cors.config';
+import { SecureHeadersConfig } from '../built-in-service/http-security/secure-headers.config';
 import { ZeltAppConfigurationError } from '../kernel/errors';
 import type { ModuleCapsMap } from '../modules/module';
 import type { ReadyOptions, ReadyResult } from './app-runtime';
@@ -72,6 +74,10 @@ export function createApp(options: CreateAppOptions): App<CreateAppOptions> {
 
   const runtime = container.get(AppRuntime);
   const configRegistry = container.get(ConfigRegistry);
+
+  configRegistry.addFallbackConfig(CorsConfig);
+  configRegistry.addFallbackConfig(SecureHeadersConfig);
+
   registerInitialConfigs(configRegistry, options.configs);
 
   return {
