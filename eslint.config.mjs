@@ -524,6 +524,34 @@ export default tseslint.config(
     },
   },
   {
+    // core/src/app layer cannot import from modules (layer violation)
+    // Exception: default-modules.ts which is the bridge between app and modules
+    files: ['packages/core/src/app/**/*.{ts,tsx}'],
+    ignores: ['packages/core/src/app/default-modules.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@zeltjs/decorator-metadata/inspect',
+              message:
+                'inspect is for build-time tools only. Use @zeltjs/decorator-metadata (runtime) in core.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['../modules/*', '../modules/**'],
+              allowTypeImports: true,
+              message:
+                'app layer cannot import from modules layer (type imports are allowed). Use default-modules.ts as the bridge.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['packages/**/*.{ts,tsx}'],
     ignores: [
       'packages/core/**/*.{ts,tsx}',

@@ -1,10 +1,6 @@
 import { Container, InjectionToken, injectable } from '@needle-di/core';
 import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { secureHeaders } from 'hono/secure-headers';
 
-import { CorsConfig } from '../../built-in-service/http-security/cors.config';
-import { SecureHeadersConfig } from '../../built-in-service/http-security/secure-headers.config';
 import { inject } from '../../kernel/di/inject';
 import { resolve } from '../../kernel/di/resolve';
 import {
@@ -16,6 +12,8 @@ import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
 import type { Module } from '../module';
 import { DefaultErrorHandler } from './error/default.error-handler';
+import { CorsMiddleware } from './middleware/cors/cors.middleware';
+import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
@@ -116,11 +114,15 @@ export class HttpRuntime implements Lifecycle {
     try {
       const hono = new Hono({ strict: false });
 
-      this.applySecurityMiddlewares(hono);
-
       const errorHandlers = resolveErrorHandlers(this.options.errorHandlers ?? [], this.container);
       const fallbackHandler = resolve(this.container, DefaultErrorHandler);
       hono.onError(createErrorHandler(errorHandlers, fallbackHandler));
+
+      const securityMiddlewares: readonly MiddlewareInput[] = [
+        CorsMiddleware,
+        SecureHeadersMiddleware,
+      ];
+
       buildRoutes({
         hono,
         controllers: this.options.controllers,
@@ -129,7 +131,7 @@ export class HttpRuntime implements Lifecycle {
             resolve(this.container, cls),
         },
         lifecycle: this.lifecycleManager,
-        globalMiddlewares: this.options.middlewares ?? [],
+        globalMiddlewares: [...securityMiddlewares, ...(this.options.middlewares ?? [])],
       });
       return hono;
     } catch (e) {
@@ -166,45 +168,6 @@ export class HttpRuntime implements Lifecycle {
     return {
       controllers: this.options.controllers.map(collectControllerRouteInfo),
     };
-  }
-
-  private applySecurityMiddlewares(hono: Hono): void {
-    const corsConfig = resolve(this.container, CorsConfig);
-    const secureHeadersConfig = resolve(this.container, SecureHeadersConfig);
-
-    const corsOrigin = corsConfig.origin;
-    const hasCorsOrigin = Array.isArray(corsOrigin) ? corsOrigin.length > 0 : corsOrigin !== '';
-    if (hasCorsOrigin) {
-      const maxAge = corsConfig.maxAge;
-      hono.use(
-        cors({
-          origin: corsConfig.origin,
-          allowMethods: corsConfig.allowMethods,
-          allowHeaders: corsConfig.allowHeaders,
-          exposeHeaders: corsConfig.exposeHeaders,
-          ...(maxAge !== undefined && { maxAge }),
-          credentials: corsConfig.credentials,
-        }),
-      );
-    }
-
-    hono.use(
-      secureHeaders({
-        crossOriginEmbedderPolicy: secureHeadersConfig.crossOriginEmbedderPolicy,
-        crossOriginResourcePolicy: secureHeadersConfig.crossOriginResourcePolicy,
-        crossOriginOpenerPolicy: secureHeadersConfig.crossOriginOpenerPolicy,
-        originAgentCluster: secureHeadersConfig.originAgentCluster,
-        referrerPolicy: secureHeadersConfig.referrerPolicy,
-        strictTransportSecurity: secureHeadersConfig.strictTransportSecurity,
-        xContentTypeOptions: secureHeadersConfig.xContentTypeOptions,
-        xDnsPrefetchControl: secureHeadersConfig.xDnsPrefetchControl,
-        xDownloadOptions: secureHeadersConfig.xDownloadOptions,
-        xFrameOptions: secureHeadersConfig.xFrameOptions,
-        xPermittedCrossDomainPolicies: secureHeadersConfig.xPermittedCrossDomainPolicies,
-        xXssProtection: secureHeadersConfig.xXssProtection,
-        removePoweredBy: secureHeadersConfig.removePoweredBy,
-      }),
-    );
   }
 }
 

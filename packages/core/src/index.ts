@@ -96,7 +96,9 @@ export type {
 export { currentRoles, currentUser, setUser } from './modules/http/middleware/auth/auth';
 // HTTP decorators
 export { Authorized } from './modules/http/middleware/auth/authorized';
+export { CorsMiddleware } from './modules/http/middleware/cors/cors.middleware';
 export { Middleware } from './modules/http/middleware/middleware';
+export { SecureHeadersMiddleware } from './modules/http/middleware/secure-headers/secure-headers.middleware';
 export { SkipMiddleware } from './modules/http/middleware/skip-middleware';
 export type {
   ErrorHandlerClass,
