@@ -39,3 +39,14 @@ export const isZeltNoCliEntryError = (
 export const isZeltCliExecutionError = (
   err: unknown,
 ): err is InstanceType<typeof ZeltCliExecutionError> => err instanceof ZeltCliExecutionError;
+
+export const ZeltMultipleBuildHooksError = defineError(
+  'ZeltMultipleBuildHooksError',
+  (ctx: { pluginNames: readonly string[] }) =>
+    `Multiple plugins define build hook: ${ctx.pluginNames.join(', ')}. Only one plugin can define a custom build.`,
+);
+
+export const isZeltMultipleBuildHooksError = (
+  err: unknown,
+): err is InstanceType<typeof ZeltMultipleBuildHooksError> =>
+  err instanceof ZeltMultipleBuildHooksError;

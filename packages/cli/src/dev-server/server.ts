@@ -3,11 +3,12 @@ import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 
 import { NodeCliConfig } from '@zeltjs/adapter-node';
-import type { SignalHandler } from '@zeltjs/core';
+import type { App, CreateAppOptions, SignalHandler } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 import consola from 'consola';
 
 import type { DevConfig, ZeltConfig } from '../config/schema';
-import { runPreBuildHooks } from '../plugin/runner';
+import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from '../plugin/runner';
 
 import type { WatcherHandle } from './watcher';
 import { createWatcher } from './watcher';
@@ -24,6 +25,7 @@ type DevServerState = {
   childProcess: ChildProcess | undefined;
   watcher: WatcherHandle | undefined;
   isShuttingDown: boolean;
+  app: App<CreateAppOptions>;
 };
 
 const DEFAULT_WATCH_PATTERNS = ['./src/**/*.ts'];
@@ -81,6 +83,27 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
   return child;
 };
 
+const runHooks = async (
+  cwd: string,
+  config: ZeltConfig,
+  app: App<CreateAppOptions>,
+): Promise<void> => {
+  const hookOptions = { cwd, config, app };
+
+  await runPreBuildHooks(hookOptions);
+
+  let success = true;
+
+  try {
+    await runBuildHook(hookOptions);
+  } catch (error) {
+    success = false;
+    throw error;
+  } finally {
+    await runPostBuildHooks(hookOptions, { success });
+  }
+};
+
 const createShutdownHandler = (state: DevServerState) => {
   return async (): Promise<void> => {
     if (state.isShuttingDown) {
@@ -118,9 +141,9 @@ const createRestartHandler = (
     }
 
     try {
-      await runPreBuildHooks({ cwd, config });
+      await runHooks(cwd, config, state.app);
     } catch (error) {
-      consola.error('Plugin preBuild hook failed:', error);
+      consola.error('Plugin hook failed:', error);
     }
 
     state.childProcess = startProcess(cwd, entry);
@@ -144,10 +167,13 @@ const registerSignalHandlers = (onSignal: () => Promise<void>): SignalHandler =>
 export const startDevServer = async (options: DevServerOptions): Promise<void> => {
   const { cwd, config, devConfig } = options;
 
+  const app = createApp({ http: { controllers: [] } });
+
   const state: DevServerState = {
     childProcess: undefined,
     watcher: undefined,
     isShuttingDown: false,
+    app,
   };
 
   const watchPatterns = devConfig.watch ?? DEFAULT_WATCH_PATTERNS;
@@ -170,9 +196,9 @@ export const startDevServer = async (options: DevServerOptions): Promise<void> =
   });
 
   try {
-    await runPreBuildHooks({ cwd, config });
+    await runHooks(cwd, config, app);
   } catch (error) {
-    consola.error('Plugin preBuild hook failed:', error);
+    consola.error('Plugin hook failed:', error);
   }
 
   state.childProcess = startProcess(cwd, devConfig.entry);

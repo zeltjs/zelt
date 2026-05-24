@@ -1,2 +1,2 @@
-export { runPreBuildHooks } from './runner';
-export type { BuildContext, ZeltPlugin } from './types';
+export { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './runner';
+export type { BuildContext, BuildResult, ZeltPlugin } from './types';
