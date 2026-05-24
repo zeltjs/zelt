@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTestTargetBase } from '../../app/test-target';
+import { createApp } from '../../app/create-app';
+import type { App } from '../../app/create-app';
 import { Config } from '../config';
 
 import { Env } from './env';
@@ -13,13 +14,12 @@ class TestEnvSource extends EnvSource {
 }
 
 let env: Env;
+let app: App;
 
 const setupEnv = async () => {
-  const result = await createTestTargetBase(Env, {
-    configs: [TestEnvSource],
-  });
-  env = result.target;
-  return result;
+  app = createApp({ configs: [TestEnvSource] });
+  const { get } = await app.ready();
+  env = get(Env);
 };
 
 describe('Env', () => {

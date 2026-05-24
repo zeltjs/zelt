@@ -77,7 +77,12 @@ export class AppRuntime {
 
   private buildReadyResult(): ReadyResult {
     return {
-      get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
+      get: <T extends object>(cls: new (...args: never[]) => T): T => {
+        if (this.state === 'disposed') {
+          throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });
+        }
+        return resolve(this.container, cls);
+      },
     };
   }
 
