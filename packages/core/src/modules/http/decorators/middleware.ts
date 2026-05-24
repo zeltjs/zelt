@@ -1,7 +1,6 @@
-import { defineInjectableClassDecorator } from '../../../kernel/internal/decorator-helpers';
+import { createInjectableClassDecorator } from '../../../kernel/internal/decorator-helpers';
 
-export const Middleware = defineInjectableClassDecorator(
-  undefined,
+export const Middleware = createInjectableClassDecorator(
   { decorator: 'Middleware' } as const,
   undefined,
   { unique: true },

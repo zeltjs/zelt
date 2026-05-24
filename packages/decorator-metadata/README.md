@@ -56,7 +56,7 @@ pnpm add @zeltjs/decorator-metadata
 
 ## Usage
 
-### Runtime API — `create*` (simple)
+### Runtime API — `create*`
 
 Create decorators that capture metadata at definition time:
 
@@ -85,30 +85,17 @@ class UserController {
 }
 ```
 
-`createClassDecorator` / `createMethodDecorator` / `createPropertyDecorator` capture the source position via `Error.stack` at the moment the factory is called. They are thin shortcuts over `define*` (below).
+`createClassDecorator` / `createMethodDecorator` / `createPropertyDecorator` capture the source position via `Error.stack` at the moment the factory is called.
 
 **Note:** Decorator identifiers (e.g. `'Get'`, `'Column'`) are not captured automatically. Include a `decorator` field in `props` to distinguish between decorator types when reading metadata.
 
-### Runtime API — `define*` (advanced, framework authors)
+### Options
 
-When you wrap `create*` inside your own helper, the captured source position points to the wrapper, not the user's code. Use `define*` to inject the position explicitly and to opt into additional behaviour:
+Both `createClassDecorator` and `createMethodDecorator` accept an optional second argument for advanced behavior:
 
 ```typescript
-import {
-  defineClassDecorator,
-  defineMethodDecorator,
-  definePropertyDecorator,
-  getCallerPosition,
-} from '@zeltjs/decorator-metadata';
-
-// Custom framework-path filter so the stack walker skips your own wrapper.
-const skipFrameworkFrames = (path: string) =>
-  path.includes('/node_modules/') ||
-  path.includes('/packages/my-framework/src/');
-
 const Route = (method: 'GET' | 'POST', path: string) =>
-  defineMethodDecorator(
-    getCallerPosition({ isFrameworkPath: skipFrameworkFrames }),
+  createMethodDecorator(
     { decorator: 'Route', method, path },
     {
       // Throw a framework-specific error if applied to a static method.
@@ -117,8 +104,7 @@ const Route = (method: 'GET' | 'POST', path: string) =>
   );
 
 const Singleton = () =>
-  defineClassDecorator(
-    getCallerPosition({ isFrameworkPath: skipFrameworkFrames }),
+  createClassDecorator(
     { decorator: 'Singleton' },
     {
       // Reject duplicate application (e.g. `@Singleton @Singleton class C {}`).
@@ -130,27 +116,21 @@ const Singleton = () =>
   );
 ```
 
-**`defineMethodDecorator` options:**
+**`createMethodDecorator` options:**
 
 | Option | Type | Description |
 |---|---|---|
 | `rejectStatic` | `() => Error` | When provided, applying the decorator to a static method throws the returned error. |
 
-**`defineClassDecorator` options:**
+**`createClassDecorator` options:**
 
 | Option | Type | Description |
 |---|---|---|
 | `rejectIfApplied` | `(existing: readonly object[]) => Error \| undefined` | Inspect props already attached to the class. Return an `Error` to abort, or `undefined` to proceed. Lets framework authors implement custom rules such as "no duplicate decorator name" without this package knowing the props shape. |
 
-**`getCallerPosition` options:**
-
-| Option | Type | Description |
-|---|---|---|
-| `isFrameworkPath` | `(path: string) => boolean` | Replaces the default filter (which skips `node_modules` and this package's own runtime). Return `true` for any path that should be considered framework code and skipped during stack walking. |
-
 ### Legacy decorator support
 
-The same `create*` / `define*` factories work transparently with TypeScript's legacy `experimentalDecorators` syntax. Internally the package detects whether the second argument carries a TC39 `kind` field; otherwise it falls back to legacy semantics:
+The `create*` factories work transparently with TypeScript's legacy `experimentalDecorators` syntax. Internally the package detects whether the second argument carries a TC39 `kind` field; otherwise it falls back to legacy semantics:
 
 - **Class**: `(target)` — `cls.prototype` is used as the shared key for flushing pending method/field entries.
 - **Method**: `(target, propertyKey, descriptor)` — `target` is the prototype for instance methods or the class itself for static methods; `isStatic` is derived from `typeof target`.

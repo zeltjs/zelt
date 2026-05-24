@@ -79,7 +79,7 @@ const asObject = (v: unknown): object | undefined => {
   return undefined;
 };
 
-export type DefineClassDecoratorOptions<E extends Error = Error> = {
+export type ClassDecoratorOptions<E extends Error = Error> = {
   /**
    * Inspect the props already attached to the class before this decorator runs.
    * Return an Error to abort the application, or undefined to proceed.
@@ -91,7 +91,7 @@ export type DefineClassDecoratorOptions<E extends Error = Error> = {
   readonly rejectIfApplied?: (existing: readonly object[]) => E | undefined;
 };
 
-export type DefineMethodDecoratorOptions<E extends Error = Error> = {
+export type MethodDecoratorOptions<E extends Error = Error> = {
   readonly rejectStatic?: () => E;
 };
 
@@ -117,10 +117,10 @@ export type PropertyDecoratorFn = {
   (target: object, propertyKey: string | symbol): void;
 };
 
-export const defineClassDecorator = <TProps extends object, E extends Error = Error>(
+const defineClassDecorator = <TProps extends object, E extends Error = Error>(
   trace: StackTrace | undefined,
   props: TProps,
-  options?: DefineClassDecoratorOptions<E>,
+  options?: ClassDecoratorOptions<E>,
 ): ClassDecoratorFn => {
   // When no explicit trace is provided, defer captureStackTrace() to decorate()
   // so the stack reflects the actual decoration site, not the factory call site.
@@ -161,10 +161,10 @@ export const defineClassDecorator = <TProps extends object, E extends Error = Er
   return decorate;
 };
 
-export const defineMethodDecorator = <TProps extends object, E extends Error = Error>(
+const defineMethodDecorator = <TProps extends object, E extends Error = Error>(
   trace: StackTrace | undefined,
   props: TProps,
-  options?: DefineMethodDecoratorOptions<E>,
+  options?: MethodDecoratorOptions<E>,
 ): MethodDecoratorFn => {
   const getTrace = trace !== undefined ? () => trace : captureStackTrace;
   /** @throws {E} */
@@ -213,7 +213,7 @@ export const defineMethodDecorator = <TProps extends object, E extends Error = E
   return decorate;
 };
 
-export const definePropertyDecorator = <TProps extends object>(
+const definePropertyDecorator = <TProps extends object>(
   trace: StackTrace | undefined,
   props: TProps,
 ): PropertyDecoratorFn => {
@@ -307,16 +307,16 @@ export const composePropertyDecorators = (
   return decorate;
 };
 
-// `props ?? {}` widens to `TProps | {}`; constraining `TProps` to `object`
-// (which `{}` satisfies) lets us pass it directly without an assertion.
-const emptyProps: object = {};
+export const createClassDecorator = <TProps extends object, E extends Error = Error>(
+  props: TProps,
+  options?: ClassDecoratorOptions<E>,
+): ClassDecoratorFn => defineClassDecorator(captureStackTrace(), props, options);
 
-export const createClassDecorator = <TProps extends object>(props?: TProps): ClassDecoratorFn =>
-  defineClassDecorator(captureStackTrace(), props ?? emptyProps);
-
-export const createMethodDecorator = <TProps extends object>(props?: TProps): MethodDecoratorFn =>
-  defineMethodDecorator(undefined, props ?? emptyProps);
+export const createMethodDecorator = <TProps extends object, E extends Error = Error>(
+  props: TProps,
+  options?: MethodDecoratorOptions<E>,
+): MethodDecoratorFn => defineMethodDecorator(captureStackTrace(), props, options);
 
 export const createPropertyDecorator = <TProps extends object>(
-  props?: TProps,
-): PropertyDecoratorFn => definePropertyDecorator(undefined, props ?? emptyProps);
+  props: TProps,
+): PropertyDecoratorFn => definePropertyDecorator(captureStackTrace(), props);
