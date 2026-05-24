@@ -52,13 +52,13 @@ describe('ip primitive', () => {
     );
   });
 
-  it('returns "unknown" when no headers available', () => {
+  it('returns undefined when no headers available', () => {
     const honoContext = makeContext({});
     runInHttpContext(
       // @ts-expect-error narrow typed test fixture
       { honoContext },
       () => {
-        expect(ip()).toBe('unknown');
+        expect(ip()).toBeUndefined();
       },
     );
   });

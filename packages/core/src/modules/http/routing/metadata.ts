@@ -1,39 +1,13 @@
-import { getClassMetadata, getSourcePosition } from '@zeltjs/decorator-metadata/inspect';
+import { getClassMetadata } from '@zeltjs/decorator-metadata';
 import { match, P } from 'ts-pattern';
 
 import type { MiddlewareIdentifier, MiddlewareInput } from '../middleware/types';
-
-const FRAMEWORK_PATH_PATTERNS = [
-  '/node_modules/',
-  '/packages/decorator-metadata/',
-  '/kernel/internal/',
-] as const;
-
-const isTestFile = (path: string): boolean => /\.(test|spec)\./.test(path);
-
-const DECORATOR_FILES = ['/controller.ts', '/http-method.ts'] as const;
-
-const isCoreDecoratorPath = (path: string): boolean => {
-  if (!path.includes('/packages/core/src/modules/')) return false;
-  if (path.includes('/decorators/')) return true;
-  return DECORATOR_FILES.some((f) => path.endsWith(f));
-};
-
-const isCoreNonModulePath = (path: string): boolean =>
-  path.includes('/packages/core/') && !path.includes('/modules/');
-
-const isCoreFrameworkPath = (path: string): boolean => {
-  const normalized = path.replace(/\\/g, '/');
-  if (FRAMEWORK_PATH_PATTERNS.some((p) => normalized.includes(p))) return true;
-  if (isTestFile(normalized)) return false;
-  return isCoreDecoratorPath(normalized) || isCoreNonModulePath(normalized);
-};
+import { joinPath } from './path-utils';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 type ControllerMetadata = {
   readonly basePath: string;
-  readonly sourceFile: string | undefined;
 };
 
 type RouteMetadata = {
@@ -72,7 +46,6 @@ export type RouteInfo = {
 
 export type ControllerRouteInfo = {
   readonly basePath: string;
-  readonly sourceFile: string | undefined;
   readonly name: string;
   readonly routes: readonly RouteInfo[];
 };
@@ -114,13 +87,7 @@ export const getControllerMetadata = (cls: object): ControllerMetadata | undefin
   if (!meta) return undefined;
   for (const p of meta.props) {
     const found = match(p)
-      .with(
-        controllerPattern,
-        (c): ControllerMetadata => ({
-          basePath: c.basePath,
-          sourceFile: getSourcePosition(cls, { isFrameworkPath: isCoreFrameworkPath })?.sourceFile,
-        }),
-      )
+      .with(controllerPattern, (c): ControllerMetadata => ({ basePath: c.basePath }))
       .otherwise(() => undefined);
     if (found) return found;
   }
@@ -236,13 +203,6 @@ export const getAuthorizedMetadata = (
   return undefined;
 };
 
-const joinPath = (base: string, sub: string): string => {
-  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
-  const normalizedSub = sub.startsWith('/') ? sub : `/${sub}`;
-  const joined = `${normalizedBase}${normalizedSub}`;
-  return joined === '' ? '/' : joined;
-};
-
 export const collectControllerRouteInfo = (
   cls: new (...args: never[]) => object,
 ): ControllerRouteInfo => {
@@ -265,7 +225,6 @@ export const collectControllerRouteInfo = (
 
   return {
     basePath,
-    sourceFile: controllerMeta?.sourceFile,
     name: cls.name,
     routes,
   };

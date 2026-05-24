@@ -5,9 +5,10 @@ export type RouteInfo = {
   readonly methodName: string;
 };
 
+export type ControllerClass = new (...args: never[]) => object;
+
 export type ControllerRouteInfo = {
   readonly basePath: string;
-  readonly sourceFile: string | undefined;
   readonly name: string;
   readonly routes: readonly RouteInfo[];
 };
@@ -22,4 +23,5 @@ export type GenerateOptions = {
 
 export type HttpAppLike = {
   getMetadata: () => HttpMetadata;
+  getControllers: () => readonly ControllerClass[];
 };

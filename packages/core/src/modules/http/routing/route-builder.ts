@@ -1,4 +1,5 @@
 import type { Context, Env, Hono, Input } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 
 import type { ResolverHandle } from '../../../kernel/di/container';
 import {
@@ -25,19 +26,11 @@ import {
   getRouteMetadata,
   getSkipMiddlewareMetadata,
 } from './metadata';
+import { joinPath } from './path-utils';
+
+export { joinPath };
 
 type MiddlewareContext = Context<Env, string, Input>;
-
-const stripTrailingSlash = (s: string): string => (s.endsWith('/') ? s.slice(0, -1) : s);
-
-const ensureLeadingSlash = (s: string): string => (s === '' || s.startsWith('/') ? s : `/${s}`);
-
-export const joinPath = (base: string, sub: string): string => {
-  const a = stripTrailingSlash(base);
-  const b = stripTrailingSlash(ensureLeadingSlash(sub));
-  const joined = `${a}${b === '/' ? '' : b}`;
-  return joined === '' ? '/' : joined;
-};
 
 import type { ControllerClass } from '../module';
 
@@ -101,7 +94,9 @@ const parseRequestBody = async (
   const contentType = c.req.header('content-type') ?? '';
 
   if (contentType.includes('application/json')) {
-    const val = await c.req.json<unknown>().catch(() => undefined);
+    const val = await c.req.json<unknown>().catch((e: Error) => {
+      throw new HTTPException(400, { message: `Invalid JSON: ${e.message}` });
+    });
     return { type: 'json', val };
   }
 
@@ -109,12 +104,16 @@ const parseRequestBody = async (
     contentType.includes('multipart/form-data') ||
     contentType.includes('application/x-www-form-urlencoded')
   ) {
-    const val: FormBody = await c.req.parseBody({ all: true }).catch(() => ({}));
+    const val: FormBody = await c.req.parseBody({ all: true }).catch((e: Error) => {
+      throw new HTTPException(400, { message: `Invalid form data: ${e.message}` });
+    });
     return { type: 'form', val };
   }
 
   if (contentType.startsWith('text/')) {
-    const val = await c.req.text().catch(() => '');
+    const val = await c.req.text().catch((e: Error) => {
+      throw new HTTPException(400, { message: `Invalid text body: ${e.message}` });
+    });
     return { type: 'text', val };
   }
 

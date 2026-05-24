@@ -29,13 +29,8 @@ export const coreErrorDefinitions = {
     requiredContext: 'entry' | 'command' | 'request';
   }) => `${ctx.primitive}() called outside ${ctx.requiredContext} execution`,
 
-  ZeltAppConfigurationError: (ctx: {
-    reason: 'no_http_or_commands' | 'duplicate_command';
-    details?: string;
-  }) =>
-    ctx.reason === 'no_http_or_commands'
-      ? 'createApp requires at least http or commands option'
-      : `Duplicate command name: ${ctx.details}`,
+  ZeltAppConfigurationError: (ctx: { reason: 'duplicate_command'; details: string }) =>
+    `Duplicate command name: ${ctx.details}`,
 
   ZeltRouteConfigurationError: (ctx: {
     reason: 'missing_path_param' | 'invalid_route';
@@ -82,8 +77,10 @@ export const coreErrorDefinitions = {
       .with('run_error', () => `Command execution failed: ${ctx.details ?? ''}`)
       .exhaustive(),
 
-  ZeltEnvError: (ctx: { key: string; reason: 'required_not_set' }) =>
-    `Required environment variable ${ctx.key} is not set`,
+  ZeltEnvError: (ctx: { key: string; reason: 'required_not_set' | 'invalid_number' }) =>
+    ctx.reason === 'required_not_set'
+      ? `Required environment variable ${ctx.key} is not set`
+      : `Environment variable ${ctx.key} is not a valid number`,
 
   ZeltBodyTypeMismatchError: (ctx: { expected: string; actual: string }) =>
     `Expected body type '${ctx.expected}' but received '${ctx.actual}'`,

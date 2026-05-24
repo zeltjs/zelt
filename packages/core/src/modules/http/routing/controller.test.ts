@@ -12,15 +12,6 @@ describe('@Controller', () => {
     expect(metadata?.basePath).toBe('/users');
   });
 
-  it('captures source file path in metadata', () => {
-    @Controller('/test')
-    class TestController {}
-
-    const metadata = getControllerMetadata(TestController);
-
-    expect(metadata?.sourceFile).toContain('controller.test.ts');
-  });
-
   it('preserves the class identity', () => {
     @Controller('/posts')
     class PostController {

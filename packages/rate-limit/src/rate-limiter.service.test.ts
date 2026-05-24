@@ -1,7 +1,7 @@
 import type { LoggerService } from '@zeltjs/core';
-import { createTestTargetBase } from '@zeltjs/core/internal-bridge/testing';
 import type { AtomicKVStore } from '@zeltjs/kv';
 import { MemoryKVService } from '@zeltjs/kv';
+import { createTestTarget } from '@zeltjs/testing';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { RateLimitConfig } from './rate-limit.config';
@@ -17,7 +17,7 @@ const mockLoggerService = {
 let memoryKv: MemoryKVService;
 
 beforeAll(async () => {
-  const { target } = await createTestTargetBase(MemoryKVService);
+  const { target } = await createTestTarget(MemoryKVService);
   memoryKv = target;
 });
 

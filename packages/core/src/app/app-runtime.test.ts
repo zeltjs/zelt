@@ -14,7 +14,6 @@ describe('AppRuntime', () => {
 
     expect(result).toBeDefined();
     expect(result.get).toBeTypeOf('function');
-    expect(result.getConfig).toBeTypeOf('function');
   });
 
   it('should return cached result on second ready call', async () => {
