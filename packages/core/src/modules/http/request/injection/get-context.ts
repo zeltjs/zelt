@@ -1,4 +1,4 @@
-import { getHttpContext } from '../../internal/context-keys';
+import { requestContext } from '../request-context';
 
 export interface RequestContextSchema {
   user: unknown;
@@ -12,8 +12,7 @@ export interface RequestContextSchema {
 export const getContext = <K extends keyof RequestContextSchema>(
   key: K,
 ): RequestContextSchema[K] | undefined => {
-  const { honoContext } = getHttpContext();
-  const value: RequestContextSchema[K] | undefined = honoContext.get(key);
+  const value: RequestContextSchema[K] | undefined = requestContext().get(key);
   return value;
 };
 
@@ -22,6 +21,5 @@ export const setContext = <K extends keyof RequestContextSchema>(
   key: K,
   value: RequestContextSchema[K],
 ): void => {
-  const { honoContext } = getHttpContext();
-  honoContext.set(key, value);
+  requestContext().set(key, value);
 };

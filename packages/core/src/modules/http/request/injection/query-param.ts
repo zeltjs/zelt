@@ -1,11 +1,11 @@
-import { getHttpContext } from '../../internal/context-keys';
+import { requestContext } from '../request-context';
 
 /** @throws {ZeltContextNotAvailableError} */
 export const queryParam = (name: string): string | undefined => {
-  return getHttpContext().honoContext.req.query(name);
+  return requestContext().req.query(name);
 };
 
 /** @throws {ZeltContextNotAvailableError} */
 export const queryParams = (name: string): string[] => {
-  return getHttpContext().honoContext.req.queries(name) ?? [];
+  return requestContext().req.queries(name) ?? [];
 };

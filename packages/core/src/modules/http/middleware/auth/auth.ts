@@ -1,7 +1,14 @@
 import type { RequestContextSchema } from '../../request/injection/get-context';
 
-import { getInternal, setInternal } from '../../../../kernel/internal/context-key';
-import { AUTH_CONTEXT } from '../../internal/context-keys';
+import {
+  createContextKey,
+  getInternal,
+  setInternal,
+} from '../../../../kernel/internal/context-key';
+
+type AuthContextValue = Pick<RequestContextSchema, 'user' | 'authRoles'>;
+
+const AUTH_CONTEXT = createContextKey<AuthContextValue>('zelt:auth');
 
 /** @throws {ZeltContextNotAvailableError} */
 export const setUser = <U extends RequestContextSchema['user']>(

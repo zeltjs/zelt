@@ -1,7 +1,35 @@
-import { ZeltBodyTypeMismatchError } from '../../../../kernel/errors';
-import { getHttpContext } from '../../internal/context-keys';
+import { ZeltBodyTypeMismatchError, ZeltContextNotAvailableError } from '../../../../kernel/errors';
+import {
+  createContextKey,
+  getInternal,
+  setInternal,
+} from '../../../../kernel/internal/context-key';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
+
+type ParsedBody =
+  | { type: 'json'; val: unknown }
+  | { type: 'form'; val: FormBody }
+  | { type: 'text'; val: string }
+  | { type: 'none'; val: undefined };
+
+const BODY_CONTEXT = createContextKey<ParsedBody>('zelt:body');
+
+/** @throws {ZeltContextNotAvailableError} */
+export const setBody = (body: ParsedBody): void => {
+  setInternal(BODY_CONTEXT, body);
+};
+
+/** @throws {ZeltContextNotAvailableError} */
+const getBody = (): ParsedBody => {
+  const ctx = getInternal(BODY_CONTEXT);
+  if (!ctx)
+    throw new ZeltContextNotAvailableError({
+      primitive: 'body',
+      requiredContext: 'request',
+    });
+  return ctx;
+};
 
 /** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
 export function body(type?: 'json'): unknown;
@@ -11,7 +39,7 @@ export function body(type: 'form'): FormBody;
 export function body(type: 'text'): string;
 /** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
 export function body(type: 'json' | 'form' | 'text' = 'json'): unknown {
-  const { body: parsedBody } = getHttpContext();
+  const parsedBody = getBody();
 
   if (parsedBody.type !== type) {
     throw new ZeltBodyTypeMismatchError({

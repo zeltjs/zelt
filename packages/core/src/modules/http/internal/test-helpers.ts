@@ -1,18 +1,29 @@
-import { runInContext, setInternal } from '../../../kernel/internal/context-key';
-import type { HttpContextValue } from './context-keys';
-import { HTTP_CONTEXT } from './context-keys';
+import type { Context } from 'hono';
 
-type TestHttpContext = Partial<HttpContextValue> & {
-  honoContext: HttpContextValue['honoContext'];
+import { runInContext } from '../../../kernel/internal/context-key';
+import { setBody } from '../request/injection/body';
+import { setPathParams } from '../request/injection/path-param';
+import { setHonoContext } from '../request/request-context';
+
+type FormBody = Record<string, string | File | (string | File)[]>;
+
+type ParsedBody =
+  | { type: 'json'; val: unknown }
+  | { type: 'form'; val: FormBody }
+  | { type: 'text'; val: string }
+  | { type: 'none'; val: undefined };
+
+type TestHttpContext = {
+  honoContext: Context;
+  body?: ParsedBody;
+  pathParams?: Readonly<Record<string, string>>;
 };
 
 export const runInHttpContext = <T>(ctx: TestHttpContext, fn: () => T): T => {
   return runInContext(() => {
-    setInternal(HTTP_CONTEXT, {
-      body: ctx.body ?? { type: 'none', val: undefined },
-      pathParams: ctx.pathParams ?? {},
-      honoContext: ctx.honoContext,
-    });
+    setHonoContext(ctx.honoContext);
+    setBody(ctx.body ?? { type: 'none', val: undefined });
+    setPathParams(ctx.pathParams ?? {});
     return fn();
   });
 };

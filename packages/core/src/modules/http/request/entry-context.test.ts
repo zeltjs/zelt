@@ -1,24 +1,26 @@
 import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 
-import { getHttpContext } from '../internal/context-keys';
 import { runInHttpContext } from '../internal/test-helpers';
+import { body } from './injection/body';
+import { pathParam } from './injection/path-param';
+import { requestContext } from './request-context';
 
 describe('http-context', () => {
   it('returns the running context inside runInHttpContext', () => {
-    const honoContext = {} as unknown as Context;
-    const body = { type: 'json' as const, val: { hello: 'world' } };
+    const honoContext = { marker: 'test' } as unknown as Context;
+    const bodyVal = { type: 'json' as const, val: { hello: 'world' } };
     const pathParams = { id: '42' };
 
-    const got = runInHttpContext({ honoContext, body, pathParams }, () => getHttpContext());
-
-    expect(got.honoContext).toBe(honoContext);
-    expect(got.body).toEqual(body);
-    expect(got.pathParams).toEqual(pathParams);
+    runInHttpContext({ honoContext, body: bodyVal, pathParams }, () => {
+      expect(requestContext()).toBe(honoContext);
+      expect(body('json')).toEqual({ hello: 'world' });
+      expect(pathParam('id')).toBe('42');
+    });
   });
 
   it('throws when called outside runInHttpContext', () => {
-    expect(() => getHttpContext()).toThrow(/outside request execution/);
+    expect(() => requestContext()).toThrow(/outside request execution/);
   });
 
   it('isolates concurrent contexts', async () => {
@@ -26,12 +28,9 @@ describe('http-context', () => {
     const [a, b] = await Promise.all([
       runInHttpContext({ honoContext, body: { type: 'json', val: 'A' } }, async () => {
         await new Promise((r) => setTimeout(r, 10));
-        return getHttpContext().body.val;
+        return body('json');
       }),
-      runInHttpContext(
-        { honoContext, body: { type: 'json', val: 'B' } },
-        async () => getHttpContext().body.val,
-      ),
+      runInHttpContext({ honoContext, body: { type: 'json', val: 'B' } }, async () => body('json')),
     ]);
     expect(a).toBe('A');
     expect(b).toBe('B');
