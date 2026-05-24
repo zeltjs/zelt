@@ -1,12 +1,10 @@
-import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { describe, expect, it } from 'vitest';
-import { createContainer } from '../../../kernel/di/container';
-import { LifecycleManager } from '../../../kernel/lifecycle';
+import { createApp } from '../../../app';
 import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
 
-import { buildRoutes, collectRoutes, joinPath } from './route-builder';
+import { collectRoutes, joinPath } from './route-builder';
 
 describe('joinPath', () => {
   it.each([
@@ -55,41 +53,24 @@ describe('collectRoutes', () => {
   });
 });
 
-@Controller('/passthrough')
-class PassthroughController {
-  @Get('/teapot')
-  teapot() {
-    return new Response('I am a teapot', { status: 418, headers: { 'X-Custom': 'yes' } });
-  }
-}
-
 describe('buildRoutes (instanceof Response branch)', () => {
   it('returns a hand-built Response as-is (instanceof Response branch)', async () => {
-    const hono = new Hono({ strict: false });
-    const resolver = createContainer();
-    const lifecycle = resolver.get(LifecycleManager);
-    buildRoutes({
-      hono,
-      controllers: [PassthroughController],
-      resolver,
-      lifecycle,
-    });
-    const res = await hono.fetch(new Request('http://x/passthrough/teapot'));
+    @Controller('/passthrough')
+    class PassthroughController {
+      @Get('/teapot')
+      teapot() {
+        return new Response('I am a teapot', { status: 418, headers: { 'X-Custom': 'yes' } });
+      }
+    }
+
+    const app = createApp({ http: { controllers: [PassthroughController] } });
+    await app.ready();
+    const res = await app.fetch(new Request('http://localhost/passthrough/teapot'));
     expect(res.status).toBe(418);
     expect(res.headers.get('X-Custom')).toBe('yes');
     expect(await res.text()).toBe('I am a teapot');
   });
 });
-
-const createOnError =
-  () =>
-  (err: Error): Response => {
-    if (err instanceof HTTPException) return err.getResponse();
-    return Response.json(
-      { code: 'INTERNAL_ERROR', message: 'internal server error' },
-      { status: 500 },
-    );
-  };
 
 describe('route-builder — error path integration', () => {
   @Controller('/err')
@@ -109,25 +90,19 @@ describe('route-builder — error path integration', () => {
     }
   }
 
-  const hono = new Hono({ strict: false });
-  hono.onError(createOnError());
-  const resolver = createContainer();
-  const lifecycle = resolver.get(LifecycleManager);
-  buildRoutes({
-    hono,
-    controllers: [ErrController],
-    resolver,
-    lifecycle,
-  });
+  const app = createApp({ http: { controllers: [ErrController] } });
+  const ready = app.ready();
 
   it('serializes HTTPException to status + custom body via getResponse()', async () => {
-    const res = await hono.fetch(new Request('http://x/err/not-found'));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/err/not-found'));
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ code: 'NOT_FOUND', message: 'gone' });
   });
 
   it('passes through user-provided res override via getResponse()', async () => {
-    const res = await hono.fetch(new Request('http://x/err/teapot'));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/err/teapot'));
     expect(res.status).toBe(418);
     expect(await res.json()).toEqual({ shape: 'teapot' });
   });

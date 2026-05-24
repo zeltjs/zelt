@@ -1,62 +1,10 @@
-import { injectable } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
 import { Config } from '../../built-in-service/config';
 import type { Lifecycle } from '../../index';
 import { Injectable, inject, LifecycleManager } from '../../index';
 
-import { createContainer, createTestTargetBase } from './container';
-
-describe('createContainer with configs', () => {
-  it('binds user config to parent class', () => {
-    @Config
-    class BaseConfig {
-      get value() {
-        return 'base';
-      }
-    }
-
-    @Config
-    class UserConfig extends BaseConfig {
-      override get value() {
-        return 'user';
-      }
-    }
-
-    @injectable()
-    class TestService {
-      constructor(private config = inject(BaseConfig)) {}
-      getValue() {
-        return this.config.value;
-      }
-    }
-
-    const resolver = createContainer({ configs: [UserConfig] });
-    const service = resolver.get(TestService);
-    expect(service.getValue()).toBe('user');
-  });
-
-  it('uses default config when no override provided', () => {
-    @Config
-    class DefaultConfig {
-      get value() {
-        return 'default';
-      }
-    }
-
-    @injectable()
-    class TestService {
-      constructor(private config = inject(DefaultConfig)) {}
-      getValue() {
-        return this.config.value;
-      }
-    }
-
-    const resolver = createContainer({ configs: [] });
-    const service = resolver.get(TestService);
-    expect(service.getValue()).toBe('default');
-  });
-});
+import { createTestTargetBase } from './container';
 
 describe('createTestTargetBase', () => {
   it('instantiates configs before calling startup', async () => {

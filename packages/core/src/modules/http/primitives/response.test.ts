@@ -1,10 +1,7 @@
-import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { createContainer } from '../../../kernel/di/container';
-import { LifecycleManager } from '../../../kernel/lifecycle';
+import { createApp } from '../../../app';
 import { Controller } from '../decorators/controller';
 import { Get, Post } from '../decorators/http-method';
-import { buildRoutes } from '../internal/route-builder';
 
 import { response } from './response';
 
@@ -61,42 +58,40 @@ class ResponseTestController {
 }
 
 describe('response()', () => {
-  const hono = new Hono({ strict: false });
-  const resolver = createContainer();
-  const lifecycle = resolver.get(LifecycleManager);
-  buildRoutes({
-    hono,
-    controllers: [ResponseTestController],
-    resolver,
-    lifecycle,
-  });
+  const app = createApp({ http: { controllers: [ResponseTestController] } });
+  const ready = app.ready();
 
   it('json status code', async () => {
-    const res = await hono.fetch(new Request('http://x/r/json'));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/r/json'));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ ok: true });
   });
 
   it('redirect', async () => {
-    const res = await hono.fetch(new Request('http://x/r/redirect', { redirect: 'manual' }));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/r/redirect', { redirect: 'manual' }));
     expect(res.status).toBe(301);
     expect(res.headers.get('location')).toBe('/new');
   });
 
   it('text', async () => {
-    const res = await hono.fetch(new Request('http://x/r/text'));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/r/text'));
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('hello');
   });
 
   it('header chainable', async () => {
-    const res = await hono.fetch(new Request('http://x/r/header'));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/r/header'));
     expect(res.headers.get('x-foo')).toBe('bar');
     expect(await res.json()).toEqual({ ok: true });
   });
 
   it('raw return wraps with c.json', async () => {
-    const res = await hono.fetch(new Request('http://x/r/raw', { method: 'POST' }));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/r/raw', { method: 'POST' }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ wrapped: true });
   });
@@ -106,14 +101,16 @@ describe('response()', () => {
   });
 
   it('stream returns chunked response', async () => {
-    const res = await hono.fetch(new Request('http://x/r/stream'));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/r/stream'));
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).toBe('chunk1chunk2');
   });
 
   it('streamText returns text/plain with lines', async () => {
-    const res = await hono.fetch(new Request('http://x/r/stream-text'));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/r/stream-text'));
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/plain');
     const text = await res.text();
@@ -121,7 +118,8 @@ describe('response()', () => {
   });
 
   it('sse returns event stream', async () => {
-    const res = await hono.fetch(new Request('http://x/r/sse'));
+    await ready;
+    const res = await app.fetch(new Request('http://localhost/r/sse'));
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/event-stream');
     const text = await res.text();

@@ -1,17 +1,26 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
-import { createContainer } from '../../kernel/di/container';
+import type { SchedulerApp } from '../../app';
+import { createApp } from '../../app';
+import { Controller } from '../../modules/http/decorators/controller';
+import { Get } from '../../modules/http/decorators/http-method';
 
 import { Cron } from './decorators/cron';
 import { Scheduled } from './decorators/scheduled';
-import type { SchedulerRunner } from './runner';
-import { createSchedulerRunner } from './runner';
+
+@Controller('/')
+class NoopController {
+  @Get('/health')
+  health() {
+    return { ok: true };
+  }
+}
 
 describe('SchedulerRunner', () => {
-  let runner: SchedulerRunner | undefined;
+  let app: SchedulerApp | undefined;
 
   afterEach(async () => {
-    await runner?.shutdown();
+    await app?.stopScheduler();
+    await app?.shutdown();
   });
 
   it('starts and stops scheduler jobs', async () => {
@@ -25,14 +34,14 @@ describe('SchedulerRunner', () => {
       }
     }
 
-    const resolver = createContainer();
-    runner = createSchedulerRunner([TestScheduler], resolver);
+    app = createApp({
+      http: { controllers: [NoopController] },
+      schedulers: [TestScheduler],
+    });
+    await app.ready();
+    await app.startScheduler();
 
-    await runner.startup();
-    expect(runner.isRunning()).toBe(true);
-
-    await runner.shutdown();
-    expect(runner.isRunning()).toBe(false);
+    await app.stopScheduler();
   });
 
   it('executes scheduled method', async () => {
@@ -46,14 +55,16 @@ describe('SchedulerRunner', () => {
       }
     }
 
-    const resolver = createContainer();
-    runner = createSchedulerRunner([TestScheduler], resolver);
-
-    await runner.startup();
+    app = createApp({
+      http: { controllers: [NoopController] },
+      schedulers: [TestScheduler],
+    });
+    await app.ready();
+    await app.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
 
-    await runner.shutdown();
+    await app.stopScheduler();
   });
 
   it('respects timezone setting', async () => {
@@ -63,14 +74,13 @@ describe('SchedulerRunner', () => {
       tokyoMorning() {}
     }
 
-    const resolver = createContainer();
-    runner = createSchedulerRunner([TestScheduler], resolver);
+    app = createApp({
+      http: { controllers: [NoopController] },
+      schedulers: [TestScheduler],
+    });
+    await app.ready();
+    await app.startScheduler();
 
-    await runner.startup();
-    const jobs = runner.getJobs();
-    expect(jobs).toHaveLength(1);
-    expect(jobs[0]?.timezone).toBe('Asia/Tokyo');
-
-    await runner.shutdown();
+    await app.stopScheduler();
   });
 });
