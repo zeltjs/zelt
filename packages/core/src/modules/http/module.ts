@@ -11,16 +11,16 @@ import {
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
 import type { Module } from '../module';
-import { DefaultErrorHandler } from './default.error-handler';
-import type { ControllerRouteInfo } from './internal/metadata';
-import { collectControllerRouteInfo } from './internal/metadata';
-import { buildRoutes, warmupControllers } from './internal/route-builder';
+import { DefaultErrorHandler } from './error/default.error-handler';
 import type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
   MiddlewareInput,
   RequestContext,
 } from './middleware/types';
+import type { ControllerRouteInfo } from './routing/metadata';
+import { collectControllerRouteInfo } from './routing/metadata';
+import { buildRoutes, warmupControllers } from './routing/route-builder';
 
 // --- Types ---
 

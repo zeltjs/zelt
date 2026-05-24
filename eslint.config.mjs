@@ -227,7 +227,7 @@ export default tseslint.config(
   {
     // getContext bridges Hono's Context.get() (returns any) to typed KoyaContextSchema.
     // Type assertion is unavoidable at this external library boundary.
-    files: ['packages/core/src/modules/http/primitives/get-context.ts'],
+    files: ['packages/core/src/modules/http/request/injection/get-context.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -373,8 +373,8 @@ export default tseslint.config(
     // The cross-boundary assertions are unavoidable here.
     files: [
       'packages/core/src/kernel/internal/decorator-helpers.ts',
-      'packages/core/src/modules/http/decorators/use-middleware.ts',
-      'packages/core/src/modules/http/internal/metadata.ts',
+      'packages/core/src/modules/http/middleware/use-middleware.ts',
+      'packages/core/src/modules/http/routing/metadata.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
@@ -404,7 +404,7 @@ export default tseslint.config(
   {
     // Command module uses AsyncLocalStorage and generic type inference at runtime boundaries.
     // Type assertions are needed for inferred schema types.
-    files: ['packages/core/src/modules/command/primitives/args.ts'],
+    files: ['packages/core/src/modules/command/input/injection/args.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },

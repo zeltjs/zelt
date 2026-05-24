@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SchedulerApp } from '../../app';
 import { createApp } from '../../app';
-import { Controller } from '../../modules/http/decorators/controller';
-import { Get } from '../../modules/http/decorators/http-method';
+import { Controller } from '../http/routing/controller';
+import { Get } from '../http/routing/http-method';
 
-import { Cron } from './decorators/cron';
-import { Scheduled } from './decorators/scheduled';
+import { Cron } from './schedule/cron';
+import { Scheduled } from './schedule/scheduled';
 
 @Controller('/')
 class NoopController {

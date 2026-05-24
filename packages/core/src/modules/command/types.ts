@@ -45,7 +45,7 @@ export type CommandContext<
   readonly options: InferOptions<TOptions>;
 };
 
-import type { SchemaDefinition } from './schema';
+import type { SchemaDefinition } from './input/schema';
 
 export type CommandRunner = {
   run(): Promise<void> | void;

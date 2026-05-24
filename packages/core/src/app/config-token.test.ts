@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { Config } from '../built-in-service/config';
 import { inject } from '../kernel/di/inject';
-import { Controller } from '../modules/http/decorators/controller';
-import { Get } from '../modules/http/decorators/http-method';
+import { Controller } from '../modules/http/routing/controller';
+import { Get } from '../modules/http/routing/http-method';
 import { createApp } from './create-app';
 
 describe('config token', () => {
