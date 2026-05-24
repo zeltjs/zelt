@@ -21,13 +21,20 @@ export const HTTP_CONTEXT = createContextKey<HttpContextValue>('zelt:http');
 
 /** @throws {ZeltContextNotAvailableError} */
 export const getHttpContext = (): HttpContextValue => {
-  const ctx = getInternal(HTTP_CONTEXT);
-  if (!ctx)
+  try {
+    const ctx = getInternal(HTTP_CONTEXT);
+    if (!ctx)
+      throw new ZeltContextNotAvailableError({
+        primitive: 'getHttpContext',
+        requiredContext: 'request',
+      });
+    return ctx;
+  } catch {
     throw new ZeltContextNotAvailableError({
       primitive: 'getHttpContext',
       requiredContext: 'request',
     });
-  return ctx;
+  }
 };
 
 export type AuthContextValue = {
