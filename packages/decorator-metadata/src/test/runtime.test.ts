@@ -1,6 +1,8 @@
 /* eslint-disable complexity */
 /* biome-ignore-all lint/complexity/noStaticOnlyClass: test fixtures */
 import { describe, expect, it } from 'vitest';
+
+import { getSourcePosition } from '../inspect/source-position';
 import {
   composeClassDecorators,
   composeMethodDecorators,
@@ -11,7 +13,6 @@ import {
 } from '../runtime/decorators';
 import type { StackTrace } from '../runtime/position';
 import { captureStackTrace, resolvePosition } from '../runtime/position';
-import { getSourcePosition } from '../inspect/source-position';
 import {
   aggregateMembers,
   getClassMetadata,
@@ -296,6 +297,9 @@ describe('create* options', () => {
     const meta = getClassMetadata(Foo);
     const pos = getSourcePosition(Foo);
     expect(pos).toBeDefined();
+    expect(pos?.sourceFile).toBeTruthy();
+    expect(pos?.line).toBeGreaterThan(0);
+    expect(pos?.column).toBeGreaterThan(0);
     expect(meta?.props).toEqual([{ decorator: 'Controller' }]);
   });
 

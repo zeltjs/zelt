@@ -4,12 +4,14 @@ import { match, P } from 'ts-pattern';
 import type { MiddlewareIdentifier, MiddlewareInput } from '../middleware/types';
 
 const isCoreFrameworkPath = (path: string): boolean => {
-  if (path.includes('/node_modules/')) return true;
-  if (path.includes('/packages/decorator-metadata/')) return true;
-  if (path.includes('/kernel/internal/')) return true;
-  if (/\.(test|spec)\./.test(path)) return false;
-  if (path.includes('/packages/core/src/modules/') && path.includes('/decorators/')) return true;
-  if (path.includes('/packages/core/') && !path.includes('/modules/')) return true;
+  const normalized = path.replace(/\\/g, '/');
+  if (normalized.includes('/node_modules/')) return true;
+  if (normalized.includes('/packages/decorator-metadata/')) return true;
+  if (normalized.includes('/kernel/internal/')) return true;
+  if (/\.(test|spec)\./.test(normalized)) return false;
+  if (normalized.includes('/packages/core/src/modules/') && normalized.includes('/decorators/'))
+    return true;
+  if (normalized.includes('/packages/core/') && !normalized.includes('/modules/')) return true;
   return false;
 };
 
