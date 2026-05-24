@@ -1,22 +1,46 @@
 import type { StackTrace } from './position';
 
+// =============================================================================
+// Public Types (no trace exposure)
+// =============================================================================
+
 export type MethodMeta = {
   readonly name: string | symbol;
-  readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 
 export type PropertyMeta = {
   readonly name: string | symbol;
-  readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 
 export type ClassMeta = {
-  readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
   readonly methods: readonly MethodMeta[];
   readonly properties: readonly PropertyMeta[];
+};
+
+// =============================================================================
+// Internal Types (with trace for inspect module)
+// =============================================================================
+
+type InternalMethodMeta = {
+  readonly name: string | symbol;
+  readonly trace: StackTrace | undefined;
+  readonly props: readonly object[];
+};
+
+type InternalPropertyMeta = {
+  readonly name: string | symbol;
+  readonly trace: StackTrace | undefined;
+  readonly props: readonly object[];
+};
+
+type InternalClassMeta = {
+  readonly trace: StackTrace | undefined;
+  readonly props: readonly object[];
+  readonly methods: readonly InternalMethodMeta[];
+  readonly properties: readonly InternalPropertyMeta[];
 };
 
 type MemberRecord = {
@@ -25,14 +49,14 @@ type MemberRecord = {
   readonly props: object;
 };
 
-// Storage: final metadata
-const classStore = new WeakMap<object, ClassMeta>();
+// Storage: final metadata (internal, with trace)
+const classStore = new WeakMap<object, InternalClassMeta>();
 
 // Records: temporary storage for members before class is finalized
 const methodRecords = new WeakMap<object, MemberRecord[]>();
 const propertyRecords = new WeakMap<object, MemberRecord[]>();
 
-const emptyMeta = (): ClassMeta => ({
+const emptyMeta = (): InternalClassMeta => ({
   trace: undefined,
   props: [],
   methods: [],
@@ -74,14 +98,14 @@ export const recordClass = (cls: object, trace: StackTrace | undefined, props: o
 // --- Aggregate function (class additional responsibility) ---
 
 const upsertMethod = (
-  methods: readonly MethodMeta[],
+  methods: readonly InternalMethodMeta[],
   record: MemberRecord,
-): readonly MethodMeta[] => {
+): readonly InternalMethodMeta[] => {
   const existing = methods.find((m) => m.name === record.name);
   if (!existing) {
     return [...methods, { name: record.name, trace: record.trace, props: [record.props] }];
   }
-  const updated: MethodMeta = {
+  const updated: InternalMethodMeta = {
     name: existing.name,
     trace: existing.trace ?? record.trace,
     props: [...existing.props, record.props],
@@ -90,14 +114,14 @@ const upsertMethod = (
 };
 
 const upsertProperty = (
-  properties: readonly PropertyMeta[],
+  properties: readonly InternalPropertyMeta[],
   record: MemberRecord,
-): readonly PropertyMeta[] => {
+): readonly InternalPropertyMeta[] => {
   const existing = properties.find((p) => p.name === record.name);
   if (!existing) {
     return [...properties, { name: record.name, trace: record.trace, props: [record.props] }];
   }
-  const updated: PropertyMeta = {
+  const updated: InternalPropertyMeta = {
     name: existing.name,
     trace: existing.trace ?? record.trace,
     props: [...existing.props, record.props],
@@ -129,9 +153,33 @@ export const aggregateMembers = (cls: object, classKey: object): void => {
   propertyRecords.delete(classKey);
 };
 
-// --- Query ---
+// --- Query (public) ---
 
-export const getClassMetadata = (cls: object): ClassMeta | undefined => classStore.get(cls);
+const toPublicMethodMeta = (m: InternalMethodMeta): MethodMeta => ({
+  name: m.name,
+  props: m.props,
+});
+
+const toPublicPropertyMeta = (p: InternalPropertyMeta): PropertyMeta => ({
+  name: p.name,
+  props: p.props,
+});
+
+const toPublicClassMeta = (internal: InternalClassMeta): ClassMeta => ({
+  props: internal.props,
+  methods: internal.methods.map(toPublicMethodMeta),
+  properties: internal.properties.map(toPublicPropertyMeta),
+});
+
+export const getClassMetadata = (cls: object): ClassMeta | undefined => {
+  const internal = classStore.get(cls);
+  return internal ? toPublicClassMeta(internal) : undefined;
+};
+
+// --- Internal Query (for inspect module) ---
+
+export const getInternalClassMetadata = (cls: object): InternalClassMeta | undefined =>
+  classStore.get(cls);
 
 export const ensureClassMeta = (cls: object, trace: StackTrace): void => {
   const existing = classStore.get(cls);
