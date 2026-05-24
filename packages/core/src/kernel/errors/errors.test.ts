@@ -99,21 +99,14 @@ describe('ZeltContextNotAvailableError', () => {
 });
 
 describe('ZeltAppConfigurationError', () => {
-  it('formats no_http_or_commands reason correctly', () => {
-    const error = new ZeltAppConfigurationError({
-      reason: 'no_http_or_commands',
-    });
-    expect(error.message).toBe('createApp requires at least http or commands option');
-    expect(error.name).toBe('ZeltAppConfigurationError');
-    expect(error).toBeInstanceOf(ZeltAppConfigurationError);
-  });
-
   it('formats duplicate_command reason correctly', () => {
     const error = new ZeltAppConfigurationError({
       reason: 'duplicate_command',
       details: 'build',
     });
     expect(error.message).toBe('Duplicate command name: build');
+    expect(error.name).toBe('ZeltAppConfigurationError');
+    expect(error).toBeInstanceOf(ZeltAppConfigurationError);
   });
 });
 

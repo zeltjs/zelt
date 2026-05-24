@@ -1,8 +1,9 @@
-export type {
-  CreateTestTargetOptions,
-  TestTargetResult,
-} from '@zeltjs/core/internal-bridge/testing';
 export { configureTestDefaults, getTestDefaults } from './global-config';
-export { onTest, type TestApp } from './on-test';
+export { onTest, type TestApp, type TestableApp } from './on-test';
 export { shutdownAll } from './shutdown-registry';
-export { createTestTarget } from './test-target';
+export {
+  type CreateTestTargetOptions,
+  createTestTarget,
+  type Override,
+  type TestTargetResult,
+} from './test-target';

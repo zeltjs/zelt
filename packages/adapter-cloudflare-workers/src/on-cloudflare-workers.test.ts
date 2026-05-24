@@ -101,7 +101,7 @@ describe('onCloudflareWorkers', () => {
     });
     const workersApp = await onCloudflareWorkers(app);
 
-    const env = workersApp.getConfig(EnvConfig);
+    const env = workersApp.get(EnvConfig);
     expect(env.get).toBeTypeOf('function');
   });
 });
