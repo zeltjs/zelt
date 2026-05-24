@@ -18,6 +18,7 @@
     "knip": "knip",
     "codepolicy": "time codepolicy --filter=all 2>&1 | tee codepolicy.log",
     "test": "vitest run",
+    "test:integration": "./integration/scripts/run-tests.sh workspace",
     "typecheck": "tsc -b",
     "precommit": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm build && pnpm verify-dist && pnpm check:no-neverthrow-leak && pnpm throw-trace && pnpm test && npx precommit-verify save",
     "prepare": "npx lefthook install",

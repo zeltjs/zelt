@@ -30,6 +30,7 @@ export default tseslint.config(
       'vitest.shared.ts',
       'packages/eslint-plugin/**',
       'scripts/**',
+      'integration/**',
     ],
   },
   tseslint.configs.recommended,
