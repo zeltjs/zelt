@@ -39,9 +39,24 @@ describe('SchedulerRunner', () => {
       schedulers: [TestScheduler],
     });
     await app.ready();
+
+    expect(app.isSchedulerRunning()).toBe(false);
+
     await app.startScheduler();
 
+    expect(app.isSchedulerRunning()).toBe(true);
+    expect(app.getSchedulerJobs()).toHaveLength(1);
+    expect(app.getSchedulerJobs()[0]).toEqual({
+      name: 'everySecond',
+      cronExpression: '* * * * * *',
+      timezone: undefined,
+    });
+
+    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
+
     await app.stopScheduler();
+
+    expect(app.isSchedulerRunning()).toBe(false);
   });
 
   it('executes scheduled method', async () => {
@@ -79,8 +94,21 @@ describe('SchedulerRunner', () => {
       schedulers: [TestScheduler],
     });
     await app.ready();
+
+    expect(app.isSchedulerRunning()).toBe(false);
+
     await app.startScheduler();
 
+    expect(app.isSchedulerRunning()).toBe(true);
+    expect(app.getSchedulerJobs()).toHaveLength(1);
+    expect(app.getSchedulerJobs()[0]).toEqual({
+      name: 'tokyoMorning',
+      cronExpression: '0 9 * * *',
+      timezone: 'Asia/Tokyo',
+    });
+
     await app.stopScheduler();
+
+    expect(app.isSchedulerRunning()).toBe(false);
   });
 });

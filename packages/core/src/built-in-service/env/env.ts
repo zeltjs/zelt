@@ -34,4 +34,35 @@ export class Env {
     }
     return val;
   }
+
+  /** @throws {ZeltEnvError} */
+  getStringOrThrow(key: string): string {
+    const val = this.source.get(key);
+    if (val === undefined) {
+      throw new ZeltEnvError({ key, reason: 'required_not_set' });
+    }
+    return val;
+  }
+
+  /** @throws {ZeltEnvError} */
+  getNumberOrThrow(key: string): number {
+    const val = this.source.get(key);
+    if (val === undefined) {
+      throw new ZeltEnvError({ key, reason: 'required_not_set' });
+    }
+    const parsed = Number(val);
+    if (Number.isNaN(parsed)) {
+      throw new ZeltEnvError({ key, reason: 'invalid_number' });
+    }
+    return parsed;
+  }
+
+  /** @throws {ZeltEnvError} */
+  getBooleanOrThrow(key: string): boolean {
+    const val = this.source.get(key);
+    if (val === undefined) {
+      throw new ZeltEnvError({ key, reason: 'required_not_set' });
+    }
+    return val === 'true' || val === '1';
+  }
 }
