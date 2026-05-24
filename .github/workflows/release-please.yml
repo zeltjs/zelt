@@ -33,3 +33,28 @@ jobs:
 
       - name: Publish packages
         run: pnpm -r publish --access public --no-git-checks --provenance
+
+  update-main-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: publish
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Update versions
+        run: pnpm -r exec npm version ${{ github.event.release.tag_name }} --no-git-tag-version --allow-same-version
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: chore/bump-version-${{ github.event.release.tag_name }}
+          title: "chore: bump version to ${{ github.event.release.tag_name }}"
+          body: "Auto-generated after release ${{ github.event.release.tag_name }}"
+          commit-message: "chore: bump version to ${{ github.event.release.tag_name }}"
