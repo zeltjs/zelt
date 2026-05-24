@@ -1,8 +1,28 @@
-import { getClassMetadata } from '@zeltjs/decorator-metadata';
+import { getClassMetadata, getSourcePosition } from '@zeltjs/decorator-metadata/inspect';
 import { match, P } from 'ts-pattern';
 
-import { resolvePositionForCore } from '../../../kernel/internal/decorator-position';
 import type { MiddlewareIdentifier, MiddlewareInput } from '../middleware/types';
+
+const FRAMEWORK_PATH_PATTERNS = [
+  '/node_modules/',
+  '/packages/decorator-metadata/',
+  '/kernel/internal/',
+] as const;
+
+const isTestFile = (path: string): boolean => /\.(test|spec)\./.test(path);
+
+const isCoreDecoratorPath = (path: string): boolean =>
+  path.includes('/packages/core/src/modules/') && path.includes('/decorators/');
+
+const isCoreNonModulePath = (path: string): boolean =>
+  path.includes('/packages/core/') && !path.includes('/modules/');
+
+const isCoreFrameworkPath = (path: string): boolean => {
+  const normalized = path.replace(/\\/g, '/');
+  if (FRAMEWORK_PATH_PATTERNS.some((p) => normalized.includes(p))) return true;
+  if (isTestFile(normalized)) return false;
+  return isCoreDecoratorPath(normalized) || isCoreNonModulePath(normalized);
+};
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -93,7 +113,7 @@ export const getControllerMetadata = (cls: object): ControllerMetadata | undefin
         controllerPattern,
         (c): ControllerMetadata => ({
           basePath: c.basePath,
-          sourceFile: resolvePositionForCore(meta.trace)?.sourceFile,
+          sourceFile: getSourcePosition(cls, { isFrameworkPath: isCoreFrameworkPath })?.sourceFile,
         }),
       )
       .otherwise(() => undefined);

@@ -5,7 +5,7 @@ import { errAsync, okAsync } from 'neverthrow';
 
 import type { Position, StackTrace } from '../runtime/position';
 import { resolvePosition } from '../runtime/position';
-import { getClassMetadata } from '../runtime/store';
+import { getInternalClassMetadata } from '../runtime/store';
 import type { ProgramCacheError } from './program-cache';
 import { getOrCreateProgram } from './program-cache';
 import { createTypeExtractor } from './type-extractor';
@@ -144,14 +144,14 @@ const extractPropertyInfo = (
 };
 
 type ResolvedStoredMeta = {
-  readonly storedMeta: NonNullable<ReturnType<typeof getClassMetadata>>;
+  readonly storedMeta: NonNullable<ReturnType<typeof getInternalClassMetadata>>;
   readonly storedPos: Position;
 };
 
 const resolveStoredMeta = <T extends object>(
   cls: new (...args: unknown[]) => T,
 ): { ok: true; value: ResolvedStoredMeta } | { ok: false; error: InspectError } => {
-  const storedMeta = getClassMetadata(cls);
+  const storedMeta = getInternalClassMetadata(cls);
   if (!storedMeta) {
     return {
       ok: false,
