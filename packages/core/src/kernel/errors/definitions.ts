@@ -77,8 +77,10 @@ export const coreErrorDefinitions = {
       .with('run_error', () => `Command execution failed: ${ctx.details ?? ''}`)
       .exhaustive(),
 
-  ZeltEnvError: (ctx: { key: string; reason: 'required_not_set' }) =>
-    `Required environment variable ${ctx.key} is not set`,
+  ZeltEnvError: (ctx: { key: string; reason: 'required_not_set' | 'invalid_number' }) =>
+    ctx.reason === 'required_not_set'
+      ? `Required environment variable ${ctx.key} is not set`
+      : `Environment variable ${ctx.key} is not a valid number`,
 
   ZeltBodyTypeMismatchError: (ctx: { expected: string; actual: string }) =>
     `Expected body type '${ctx.expected}' but received '${ctx.actual}'`,
