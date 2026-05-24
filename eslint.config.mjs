@@ -222,7 +222,7 @@ export default tseslint.config(
   {
     // getContext bridges Hono's Context.get() (returns any) to typed KoyaContextSchema.
     // Type assertion is unavoidable at this external library boundary.
-    files: ['packages/core/src/primitives/get-context.ts'],
+    files: ['packages/core/src/modules/http/primitives/get-context.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -230,7 +230,7 @@ export default tseslint.config(
   {
     // Config module uses prototype chain traversal and type assertions at DI boundaries.
     // These are necessary for the Token resolution pattern.
-    files: ['packages/core/src/config/token.ts'],
+    files: ['packages/core/src/built-in-service/config/token.ts'],
     rules: {
       '@9wick/strict-type-rules/no-in-operator': 'off',
       '@9wick/strict-type-rules/no-as-assertion': 'off',
@@ -240,7 +240,7 @@ export default tseslint.config(
   },
   {
     // Leaf mechanism: prototype chain traversal and type assertions for DI category resolution.
-    files: ['packages/core/src/di/leaf.ts', 'packages/core/src/di/inject.ts'],
+    files: ['packages/core/src/kernel/di/leaf.ts', 'packages/core/src/kernel/di/inject.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
       '@9wick/strict-type-rules/no-import-rename': 'off',
@@ -250,7 +250,7 @@ export default tseslint.config(
   {
     // Env module needs process.env access
     files: [
-      'packages/core/src/modules/env/env.service.ts',
+      'packages/core/src/built-in-service/env/env.service.ts',
       // ProcessEnvSource reads process.env as Node.js environment adapter
       'packages/adapter-node/src/process-env-source.ts',
     ],
@@ -260,7 +260,7 @@ export default tseslint.config(
   },
   {
     // ConsoleTransport writes to stdout via console.log; this is its intended behavior.
-    files: ['packages/core/src/modules/logger/transport/console.transport.ts'],
+    files: ['packages/core/src/built-in-service/logger/transport/console.transport.ts'],
     rules: {
       'no-console': 'off',
     },
@@ -356,9 +356,9 @@ export default tseslint.config(
     // result back into core's domain shapes (InjectableClass, MiddlewareInput[]).
     // The cross-boundary assertions are unavoidable here.
     files: [
-      'packages/core/src/internal/decorator-helpers.ts',
-      'packages/core/src/http/decorators/use-middleware.ts',
-      'packages/core/src/http/internal/metadata.ts',
+      'packages/core/src/kernel/internal/decorator-helpers.ts',
+      'packages/core/src/modules/http/decorators/use-middleware.ts',
+      'packages/core/src/modules/http/internal/metadata.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
@@ -388,7 +388,7 @@ export default tseslint.config(
   {
     // Command module uses AsyncLocalStorage and generic type inference at runtime boundaries.
     // Type assertions are needed for inferred schema types.
-    files: ['packages/core/src/command/primitives/args.ts'],
+    files: ['packages/core/src/modules/command/primitives/args.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -430,7 +430,7 @@ export default tseslint.config(
   {
     // Error factory uses generic K to index coreErrorDefinitions; TypeScript cannot narrow
     // the union type at the generic boundary, requiring type assertion.
-    files: ['packages/core/src/errors/factory.ts'],
+    files: ['packages/core/src/kernel/errors/factory.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -439,8 +439,8 @@ export default tseslint.config(
     // defineError/defineHttpException return anonymous classes that cannot satisfy
     // their return types without type assertion. isKVError uses instanceof union check.
     files: [
-      'packages/core/src/errors/define-error.ts',
-      'packages/core/src/errors/define-http-exception.ts',
+      'packages/core/src/kernel/errors/define-error.ts',
+      'packages/core/src/kernel/errors/define-http-exception.ts',
       'packages/kv/src/errors.ts',
     ],
     rules: {

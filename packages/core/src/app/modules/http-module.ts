@@ -1,26 +1,26 @@
 import { Container, injectable } from '@needle-di/core';
 import { Hono } from 'hono';
 
-import { inject } from '../../di/inject';
-import { resolve } from '../../di/resolve';
+import { inject } from '../../kernel/di/inject';
+import { resolve } from '../../kernel/di/resolve';
 import {
   ZeltContextNotAvailableError,
   ZeltDecoratorUsageError,
   ZeltLifecycleStateError,
   ZeltNotImplementedError,
-} from '../../errors';
-import { DefaultErrorHandler } from '../../http/default.error-handler';
-import type { ControllerRouteInfo } from '../../http/internal/metadata';
-import { collectControllerRouteInfo } from '../../http/internal/metadata';
-import { buildRoutes, warmupControllers } from '../../http/internal/route-builder';
+} from '../../kernel/errors';
+import type { Lifecycle } from '../../kernel/lifecycle';
+import { LifecycleManager } from '../../kernel/lifecycle';
+import { DefaultErrorHandler } from '../../modules/http/default.error-handler';
+import type { ControllerRouteInfo } from '../../modules/http/internal/metadata';
+import { collectControllerRouteInfo } from '../../modules/http/internal/metadata';
+import { buildRoutes, warmupControllers } from '../../modules/http/internal/route-builder';
 import type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
   MiddlewareInput,
   RequestContext,
-} from '../../http/middleware/types';
-import type { Lifecycle } from '../../lifecycle';
-import { LifecycleManager } from '../../lifecycle';
+} from '../../modules/http/middleware/types';
 import { HTTP_OPTIONS } from '../tokens';
 
 export type ControllerClass = new (...args: never[]) => object;

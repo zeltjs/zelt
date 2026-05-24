@@ -1,6 +1,6 @@
 import { InjectionToken } from '@needle-di/core';
 
-import type { CommandClass } from '../command/types';
+import type { CommandClass } from '../modules/command/types';
 import type { HttpOptions } from './modules/http-module';
 
 export type SchedulerClass = new (...args: never[]) => object;

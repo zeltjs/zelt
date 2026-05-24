@@ -1,12 +1,12 @@
 import { Container, injectable } from '@needle-di/core';
 
-import { inject } from '../../di/inject';
-import { resolve } from '../../di/resolve';
-import { ZeltNotImplementedError } from '../../errors';
-import type { Lifecycle } from '../../lifecycle';
-import { LifecycleManager } from '../../lifecycle';
-import type { SchedulerRunner } from '../../scheduler/runner';
-import { createSchedulerRunner } from '../../scheduler/runner';
+import { inject } from '../../kernel/di/inject';
+import { resolve } from '../../kernel/di/resolve';
+import { ZeltNotImplementedError } from '../../kernel/errors';
+import type { Lifecycle } from '../../kernel/lifecycle';
+import { LifecycleManager } from '../../kernel/lifecycle';
+import type { SchedulerRunner } from '../../modules/scheduler/runner';
+import { createSchedulerRunner } from '../../modules/scheduler/runner';
 import { SCHEDULER_OPTIONS } from '../tokens';
 
 export type SchedulerClass = new (...args: never[]) => object;

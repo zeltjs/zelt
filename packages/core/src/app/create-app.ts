@@ -1,9 +1,8 @@
 import { Container } from '@needle-di/core';
-
-import type { ExecResult } from '../command/exec-result';
-import type { CommandClass } from '../command/types';
-import type { ConfigClass } from '../config';
-import { ZeltAppConfigurationError } from '../errors';
+import type { ConfigClass } from '../built-in-service/config';
+import { ZeltAppConfigurationError } from '../kernel/errors';
+import type { ExecResult } from '../modules/command/exec-result';
+import type { CommandClass } from '../modules/command/types';
 import type { ReadyOptions, ReadyResult } from './app-runtime';
 import { AppRuntime } from './app-runtime';
 import { ConfigRegistry } from './config-registry';
