@@ -7,16 +7,16 @@ import { Config } from '../../built-in-service/config';
 import { inject } from '../../kernel/di/inject';
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
-import { Controller } from './decorators/controller';
-import { ErrorHandler } from './decorators/error-handler';
-import { Get, Post } from './decorators/http-method';
-import { Middleware } from './decorators/middleware';
-import { SkipMiddleware } from './decorators/skip-middleware';
-import { UseMiddleware } from './decorators/use-middleware';
+import { ErrorHandler } from './error/error-handler';
+import { Middleware } from './middleware/middleware';
+import { SkipMiddleware } from './middleware/skip-middleware';
+import { UseMiddleware } from './middleware/use-middleware';
 import type { ControllerClass } from './module';
-import { body } from './primitives/body';
-import { getContext } from './primitives/get-context';
-import { pathParam } from './primitives/path-param';
+import { body } from './request/injection/body';
+import { getContext } from './request/injection/get-context';
+import { pathParam } from './request/injection/path-param';
+import { Controller } from './routing/controller';
+import { Get, Post } from './routing/http-method';
 
 declare module '@zeltjs/core' {
   interface RequestContextSchema {

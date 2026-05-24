@@ -10,11 +10,11 @@ import {
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
 import type { Module } from '../module';
-import { runInCommandContext } from './command-context';
+import { getCommandMetadata } from './definition/metadata';
 import type { ExecResult } from './exec-result';
-import { getCommandMetadata } from './metadata';
-import { parseArgv } from './parse-argv';
-import type { SchemaDefinition } from './schema';
+import { runInCommandContext } from './input/command-context';
+import { parseArgv } from './input/parse-argv';
+import type { SchemaDefinition } from './input/schema';
 import type { CommandClass } from './types';
 
 // --- Types ---

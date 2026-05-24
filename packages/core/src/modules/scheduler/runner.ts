@@ -1,10 +1,8 @@
 import { Cron } from 'croner';
 
 import type { Lifecycle } from '../../kernel/lifecycle';
-
-import { getScheduledMetadata, getScheduleMetadata } from './internal/scheduler-metadata';
-
 import type { SchedulerClass } from './module';
+import { getScheduledMetadata, getScheduleMetadata } from './scheduler-metadata';
 
 type Resolver = { get: <T extends object>(cls: new (...args: never[]) => T) => T };
 

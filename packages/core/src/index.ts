@@ -58,16 +58,21 @@ export {
 } from './kernel/errors';
 export type { Disposable, Lifecycle } from './kernel/lifecycle';
 export { LifecycleManager } from './kernel/lifecycle';
-export type { CommandContextStore } from './modules/command/command-context';
-export { runInCommandContext } from './modules/command/command-context';
-export { Command } from './modules/command/decorator';
+export { Command } from './modules/command/definition/decorator';
+export type { CommandMetadata } from './modules/command/definition/metadata';
+export { getCommandMetadata } from './modules/command/definition/metadata';
 export type { ExecResult } from './modules/command/exec-result';
-export type { CommandMetadata } from './modules/command/metadata';
-export { getCommandMetadata } from './modules/command/metadata';
+export type { CommandContextStore } from './modules/command/input/command-context';
+export { runInCommandContext } from './modules/command/input/command-context';
+export { args } from './modules/command/input/injection/args';
+export type {
+  ArgDef,
+  InferSchema,
+  OptionDef,
+  SchemaDefinition,
+} from './modules/command/input/schema';
+export { cliSchema } from './modules/command/input/schema';
 export type { CommandCapabilities } from './modules/command/module';
-export { args } from './modules/command/primitives/args';
-export type { ArgDef, InferSchema, OptionDef, SchemaDefinition } from './modules/command/schema';
-export { cliSchema } from './modules/command/schema';
 export type {
   ArgDefinition,
   ArgsDefinition,
@@ -79,22 +84,19 @@ export type {
   OptionDefinition,
   OptionsDefinition,
 } from './modules/command/types';
-// HTTP decorators
-export { Authorized } from './modules/http/decorators/authorized';
-export { Controller } from './modules/http/decorators/controller';
-export { ErrorHandler } from './modules/http/decorators/error-handler';
-export { Delete, Get, Patch, Post, Put } from './modules/http/decorators/http-method';
-export { Middleware } from './modules/http/decorators/middleware';
-export { SkipMiddleware } from './modules/http/decorators/skip-middleware';
-export { UseMiddleware } from './modules/http/decorators/use-middleware';
+export { ErrorHandler } from './modules/http/error/error-handler';
 export type {
   ErrorBody,
   InternalErrorBody,
   ValidationErrorBody,
   ValidationIssue,
-} from './modules/http/error-schema';
-export type { ControllerRouteInfo, RouteInfo } from './modules/http/internal/metadata';
-export { getControllerMetadata } from './modules/http/internal/metadata';
+} from './modules/http/error/error-schema';
+// HTTP primitives
+export { currentRoles, currentUser, setUser } from './modules/http/middleware/auth/auth';
+// HTTP decorators
+export { Authorized } from './modules/http/middleware/auth/authorized';
+export { Middleware } from './modules/http/middleware/middleware';
+export { SkipMiddleware } from './modules/http/middleware/skip-middleware';
 export type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
@@ -107,40 +109,43 @@ export type {
   Next,
   RequestContext,
 } from './modules/http/middleware/types';
+export { UseMiddleware } from './modules/http/middleware/use-middleware';
 export type { ControllerClass, HttpCapabilities, HttpMetadata } from './modules/http/module';
-// HTTP primitives
-export { currentRoles, currentUser, setUser } from './modules/http/primitives/auth';
-export { body } from './modules/http/primitives/body';
-export { cookie } from './modules/http/primitives/cookie';
-export type { RequestContextSchema } from './modules/http/primitives/get-context';
-export { getContext, setContext } from './modules/http/primitives/get-context';
-export { header } from './modules/http/primitives/header';
-export { ip } from './modules/http/primitives/ip';
-export { pathParam } from './modules/http/primitives/path-param';
-export { queryParam, queryParams } from './modules/http/primitives/query-param';
-export { requestContext } from './modules/http/primitives/request-context';
-export type {
-  CookieOptions,
-  ResponseBuilder,
-  ZeltSSEMessage,
-  ZeltSSEWriter,
-  ZeltStreamWriter,
-} from './modules/http/primitives/response';
-export { response } from './modules/http/primitives/response';
-export { method, path, url } from './modules/http/primitives/url';
+export { body } from './modules/http/request/injection/body';
+export { cookie } from './modules/http/request/injection/cookie';
+export type { RequestContextSchema } from './modules/http/request/injection/get-context';
+export { getContext, setContext } from './modules/http/request/injection/get-context';
+export { header } from './modules/http/request/injection/header';
+export { ip } from './modules/http/request/injection/ip';
+export { pathParam } from './modules/http/request/injection/path-param';
+export { queryParam, queryParams } from './modules/http/request/injection/query-param';
+export { method, path, url } from './modules/http/request/injection/url';
+export { requestContext } from './modules/http/request/request-context';
 export type {
   ExtractValidated,
   ExtractValidationTarget,
   IsValidated,
   ValidatedMarker,
   ValidationTarget,
-} from './modules/http/primitives/validated-types';
+} from './modules/http/request/validated-types';
+export type {
+  CookieOptions,
+  ResponseBuilder,
+  ZeltSSEMessage,
+  ZeltSSEWriter,
+  ZeltStreamWriter,
+} from './modules/http/response/response';
+export { response } from './modules/http/response/response';
+export { Controller } from './modules/http/routing/controller';
+export { Delete, Get, Patch, Post, Put } from './modules/http/routing/http-method';
+export type { ControllerRouteInfo, RouteInfo } from './modules/http/routing/metadata';
+export { getControllerMetadata } from './modules/http/routing/metadata';
 export type { Module, ModuleCapsMap, ModuleConfigMap } from './modules/module';
-// Scheduler decorators
-export { Cron } from './modules/scheduler/decorators/cron';
-export { Daily } from './modules/scheduler/decorators/daily';
-export { Every } from './modules/scheduler/decorators/every';
-export { Hourly } from './modules/scheduler/decorators/hourly';
-export { Scheduled } from './modules/scheduler/decorators/scheduled';
-export { Weekly } from './modules/scheduler/decorators/weekly';
 export type { SchedulerCapabilities, SchedulerClass } from './modules/scheduler/module';
+// Scheduler decorators
+export { Cron } from './modules/scheduler/schedule/cron';
+export { Daily } from './modules/scheduler/schedule/daily';
+export { Every } from './modules/scheduler/schedule/every';
+export { Hourly } from './modules/scheduler/schedule/hourly';
+export { Scheduled } from './modules/scheduler/schedule/scheduled';
+export { Weekly } from './modules/scheduler/schedule/weekly';
