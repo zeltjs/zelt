@@ -235,10 +235,7 @@ export default tseslint.config(
   {
     // ContextKey uses phantom types and Symbol-based storage which requires type assertions
     // for type-safe internal context access pattern.
-    files: [
-      'packages/core/src/kernel/internal/context-key.ts',
-      'packages/core/src/modules/http/middleware/auth/auth.ts',
-    ],
+    files: ['packages/core/src/kernel/internal/context-key.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },

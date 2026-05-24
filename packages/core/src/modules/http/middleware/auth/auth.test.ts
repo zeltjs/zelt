@@ -5,10 +5,14 @@ import { runInHttpContext } from '../../internal/test-helpers';
 
 import { currentRoles, currentUser, setUser } from './auth';
 
-const createMockHonoContext = () =>
-  ({
+const createMockHonoContext = () => {
+  const store = new Map<string, unknown>();
+  return {
     req: { header: () => undefined },
-  }) as unknown as Context;
+    get: (key: string) => store.get(key),
+    set: (key: string, value: unknown) => store.set(key, value),
+  } as unknown as Context;
+};
 
 describe('setUser', () => {
   it('sets user and roles in context', () => {

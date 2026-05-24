@@ -36,10 +36,3 @@ export const getHttpContext = (): HttpContextValue => {
     });
   }
 };
-
-export type AuthContextValue = {
-  readonly user: unknown;
-  readonly roles: readonly string[];
-};
-
-export const AUTH_CONTEXT = createContextKey<AuthContextValue>('zelt:auth');
