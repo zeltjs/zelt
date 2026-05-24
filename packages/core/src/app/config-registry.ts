@@ -1,6 +1,6 @@
 import { injectable } from '@needle-di/core';
 
-import type { ConfigClass } from '../config';
+import type { ConfigClass } from '../built-in-service/config';
 
 @injectable()
 export class ConfigRegistry {

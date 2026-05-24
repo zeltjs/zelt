@@ -16,26 +16,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./workers": {
-      "types": "./dist/workers.d.ts",
-      "import": "./dist/workers.js"
-    },
-    "./lambda": {
-      "types": "./dist/lambda.d.ts",
-      "import": "./dist/lambda.js"
-    },
-    "./modules/logger": {
-      "types": "./dist/modules/logger/index.d.ts",
-      "import": "./dist/modules/logger/index.js"
-    },
-    "./modules/env": {
-      "types": "./dist/modules/env/index.d.ts",
-      "import": "./dist/modules/env/index.js"
-    },
-    "./runtime": {
-      "types": "./dist/runtime/index.d.ts",
-      "import": "./dist/runtime/index.js"
-    },
     "./internal-bridge/testing": {
       "types": "./dist/internal-bridge/testing.d.ts",
       "import": "./dist/internal-bridge/testing.js"

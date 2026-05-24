@@ -1,20 +1,19 @@
 import { Container, injectable } from '@needle-di/core';
-
-import { runInCommandContext } from '../../command/command-context';
-import type { ExecResult } from '../../command/exec-result';
-import { getCommandMetadata } from '../../command/metadata';
-import { parseArgv } from '../../command/parse-argv';
-import type { SchemaDefinition } from '../../command/schema';
-import type { CommandClass } from '../../command/types';
-import { inject } from '../../di/inject';
-import { resolve } from '../../di/resolve';
+import { inject } from '../../kernel/di/inject';
+import { resolve } from '../../kernel/di/resolve';
 import {
   ZeltAppConfigurationError,
   ZeltCommandExecutionError,
   ZeltDecoratorUsageError,
-} from '../../errors';
-import type { Lifecycle } from '../../lifecycle';
-import { LifecycleManager } from '../../lifecycle';
+} from '../../kernel/errors';
+import type { Lifecycle } from '../../kernel/lifecycle';
+import { LifecycleManager } from '../../kernel/lifecycle';
+import { runInCommandContext } from '../../modules/command/command-context';
+import type { ExecResult } from '../../modules/command/exec-result';
+import { getCommandMetadata } from '../../modules/command/metadata';
+import { parseArgv } from '../../modules/command/parse-argv';
+import type { SchemaDefinition } from '../../modules/command/schema';
+import type { CommandClass } from '../../modules/command/types';
 import { COMMAND_OPTIONS } from '../tokens';
 
 @injectable()

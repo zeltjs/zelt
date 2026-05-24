@@ -1,5 +1,5 @@
 import type { ValidatedMarker, ValidationTarget } from '@zeltjs/core';
-import { getEntryContext, ZeltBodyTypeMismatchError } from '@zeltjs/core/runtime';
+import { body } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
 import type { GenericSchema, InferOutput } from 'valibot';
 import { safeParse } from 'valibot';
@@ -19,16 +19,9 @@ export function validated<Schema extends GenericSchema>(
   schema: Schema,
   target: ValidationTarget = 'json',
 ): InferOutput<Schema> {
-  const { body } = getEntryContext().input;
+  const raw = target === 'form' ? body('form') : body('json');
 
-  if (body.type !== target) {
-    throw new ZeltBodyTypeMismatchError({
-      expected: target,
-      actual: body.type,
-    });
-  }
-
-  const result = safeParse(schema, body.val);
+  const result = safeParse(schema, raw);
   if (!result.success) {
     throw new HTTPException(400, {
       res: Response.json({ code: 'VALIDATION_FAILED', issues: result.issues }, { status: 400 }),
