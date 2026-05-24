@@ -9,7 +9,7 @@ import type { HttpAppLike } from './generator';
 import { emitAppType } from './generator';
 
 type HttpAppLikeWithControllers = HttpAppLike & {
-  getControllers?: () => readonly (new (...args: never[]) => object)[];
+  getControllers: () => readonly (new (...args: never[]) => object)[];
 };
 
 type AppModule = {
@@ -29,7 +29,7 @@ const loadApp = async (cwd: string, entry: string): Promise<HttpAppLikeWithContr
   const fileUrl = pathToFileURL(absPath).href;
   const mod: AppModule = await import(fileUrl);
   const app = mod.app ?? mod.default;
-  if (app === undefined || typeof app.getMetadata !== 'function') {
+  if (app == null || typeof app.getMetadata !== 'function') {
     throw new ZeltPluginConfigurationError({
       pluginName: 'hono-client',
       reason: 'app_not_found',
@@ -43,7 +43,7 @@ const loadApp = async (cwd: string, entry: string): Promise<HttpAppLikeWithContr
       details: `${entry} (missing getControllers)`,
     });
   }
-  return app as HttpAppLikeWithControllers & { getControllers: NonNullable<HttpAppLikeWithControllers['getControllers']> };
+  return app;
 };
 
 /** @throws {ZeltPluginConfigurationError | ZeltDecoratorUsageError} */

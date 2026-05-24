@@ -32,7 +32,7 @@ const loadApp = async (cwd: string, entry: string): Promise<HttpAppLike> => {
   const mod: AppModule = await import(fileUrl);
   const app = mod.app ?? mod.default;
   if (
-    app === undefined ||
+    app == null ||
     typeof app.getMetadata !== 'function' ||
     typeof app.getControllers !== 'function'
   ) {

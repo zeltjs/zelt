@@ -43,7 +43,7 @@ describe('GenerateCommand', () => {
     await shutdownAll();
   });
 
-  it('generates app type file via run() directly', async () => {
+  it('throws when controller class is missing from getControllers', async () => {
     @Controller('/hello')
     class HelloController {
       @Get('/')

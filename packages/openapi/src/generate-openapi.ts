@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { ZeltDecoratorUsageError } from '@zeltjs/core';
 import { getSourcePosition } from '@zeltjs/decorator-metadata/inspect';
 import type { Config } from 'ts-json-schema-generator';
 import { createGenerator } from 'ts-json-schema-generator';
@@ -183,19 +184,35 @@ const buildControllerRoutes = (
   }
 };
 
+const findControllerClass = (
+  controllers: readonly ControllerClass[],
+  name: string,
+): ControllerClass | undefined => controllers.find((cls) => cls.name === name);
+
+/** @throws {ZeltDecoratorUsageError} */
 const resolveControllersWithSource = (
   metadata: HttpMetadata,
   controllers: readonly ControllerClass[],
 ): readonly ControllerRouteInfoWithSource[] =>
-  metadata.controllers
-    .map((info, i) => {
-      const cls = controllers[i];
-      if (!cls) return undefined;
-      const sourceFile = getSourcePosition(cls)?.sourceFile;
-      if (!sourceFile) return undefined;
-      return { ...info, sourceFile };
-    })
-    .filter((c): c is ControllerRouteInfoWithSource => c !== undefined);
+  metadata.controllers.map((info) => {
+    const cls = findControllerClass(controllers, info.name);
+    if (!cls) {
+      throw new ZeltDecoratorUsageError({
+        decoratorName: 'Controller',
+        reason: 'missing_decorator',
+        targetName: info.name,
+      });
+    }
+    const sourceFile = getSourcePosition(cls)?.sourceFile;
+    if (!sourceFile) {
+      throw new ZeltDecoratorUsageError({
+        decoratorName: 'Controller',
+        reason: 'missing_decorator',
+        targetName: info.name,
+      });
+    }
+    return { ...info, sourceFile };
+  });
 
 const buildOpenApiDoc = (
   metadata: HttpMetadata,

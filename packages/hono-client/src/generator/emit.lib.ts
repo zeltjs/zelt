@@ -36,10 +36,15 @@ type EmitContext = {
   readonly distDir: string;
 };
 
+const findControllerClass = (
+  controllers: readonly ControllerClass[],
+  name: string,
+): ControllerClass | undefined => controllers.find((cls) => cls.name === name);
+
 /** @throws {ZeltDecoratorUsageError} */
 export const emitAppType = (ctx: EmitContext): string => {
-  const controllersWithSource = ctx.metadata.controllers.map((info, i) => {
-    const cls = ctx.controllers[i];
+  const controllersWithSource = ctx.metadata.controllers.map((info) => {
+    const cls = findControllerClass(ctx.controllers, info.name);
     if (!cls) {
       throw new ZeltDecoratorUsageError({
         decoratorName: 'Controller',
