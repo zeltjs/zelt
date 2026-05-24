@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { getSourcePosition } from '@zeltjs/decorator-metadata/inspect';
 import type { Config } from 'ts-json-schema-generator';
 import { createGenerator } from 'ts-json-schema-generator';
 
@@ -12,12 +13,15 @@ export type RouteInfo = {
   readonly methodName: string;
 };
 
+export type ControllerClass = new (...args: never[]) => object;
+
 export type ControllerRouteInfo = {
   readonly basePath: string;
-  readonly sourceFile: string | undefined;
   readonly name: string;
   readonly routes: readonly RouteInfo[];
 };
+
+type ControllerRouteInfoWithSource = ControllerRouteInfo & { readonly sourceFile: string };
 
 export type HttpMetadata = {
   readonly controllers: readonly ControllerRouteInfo[];
@@ -25,6 +29,7 @@ export type HttpMetadata = {
 
 type HttpAppLike = {
   getMetadata: () => HttpMetadata;
+  getControllers: () => readonly ControllerClass[];
 };
 
 export type GenerateOpenApiOptions = {
@@ -163,7 +168,7 @@ const buildOperation = (
 };
 
 const buildControllerRoutes = (
-  controller: ControllerRouteInfo,
+  controller: ControllerRouteInfoWithSource,
   tsconfigPath: string,
   schemas: SchemaMap,
   paths: Record<string, PathItem>,
@@ -178,13 +183,31 @@ const buildControllerRoutes = (
   }
 };
 
-const buildOpenApiDoc = (metadata: HttpMetadata, options: GenerateOpenApiOptions): OpenApiDoc => {
+const resolveControllersWithSource = (
+  metadata: HttpMetadata,
+  controllers: readonly ControllerClass[],
+): readonly ControllerRouteInfoWithSource[] =>
+  metadata.controllers
+    .map((info, i) => {
+      const cls = controllers[i];
+      if (!cls) return undefined;
+      const sourceFile = getSourcePosition(cls)?.sourceFile;
+      if (!sourceFile) return undefined;
+      return { ...info, sourceFile };
+    })
+    .filter((c): c is ControllerRouteInfoWithSource => c !== undefined);
+
+const buildOpenApiDoc = (
+  metadata: HttpMetadata,
+  controllers: readonly ControllerClass[],
+  options: GenerateOpenApiOptions,
+): OpenApiDoc => {
   const tsconfigPath = options.tsconfig ?? resolve('tsconfig.json');
   const schemas: SchemaMap = {};
   const paths: Record<string, PathItem> = {};
 
-  for (const controller of metadata.controllers) {
-    if (!controller.sourceFile) continue;
+  const controllersWithSource = resolveControllersWithSource(metadata, controllers);
+  for (const controller of controllersWithSource) {
     buildControllerRoutes(controller, tsconfigPath, schemas, paths);
   }
 
@@ -216,7 +239,8 @@ export const generateOpenApi = async (
   await mkdir(distDir, { recursive: true });
 
   const metadata = app.getMetadata();
-  const openApiDoc = buildOpenApiDoc(metadata, options);
+  const controllers = app.getControllers();
+  const openApiDoc = buildOpenApiDoc(metadata, controllers, options);
 
   const openApiContent = `${JSON.stringify(openApiDoc, null, 2)}\n`;
   const openApiPath = resolve(distDir, 'openapi.json');
