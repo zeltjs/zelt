@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 
 import { ZeltContextNotAvailableError } from '../../../kernel/errors';
 import { createContextKey, getInternal } from '../../../kernel/internal/context-key';
+import type { RequestContextSchema } from '../request/injection/get-context';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
 
@@ -36,3 +37,7 @@ export const getHttpContext = (): HttpContextValue => {
     });
   }
 };
+
+export type AuthContextValue = Pick<RequestContextSchema, 'user' | 'authRoles'>;
+
+export const AUTH_CONTEXT = createContextKey<AuthContextValue>('zelt:auth');

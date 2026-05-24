@@ -1,27 +1,28 @@
 import type { RequestContextSchema } from '../../request/injection/get-context';
-import { getContext, setContext } from '../../request/injection/get-context';
+
+import { getInternal, setInternal } from '../../../../kernel/internal/context-key';
+import { AUTH_CONTEXT } from '../../internal/context-keys';
 
 /** @throws {ZeltContextNotAvailableError} */
 export const setUser = <U extends RequestContextSchema['user']>(
   user: U,
   roles: RequestContextSchema['authRoles'] = [],
 ): void => {
-  setContext('user', user);
-  setContext('authRoles', roles);
+  setInternal(AUTH_CONTEXT, { user, authRoles: roles });
 };
 
 /**
  * @throws {ZeltContextNotAvailableError}
- * @throws {ZeltLifecycleStateError}
  */
 export const currentUser = (): RequestContextSchema['user'] | undefined => {
-  return getContext('user');
+  const ctx = getInternal(AUTH_CONTEXT);
+  return ctx?.user;
 };
 
 /**
  * @throws {ZeltContextNotAvailableError}
- * @throws {ZeltLifecycleStateError}
  */
 export const currentRoles = (): RequestContextSchema['authRoles'] => {
-  return getContext('authRoles') ?? [];
+  const ctx = getInternal(AUTH_CONTEXT);
+  return ctx?.authRoles ?? [];
 };
