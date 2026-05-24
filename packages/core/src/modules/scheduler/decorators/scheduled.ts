@@ -1,11 +1,5 @@
-import { defineInjectableClassDecorator } from '../../../kernel/internal/decorator-helpers';
-import { captureStackTraceForCore } from '../../../kernel/internal/decorator-position';
+import { createInjectableClassDecorator } from '../../../kernel/internal/decorator-helpers';
 
 /** @throws {ZeltLifecycleStateError | ZeltDecoratorUsageError} */
 export const Scheduled = () =>
-  defineInjectableClassDecorator(
-    captureStackTraceForCore(),
-    { decorator: 'Scheduled' } as const,
-    undefined,
-    { unique: true },
-  );
+  createInjectableClassDecorator({ decorator: 'Scheduled' } as const, undefined, { unique: true });

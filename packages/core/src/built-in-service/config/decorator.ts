@@ -1,8 +1,7 @@
 import { registerAsLeaf } from '../../kernel/di/leaf';
-import { defineInjectableClassDecorator } from '../../kernel/internal/decorator-helpers';
+import { createInjectableClassDecorator } from '../../kernel/internal/decorator-helpers';
 
-export const Config = defineInjectableClassDecorator(
-  undefined,
+export const Config = createInjectableClassDecorator(
   { decorator: 'Config' } as const,
   { afterApply: registerAsLeaf },
   { unique: true },
