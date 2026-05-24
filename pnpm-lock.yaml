@@ -471,6 +471,9 @@ importers:
       '@zeltjs/kv':
         specifier: workspace:*
         version: link:../kv
+      '@zeltjs/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@zeltjs/validator-valibot':
         specifier: workspace:*
         version: link:../validator-valibot

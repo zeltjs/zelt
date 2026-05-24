@@ -5,4 +5,4 @@ import { app } from './app';
 
 const nodeApp = await onNode(app);
 const result = await nodeApp.execCommand([...nodeApp.args]);
-nodeApp.getConfig(CliConfig).exit(result.exitCode);
+nodeApp.get(CliConfig).exit(result.exitCode);

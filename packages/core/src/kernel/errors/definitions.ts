@@ -29,13 +29,8 @@ export const coreErrorDefinitions = {
     requiredContext: 'entry' | 'command';
   }) => `${ctx.primitive}() called outside ${ctx.requiredContext} execution`,
 
-  ZeltAppConfigurationError: (ctx: {
-    reason: 'no_http_or_commands' | 'duplicate_command';
-    details?: string;
-  }) =>
-    ctx.reason === 'no_http_or_commands'
-      ? 'createApp requires at least http or commands option'
-      : `Duplicate command name: ${ctx.details}`,
+  ZeltAppConfigurationError: (ctx: { reason: 'duplicate_command'; details: string }) =>
+    `Duplicate command name: ${ctx.details}`,
 
   ZeltRouteConfigurationError: (ctx: {
     reason: 'missing_path_param' | 'invalid_route';

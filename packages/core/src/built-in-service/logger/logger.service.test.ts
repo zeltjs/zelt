@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTestTargetBase } from '../../app/test-target';
+import { createApp } from '../../app/create-app';
 import { Config } from '../config';
 
 import { LoggerConfig } from './logger.config';
@@ -19,7 +19,9 @@ describe('LoggerService', () => {
 
   describe('child logger', () => {
     it('child inherits parent bindings and merges context', async () => {
-      const { target: logger, shutdown } = await createTestTargetBase(LoggerService);
+      const app = createApp({});
+      const { get } = await app.ready();
+      const logger = get(LoggerService);
       const child1 = logger.child({ service: 'auth' });
       const child2 = child1.child({ module: 'jwt' });
 
@@ -29,16 +31,18 @@ describe('LoggerService', () => {
       const logged = JSON.parse(rawCall) as Record<string, unknown>;
       expect(logged['service']).toBe('auth');
       expect(logged['module']).toBe('jwt');
-      await shutdown();
+      await app.shutdown();
     });
 
     it('child is not DI-managed (lightweight wrapper)', async () => {
-      const { target: logger, shutdown } = await createTestTargetBase(LoggerService);
+      const app = createApp({});
+      const { get } = await app.ready();
+      const logger = get(LoggerService);
       const child = logger.child({ service: 'test' });
 
       expect(child).not.toBe(logger);
       expect(child).toBeInstanceOf(LoggerService);
-      await shutdown();
+      await app.shutdown();
     });
   });
 
@@ -51,9 +55,9 @@ describe('LoggerService', () => {
         }
       }
 
-      const { target: logger, shutdown } = await createTestTargetBase(LoggerService, {
-        configs: [WarnOnlyConfig],
-      });
+      const app = createApp({ configs: [WarnOnlyConfig] });
+      const { get } = await app.ready();
+      const logger = get(LoggerService);
 
       logger.debug('skip');
       logger.info('skip');
@@ -61,7 +65,7 @@ describe('LoggerService', () => {
       logger.error('log');
 
       expect(consoleSpy).toHaveBeenCalledTimes(2);
-      await shutdown();
+      await app.shutdown();
     });
   });
 });
