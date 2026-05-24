@@ -1,11 +1,11 @@
-import { Config } from '@zeltjs/core';
+import { Config, Env, inject } from '@zeltjs/core';
 import type { KVStore } from '@zeltjs/kv';
 
 import { ZeltSessionConfigError } from './errors';
 
 @Config
 export class SessionConfig {
-  static readonly Token = SessionConfig;
+  constructor(private env = inject(Env)) {}
 
   /**
    * @throws {ZeltSessionConfigError} When store is not overridden
@@ -26,7 +26,7 @@ export class SessionConfig {
    * @throws {ZeltSessionConfigError} When SESSION_SECRET is not set
    */
   get secret(): string {
-    const secret = process.env['SESSION_SECRET'];
+    const secret = this.env.getString('SESSION_SECRET');
     if (!secret) {
       throw new ZeltSessionConfigError({ reason: 'missing_secret' });
     }
@@ -41,7 +41,7 @@ export class SessionConfig {
   } {
     return {
       httpOnly: true,
-      secure: process.env['NODE_ENV'] === 'production',
+      secure: this.env.getString('NODE_ENV') === 'production',
       sameSite: 'Lax',
       path: '/',
     };
