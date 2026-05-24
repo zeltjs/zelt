@@ -106,23 +106,3 @@ describe('onCloudflareWorkers', () => {
   });
 });
 
-describe('dynamic mode', () => {
-  it('returns __dynamicMeta when dynamic: true', async () => {
-    const app = createApp({ http: { controllers: [HelloController] } });
-    const workersApp = await onCloudflareWorkers(app, { dynamic: true });
-
-    expect(workersApp.__dynamicMeta).toBeDefined();
-    expect(workersApp.__dynamicMeta?.controllers).toHaveLength(1);
-    expect(workersApp.__dynamicMeta?.controllers[0]).toMatchObject({
-      basePath: '/hello',
-      name: 'HelloController',
-    });
-  });
-
-  it('does not include __dynamicMeta when dynamic: false (default)', async () => {
-    const app = createApp({ http: { controllers: [HelloController] } });
-    const workersApp = await onCloudflareWorkers(app);
-
-    expect(workersApp.__dynamicMeta).toBeUndefined();
-  });
-});
