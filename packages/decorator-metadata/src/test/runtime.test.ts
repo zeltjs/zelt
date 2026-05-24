@@ -1,6 +1,7 @@
-/* eslint-disable complexity */
 /* biome-ignore-all lint/complexity/noStaticOnlyClass: test fixtures */
 import { describe, expect, it } from 'vitest';
+
+import { getSourcePosition } from '../inspect/source-position';
 import {
   composeClassDecorators,
   composeMethodDecorators,
@@ -80,7 +81,6 @@ describe('metadata store', () => {
     aggregateMembers(TestClass, classKey);
     const meta = getClassMetadata(TestClass);
 
-    expect(meta?.trace).toBe(mockTrace);
     expect(meta?.props).toEqual([{ basePath: '/api' }]);
     expect(meta?.methods).toEqual([]);
     expect(meta?.properties).toEqual([]);
@@ -97,7 +97,6 @@ describe('metadata store', () => {
     const meta = getClassMetadata(TestClass);
     expect(meta?.methods).toHaveLength(1);
     expect(meta?.methods[0]?.name).toBe('getUser');
-    expect(meta?.methods[0]?.trace).toBe(mockTrace);
     expect(meta?.methods[0]?.props).toEqual([{ method: 'GET' }]);
   });
 
@@ -127,7 +126,6 @@ describe('metadata store', () => {
     const meta = getClassMetadata(TestClass);
     expect(meta?.properties).toHaveLength(1);
     expect(meta?.properties[0]?.name).toBe('name');
-    expect(meta?.properties[0]?.trace).toBe(mockTrace);
     expect(meta?.properties[0]?.props).toEqual([{ nullable: false }]);
   });
 
@@ -157,7 +155,6 @@ describe('metadata store', () => {
     recordClass(TestClass, undefined, { kind: 'X' });
     aggregateMembers(TestClass, classKey);
     const meta = getClassMetadata(TestClass);
-    expect(meta?.trace).toBeUndefined();
     expect(meta?.props).toEqual([{ kind: 'X' }]);
   });
 
@@ -200,8 +197,7 @@ describe('trace capture timing', () => {
     @Controller('/api')
     class TestClass {}
 
-    const meta = getClassMetadata(TestClass);
-    const pos = resolvePosition(meta?.trace);
+    const pos = getSourcePosition(TestClass);
 
     expect(pos?.sourceFile).toContain('runtime.test.ts');
     expect(pos?.line).toBeGreaterThan(0);
@@ -211,8 +207,6 @@ describe('trace capture timing', () => {
     const Controller = (path: string) => createClassDecorator({ path });
     const Marker = () => createClassDecorator({ type: 'marker' });
 
-    // composeClassDecorators is defined here (factory time), but the trace must
-    // resolve to the @GraphqlController call site below, not this line.
     const composeDefinitionLine = resolvePosition(captureStackTrace())?.line ?? 0;
     const GraphqlController = (path: string) => composeClassDecorators(Controller(path), Marker());
 
@@ -220,11 +214,10 @@ describe('trace capture timing', () => {
     class UserResolver {}
 
     const meta = getClassMetadata(UserResolver);
-    const pos = resolvePosition(meta?.trace);
+    const pos = getSourcePosition(UserResolver);
 
     expect(pos?.sourceFile).toContain('runtime.test.ts');
     expect(pos?.line).toBeGreaterThan(0);
-    // The trace must point after the compose definition, not at or before it.
     expect(pos?.line).toBeGreaterThan(composeDefinitionLine);
     expect(meta?.props).toEqual([{ path: '/api' }, { type: 'marker' }]);
   });
@@ -240,7 +233,7 @@ describe('decorator factories', () => {
     const meta = getClassMetadata(UserController);
     expect(meta).toBeDefined();
     expect(meta?.props).toEqual([{ basePath: '/users' }]);
-    const pos = resolvePosition(meta?.trace);
+    const pos = getSourcePosition(UserController);
     expect(pos?.sourceFile).toContain('runtime.test.ts');
   });
 
@@ -301,7 +294,11 @@ describe('create* options', () => {
     class Foo {}
 
     const meta = getClassMetadata(Foo);
-    expect(meta?.trace).toBeDefined();
+    const pos = getSourcePosition(Foo);
+    expect(pos).toBeDefined();
+    expect(pos?.sourceFile).toBeTruthy();
+    expect(pos?.line).toBeGreaterThan(0);
+    expect(pos?.column).toBeGreaterThan(0);
     expect(meta?.props).toEqual([{ decorator: 'Controller' }]);
   });
 
@@ -516,4 +513,3 @@ describe('compose* functions', () => {
     ]);
   });
 });
-/* eslint-enable complexity */
