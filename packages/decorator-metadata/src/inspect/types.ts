@@ -32,7 +32,7 @@ export type ParamInfo = {
 };
 
 export type MethodInfo = {
-  readonly name: string;
+  readonly name: string | symbol;
   readonly pos: Position | undefined;
   readonly props: readonly object[];
   readonly params: readonly ParamInfo[];
@@ -40,7 +40,7 @@ export type MethodInfo = {
 };
 
 export type PropertyInfo = {
-  readonly name: string;
+  readonly name: string | symbol;
   readonly pos: Position | undefined;
   readonly props: readonly object[];
   readonly type: TypeInfo;
