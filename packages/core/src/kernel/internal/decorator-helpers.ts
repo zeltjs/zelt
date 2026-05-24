@@ -1,6 +1,6 @@
 import { injectable } from '@needle-di/core';
-import type { ClassDecoratorFn, StackTrace } from '@zeltjs/decorator-metadata';
-import { defineClassDecorator } from '@zeltjs/decorator-metadata';
+import type { ClassDecoratorFn } from '@zeltjs/decorator-metadata';
+import { createClassDecorator } from '@zeltjs/decorator-metadata';
 import { match } from 'ts-pattern';
 
 import { ZeltDecoratorUsageError } from '../errors';
@@ -14,7 +14,7 @@ export type InjectableClassDecoratorHooks = {
   readonly afterApply?: (cls: InjectableClass) => void;
 };
 
-export type DefineInjectableClassDecoratorOptions = {
+export type CreateInjectableClassDecoratorOptions = {
   /**
    * When true, applying the same-named decorator (matched by props.decorator)
    * more than once to the same class throws ZeltDecoratorUsageError.
@@ -36,14 +36,12 @@ const buildUniqueGuard =
   };
 
 /** @throws {ZeltDecoratorUsageError} */
-export const defineInjectableClassDecorator = <TProps extends { decorator: string }>(
-  trace: StackTrace | undefined,
+export const createInjectableClassDecorator = <TProps extends { decorator: string }>(
   props: TProps,
   hooks?: InjectableClassDecoratorHooks,
-  options?: DefineInjectableClassDecoratorOptions,
+  options?: CreateInjectableClassDecoratorOptions,
 ): ClassDecoratorFn => {
-  const base = defineClassDecorator<TProps, ZeltDecoratorUsageError>(
-    trace,
+  const base = createClassDecorator<TProps, ZeltDecoratorUsageError>(
     props,
     options?.unique ? { rejectIfApplied: buildUniqueGuard(props.decorator) } : undefined,
   );

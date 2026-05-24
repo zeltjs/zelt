@@ -1,10 +1,11 @@
+import { captureStackTrace } from '@zeltjs/decorator-metadata';
 import { describe, expect, it } from 'vitest';
 
-import { captureStackTraceForCore, resolvePositionForCore } from './decorator-position';
+import { resolvePositionForCore } from './decorator-position';
 
-describe('captureStackTraceForCore and resolvePositionForCore', () => {
-  it('captures stack trace and resolves to user file position', () => {
-    const trace = captureStackTraceForCore();
+describe('resolvePositionForCore', () => {
+  it('resolves stack trace to user file position', () => {
+    const trace = captureStackTrace();
     expect(trace).toBeDefined();
 
     const pos = resolvePositionForCore(trace);

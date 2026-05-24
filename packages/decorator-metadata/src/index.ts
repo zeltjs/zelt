@@ -1,8 +1,8 @@
 export type {
   ClassDecoratorFn,
-  DefineClassDecoratorOptions,
-  DefineMethodDecoratorOptions,
+  ClassDecoratorOptions,
   MethodDecoratorFn,
+  MethodDecoratorOptions,
   PropertyDecoratorFn,
 } from './runtime/decorators';
 export {
@@ -12,9 +12,6 @@ export {
   createClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
-  defineClassDecorator,
-  defineMethodDecorator,
-  definePropertyDecorator,
 } from './runtime/decorators';
 export type { Position, ResolvePositionOptions, StackTrace } from './runtime/position';
 export { captureStackTrace, resolvePosition } from './runtime/position';

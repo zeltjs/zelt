@@ -1,6 +1,5 @@
 import { registerAsTransient } from '../../kernel/di/transient';
-import { defineInjectableClassDecorator } from '../../kernel/internal/decorator-helpers';
-import { captureStackTraceForCore } from '../../kernel/internal/decorator-position';
+import { createInjectableClassDecorator } from '../../kernel/internal/decorator-helpers';
 
 type CommandOptions = {
   readonly name: string;
@@ -8,8 +7,7 @@ type CommandOptions = {
 };
 
 export const Command = (options: CommandOptions) =>
-  defineInjectableClassDecorator(
-    captureStackTraceForCore(),
+  createInjectableClassDecorator(
     options.description
       ? {
           decorator: 'Command' as const,
