@@ -65,7 +65,7 @@ const config: KnipConfig = {
       ignoreDependencies: ['neverthrow'],
       // app/index.ts is used by test files via '../app' import path
       // di/container.ts exports createContainer for test utilities only
-      ignore: ['src/app/index.ts', 'src/di/container.ts'],
+      ignore: ['src/app/index.ts', 'src/kernel/di/container.ts'],
     },
     'packages/adapter-node': {
       ignoreDependencies: ['@zeltjs/core'],
