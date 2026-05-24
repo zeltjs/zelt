@@ -1,40 +1,77 @@
-import { createErrorClass } from './factory';
+import { defineError } from './define-error';
+import { coreErrorDefinitions } from './definitions';
 
-export const ZeltDecoratorUsageError = createErrorClass('ZeltDecoratorUsageError');
+export const ZeltDecoratorUsageError = defineError(
+  'ZeltDecoratorUsageError',
+  coreErrorDefinitions.ZeltDecoratorUsageError,
+);
 export type ZeltDecoratorUsageError = InstanceType<typeof ZeltDecoratorUsageError>;
 
-export const ZeltLifecycleStateError = createErrorClass('ZeltLifecycleStateError');
+export const ZeltLifecycleStateError = defineError(
+  'ZeltLifecycleStateError',
+  coreErrorDefinitions.ZeltLifecycleStateError,
+);
 export type ZeltLifecycleStateError = InstanceType<typeof ZeltLifecycleStateError>;
 
-export const ZeltContextNotAvailableError = createErrorClass('ZeltContextNotAvailableError');
+export const ZeltContextNotAvailableError = defineError(
+  'ZeltContextNotAvailableError',
+  coreErrorDefinitions.ZeltContextNotAvailableError,
+);
 export type ZeltContextNotAvailableError = InstanceType<typeof ZeltContextNotAvailableError>;
 
-export const ZeltAppConfigurationError = createErrorClass('ZeltAppConfigurationError');
+export const ZeltAppConfigurationError = defineError(
+  'ZeltAppConfigurationError',
+  coreErrorDefinitions.ZeltAppConfigurationError,
+);
 export type ZeltAppConfigurationError = InstanceType<typeof ZeltAppConfigurationError>;
 
-export const ZeltRouteConfigurationError = createErrorClass('ZeltRouteConfigurationError');
+export const ZeltRouteConfigurationError = defineError(
+  'ZeltRouteConfigurationError',
+  coreErrorDefinitions.ZeltRouteConfigurationError,
+);
 export type ZeltRouteConfigurationError = InstanceType<typeof ZeltRouteConfigurationError>;
 
-export const ZeltMiddlewareExecutionError = createErrorClass('ZeltMiddlewareExecutionError');
+export const ZeltMiddlewareExecutionError = defineError(
+  'ZeltMiddlewareExecutionError',
+  coreErrorDefinitions.ZeltMiddlewareExecutionError,
+);
 export type ZeltMiddlewareExecutionError = InstanceType<typeof ZeltMiddlewareExecutionError>;
 
-export const ZeltNotImplementedError = createErrorClass('ZeltNotImplementedError');
+export const ZeltNotImplementedError = defineError(
+  'ZeltNotImplementedError',
+  coreErrorDefinitions.ZeltNotImplementedError,
+);
 export type ZeltNotImplementedError = InstanceType<typeof ZeltNotImplementedError>;
 
-export const ZeltSchemaValidationError = createErrorClass('ZeltSchemaValidationError');
+export const ZeltSchemaValidationError = defineError(
+  'ZeltSchemaValidationError',
+  coreErrorDefinitions.ZeltSchemaValidationError,
+);
 export type ZeltSchemaValidationError = InstanceType<typeof ZeltSchemaValidationError>;
 
-export const ZeltPluginConfigurationError = createErrorClass('ZeltPluginConfigurationError');
+export const ZeltPluginConfigurationError = defineError(
+  'ZeltPluginConfigurationError',
+  coreErrorDefinitions.ZeltPluginConfigurationError,
+);
 export type ZeltPluginConfigurationError = InstanceType<typeof ZeltPluginConfigurationError>;
 
-export const ZeltCommandArgumentError = createErrorClass('ZeltCommandArgumentError');
+export const ZeltCommandArgumentError = defineError(
+  'ZeltCommandArgumentError',
+  coreErrorDefinitions.ZeltCommandArgumentError,
+);
 export type ZeltCommandArgumentError = InstanceType<typeof ZeltCommandArgumentError>;
 
-export const ZeltCommandExecutionError = createErrorClass('ZeltCommandExecutionError');
+export const ZeltCommandExecutionError = defineError(
+  'ZeltCommandExecutionError',
+  coreErrorDefinitions.ZeltCommandExecutionError,
+);
 export type ZeltCommandExecutionError = InstanceType<typeof ZeltCommandExecutionError>;
 
-export const ZeltEnvError = createErrorClass('ZeltEnvError');
+export const ZeltEnvError = defineError('ZeltEnvError', coreErrorDefinitions.ZeltEnvError);
 export type ZeltEnvError = InstanceType<typeof ZeltEnvError>;
 
-export const ZeltBodyTypeMismatchError = createErrorClass('ZeltBodyTypeMismatchError');
+export const ZeltBodyTypeMismatchError = defineError(
+  'ZeltBodyTypeMismatchError',
+  coreErrorDefinitions.ZeltBodyTypeMismatchError,
+);
 export type ZeltBodyTypeMismatchError = InstanceType<typeof ZeltBodyTypeMismatchError>;
