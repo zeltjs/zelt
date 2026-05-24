@@ -3,16 +3,25 @@ import { match, P } from 'ts-pattern';
 
 import type { MiddlewareIdentifier, MiddlewareInput } from '../middleware/types';
 
+const FRAMEWORK_PATH_PATTERNS = [
+  '/node_modules/',
+  '/packages/decorator-metadata/',
+  '/kernel/internal/',
+] as const;
+
+const isTestFile = (path: string): boolean => /\.(test|spec)\./.test(path);
+
+const isCoreDecoratorPath = (path: string): boolean =>
+  path.includes('/packages/core/src/modules/') && path.includes('/decorators/');
+
+const isCoreNonModulePath = (path: string): boolean =>
+  path.includes('/packages/core/') && !path.includes('/modules/');
+
 const isCoreFrameworkPath = (path: string): boolean => {
   const normalized = path.replace(/\\/g, '/');
-  if (normalized.includes('/node_modules/')) return true;
-  if (normalized.includes('/packages/decorator-metadata/')) return true;
-  if (normalized.includes('/kernel/internal/')) return true;
-  if (/\.(test|spec)\./.test(normalized)) return false;
-  if (normalized.includes('/packages/core/src/modules/') && normalized.includes('/decorators/'))
-    return true;
-  if (normalized.includes('/packages/core/') && !normalized.includes('/modules/')) return true;
-  return false;
+  if (FRAMEWORK_PATH_PATTERNS.some((p) => normalized.includes(p))) return true;
+  if (isTestFile(normalized)) return false;
+  return isCoreDecoratorPath(normalized) || isCoreNonModulePath(normalized);
 };
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';

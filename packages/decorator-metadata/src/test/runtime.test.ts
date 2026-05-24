@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 /* biome-ignore-all lint/complexity/noStaticOnlyClass: test fixtures */
 import { describe, expect, it } from 'vitest';
 
