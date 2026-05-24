@@ -1,4 +1,5 @@
-import { Container, injectable } from '@needle-di/core';
+import { Container, InjectionToken, injectable } from '@needle-di/core';
+
 import { inject } from '../../kernel/di/inject';
 import { resolve } from '../../kernel/di/resolve';
 import {
@@ -8,16 +9,30 @@ import {
 } from '../../kernel/errors';
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
-import { runInCommandContext } from '../../modules/command/command-context';
-import type { ExecResult } from '../../modules/command/exec-result';
-import { getCommandMetadata } from '../../modules/command/metadata';
-import { parseArgv } from '../../modules/command/parse-argv';
-import type { SchemaDefinition } from '../../modules/command/schema';
-import type { CommandClass } from '../../modules/command/types';
-import { COMMAND_OPTIONS } from '../tokens';
+import type { Module } from '../module';
+import { runInCommandContext } from './command-context';
+import type { ExecResult } from './exec-result';
+import { getCommandMetadata } from './metadata';
+import { parseArgv } from './parse-argv';
+import type { SchemaDefinition } from './schema';
+import type { CommandClass } from './types';
+
+// --- Types ---
+
+export type CommandCapabilities = {
+  readonly hasCommand: (name: string) => boolean;
+  readonly getCommands: () => ReadonlyMap<string, CommandClass>;
+  readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
+};
+
+// --- Token ---
+
+export const COMMAND_OPTIONS = new InjectionToken<readonly CommandClass[]>('COMMAND_OPTIONS');
+
+// --- Runtime ---
 
 @injectable()
-export class CommandModule implements Lifecycle {
+export class CommandRuntime implements Lifecycle {
   private readonly commandMap = new Map<string, CommandClass>();
 
   /** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError} */
@@ -67,7 +82,6 @@ export class CommandModule implements Lifecycle {
     commandName: string,
     argv: readonly string[],
   ): Promise<ExecResult> {
-    // Runtime safety: schema may be undefined despite type definition
     const commandWithOptionalSchema: { schema?: SchemaDefinition } = CommandClass;
     const schema = commandWithOptionalSchema.schema ?? { args: [], options: [] };
     const parseResult = parseArgv(argv, schema);
@@ -118,3 +132,20 @@ export class CommandModule implements Lifecycle {
     return this.runCommand(CommandClass, commandName, argv.slice(1));
   }
 }
+
+// --- Module descriptor ---
+
+export const CommandModule: Module<'commands', readonly CommandClass[], CommandCapabilities> = {
+  key: 'commands',
+  bind: (container, commands) => {
+    container.bind({ provide: COMMAND_OPTIONS, useValue: commands });
+  },
+  resolve: (container) => {
+    const runtime = container.get(CommandRuntime);
+    return {
+      hasCommand: (name) => runtime.hasCommand(name),
+      getCommands: () => runtime.getCommands(),
+      execCommand: (argv) => runtime.exec(argv),
+    };
+  },
+};

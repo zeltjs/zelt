@@ -1,18 +1,30 @@
-import { Container, injectable } from '@needle-di/core';
+import { Container, InjectionToken, injectable } from '@needle-di/core';
 
 import { inject } from '../../kernel/di/inject';
 import { resolve } from '../../kernel/di/resolve';
-import { ZeltNotImplementedError } from '../../kernel/errors';
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
-import type { SchedulerRunner } from '../../modules/scheduler/runner';
-import { createSchedulerRunner } from '../../modules/scheduler/runner';
-import { SCHEDULER_OPTIONS } from '../tokens';
+import type { Module } from '../module';
+import type { SchedulerRunner } from './runner';
+import { createSchedulerRunner } from './runner';
+
+// --- Types ---
 
 export type SchedulerClass = new (...args: never[]) => object;
 
+export type SchedulerCapabilities = {
+  readonly startScheduler: () => Promise<void>;
+  readonly stopScheduler: () => Promise<void>;
+};
+
+// --- Token ---
+
+export const SCHEDULER_OPTIONS = new InjectionToken<readonly SchedulerClass[]>('SCHEDULER_OPTIONS');
+
+// --- Runtime ---
+
 @injectable()
-export class SchedulerModule implements Lifecycle {
+export class SchedulerRuntime implements Lifecycle {
   private runner: SchedulerRunner | undefined;
 
   constructor(
@@ -28,12 +40,6 @@ export class SchedulerModule implements Lifecycle {
     if (this.schedulers.length === 0) return;
     const resolver = {
       get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
-      getConfig: () => {
-        throw new ZeltNotImplementedError({
-          className: 'SchedulerModule',
-          methodName: 'getConfig',
-        });
-      },
     };
     this.runner = createSchedulerRunner(this.schedulers, resolver);
   }
@@ -54,3 +60,23 @@ export class SchedulerModule implements Lifecycle {
     }
   }
 }
+
+// --- Module descriptor ---
+
+export const SchedulerModule: Module<
+  'schedulers',
+  readonly SchedulerClass[],
+  SchedulerCapabilities
+> = {
+  key: 'schedulers',
+  bind: (container, schedulers) => {
+    container.bind({ provide: SCHEDULER_OPTIONS, useValue: schedulers });
+  },
+  resolve: (container) => {
+    const runtime = container.get(SchedulerRuntime);
+    return {
+      startScheduler: () => runtime.startScheduler(),
+      stopScheduler: () => runtime.stopScheduler(),
+    };
+  },
+};

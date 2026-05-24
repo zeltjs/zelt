@@ -10,4 +10,4 @@ export {
   type ReadyResult,
   type SchedulerApp,
 } from './create-app';
-export { COMMAND_OPTIONS, HTTP_OPTIONS, SCHEDULER_OPTIONS } from './tokens';
+export { DefaultModules } from './default-modules';

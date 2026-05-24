@@ -1,4 +1,4 @@
-import { Container, injectable } from '@needle-di/core';
+import { Container, InjectionToken, injectable } from '@needle-di/core';
 import { Hono } from 'hono';
 
 import { inject } from '../../kernel/di/inject';
@@ -7,21 +7,22 @@ import {
   ZeltContextNotAvailableError,
   ZeltDecoratorUsageError,
   ZeltLifecycleStateError,
-  ZeltNotImplementedError,
 } from '../../kernel/errors';
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
-import { DefaultErrorHandler } from '../../modules/http/default.error-handler';
-import type { ControllerRouteInfo } from '../../modules/http/internal/metadata';
-import { collectControllerRouteInfo } from '../../modules/http/internal/metadata';
-import { buildRoutes, warmupControllers } from '../../modules/http/internal/route-builder';
+import type { Module } from '../module';
+import { DefaultErrorHandler } from './default.error-handler';
+import type { ControllerRouteInfo } from './internal/metadata';
+import { collectControllerRouteInfo } from './internal/metadata';
+import { buildRoutes, warmupControllers } from './internal/route-builder';
 import type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
   MiddlewareInput,
   RequestContext,
-} from '../../modules/http/middleware/types';
-import { HTTP_OPTIONS } from '../tokens';
+} from './middleware/types';
+
+// --- Types ---
 
 export type ControllerClass = new (...args: never[]) => object;
 
@@ -34,6 +35,19 @@ export type HttpOptions = {
 export type HttpMetadata = {
   readonly controllers: readonly ControllerRouteInfo[];
 };
+
+export type HttpCapabilities = {
+  readonly fetch: (request: Request) => Promise<Response>;
+  readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
+  readonly getControllers: () => readonly ControllerClass[];
+  readonly getMetadata: () => HttpMetadata;
+};
+
+// --- Token ---
+
+export const HTTP_OPTIONS = new InjectionToken<HttpOptions>('HTTP_OPTIONS');
+
+// --- Runtime ---
 
 const createErrorHandler =
   (errorHandlers: readonly ErrorHandlerInstance[], fallback: ErrorHandlerInstance) =>
@@ -63,7 +77,7 @@ const resolveErrorHandlers = (
 ): ErrorHandlerInstance[] => classes.map((cls) => resolveErrorHandler(cls, container));
 
 @injectable()
-export class HttpModule implements Lifecycle {
+export class HttpRuntime implements Lifecycle {
   private hono: Hono | undefined;
 
   /** @throws {ZeltNotImplementedError} */
@@ -79,9 +93,6 @@ export class HttpModule implements Lifecycle {
         {
           get: <T extends object>(cls: new (...args: never[]) => T): T =>
             resolve(this.container, cls),
-          getConfig: () => {
-            throw new ZeltNotImplementedError({ className: 'HttpModule', methodName: 'getConfig' });
-          },
         },
         this.lifecycleManager,
       );
@@ -109,9 +120,6 @@ export class HttpModule implements Lifecycle {
         resolver: {
           get: <T extends object>(cls: new (...args: never[]) => T): T =>
             resolve(this.container, cls),
-          getConfig: () => {
-            throw new ZeltNotImplementedError({ className: 'HttpModule', methodName: 'getConfig' });
-          },
         },
         lifecycle: this.lifecycleManager,
         globalMiddlewares: this.options.middlewares ?? [],
@@ -153,3 +161,21 @@ export class HttpModule implements Lifecycle {
     };
   }
 }
+
+// --- Module descriptor ---
+
+export const HttpModule: Module<'http', HttpOptions, HttpCapabilities> = {
+  key: 'http',
+  bind: (container, config) => {
+    container.bind({ provide: HTTP_OPTIONS, useValue: config });
+  },
+  resolve: (container) => {
+    const runtime = container.get(HttpRuntime);
+    return {
+      fetch: (req) => runtime.fetch(req),
+      request: (input, init) => runtime.request(input, init),
+      getControllers: () => runtime.getControllers(),
+      getMetadata: () => runtime.getMetadata(),
+    };
+  },
+};

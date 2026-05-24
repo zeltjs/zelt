@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTestTargetBase } from '../../kernel/di/container';
+import { createTestTargetBase } from '../../app/test-target';
 import { Config } from '../config';
 
 import { EnvConfig } from './env.config';

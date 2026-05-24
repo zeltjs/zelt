@@ -39,7 +39,7 @@ export const joinPath = (base: string, sub: string): string => {
   return joined === '' ? '/' : joined;
 };
 
-type ControllerClass = new (...args: never[]) => object;
+import type { ControllerClass } from '../module';
 
 type Route = {
   readonly method: HttpMethod;
