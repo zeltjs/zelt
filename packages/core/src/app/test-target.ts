@@ -55,14 +55,14 @@ export const createTestTargetBase = async <T extends object>(
   }
 
   const lifecycle = container.get(LifecycleManager);
+  let target: T;
   try {
     await lifecycle.startup();
+    target = resolve(container, targetClass);
   } catch (error) {
-    await lifecycle.shutdown();
+    await lifecycle.shutdown().catch(() => {});
     throw error;
   }
-
-  const target = resolve(container, targetClass);
 
   let disposed = false;
   const shutdown = async (): Promise<void> => {
