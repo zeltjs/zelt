@@ -144,8 +144,7 @@ import { Controller, Post, body } from '@zeltjs/core';
 @Controller('/webhooks')
 class WebhookController {
   @Post('/github')
-  async handleGithubWebhook() {
-    const payload = await body('json');
+  handleGithubWebhook(payload = body()) {
     // payload is typed as unknown
     return { received: true };
   }

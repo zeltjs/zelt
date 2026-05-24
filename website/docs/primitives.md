@@ -111,33 +111,23 @@ import { Controller, Post, body, response } from '@zeltjs/core';
 
 @Controller('/upload')
 export class UploadController {
-  @Post('/text')
-  async uploadText(res = response()) {
-    const text = await body('text');
-    return res.json({ received: text });
-  }
-
   @Post('/json')
-  async uploadJson(res = response()) {
-    const data = await body('json');
+  uploadJson(data = body(), res = response()) {
     return res.json({ received: data });
   }
 
   @Post('/form')
-  async uploadForm(res = response()) {
-    const formData = await body('form');
-    return res.json({ fields: Object.fromEntries(formData) });
+  uploadForm(formData = body('form'), res = response()) {
+    return res.json({ fields: formData });
   }
 }
 ```
 
 | Type | Return Type | Description |
 |------|-------------|-------------|
-| `body('text')` | `Promise<string>` | Raw text body |
-| `body('json')` | `Promise<unknown>` | Parsed JSON body |
-| `body('form')` | `Promise<FormData>` | Form data (multipart or urlencoded) |
-| `body('arrayBuffer')` | `Promise<ArrayBuffer>` | Raw binary data |
-| `body('blob')` | `Promise<Blob>` | Blob data |
+| `body()` | `unknown` | Parsed JSON body |
+| `body('form')` | `FormBody` | Form data record (`Record<string, string \| File \| (string \| File)[]>`) |
+| `body('text')` | `string` | Plain text body |
 
 :::tip
 For validated request bodies with automatic type inference, use [`validated()`](./validation.md) instead.

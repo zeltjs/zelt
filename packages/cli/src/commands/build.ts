@@ -1,4 +1,5 @@
 import { NodeCliConfig } from '@zeltjs/adapter-node';
+import { createApp } from '@zeltjs/core';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
@@ -6,14 +7,15 @@ import { match } from 'ts-pattern';
 import { runTsdownBuild } from '../builders/tsdown';
 import { loadZeltConfig } from '../config/loader';
 import type { BuildConfig } from '../config/schema';
-import type { ZeltBuildError, ZeltConfigLoadError } from '../errors';
+import type { ZeltBuildError, ZeltConfigLoadError, ZeltMultipleBuildHooksError } from '../errors';
 import {
   isZeltBuildError,
   isZeltConfigLoadError,
+  isZeltMultipleBuildHooksError,
   isZeltNoEntryError,
   ZeltNoEntryError,
 } from '../errors';
-import { runPreBuildHooks } from '../plugin/runner';
+import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from '../plugin/runner';
 
 const cliConfig = new NodeCliConfig();
 
@@ -26,7 +28,8 @@ type BuildArgs = {
 type RunBuildError =
   | InstanceType<typeof ZeltConfigLoadError>
   | InstanceType<typeof ZeltBuildError>
-  | InstanceType<typeof ZeltNoEntryError>;
+  | InstanceType<typeof ZeltNoEntryError>
+  | InstanceType<typeof ZeltMultipleBuildHooksError>;
 
 const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefined) => ({
   ...buildConfig,
@@ -34,23 +37,42 @@ const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefine
   outDir: args.outDir ?? buildConfig?.outDir,
 });
 
-/** @throws {ZeltConfigLoadError | ZeltBuildError | ZeltNoEntryError | InvalidConfigExportError} */
+/** @throws {ZeltConfigLoadError | ZeltBuildError | ZeltNoEntryError | ZeltMultipleBuildHooksError} */
 const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
   const configFile = typedArgs.config;
   const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
-
-  // Run preBuild hooks first
-  await runPreBuildHooks({ cwd, config });
-
   const buildConfig = resolveBuildConfig(typedArgs, config.build);
 
   if (buildConfig.entry === undefined) {
     throw new ZeltNoEntryError({});
   }
 
-  consola.start('Building...');
-  await runTsdownBuild({ cwd, config: buildConfig });
-  consola.success('Build completed');
+  const app = createApp({ http: { controllers: [] } });
+  const hookOptions = { cwd, config, app };
+
+  await runPreBuildHooks(hookOptions);
+
+  let success = true;
+  let buildError: unknown;
+
+  try {
+    const buildResult = await runBuildHook(hookOptions);
+
+    if (!buildResult.handled) {
+      consola.start('Building...');
+      await runTsdownBuild({ cwd, config: buildConfig });
+      consola.success('Build completed');
+    }
+  } catch (error) {
+    success = false;
+    buildError = error;
+  } finally {
+    await runPostBuildHooks(hookOptions, { success });
+  }
+
+  if (buildError !== undefined) {
+    throw buildError;
+  }
 };
 
 const handleError = (error: RunBuildError): void => {
@@ -63,6 +85,9 @@ const handleError = (error: RunBuildError): void => {
     })
     .when(isZeltBuildError, () => {
       consola.error('Build failed');
+    })
+    .when(isZeltMultipleBuildHooksError, (e) => {
+      consola.error(e.message);
     })
     .otherwise(() => {});
 };
@@ -96,7 +121,12 @@ export const buildCommand = defineCommand({
     try {
       await runBuild(cwd, typedArgs);
     } catch (error) {
-      if (isZeltConfigLoadError(error) || isZeltBuildError(error) || isZeltNoEntryError(error)) {
+      if (
+        isZeltConfigLoadError(error) ||
+        isZeltBuildError(error) ||
+        isZeltNoEntryError(error) ||
+        isZeltMultipleBuildHooksError(error)
+      ) {
         handleError(error);
       } else {
         throw error;
