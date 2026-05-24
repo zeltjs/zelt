@@ -1,34 +1,38 @@
 import type { Container } from '@needle-di/core';
 
-import type { CommandCapabilities } from '../modules/command/module';
 import { CommandModule } from '../modules/command/module';
-import type { HttpCapabilities } from '../modules/http/module';
 import { HttpModule } from '../modules/http/module';
-import type { ModuleConfigMap } from '../modules/module';
-import type { SchedulerCapabilities } from '../modules/scheduler/module';
+import type { Module, ModuleConfigMap } from '../modules/module';
 import { SchedulerModule } from '../modules/scheduler/module';
 
 export const DefaultModules = [HttpModule, CommandModule, SchedulerModule] as const;
 
 export type DefaultModulesConfig = ModuleConfigMap<typeof DefaultModules>;
 
+// Module[] に widening することで、ループ内で mod.bind(container, unknown) が型安全に呼べる
+// (Module.bind は method syntax = bivariant なので unknown を受け付ける)
+const modules: readonly Module[] = DefaultModules;
+
 export const bindDefaultModules = (container: Container, options: DefaultModulesConfig): void => {
-  if (options.http) {
-    HttpModule.bind(container, options.http);
-  }
-  if (options.commands?.length) {
-    CommandModule.bind(container, options.commands);
-  }
-  if (options.schedulers?.length) {
-    SchedulerModule.bind(container, options.schedulers);
+  const configs = new Map<string, unknown>(Object.entries(options));
+  for (const mod of modules) {
+    const config = configs.get(mod.key);
+    if (config !== undefined) {
+      mod.bind(container, config);
+    }
   }
 };
 
 export const resolveDefaultModuleCaps = (
   container: Container,
   options: DefaultModulesConfig,
-): HttpCapabilities | CommandCapabilities | SchedulerCapabilities | object => ({
-  ...(options.http ? HttpModule.resolve(container) : undefined),
-  ...(options.commands?.length ? CommandModule.resolve(container) : undefined),
-  ...(options.schedulers?.length ? SchedulerModule.resolve(container) : undefined),
-});
+): object => {
+  const configs = new Map<string, unknown>(Object.entries(options));
+  let caps: object = {};
+  for (const mod of modules) {
+    if (configs.get(mod.key) !== undefined) {
+      caps = { ...caps, ...mod.resolve(container) };
+    }
+  }
+  return caps;
+};

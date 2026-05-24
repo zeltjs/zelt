@@ -2,7 +2,6 @@ import { Container, InjectionToken, injectable } from '@needle-di/core';
 
 import { inject } from '../../kernel/di/inject';
 import { resolve } from '../../kernel/di/resolve';
-import { ZeltNotImplementedError } from '../../kernel/errors';
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
 import type { Module } from '../module';
@@ -41,12 +40,6 @@ export class SchedulerRuntime implements Lifecycle {
     if (this.schedulers.length === 0) return;
     const resolver = {
       get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
-      getConfig: () => {
-        throw new ZeltNotImplementedError({
-          className: 'SchedulerRuntime',
-          methodName: 'getConfig',
-        });
-      },
     };
     this.runner = createSchedulerRunner(this.schedulers, resolver);
   }

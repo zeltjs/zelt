@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTestTargetBase } from '../../kernel/di/container';
+import { createTestTargetBase } from '../../app/test-target';
 import { Config } from '../config';
 
 import { Env } from './env';

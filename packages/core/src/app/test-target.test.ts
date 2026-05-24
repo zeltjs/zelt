@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { Config } from '../../built-in-service/config';
-import type { Lifecycle } from '../../index';
-import { Injectable, inject, LifecycleManager } from '../../index';
+import { Config } from '../built-in-service/config';
+import type { Lifecycle } from '../index';
+import { Injectable, inject, LifecycleManager } from '../index';
 
-import { createTestTargetBase } from './container';
+import { createTestTargetBase } from './test-target';
 
 describe('createTestTargetBase', () => {
   it('instantiates configs before calling startup', async () => {

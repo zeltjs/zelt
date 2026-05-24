@@ -7,7 +7,6 @@ import {
   ZeltContextNotAvailableError,
   ZeltDecoratorUsageError,
   ZeltLifecycleStateError,
-  ZeltNotImplementedError,
 } from '../../kernel/errors';
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
@@ -94,12 +93,6 @@ export class HttpRuntime implements Lifecycle {
         {
           get: <T extends object>(cls: new (...args: never[]) => T): T =>
             resolve(this.container, cls),
-          getConfig: () => {
-            throw new ZeltNotImplementedError({
-              className: 'HttpRuntime',
-              methodName: 'getConfig',
-            });
-          },
         },
         this.lifecycleManager,
       );
@@ -127,12 +120,6 @@ export class HttpRuntime implements Lifecycle {
         resolver: {
           get: <T extends object>(cls: new (...args: never[]) => T): T =>
             resolve(this.container, cls),
-          getConfig: () => {
-            throw new ZeltNotImplementedError({
-              className: 'HttpRuntime',
-              methodName: 'getConfig',
-            });
-          },
         },
         lifecycle: this.lifecycleManager,
         globalMiddlewares: this.options.middlewares ?? [],
