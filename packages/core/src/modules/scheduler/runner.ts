@@ -6,7 +6,7 @@ import { getScheduledMetadata, getScheduleMetadata } from './scheduler-metadata'
 
 type Resolver = { get: <T extends object>(cls: new (...args: never[]) => T) => T };
 
-type JobInfo = {
+export type JobInfo = {
   readonly name: string;
   readonly cronExpression: string;
   readonly timezone: string | undefined;

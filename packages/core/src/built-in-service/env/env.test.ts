@@ -103,4 +103,60 @@ describe('Env', () => {
       );
     });
   });
+
+  describe('getStringOrThrow', () => {
+    it('returns env value when exists', () => {
+      vi.stubEnv('API_KEY', 'secret123');
+      expect(env.getStringOrThrow('API_KEY')).toBe('secret123');
+    });
+
+    it('throws when env not exists', () => {
+      expect(() => env.getStringOrThrow('NOT_EXISTS')).toThrow(
+        'Required environment variable NOT_EXISTS is not set',
+      );
+    });
+  });
+
+  describe('getNumberOrThrow', () => {
+    it('returns parsed number when env exists', () => {
+      vi.stubEnv('PORT', '3000');
+      expect(env.getNumberOrThrow('PORT')).toBe(3000);
+    });
+
+    it('throws when env not exists', () => {
+      expect(() => env.getNumberOrThrow('NOT_EXISTS')).toThrow(
+        'Required environment variable NOT_EXISTS is not set',
+      );
+    });
+
+    it('throws when env is not a valid number', () => {
+      vi.stubEnv('INVALID', 'not_a_number');
+      expect(() => env.getNumberOrThrow('INVALID')).toThrow(
+        'Environment variable INVALID is not a valid number',
+      );
+    });
+  });
+
+  describe('getBooleanOrThrow', () => {
+    it('returns true when env is "true"', () => {
+      vi.stubEnv('ENABLED', 'true');
+      expect(env.getBooleanOrThrow('ENABLED')).toBe(true);
+    });
+
+    it('returns true when env is "1"', () => {
+      vi.stubEnv('ENABLED', '1');
+      expect(env.getBooleanOrThrow('ENABLED')).toBe(true);
+    });
+
+    it('returns false when env is other value', () => {
+      vi.stubEnv('ENABLED', 'false');
+      expect(env.getBooleanOrThrow('ENABLED')).toBe(false);
+    });
+
+    it('throws when env not exists', () => {
+      expect(() => env.getBooleanOrThrow('NOT_EXISTS')).toThrow(
+        'Required environment variable NOT_EXISTS is not set',
+      );
+    });
+  });
 });

@@ -2,6 +2,7 @@ import { getClassMetadata, getSourcePosition } from '@zeltjs/decorator-metadata/
 import { match, P } from 'ts-pattern';
 
 import type { MiddlewareIdentifier, MiddlewareInput } from '../middleware/types';
+import { joinPath } from './path-utils';
 
 const FRAMEWORK_PATH_PATTERNS = [
   '/node_modules/',
@@ -229,13 +230,6 @@ export const getAuthorizedMetadata = (
     }
   }
   return undefined;
-};
-
-const joinPath = (base: string, sub: string): string => {
-  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
-  const normalizedSub = sub.startsWith('/') ? sub : `/${sub}`;
-  const joined = `${normalizedBase}${normalizedSub}`;
-  return joined === '' ? '/' : joined;
 };
 
 export const collectControllerRouteInfo = (

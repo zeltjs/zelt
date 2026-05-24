@@ -5,7 +5,7 @@ import { resolve } from '../../kernel/di/resolve';
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
 import type { Module } from '../module';
-import type { SchedulerRunner } from './runner';
+import type { JobInfo, SchedulerRunner } from './runner';
 import { createSchedulerRunner } from './runner';
 
 // --- Types ---
@@ -15,6 +15,8 @@ export type SchedulerClass = new (...args: never[]) => object;
 export type SchedulerCapabilities = {
   readonly startScheduler: () => Promise<void>;
   readonly stopScheduler: () => Promise<void>;
+  readonly isSchedulerRunning: () => boolean;
+  readonly getSchedulerJobs: () => readonly JobInfo[];
 };
 
 // --- Token ---
@@ -59,6 +61,14 @@ export class SchedulerRuntime implements Lifecycle {
       await this.runner.shutdown();
     }
   }
+
+  isSchedulerRunning(): boolean {
+    return this.runner?.isRunning() ?? false;
+  }
+
+  getSchedulerJobs(): readonly JobInfo[] {
+    return this.runner?.getJobs() ?? [];
+  }
 }
 
 // --- Module descriptor ---
@@ -77,6 +87,8 @@ export const SchedulerModule: Module<
     return {
       startScheduler: () => runtime.startScheduler(),
       stopScheduler: () => runtime.stopScheduler(),
+      isSchedulerRunning: () => runtime.isSchedulerRunning(),
+      getSchedulerJobs: () => runtime.getSchedulerJobs(),
     };
   },
 };
