@@ -1,5 +1,5 @@
 import { ZeltBodyTypeMismatchError } from '../../../../kernel/errors';
-import { getEntryContext } from '../entry-context';
+import { getHttpContext } from '../../internal/context-keys';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
 
@@ -11,7 +11,7 @@ export function body(type: 'form'): FormBody;
 export function body(type: 'text'): string;
 /** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
 export function body(type: 'json' | 'form' | 'text' = 'json'): unknown {
-  const { body: parsedBody } = getEntryContext().input;
+  const { body: parsedBody } = getHttpContext();
 
   if (parsedBody.type !== type) {
     throw new ZeltBodyTypeMismatchError({

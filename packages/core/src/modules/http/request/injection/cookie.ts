@@ -1,8 +1,8 @@
 import { getCookie } from 'hono/cookie';
 
-import { getEntryContext } from '../entry-context';
+import { getHttpContext } from '../../internal/context-keys';
 
 /** @throws {ZeltContextNotAvailableError} */
 export const cookie = (name: string): string | undefined => {
-  return getCookie(getEntryContext().honoContext, name);
+  return getCookie(getHttpContext().honoContext, name);
 };

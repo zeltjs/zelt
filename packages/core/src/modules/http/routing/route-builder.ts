@@ -6,7 +6,9 @@ import {
   ZeltMiddlewareExecutionError,
   ZeltRouteConfigurationError,
 } from '../../../kernel/errors';
+import { runInContext, setInternal } from '../../../kernel/internal/context-key';
 import type { LifecycleManager } from '../../../kernel/lifecycle';
+import { HTTP_CONTEXT } from '../internal/context-keys';
 import { currentRoles, currentUser } from '../middleware/auth/auth';
 import type {
   FunctionMiddleware,
@@ -14,8 +16,6 @@ import type {
   MiddlewareInput,
   MiddlewareInputWithOptions,
 } from '../middleware/types';
-
-import { runInEntryContext } from '../request/entry-context';
 import type { HttpMethod } from './metadata';
 import {
   getAuthorizedMetadata,
@@ -323,9 +323,10 @@ const registerRoute = (
 
     const body = await parseRequestBody(c);
     const pathParams: Readonly<Record<string, string>> = c.req.param();
-    return runInEntryContext({ input: { body, pathParams }, honoContext: c }, () =>
-      composedHandler(c),
-    );
+    return runInContext(() => {
+      setInternal(HTTP_CONTEXT, { body, pathParams, honoContext: c });
+      return composedHandler(c);
+    });
   };
 
   const methods = {

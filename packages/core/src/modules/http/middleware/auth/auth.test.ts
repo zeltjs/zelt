@@ -1,28 +1,18 @@
 import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 
-import type { EntryContext } from '../../request/entry-context';
-import { runInEntryContext } from '../../request/entry-context';
+import { runInHttpContext } from '../../internal/test-helpers';
 
 import { currentRoles, currentUser, setUser } from './auth';
 
-const createMockEntryContext = (): EntryContext => {
-  const store: Record<string, unknown> = {};
-  return {
-    input: { body: { type: 'none', val: undefined }, pathParams: {} },
-    honoContext: {
-      get: (key: string) => store[key],
-      set: (key: string, value: unknown) => {
-        store[key] = value;
-      },
-    } as unknown as Context,
-  };
-};
+const createMockHonoContext = () =>
+  ({
+    req: { header: () => undefined },
+  }) as unknown as Context;
 
 describe('setUser', () => {
   it('sets user and roles in context', () => {
-    const ctx = createMockEntryContext();
-    runInEntryContext(ctx, () => {
+    runInHttpContext({ honoContext: createMockHonoContext() }, () => {
       setUser({ id: 1, name: 'alice' }, ['admin', 'user']);
       expect(currentUser()).toEqual({ id: 1, name: 'alice' });
       expect(currentRoles()).toEqual(['admin', 'user']);
@@ -30,8 +20,7 @@ describe('setUser', () => {
   });
 
   it('defaults roles to empty array', () => {
-    const ctx = createMockEntryContext();
-    runInEntryContext(ctx, () => {
+    runInHttpContext({ honoContext: createMockHonoContext() }, () => {
       setUser({ id: 2, name: 'bob' });
       expect(currentUser()).toEqual({ id: 2, name: 'bob' });
       expect(currentRoles()).toEqual([]);
@@ -41,16 +30,14 @@ describe('setUser', () => {
 
 describe('currentUser', () => {
   it('returns undefined when user is not set', () => {
-    const ctx = createMockEntryContext();
-    const result = runInEntryContext(ctx, () => currentUser());
+    const result = runInHttpContext({ honoContext: createMockHonoContext() }, () => currentUser());
     expect(result).toBeUndefined();
   });
 });
 
 describe('currentRoles', () => {
   it('returns empty array when roles are not set', () => {
-    const ctx = createMockEntryContext();
-    const result = runInEntryContext(ctx, () => currentRoles());
+    const result = runInHttpContext({ honoContext: createMockHonoContext() }, () => currentRoles());
     expect(result).toEqual([]);
   });
 });

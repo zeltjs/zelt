@@ -1,6 +1,6 @@
-import { getEntryContext } from '../entry-context';
+import { getHttpContext } from '../../internal/context-keys';
 
 /** @throws {ZeltContextNotAvailableError} */
 export const header = (name: string): string | undefined => {
-  return getEntryContext().honoContext.req.header(name);
+  return getHttpContext().honoContext.req.header(name);
 };

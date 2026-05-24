@@ -1,11 +1,11 @@
-import { getEntryContext } from '../entry-context';
+import { getHttpContext } from '../../internal/context-keys';
 
 /** @throws {ZeltContextNotAvailableError} */
 export const queryParam = (name: string): string | undefined => {
-  return getEntryContext().honoContext.req.query(name);
+  return getHttpContext().honoContext.req.query(name);
 };
 
 /** @throws {ZeltContextNotAvailableError} */
 export const queryParams = (name: string): string[] => {
-  return getEntryContext().honoContext.req.queries(name) ?? [];
+  return getHttpContext().honoContext.req.queries(name) ?? [];
 };

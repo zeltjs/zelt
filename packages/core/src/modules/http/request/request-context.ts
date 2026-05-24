@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 
-import { getEntryContext } from './entry-context';
+import { getHttpContext } from '../internal/context-keys';
 
 /** @throws {ZeltContextNotAvailableError} */
-export const requestContext = (): Context => getEntryContext().honoContext;
+export const requestContext = (): Context => getHttpContext().honoContext;

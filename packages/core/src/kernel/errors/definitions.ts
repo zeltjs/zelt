@@ -26,7 +26,7 @@ export const coreErrorDefinitions = {
 
   ZeltContextNotAvailableError: (ctx: {
     primitive: string;
-    requiredContext: 'entry' | 'command';
+    requiredContext: 'entry' | 'command' | 'request';
   }) => `${ctx.primitive}() called outside ${ctx.requiredContext} execution`,
 
   ZeltAppConfigurationError: (ctx: {

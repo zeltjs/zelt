@@ -114,7 +114,7 @@ describe('JwtMiddleware', () => {
 describe('JwtMiddleware — setUser integration', () => {
   it('should expose currentUser and currentRoles after middleware runs', async () => {
     let capturedUser: unknown;
-    let capturedRoles: string[] = [];
+    let capturedRoles: readonly string[] = [];
 
     @Controller('/user-check')
     @UseMiddleware(JwtMiddleware)

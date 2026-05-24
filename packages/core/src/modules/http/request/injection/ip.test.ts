@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { runInEntryContext } from '../entry-context';
+import { runInHttpContext } from '../../internal/test-helpers';
 
 import { ip } from './ip';
 
@@ -16,9 +16,9 @@ describe('ip primitive', () => {
       'cf-connecting-ip': '1.1.1.1',
       'x-forwarded-for': '2.2.2.2',
     });
-    runInEntryContext(
+    runInHttpContext(
       // @ts-expect-error narrow typed test fixture
-      { honoContext, input: { body: { type: 'none', val: undefined }, pathParams: {} } },
+      { honoContext },
       () => {
         expect(ip()).toBe('1.1.1.1');
       },
@@ -30,9 +30,9 @@ describe('ip primitive', () => {
       'x-real-ip': '3.3.3.3',
       'x-forwarded-for': '2.2.2.2',
     });
-    runInEntryContext(
+    runInHttpContext(
       // @ts-expect-error narrow typed test fixture
-      { honoContext, input: { body: { type: 'none', val: undefined }, pathParams: {} } },
+      { honoContext },
       () => {
         expect(ip()).toBe('3.3.3.3');
       },
@@ -43,9 +43,9 @@ describe('ip primitive', () => {
     const honoContext = makeContext({
       'x-forwarded-for': '4.4.4.4, 5.5.5.5',
     });
-    runInEntryContext(
+    runInHttpContext(
       // @ts-expect-error narrow typed test fixture
-      { honoContext, input: { body: { type: 'none', val: undefined }, pathParams: {} } },
+      { honoContext },
       () => {
         expect(ip()).toBe('4.4.4.4');
       },
@@ -54,9 +54,9 @@ describe('ip primitive', () => {
 
   it('returns "unknown" when no headers available', () => {
     const honoContext = makeContext({});
-    runInEntryContext(
+    runInHttpContext(
       // @ts-expect-error narrow typed test fixture
-      { honoContext, input: { body: { type: 'none', val: undefined }, pathParams: {} } },
+      { honoContext },
       () => {
         expect(ip()).toBe('unknown');
       },

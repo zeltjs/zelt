@@ -1,15 +1,15 @@
 import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 
-import { runInEntryContext } from '../entry-context';
+import { runInHttpContext } from '../../internal/test-helpers';
 
 import { pathParam } from './path-param';
 
 describe('pathParam()', () => {
   it('returns the path param value', () => {
-    const result = runInEntryContext(
+    const result = runInHttpContext(
       {
-        input: { body: { type: 'none', val: undefined }, pathParams: { id: '42' } },
+        pathParams: { id: '42' },
         honoContext: {} as unknown as Context,
       },
       () => pathParam('id'),
@@ -19,9 +19,9 @@ describe('pathParam()', () => {
 
   it('throws when the path param is absent', () => {
     expect(() =>
-      runInEntryContext(
+      runInHttpContext(
         {
-          input: { body: { type: 'none', val: undefined }, pathParams: {} },
+          pathParams: {},
           honoContext: {} as unknown as Context,
         },
         () => pathParam('id'),

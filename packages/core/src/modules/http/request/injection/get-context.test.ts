@@ -1,8 +1,7 @@
 import type { Context } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { EntryContext } from '../entry-context';
-import { runInEntryContext } from '../entry-context';
+import { runInHttpContext } from '../../internal/test-helpers';
 
 import { getContext, setContext } from './get-context';
 
@@ -12,40 +11,39 @@ declare module '@zeltjs/core' {
   }
 }
 
-const createMockEntryContext = (contextValues: Record<string, unknown> = {}): EntryContext => ({
-  input: { body: { type: 'none', val: undefined }, pathParams: {} },
-  honoContext: {
+const createMockHonoContext = (contextValues: Record<string, unknown> = {}) =>
+  ({
     get: (key: string) => contextValues[key],
     set: vi.fn(),
-  } as unknown as Context,
-});
+    req: { header: () => undefined },
+  }) as unknown as Context;
 
 describe('getContext', () => {
   it('returns value set in Hono context', () => {
-    const ctx = createMockEntryContext({ user: { id: 1, name: 'alice' } });
-    const result = runInEntryContext(ctx, () => getContext('user'));
+    const honoContext = createMockHonoContext({ user: { id: 1, name: 'alice' } });
+    const result = runInHttpContext({ honoContext }, () => getContext('user'));
     expect(result).toEqual({ id: 1, name: 'alice' });
   });
 
   it('returns undefined when key is not defined', () => {
-    const ctx = createMockEntryContext({});
-    const result = runInEntryContext(ctx, () => getContext('nonexistent'));
+    const honoContext = createMockHonoContext({});
+    const result = runInHttpContext({ honoContext }, () => getContext('nonexistent'));
     expect(result).toBeUndefined();
   });
 
-  it('throws when called outside entry context', () => {
-    expect(() => getContext('nonexistent')).toThrow(/outside entry execution/);
+  it('throws when called outside http context', () => {
+    expect(() => getContext('nonexistent')).toThrow(/outside request execution/);
   });
 });
 
 describe('setContext', () => {
   it('calls Hono context.set with key and value', () => {
-    const ctx = createMockEntryContext({});
-    runInEntryContext(ctx, () => setContext('user', { id: 1, name: 'alice' }));
-    expect(ctx.honoContext.set).toHaveBeenCalledWith('user', { id: 1, name: 'alice' });
+    const honoContext = createMockHonoContext({});
+    runInHttpContext({ honoContext }, () => setContext('user', { id: 1, name: 'alice' }));
+    expect(honoContext.set).toHaveBeenCalledWith('user', { id: 1, name: 'alice' });
   });
 
-  it('throws when called outside entry context', () => {
-    expect(() => setContext('user', { id: 1, name: 'test' })).toThrow(/outside entry execution/);
+  it('throws when called outside http context', () => {
+    expect(() => setContext('user', { id: 1, name: 'test' })).toThrow(/outside request execution/);
   });
 });
