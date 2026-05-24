@@ -499,6 +499,24 @@ export default tseslint.config(
     },
   },
   {
+    // core is runtime code — inspect module is for build-time tools only
+    files: ['packages/core/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@zeltjs/decorator-metadata/inspect',
+              message:
+                'inspect is for build-time tools only. Use @zeltjs/decorator-metadata (runtime) in core.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['packages/**/*.{ts,tsx}'],
     ignores: [
       'packages/core/**/*.{ts,tsx}',
