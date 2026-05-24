@@ -3,31 +3,37 @@ import { cors } from 'hono/cors';
 import { CorsConfig } from '../../../../built-in-service/http-security/cors.config';
 import { inject } from '../../../../kernel/di/inject';
 import { Middleware } from '../middleware';
-import type { MiddlewareInstance, Next, RequestContext } from '../types';
+import type { FunctionMiddleware, MiddlewareInstance, Next, RequestContext } from '../types';
 
 @Middleware
 export class CorsMiddleware implements MiddlewareInstance {
-  constructor(private readonly config: CorsConfig = inject(CorsConfig)) {}
+  private readonly honoMiddleware: FunctionMiddleware | undefined;
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const origin = this.config.origin;
+  constructor(config: CorsConfig = inject(CorsConfig)) {
+    const origin = config.origin;
     const hasOrigin = Array.isArray(origin) ? origin.length > 0 : origin !== '';
     if (!hasOrigin) {
+      this.honoMiddleware = undefined;
+      return;
+    }
+
+    const maxAge = config.maxAge;
+    this.honoMiddleware = cors({
+      origin: config.origin,
+      allowMethods: config.allowMethods,
+      allowHeaders: config.allowHeaders,
+      exposeHeaders: config.exposeHeaders,
+      ...(maxAge !== undefined && { maxAge }),
+      credentials: config.credentials,
+    });
+  }
+
+  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+    if (!this.honoMiddleware) {
       await next();
       return undefined;
     }
-
-    const maxAge = this.config.maxAge;
-    const honoMiddleware = cors({
-      origin: this.config.origin,
-      allowMethods: this.config.allowMethods,
-      allowHeaders: this.config.allowHeaders,
-      exposeHeaders: this.config.exposeHeaders,
-      ...(maxAge !== undefined && { maxAge }),
-      credentials: this.config.credentials,
-    });
-
-    await honoMiddleware(c, next);
+    await this.honoMiddleware(c, next);
     return undefined;
   }
 }
