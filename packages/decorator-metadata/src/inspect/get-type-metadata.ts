@@ -32,12 +32,12 @@ type TSTypeChecker = import('typescript').TypeChecker;
 type ExtractTypeFn = (type: import('typescript').Type) => TypeInfo;
 
 type StoredMethodMeta = {
-  readonly name: string;
+  readonly name: string | symbol;
   readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 type StoredPropertyMeta = {
-  readonly name: string;
+  readonly name: string | symbol;
   readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
@@ -89,25 +89,27 @@ const extractMethodInfo = (
   checker: TSTypeChecker,
   extractType: ExtractTypeFn,
 ): MethodInfo => {
-  const methodNode = findMethodInClass(classNode, m.name, ts);
   const params: ParamInfo[] = [];
   let returnType: TypeInfo = { kind: 'unknown' };
 
-  if (methodNode) {
-    const sig = checker.getSignatureFromDeclaration(methodNode);
-    if (sig) {
-      for (const param of sig.getParameters()) {
-        const paramType = checker.getTypeOfSymbol(param);
-        params.push({ name: param.getName(), type: extractType(paramType) });
-      }
+  if (typeof m.name === 'string') {
+    const methodNode = findMethodInClass(classNode, m.name, ts);
+    if (methodNode) {
+      const sig = checker.getSignatureFromDeclaration(methodNode);
+      if (sig) {
+        for (const param of sig.getParameters()) {
+          const paramType = checker.getTypeOfSymbol(param);
+          params.push({ name: param.getName(), type: extractType(paramType) });
+        }
 
-      let retType = sig.getReturnType();
-      const retTypeStr = checker.typeToString(retType);
-      if (retTypeStr.startsWith('Promise<')) {
-        const typeRef = retType as import('typescript').TypeReference;
-        retType = typeRef.typeArguments?.[0] ?? retType;
+        let retType = sig.getReturnType();
+        const retTypeStr = checker.typeToString(retType);
+        if (retTypeStr.startsWith('Promise<')) {
+          const typeRef = retType as import('typescript').TypeReference;
+          retType = typeRef.typeArguments?.[0] ?? retType;
+        }
+        returnType = extractType(retType);
       }
-      returnType = extractType(retType);
     }
   }
 
@@ -122,16 +124,18 @@ const extractPropertyInfo = (
   checker: TSTypeChecker,
   extractType: ExtractTypeFn,
 ): PropertyInfo => {
-  const propNode = findPropertyInClass(classNode, p.name, ts);
   let type: TypeInfo = { kind: 'unknown' };
   let optional = false;
 
-  if (propNode) {
-    const propSymbol = checker.getSymbolAtLocation(propNode.name);
-    if (propSymbol) {
-      const propType = checker.getTypeOfSymbol(propSymbol);
-      type = extractType(propType);
-      optional = (propSymbol.flags & ts.SymbolFlags.Optional) !== 0;
+  if (typeof p.name === 'string') {
+    const propNode = findPropertyInClass(classNode, p.name, ts);
+    if (propNode) {
+      const propSymbol = checker.getSymbolAtLocation(propNode.name);
+      if (propSymbol) {
+        const propType = checker.getTypeOfSymbol(propSymbol);
+        type = extractType(propType);
+        optional = (propSymbol.flags & ts.SymbolFlags.Optional) !== 0;
+      }
     }
   }
 

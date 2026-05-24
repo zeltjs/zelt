@@ -1,13 +1,13 @@
 import type { StackTrace } from './position';
 
 export type MethodMeta = {
-  readonly name: string;
+  readonly name: string | symbol;
   readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 
 export type PropertyMeta = {
-  readonly name: string;
+  readonly name: string | symbol;
   readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
@@ -20,7 +20,7 @@ export type ClassMeta = {
 };
 
 type MemberRecord = {
-  readonly name: string;
+  readonly name: string | symbol;
   readonly trace: StackTrace | undefined;
   readonly props: object;
 };
@@ -43,7 +43,7 @@ const emptyMeta = (): ClassMeta => ({
 
 export const recordMethod = (
   classKey: object,
-  name: string,
+  name: string | symbol,
   trace: StackTrace | undefined,
   props: object,
 ): void => {
@@ -53,7 +53,7 @@ export const recordMethod = (
 
 export const recordProperty = (
   classKey: object,
-  name: string,
+  name: string | symbol,
   trace: StackTrace | undefined,
   props: object,
 ): void => {

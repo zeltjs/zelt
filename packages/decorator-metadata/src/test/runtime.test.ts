@@ -101,6 +101,21 @@ describe('metadata store', () => {
     expect(meta?.methods[0]?.props).toEqual([{ method: 'GET' }]);
   });
 
+  it('recordMethod supports symbol-named methods', () => {
+    class TestClass {}
+    const classKey = {};
+    const sym = Symbol('handler');
+
+    recordMethod(classKey, sym, mockTrace, { method: 'POST' });
+    recordClass(TestClass, mockTrace, {});
+    aggregateMembers(TestClass, classKey);
+
+    const meta = getClassMetadata(TestClass);
+    expect(meta?.methods).toHaveLength(1);
+    expect(meta?.methods[0]?.name).toBe(sym);
+    expect(meta?.methods[0]?.props).toEqual([{ method: 'POST' }]);
+  });
+
   it('recordProperty + aggregateMembers stores property metadata', () => {
     class TestClass {}
     const classKey = {};
@@ -114,6 +129,21 @@ describe('metadata store', () => {
     expect(meta?.properties[0]?.name).toBe('name');
     expect(meta?.properties[0]?.trace).toBe(mockTrace);
     expect(meta?.properties[0]?.props).toEqual([{ nullable: false }]);
+  });
+
+  it('recordProperty supports symbol-named properties', () => {
+    class TestClass {}
+    const classKey = {};
+    const sym = Symbol('secret');
+
+    recordProperty(classKey, sym, mockTrace, { encrypted: true });
+    recordClass(TestClass, mockTrace, {});
+    aggregateMembers(TestClass, classKey);
+
+    const meta = getClassMetadata(TestClass);
+    expect(meta?.properties).toHaveLength(1);
+    expect(meta?.properties[0]?.name).toBe(sym);
+    expect(meta?.properties[0]?.props).toEqual([{ encrypted: true }]);
   });
 
   it('returns undefined for class without metadata', () => {

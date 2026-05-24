@@ -100,7 +100,7 @@ const adaptClassContext = (handler: ClassHandler): ClassDecoratorFn => {
   return decorate;
 };
 
-type MethodHandler = (classKey: object, name: string, isStatic: boolean) => void;
+type MethodHandler = (classKey: object, name: string | symbol, isStatic: boolean) => void;
 
 const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
   function decorate(
@@ -118,13 +118,15 @@ const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
 
     return match(contextOrName)
       .with(tc39MethodContextPattern, (ctx) => {
-        if (typeof ctx.name !== 'string') return undefined;
+        if (typeof ctx.name !== 'string' && typeof ctx.name !== 'symbol') return undefined;
         if (!ctx.metadata) return undefined;
         handler(ctx.metadata, ctx.name, ctx.static ?? false);
         return undefined;
       })
       .otherwise(() => {
-        if (typeof contextOrName !== 'string') return undefined;
+        if (typeof contextOrName !== 'string' && typeof contextOrName !== 'symbol') {
+          return undefined;
+        }
         const classKey = asObject(target);
         if (!classKey) return undefined;
         const isStatic = typeof target === 'function';
@@ -135,7 +137,7 @@ const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
   return decorate;
 };
 
-type PropertyHandler = (classKey: object, name: string) => void;
+type PropertyHandler = (classKey: object, name: string | symbol) => void;
 
 const adaptPropertyContext = (handler: PropertyHandler): PropertyDecoratorFn => {
   function decorate(value: undefined, context: ClassFieldDecoratorContext): void;
@@ -146,13 +148,15 @@ const adaptPropertyContext = (handler: PropertyHandler): PropertyDecoratorFn => 
 
     return match(contextOrName)
       .with(tc39FieldContextPattern, (ctx) => {
-        if (typeof ctx.name !== 'string') return undefined;
+        if (typeof ctx.name !== 'string' && typeof ctx.name !== 'symbol') return undefined;
         if (!ctx.metadata) return undefined;
         handler(ctx.metadata, ctx.name);
         return undefined;
       })
       .otherwise(() => {
-        if (typeof contextOrName !== 'string') return undefined;
+        if (typeof contextOrName !== 'string' && typeof contextOrName !== 'symbol') {
+          return undefined;
+        }
         const classKey = asObject(target);
         if (!classKey) return undefined;
         handler(classKey, contextOrName);
