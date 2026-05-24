@@ -1,4 +1,5 @@
 /* eslint-disable complexity */
+/* biome-ignore-all lint/complexity/noStaticOnlyClass: test fixtures */
 import { describe, expect, it } from 'vitest';
 import {
   composeClassDecorators,
@@ -11,10 +12,11 @@ import {
 import type { StackTrace } from '../runtime/position';
 import { captureStackTrace, resolvePosition } from '../runtime/position';
 import {
+  aggregateMembers,
   getClassMetadata,
-  setClassMetadata,
-  setMethodMetadata,
-  setPropertyMetadata,
+  recordClass,
+  recordMethod,
+  recordProperty,
 } from '../runtime/store';
 
 describe('captureStackTrace and resolvePosition', () => {
@@ -70,10 +72,12 @@ describe('captureStackTrace and resolvePosition', () => {
 describe('metadata store', () => {
   const mockTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
 
-  it('stores and retrieves class metadata', () => {
+  it('recordClass stores class metadata', () => {
     class TestClass {}
+    const classKey = {};
 
-    setClassMetadata(TestClass, mockTrace, { basePath: '/api' });
+    recordClass(TestClass, mockTrace, { basePath: '/api' });
+    aggregateMembers(TestClass, classKey);
     const meta = getClassMetadata(TestClass);
 
     expect(meta?.trace).toBe(mockTrace);
@@ -82,11 +86,13 @@ describe('metadata store', () => {
     expect(meta?.properties).toEqual([]);
   });
 
-  it('stores and retrieves method metadata', () => {
+  it('recordMethod + aggregateMembers stores method metadata', () => {
     class TestClass {}
+    const classKey = {};
 
-    setClassMetadata(TestClass, mockTrace, {});
-    setMethodMetadata(TestClass, 'getUser', mockTrace, { method: 'GET' });
+    recordMethod(classKey, 'getUser', mockTrace, { method: 'GET' });
+    recordClass(TestClass, mockTrace, {});
+    aggregateMembers(TestClass, classKey);
 
     const meta = getClassMetadata(TestClass);
     expect(meta?.methods).toHaveLength(1);
@@ -95,11 +101,13 @@ describe('metadata store', () => {
     expect(meta?.methods[0]?.props).toEqual([{ method: 'GET' }]);
   });
 
-  it('stores and retrieves property metadata', () => {
+  it('recordProperty + aggregateMembers stores property metadata', () => {
     class TestClass {}
+    const classKey = {};
 
-    setClassMetadata(TestClass, mockTrace, {});
-    setPropertyMetadata(TestClass, 'name', mockTrace, { nullable: false });
+    recordProperty(classKey, 'name', mockTrace, { nullable: false });
+    recordClass(TestClass, mockTrace, {});
+    aggregateMembers(TestClass, classKey);
 
     const meta = getClassMetadata(TestClass);
     expect(meta?.properties).toHaveLength(1);
@@ -115,7 +123,9 @@ describe('metadata store', () => {
 
   it('accepts undefined trace and still stores metadata', () => {
     class TestClass {}
-    setClassMetadata(TestClass, undefined, { kind: 'X' });
+    const classKey = {};
+    recordClass(TestClass, undefined, { kind: 'X' });
+    aggregateMembers(TestClass, classKey);
     const meta = getClassMetadata(TestClass);
     expect(meta?.trace).toBeUndefined();
     expect(meta?.props).toEqual([{ kind: 'X' }]);
@@ -123,8 +133,10 @@ describe('metadata store', () => {
 
   it('appends props when the same class is decorated multiple times', () => {
     class TestClass {}
-    setClassMetadata(TestClass, mockTrace, { decorator: 'Controller', basePath: '/api' });
-    setClassMetadata(TestClass, mockTrace, { decorator: 'UseMiddleware', middlewares: ['auth'] });
+    const classKey = {};
+    recordClass(TestClass, mockTrace, { decorator: 'Controller', basePath: '/api' });
+    recordClass(TestClass, mockTrace, { decorator: 'UseMiddleware', middlewares: ['auth'] });
+    aggregateMembers(TestClass, classKey);
     const meta = getClassMetadata(TestClass);
     expect(meta?.props).toEqual([
       { decorator: 'Controller', basePath: '/api' },
@@ -134,11 +146,14 @@ describe('metadata store', () => {
 
   it('appends props when the same method receives multiple decorators', () => {
     class TestClass {}
-    setMethodMetadata(TestClass, 'handler', mockTrace, { decorator: 'Route', method: 'GET' });
-    setMethodMetadata(TestClass, 'handler', mockTrace, {
+    const classKey = {};
+    recordMethod(classKey, 'handler', mockTrace, { decorator: 'Route', method: 'GET' });
+    recordMethod(classKey, 'handler', mockTrace, {
       decorator: 'Authorized',
       roles: ['admin'],
     });
+    recordClass(TestClass, mockTrace, {});
+    aggregateMembers(TestClass, classKey);
     const meta = getClassMetadata(TestClass);
     expect(meta?.methods).toHaveLength(1);
     expect(meta?.methods[0]?.props).toEqual([
