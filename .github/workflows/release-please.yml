@@ -42,19 +42,35 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Validate tag format
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Invalid tag format: $TAG"
+            exit 1
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
 
       - name: Update versions
-        run: pnpm -r exec npm version ${{ github.event.release.tag_name }} --no-git-tag-version --allow-same-version
+        run: pnpm -r exec npm version "$TAG" --no-git-tag-version --allow-same-version
 
       - name: Create PR
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6f32688f5f1c67aaed6 # v8.0.0
         with:
-          branch: chore/bump-version-${{ github.event.release.tag_name }}
-          title: "chore: bump version to ${{ github.event.release.tag_name }}"
-          body: "Auto-generated after release ${{ github.event.release.tag_name }}"
-          commit-message: "chore: bump version to ${{ github.event.release.tag_name }}"
+          branch: chore/bump-version-${{ env.TAG }}
+          title: "chore: bump version to ${{ env.TAG }}"
+          body: "Auto-generated after release ${{ env.TAG }}"
+          commit-message: "chore: bump version to ${{ env.TAG }}"
