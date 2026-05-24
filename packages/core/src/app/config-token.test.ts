@@ -4,22 +4,97 @@ import { Config } from '../built-in-service/config';
 import { createApp } from './create-app';
 
 describe('config token', () => {
-  describe('single @Config', () => {
-    it('configs に含めると get で取得できる', async () => {
-      @Config
-      class AppConfig {
-        get name() {
-          return 'app';
-        }
-      }
+  describe('Config resolution priority', () => {
+    // Priority (high to low):
+    // 1. overrideConfig
+    // 2. configs (user-provided)
+    // 3. addFallbackConfig
+    // 4. BaseConfig default getter value
 
-      const app = createApp({ configs: [AppConfig] });
+    @Config
+    class BaseConfig {
+      get value() {
+        return 'base-default';
+      }
+    }
+
+    class UserConfig extends BaseConfig {
+      override get value() {
+        return 'user-config';
+      }
+    }
+
+    class FallbackConfig extends BaseConfig {
+      override get value() {
+        return 'fallback';
+      }
+    }
+
+    class OverrideConfig extends BaseConfig {
+      override get value() {
+        return 'override';
+      }
+    }
+
+    it('returns base default when nothing is configured', async () => {
+      const app = createApp({});
       const { get } = await app.ready();
-      const config = get(AppConfig);
-      expect(config.name).toBe('app');
+      expect(get(BaseConfig).value).toBe('base-default');
     });
 
-    it('configs に含めなくても get で取得できる', async () => {
+    it('fallback wins over base default', async () => {
+      const app = createApp({});
+      app.addFallbackConfig(FallbackConfig);
+      const { get } = await app.ready();
+      expect(get(BaseConfig).value).toBe('fallback');
+    });
+
+    it('configs wins over fallback', async () => {
+      const app = createApp({ configs: [UserConfig] });
+      app.addFallbackConfig(FallbackConfig);
+      const { get } = await app.ready();
+      expect(get(BaseConfig).value).toBe('user-config');
+    });
+
+    it('configs wins over base default', async () => {
+      const app = createApp({ configs: [UserConfig] });
+      const { get } = await app.ready();
+      expect(get(BaseConfig).value).toBe('user-config');
+    });
+
+    it('override wins over configs', async () => {
+      const app = createApp({ configs: [UserConfig] });
+      app.overrideConfig(OverrideConfig);
+      const { get } = await app.ready();
+      expect(get(BaseConfig).value).toBe('override');
+    });
+
+    it('override wins over fallback', async () => {
+      const app = createApp({});
+      app.addFallbackConfig(FallbackConfig);
+      app.overrideConfig(OverrideConfig);
+      const { get } = await app.ready();
+      expect(get(BaseConfig).value).toBe('override');
+    });
+
+    it('override wins over all (configs + fallback + base)', async () => {
+      const app = createApp({ configs: [UserConfig] });
+      app.addFallbackConfig(FallbackConfig);
+      app.overrideConfig(OverrideConfig);
+      const { get } = await app.ready();
+      expect(get(BaseConfig).value).toBe('override');
+    });
+
+    it('explicit base in configs prevents fallback', async () => {
+      const app = createApp({ configs: [BaseConfig] });
+      app.addFallbackConfig(FallbackConfig);
+      const { get } = await app.ready();
+      expect(get(BaseConfig).value).toBe('base-default');
+    });
+  });
+
+  describe('implicit config resolution', () => {
+    it('resolves config without explicit registration', async () => {
       @Config
       class ImplicitConfig {
         get value() {
@@ -29,156 +104,12 @@ describe('config token', () => {
 
       const app = createApp({});
       const { get } = await app.ready();
-      const config = get(ImplicitConfig);
-      expect(config.value).toBe('implicit');
+      expect(get(ImplicitConfig).value).toBe('implicit');
     });
   });
 
-  describe('override: @Config + child', () => {
-    it('configs に child を含めると get(root) で child が返る', async () => {
-      @Config
-      class BaseConfig {
-        get value() {
-          return 'base';
-        }
-      }
-
-      @Config
-      class UserConfig extends BaseConfig {
-        override get value() {
-          return 'user';
-        }
-      }
-
-      const app = createApp({ configs: [UserConfig] });
-      const { get } = await app.ready();
-      const config = get(BaseConfig);
-      expect(config.value).toBe('user');
-    });
-  });
-
-  describe('fallback: @Config + defaults', () => {
-    it('defaults に fallback を含めると get(root) で fallback が返る', async () => {
-      @Config
-      class BaseConfig {
-        get value() {
-          return 'base';
-        }
-      }
-
-      @Config
-      class FallbackConfig extends BaseConfig {
-        override get value() {
-          return 'fallback';
-        }
-      }
-
-      const app = createApp({});
-      app.addFallbackConfig(FallbackConfig);
-      const { get } = await app.ready();
-      const config = get(BaseConfig);
-      expect(config.value).toBe('fallback');
-    });
-  });
-
-  describe('priority: configs > defaults > @Config default', () => {
-    it('configs の child が defaults の fallback に勝つ', async () => {
-      @Config
-      class BaseConfig {
-        get value() {
-          return 'base';
-        }
-      }
-
-      @Config
-      class FallbackConfig extends BaseConfig {
-        override get value() {
-          return 'fallback';
-        }
-      }
-
-      @Config
-      class UserConfig extends BaseConfig {
-        override get value() {
-          return 'user';
-        }
-      }
-
-      const app = createApp({ configs: [UserConfig] });
-      app.addFallbackConfig(FallbackConfig);
-      const { get } = await app.ready();
-      const config = get(BaseConfig);
-      expect(config.value).toBe('user');
-    });
-
-    it('overrides は configs に勝つ', async () => {
-      @Config
-      class BaseConfig {
-        get value() {
-          return 'base';
-        }
-      }
-
-      @Config
-      class UserConfig extends BaseConfig {
-        override get value() {
-          return 'user';
-        }
-      }
-
-      @Config
-      class TestConfig extends BaseConfig {
-        override get value() {
-          return 'test';
-        }
-      }
-
-      const app = createApp({ configs: [UserConfig] });
-      app.overrideConfig(TestConfig);
-      const { get } = await app.ready();
-      const config = get(BaseConfig);
-      expect(config.value).toBe('test');
-    });
-
-    it('configs に root 自身を含めると defaults の fallback は使われない', async () => {
-      @Config
-      class BaseConfig {
-        get value() {
-          return 'base';
-        }
-      }
-
-      @Config
-      class FallbackConfig extends BaseConfig {
-        override get value() {
-          return 'fallback';
-        }
-      }
-
-      const app = createApp({ configs: [BaseConfig] });
-      app.addFallbackConfig(FallbackConfig);
-      const { get } = await app.ready();
-      const config = get(BaseConfig);
-      expect(config.value).toBe('base');
-    });
-
-    it('configs も defaults もなければ root config 自身が返る', async () => {
-      @Config
-      class BaseConfig {
-        get value() {
-          return 'base';
-        }
-      }
-
-      const app = createApp({});
-      const { get } = await app.ready();
-      const config = get(BaseConfig);
-      expect(config.value).toBe('base');
-    });
-  });
-
-  describe('multiple independent hierarchies', () => {
-    it('異なる hierarchy の config は独立して動作する', async () => {
+  describe('multiple independent configs', () => {
+    it('each config tree resolves independently', async () => {
       @Config
       class DbConfig {
         get url() {
@@ -193,14 +124,12 @@ describe('config token', () => {
         }
       }
 
-      @Config
       class UserDbConfig extends DbConfig {
         override get url() {
           return 'db://user';
         }
       }
 
-      @Config
       class FallbackCacheConfig extends CacheConfig {
         override get url() {
           return 'cache://fallback';
