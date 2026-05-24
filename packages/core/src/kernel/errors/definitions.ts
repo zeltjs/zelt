@@ -26,7 +26,7 @@ export const coreErrorDefinitions = {
 
   ZeltContextNotAvailableError: (ctx: {
     primitive: string;
-    requiredContext: 'entry' | 'command' | 'request';
+    requiredContext: 'entry' | 'command';
   }) => `${ctx.primitive}() called outside ${ctx.requiredContext} execution`,
 
   ZeltAppConfigurationError: (ctx: { reason: 'duplicate_command'; details: string }) =>

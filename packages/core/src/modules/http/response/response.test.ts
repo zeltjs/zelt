@@ -96,8 +96,8 @@ describe('response()', () => {
     expect(await res.json()).toEqual({ wrapped: true });
   });
 
-  it('throws when called outside request execution', () => {
-    expect(() => response()).toThrow(/called outside request execution/);
+  it('throws when called outside entry execution', () => {
+    expect(() => response()).toThrow(/called outside entry execution/);
   });
 
   it('stream returns chunked response', async () => {

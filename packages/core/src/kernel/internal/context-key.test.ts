@@ -29,8 +29,8 @@ describe('context-key', () => {
 
     it('throws when called outside runInContext', () => {
       const KEY = createContextKey<string>('test:outside');
-      expect(() => getInternal(KEY)).toThrow(/outside request execution/);
-      expect(() => setInternal(KEY, 'value')).toThrow(/outside request execution/);
+      expect(() => getInternal(KEY)).toThrow(/outside entry execution/);
+      expect(() => setInternal(KEY, 'value')).toThrow(/outside entry execution/);
     });
 
     it('isolates concurrent contexts', async () => {

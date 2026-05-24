@@ -23,7 +23,7 @@ const getPathParams = (): PathParams => {
   if (!ctx)
     throw new ZeltContextNotAvailableError({
       primitive: 'pathParam',
-      requiredContext: 'request',
+      requiredContext: 'entry',
     });
   return ctx;
 };

@@ -25,7 +25,7 @@ export const getInternal = <T>(key: ContextKey<T>): T | undefined => {
   if (!store)
     throw new ZeltContextNotAvailableError({
       primitive: 'getInternal',
-      requiredContext: 'request',
+      requiredContext: 'entry',
     });
   return castValue<T>(store[key._symbol]);
 };
@@ -35,7 +35,7 @@ export const setInternal = <T>(key: ContextKey<T>, value: T): void => {
   if (!store)
     throw new ZeltContextNotAvailableError({
       primitive: 'setInternal',
-      requiredContext: 'request',
+      requiredContext: 'entry',
     });
   store[key._symbol] = value;
 };

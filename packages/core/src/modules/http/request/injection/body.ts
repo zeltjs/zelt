@@ -26,7 +26,7 @@ const getBody = (): ParsedBody => {
   if (!ctx)
     throw new ZeltContextNotAvailableError({
       primitive: 'body',
-      requiredContext: 'request',
+      requiredContext: 'entry',
     });
   return ctx;
 };

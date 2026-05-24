@@ -19,7 +19,7 @@ type TestHttpContext = {
   pathParams?: Readonly<Record<string, string>>;
 };
 
-export const runInHttpContext = <T>(ctx: TestHttpContext, fn: () => T): T => {
+export const runInEntryContext = <T>(ctx: TestHttpContext, fn: () => T): T => {
   return runInContext(() => {
     setHonoContext(ctx.honoContext);
     setBody(ctx.body ?? { type: 'none', val: undefined });

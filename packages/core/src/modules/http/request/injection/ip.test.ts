@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { runInHttpContext } from '../../internal/test-helpers';
+import { runInEntryContext } from '../../internal/test-helpers';
 
 import { ip } from './ip';
 
@@ -16,7 +16,7 @@ describe('ip primitive', () => {
       'cf-connecting-ip': '1.1.1.1',
       'x-forwarded-for': '2.2.2.2',
     });
-    runInHttpContext(
+    runInEntryContext(
       // @ts-expect-error narrow typed test fixture
       { honoContext },
       () => {
@@ -30,7 +30,7 @@ describe('ip primitive', () => {
       'x-real-ip': '3.3.3.3',
       'x-forwarded-for': '2.2.2.2',
     });
-    runInHttpContext(
+    runInEntryContext(
       // @ts-expect-error narrow typed test fixture
       { honoContext },
       () => {
@@ -43,7 +43,7 @@ describe('ip primitive', () => {
     const honoContext = makeContext({
       'x-forwarded-for': '4.4.4.4, 5.5.5.5',
     });
-    runInHttpContext(
+    runInEntryContext(
       // @ts-expect-error narrow typed test fixture
       { honoContext },
       () => {
@@ -54,7 +54,7 @@ describe('ip primitive', () => {
 
   it('returns undefined when no headers available', () => {
     const honoContext = makeContext({});
-    runInHttpContext(
+    runInEntryContext(
       // @ts-expect-error narrow typed test fixture
       { honoContext },
       () => {

@@ -16,7 +16,7 @@ export const requestContext = (): Context => {
   if (!ctx)
     throw new ZeltContextNotAvailableError({
       primitive: 'requestContext',
-      requiredContext: 'request',
+      requiredContext: 'entry',
     });
   return ctx;
 };
