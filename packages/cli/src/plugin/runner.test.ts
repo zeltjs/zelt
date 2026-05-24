@@ -163,6 +163,20 @@ describe('runBuildHook', () => {
       app: mockApp,
     });
   });
+
+  it('handles empty plugins array', async () => {
+    const config: ZeltConfig = { ...baseConfig, plugins: [] };
+    const result = await runBuildHook({ cwd: '/test', config, app: createMockApp() });
+
+    expect(result).toEqual({ handled: false });
+  });
+
+  it('handles undefined plugins', async () => {
+    const config: ZeltConfig = { ...baseConfig };
+    const result = await runBuildHook({ cwd: '/test', config, app: createMockApp() });
+
+    expect(result).toEqual({ handled: false });
+  });
 });
 
 describe('runPostBuildHooks', () => {
@@ -217,5 +231,30 @@ describe('runPostBuildHooks', () => {
     await expect(
       runPostBuildHooks({ cwd: '/test', config, app: createMockApp() }, { success: true }),
     ).resolves.toBeUndefined();
+  });
+
+  it('handles undefined plugins', async () => {
+    const config: ZeltConfig = { ...baseConfig };
+    await expect(
+      runPostBuildHooks({ cwd: '/test', config, app: createMockApp() }, { success: true }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('skips plugins without postBuild hook', async () => {
+    const postBuildFn = vi.fn();
+
+    const pluginWithHook: ZeltPlugin = {
+      name: 'with-hook',
+      postBuild: postBuildFn,
+    };
+
+    const pluginWithoutHook: ZeltPlugin = {
+      name: 'without-hook',
+    };
+
+    const config: ZeltConfig = { ...baseConfig, plugins: [pluginWithoutHook, pluginWithHook] };
+    await runPostBuildHooks({ cwd: '/test', config, app: createMockApp() }, { success: true });
+
+    expect(postBuildFn).toHaveBeenCalledOnce();
   });
 });

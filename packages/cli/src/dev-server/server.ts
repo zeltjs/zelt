@@ -91,8 +91,17 @@ const runHooks = async (
   const hookOptions = { cwd, config, app };
 
   await runPreBuildHooks(hookOptions);
-  await runBuildHook(hookOptions);
-  await runPostBuildHooks(hookOptions, { success: true });
+
+  let success = true;
+
+  try {
+    await runBuildHook(hookOptions);
+  } catch (error) {
+    success = false;
+    throw error;
+  } finally {
+    await runPostBuildHooks(hookOptions, { success });
+  }
 };
 
 const createShutdownHandler = (state: DevServerState) => {

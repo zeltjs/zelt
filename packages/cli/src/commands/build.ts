@@ -52,21 +52,27 @@ const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
 
   await runPreBuildHooks(hookOptions);
 
-  const buildResult = await runBuildHook(hookOptions);
   let success = true;
+  let buildError: unknown;
 
-  if (!buildResult.handled) {
-    consola.start('Building...');
-    try {
+  try {
+    const buildResult = await runBuildHook(hookOptions);
+
+    if (!buildResult.handled) {
+      consola.start('Building...');
       await runTsdownBuild({ cwd, config: buildConfig });
       consola.success('Build completed');
-    } catch (error) {
-      success = false;
-      throw error;
     }
+  } catch (error) {
+    success = false;
+    buildError = error;
+  } finally {
+    await runPostBuildHooks(hookOptions, { success });
   }
 
-  await runPostBuildHooks(hookOptions, { success });
+  if (buildError !== undefined) {
+    throw buildError;
+  }
 };
 
 const handleError = (error: RunBuildError): void => {
