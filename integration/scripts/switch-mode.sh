@@ -141,78 +141,65 @@ EOF
   fi
 }
 
-switch_to_dist() {
-  local integration_dir="$1"
-  echo "Switching $integration_dir to dist mode..."
-
-  echo "  Building packages..."
+# Mode-level preparation (run once before iterating dirs)
+prepare_dist_mode() {
+  echo "Building packages..."
   (cd "$ROOT_DIR" && pnpm -r --filter './packages/*' build >/dev/null 2>&1)
-
-  generate_package_json "dist" "$integration_dir" > "$integration_dir/package.json"
-
-  echo "  Installing dependencies..."
-  (cd "$integration_dir" && rm -rf node_modules pnpm-lock.yaml && pnpm install --ignore-workspace 2>/dev/null)
-
-  echo "  ✓ dist mode ready"
 }
 
-switch_to_pack() {
-  local integration_dir="$1"
+prepare_pack_mode() {
   local pack_dir="$INTEGRATION_DIR/.pack-cache"
-
-  echo "Switching $integration_dir to pack mode..."
 
   rm -rf "$pack_dir"
   mkdir -p "$pack_dir"
 
-  echo "  Building packages..."
+  echo "Building packages..."
   (cd "$ROOT_DIR" && pnpm -r --filter './packages/*' build >/dev/null 2>&1)
 
-  echo "  Packing all @zeltjs/* packages..."
+  echo "Packing all @zeltjs/* packages..."
   for pkg in "${PACKAGES[@]}"; do
     local pkg_dir="$ROOT_DIR/packages/$pkg"
     if [[ -d "$pkg_dir" ]]; then
       (cd "$pkg_dir" && pnpm pack --pack-destination "$pack_dir" >/dev/null 2>&1)
-      echo "    ✓ @zeltjs/$pkg"
+      echo "  ✓ @zeltjs/$pkg"
     fi
   done
-
-  generate_package_json "pack" "$integration_dir" > "$integration_dir/package.json"
-
-  echo "  Installing dependencies..."
-  (cd "$integration_dir" && rm -rf node_modules pnpm-lock.yaml && pnpm install --ignore-workspace 2>/dev/null)
-
-  echo "  ✓ pack mode ready"
 }
 
-switch_to_public() {
-  local integration_dir="$1"
-  echo "Switching $integration_dir to public mode..."
+# Per-directory setup (generate package.json + install)
+setup_integration_dir() {
+  local mode="$1"
+  local integration_dir="$2"
+  local name
+  name=$(basename "$integration_dir")
 
-  echo "  Fetching latest versions from npm..."
-  generate_package_json "public" "$integration_dir" > "$integration_dir/package.json"
+  echo "Setting up $name..."
+  generate_package_json "$mode" "$integration_dir" > "$integration_dir/package.json"
 
   echo "  Installing dependencies..."
   (cd "$integration_dir" && rm -rf node_modules pnpm-lock.yaml && pnpm install --ignore-workspace 2>/dev/null)
 
-  echo "  ✓ public mode ready"
+  echo "  ✓ $name ready"
 }
 
 main() {
   case "$MODE" in
     dist)
+      prepare_dist_mode
       for dir in $(get_integration_dirs); do
-        switch_to_dist "$dir"
+        setup_integration_dir "dist" "$dir"
       done
       ;;
     pack)
+      prepare_pack_mode
       for dir in $(get_integration_dirs); do
-        switch_to_pack "$dir"
+        setup_integration_dir "pack" "$dir"
       done
       ;;
     public)
+      echo "Fetching latest versions from npm..."
       for dir in $(get_integration_dirs); do
-        switch_to_public "$dir"
+        setup_integration_dir "public" "$dir"
       done
       ;;
     *)
