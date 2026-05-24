@@ -16,7 +16,7 @@
     "lint": "eslint . && oxlint .",
     "lint:fix": "eslint . --fix && oxlint . --fix",
     "knip": "knip",
-    "codepolicy": "time codepolicy --filter=all 2>&1 | tee codepolicy.all.log",
+    "codepolicy": "time codepolicy --filter=all 2>&1 | tee codepolicy.log",
     "test": "vitest run",
     "typecheck": "tsc -b",
     "precommit": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm build && pnpm verify-dist && pnpm check:no-neverthrow-leak && pnpm throw-trace && pnpm test && npx precommit-verify save",
