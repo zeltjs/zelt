@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@zeltjs/decorator-metadata": "workspace:*",
-    "ts-json-schema-generator": "2.9.0"
+    "ts-pattern": "5.6.0"
   },
   "devDependencies": {
     "@types/node": "22.19.17",

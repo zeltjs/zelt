@@ -3,9 +3,16 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { ZeltDecoratorUsageError } from '@zeltjs/core';
-import { getSourcePosition } from '@zeltjs/decorator-metadata/inspect';
-import type { Config } from 'ts-json-schema-generator';
-import { createGenerator } from 'ts-json-schema-generator';
+import type {
+  ClassMetadata,
+  InspectOptions,
+  MethodInfo,
+  TypeInfo,
+} from '@zeltjs/decorator-metadata/inspect';
+import { getSourcePosition, getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
+
+import type { JsonSchema } from './schema-adapter';
+import { typeInfoToJsonSchema } from './type-to-schema';
 
 export type RouteInfo = {
   readonly method: string;
@@ -15,6 +22,13 @@ export type RouteInfo = {
 };
 
 export type ControllerClass = new (...args: never[]) => object;
+
+type InspectableClass = new (...args: unknown[]) => object;
+
+function toInspectableClass(cls: ControllerClass): InspectableClass;
+function toInspectableClass(cls: ControllerClass): unknown {
+  return cls;
+}
 
 export type ControllerRouteInfo = {
   readonly basePath: string;
@@ -44,7 +58,7 @@ export type GenerateOpenApiResult = {
   readonly changed: boolean;
 };
 
-type SchemaMap = Record<string, unknown>;
+type SchemaMap = Record<string, JsonSchema>;
 type Operation = Record<string, unknown>;
 type PathItem = Record<string, Operation>;
 
@@ -74,72 +88,60 @@ const buildPathParams = (
   }));
 };
 
-const createSchemaGenerator = (tsconfigPath: string, typeName: string): unknown => {
-  const config: Config = {
-    tsconfig: tsconfigPath,
-    type: typeName,
-    skipTypeCheck: true,
-    topRef: false,
-  };
-  const generator = createGenerator(config);
-  return generator.createSchema(typeName);
+const isVoidType = (type: TypeInfo): boolean =>
+  type.kind === 'primitive' && type.type === 'undefined';
+
+const findMethodInfo = (metadata: ClassMetadata, methodName: string): MethodInfo | undefined =>
+  metadata.methods.find((m) => m.name === methodName);
+
+const isNoBodyMethod = (method: string): boolean => method === 'GET' || method === 'DELETE';
+
+const getValidFirstParam = (methodInfo: MethodInfo | undefined): TypeInfo | undefined => {
+  if (!methodInfo || methodInfo.params.length === 0) return undefined;
+  const firstParam = methodInfo.params[0];
+  if (!firstParam || isVoidType(firstParam.type)) return undefined;
+  return firstParam.type;
 };
 
-const toSchemaObject = (schema: unknown): Record<string, unknown> | undefined => {
-  if (typeof schema !== 'object' || schema === null) return undefined;
-  const obj: Record<string, unknown> = { ...schema };
-  return obj;
-};
-
-const isUndefinedSchema = (schemaObj: Record<string, unknown>): boolean =>
-  schemaObj['type'] === 'undefined' || schemaObj['$ref'] === '#/definitions/undefined';
-
-const tryGenerateSchema = (
-  tsconfigPath: string,
-  typeName: string,
-): Record<string, unknown> | undefined => {
-  try {
-    const schema = createSchemaGenerator(tsconfigPath, typeName);
-    return toSchemaObject(schema);
-  } catch {
-    return undefined;
-  }
-};
-
-const buildRequestBody = (
+const buildRequestBodyFromTypeInfo = (
   controller: ControllerRouteInfo,
   route: RouteInfo,
-  tsconfigPath: string,
+  methodInfo: MethodInfo | undefined,
   schemas: SchemaMap,
 ): Operation | undefined => {
-  if (route.method === 'GET' || route.method === 'DELETE') return undefined;
+  if (isNoBodyMethod(route.method)) return undefined;
 
-  const typeName = `Parameters<typeof ${controller.name}.prototype.${route.methodName}>[0]`;
-  const schemaObj = tryGenerateSchema(tsconfigPath, typeName);
+  const firstParamType = getValidFirstParam(methodInfo);
+  if (!firstParamType) return undefined;
 
-  if (!schemaObj || isUndefinedSchema(schemaObj)) return undefined;
+  const { schema } = typeInfoToJsonSchema(firstParamType);
+  if (Object.keys(schema).length === 0) return undefined;
 
   const refName = `${controller.name}_${route.methodName}_Request`;
-  schemas[refName] = schemaObj;
+  schemas[refName] = schema;
   return {
     required: true,
     content: { 'application/json': { schema: { $ref: `#/components/schemas/${refName}` } } },
   };
 };
 
-const buildResponseSchema = (
+const buildResponseSchemaFromTypeInfo = (
   controller: ControllerRouteInfo,
   route: RouteInfo,
-  tsconfigPath: string,
+  methodInfo: MethodInfo | undefined,
   schemas: SchemaMap,
 ): Record<string, unknown> => {
-  const typeName = `Awaited<ReturnType<typeof ${controller.name}.prototype.${route.methodName}>>`;
-  const schemaObj = tryGenerateSchema(tsconfigPath, typeName);
+  if (!methodInfo || isVoidType(methodInfo.returnType)) {
+    return { '200': { description: 'OK' } };
+  }
 
-  if (!schemaObj) return { '200': { description: 'OK' } };
+  const { schema } = typeInfoToJsonSchema(methodInfo.returnType);
+  if (Object.keys(schema).length === 0) {
+    return { '200': { description: 'OK' } };
+  }
 
   const refName = `${controller.name}_${route.methodName}_Response`;
-  schemas[refName] = schemaObj;
+  schemas[refName] = schema;
   return {
     '200': {
       description: 'OK',
@@ -151,7 +153,7 @@ const buildResponseSchema = (
 const buildOperation = (
   controller: ControllerRouteInfo,
   route: RouteInfo,
-  tsconfigPath: string,
+  methodInfo: MethodInfo | undefined,
   schemas: SchemaMap,
 ): Operation => {
   const op: Operation = {};
@@ -160,23 +162,24 @@ const buildOperation = (
   const params = buildPathParams(pathParams);
   if (params) op['parameters'] = params;
 
-  const reqBody = buildRequestBody(controller, route, tsconfigPath, schemas);
+  const reqBody = buildRequestBodyFromTypeInfo(controller, route, methodInfo, schemas);
   if (reqBody) op['requestBody'] = reqBody;
 
-  op['responses'] = buildResponseSchema(controller, route, tsconfigPath, schemas);
+  op['responses'] = buildResponseSchemaFromTypeInfo(controller, route, methodInfo, schemas);
 
   return op;
 };
 
 const buildControllerRoutes = (
   controller: ControllerRouteInfoWithSource,
-  tsconfigPath: string,
+  typeMetadata: ClassMetadata | undefined,
   schemas: SchemaMap,
   paths: Record<string, PathItem>,
 ): void => {
   for (const route of controller.routes) {
     const oaPath = toOpenApiPath(route.fullPath);
-    const op = buildOperation(controller, route, tsconfigPath, schemas);
+    const methodInfo = typeMetadata ? findMethodInfo(typeMetadata, route.methodName) : undefined;
+    const op = buildOperation(controller, route, methodInfo, schemas);
 
     const existing = paths[oaPath] ?? {};
     existing[route.method.toLowerCase()] = op;
@@ -189,12 +192,21 @@ const findControllerClass = (
   name: string,
 ): ControllerClass | undefined => controllers.find((cls) => cls.name === name);
 
+type ControllerWithMeta = {
+  readonly info: ControllerRouteInfoWithSource;
+  readonly cls: ControllerClass;
+  readonly typeMetadata: ClassMetadata | undefined;
+};
+
 /** @throws {ZeltDecoratorUsageError} */
-const resolveControllersWithSource = (
+const resolveControllersWithMetadata = async (
   metadata: HttpMetadata,
   controllers: readonly ControllerClass[],
-): readonly ControllerRouteInfoWithSource[] =>
-  metadata.controllers.map((info) => {
+  options: GenerateOpenApiOptions,
+): Promise<readonly ControllerWithMeta[]> => {
+  const results: ControllerWithMeta[] = [];
+
+  for (const info of metadata.controllers) {
     const cls = findControllerClass(controllers, info.name);
     if (!cls) {
       throw new ZeltDecoratorUsageError({
@@ -203,6 +215,7 @@ const resolveControllersWithSource = (
         targetName: info.name,
       });
     }
+
     const sourceFile = getSourcePosition(cls)?.sourceFile;
     if (!sourceFile) {
       throw new ZeltDecoratorUsageError({
@@ -211,21 +224,35 @@ const resolveControllersWithSource = (
         targetName: info.name,
       });
     }
-    return { ...info, sourceFile };
-  });
 
-const buildOpenApiDoc = (
+    const inspectOptions: InspectOptions = options.tsconfig
+      ? { tsconfig: options.tsconfig, expandStrategy: 'exported-only' }
+      : { expandStrategy: 'exported-only' };
+    const typeMetadataResult = await getTypeMetadata(toInspectableClass(cls), inspectOptions);
+
+    const typeMetadata = typeMetadataResult.isOk() ? typeMetadataResult.value : undefined;
+
+    results.push({
+      info: { ...info, sourceFile },
+      cls,
+      typeMetadata,
+    });
+  }
+
+  return results;
+};
+
+const buildOpenApiDoc = async (
   metadata: HttpMetadata,
   controllers: readonly ControllerClass[],
   options: GenerateOpenApiOptions,
-): OpenApiDoc => {
-  const tsconfigPath = options.tsconfig ?? resolve('tsconfig.json');
+): Promise<OpenApiDoc> => {
   const schemas: SchemaMap = {};
   const paths: Record<string, PathItem> = {};
 
-  const controllersWithSource = resolveControllersWithSource(metadata, controllers);
-  for (const controller of controllersWithSource) {
-    buildControllerRoutes(controller, tsconfigPath, schemas, paths);
+  const controllersWithMeta = await resolveControllersWithMetadata(metadata, controllers, options);
+  for (const { info, typeMetadata } of controllersWithMeta) {
+    buildControllerRoutes(info, typeMetadata, schemas, paths);
   }
 
   return {
@@ -257,7 +284,7 @@ export const generateOpenApi = async (
 
   const metadata = app.getMetadata();
   const controllers = app.getControllers();
-  const openApiDoc = buildOpenApiDoc(metadata, controllers, options);
+  const openApiDoc = await buildOpenApiDoc(metadata, controllers, options);
 
   const openApiContent = `${JSON.stringify(openApiDoc, null, 2)}\n`;
   const openApiPath = resolve(distDir, 'openapi.json');
