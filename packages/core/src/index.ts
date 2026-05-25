@@ -15,7 +15,6 @@ export { CliConfig } from './built-in-service/cli';
 export type { ConfigClass } from './built-in-service/config';
 export { Config, overrideConfig } from './built-in-service/config';
 export { Env, EnvConfig, EnvService, EnvSource } from './built-in-service/env';
-export { CorsConfig, SecureHeadersConfig } from './built-in-service/http-security';
 export type {
   LogContext,
   LogEntry,
@@ -96,8 +95,10 @@ export type {
 export { currentRoles, currentUser, setUser } from './modules/http/middleware/auth/auth';
 // HTTP decorators
 export { Authorized } from './modules/http/middleware/auth/authorized';
+export { CorsConfig } from './modules/http/middleware/cors/cors.config';
 export { CorsMiddleware } from './modules/http/middleware/cors/cors.middleware';
 export { Middleware } from './modules/http/middleware/middleware';
+export { SecureHeadersConfig } from './modules/http/middleware/secure-headers/secure-headers.config';
 export { SecureHeadersMiddleware } from './modules/http/middleware/secure-headers/secure-headers.middleware';
 export { SkipMiddleware } from './modules/http/middleware/skip-middleware';
 export type {

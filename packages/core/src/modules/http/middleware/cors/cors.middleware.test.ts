@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../../../../app/create-app';
-import { CorsConfig } from '../../../../built-in-service/http-security/cors.config';
 import { Controller } from '../../routing/controller';
 import { Get } from '../../routing/http-method';
 import { UseMiddleware } from '../use-middleware';
+import { CorsConfig } from './cors.config';
 import { CorsMiddleware } from './cors.middleware';
 
 class CustomCorsConfig extends CorsConfig {
-  override get origin() {
-    return 'https://example.com';
-  }
+  override readonly origin = 'https://example.com';
 }
 
 describe('CorsMiddleware', () => {

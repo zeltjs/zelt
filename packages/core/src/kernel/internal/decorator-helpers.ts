@@ -50,7 +50,7 @@ export const createInjectableClassDecorator = <TProps extends { decorator: strin
     value: T,
     context: ClassDecoratorContext,
   ): void;
-  function decorate<T extends new (...args: never[]) => unknown>(target: T): T | void;
+  function decorate<T extends new (...args: never[]) => unknown>(target: T): T | undefined;
   function decorate(...args: unknown[]): unknown {
     const target = args[0];
     const context = args[1];

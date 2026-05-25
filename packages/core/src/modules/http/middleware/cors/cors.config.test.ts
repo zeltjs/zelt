@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Config, Controller, CorsConfig, createApp, Get } from '../../index';
+import { Config, Controller, CorsConfig, createApp, Get } from '../../../../index';
 
 @Controller('/test')
 class TestController {
@@ -26,9 +26,7 @@ describe('CorsConfig', () => {
   it('adds CORS headers when origin is configured', async () => {
     @Config
     class MyCorsConfig extends CorsConfig {
-      override get origin() {
-        return 'http://example.com';
-      }
+      override readonly origin = 'http://example.com';
     }
 
     const app = createApp({
@@ -49,9 +47,7 @@ describe('CorsConfig', () => {
   it('supports multiple origins', async () => {
     @Config
     class MyCorsConfig extends CorsConfig {
-      override get origin() {
-        return ['http://example.com', 'http://localhost:3000'];
-      }
+      override readonly origin = ['http://example.com', 'http://localhost:3000'];
     }
 
     const app = createApp({
@@ -72,12 +68,8 @@ describe('CorsConfig', () => {
   it('supports credentials option', async () => {
     @Config
     class MyCorsConfig extends CorsConfig {
-      override get origin() {
-        return 'http://example.com';
-      }
-      override get credentials() {
-        return true;
-      }
+      override readonly origin = 'http://example.com';
+      override readonly credentials = true;
     }
 
     const app = createApp({

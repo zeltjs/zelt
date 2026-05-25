@@ -1,9 +1,8 @@
 import { cors } from 'hono/cors';
-
-import { CorsConfig } from '../../../../built-in-service/http-security/cors.config';
 import { inject } from '../../../../kernel/di/inject';
 import { Middleware } from '../middleware';
 import type { FunctionMiddleware, MiddlewareInstance, Next, RequestContext } from '../types';
+import { CorsConfig } from './cors.config';
 
 @Middleware
 export class CorsMiddleware implements MiddlewareInstance {

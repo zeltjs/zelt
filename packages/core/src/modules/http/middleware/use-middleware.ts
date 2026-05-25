@@ -18,7 +18,7 @@ type UseMiddlewareFn = {
   // TC39 method
   (value: (...args: never[]) => unknown, context: ClassMethodDecoratorContext): void;
   // Legacy class
-  <T extends new (...args: never[]) => unknown>(target: T): T | void;
+  <T extends new (...args: never[]) => unknown>(target: T): T | undefined;
   // Legacy method
   (target: object, propertyKey: string | symbol, descriptor?: PropertyDescriptor): void;
 };

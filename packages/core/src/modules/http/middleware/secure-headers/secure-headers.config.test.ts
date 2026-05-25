@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Config, Controller, createApp, Get, SecureHeadersConfig } from '../../index';
+import { Config, Controller, createApp, Get, SecureHeadersConfig } from '../../../../index';
 
 @Controller('/test')
 class TestController {
@@ -26,12 +26,8 @@ describe('SecureHeadersConfig', () => {
   it('allows customizing security headers', async () => {
     @Config
     class MySecureHeadersConfig extends SecureHeadersConfig {
-      override get xFrameOptions() {
-        return 'DENY';
-      }
-      override get referrerPolicy() {
-        return 'strict-origin-when-cross-origin';
-      }
+      override readonly xFrameOptions = 'DENY';
+      override readonly referrerPolicy = 'strict-origin-when-cross-origin';
     }
 
     const app = createApp({
@@ -51,9 +47,7 @@ describe('SecureHeadersConfig', () => {
   it('allows disabling specific headers', async () => {
     @Config
     class MySecureHeadersConfig extends SecureHeadersConfig {
-      override get xXssProtection() {
-        return false;
-      }
+      override readonly xXssProtection = false;
     }
 
     const app = createApp({

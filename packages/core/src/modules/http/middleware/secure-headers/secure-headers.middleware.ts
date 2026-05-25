@@ -1,9 +1,8 @@
 import { secureHeaders } from 'hono/secure-headers';
-
-import { SecureHeadersConfig } from '../../../../built-in-service/http-security/secure-headers.config';
 import { inject } from '../../../../kernel/di/inject';
 import { Middleware } from '../middleware';
 import type { FunctionMiddleware, MiddlewareInstance, Next, RequestContext } from '../types';
+import { SecureHeadersConfig } from './secure-headers.config';
 
 @Middleware
 export class SecureHeadersMiddleware implements MiddlewareInstance {

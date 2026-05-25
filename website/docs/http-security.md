@@ -32,45 +32,37 @@ Security headers are automatically applied to all responses. The default configu
 
 ### Customizing Headers
 
-Extend `SecureHeadersConfig` and override getters to customize header values:
+Extend `SecureHeadersConfig` and override properties to customize header values:
 
 ```typescript
 import { Config, SecureHeadersConfig } from '@zeltjs/core';
 
 @Config
 class MySecureHeadersConfig extends SecureHeadersConfig {
-  override get xFrameOptions() {
-    return 'DENY';
-  }
+  override readonly xFrameOptions = 'DENY';
 
-  override get referrerPolicy() {
-    return 'strict-origin-when-cross-origin';
-  }
+  override readonly referrerPolicy = 'strict-origin-when-cross-origin';
 }
 ```
 
 ### Disabling Headers
 
-Set a header getter to `false` to disable it:
+Set a header property to `false` to disable it:
 
 ```typescript
 import { Config, SecureHeadersConfig } from '@zeltjs/core';
 
 @Config
 class MySecureHeadersConfig extends SecureHeadersConfig {
-  override get xXssProtection() {
-    return false;
-  }
+  override readonly xXssProtection = false;
 
-  override get xDownloadOptions() {
-    return false;
-  }
+  override readonly xDownloadOptions = false;
 }
 ```
 
 ## CorsConfig
 
-CORS is disabled by default. To enable it, extend `CorsConfig` and set the `origin` getter.
+CORS is disabled by default. To enable it, extend `CorsConfig` and set the `origin` property.
 
 ### Enabling CORS
 
@@ -79,9 +71,7 @@ import { Config, CorsConfig } from '@zeltjs/core';
 
 @Config
 class MyCorsConfig extends CorsConfig {
-  override get origin() {
-    return 'https://example.com';
-  }
+  override readonly origin = 'https://example.com';
 }
 ```
 
@@ -92,9 +82,7 @@ import { Config, CorsConfig } from '@zeltjs/core';
 
 @Config
 class MyCorsConfig extends CorsConfig {
-  override get origin() {
-    return ['https://app.example.com', 'https://admin.example.com'];
-  }
+  override readonly origin = ['https://app.example.com', 'https://admin.example.com'];
 }
 ```
 
@@ -116,25 +104,15 @@ import { Config, CorsConfig } from '@zeltjs/core';
 
 @Config
 class MyCorsConfig extends CorsConfig {
-  override get origin() {
-    return 'https://example.com';
-  }
+  override readonly origin = 'https://example.com';
 
-  override get credentials() {
-    return true;
-  }
+  override readonly credentials = true;
 
-  override get allowHeaders() {
-    return ['Content-Type', 'Authorization'];
-  }
+  override readonly allowHeaders = ['Content-Type', 'Authorization'];
 
-  override get exposeHeaders() {
-    return ['X-Request-Id'];
-  }
+  override readonly exposeHeaders = ['X-Request-Id'];
 
-  override get maxAge() {
-    return 86400;
-  }
+  override readonly maxAge = 86400;
 }
 ```
 
@@ -147,13 +125,13 @@ import { createApp, Config, CorsConfig, SecureHeadersConfig, Controller, Get } f
 
 @Config
 class MyCorsConfig extends CorsConfig {
-  override get origin() { return 'https://example.com'; }
-  override get credentials() { return true; }
+  override readonly origin = 'https://example.com';
+  override readonly credentials = true;
 }
 
 @Config
 class MySecureHeadersConfig extends SecureHeadersConfig {
-  override get xFrameOptions() { return 'DENY'; }
+  override readonly xFrameOptions = 'DENY';
 }
 
 @Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
