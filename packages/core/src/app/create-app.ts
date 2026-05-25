@@ -68,6 +68,7 @@ export function createApp(options: CreateAppOptions): App<CreateAppOptions> {
 
   const runtime = container.get(AppRuntime);
   const configRegistry = container.get(ConfigRegistry);
+
   registerInitialConfigs(configRegistry, options.configs);
 
   const baseApp = {

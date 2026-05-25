@@ -3,7 +3,7 @@ import { validated } from '@zeltjs/validator-valibot';
 import { object, string } from 'valibot';
 import { describe, expect, it } from 'vitest';
 
-import { RateLimit } from './rate-limit.decorator';
+import { RateLimit } from './rate-limit.middleware';
 
 const LoginSchema = object({ email: string() });
 

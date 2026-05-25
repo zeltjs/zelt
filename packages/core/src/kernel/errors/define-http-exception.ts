@@ -24,7 +24,7 @@ export const defineHttpException = <TCtx>(
   const buildResponse = options?.buildResponse;
 
   return class extends HTTPException {
-    declare readonly name: string;
+    override readonly name = errorName;
     readonly context: TCtx;
 
     constructor(context: TCtx, opts?: { status?: ContentfulStatusCode; cause?: unknown }) {
@@ -37,9 +37,8 @@ export const defineHttpException = <TCtx>(
         super(status, { message, cause: opts?.cause });
       }
 
-      (this as { name: string }).name = errorName;
       this.context = context;
       Object.setPrototypeOf(this, new.target.prototype);
     }
-  } as HttpExceptionClass<TCtx>;
+  } satisfies HttpExceptionClass<TCtx>;
 };

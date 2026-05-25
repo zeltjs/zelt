@@ -275,6 +275,7 @@ const writeIfChanged = async (path: string, content: string): Promise<boolean> =
   return true;
 };
 
+/** @throws {ZeltDecoratorUsageError} */
 export const generateOpenApi = async (
   app: HttpAppLike,
   options: GenerateOpenApiOptions,

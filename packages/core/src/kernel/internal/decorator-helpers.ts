@@ -5,13 +5,10 @@ import { match } from 'ts-pattern';
 
 import { ZeltDecoratorUsageError } from '../errors';
 
-type InjectableClass = new (...args: never[]) => object;
-
-const toInjectableClass = (value: unknown): InjectableClass | undefined =>
-  typeof value === 'function' ? (value as unknown as InjectableClass) : undefined;
+type AnyClass = new (...args: never[]) => unknown;
 
 export type InjectableClassDecoratorHooks = {
-  readonly afterApply?: (cls: InjectableClass) => void;
+  readonly afterApply?: (cls: AnyClass) => void;
 };
 
 export type CreateInjectableClassDecoratorOptions = {
@@ -35,33 +32,16 @@ const buildUniqueGuard =
       : undefined;
   };
 
-/** @throws {ZeltDecoratorUsageError} */
+/** @throws {E} */
 export const createInjectableClassDecorator = <TProps extends { decorator: string }>(
   props: TProps,
   hooks?: InjectableClassDecoratorHooks,
   options?: CreateInjectableClassDecoratorOptions,
-): ClassDecoratorFn => {
-  const base = createClassDecorator<TProps, ZeltDecoratorUsageError>(
-    props,
-    options?.unique ? { rejectIfApplied: buildUniqueGuard(props.decorator) } : undefined,
-  );
-
-  function decorate<T extends abstract new (...args: never[]) => unknown>(
-    value: T,
-    context: ClassDecoratorContext,
-  ): void;
-  function decorate<T extends new (...args: never[]) => unknown>(target: T): T | void;
-  function decorate(...args: unknown[]): unknown {
-    const target = args[0];
-    const context = args[1];
-    const baseFn = base as unknown as (...args: unknown[]) => unknown;
-    const ret = context === undefined ? baseFn(target) : baseFn(target, context);
-    const cls = toInjectableClass(target);
-    if (cls) {
+): ClassDecoratorFn =>
+  createClassDecorator<TProps, ZeltDecoratorUsageError>(props, {
+    ...(options?.unique ? { rejectIfApplied: buildUniqueGuard(props.decorator) } : {}),
+    afterApply: (cls) => {
       hooks?.afterApply?.(cls);
       injectable()(cls);
-    }
-    return ret;
-  }
-  return decorate;
-};
+    },
+  });

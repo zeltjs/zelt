@@ -1,10 +1,8 @@
 import type { App, CreateAppOptions } from '@zeltjs/core';
 import consola from 'consola';
 
-import type { ZeltConfig } from '../config/schema';
+import type { BuildContext, BuildResult, ZeltConfig, ZeltPlugin } from '../config/schema';
 import { ZeltMultipleBuildHooksError } from '../errors';
-
-import type { BuildContext, BuildResult, ZeltPlugin } from './types';
 
 export type RunPluginHooksOptions = {
   readonly cwd: string;
@@ -30,6 +28,7 @@ export type RunBuildHookResult = {
   readonly handled: boolean;
 };
 
+/** @throws {ZeltMultipleBuildHooksError} */
 export const runBuildHook = async (options: RunPluginHooksOptions): Promise<RunBuildHookResult> => {
   const { cwd, config, app } = options;
   const plugins: readonly ZeltPlugin[] = config.plugins ?? [];

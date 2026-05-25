@@ -15,11 +15,13 @@ void _useInternalRole;
 
 @createClassDecorator({ basePath: '/users' })
 export class UserController {
+  /** @throws {E} */
   @createMethodDecorator({ method: 'GET', path: '/:id' })
   getUser(_id: UserId): Promise<User | null> {
     return Promise.resolve(null);
   }
 
+  /** @throws {E} */
   @createMethodDecorator({ method: 'POST', path: '/' })
   createUser(data: Pick<User, 'name' | 'email'>): User {
     return { id: '1', name: data.name, email: data.email };

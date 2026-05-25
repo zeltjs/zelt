@@ -1,14 +1,36 @@
-import { Controller, Get, pathParam } from '@zeltjs/core';
+import { Controller, Get, inject, pathParam, response } from '@zeltjs/core';
+
+import { HelloService } from './hello.service';
 
 @Controller('/hello')
 export class HelloController {
+  constructor(private helloService = inject(HelloService)) {}
+
   @Get('/')
   index() {
-    return { message: 'Hello, World!' };
+    return response()
+      .header('Authorization', 'Bearer')
+      .json({ message: this.helloService.greeting() });
+  }
+
+  @Get('/async')
+  async asyncGreeting() {
+    return response()
+      .header('Authorization', 'Bearer')
+      .json({ message: this.helloService.greeting() });
+  }
+
+  @Get('/stream')
+  streamGreeting() {
+    return response()
+      .header('Authorization', 'Bearer')
+      .json({ message: this.helloService.greeting() });
   }
 
   @Get('/:name')
   greet(name = pathParam('name')) {
-    return { message: `Hello, ${name}!` };
+    return response()
+      .header('Authorization', 'Bearer')
+      .json({ message: this.helloService.greet(name) });
   }
 }

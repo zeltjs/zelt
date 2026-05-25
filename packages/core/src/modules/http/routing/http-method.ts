@@ -3,7 +3,7 @@ import { createMethodDecorator } from '@zeltjs/decorator-metadata';
 import { ZeltDecoratorUsageError } from '../../../kernel/errors';
 import type { HttpMethod } from './metadata';
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {E} */
 const makeDecorator = (method: HttpMethod) => (path: string) =>
   createMethodDecorator({ decorator: 'Route' as const, method, path } as const, {
     rejectStatic: () =>

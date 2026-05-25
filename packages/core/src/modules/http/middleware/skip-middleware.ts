@@ -3,7 +3,7 @@ import { createMethodDecorator } from '@zeltjs/decorator-metadata';
 import { ZeltDecoratorUsageError } from '../../../kernel/errors';
 import type { MiddlewareIdentifier } from './types';
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {E} */
 export const SkipMiddleware = (...skipped: MiddlewareIdentifier[]) =>
   createMethodDecorator({ decorator: 'SkipMiddleware' as const, skipped } as const, {
     rejectStatic: () =>

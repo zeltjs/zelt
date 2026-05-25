@@ -6,7 +6,7 @@ import { inject, LifecycleManager } from '@zeltjs/core';
 export abstract class DatabaseService<TDatabase> implements Lifecycle {
   private readonly txStorage = new AsyncLocalStorage<TDatabase>();
   protected originalClient!: TDatabase;
-  private shutdownHandlers: (() => Promise<void>)[] = [];
+  private readonly shutdownHandlers: (() => Promise<void>)[] = [];
 
   constructor(lifecycle = inject(LifecycleManager)) {
     lifecycle.register(this);
@@ -36,7 +36,7 @@ export abstract class DatabaseService<TDatabase> implements Lifecycle {
   }
 
   async shutdown(): Promise<void> {
-    for (const handler of this.shutdownHandlers.reverse()) {
+    for (const handler of [...this.shutdownHandlers].reverse()) {
       await handler();
     }
   }

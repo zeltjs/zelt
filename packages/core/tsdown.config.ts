@@ -16,7 +16,7 @@ export default defineConfig({
   clean: true,
   fixedExtension: false,
   deps: {
-    alwaysBundle: ['croner', 'ts-pattern'],
+    alwaysBundle: ['croner', 'ts-pattern', '@zeltjs/unsafe-type-lib'],
     neverBundle: ['hono', /^hono\//, /^@hono\//, 'valibot'],
   },
 });
