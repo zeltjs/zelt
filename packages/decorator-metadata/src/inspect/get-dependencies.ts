@@ -59,6 +59,18 @@ const findModuleSpecifier = (
   return importDecl.moduleSpecifier.text;
 };
 
+const resolveClassDeclaration = (
+  symbol: import('typescript').Symbol,
+  ts: TypeScriptModule,
+  checker: TSTypeChecker,
+): import('typescript').ClassDeclaration | undefined => {
+  const resolved =
+    (symbol.flags & ts.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(symbol) : symbol;
+  return resolved.getDeclarations()?.find((d) => ts.isClassDeclaration(d)) as
+    | import('typescript').ClassDeclaration
+    | undefined;
+};
+
 const extractDepFromParam = (
   param: import('typescript').ParameterDeclaration,
   ts: TypeScriptModule,
@@ -67,20 +79,16 @@ const extractDepFromParam = (
 ): DependencyInfo | undefined => {
   if (!param.initializer || !ts.isCallExpression(param.initializer)) return undefined;
 
-  const callExpr = param.initializer;
-  const callee = callExpr.expression;
+  const callee = param.initializer.expression;
   if (!ts.isIdentifier(callee) || callee.text !== 'inject') return undefined;
 
-  const arg = callExpr.arguments[0];
+  const arg = param.initializer.arguments[0];
   if (!arg || !ts.isIdentifier(arg)) return undefined;
 
   const symbol = checker.getSymbolAtLocation(arg);
   if (!symbol) return undefined;
 
-  const resolvedSymbol =
-    (symbol.flags & ts.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(symbol) : symbol;
-
-  const decl = resolvedSymbol.getDeclarations()?.find((d) => ts.isClassDeclaration(d));
+  const decl = resolveClassDeclaration(symbol, ts, checker);
   if (!decl) return undefined;
 
   return {
