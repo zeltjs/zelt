@@ -21,7 +21,7 @@ const dayToCron: Record<DayOfWeek, string> = {
   saturday: '6',
 };
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {E} */
 export const Weekly = (options: WeeklyOptions) => {
   const minute = options.minute ?? 0;
   const cronDay = dayToCron[options.day];

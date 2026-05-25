@@ -37,7 +37,7 @@ const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefine
   outDir: args.outDir ?? buildConfig?.outDir,
 });
 
-/** @throws {ZeltConfigLoadError | ZeltBuildError | ZeltNoEntryError | ZeltMultipleBuildHooksError} */
+/** @throws {ZeltNoEntryError | ZeltBuildError | ZeltMultipleBuildHooksError | ZeltConfigLoadError | {} | null} */
 const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
   const configFile = typedArgs.config;
   const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });

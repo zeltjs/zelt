@@ -95,7 +95,8 @@ export const runCommandDef = defineCommand({
   },
   async run({ args, rawArgs }) {
     const cwd = cliConfig.cwd();
-    const configFile = args.config as string | undefined;
+    // citty types config as `string` but it's actually `string | undefined` at runtime when omitted
+    const configFile = args.config || undefined;
     const cliArgs = rawArgs.filter(
       (arg) => arg !== '-c' && arg !== '--config' && arg !== configFile,
     );

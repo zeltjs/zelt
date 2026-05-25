@@ -12,6 +12,8 @@ import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
 import type { Module } from '../module';
 import { DefaultErrorHandler } from './error/default.error-handler';
+import { CorsMiddleware } from './middleware/cors/cors.middleware';
+import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
@@ -24,7 +26,9 @@ import { buildRoutes, warmupControllers } from './routing/route-builder';
 
 // --- Types ---
 
-export type ControllerClass = new (...args: never[]) => object;
+import type { ControllerClass } from './types';
+
+export type { ControllerClass } from './types';
 
 export type HttpOptions = {
   readonly controllers: readonly ControllerClass[];
@@ -111,9 +115,16 @@ export class HttpRuntime implements Lifecycle {
   private async initializeHono(): Promise<Hono> {
     try {
       const hono = new Hono({ strict: false });
+
       const errorHandlers = resolveErrorHandlers(this.options.errorHandlers ?? [], this.container);
       const fallbackHandler = resolve(this.container, DefaultErrorHandler);
       hono.onError(createErrorHandler(errorHandlers, fallbackHandler));
+
+      const securityMiddlewares: readonly MiddlewareInput[] = [
+        CorsMiddleware,
+        SecureHeadersMiddleware,
+      ];
+
       buildRoutes({
         hono,
         controllers: this.options.controllers,
@@ -122,7 +133,7 @@ export class HttpRuntime implements Lifecycle {
             resolve(this.container, cls),
         },
         lifecycle: this.lifecycleManager,
-        globalMiddlewares: this.options.middlewares ?? [],
+        globalMiddlewares: [...securityMiddlewares, ...(this.options.middlewares ?? [])],
       });
       return hono;
     } catch (e) {

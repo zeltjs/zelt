@@ -52,7 +52,7 @@ const buildGenerateOptions = (options: OpenApiPluginOptions): GenerateOpenApiOpt
   ...(options.version !== undefined && { version: options.version }),
 });
 
-/** @throws {ZeltPluginConfigurationError} */
+/** @throws {ZeltDecoratorUsageError | ZeltPluginConfigurationError} */
 export const openapiPlugin = (options: OpenApiPluginOptions = {}): ZeltPlugin => ({
   name: 'openapi',
   async preBuild(ctx) {

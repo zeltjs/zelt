@@ -1,4 +1,4 @@
-import type { Container as ContainerType } from '@needle-di/core';
+import type { Container } from '@needle-di/core';
 import { InjectionToken } from '@needle-di/core';
 
 type AnyClass = new (...args: never[]) => unknown;
@@ -12,7 +12,7 @@ type LeafInjectionToken = InjectionToken<AnyInstance>;
 const leafClasses = new WeakSet<AnyClass>();
 const leafCategoryCache = new WeakMap<AnyClass, 'direct' | 'inherited'>();
 const leafTokenMap = new WeakMap<RootLeafClass, LeafInjectionToken>();
-const boundTokens = new WeakMap<ContainerType, Set<LeafInjectionToken>>();
+const boundTokens = new WeakMap<Container, Set<LeafInjectionToken>>();
 
 const toAnyClass = (proto: unknown): AnyClass | null => {
   if (proto === null || proto === Function.prototype) return null;
@@ -77,11 +77,11 @@ const getLeafToken = (rootClass: RootLeafClass): LeafInjectionToken => {
 };
 
 /** @throws {ZeltLifecycleStateError} */
-const isTokenBound = (container: ContainerType, token: LeafInjectionToken): boolean =>
+const isTokenBound = (container: Container, token: LeafInjectionToken): boolean =>
   boundTokens.get(container)?.has(token) ?? false;
 
 /** @throws {ZeltLifecycleStateError} */
-const markTokenBound = (container: ContainerType, token: LeafInjectionToken): void => {
+const markTokenBound = (container: Container, token: LeafInjectionToken): void => {
   const existing = boundTokens.get(container);
   if (existing) {
     existing.add(token);
@@ -91,11 +91,7 @@ const markTokenBound = (container: ContainerType, token: LeafInjectionToken): vo
 };
 
 /** @throws {ZeltLifecycleStateError} */
-const bindLeafInternal = (
-  container: ContainerType,
-  token: LeafInjectionToken,
-  cls: AnyClass,
-): void => {
+const bindLeafInternal = (container: Container, token: LeafInjectionToken, cls: AnyClass): void => {
   const singleToken = new InjectionToken<AnyInstance>(`${cls.name}:single`);
   const factory = cls as new () => AnyInstance;
   container.bind({
@@ -108,7 +104,7 @@ const bindLeafInternal = (
 
 /** @throws {ZeltLifecycleStateError} */
 export const overrideLeaf = (
-  container: ContainerType,
+  container: Container,
   cls: AnyClass,
   options?: { readonly fallback?: boolean },
 ): void => {
@@ -127,7 +123,7 @@ export const overrideLeaf = (
 };
 
 /** @throws {ZeltLifecycleStateError} */
-export const ensureLeafBound = (container: ContainerType, cls: AnyClass): LeafInjectionToken => {
+export const ensureLeafBound = (container: Container, cls: AnyClass): LeafInjectionToken => {
   const rootClass = findRootLeafClass(cls);
   const token = getLeafToken(rootClass);
 
@@ -140,11 +136,11 @@ export const ensureLeafBound = (container: ContainerType, cls: AnyClass): LeafIn
 
 /** @throws {ZeltLifecycleStateError} */
 export const getLeaf = <T extends object>(
-  container: ContainerType,
+  container: Container,
   cls: new (...args: never[]) => T,
 ): T => container.get(ensureLeafBound(container, cls)) as T;
 
-export const resolveLeaf = (container: ContainerType, cls: AnyClass): void => {
+export const resolveLeaf = (container: Container, cls: AnyClass): void => {
   const rootClass = findRootLeafClass(cls);
   const token = getLeafToken(rootClass);
   container.get(token);

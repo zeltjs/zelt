@@ -15,10 +15,10 @@ beforeAll(() => {
   process.setMaxListeners(50);
 });
 
-import { NodeCliConfig } from './cli.config';
+import { NodeCliConfig } from './node-cli.config';
 import type { CommandNodeApp, HttpNodeApp, SchedulerNodeAppPart, ServerHandle } from './on-node';
 import { onNode } from './on-node';
-import { ProcessEnvSource } from './process-env-source';
+import { ProcessEnvAdaptor } from './process-env.adaptor';
 
 describe('onNode with HTTP', () => {
   let nodeApp: HttpNodeApp | undefined;
@@ -101,7 +101,7 @@ describe('onNode with HTTP', () => {
 
     nodeApp = await onNode(app);
 
-    expect(addFallbackConfigSpy).toHaveBeenCalledWith(ProcessEnvSource);
+    expect(addFallbackConfigSpy).toHaveBeenCalledWith(ProcessEnvAdaptor);
   });
 
   it('auto-injects NodeCliConfig when no CliConfig is configured', async () => {

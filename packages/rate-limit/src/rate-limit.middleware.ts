@@ -1,5 +1,5 @@
 import type { Next, RequestContext } from '@zeltjs/core';
-import { Injectable, inject } from '@zeltjs/core';
+import { Injectable, inject, UseMiddleware } from '@zeltjs/core';
 
 import { RateLimitExceededException, RateLimitUnavailableException } from './exceptions';
 import { RateLimitService } from './rate-limit.service';
@@ -40,3 +40,7 @@ export class RateLimitMiddleware {
     return undefined;
   }
 }
+
+/** @throws {E} */
+export const RateLimit = (opts: RateLimitOptions): ReturnType<typeof UseMiddleware> =>
+  UseMiddleware([RateLimitMiddleware, opts]);

@@ -96,12 +96,25 @@ const rule: Rule.RuleModule = {
       unknownSuffix:
         '@{{decorator}} class "{{className}}" has unknown suffix. Use one of: {{knownSuffixes}}',
     },
-    schema: [],
+    schema: [
+      {
+        type: 'object',
+        properties: {
+          allowedNames: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+        },
+        additionalProperties: false,
+      },
+    ],
   },
 
   create(context) {
     const filename = context.filename;
     const basename = path.basename(filename);
+    const options = (context.options[0] ?? {}) as { allowedNames?: string[] };
+    const allowedNames = new Set(options.allowedNames ?? []);
 
     if (basename.endsWith('.test.ts')) {
       return {};
@@ -121,6 +134,23 @@ const rule: Rule.RuleModule = {
 
         const className = (node.id as Identifier | null)?.name;
         if (!className) {
+          return;
+        }
+
+        if (allowedNames.has(className)) {
+          const expectedFile = `${camelToKebab(className)}.ts`;
+          if (basename !== expectedFile) {
+            context.report({
+              node,
+              messageId: 'fileNameMismatch',
+              data: {
+                decorator,
+                className,
+                expectedPattern: expectedFile,
+                actualFile: basename,
+              },
+            });
+          }
           return;
         }
 
