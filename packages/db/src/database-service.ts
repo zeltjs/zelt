@@ -36,7 +36,7 @@ export abstract class DatabaseService<TDatabase> implements Lifecycle {
   }
 
   async shutdown(): Promise<void> {
-    for (const handler of this.shutdownHandlers.reverse()) {
+    for (const handler of [...this.shutdownHandlers].reverse()) {
       await handler();
     }
   }

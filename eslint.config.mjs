@@ -215,7 +215,7 @@ export default tseslint.config(
     },
   },
   {
-    files: [EXAMPLE_FILES],
+    files: EXAMPLE_FILES,
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',

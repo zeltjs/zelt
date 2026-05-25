@@ -32,7 +32,7 @@ export class CorsMiddleware implements MiddlewareInstance {
       await next();
       return undefined;
     }
-    await this.middleware(c, next);
-    return undefined;
+    const res = await this.middleware(c, next);
+    return res ?? undefined;
   }
 }

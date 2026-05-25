@@ -25,6 +25,8 @@ describe('SecureHeadersMiddleware', () => {
 
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+
+    await app.shutdown();
   });
 
   it('can be used with @UseMiddleware', async () => {
@@ -45,5 +47,7 @@ describe('SecureHeadersMiddleware', () => {
     const res = await app.fetch(new Request('http://localhost/test'));
 
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+
+    await app.shutdown();
   });
 });

@@ -34,6 +34,8 @@ describe('CorsMiddleware', () => {
     );
 
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://example.com');
+
+    await app.shutdown();
   });
 
   it('can be used with @UseMiddleware', async () => {
@@ -59,5 +61,7 @@ describe('CorsMiddleware', () => {
     );
 
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://example.com');
+
+    await app.shutdown();
   });
 });
