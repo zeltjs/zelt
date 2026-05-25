@@ -52,4 +52,19 @@ describe('getDependencies', () => {
 
     expect(result.value).toHaveLength(0);
   });
+
+  it('detects hasConfigDecorator for @Config classes', async () => {
+    const { ServiceWithConfig } = await import('./fixtures/deps/with-config');
+
+    const result = await getDependencies(ServiceWithConfig, {
+      tsconfig: resolve(__dirname, '../../tsconfig.json'),
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]?.className).toBe('TestConfig');
+    expect(result.value[0]?.hasConfigDecorator).toBe(true);
+  });
 });
