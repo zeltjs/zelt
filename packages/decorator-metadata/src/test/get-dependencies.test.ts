@@ -39,4 +39,17 @@ describe('getDependencies', () => {
     expect(classNames).toContain('DepB');
     expect(classNames).toContain('DepC');
   });
+
+  it('returns empty array for class with no dependencies', async () => {
+    const { NoDepService } = await import('./fixtures/deps/no-dep');
+
+    const result = await getDependencies(NoDepService, {
+      tsconfig: resolve(__dirname, '../../tsconfig.json'),
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toHaveLength(0);
+  });
 });
