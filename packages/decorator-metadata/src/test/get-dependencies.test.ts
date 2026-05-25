@@ -21,4 +21,22 @@ describe('getDependencies', () => {
     expect(result.value).toHaveLength(1);
     expect(result.value[0]?.className).toBe('DependencyA');
   });
+
+  it('extracts multiple dependencies from constructor', async () => {
+    const { MultiDepService } = await import('./fixtures/deps/multi-dep');
+
+    const result = await getDependencies(MultiDepService, {
+      tsconfig: resolve(__dirname, '../../tsconfig.json'),
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toHaveLength(3);
+
+    const classNames = result.value.map((d) => d.className);
+    expect(classNames).toContain('DepA');
+    expect(classNames).toContain('DepB');
+    expect(classNames).toContain('DepC');
+  });
 });
