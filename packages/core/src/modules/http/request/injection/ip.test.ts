@@ -1,8 +1,34 @@
+import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 
-import { runInEntryContext } from '../../internal/test-helpers';
-
+import { runInContext } from '../../../../kernel/internal/context-key';
+import { setHonoContext } from '../request-context';
+import { setBody } from './body';
 import { ip } from './ip';
+import { setPathParams } from './path-param';
+
+type FormBody = Record<string, string | File | (string | File)[]>;
+
+type ParsedBody =
+  | { type: 'json'; val: unknown }
+  | { type: 'form'; val: FormBody }
+  | { type: 'text'; val: string }
+  | { type: 'none'; val: undefined };
+
+type TestEntryContext = {
+  honoContext: Context;
+  body?: ParsedBody;
+  pathParams?: Readonly<Record<string, string>>;
+};
+
+const runInEntryContext = <T>(ctx: TestEntryContext, fn: () => T): T => {
+  return runInContext(() => {
+    setHonoContext(ctx.honoContext);
+    setBody(ctx.body ?? { type: 'none', val: undefined });
+    setPathParams(ctx.pathParams ?? {});
+    return fn();
+  });
+};
 
 const makeContext = (headers: Record<string, string>) => ({
   req: {

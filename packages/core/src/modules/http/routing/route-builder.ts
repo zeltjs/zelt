@@ -9,9 +9,6 @@ import {
 } from '../../../kernel/errors';
 import { runInContext } from '../../../kernel/internal/context-key';
 import type { LifecycleManager } from '../../../kernel/lifecycle';
-import { setBody } from '../request/injection/body';
-import { setPathParams } from '../request/injection/path-param';
-import { setHonoContext } from '../request/request-context';
 import { currentRoles, currentUser } from '../middleware/auth/auth';
 import type {
   FunctionMiddleware,
@@ -19,6 +16,9 @@ import type {
   MiddlewareInput,
   MiddlewareInputWithOptions,
 } from '../middleware/types';
+import { setBody } from '../request/injection/body';
+import { setPathParams } from '../request/injection/path-param';
+import { setHonoContext } from '../request/request-context';
 import type { HttpMethod } from './metadata';
 import {
   getAuthorizedMetadata,

@@ -1,10 +1,9 @@
-import type { RequestContextSchema } from '../../request/injection/get-context';
-
 import {
   createContextKey,
   getInternal,
   setInternal,
 } from '../../../../kernel/internal/context-key';
+import type { RequestContextSchema } from '../../request/injection/get-context';
 
 type AuthContextValue = Pick<RequestContextSchema, 'user' | 'authRoles'>;
 
