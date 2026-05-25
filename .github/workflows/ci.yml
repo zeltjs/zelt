@@ -105,6 +105,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Integration Test
+        run: pnpm test:integration
+
       - name: Knip
         run: pnpm knip
 

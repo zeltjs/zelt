@@ -5,10 +5,13 @@ categories:
     labels: ['feature', 'enhancement']
   - title: '🐛 Bug Fixes'
     labels: ['fix', 'bugfix']
+    exclude-labels: ['feature', 'enhancement']
   - title: '📖 Documentation'
     labels: ['documentation']
+    exclude-labels: ['feature', 'enhancement', 'fix', 'bugfix']
   - title: '🧹 Maintenance'
     labels: ['chore', 'maintenance']
+    exclude-labels: ['feature', 'enhancement', 'fix', 'bugfix', 'documentation']
 change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
 version-resolver:
   major:

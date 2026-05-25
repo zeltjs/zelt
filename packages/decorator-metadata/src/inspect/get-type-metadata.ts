@@ -6,6 +6,7 @@ import { errAsync, okAsync } from 'neverthrow';
 import type { Position, StackTrace } from '../runtime/position';
 import { resolvePosition } from '../runtime/position';
 import { getInternalClassMetadata } from '../runtime/store';
+import { findClassAtPosition } from './ast-utils';
 import type { ProgramCacheError } from './program-cache';
 import { getOrCreateProgram } from './program-cache';
 import { createTypeExtractor } from './type-extractor';
@@ -26,8 +27,6 @@ type TypeScriptModule = typeof import('typescript');
 type TSClassDeclaration = import('typescript').ClassDeclaration;
 type TSMethodDeclaration = import('typescript').MethodDeclaration;
 type TSPropertyDeclaration = import('typescript').PropertyDeclaration;
-type TSSourceFile = import('typescript').SourceFile;
-type TSNode = import('typescript').Node;
 type TSTypeChecker = import('typescript').TypeChecker;
 type ExtractTypeFn = (type: import('typescript').Type) => TypeInfo;
 
@@ -40,20 +39,6 @@ type StoredPropertyMeta = {
   readonly name: string | symbol;
   readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
-};
-
-const findClassAtPosition = (
-  sourceFile: TSSourceFile,
-  pos: number,
-  ts: TypeScriptModule,
-): TSClassDeclaration | undefined => {
-  const find = (node: TSNode): TSClassDeclaration | undefined => {
-    if (ts.isClassDeclaration(node) && node.pos <= pos && pos < node.end) {
-      return node;
-    }
-    return ts.forEachChild(node, find);
-  };
-  return find(sourceFile);
 };
 
 const findMethodInClass = (
