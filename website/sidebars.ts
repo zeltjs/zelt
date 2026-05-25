@@ -27,6 +27,7 @@ const sidebars: SidebarsConfig = {
       label: 'Security',
       collapsed: false,
       items: [
+        'http-security',
         'rate-limiting',
         {
           type: 'category',

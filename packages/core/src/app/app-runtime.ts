@@ -75,6 +75,7 @@ export class AppRuntime {
     }
   }
 
+  /** @throws {ZeltLifecycleStateError} */
   private buildReadyResult(): ReadyResult {
     return {
       get: <T extends object>(cls: new (...args: never[]) => T): T => {

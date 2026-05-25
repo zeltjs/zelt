@@ -21,5 +21,5 @@ export const defineError = <TCtx>(
       super(messageFormatter(context), { cause });
       Object.setPrototypeOf(this, new.target.prototype);
     }
-  } as ErrorClass<TCtx>;
+  } satisfies ErrorClass<TCtx>;
 };

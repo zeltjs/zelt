@@ -11,5 +11,6 @@
     "erasableSyntaxOnly": false,
     "types": ["node"]
   },
+  "references": [{ "path": "../unsafe-type-lib" }],
   "include": ["src/**/*"]
 }

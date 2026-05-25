@@ -10,7 +10,9 @@ import { createSchedulerRunner } from './runner';
 
 // --- Types ---
 
-export type SchedulerClass = new (...args: never[]) => object;
+import type { SchedulerClass } from './types';
+
+export type { SchedulerClass } from './types';
 
 export type SchedulerCapabilities = {
   readonly startScheduler: () => Promise<void>;

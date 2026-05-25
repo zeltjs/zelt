@@ -3,8 +3,8 @@ import { createApp } from '../../app/create-app';
 import { Config } from '../config';
 
 import { LoggerConfig } from './logger.config';
-import type { LogLevel } from './logger.lib';
 import { LoggerService } from './logger.service';
+import type { LogLevel } from './logger.types';
 
 describe('LoggerService', () => {
   const consoleSpy = vi.spyOn(console, 'log');

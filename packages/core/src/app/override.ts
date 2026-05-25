@@ -1,5 +1,7 @@
 import type { Container } from '@needle-di/core';
 
+import { ZeltInternalError } from '../kernel/errors/classes';
+
 type AnyClass = new (...args: never[]) => unknown;
 
 export type Override<T = unknown> = {
@@ -7,19 +9,17 @@ export type Override<T = unknown> = {
   readonly useValue: T;
 };
 
-const CONTAINER_SYMBOL: unique symbol = Symbol('zelt:container');
+const containers = new WeakMap<object, Container>();
 
-type AppWithContainer = {
-  readonly [CONTAINER_SYMBOL]: Container;
+export const attachContainer = <T extends object>(app: T, container: Container): T => {
+  containers.set(app, container);
+  return app;
 };
 
-export const attachContainer = <T extends object>(
-  app: T,
-  container: Container,
-): T & AppWithContainer => Object.assign(app, { [CONTAINER_SYMBOL]: container });
-
+/** @throws {ZeltInternalError} */
 export const override = (app: object, overrides: readonly Override[]): void => {
-  const container = (app as AppWithContainer)[CONTAINER_SYMBOL];
+  const container = containers.get(app);
+  if (!container) throw new ZeltInternalError({ reason: 'container_not_attached' });
   for (const o of overrides) {
     container.bind({ provide: o.provide, useValue: o.useValue });
   }

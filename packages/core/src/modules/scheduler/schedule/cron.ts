@@ -6,7 +6,7 @@ type CronOptions = {
   readonly tz?: string;
 };
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {E} */
 export const Cron = (expression: string, options?: CronOptions) =>
   createMethodDecorator(
     {

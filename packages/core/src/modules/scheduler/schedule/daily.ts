@@ -8,7 +8,7 @@ type DailyOptions = {
   readonly tz?: string;
 };
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {E} */
 export const Daily = (options: DailyOptions) => {
   const minute = options.minute ?? 0;
   const cronExpression = `${minute} ${options.hour} * * *`;

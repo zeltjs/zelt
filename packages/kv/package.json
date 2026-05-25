@@ -46,6 +46,7 @@
   "devDependencies": {
     "@zeltjs/core": "workspace:*",
     "@zeltjs/redis": "workspace:*",
+    "@zeltjs/unsafe-type-lib": "workspace:*",
     "@types/node": "22.19.17",
     "ioredis": "5.10.1"
   },

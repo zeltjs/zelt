@@ -68,14 +68,13 @@ describe('RateLimitService', () => {
   });
 
   it('failureMode=open returns allowed when store throws', async () => {
-    const failingConfig = new RateLimitConfig(memoryKv);
-    Object.defineProperty(failingConfig, 'store', {
-      value: {
+    class FailingOpenConfig extends RateLimitConfig {
+      override readonly store = {
         incr: vi.fn().mockRejectedValue(new Error('redis connection refused')),
         del: vi.fn(),
-      } as unknown as AtomicKVStore,
-    });
-    const limiter = new RateLimitService(failingConfig, mockLoggerService);
+      } as unknown as AtomicKVStore;
+    }
+    const limiter = new RateLimitService(new FailingOpenConfig(memoryKv), mockLoggerService);
     const r = await limiter.hit('test:k5', { limit: 5, windowSec: 60 });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('expected ok');
@@ -83,15 +82,14 @@ describe('RateLimitService', () => {
   });
 
   it('failureMode=closed returns error when store throws', async () => {
-    const failingConfig = new RateLimitConfig(memoryKv);
-    Object.defineProperty(failingConfig, 'store', {
-      value: {
+    class FailingClosedConfig extends RateLimitConfig {
+      override readonly store = {
         incr: vi.fn().mockRejectedValue(new Error('redis connection refused')),
         del: vi.fn(),
-      } as unknown as AtomicKVStore,
-    });
-    failingConfig.failureMode = 'closed';
-    const limiter = new RateLimitService(failingConfig, mockLoggerService);
+      } as unknown as AtomicKVStore;
+      override readonly failureMode = 'closed' as const;
+    }
+    const limiter = new RateLimitService(new FailingClosedConfig(memoryKv), mockLoggerService);
     const r = await limiter.hit('test:k6', { limit: 5, windowSec: 60 });
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('expected error');
