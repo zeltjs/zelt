@@ -67,4 +67,17 @@ describe('getDependencies', () => {
     expect(result.value[0]?.className).toBe('TestConfig');
     expect(result.value[0]?.hasConfigDecorator).toBe(true);
   });
+
+  it('returns error for class without decorator metadata', async () => {
+    class PlainClass {}
+
+    const result = await getDependencies(PlainClass, {
+      tsconfig: resolve(__dirname, '../../tsconfig.json'),
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.code).toBe('NO_METADATA');
+    }
+  });
 });
