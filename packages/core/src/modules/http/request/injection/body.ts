@@ -1,22 +1,22 @@
-import { ZeltBodyTypeMismatchError } from '../../../../kernel/errors';
+import { HTTPException } from 'hono/http-exception';
+
 import { getEntryContext } from '../entry-context';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
 
-/** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
+/** @throws {ZeltContextNotAvailableError | HTTPException} */
 export function body(type?: 'json'): unknown;
-/** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
+/** @throws {ZeltContextNotAvailableError | HTTPException} */
 export function body(type: 'form'): FormBody;
-/** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
+/** @throws {ZeltContextNotAvailableError | HTTPException} */
 export function body(type: 'text'): string;
-/** @throws {ZeltContextNotAvailableError | ZeltBodyTypeMismatchError} */
+/** @throws {ZeltContextNotAvailableError | HTTPException} */
 export function body(type: 'json' | 'form' | 'text' = 'json'): unknown {
   const { body: parsedBody } = getEntryContext().input;
 
   if (parsedBody.type !== type) {
-    throw new ZeltBodyTypeMismatchError({
-      expected: type,
-      actual: parsedBody.type,
+    throw new HTTPException(415, {
+      message: `Expected ${type} body, got ${parsedBody.type}`,
     });
   }
 
