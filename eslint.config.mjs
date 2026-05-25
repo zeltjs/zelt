@@ -73,6 +73,7 @@ export default tseslint.config(
             '**/*.adaptor.ts',
             '**/*.service.ts',
             '**/*.command.ts',
+            '**/*.middleware.ts',
           ],
         },
       ],
