@@ -29,7 +29,10 @@ const mergeGlobalDefaults = (configs: readonly AnyConfigClass[]): AnyConfigClass
   return [...defaults.configs, ...configs];
 };
 
-/** @throws {ZeltLifecycleStateError} */
+/**
+ * @throws {ZeltLifecycleStateError}
+ * @throws {ZeltInternalError}
+ */
 export const createTestTarget = async <T extends object>(
   targetClass: new (...args: never[]) => T,
   options: CreateTestTargetOptions = {},

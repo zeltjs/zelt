@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Consolidate EnvConfig/EnvService into a single Env class, make EnvSource internal, remove DotEnvConfig.
+**Goal:** Consolidate EnvConfig/EnvService into a single Env class, make EnvAdaptor internal, remove DotEnvConfig.
 
-**Architecture:** Env (user-facing) → EnvSource (internal abstraction) → ProcessEnvSource (adapter-node). Old classes marked @deprecated.
+**Architecture:** Env (user-facing) → EnvAdaptor (internal abstraction) → ProcessEnvAdaptor (adapter-node). Old classes marked @deprecated.
 
 **Tech Stack:** TypeScript, Vitest, @zeltjs/core, @zeltjs/adapter-node
 
@@ -14,35 +14,35 @@
 
 | File | Action | Responsibility |
 |------|--------|---------------|
-| `packages/core/src/modules/env/env-source.ts` | Create | Internal abstraction for env value retrieval |
+| `packages/core/src/modules/env/env.adaptor.ts` | Create | Internal abstraction for env value retrieval |
 | `packages/core/src/modules/env/env.ts` | Create | User-facing Env class with getString/getNumber/getBoolean/getRequired |
 | `packages/core/src/modules/env/env.test.ts` | Create | Tests for new Env class |
 | `packages/core/src/modules/env/env.config.ts` | Modify | Add @deprecated |
 | `packages/core/src/modules/env/env.service.ts` | Modify | Add @deprecated |
-| `packages/core/src/modules/env/index.ts` | Modify | Export Env, EnvSource |
+| `packages/core/src/modules/env/index.ts` | Modify | Export Env, EnvAdaptor |
 | `packages/core/src/index.ts` | Modify | Export Env |
-| `packages/adapter-node/src/process-env-source.ts` | Create | ProcessEnvSource implementation |
-| `packages/adapter-node/src/on-node.ts` | Modify | Use ProcessEnvSource instead of ProcessEnvConfig |
+| `packages/adapter-node/src/process-env.adaptor.ts` | Create | ProcessEnvAdaptor implementation |
+| `packages/adapter-node/src/on-node.ts` | Modify | Use ProcessEnvAdaptor instead of ProcessEnvConfig |
 | `packages/adapter-node/src/process-env.config.ts` | Modify | Add @deprecated |
-| `packages/adapter-node/src/dotenv.config.ts` | Modify | Add @deprecated |
-| `packages/adapter-node/src/index.ts` | Modify | Export ProcessEnvSource |
+| `packages/adapter-node/src/dot-env.config.ts` | Modify | Add @deprecated |
+| `packages/adapter-node/src/index.ts` | Modify | Export ProcessEnvAdaptor |
 | `website/docs/configuration.md` | Modify | Update to use inject(Env) |
 
 ---
 
-### Task 1: Create EnvSource internal abstraction
+### Task 1: Create EnvAdaptor internal abstraction
 
 **Files:**
-- Create: `packages/core/src/modules/env/env-source.ts`
+- Create: `packages/core/src/modules/env/env.adaptor.ts`
 
-- [ ] **Step 1: Create EnvSource class**
+- [ ] **Step 1: Create EnvAdaptor class**
 
 ```typescript
-// packages/core/src/modules/env/env-source.ts
+// packages/core/src/modules/env/env.adaptor.ts
 import { Config } from '../../config';
 
 @Config
-export class EnvSource {
+export class EnvAdaptor {
   get(_key: string): string | undefined {
     return undefined;
   }
@@ -57,8 +57,8 @@ Expected: PASS
 - [ ] **Step 3: Commit**
 
 ```bash
-git add packages/core/src/modules/env/env-source.ts
-git commit -m "feat(core): add EnvSource internal abstraction"
+git add packages/core/src/modules/env/env.adaptor.ts
+git commit -m "feat(core): add EnvAdaptor internal abstraction"
 ```
 
 ---
@@ -79,10 +79,10 @@ import { Config } from '../../config';
 import { createTestTargetBase } from '../../di/container';
 
 import { Env } from './env';
-import { EnvSource } from './env-source';
+import { EnvAdaptor } from './env-source';
 
 @Config
-class TestEnvSource extends EnvSource {
+class TestEnvSource extends EnvAdaptor {
   override get(key: string): string | undefined {
     return process.env[key];
   }
@@ -194,11 +194,11 @@ Expected: FAIL with "Cannot find module './env'"
 import { inject } from '../../di/inject';
 import { Injectable } from '../../di/injectable';
 
-import { EnvSource } from './env-source';
+import { EnvAdaptor } from './env-source';
 
 @Injectable()
 export class Env {
-  constructor(private source = inject(EnvSource)) {}
+  constructor(private source = inject(EnvAdaptor)) {}
 
   getString(key: string, defaultValue: string = ''): string {
     return this.source.get(key) ?? defaultValue;
@@ -242,7 +242,7 @@ git commit -m "feat(core): add Env class with getString/getNumber/getBoolean/get
 
 ---
 
-### Task 3: Export Env and EnvSource from core
+### Task 3: Export Env and EnvAdaptor from core
 
 **Files:**
 - Modify: `packages/core/src/modules/env/index.ts`
@@ -255,7 +255,7 @@ git commit -m "feat(core): add Env class with getString/getNumber/getBoolean/get
 export { Env } from './env';
 export { EnvConfig } from './env.config';
 export { EnvService } from './env.service';
-export { EnvSource } from './env-source';
+export { EnvAdaptor } from './env-source';
 ```
 
 - [ ] **Step 2: Update core package exports**
@@ -267,7 +267,7 @@ export { EnvConfig, EnvService } from './modules/env';
 
 Replace with:
 ```typescript
-export { Env, EnvConfig, EnvService, EnvSource } from './modules/env';
+export { Env, EnvConfig, EnvService, EnvAdaptor } from './modules/env';
 ```
 
 - [ ] **Step 3: Run typecheck**
@@ -279,24 +279,24 @@ Expected: PASS
 
 ```bash
 git add packages/core/src/modules/env/index.ts packages/core/src/index.ts
-git commit -m "feat(core): export Env and EnvSource"
+git commit -m "feat(core): export Env and EnvAdaptor"
 ```
 
 ---
 
-### Task 4: Create ProcessEnvSource in adapter-node
+### Task 4: Create ProcessEnvAdaptor in adapter-node
 
 **Files:**
-- Create: `packages/adapter-node/src/process-env-source.ts`
+- Create: `packages/adapter-node/src/process-env.adaptor.ts`
 
-- [ ] **Step 1: Create ProcessEnvSource class**
+- [ ] **Step 1: Create ProcessEnvAdaptor class**
 
 ```typescript
-// packages/adapter-node/src/process-env-source.ts
-import { Config, EnvSource } from '@zeltjs/core';
+// packages/adapter-node/src/process-env.adaptor.ts
+import { Config, EnvAdaptor } from '@zeltjs/core';
 
 @Config
-export class ProcessEnvSource extends EnvSource {
+export class ProcessEnvAdaptor extends EnvAdaptor {
   override get(key: string): string | undefined {
     return process.env[key];
   }
@@ -311,13 +311,13 @@ Expected: PASS
 - [ ] **Step 3: Commit**
 
 ```bash
-git add packages/adapter-node/src/process-env-source.ts
-git commit -m "feat(adapter-node): add ProcessEnvSource"
+git add packages/adapter-node/src/process-env.adaptor.ts
+git commit -m "feat(adapter-node): add ProcessEnvAdaptor"
 ```
 
 ---
 
-### Task 5: Update onNode to use ProcessEnvSource
+### Task 5: Update onNode to use ProcessEnvAdaptor
 
 **Files:**
 - Modify: `packages/adapter-node/src/on-node.ts`
@@ -331,7 +331,7 @@ import { ProcessEnvConfig } from './process-env.config';
 
 Replace with:
 ```typescript
-import { ProcessEnvSource } from './process-env-source';
+import { ProcessEnvAdaptor } from './process-env-source';
 ```
 
 - [ ] **Step 2: Update addFallbackConfig call**
@@ -343,7 +343,7 @@ In `packages/adapter-node/src/on-node.ts`, find line 208:
 
 Replace with:
 ```typescript
-  app.addFallbackConfig(ProcessEnvSource);
+  app.addFallbackConfig(ProcessEnvAdaptor);
 ```
 
 - [ ] **Step 3: Run tests**
@@ -355,21 +355,21 @@ Expected: PASS
 
 ```bash
 git add packages/adapter-node/src/on-node.ts
-git commit -m "refactor(adapter-node): use ProcessEnvSource in onNode"
+git commit -m "refactor(adapter-node): use ProcessEnvAdaptor in onNode"
 ```
 
 ---
 
-### Task 6: Export ProcessEnvSource from adapter-node
+### Task 6: Export ProcessEnvAdaptor from adapter-node
 
 **Files:**
 - Modify: `packages/adapter-node/src/index.ts`
 
-- [ ] **Step 1: Add ProcessEnvSource export**
+- [ ] **Step 1: Add ProcessEnvAdaptor export**
 
 In `packages/adapter-node/src/index.ts`, add after line 6:
 ```typescript
-export { ProcessEnvSource } from './process-env-source';
+export { ProcessEnvAdaptor } from './process-env-source';
 ```
 
 - [ ] **Step 2: Run typecheck**
@@ -381,7 +381,7 @@ Expected: PASS
 
 ```bash
 git add packages/adapter-node/src/index.ts
-git commit -m "feat(adapter-node): export ProcessEnvSource"
+git commit -m "feat(adapter-node): export ProcessEnvAdaptor"
 ```
 
 ---
@@ -392,7 +392,7 @@ git commit -m "feat(adapter-node): export ProcessEnvSource"
 - Modify: `packages/core/src/modules/env/env.config.ts`
 - Modify: `packages/core/src/modules/env/env.service.ts`
 - Modify: `packages/adapter-node/src/process-env.config.ts`
-- Modify: `packages/adapter-node/src/dotenv.config.ts`
+- Modify: `packages/adapter-node/src/dot-env.config.ts`
 
 - [ ] **Step 1: Deprecate EnvConfig**
 
@@ -464,7 +464,7 @@ export class EnvService {
 import { Config, EnvConfig } from '@zeltjs/core';
 
 /**
- * @deprecated Use `inject(Env)` instead. ProcessEnvSource is registered automatically by onNode().
+ * @deprecated Use `inject(Env)` instead. ProcessEnvAdaptor is registered automatically by onNode().
  * Will be removed in next major version.
  * @see Env
  */
@@ -479,7 +479,7 @@ export class ProcessEnvConfig extends EnvConfig {
 - [ ] **Step 4: Deprecate DotEnvConfig**
 
 ```typescript
-// packages/adapter-node/src/dotenv.config.ts
+// packages/adapter-node/src/dot-env.config.ts
 import { Config, EnvConfig } from '@zeltjs/core';
 import { config } from 'dotenv';
 
@@ -515,7 +515,7 @@ Expected: PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add packages/core/src/modules/env/env.config.ts packages/core/src/modules/env/env.service.ts packages/adapter-node/src/process-env.config.ts packages/adapter-node/src/dotenv.config.ts
+git add packages/core/src/modules/env/env.config.ts packages/core/src/modules/env/env.service.ts packages/adapter-node/src/process-env.config.ts packages/adapter-node/src/dot-env.config.ts
 git commit -m "deprecate: mark EnvConfig, EnvService, ProcessEnvConfig, DotEnvConfig as deprecated"
 ```
 
@@ -594,4 +594,4 @@ After completing all tasks:
 1. Users can use `inject(Env)` with `getString`, `getNumber`, `getBoolean`, `getRequired`
 2. Old classes (`EnvConfig`, `EnvService`, `ProcessEnvConfig`, `DotEnvConfig`) are deprecated
 3. `.env` loading is user responsibility via `import 'dotenv/config'`
-4. `EnvSource` is internal, `ProcessEnvSource` is registered by `onNode()` automatically
+4. `EnvAdaptor` is internal, `ProcessEnvAdaptor` is registered by `onNode()` automatically

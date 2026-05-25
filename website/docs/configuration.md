@@ -132,7 +132,7 @@ The `Token` property is inherited from the parent class, so `inject(DatabaseConf
 
 ### Node.js Environment
 
-When using `onNode()`, `ProcessEnvSource` is registered automatically, so `inject(Env)` reads from `process.env` without any extra config:
+When using `onNode()`, `ProcessEnvAdaptor` is registered automatically, so `inject(Env)` reads from `process.env` without any extra config:
 
 ```typescript
 import { Config, Env, inject, createApp, Controller, Get } from '@zeltjs/core';

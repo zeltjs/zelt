@@ -2,11 +2,11 @@ import { inject } from '../../kernel/di/inject';
 import { Injectable } from '../../kernel/di/injectable';
 import { ZeltEnvError } from '../../kernel/errors';
 
-import { EnvSource } from './env-source';
+import { EnvAdaptor } from './env.adaptor';
 
 @Injectable()
 export class Env {
-  constructor(private source = inject(EnvSource)) {}
+  constructor(private source = inject(EnvAdaptor)) {}
 
   getString(key: string, defaultValue: string = ''): string {
     return this.source.get(key) ?? defaultValue;

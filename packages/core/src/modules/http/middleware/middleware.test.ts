@@ -19,6 +19,28 @@ describe('@Middleware', () => {
     expect(typeof instance.use).toBe('function');
   });
 
+  it('makes class injectable when TC39 context has no metadata', () => {
+    class TestMiddleware {
+      use(_c: Context, next: Next) {
+        return next();
+      }
+    }
+    const ctx = {
+      kind: 'class',
+      name: 'TestMiddleware',
+      addInitializer: () => {},
+    } as unknown as ClassDecoratorContext;
+
+    const result = (Middleware as (value: unknown, ctx: ClassDecoratorContext) => unknown)(
+      TestMiddleware,
+      ctx,
+    );
+
+    const container = new Container();
+    expect(result).toBeUndefined();
+    expect(container.get(TestMiddleware)).toBeInstanceOf(TestMiddleware);
+  });
+
   it('preserves class identity after decoration', () => {
     @Middleware
     class LoggingMiddleware {

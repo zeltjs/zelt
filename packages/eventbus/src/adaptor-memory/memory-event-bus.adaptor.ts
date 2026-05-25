@@ -1,29 +1,36 @@
-import { EventEmitter } from 'node:events';
 import { Injectable } from '@zeltjs/core';
+import mitt from 'mitt';
 
 import type { EventBusAdaptor, EventBusSchema } from '../types';
 
 @Injectable()
 export class MemoryEventBusAdaptor implements EventBusAdaptor {
-  private readonly emitter = new EventEmitter();
+  private readonly emitter = mitt<EventBusSchema>();
 
-  async emit<K extends keyof EventBusSchema>(event: K, data: EventBusSchema[K]): Promise<void> {
-    this.emitter.emit(event as string, data);
+  async emit<K extends string & keyof EventBusSchema>(
+    event: K,
+    data: EventBusSchema[K],
+  ): Promise<void> {
+    this.emitter.emit(event, data);
   }
 
-  on<K extends keyof EventBusSchema>(
+  on<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
   ): () => void {
-    this.emitter.on(event as string, handler);
-    return () => this.emitter.off(event as string, handler);
+    this.emitter.on(event, handler);
+    return () => this.emitter.off(event, handler);
   }
 
-  once<K extends keyof EventBusSchema>(
+  once<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
   ): () => void {
-    this.emitter.once(event as string, handler);
-    return () => this.emitter.off(event as string, handler);
+    const wrappedHandler = (data: EventBusSchema[K]) => {
+      unsubscribe();
+      handler(data);
+    };
+    const unsubscribe = this.on(event, wrappedHandler);
+    return unsubscribe;
   }
 }

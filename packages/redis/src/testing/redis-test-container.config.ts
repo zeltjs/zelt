@@ -5,10 +5,15 @@ import { GenericContainer } from 'testcontainers';
 
 import { RedisConfig } from '../redis.config';
 
+// 敗北
+interface RedisTestContainerState {
+  container: StartedTestContainer | undefined;
+  connectionUrl: string;
+}
+
 @Config
 export class RedisTestContainerConfig extends RedisConfig implements Lifecycle {
-  private container: StartedTestContainer | undefined;
-  private connectionUrl = '';
+  private readonly state: RedisTestContainerState = { container: undefined, connectionUrl: '' };
 
   constructor(lifecycle = inject(LifecycleManager)) {
     super();
@@ -20,18 +25,18 @@ export class RedisTestContainerConfig extends RedisConfig implements Lifecycle {
   }
 
   async startup(): Promise<void> {
-    this.container = await new GenericContainer(this.image).withExposedPorts(6379).start();
-    const host = this.container.getHost();
-    const port = this.container.getMappedPort(6379);
-    this.connectionUrl = `redis://${host}:${port}`;
+    this.state.container = await new GenericContainer(this.image).withExposedPorts(6379).start();
+    const host = this.state.container.getHost();
+    const port = this.state.container.getMappedPort(6379);
+    this.state.connectionUrl = `redis://${host}:${port}`;
   }
 
   async shutdown(): Promise<void> {
-    await this.container?.stop();
+    await this.state.container?.stop();
   }
 
   override get url(): string {
-    return this.connectionUrl;
+    return this.state.connectionUrl;
   }
 
   override get options(): RedisConfig['options'] {

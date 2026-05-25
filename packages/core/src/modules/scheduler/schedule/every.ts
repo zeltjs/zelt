@@ -6,7 +6,7 @@ type EveryOptions =
   | { readonly minutes: number; readonly seconds?: never }
   | { readonly seconds: number; readonly minutes?: never };
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {E} */
 export const Every = (options: EveryOptions) => {
   const cronExpression =
     options.seconds !== undefined

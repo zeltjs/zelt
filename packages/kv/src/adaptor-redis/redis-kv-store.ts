@@ -1,24 +1,20 @@
 import type Redis from 'ioredis';
+import type { Result } from 'ioredis';
+
 import { ZeltKVInvalidTtlError } from '../errors';
 import { joinPrefix } from '../namespace';
 import { deserialize, serialize } from '../serialize';
 import type { AtomicKVStore, Defined, NonEmptyString, SetOptions } from '../types';
 
-import { INCR_WITH_TTL_LUA } from './lua-scripts';
+declare module 'ioredis' {
+  interface RedisCommander<Context> {
+    incrWithTtl(key: string, by: number | string, ttlArg: string): Result<number, Context>;
+  }
+}
 
 /** @throws {ZeltKVInvalidTtlError} */
 const validateTtl = (ttlSec: number | undefined): void => {
   if (ttlSec !== undefined && ttlSec <= 0) throw new ZeltKVInvalidTtlError({ ttlSec });
-};
-
-const incrWithTtl = async (
-  client: Redis,
-  key: string,
-  by: number,
-  ttlSec: number | undefined,
-): Promise<number> => {
-  const ttlArg = ttlSec !== undefined ? String(ttlSec) : '';
-  return client.eval(INCR_WITH_TTL_LUA, 1, key, by, ttlArg) as Promise<number>;
 };
 
 export class RedisKVStore implements AtomicKVStore {
@@ -70,7 +66,8 @@ export class RedisKVStore implements AtomicKVStore {
   /** @throws {ZeltKVInvalidTtlError} */
   async incr(key: string, by = 1, opts?: { ttlSec?: number }): Promise<number> {
     validateTtl(opts?.ttlSec);
-    return incrWithTtl(this.client, this.k(key), by, opts?.ttlSec);
+    const ttlArg = opts?.ttlSec !== undefined ? String(opts.ttlSec) : '';
+    return this.client.incrWithTtl(this.k(key), by, ttlArg);
   }
 
   /** @throws {ZeltKVInvalidTtlError} */

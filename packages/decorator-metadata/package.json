@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@types/node": "22.19.17",
+    "@zeltjs/unsafe-type-lib": "workspace:*",
     "neverthrow": "8.2.0",
     "typescript": "6.0.2"
   },
