@@ -5,6 +5,7 @@ import { errAsync, okAsync } from 'neverthrow';
 
 import { resolvePosition } from '../runtime/position';
 import { getInternalClassMetadata } from '../runtime/store';
+import { findClassAtPosition, findClassByName } from './ast-utils';
 import type { ProgramCacheError } from './program-cache';
 import { getOrCreateProgram } from './program-cache';
 import type { DependencyInfo, GetDependenciesOptions, InspectError } from './types';
@@ -12,40 +13,24 @@ import type { DependencyInfo, GetDependenciesOptions, InspectError } from './typ
 type TypeScriptModule = typeof import('typescript');
 type TSSourceFile = import('typescript').SourceFile;
 type TSClassDeclaration = import('typescript').ClassDeclaration;
-type TSNode = import('typescript').Node;
 type TSTypeChecker = import('typescript').TypeChecker;
 
 const DEFAULT_TSCONFIG = './tsconfig.json';
+const CONFIG_DECORATOR_NAME = 'Config';
 
-const findClassAtPosition = (
-  sourceFile: TSSourceFile,
-  pos: number,
+const isConfigDecorator = (
+  expr: import('typescript').Expression,
   ts: TypeScriptModule,
-): TSClassDeclaration | undefined => {
-  const find = (node: TSNode): TSClassDeclaration | undefined => {
-    if (ts.isClassDeclaration(node) && node.pos <= pos && pos < node.end) {
-      return node;
-    }
-    return ts.forEachChild(node, find);
-  };
-  return find(sourceFile);
-};
-
-// When the decorator factory is stored in a variable before being applied,
-// the trace points to the factory call site rather than the class declaration.
-// Fall back to name-based lookup to handle that pattern.
-const findClassByName = (
-  sourceFile: TSSourceFile,
-  name: string,
-  ts: TypeScriptModule,
-): TSClassDeclaration | undefined => {
-  const find = (node: TSNode): TSClassDeclaration | undefined => {
-    if (ts.isClassDeclaration(node) && node.name !== undefined && node.name.text === name) {
-      return node;
-    }
-    return ts.forEachChild(node, find);
-  };
-  return find(sourceFile);
+): boolean => {
+  // Handle @Config (identifier)
+  if (ts.isIdentifier(expr)) {
+    return expr.text === CONFIG_DECORATOR_NAME;
+  }
+  // Handle @Config() (call expression)
+  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) {
+    return expr.expression.text === CONFIG_DECORATOR_NAME;
+  }
+  return false;
 };
 
 const hasConfigDecoratorOnClass = (
@@ -54,11 +39,7 @@ const hasConfigDecoratorOnClass = (
 ): boolean => {
   if (!ts.isClassDeclaration(decl)) return false;
   return (
-    decl.modifiers?.some((m) => {
-      if (!ts.isDecorator(m)) return false;
-      const expr = m.expression;
-      return ts.isIdentifier(expr) && expr.text === 'Config';
-    }) ?? false
+    decl.modifiers?.some((m) => ts.isDecorator(m) && isConfigDecorator(m.expression, ts)) ?? false
   );
 };
 
