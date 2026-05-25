@@ -3,7 +3,7 @@ export {
   MemoryKVAdaptor as MemoryKV,
   MemoryKVAdaptor as MemoryKVService,
 } from './adaptor-memory';
-export { isZeltKVInvalidTtlError, ZeltKVInvalidTtlError } from './errors';
+export { ZeltKVInvalidTtlError } from './errors';
 export { joinPrefix } from './namespace';
 export { deserialize, serialize } from './serialize';
 export type {

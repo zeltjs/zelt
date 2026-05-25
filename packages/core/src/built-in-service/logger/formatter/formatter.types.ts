@@ -1,4 +1,4 @@
-import type { LogEntry } from '../index';
+import type { LogEntry } from '../logger.types';
 
 export type LoggerFormatter = {
   format: (entry: LogEntry) => string;

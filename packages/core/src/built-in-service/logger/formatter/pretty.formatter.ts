@@ -1,11 +1,10 @@
 import { inject } from '../../../kernel/di/inject';
 import { Injectable } from '../../../kernel/di/injectable';
-import type { LogEntry } from '../index';
-import { safeStringify } from '../index';
-
+import type { LogEntry } from '../logger.types';
 import type { LoggerFormatter } from './formatter.types';
 import { PrettyFormatterConfig } from './pretty.formatter.config';
 import { COLORS, RESET } from './pretty.formatter.lib';
+import { safeStringify } from './safe-stringify.lib';
 
 @Injectable()
 export class PrettyFormatter implements LoggerFormatter {

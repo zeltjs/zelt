@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@needle-di/core": "1.1.2",
+    "@zeltjs/unsafe-type-lib": "workspace:*",
     "@types/node": "22.19.17",
     "croner": "9.1.0",
     "neverthrow": "8.2.0",

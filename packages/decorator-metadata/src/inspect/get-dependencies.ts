@@ -116,6 +116,7 @@ const extractInjectCalls = (
   });
 };
 
+/** @throws {UnsupportedTypeScriptVersionError} */
 export const getDependencies = (
   cls: new (...args: never[]) => unknown,
   options?: GetDependenciesOptions,

@@ -83,6 +83,7 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
   return child;
 };
 
+/** @throws {ZeltMultipleBuildHooksError} */
 const runHooks = async (
   cwd: string,
   config: ZeltConfig,
@@ -123,6 +124,7 @@ const createShutdownHandler = (state: DevServerState) => {
   };
 };
 
+/** @throws {ZeltMultipleBuildHooksError} */
 const createRestartHandler = (
   state: DevServerState,
   cwd: string,
@@ -164,6 +166,7 @@ const registerSignalHandlers = (onSignal: () => Promise<void>): SignalHandler =>
   };
 };
 
+/** @throws {ZeltMultipleBuildHooksError} */
 export const startDevServer = async (options: DevServerOptions): Promise<void> => {
   const { cwd, config, devConfig } = options;
 

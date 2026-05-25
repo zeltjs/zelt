@@ -81,6 +81,14 @@ export const coreErrorDefinitions = {
     ctx.reason === 'required_not_set'
       ? `Required environment variable ${ctx.key} is not set`
       : `Environment variable ${ctx.key} is not a valid number`,
+
+  ZeltBodyTypeMismatchError: (ctx: { expected: string; actual: string }) =>
+    `Expected body type '${ctx.expected}' but received '${ctx.actual}'`,
+
+  ZeltInternalError: (ctx: { reason: 'container_not_attached' }) =>
+    match(ctx.reason)
+      .with('container_not_attached', () => 'No DI container attached to this app')
+      .exhaustive(),
 } as const;
 
 export type CoreErrorContextMap = {
