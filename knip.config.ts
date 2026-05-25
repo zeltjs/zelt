@@ -7,6 +7,7 @@ const config: KnipConfig = {
     '**/src/test-helpers/**',
     'vitest.shared.ts',
     'scripts/**',
+    'integration/**',
   ],
   ignoreDependencies: ['node-pty'],
   ignoreExportsUsedInFile: true,
