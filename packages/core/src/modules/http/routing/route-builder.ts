@@ -34,7 +34,7 @@ export { joinPath };
 
 type MiddlewareContext = Context<Env, string, Input>;
 
-import type { ControllerClass } from '../module';
+import type { ControllerClass } from '../types';
 
 type Route = {
   readonly method: HttpMethod;
@@ -89,7 +89,7 @@ type ParsedBody =
   | { type: 'text'; val: string }
   | { type: 'none'; val: undefined };
 
-/** @throws {ZeltContextNotAvailableError} */
+/** @throws {HTTPException} */
 const parseRequestBody = async (
   c: Parameters<Parameters<Hono['on']>[2]>[0],
 ): Promise<ParsedBody> => {
@@ -307,7 +307,7 @@ const registerRoute = (
     ctx.resolver,
   );
 
-  /** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError | ZeltMiddlewareExecutionError | ZeltRouteConfigurationError} */
+  /** @throws {HTTPException | ZeltMiddlewareExecutionError | ZeltRouteConfigurationError} */
   const handler = async (c: MiddlewareContext): Promise<Response> => {
     const instance = getOrCreateInstance(ctx, route.controllerClass);
     await ctx.lifecycle.startupPending();

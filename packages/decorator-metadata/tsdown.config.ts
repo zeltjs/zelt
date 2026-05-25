@@ -16,7 +16,7 @@ export default defineConfig({
   clean: true,
   fixedExtension: false,
   deps: {
-    alwaysBundle: ['neverthrow', 'ts-pattern'],
+    alwaysBundle: ['neverthrow', 'ts-pattern', '@zeltjs/unsafe-type-lib'],
     neverBundle: ['typescript', /^typescript-/],
   },
 });

@@ -448,6 +448,28 @@ describe('create* options', () => {
       );
       expect(result).toBeUndefined();
     });
+
+    it('TC39 class decorator without metadata still records class metadata and invokes afterApply', () => {
+      const applied: unknown[] = [];
+      const apply = createClassDecorator(
+        { decorator: 'Controller' },
+        { afterApply: (cls) => applied.push(cls) },
+      );
+      class Foo {}
+      const ctx = {
+        kind: 'class',
+        name: 'Foo',
+        addInitializer: () => {},
+      } as unknown as ClassDecoratorContext;
+      const result = (apply as unknown as (value: unknown, ctx: ClassDecoratorContext) => unknown)(
+        Foo,
+        ctx,
+      );
+
+      expect(result).toBeUndefined();
+      expect(applied).toEqual([Foo]);
+      expect(getClassMetadata(Foo)?.props).toEqual([{ decorator: 'Controller' }]);
+    });
   });
 
   it('createPropertyDecorator saves metadata', () => {

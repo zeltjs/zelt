@@ -31,7 +31,7 @@ const resolveDevConfig = (args: DevArgs, devConfig: DevConfig | undefined) => {
   };
 };
 
-/** @throws {ZeltConfigLoadError | ZeltNoEntryError | InvalidConfigExportError} */
+/** @throws {ZeltMultipleBuildHooksError | ZeltNoEntryError | ZeltConfigLoadError} */
 const runDev = async (cwd: string, typedArgs: DevArgs): Promise<void> => {
   const configFile = typedArgs.config;
   const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });

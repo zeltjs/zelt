@@ -62,13 +62,13 @@ class Env {
 
 ```
 Env (core)
-  └── uses EnvSource (internal, not exposed)
-        ↑ ProcessEnvSource (adapter-node) - reads process.env
+  └── uses EnvAdaptor (internal, not exposed)
+        ↑ ProcessEnvAdaptor (adapter-node) - reads process.env
         ↑ CloudflareEnvSource (adapter-cloudflare) - reads c.env
 ```
 
-- `EnvSource` is an internal abstraction, not exposed to users
-- `onNode()` registers `ProcessEnvSource` automatically
+- `EnvAdaptor` is an internal abstraction, not exposed to users
+- `onNode()` registers `ProcessEnvAdaptor` automatically
 - `onCloudflareWorkers()` registers `CloudflareEnvSource` automatically
 
 ### .env File Loading
@@ -135,7 +135,7 @@ Business logic (platform-independent):
 |---------|--------|
 | `EnvConfig` | Merged into `Env` |
 | `EnvService` | Merged into `Env` |
-| `ProcessEnvConfig` | Internal implementation (`ProcessEnvSource`) |
+| `ProcessEnvConfig` | Internal implementation (`ProcessEnvAdaptor`) |
 | `DotEnvConfig` | User uses `dotenv` directly |
 
 ## Benefits

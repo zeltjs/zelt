@@ -1,4 +1,4 @@
-import type { LogLevel } from '../index';
+import type { LogLevel } from '../logger.types';
 
 export const COLORS: Record<LogLevel, string> = {
   debug: '\x1b[36m',

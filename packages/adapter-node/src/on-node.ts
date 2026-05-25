@@ -9,8 +9,8 @@ import type {
   SchedulerApp,
 } from '@zeltjs/core';
 
-import { NodeCliConfig } from './cli.config';
-import { ProcessEnvSource } from './process-env-source';
+import { NodeCliConfig } from './node-cli.config';
+import { ProcessEnvAdaptor } from './process-env.adaptor';
 
 type ListenOptions = {
   readonly port?: number;
@@ -205,7 +205,7 @@ export function onNode(app: CommandApp, options?: NodeAppOptions): Promise<Comma
 /** @throws {ZeltLifecycleStateError} */
 export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise<NodeApp> {
   app.addFallbackConfig(NodeCliConfig);
-  app.addFallbackConfig(ProcessEnvSource);
+  app.addFallbackConfig(ProcessEnvAdaptor);
 
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
   const resolver = await app.ready(readyOptions);

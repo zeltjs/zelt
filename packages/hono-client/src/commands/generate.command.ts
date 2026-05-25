@@ -18,7 +18,7 @@ import { GeneratorService } from '../generator';
 
 @Command({ name: 'generate', description: 'Generate Hono client types from metadata' })
 export class GenerateCommand {
-  static schema = cliSchema({
+  static readonly schema = cliSchema({
     options: [
       { name: 'app', type: 'string', description: 'Path to app file' },
       { name: 'dist', type: 'string', description: 'Output directory', default: './generated' },

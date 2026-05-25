@@ -1,16 +1,17 @@
 import type { Lifecycle } from '@zeltjs/core';
-import { inject, LifecycleManager } from '@zeltjs/core';
+import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
 import { RedisService } from '@zeltjs/redis';
 import type Redis from 'ioredis';
+import mitt from 'mitt';
 
 import type { EventBusAdaptor, EventBusSchema } from '../types';
 
-type Handler = (data: unknown) => void;
-
+@Injectable()
 export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
   private readonly pub: Redis;
   private readonly sub: Redis;
-  private readonly handlers = new Map<string, Set<Handler>>();
+  private readonly localEmitter = mitt<EventBusSchema>();
+  private readonly subscriptions = new Set<string>();
 
   constructor(redis = inject(RedisService), lifecycle = inject(LifecycleManager)) {
     this.pub = redis.client;
@@ -18,12 +19,9 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     lifecycle.register(this);
 
     this.sub.on('message', (channel: string, message: string) => {
-      const eventHandlers = this.handlers.get(channel);
-      if (!eventHandlers) return;
+      if (!this.subscriptions.has(channel)) return;
       const data: unknown = JSON.parse(message);
-      for (const handler of eventHandlers) {
-        handler(data);
-      }
+      this.localEmitter.emit(channel, data);
     });
   }
 
@@ -33,33 +31,29 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     this.sub.disconnect();
   }
 
-  async emit<K extends keyof EventBusSchema>(event: K, data: EventBusSchema[K]): Promise<void> {
-    await this.pub.publish(event as string, JSON.stringify(data));
+  async emit<K extends string & keyof EventBusSchema>(
+    event: K,
+    data: EventBusSchema[K],
+  ): Promise<void> {
+    await this.pub.publish(event, JSON.stringify(data));
   }
 
-  on<K extends keyof EventBusSchema>(
+  on<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
   ): () => void {
-    const channel = event as string;
-    let handlers = this.handlers.get(channel);
-    if (!handlers) {
-      handlers = new Set();
-      this.handlers.set(channel, handlers);
-      void this.sub.subscribe(channel);
+    if (!this.subscriptions.has(event)) {
+      this.subscriptions.add(event);
+      void this.sub.subscribe(event);
     }
-    handlers.add(handler as Handler);
+    this.localEmitter.on(event, handler);
 
     return () => {
-      handlers.delete(handler as Handler);
-      if (handlers.size === 0) {
-        this.handlers.delete(channel);
-        void this.sub.unsubscribe(channel);
-      }
+      this.localEmitter.off(event, handler);
     };
   }
 
-  once<K extends keyof EventBusSchema>(
+  once<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
   ): () => void {

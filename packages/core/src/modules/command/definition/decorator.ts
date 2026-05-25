@@ -6,6 +6,7 @@ type CommandOptions = {
   readonly description?: string;
 };
 
+/** @throws {E} */
 export const Command = (options: CommandOptions) =>
   createInjectableClassDecorator(
     options.description
