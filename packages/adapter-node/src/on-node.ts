@@ -210,6 +210,21 @@ export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
   const resolver = await app.ready(readyOptions);
 
+  const cliConfig = resolver.get(NodeCliConfig);
+
+  let shuttingDown = false;
+  const gracefulShutdown = (): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    void app.shutdown().finally(() => {
+      cliConfig.offSignal('SIGINT', gracefulShutdown);
+      cliConfig.offSignal('SIGTERM', gracefulShutdown);
+    });
+  };
+
+  cliConfig.onSignal('SIGINT', gracefulShutdown);
+  cliConfig.onSignal('SIGTERM', gracefulShutdown);
+
   const caps = extractCapabilities(app);
   const stderr = getStderr();
   const args = getArgs();

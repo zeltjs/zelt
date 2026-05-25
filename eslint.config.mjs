@@ -271,8 +271,11 @@ export default tseslint.config(
     },
   },
   {
-    // NodeCliConfig provides process.argv/cwd access for CLI applications
-    files: ['packages/adapter-node/src/cli.config.ts'],
+    // NodeCliConfig/BunCliConfig provides process.argv/cwd access for CLI applications
+    files: [
+      'packages/adapter-node/src/cli.config.ts',
+      'packages/adapter-bun/src/bun-cli.config.ts',
+    ],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
     },

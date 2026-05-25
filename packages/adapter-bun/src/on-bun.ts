@@ -1,5 +1,6 @@
 import type { CommandApp, ExecResult, HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
 
+import { BunCliConfig } from './bun-cli.config';
 import { BunEnvConfig } from './bun-env.config';
 
 type ServeOptions = {
@@ -157,10 +158,26 @@ export async function onBun(
   app: HttpApp | CommandApp | (HttpApp & CommandApp),
   options: BunAppOptions = {},
 ): Promise<BunApp> {
+  app.addFallbackConfig(BunCliConfig);
   app.addFallbackConfig(BunEnvConfig);
 
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
   const resolver = await app.ready(readyOptions);
+
+  const cliConfig = resolver.get(BunCliConfig);
+
+  let shuttingDown = false;
+  const gracefulShutdown = (): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    void app.shutdown().finally(() => {
+      cliConfig.offSignal('SIGINT', gracefulShutdown);
+      cliConfig.offSignal('SIGTERM', gracefulShutdown);
+    });
+  };
+
+  cliConfig.onSignal('SIGINT', gracefulShutdown);
+  cliConfig.onSignal('SIGTERM', gracefulShutdown);
 
   const caps = extractCapabilities(app);
   const stderr = getStderr();
