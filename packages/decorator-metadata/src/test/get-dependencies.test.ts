@@ -19,6 +19,6 @@ describe('getDependencies', () => {
     if (!result.isOk()) return;
 
     expect(result.value).toHaveLength(1);
-    expect(result.value[0].className).toBe('DependencyA');
+    expect(result.value[0]?.className).toBe('DependencyA');
   });
 });
