@@ -72,3 +72,16 @@ export type InspectOptions = {
   readonly tsconfig?: string;
   readonly expandStrategy?: ExpandStrategy;
 };
+
+// --- getDependencies types ---
+
+export type GetDependenciesOptions = {
+  readonly tsconfig?: string;
+};
+
+export type DependencyInfo = {
+  readonly className: string;
+  readonly sourceFile: string;
+  readonly moduleSpecifier: string;
+  readonly hasConfigDecorator: boolean;
+};

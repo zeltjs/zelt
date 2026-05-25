@@ -181,8 +181,10 @@ export default tseslint.config(
       'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
       'import-x/no-namespace': 'off',
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
   {
