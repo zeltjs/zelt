@@ -8,7 +8,7 @@ export class AppV1Controller {
   }
 
   @Get('/:param/hello')
-  paramV1(_param = pathParam('param')) {
-    return response().text('Parameter V1!');
+  paramV1(param = pathParam('param')) {
+    return response().text(`Parameter V1: ${param}`);
   }
 }

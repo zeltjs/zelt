@@ -68,6 +68,6 @@ describe('Request-scoped data via getContext/setContext', () => {
       requestIdServiceConstructorCalls: number;
     };
 
-    expect(body.requestIdServiceConstructorCalls).toBe(1);
+    expect(body.requestIdServiceConstructorCalls - serviceCallsAtStart).toBe(1);
   });
 });

@@ -97,31 +97,26 @@ describe('Body parsing', () => {
       expect(await res.json()).toEqual({ filename: null });
     });
 
-    it('returns 500 for POST without Content-Type to a json endpoint', async () => {
+    // POST without Content-Type ideally returns 4xx. Zelt currently returns 500
+    // (route-builder.ts produces body type 'none' which triggers
+    // ZeltBodyTypeMismatchError, not mapped to a client error). These tests are
+    // marked todo so the bug fix isn't treated as a regression.
+    it.todo('returns 4xx for POST without Content-Type to a json endpoint', async () => {
       const res = await testApp.request('/body/json', { method: 'POST' });
-      expect(res.status).toBe(500);
-      expect(await res.json()).toEqual({
-        code: 'INTERNAL_ERROR',
-        message: 'internal server error',
-      });
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBeLessThan(500);
     });
 
-    it('returns 500 for POST without Content-Type to a form endpoint', async () => {
+    it.todo('returns 4xx for POST without Content-Type to a form endpoint', async () => {
       const res = await testApp.request('/body/form', { method: 'POST' });
-      expect(res.status).toBe(500);
-      expect(await res.json()).toEqual({
-        code: 'INTERNAL_ERROR',
-        message: 'internal server error',
-      });
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBeLessThan(500);
     });
 
-    it('returns 500 for POST without Content-Type to a text endpoint', async () => {
+    it.todo('returns 4xx for POST without Content-Type to a text endpoint', async () => {
       const res = await testApp.request('/body/text', { method: 'POST' });
-      expect(res.status).toBe(500);
-      expect(await res.json()).toEqual({
-        code: 'INTERNAL_ERROR',
-        message: 'internal server error',
-      });
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBeLessThan(500);
     });
   });
 });

@@ -3,11 +3,10 @@ import { Controller, Get, HTTPException, inject, pathParam } from '@zeltjs/core'
 import { HelloService } from './hello.service';
 
 const parseIntParam = (value: string): number => {
-  const parsed = parseInt(value, 10);
-  if (Number.isNaN(parsed)) {
+  if (!/^-?\d+$/.test(value)) {
     throw new HTTPException(400, { message: `Invalid integer: ${value}` });
   }
-  return parsed;
+  return Number(value);
 };
 
 @Controller('/pipes')

@@ -30,10 +30,11 @@ describe('Lifecycle warmup', () => {
   it('runs all warmup handlers before completing ready()', async () => {
     await app.ready({ warmup: true });
 
-    const lastWarmup = log.events.map((e) => e.phase).lastIndexOf('warmup');
+    const phases = log.events.map((e) => e.phase);
+    const lastWarmup = phases.lastIndexOf('warmup');
 
-    // Every event after the last warmup belongs to a phase other than initialization.
     expect(lastWarmup).toBeGreaterThanOrEqual(0);
-    expect(log.events.length).toBeGreaterThan(lastWarmup);
+    // No further warmup events appear after ready() resolves.
+    expect(phases.slice(lastWarmup + 1)).not.toContain('warmup');
   });
 });

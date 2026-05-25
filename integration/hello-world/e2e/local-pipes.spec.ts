@@ -28,6 +28,13 @@ describe('Local Pipes (Parameter Transformation)', () => {
     expect(text).toContain('Invalid integer');
   });
 
+  it('GET /pipes/user/:id returns 400 for partially numeric id', async () => {
+    const res = await testApp.request('/pipes/user/42abc');
+    expect(res.status).toBe(400);
+    const text = await res.text();
+    expect(text).toContain('Invalid integer');
+  });
+
   it('GET /pipes/transform/:value transforms string', async () => {
     const res = await testApp.request('/pipes/transform/Hello');
     expect(res.status).toBe(200);

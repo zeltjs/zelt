@@ -42,13 +42,13 @@ describe('URI Versioning', () => {
     it('V1', async () => {
       const res = await testApp.request('/v1/param/hello');
       expect(res.status).toBe(200);
-      expect(await res.text()).toBe('Parameter V1!');
+      expect(await res.text()).toBe('Parameter V1: param');
     });
 
     it('V2', async () => {
       const res = await testApp.request('/v2/param/hello');
       expect(res.status).toBe(200);
-      expect(await res.text()).toBe('Parameter V2!');
+      expect(await res.text()).toBe('Parameter V2: param');
     });
 
     it('V3', async () => {

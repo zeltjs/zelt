@@ -14,7 +14,8 @@ describe('Disposable shutdown', () => {
     app = buildApp();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await app.shutdown();
     activeLog.current = undefined;
   });
 
