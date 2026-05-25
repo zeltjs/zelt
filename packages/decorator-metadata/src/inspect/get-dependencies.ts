@@ -77,7 +77,10 @@ const extractDepFromParam = (
   const symbol = checker.getSymbolAtLocation(arg);
   if (!symbol) return undefined;
 
-  const decl = symbol.getDeclarations()?.[0];
+  const resolvedSymbol =
+    (symbol.flags & ts.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(symbol) : symbol;
+
+  const decl = resolvedSymbol.getDeclarations()?.find((d) => ts.isClassDeclaration(d));
   if (!decl) return undefined;
 
   return {

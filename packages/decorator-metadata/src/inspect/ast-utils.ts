@@ -9,10 +9,12 @@ export const findClassAtPosition = (
   ts: TypeScriptModule,
 ): TSClassDeclaration | undefined => {
   const find = (node: TSNode): TSClassDeclaration | undefined => {
+    const childHit = ts.forEachChild(node, find);
+    if (childHit) return childHit;
     if (ts.isClassDeclaration(node) && node.pos <= pos && pos < node.end) {
       return node;
     }
-    return ts.forEachChild(node, find);
+    return undefined;
   };
   return find(sourceFile);
 };

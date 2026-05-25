@@ -76,8 +76,6 @@ export type InspectOptions = {
 // --- getDependencies types ---
 
 export type GetDependenciesOptions = {
-  readonly recursive?: boolean;
-  readonly maxDepth?: number;
   readonly tsconfig?: string;
 };
 
