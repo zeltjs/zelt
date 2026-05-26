@@ -198,7 +198,7 @@ type ControllerWithMeta = {
   readonly typeMetadata: ClassMetadata | undefined;
 };
 
-/** @throws {ZeltDecoratorUsageError} */
+/** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
 const resolveControllersWithMetadata = async (
   metadata: HttpMetadata,
   controllers: readonly ControllerClass[],
@@ -242,6 +242,7 @@ const resolveControllersWithMetadata = async (
   return results;
 };
 
+/** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
 const buildOpenApiDoc = async (
   metadata: HttpMetadata,
   controllers: readonly ControllerClass[],
@@ -275,7 +276,7 @@ const writeIfChanged = async (path: string, content: string): Promise<boolean> =
   return true;
 };
 
-/** @throws {ZeltDecoratorUsageError} */
+/** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
 export const generateOpenApi = async (
   app: HttpAppLike,
   options: GenerateOpenApiOptions,
