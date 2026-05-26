@@ -226,8 +226,8 @@ const resolveControllersWithMetadata = async (
     }
 
     const inspectOptions: InspectOptions = options.tsconfig
-      ? { tsconfig: options.tsconfig, expandStrategy: 'exported-only' }
-      : { expandStrategy: 'exported-only' };
+      ? { tsconfig: options.tsconfig, expandStrategy: 'always' }
+      : { expandStrategy: 'always' };
     const typeMetadataResult = await getTypeMetadata(toInspectableClass(cls), inspectOptions);
 
     const typeMetadata = typeMetadataResult.isOk() ? typeMetadataResult.value : undefined;
