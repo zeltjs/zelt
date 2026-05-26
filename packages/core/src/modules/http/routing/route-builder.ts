@@ -307,7 +307,7 @@ const registerRoute = (
     ctx.resolver,
   );
 
-  /** @throws {HTTPException | ZeltMiddlewareExecutionError | ZeltRouteConfigurationError} */
+  /** @throws {HTTPException | ZeltContextNotAvailableError | ZeltMiddlewareExecutionError | ZeltRouteConfigurationError} */
   const handler = async (c: MiddlewareContext): Promise<Response> => {
     const instance = getOrCreateInstance(ctx, route.controllerClass);
     await ctx.lifecycle.startupPending();

@@ -172,6 +172,13 @@ export default tseslint.config(
     },
   },
   {
+    // context-key: branded ContextKey<T> construction and generic store retrieval require unsafe casts.
+    files: ['packages/core/src/kernel/internal/context-key.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
     // Leaf: prototype chain traversal, branded types, DI container boundary casts.
     files: ['packages/core/src/kernel/di/leaf.ts'],
     rules: {
