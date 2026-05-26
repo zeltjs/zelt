@@ -229,7 +229,7 @@ export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise
   };
 
   const gracefulShutdown = (): void => {
-    void shutdown();
+    void shutdown().catch(() => {});
   };
 
   cliConfig.onSignal('SIGINT', gracefulShutdown);

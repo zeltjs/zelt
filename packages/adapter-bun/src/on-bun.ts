@@ -183,7 +183,7 @@ export async function onBun(
   };
 
   const gracefulShutdown = (): void => {
-    void shutdown();
+    void shutdown().catch(() => {});
   };
 
   cliConfig.onSignal('SIGINT', gracefulShutdown);
