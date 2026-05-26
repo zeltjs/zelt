@@ -1,6 +1,5 @@
 import {
   args,
-  CliConfig,
   Command,
   Controller,
   Cron,
@@ -10,7 +9,17 @@ import {
   Get,
   Scheduled,
 } from '@zeltjs/core';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+const originalMaxListeners = process.getMaxListeners();
+
+beforeAll(() => {
+  process.setMaxListeners(50);
+});
+
+afterAll(() => {
+  process.setMaxListeners(originalMaxListeners);
+});
 
 import { NodeCliConfig } from './node-cli.config';
 import type { CommandNodeApp, HttpNodeApp, SchedulerNodeAppPart, ServerHandle } from './on-node';
@@ -23,6 +32,7 @@ describe('onNode with HTTP', () => {
 
   afterEach(async () => {
     await handle?.shutdown();
+    if (!handle) await nodeApp?.shutdown();
     handle = undefined;
     nodeApp = undefined;
   });
@@ -100,10 +110,9 @@ describe('onNode with HTTP', () => {
     expect(addFallbackConfigSpy).toHaveBeenCalledWith(ProcessEnvAdaptor);
   });
 
-  it('auto-injects NodeCliConfig when CliConfig token is in configs', async () => {
+  it('auto-injects NodeCliConfig when no CliConfig is configured', async () => {
     const app = createApp({
       http: { controllers: [] },
-      configs: [CliConfig],
     });
     const addFallbackConfigSpy = vi.spyOn(app, 'addFallbackConfig');
 

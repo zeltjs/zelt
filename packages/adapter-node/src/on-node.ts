@@ -210,10 +210,35 @@ export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
   const resolver = await app.ready(readyOptions);
 
+  const cliConfig = resolver.get(NodeCliConfig);
+
+  let shuttingDown = false;
+  const detachSignals = (): void => {
+    cliConfig.offSignal('SIGINT', gracefulShutdown);
+    cliConfig.offSignal('SIGTERM', gracefulShutdown);
+  };
+
+  const shutdown = async (): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    try {
+      await app.shutdown();
+    } finally {
+      detachSignals();
+    }
+  };
+
+  const gracefulShutdown = (): void => {
+    void shutdown().catch(() => {});
+  };
+
+  cliConfig.onSignal('SIGINT', gracefulShutdown);
+  cliConfig.onSignal('SIGTERM', gracefulShutdown);
+
   const caps = extractCapabilities(app);
   const stderr = getStderr();
   const args = getArgs();
-  const result = buildNodeApps(caps, resolver, app.shutdown, stderr, args);
+  const result = buildNodeApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeNodeApps(result, resolver, app.shutdown, args);
+  return mergeNodeApps(result, resolver, shutdown, args);
 }
