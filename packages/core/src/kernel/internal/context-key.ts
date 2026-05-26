@@ -20,6 +20,7 @@ export const runInContext = <T>(fn: () => T): T => storage.run({}, fn);
 
 const castValue = <T>(value: unknown): T | undefined => value as T | undefined;
 
+/** @throws {ZeltContextNotAvailableError} */
 export const getInternal = <T>(key: ContextKey<T>): T | undefined => {
   const store = storage.getStore();
   if (!store)
@@ -30,6 +31,7 @@ export const getInternal = <T>(key: ContextKey<T>): T | undefined => {
   return castValue<T>(store[key._symbol]);
 };
 
+/** @throws {ZeltContextNotAvailableError} */
 export const setInternal = <T>(key: ContextKey<T>, value: T): void => {
   const store = storage.getStore();
   if (!store)

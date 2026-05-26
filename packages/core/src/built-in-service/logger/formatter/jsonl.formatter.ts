@@ -1,8 +1,7 @@
 import { Injectable } from '../../../kernel/di/injectable';
-import type { LogEntry } from '../index';
-import { safeStringify } from '../index';
-
+import type { LogEntry } from '../logger.types';
 import type { LoggerFormatter } from './formatter.types';
+import { safeStringify } from './safe-stringify.lib';
 
 @Injectable()
 export class JsonlFormatter implements LoggerFormatter {

@@ -20,6 +20,7 @@
     },
     "lint": {
       "cache": true,
+      "dependsOn": [{ "projects": ["@zeltjs/eslint-plugin"], "target": "build" }],
       "inputs": ["default"]
     },
     "typecheck": {

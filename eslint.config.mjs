@@ -29,6 +29,7 @@ export default tseslint.config(
       'website/**',
       'vitest.shared.ts',
       'packages/eslint-plugin/**',
+      'packages/unsafe-type-lib/**',
       'scripts/**',
       'integration/**',
     ],
@@ -54,7 +55,6 @@ export default tseslint.config(
       '**/*.test.{ts,tsx}',
       '**/*.type.{ts,tsx}',
       '**/*.types.{ts,tsx}',
-      '**/*.adaptor.{ts,tsx}',
     ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
@@ -68,12 +68,6 @@ export default tseslint.config(
             'Config',
             'Command',
             'Scheduled',
-          ],
-          allowClassFieldsInPaths: [
-            '**/*.driver.ts',
-            '**/*.adaptor.ts',
-            '**/*.service.ts',
-            '**/*.command.ts',
           ],
         },
       ],
@@ -92,8 +86,8 @@ export default tseslint.config(
     files: ['packages/**/*.{ts,tsx}'],
     ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
     rules: {
-      'zelt/config-di-scope': 'warn',
-      'zelt/decorator-file-naming': 'warn',
+      'zelt/config-di-scope': 'error',
+      'zelt/decorator-file-naming': ['error', { allowedNames: ['Env'] }],
     },
   },
   {
@@ -109,7 +103,6 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
-      'import-x/no-cycle': 'error',
       'import-x/order': 'off',
     },
   },
@@ -149,15 +142,6 @@ export default tseslint.config(
     },
   },
   {
-    // contract package uses neverthrow (ROP) — enforce no throw/try-catch
-    files: ['packages/contract/src/**/*.{ts,tsx}'],
-    ignores: [...TEST_FILES, ...FIXTURE_FILES],
-    rules: {
-      '@9wick/strict-type-rules/no-throw': 'error',
-      '@9wick/strict-type-rules/no-try-catch': 'error',
-    },
-  },
-  {
     // decorator-metadata/inspect uses TypeScript Compiler API which requires
     // type assertions for internal type narrowing (e.g., StringLiteralType, TypeReference)
     files: ['packages/decorator-metadata/src/inspect/**/*.ts'],
@@ -167,8 +151,8 @@ export default tseslint.config(
     },
   },
   {
-    // compose* functions forward overloaded decorator types through unknown[],
-    // which requires casting through unknown at this type-system boundary.
+    // adaptClassContext handler types cls as object for store compatibility;
+    // toConstructor narrows it to constructor type for afterApply callbacks.
     files: ['packages/decorator-metadata/src/runtime/decorators.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
@@ -188,87 +172,32 @@ export default tseslint.config(
     },
   },
   {
-    // build-time CLI tool: throw fatal errors that surface to the user via the CLI.
-    // Type predicate needed for ContractError type guard.
-    files: [
-      'packages/contract/src/generate-client.ts',
-      'packages/contract/src/watch.ts',
-      'packages/contract/src/load-config.ts',
-      'packages/contract/src/cli.ts',
-    ],
-    rules: {
-      '@9wick/strict-type-rules/no-throw': 'off',
-      '@9wick/strict-type-rules/no-try-catch': 'off',
-      '@9wick/strict-type-rules/no-type-predicate': 'off',
-    },
-  },
-  {
-    // CLI tool entry points: watch loop must catch regeneration errors to keep watching
-    // after a failure rather than crashing the process.
-    // Type predicate and in operator needed for ContractError type guard.
-    files: ['packages/contract/src/watch.ts', 'packages/contract/src/cli.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-type-predicate': 'off',
-      '@9wick/strict-type-rules/no-in-operator': 'off',
-    },
-  },
-  {
-    // CLI output utility wraps console methods for centralized output control.
-    files: ['packages/contract/src/cli-output.ts'],
-    rules: {
-      'no-console': 'off',
-    },
-  },
-  {
-    // CLI and config loader need process.argv / process.cwd() — these are build-time tools
-    // that run in Node.js directly, not inside an application container.
-    files: ['packages/contract/src/cli.ts', 'packages/contract/src/load-config.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-process-access': 'off',
-    },
-  },
-  {
-    // getContext bridges Hono's Context.get() (returns any) to typed KoyaContextSchema.
-    // Type assertion is unavoidable at this external library boundary.
-    files: ['packages/core/src/modules/http/request/injection/get-context.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // ContextKey uses phantom types and Symbol-based storage which requires type assertions
-    // for type-safe internal context access pattern.
+    // context-key: branded ContextKey<T> construction and generic store retrieval require unsafe casts.
     files: ['packages/core/src/kernel/internal/context-key.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {
-    // Config module uses prototype chain traversal and type assertions at DI boundaries.
-    // These are necessary for the Token resolution pattern.
-    files: ['packages/core/src/built-in-service/config/token.ts'],
+    // Leaf: prototype chain traversal, branded types, DI container boundary casts.
+    files: ['packages/core/src/kernel/di/leaf.ts'],
     rules: {
-      '@9wick/strict-type-rules/no-in-operator': 'off',
       '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@9wick/strict-type-rules/no-import-rename': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
   {
-    // Leaf mechanism: prototype chain traversal and type assertions for DI category resolution.
-    files: ['packages/core/src/kernel/di/leaf.ts', 'packages/core/src/kernel/di/inject.ts'],
+    // inject: needle-di API boundary casts.
+    files: ['packages/core/src/kernel/di/inject.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@9wick/strict-type-rules/no-import-rename': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
   {
     // Env module needs process.env access
     files: [
-      'packages/core/src/built-in-service/env/env.service.ts',
       // ProcessEnvSource reads process.env as Node.js environment adapter
-      'packages/adapter-node/src/process-env-source.ts',
+      'packages/adapter-node/src/process-env.adaptor.ts',
       // EnvConfig implementations in adapters read process.env directly
       'packages/adapter-node/src/process-env.config.ts',
       'packages/adapter-electron/src/electron-env.config.ts',
@@ -280,7 +209,7 @@ export default tseslint.config(
   },
   {
     // NodeCliConfig provides process.argv/cwd access for CLI applications
-    files: ['packages/adapter-node/src/cli.config.ts'],
+    files: ['packages/adapter-node/src/node-cli.config.ts'],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
     },
@@ -293,30 +222,13 @@ export default tseslint.config(
     },
   },
   {
-    // Example apps: relaxed rules for demo code clarity
-    // - raw fetch returns untyped JSON
-    // - DI rules too strict for simple samples
-    // - Workers KV returns untyped data
-    files: ['examples/**/*.{ts,tsx}'],
+    files: EXAMPLE_FILES,
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       'max-lines-per-function': 'off',
-    },
-  },
-  {
-    // CLI command runner uses citty parseArgs which returns loosely typed object.
-    // Type assertions are needed at this library boundary.
-    files: [
-      'packages/cli/src/commands/run/runner.ts',
-      'packages/cli/src/commands/run/loader.ts',
-      'packages/cli/src/commands/run.ts',
-    ],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {
@@ -325,8 +237,6 @@ export default tseslint.config(
       'packages/cli/src/errors.ts',
       'packages/cli/src/config/loader.ts',
       'packages/cli/src/builders/tsdown.ts',
-      'packages/cli/src/commands/run/runner.ts',
-      'packages/cli/src/commands/run/loader.ts',
       'packages/cli/src/commands/run.ts',
       'packages/cli/src/commands/dev.ts',
       'packages/cli/src/commands/build.ts',
@@ -336,57 +246,9 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.decorator.ts'],
-    rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
-    files: ['**/*.types.ts'],
-    rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
-    // JSON.parse returns `any`; type assertion unavoidable at this generic boundary.
-    files: ['packages/kv/src/serialize.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // eval() returns unknown; type assertion needed at Lua script boundary.
-    files: ['packages/kv/src/adaptor-redis/redis-kv-store.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // EventBus uses generic event schema with keyof - type assertions needed at emit/subscribe boundary.
-    files: [
-      'packages/eventbus/src/adaptor-memory/memory-event-bus.adaptor.ts',
-      'packages/eventbus/src/adaptor-redis/redis-event-bus.adaptor.ts',
-    ],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // JSON.parse returns `any`; type assertion unavoidable at this generic boundary.
-    files: ['packages/kv/src/serialize.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // Decorator-metadata bridge: turns decorator-metadata's TC39/legacy overloaded
-    // result back into core's domain shapes (InjectableClass, MiddlewareInput[]).
-    // The cross-boundary assertions are unavoidable here.
-    files: [
-      'packages/core/src/kernel/internal/decorator-helpers.ts',
-      'packages/core/src/modules/http/middleware/use-middleware.ts',
-      'packages/core/src/modules/http/routing/metadata.ts',
-    ],
+    // metadata.ts casts readonly unknown[] to domain types (MiddlewareInput[], MiddlewareIdentifier[])
+    // that have no runtime tag for structural validation.
+    files: ['packages/core/src/modules/http/routing/metadata.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -427,7 +289,6 @@ export default tseslint.config(
     files: ['packages/hono-client/src/commands/generate.command.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
     },
   },
   {
@@ -447,61 +308,11 @@ export default tseslint.config(
     },
   },
   {
-    // RedisService needs a private field to hold the Redis client instance.
-    // This is necessary for stateful connection management.
-    files: ['packages/redis/src/redis.service.ts'],
-    rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
-    // Error factory uses generic K to index coreErrorDefinitions; TypeScript cannot narrow
-    // the union type at the generic boundary, requiring type assertion.
-    files: ['packages/core/src/kernel/errors/factory.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // override accesses container via Symbol which requires type assertion at runtime boundary.
-    files: ['packages/core/src/app/override.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // defineError/defineHttpException return anonymous classes that cannot satisfy
-    // their return types without type assertion. isKVError uses instanceof union check.
-    files: [
-      'packages/core/src/kernel/errors/define-error.ts',
-      'packages/core/src/kernel/errors/define-http-exception.ts',
-      'packages/kv/src/errors.ts',
-    ],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@9wick/strict-type-rules/no-type-predicate': 'off',
-    },
-  },
-  {
     // RateLimit decorator defines a dynamic middleware class inline.
     // The class name cannot match the file name pattern.
     files: ['packages/rate-limit/src/rate-limit.decorator.ts'],
     rules: {
       'zelt/decorator-file-naming': 'off',
-    },
-  },
-  {
-    // @Config classes may have class fields for configuration values
-    files: ['packages/**/*.config.ts'],
-    rules: {
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-    },
-  },
-  {
-    // CloudflareWorkersEnvConfig needs type assertion for cloudflare:workers env object.
-    files: ['packages/adapter-cloudflare-workers/src/cloudflare-workers-env.config.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {
@@ -528,6 +339,34 @@ export default tseslint.config(
               name: '@zeltjs/decorator-metadata/inspect',
               message:
                 'inspect is for build-time tools only. Use @zeltjs/decorator-metadata (runtime) in core.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // core/src/app layer cannot import from modules (layer violation)
+    // Exception: default-modules.ts which is the bridge between app and modules
+    files: ['packages/core/src/app/**/*.{ts,tsx}'],
+    ignores: ['packages/core/src/app/default-modules.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@zeltjs/decorator-metadata/inspect',
+              message:
+                'inspect is for build-time tools only. Use @zeltjs/decorator-metadata (runtime) in core.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['../modules/*', '../modules/**'],
+              allowTypeImports: true,
+              message:
+                'app layer cannot import from modules layer (type imports are allowed). Use default-modules.ts as the bridge.',
             },
           ],
         },

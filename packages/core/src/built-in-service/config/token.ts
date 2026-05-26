@@ -1,4 +1,4 @@
-import type { Container as ContainerType } from '@needle-di/core';
+import type { Container } from '@needle-di/core';
 import { overrideLeaf, registerAsLeaf, resolveLeaf } from '../../kernel/di/leaf';
 
 type AnyConfigClass = new (...args: never[]) => unknown;
@@ -7,7 +7,7 @@ export { registerAsLeaf as registerConfigClass };
 
 /** @throws {ZeltLifecycleStateError} */
 export const overrideConfig = (
-  container: ContainerType,
+  container: Container,
   config: AnyConfigClass,
   options?: { readonly fallback?: boolean },
 ): void => {
@@ -15,6 +15,6 @@ export const overrideConfig = (
 };
 
 /** @throws {ZeltLifecycleStateError} */
-export const resolveConfig = (container: ContainerType, config: AnyConfigClass): void => {
+export const resolveConfig = (container: Container, config: AnyConfigClass): void => {
   resolveLeaf(container, config);
 };

@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-import type { LogContext } from './logger.lib';
+import type { LogContext } from './logger.types';
 
 const storage = new AsyncLocalStorage<LogContext>();
 

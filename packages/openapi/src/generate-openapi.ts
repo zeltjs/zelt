@@ -214,6 +214,7 @@ const resolveControllersWithSource = (
     return { ...info, sourceFile };
   });
 
+/** @throws {ZeltDecoratorUsageError} */
 const buildOpenApiDoc = (
   metadata: HttpMetadata,
   controllers: readonly ControllerClass[],
@@ -248,6 +249,7 @@ const writeIfChanged = async (path: string, content: string): Promise<boolean> =
   return true;
 };
 
+/** @throws {ZeltDecoratorUsageError} */
 export const generateOpenApi = async (
   app: HttpAppLike,
   options: GenerateOpenApiOptions,

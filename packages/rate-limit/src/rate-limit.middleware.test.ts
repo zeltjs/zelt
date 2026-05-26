@@ -1,7 +1,7 @@
 import { Controller, createApp, Get } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 
-import { RateLimit } from './rate-limit.decorator';
+import { RateLimit } from './rate-limit.middleware';
 
 describe('@RateLimit decorator', () => {
   it('allows requests within limit, blocks after', async () => {

@@ -13,7 +13,7 @@ import { SkipMiddleware } from './middleware/skip-middleware';
 import { UseMiddleware } from './middleware/use-middleware';
 import type { ControllerClass } from './module';
 import { body } from './request/injection/body';
-import { getContext } from './request/injection/get-context';
+import { getContext, setContext } from './request/injection/get-context';
 import { pathParam } from './request/injection/path-param';
 import { Controller } from './routing/controller';
 import { Get, Post } from './routing/http-method';
@@ -298,8 +298,8 @@ describe('middleware', () => {
     class DIMiddleware {
       constructor(private config = inject(ConfigService)) {}
 
-      async use(c: Context, next: Next): Promise<Response | undefined> {
-        c.set('configValue', this.config.getValue());
+      async use(_c: Context, next: Next): Promise<Response | undefined> {
+        setContext('configValue', this.config.getValue());
         await next();
         return undefined;
       }
@@ -322,8 +322,8 @@ describe('middleware', () => {
   });
 
   it('middleware can set context values accessible in handler via getContext()', async () => {
-    const setUserMiddleware: MiddlewareHandler = async (c, next) => {
-      c.set('user', { id: 123, name: 'alice' });
+    const setUserMiddleware: MiddlewareHandler = async (_c, next) => {
+      setContext('user', { id: 123, name: 'alice' });
       await next();
     };
 

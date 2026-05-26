@@ -5,7 +5,7 @@ import type { RequestContextSchema } from '../../request/injection/get-context';
 
 type Roles = RequestContextSchema['authRoles'];
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {E} */
 export const Authorized = (roles: Roles = []) =>
   createMethodDecorator({ decorator: 'Authorized' as const, roles } as const, {
     rejectStatic: () =>

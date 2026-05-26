@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ZeltConfig } from '../config/schema';
+import type { ZeltConfig, ZeltPlugin } from '../config/schema';
 import { ZeltMultipleBuildHooksError } from '../errors';
 
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './runner';
-import type { ZeltPlugin } from './types';
 
 const createMockApp = () =>
   ({

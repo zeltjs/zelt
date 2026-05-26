@@ -4,10 +4,10 @@ import { createApp } from '../../app/create-app';
 import { Config } from '../config';
 
 import { Env } from './env';
-import { EnvSource } from './env-source';
+import { EnvAdaptor } from './env.adaptor';
 
 @Config
-class TestEnvSource extends EnvSource {
+class TestEnvSource extends EnvAdaptor {
   override get(key: string): string | undefined {
     return process.env[key];
   }

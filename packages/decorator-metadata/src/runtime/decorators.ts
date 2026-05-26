@@ -1,3 +1,4 @@
+import { toUnknownCallable } from '@zeltjs/unsafe-type-lib';
 import { match, P } from 'ts-pattern';
 
 import { captureStackTrace } from './position';
@@ -16,10 +17,12 @@ import {
 
 export type ClassDecoratorOptions<E extends Error = Error> = {
   readonly rejectIfApplied?: (existing: readonly object[]) => E | undefined;
+  readonly afterApply?: (cls: new (...args: never[]) => unknown) => void;
 };
 
 export type MethodDecoratorOptions<E extends Error = Error> = {
   readonly rejectStatic?: () => E;
+  readonly afterApply?: (method: (...args: never[]) => unknown, name: string | symbol) => void;
 };
 
 export type ClassDecoratorFn = {
@@ -89,7 +92,7 @@ const adaptClassContext = (handler: ClassHandler): ClassDecoratorFn => {
 
     return match(args[1])
       .with(tc39ClassContextPattern, (ctx) => {
-        if (ctx.metadata) handler(cls, ctx.metadata);
+        handler(cls, ctx.metadata ?? getPrototypeKey(cls));
         return undefined;
       })
       .otherwise(() => {
@@ -100,7 +103,17 @@ const adaptClassContext = (handler: ClassHandler): ClassDecoratorFn => {
   return decorate;
 };
 
-type MethodHandler = (classKey: object, name: string | symbol, isStatic: boolean) => void;
+type MethodInfo = {
+  readonly classKey: object;
+  readonly name: string | symbol;
+  readonly isStatic: boolean;
+  readonly method: ((...args: never[]) => unknown) | undefined;
+};
+
+type MethodHandler = (info: MethodInfo) => void;
+
+const toFunction = (v: unknown): ((...args: never[]) => unknown) | undefined =>
+  typeof v === 'function' ? (v as (...args: never[]) => unknown) : undefined;
 
 const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
   function decorate(
@@ -115,12 +128,18 @@ const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
   function decorate(...args: unknown[]): unknown {
     const target = args[0];
     const contextOrName = args[1];
+    const descriptor = args[2];
 
     return match(contextOrName)
       .with(tc39MethodContextPattern, (ctx) => {
         if (typeof ctx.name !== 'string' && typeof ctx.name !== 'symbol') return undefined;
         if (!ctx.metadata) return undefined;
-        handler(ctx.metadata, ctx.name, ctx.static ?? false);
+        handler({
+          classKey: ctx.metadata,
+          name: ctx.name,
+          isStatic: ctx.static ?? false,
+          method: toFunction(target),
+        });
         return undefined;
       })
       .otherwise(() => {
@@ -129,8 +148,13 @@ const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
         }
         const classKey = asObject(target);
         if (!classKey) return undefined;
-        const isStatic = typeof target === 'function';
-        handler(classKey, contextOrName, isStatic);
+        const desc = descriptor as PropertyDescriptor | undefined;
+        handler({
+          classKey,
+          name: contextOrName,
+          isStatic: typeof target === 'function',
+          method: toFunction(desc?.value),
+        });
         return undefined;
       });
   }
@@ -170,47 +194,64 @@ const adaptPropertyContext = (handler: PropertyHandler): PropertyDecoratorFn => 
 // Public API
 // =============================================================================
 
+// cls is always a constructor (enforced by overload signatures in adaptClassContext),
+// but ClassHandler types it as object for compatibility with store functions.
+const toConstructor = (cls: object): (new (...args: never[]) => unknown) =>
+  cls as new (
+    ...args: never[]
+  ) => unknown;
+
+/** @throws {E} */
 export const createClassDecorator = <TProps extends object, E extends Error = Error>(
   props: TProps,
   options?: ClassDecoratorOptions<E>,
 ): ClassDecoratorFn => {
   const trace = captureStackTrace();
+  const rejectIfApplied = options?.rejectIfApplied;
+  const afterApply = options?.afterApply;
 
   return adaptClassContext((cls, classKey) => {
-    if (options?.rejectIfApplied) {
-      const existing = getClassMetadata(cls)?.props ?? [];
-      const err: E | undefined = options.rejectIfApplied(existing);
+    if (rejectIfApplied) {
+      const err: E | undefined = rejectIfApplied(getClassMetadata(cls)?.props ?? []);
       if (err) throw err;
     }
-
     recordClass(cls, trace, props);
     aggregateMembers(cls, classKey);
+    afterApply?.(toConstructor(cls));
   });
 };
 
+/** @throws {E} */
 export const createMethodDecorator = <TProps extends object, E extends Error = Error>(
   props: TProps,
   options?: MethodDecoratorOptions<E>,
 ): MethodDecoratorFn => {
   const trace = captureStackTrace();
 
-  return adaptMethodContext((classKey, name, isStatic) => {
-    if (isStatic && options?.rejectStatic) {
+  return adaptMethodContext((info) => {
+    if (info.isStatic && options?.rejectStatic) {
       const err: E = options.rejectStatic();
       throw err;
     }
 
-    recordMethod(classKey, name, trace, props);
+    recordMethod(info.classKey, info.name, trace, props);
+    if (options?.afterApply && info.method) options.afterApply(info.method, info.name);
   });
+};
+
+export type PropertyDecoratorOptions = {
+  readonly afterApply?: (propertyName: string | symbol) => void;
 };
 
 export const createPropertyDecorator = <TProps extends object>(
   props: TProps,
+  options?: PropertyDecoratorOptions,
 ): PropertyDecoratorFn => {
   const trace = captureStackTrace();
 
   return adaptPropertyContext((classKey, name) => {
     recordProperty(classKey, name, trace, props);
+    options?.afterApply?.(name);
   });
 };
 
@@ -259,7 +300,7 @@ export const composeMethodDecorators = (...decorators: MethodDecoratorFn[]): Met
   ): void;
   function decorate(...args: unknown[]): unknown {
     for (const dec of decorators) {
-      const fn = dec as unknown as (...a: unknown[]) => unknown;
+      const fn = toUnknownCallable(dec);
       fn(...args);
     }
     return undefined;
@@ -274,7 +315,7 @@ export const composePropertyDecorators = (
   function decorate(target: object, propertyKey: string | symbol): void;
   function decorate(...args: unknown[]): unknown {
     for (const dec of decorators) {
-      const fn = dec as unknown as (...a: unknown[]) => unknown;
+      const fn = toUnknownCallable(dec);
       fn(...args);
     }
     return undefined;

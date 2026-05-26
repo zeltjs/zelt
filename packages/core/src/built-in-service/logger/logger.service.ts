@@ -2,8 +2,8 @@ import { inject } from '../../kernel/di/inject';
 import { Injectable } from '../../kernel/di/injectable';
 import { LoggerConfig } from './logger.config';
 import { getLogContext } from './logger.context.lib';
-import type { LogContext, LogEntry, LogLevel } from './logger.lib';
 import { LOG_LEVEL_PRIORITY } from './logger.lib';
+import type { LogContext, LogEntry, LogLevel } from './logger.types';
 
 @Injectable()
 export class LoggerService {

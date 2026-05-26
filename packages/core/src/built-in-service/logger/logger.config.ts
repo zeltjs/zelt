@@ -3,7 +3,7 @@ import { Config } from '../config';
 
 import type { LoggerFormatter } from './formatter';
 import { JsonlFormatter } from './formatter';
-import type { LogLevel } from './logger.lib';
+import type { LogLevel } from './logger.types';
 import type { LoggerTransport } from './transport';
 import { ConsoleTransport } from './transport';
 

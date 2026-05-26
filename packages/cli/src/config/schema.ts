@@ -1,7 +1,6 @@
 // packages/cli/src/config/schema.ts
+import type { App, CreateAppOptions } from '@zeltjs/core';
 import * as v from 'valibot';
-
-import type { ZeltPlugin } from '../plugin/types';
 
 const BuildConfigSchema = v.object({
   entry: v.optional(v.string()),
@@ -30,6 +29,23 @@ export const ZeltConfigSchema = v.object({
   dev: v.optional(DevConfigSchema),
   cli: v.optional(CliConfigSchema),
 });
+
+export type ZeltPlugin = {
+  readonly name: string;
+  readonly preBuild?: (context: BuildContext) => Promise<void>;
+  readonly build?: (context: BuildContext) => Promise<void>;
+  readonly postBuild?: (context: BuildContext, result: BuildResult) => Promise<void>;
+};
+
+export type BuildContext = {
+  readonly cwd: string;
+  readonly config: ZeltConfig;
+  readonly app: App<CreateAppOptions>;
+};
+
+export type BuildResult = {
+  readonly success: boolean;
+};
 
 export type ZeltConfig = v.InferOutput<typeof ZeltConfigSchema> & {
   readonly plugins?: readonly ZeltPlugin[];
