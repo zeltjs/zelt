@@ -9,10 +9,16 @@ import {
   Get,
   Scheduled,
 } from '@zeltjs/core';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+const originalMaxListeners = process.getMaxListeners();
 
 beforeAll(() => {
   process.setMaxListeners(50);
+});
+
+afterAll(() => {
+  process.setMaxListeners(originalMaxListeners);
 });
 
 import { NodeCliConfig } from './node-cli.config';

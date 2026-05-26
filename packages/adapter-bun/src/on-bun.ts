@@ -167,13 +167,23 @@ export async function onBun(
   const cliConfig = resolver.get(BunCliConfig);
 
   let shuttingDown = false;
-  const gracefulShutdown = (): void => {
+  const detachSignals = (): void => {
+    cliConfig.offSignal('SIGINT', gracefulShutdown);
+    cliConfig.offSignal('SIGTERM', gracefulShutdown);
+  };
+
+  const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
-    void app.shutdown().finally(() => {
-      cliConfig.offSignal('SIGINT', gracefulShutdown);
-      cliConfig.offSignal('SIGTERM', gracefulShutdown);
-    });
+    try {
+      await app.shutdown();
+    } finally {
+      detachSignals();
+    }
+  };
+
+  const gracefulShutdown = (): void => {
+    void shutdown();
   };
 
   cliConfig.onSignal('SIGINT', gracefulShutdown);
@@ -182,7 +192,7 @@ export async function onBun(
   const caps = extractCapabilities(app);
   const stderr = getStderr();
   const args = getArgs();
-  const result = buildBunApps(caps, resolver, app.shutdown, stderr, args);
+  const result = buildBunApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeBunApps(result, resolver, app.shutdown, args);
+  return mergeBunApps(result, resolver, shutdown, args);
 }

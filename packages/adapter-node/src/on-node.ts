@@ -213,13 +213,23 @@ export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise
   const cliConfig = resolver.get(NodeCliConfig);
 
   let shuttingDown = false;
-  const gracefulShutdown = (): void => {
+  const detachSignals = (): void => {
+    cliConfig.offSignal('SIGINT', gracefulShutdown);
+    cliConfig.offSignal('SIGTERM', gracefulShutdown);
+  };
+
+  const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
-    void app.shutdown().finally(() => {
-      cliConfig.offSignal('SIGINT', gracefulShutdown);
-      cliConfig.offSignal('SIGTERM', gracefulShutdown);
-    });
+    try {
+      await app.shutdown();
+    } finally {
+      detachSignals();
+    }
+  };
+
+  const gracefulShutdown = (): void => {
+    void shutdown();
   };
 
   cliConfig.onSignal('SIGINT', gracefulShutdown);
@@ -228,7 +238,7 @@ export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise
   const caps = extractCapabilities(app);
   const stderr = getStderr();
   const args = getArgs();
-  const result = buildNodeApps(caps, resolver, app.shutdown, stderr, args);
+  const result = buildNodeApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeNodeApps(result, resolver, app.shutdown, args);
+  return mergeNodeApps(result, resolver, shutdown, args);
 }
