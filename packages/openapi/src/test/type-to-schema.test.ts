@@ -28,6 +28,12 @@ describe('typeInfoToJsonSchema', () => {
       const { schema } = typeInfoToJsonSchema(type);
       expect(schema).toEqual({ type: 'null' });
     });
+
+    it('converts undefined', () => {
+      const type: TypeInfo = { kind: 'primitive', type: 'undefined' };
+      const { schema } = typeInfoToJsonSchema(type);
+      expect(schema).toEqual({ type: 'undefined' });
+    });
   });
 
   describe('literals', () => {
@@ -176,6 +182,21 @@ describe('typeInfoToJsonSchema', () => {
       const { schema } = typeInfoToJsonSchema(type);
       expect(schema).toEqual({
         oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'null' }],
+      });
+    });
+
+    it('converts union of multiple types with undefined', () => {
+      const type: TypeInfo = {
+        kind: 'union',
+        types: [
+          { kind: 'primitive', type: 'string' },
+          { kind: 'primitive', type: 'number' },
+          { kind: 'primitive', type: 'undefined' },
+        ],
+      };
+      const { schema } = typeInfoToJsonSchema(type);
+      expect(schema).toEqual({
+        oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'undefined' }],
       });
     });
   });
