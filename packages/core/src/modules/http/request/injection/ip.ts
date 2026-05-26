@@ -1,12 +1,12 @@
-import { getEntryContext } from '../entry-context';
+import { requestContext } from '../request-context';
 
 /** @throws {ZeltContextNotAvailableError} */
 export const ip = (): string | undefined => {
-  const honoCtx = getEntryContext().honoContext;
+  const c = requestContext();
   return (
-    honoCtx.req.header('cf-connecting-ip') ??
-    honoCtx.req.header('x-real-ip') ??
-    honoCtx.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+    c.req.header('cf-connecting-ip') ??
+    c.req.header('x-real-ip') ??
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
     undefined
   );
 };

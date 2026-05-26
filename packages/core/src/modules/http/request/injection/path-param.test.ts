@@ -1,15 +1,39 @@
 import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 
-import { runInEntryContext } from '../entry-context';
+import { runInContext } from '../../../../kernel/internal/context-key';
+import { setHonoContext } from '../request-context';
+import { setBody } from './body';
+import { pathParam, setPathParams } from './path-param';
 
-import { pathParam } from './path-param';
+type FormBody = Record<string, string | File | (string | File)[]>;
+
+type ParsedBody =
+  | { type: 'json'; val: unknown }
+  | { type: 'form'; val: FormBody }
+  | { type: 'text'; val: string }
+  | { type: 'none'; val: undefined };
+
+type TestEntryContext = {
+  honoContext: Context;
+  body?: ParsedBody;
+  pathParams?: Readonly<Record<string, string>>;
+};
+
+const runInEntryContext = <T>(ctx: TestEntryContext, fn: () => T): T => {
+  return runInContext(() => {
+    setHonoContext(ctx.honoContext);
+    setBody(ctx.body ?? { type: 'none', val: undefined });
+    setPathParams(ctx.pathParams ?? {});
+    return fn();
+  });
+};
 
 describe('pathParam()', () => {
   it('returns the path param value', () => {
     const result = runInEntryContext(
       {
-        input: { body: { type: 'none', val: undefined }, pathParams: { id: '42' } },
+        pathParams: { id: '42' },
         honoContext: {} as unknown as Context,
       },
       () => pathParam('id'),
@@ -21,7 +45,7 @@ describe('pathParam()', () => {
     expect(() =>
       runInEntryContext(
         {
-          input: { body: { type: 'none', val: undefined }, pathParams: {} },
+          pathParams: {},
           honoContext: {} as unknown as Context,
         },
         () => pathParam('id'),

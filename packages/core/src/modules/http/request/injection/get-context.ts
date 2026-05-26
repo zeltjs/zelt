@@ -1,20 +1,22 @@
-import { getEntryContext } from '../entry-context';
+import {
+  createContextKey,
+  getInternal,
+  setInternal,
+} from '../../../../kernel/internal/context-key';
 
 export interface RequestContextSchema {
   user: unknown;
-  authRoles: string[];
+  authRoles: readonly string[];
 }
 
-/**
- * @throws {ZeltContextNotAvailableError}
- * @throws {ZeltLifecycleStateError}
- */
+const USER_CONTEXT = createContextKey<Partial<RequestContextSchema>>('zelt:user-context');
+
+/** @throws {ZeltContextNotAvailableError} */
 export const getContext = <K extends keyof RequestContextSchema>(
   key: K,
 ): RequestContextSchema[K] | undefined => {
-  const ctx = getEntryContext();
-  const value: RequestContextSchema[K] | undefined = ctx.honoContext.get(key);
-  return value;
+  const store = getInternal(USER_CONTEXT);
+  return store?.[key];
 };
 
 /** @throws {ZeltContextNotAvailableError} */
@@ -22,6 +24,10 @@ export const setContext = <K extends keyof RequestContextSchema>(
   key: K,
   value: RequestContextSchema[K],
 ): void => {
-  const ctx = getEntryContext();
-  ctx.honoContext.set(key, value);
+  let store = getInternal(USER_CONTEXT);
+  if (!store) {
+    store = {};
+    setInternal(USER_CONTEXT, store);
+  }
+  store[key] = value;
 };

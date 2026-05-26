@@ -1,16 +1,16 @@
-import { getEntryContext } from '../entry-context';
+import { requestContext } from '../request-context';
 
 /** @throws {ZeltContextNotAvailableError} */
 export const url = (): string => {
-  return getEntryContext().honoContext.req.url;
+  return requestContext().req.url;
 };
 
 /** @throws {ZeltContextNotAvailableError} */
 export const path = (): string => {
-  return getEntryContext().honoContext.req.path;
+  return requestContext().req.path;
 };
 
 /** @throws {ZeltContextNotAvailableError} */
 export const method = (): string => {
-  return getEntryContext().honoContext.req.method;
+  return requestContext().req.method;
 };

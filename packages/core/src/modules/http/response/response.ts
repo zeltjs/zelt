@@ -26,7 +26,7 @@ export type ZeltSSEWriter = ZeltStreamWriter & {
   writeSSE(message: ZeltSSEMessage): Promise<void>;
 };
 
-import { getEntryContext } from '../request/entry-context';
+import { requestContext } from '../request/request-context';
 
 // zelt は 300 multi-choice / 304 not-modified / 305-306 deprecated を除外し、
 // AppType / OpenAPI consumer 向けに本物の redirect 3xx だけに narrow する。
@@ -164,6 +164,5 @@ const buildResponseBuilder = (c: Context): ResponseBuilder => {
 
 /** @throws {ZeltContextNotAvailableError} */
 export const response = (): ResponseBuilder => {
-  const ctx = getEntryContext();
-  return buildResponseBuilder(ctx.honoContext);
+  return buildResponseBuilder(requestContext());
 };

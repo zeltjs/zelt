@@ -7,6 +7,7 @@ import {
   ZeltMiddlewareExecutionError,
   ZeltRouteConfigurationError,
 } from '../../../kernel/errors';
+import { runInContext } from '../../../kernel/internal/context-key';
 import type { LifecycleManager } from '../../../kernel/lifecycle';
 import { currentRoles, currentUser } from '../middleware/auth/auth';
 import type {
@@ -15,8 +16,9 @@ import type {
   MiddlewareInput,
   MiddlewareInputWithOptions,
 } from '../middleware/types';
-
-import { runInEntryContext } from '../request/entry-context';
+import { setBody } from '../request/injection/body';
+import { setPathParams } from '../request/injection/path-param';
+import { setHonoContext } from '../request/request-context';
 import type { HttpMethod } from './metadata';
 import {
   getAuthorizedMetadata,
@@ -305,7 +307,7 @@ const registerRoute = (
     ctx.resolver,
   );
 
-  /** @throws {HTTPException | ZeltMiddlewareExecutionError | ZeltRouteConfigurationError} */
+  /** @throws {HTTPException | ZeltContextNotAvailableError | ZeltMiddlewareExecutionError | ZeltRouteConfigurationError} */
   const handler = async (c: MiddlewareContext): Promise<Response> => {
     const instance = getOrCreateInstance(ctx, route.controllerClass);
     await ctx.lifecycle.startupPending();
@@ -322,9 +324,12 @@ const registerRoute = (
 
     const body = await parseRequestBody(c);
     const pathParams: Readonly<Record<string, string>> = c.req.param();
-    return runInEntryContext({ input: { body, pathParams }, honoContext: c }, () =>
-      composedHandler(c),
-    );
+    return runInContext(() => {
+      setHonoContext(c);
+      setBody(body);
+      setPathParams(pathParams);
+      return composedHandler(c);
+    });
   };
 
   const methods = {

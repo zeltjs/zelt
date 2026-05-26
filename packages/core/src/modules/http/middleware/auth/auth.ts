@@ -10,18 +10,12 @@ export const setUser = <U extends RequestContextSchema['user']>(
   setContext('authRoles', roles);
 };
 
-/**
- * @throws {ZeltContextNotAvailableError}
- * @throws {ZeltLifecycleStateError}
- */
+/** @throws {ZeltContextNotAvailableError} */
 export const currentUser = (): RequestContextSchema['user'] | undefined => {
   return getContext('user');
 };
 
-/**
- * @throws {ZeltContextNotAvailableError}
- * @throws {ZeltLifecycleStateError}
- */
+/** @throws {ZeltContextNotAvailableError} */
 export const currentRoles = (): RequestContextSchema['authRoles'] => {
   return getContext('authRoles') ?? [];
 };

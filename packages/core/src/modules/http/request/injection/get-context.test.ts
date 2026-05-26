@@ -1,8 +1,6 @@
-import type { Context } from 'hono';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import type { EntryContext } from '../entry-context';
-import { runInEntryContext } from '../entry-context';
+import { runInContext } from '../../../../kernel/internal/context-key';
 
 import { getContext, setContext } from './get-context';
 
@@ -12,25 +10,18 @@ declare module '@zeltjs/core' {
   }
 }
 
-const createMockEntryContext = (contextValues: Record<string, unknown> = {}): EntryContext => ({
-  input: { body: { type: 'none', val: undefined }, pathParams: {} },
-  honoContext: {
-    get: (key: string) => contextValues[key],
-    set: vi.fn(),
-  } as unknown as Context,
-});
-
 describe('getContext', () => {
-  it('returns value set in Hono context', () => {
-    const ctx = createMockEntryContext({ user: { id: 1, name: 'alice' } });
-    const result = runInEntryContext(ctx, () => getContext('user'));
-    expect(result).toEqual({ id: 1, name: 'alice' });
+  it('returns value set via setContext', () => {
+    runInContext(() => {
+      setContext('user', { id: 1, name: 'alice' });
+      expect(getContext('user')).toEqual({ id: 1, name: 'alice' });
+    });
   });
 
-  it('returns undefined when key is not defined', () => {
-    const ctx = createMockEntryContext({});
-    const result = runInEntryContext(ctx, () => getContext('nonexistent'));
-    expect(result).toBeUndefined();
+  it('returns undefined when key is not set', () => {
+    runInContext(() => {
+      expect(getContext('nonexistent')).toBeUndefined();
+    });
   });
 
   it('throws when called outside entry context', () => {
@@ -39,10 +30,11 @@ describe('getContext', () => {
 });
 
 describe('setContext', () => {
-  it('calls Hono context.set with key and value', () => {
-    const ctx = createMockEntryContext({});
-    runInEntryContext(ctx, () => setContext('user', { id: 1, name: 'alice' }));
-    expect(ctx.honoContext.set).toHaveBeenCalledWith('user', { id: 1, name: 'alice' });
+  it('stores value retrievable by getContext', () => {
+    runInContext(() => {
+      setContext('user', { id: 1, name: 'alice' });
+      expect(getContext('user')).toEqual({ id: 1, name: 'alice' });
+    });
   });
 
   it('throws when called outside entry context', () => {
