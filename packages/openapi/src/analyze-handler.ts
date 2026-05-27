@@ -45,26 +45,46 @@ const resolveRelativeModuleSpecifier = (sourceFile: TSSourceFile, specifier: str
   return resolved.endsWith('.ts') || resolved.endsWith('.js') ? resolved : `${resolved}.ts`;
 };
 
-const namedImportContains = (
-  importDecl: TSImportDeclaration,
-  identifierName: string,
-  ts: TypeScriptModule,
-): boolean => {
-  const namedBindings = importDecl.importClause?.namedBindings;
-  if (!namedBindings || !ts.isNamedImports(namedBindings)) return false;
-  return namedBindings.elements.some((elem) => elem.name.text === identifierName);
+// `import { Foo as Bar } from './x'; validated(Bar)` must dynamic-import `Foo`
+// from `./x`, not `Bar`. propertyName holds the original exported name when an
+// alias is present; otherwise name itself is both local and exported.
+const findExportNameInElements = (
+  elements: readonly import('typescript').ImportSpecifier[],
+  localName: string,
+): string | undefined => {
+  for (const elem of elements) {
+    if (elem.name.text !== localName) continue;
+    return elem.propertyName?.text ?? elem.name.text;
+  }
+  return undefined;
 };
 
-const findIdentifierImportModule = (
-  sourceFile: TSSourceFile,
-  identifierName: string,
+const resolveImportedName = (
+  importDecl: TSImportDeclaration,
+  localName: string,
   ts: TypeScriptModule,
 ): string | undefined => {
+  const namedBindings = importDecl.importClause?.namedBindings;
+  if (!namedBindings || !ts.isNamedImports(namedBindings)) return undefined;
+  return findExportNameInElements(namedBindings.elements, localName);
+};
+
+type ResolvedImport = { readonly modulePath: string; readonly exportName: string };
+
+const findIdentifierImport = (
+  sourceFile: TSSourceFile,
+  localName: string,
+  ts: TypeScriptModule,
+): ResolvedImport | undefined => {
   for (const stmt of sourceFile.statements) {
     if (!ts.isImportDeclaration(stmt)) continue;
     if (!ts.isStringLiteral(stmt.moduleSpecifier)) continue;
-    if (!namedImportContains(stmt, identifierName, ts)) continue;
-    return resolveRelativeModuleSpecifier(sourceFile, stmt.moduleSpecifier.text);
+    const exportName = resolveImportedName(stmt, localName, ts);
+    if (!exportName) continue;
+    return {
+      modulePath: resolveRelativeModuleSpecifier(sourceFile, stmt.moduleSpecifier.text),
+      exportName,
+    };
   }
   return undefined;
 };
@@ -90,15 +110,25 @@ const buildValidatedRef = (
 ): RequestSchemaRef => {
   const arg = call.arguments[0];
   if (!arg || !ts.isIdentifier(arg)) return { kind: 'none' };
-  const exportName = arg.text;
+  const localName = arg.text;
   const target = extractTarget(call, ts);
 
-  const importedModule = findIdentifierImportModule(sourceFile, exportName, ts);
-  if (importedModule) {
-    return { kind: 'valibot-named', modulePath: importedModule, exportName, target };
+  const imported = findIdentifierImport(sourceFile, localName, ts);
+  if (imported) {
+    return {
+      kind: 'valibot-named',
+      modulePath: imported.modulePath,
+      exportName: imported.exportName,
+      target,
+    };
   }
-  if (hasLocalIdentifierDeclaration(sourceFile, exportName, ts)) {
-    return { kind: 'valibot-named', modulePath: sourceFile.fileName, exportName, target };
+  if (hasLocalIdentifierDeclaration(sourceFile, localName, ts)) {
+    return {
+      kind: 'valibot-named',
+      modulePath: sourceFile.fileName,
+      exportName: localName,
+      target,
+    };
   }
   return { kind: 'none' };
 };

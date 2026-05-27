@@ -1,3 +1,4 @@
+import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { JsonSchema, SchemaAdapter } from './schema-adapter';
@@ -8,10 +9,21 @@ import type { JsonSchema, SchemaAdapter } from './schema-adapter';
 // rely on the default `import(file:// url)` against compiled `.js` output.
 export type SchemaResolver = (modulePath: string) => Promise<Record<string, unknown>>;
 
+// Bare specifiers (`valibot`, `@scope/pkg`) must reach `import()` untouched so
+// Node's resolver can find them in node_modules. Only filesystem paths get
+// converted to file:// URLs.
+const toImportSpecifier = (modulePath: string): string => {
+  if (modulePath.startsWith('file:')) return modulePath;
+  if (isAbsolute(modulePath) || modulePath.startsWith('./') || modulePath.startsWith('../')) {
+    return pathToFileURL(modulePath).href;
+  }
+  return modulePath;
+};
+
 /** @throws {Error} */
 const defaultResolver: SchemaResolver = async (modulePath) => {
-  const url = pathToFileURL(modulePath).href;
-  const imported: unknown = await import(url);
+  const specifier = toImportSpecifier(modulePath);
+  const imported: unknown = await import(specifier);
   if (typeof imported !== 'object' || imported === null) {
     throw new Error(`Module '${modulePath}' did not resolve to an object`);
   }
