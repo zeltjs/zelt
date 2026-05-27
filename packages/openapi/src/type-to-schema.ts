@@ -34,8 +34,7 @@ const convertProperties = (
   return { properties, required };
 };
 
-const isUndefinedType = (t: TypeInfo): boolean =>
-  t.kind === 'primitive' && t.type === 'undefined';
+const isUndefinedType = (t: TypeInfo): boolean => t.kind === 'primitive' && t.type === 'undefined';
 
 const isNullType = (t: TypeInfo): boolean => t.kind === 'primitive' && t.type === 'null';
 
@@ -50,31 +49,24 @@ const withNullableForPrimitive = (inner: JsonSchema): JsonSchema | undefined => 
   return undefined;
 };
 
+const buildNullableSchema = (base: TypeInfo, ctx: SchemaContext): JsonSchema => {
+  const inner = convertTypeInfo(base, ctx);
+  return withNullableForPrimitive(inner) ?? { anyOf: [inner, { type: 'null' }] };
+};
+
 const convertUnion = (type: TypeInfo & { kind: 'union' }, ctx: SchemaContext): JsonSchema => {
   const nonUndefinedTypes = type.types.filter((t) => !isUndefinedType(t));
 
-  if (nonUndefinedTypes.length === 0) {
-    return {};
-  }
+  if (nonUndefinedTypes.length === 0) return {};
 
-  if (nonUndefinedTypes.length === 1) {
-    const first = nonUndefinedTypes[0];
-    if (first) {
-      return convertTypeInfo(first, ctx);
-    }
-  }
+  const first = nonUndefinedTypes[0];
+  if (nonUndefinedTypes.length === 1 && first) return convertTypeInfo(first, ctx);
 
-  const hasNull = nonUndefinedTypes.some(isNullType);
   const nonNullTypes = nonUndefinedTypes.filter((t) => !isNullType(t));
-
-  if (nonNullTypes.length === 1 && hasNull) {
-    const first = nonNullTypes[0];
-    if (first) {
-      const inner = convertTypeInfo(first, ctx);
-      const primitive = withNullableForPrimitive(inner);
-      if (primitive) return primitive;
-      return { anyOf: [inner, { type: 'null' }] };
-    }
+  const hasNull = nonUndefinedTypes.length !== nonNullTypes.length;
+  const baseType = nonNullTypes[0];
+  if (hasNull && nonNullTypes.length === 1 && baseType) {
+    return buildNullableSchema(baseType, ctx);
   }
 
   return { anyOf: nonUndefinedTypes.map((t) => convertTypeInfo(t, ctx)) };
