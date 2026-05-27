@@ -26,7 +26,7 @@ export class LifecycleManager {
 
   register(lifecycle: Lifecycle<void>): void;
   register<T extends object>(lifecycle: Lifecycle<T>): ReadyValue<T>;
-  register(lifecycle: Lifecycle<unknown>): ReadyValue<object> | void {
+  register(lifecycle: Lifecycle<unknown>): ReadyValue<object> | undefined {
     const readyValue = createReadyValue<object>();
     this.lifecycles.push({ lc: lifecycle, readyValue });
     return readyValue;

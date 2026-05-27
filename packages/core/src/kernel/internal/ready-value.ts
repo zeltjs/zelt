@@ -39,7 +39,6 @@ const protoProxy = new Proxy(Object.getPrototypeOf(new ReadyValueBase()) as obje
       currentState: state === 'pending' || state === 'disposed' ? state : 'ready',
     });
   },
-  },
 });
 
 export function createReadyValue<T extends object>(): ReadyValue<T> {
