@@ -29,10 +29,10 @@ describe('typeInfoToJsonSchema', () => {
       expect(schema).toEqual({ type: 'null' });
     });
 
-    it('converts undefined', () => {
+    it('converts undefined to empty schema', () => {
       const type: TypeInfo = { kind: 'primitive', type: 'undefined' };
       const { schema } = typeInfoToJsonSchema(type);
-      expect(schema).toEqual({ type: 'undefined' });
+      expect(schema).toEqual({});
     });
   });
 
@@ -132,7 +132,7 @@ describe('typeInfoToJsonSchema', () => {
   });
 
   describe('union', () => {
-    it('converts nullable type (T | null)', () => {
+    it('converts nullable type (T | null) using JSON Schema 2020-12 type array', () => {
       const type: TypeInfo = {
         kind: 'union',
         types: [
@@ -141,10 +141,24 @@ describe('typeInfoToJsonSchema', () => {
         ],
       };
       const { schema } = typeInfoToJsonSchema(type);
-      expect(schema).toEqual({ type: 'string', nullable: true });
+      expect(schema).toEqual({ type: ['string', 'null'] });
     });
 
-    it('converts optional type (T | undefined)', () => {
+    it('converts nullable ref type ($ref | null) using anyOf', () => {
+      const type: TypeInfo = {
+        kind: 'union',
+        types: [
+          { kind: 'ref', name: 'User' },
+          { kind: 'primitive', type: 'null' },
+        ],
+      };
+      const { schema } = typeInfoToJsonSchema(type);
+      expect(schema).toEqual({
+        anyOf: [{ $ref: '#/components/schemas/User' }, { type: 'null' }],
+      });
+    });
+
+    it('converts optional type (T | undefined) by dropping undefined', () => {
       const type: TypeInfo = {
         kind: 'union',
         types: [
@@ -153,7 +167,7 @@ describe('typeInfoToJsonSchema', () => {
         ],
       };
       const { schema } = typeInfoToJsonSchema(type);
-      expect(schema).toEqual({ type: 'number', nullable: true });
+      expect(schema).toEqual({ type: 'number' });
     });
 
     it('converts union of multiple types', () => {
@@ -166,7 +180,7 @@ describe('typeInfoToJsonSchema', () => {
       };
       const { schema } = typeInfoToJsonSchema(type);
       expect(schema).toEqual({
-        oneOf: [{ type: 'string' }, { type: 'number' }],
+        anyOf: [{ type: 'string' }, { type: 'number' }],
       });
     });
 
@@ -181,11 +195,11 @@ describe('typeInfoToJsonSchema', () => {
       };
       const { schema } = typeInfoToJsonSchema(type);
       expect(schema).toEqual({
-        oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'null' }],
+        anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'null' }],
       });
     });
 
-    it('converts union of multiple types with undefined', () => {
+    it('converts union of multiple types with undefined by dropping undefined', () => {
       const type: TypeInfo = {
         kind: 'union',
         types: [
@@ -196,7 +210,7 @@ describe('typeInfoToJsonSchema', () => {
       };
       const { schema } = typeInfoToJsonSchema(type);
       expect(schema).toEqual({
-        oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'undefined' }],
+        anyOf: [{ type: 'string' }, { type: 'number' }],
       });
     });
   });
