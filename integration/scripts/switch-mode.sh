@@ -22,6 +22,7 @@ fi
 
 PACKAGES=(
   "core"
+  "unsafe-type-lib"
   "adapter-node"
   "adapter-bun"
   "adapter-cloudflare-workers"
@@ -110,7 +111,10 @@ generate_package_json() {
     $deps
   },
   "devDependencies": {
-    "vitest": "3.2.4"
+    "vitest": "3.2.4",
+    "valibot": "1.3.1",
+    "@valibot/to-json-schema": "1.6.0",
+    "hono": "4.12.16"
   }
 }
 EOF
@@ -129,7 +133,10 @@ EOF
     $deps
   },
   "devDependencies": {
-    "vitest": "3.2.4"
+    "vitest": "3.2.4",
+    "valibot": "1.3.1",
+    "@valibot/to-json-schema": "1.6.0",
+    "hono": "4.12.16"
   },
   "pnpm": {
     "overrides": {
