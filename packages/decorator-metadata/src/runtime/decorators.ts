@@ -1,7 +1,7 @@
 import { toUnknownCallable } from '@zeltjs/unsafe-type-lib';
 import { match, P } from 'ts-pattern';
 
-import { captureStackTrace } from './position';
+import { captureStackTrace, withWrapperFiles } from './position';
 import {
   aggregateMembers,
   ensureClassMeta,
@@ -206,7 +206,7 @@ export const createClassDecorator = <TProps extends object, E extends Error = Er
   props: TProps,
   options?: ClassDecoratorOptions<E>,
 ): ClassDecoratorFn => {
-  const trace = captureStackTrace();
+  const defineTrace = captureStackTrace();
   const rejectIfApplied = options?.rejectIfApplied;
   const afterApply = options?.afterApply;
 
@@ -215,6 +215,7 @@ export const createClassDecorator = <TProps extends object, E extends Error = Er
       const err: E | undefined = rejectIfApplied(getClassMetadata(cls)?.props ?? []);
       if (err) throw err;
     }
+    const trace = withWrapperFiles(defineTrace, captureStackTrace());
     recordClass(cls, trace, props);
     aggregateMembers(cls, classKey);
     afterApply?.(toConstructor(cls));
@@ -226,7 +227,7 @@ export const createMethodDecorator = <TProps extends object, E extends Error = E
   props: TProps,
   options?: MethodDecoratorOptions<E>,
 ): MethodDecoratorFn => {
-  const trace = captureStackTrace();
+  const defineTrace = captureStackTrace();
 
   return adaptMethodContext((info) => {
     if (info.isStatic && options?.rejectStatic) {
@@ -234,6 +235,7 @@ export const createMethodDecorator = <TProps extends object, E extends Error = E
       throw err;
     }
 
+    const trace = withWrapperFiles(defineTrace, captureStackTrace());
     recordMethod(info.classKey, info.name, trace, props);
     if (options?.afterApply && info.method) options.afterApply(info.method, info.name);
   });
@@ -247,9 +249,10 @@ export const createPropertyDecorator = <TProps extends object>(
   props: TProps,
   options?: PropertyDecoratorOptions,
 ): PropertyDecoratorFn => {
-  const trace = captureStackTrace();
+  const defineTrace = captureStackTrace();
 
   return adaptPropertyContext((classKey, name) => {
+    const trace = withWrapperFiles(defineTrace, captureStackTrace());
     recordProperty(classKey, name, trace, props);
     options?.afterApply?.(name);
   });
@@ -260,7 +263,7 @@ export const createPropertyDecorator = <TProps extends object>(
 // =============================================================================
 
 export const composeClassDecorators = (...decorators: ClassDecoratorFn[]): ClassDecoratorFn => {
-  const trace = captureStackTrace();
+  const defineTrace = captureStackTrace();
 
   function decorate<T extends abstract new (...args: never[]) => unknown>(
     value: T,
@@ -271,6 +274,7 @@ export const composeClassDecorators = (...decorators: ClassDecoratorFn[]): Class
     const cls = asObject(args[0]);
     if (!cls) return undefined;
 
+    const trace = withWrapperFiles(defineTrace, captureStackTrace());
     if (trace) ensureClassMeta(cls, trace);
 
     for (const dec of decorators) {
