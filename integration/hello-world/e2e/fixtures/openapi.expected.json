@@ -1,0 +1,490 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Hello World API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/hello": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelloController_index_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hello/async": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelloController_asyncGreeting_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hello/stream": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelloController_streamGreeting_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hello/{name}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelloController_greet_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/errors/sync": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/errors/async": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/errors/unexpected": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/middleware/with-logging": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiddlewareController_withLogging_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/middleware/skip-logging": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiddlewareController_skipLogging_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/middleware/with-header": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiddlewareController_withHeader_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pipes/user/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipesController_getUserById_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pipes/transform/{value}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "value",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipesController_transformValue_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interceptors/override": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterceptorsController_override_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interceptors/transform": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterceptorsController_transform_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interceptors/transform/async": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterceptorsController_transformAsync_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interceptors/transform/stream": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterceptorsController_transformStream_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interceptors/status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterceptorsController_status_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interceptors/header": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterceptorsController_header_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsersController_create_Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsersController_create_Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HelloController_index_Response": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"]
+      },
+      "HelloController_asyncGreeting_Response": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"]
+      },
+      "HelloController_streamGreeting_Response": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"]
+      },
+      "HelloController_greet_Response": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"]
+      },
+      "MiddlewareController_withLogging_Response": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": ["ok"]
+      },
+      "MiddlewareController_skipLogging_Response": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": ["ok"]
+      },
+      "MiddlewareController_withHeader_Response": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": ["ok"]
+      },
+      "PipesController_getUserById_Response": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "greeting": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "greeting"]
+      },
+      "PipesController_transformValue_Response": {
+        "type": "object",
+        "properties": {
+          "original": {
+            "type": "string"
+          },
+          "upper": {
+            "type": "string"
+          },
+          "lower": {
+            "type": "string"
+          }
+        },
+        "required": ["original", "upper", "lower"]
+      },
+      "InterceptorsController_override_Response": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"]
+      },
+      "InterceptorsController_transform_Response": {
+        "type": "string"
+      },
+      "InterceptorsController_transformAsync_Response": {
+        "type": "string"
+      },
+      "InterceptorsController_transformStream_Response": {
+        "type": "string"
+      },
+      "InterceptorsController_status_Response": {
+        "type": "string"
+      },
+      "InterceptorsController_header_Response": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"]
+      },
+      "UsersController_create_Request": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "age": {
+            "type": "number"
+          }
+        },
+        "required": ["name", "email"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "UsersController_create_Response": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "age": {
+            "type": "number"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": ["name", "email", "id"]
+      }
+    }
+  }
+}

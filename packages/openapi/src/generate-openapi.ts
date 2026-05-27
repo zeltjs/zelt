@@ -7,12 +7,24 @@ import type {
   ClassMetadata,
   InspectOptions,
   MethodInfo,
+  ParamInfo,
   TypeInfo,
 } from '@zeltjs/decorator-metadata/inspect';
-import { getSourcePosition, getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
+import {
+  getOrCreateProgram,
+  getSourcePosition,
+  getTypeMetadata,
+} from '@zeltjs/decorator-metadata/inspect';
 
-import type { JsonSchema } from './schema-adapter';
+import type { RequestSchemaRef, ValidationTarget } from './analyze-handler';
+import { analyzeParamFromPosition } from './analyze-handler';
+import type { SchemaResolver } from './resolve-schema';
+import { resolveValidatedSchema } from './resolve-schema';
+import type { JsonSchema, SchemaAdapter } from './schema-adapter';
 import { typeInfoToJsonSchema } from './type-to-schema';
+
+type TSProgram = import('typescript').Program;
+type TypeScriptModule = typeof import('typescript');
 
 export type RouteInfo = {
   readonly method: string;
@@ -52,6 +64,8 @@ export type GenerateOpenApiOptions = {
   readonly tsconfig?: string;
   readonly title?: string;
   readonly version?: string;
+  readonly schemaAdapter?: SchemaAdapter;
+  readonly schemaResolver?: SchemaResolver;
 };
 
 export type GenerateOpenApiResult = {
@@ -96,32 +110,62 @@ const findMethodInfo = (metadata: ClassMetadata, methodName: string): MethodInfo
 
 const isNoBodyMethod = (method: string): boolean => method === 'GET' || method === 'DELETE';
 
-const getValidFirstParam = (methodInfo: MethodInfo | undefined): TypeInfo | undefined => {
-  if (!methodInfo || methodInfo.params.length === 0) return undefined;
-  const firstParam = methodInfo.params[0];
-  if (!firstParam || isVoidType(firstParam.type)) return undefined;
-  return firstParam.type;
+const targetToContentType = (target: ValidationTarget): string =>
+  target === 'form' ? 'multipart/form-data' : 'application/json';
+
+const resolveRequestSchemaRef = (
+  methodInfo: MethodInfo | undefined,
+  program: TSProgram,
+  ts: TypeScriptModule,
+): RequestSchemaRef => {
+  if (!methodInfo) return { kind: 'none' };
+  for (const param of methodInfo.params) {
+    const ref = analyzeParamFromMaybePos(param, program, ts);
+    if (ref.kind !== 'none') return ref;
+  }
+  return { kind: 'none' };
 };
 
-const buildRequestBodyFromTypeInfo = (
+const analyzeParamFromMaybePos = (
+  param: ParamInfo,
+  program: TSProgram,
+  ts: TypeScriptModule,
+): RequestSchemaRef => {
+  if (!param.pos) return { kind: 'none' };
+  return analyzeParamFromPosition(program, ts, param.pos);
+};
+
+/** @throws {Error} */
+const buildRequestBody = async (
   controller: ControllerRouteInfo,
   route: RouteInfo,
-  methodInfo: MethodInfo | undefined,
+  ref: RequestSchemaRef,
   schemas: SchemaMap,
-): Operation | undefined => {
+  schemaAdapter: SchemaAdapter | undefined,
+  schemaResolver: SchemaResolver | undefined,
+): Promise<Operation | undefined> => {
   if (isNoBodyMethod(route.method)) return undefined;
+  if (ref.kind === 'none') return undefined;
+  if (!schemaAdapter) {
+    throw new Error(
+      `Controller ${controller.name}.${route.methodName} uses validated() but no schemaAdapter was provided to generateOpenApi`,
+    );
+  }
 
-  const firstParamType = getValidFirstParam(methodInfo);
-  if (!firstParamType) return undefined;
-
-  const { schema } = typeInfoToJsonSchema(firstParamType);
-  if (Object.keys(schema).length === 0) return undefined;
+  const schema = await resolveValidatedSchema(
+    ref.modulePath,
+    ref.exportName,
+    schemaAdapter,
+    schemaResolver,
+  );
 
   const refName = `${controller.name}_${route.methodName}_Request`;
   schemas[refName] = schema;
   return {
     required: true,
-    content: { 'application/json': { schema: { $ref: `#/components/schemas/${refName}` } } },
+    content: {
+      [targetToContentType(ref.target)]: { schema: { $ref: `#/components/schemas/${refName}` } },
+    },
   };
 };
 
@@ -150,19 +194,36 @@ const buildResponseSchemaFromTypeInfo = (
   };
 };
 
-const buildOperation = (
+type SchemaContext = {
+  readonly program: TSProgram;
+  readonly ts: TypeScriptModule;
+  readonly schemaAdapter: SchemaAdapter | undefined;
+  readonly schemaResolver: SchemaResolver | undefined;
+};
+
+/** @throws {Error} */
+const buildOperation = async (
   controller: ControllerRouteInfo,
   route: RouteInfo,
   methodInfo: MethodInfo | undefined,
+  ctx: SchemaContext,
   schemas: SchemaMap,
-): Operation => {
+): Promise<Operation> => {
   const op: Operation = {};
 
   const pathParams = extractPathParams(route.fullPath);
   const params = buildPathParams(pathParams);
   if (params) op['parameters'] = params;
 
-  const reqBody = buildRequestBodyFromTypeInfo(controller, route, methodInfo, schemas);
+  const ref = resolveRequestSchemaRef(methodInfo, ctx.program, ctx.ts);
+  const reqBody = await buildRequestBody(
+    controller,
+    route,
+    ref,
+    schemas,
+    ctx.schemaAdapter,
+    ctx.schemaResolver,
+  );
   if (reqBody) op['requestBody'] = reqBody;
 
   op['responses'] = buildResponseSchemaFromTypeInfo(controller, route, methodInfo, schemas);
@@ -170,16 +231,18 @@ const buildOperation = (
   return op;
 };
 
-const buildControllerRoutes = (
+/** @throws {Error} */
+const buildControllerRoutes = async (
   controller: ControllerRouteInfoWithSource,
   typeMetadata: ClassMetadata,
+  ctx: SchemaContext,
   schemas: SchemaMap,
   paths: Record<string, PathItem>,
-): void => {
+): Promise<void> => {
   for (const route of controller.routes) {
     const oaPath = toOpenApiPath(route.fullPath);
     const methodInfo = findMethodInfo(typeMetadata, route.methodName);
-    const op = buildOperation(controller, route, methodInfo, schemas);
+    const op = await buildOperation(controller, route, methodInfo, ctx, schemas);
 
     const existing = paths[oaPath] ?? {};
     existing[route.method.toLowerCase()] = op;
@@ -198,6 +261,11 @@ type ControllerWithMeta = {
   readonly typeMetadata: ClassMetadata;
 };
 
+const buildInspectOptions = (options: GenerateOpenApiOptions): InspectOptions =>
+  options.tsconfig
+    ? { tsconfig: options.tsconfig, expandStrategy: 'always' }
+    : { expandStrategy: 'always' };
+
 /** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
 const resolveControllersWithMetadata = async (
   metadata: HttpMetadata,
@@ -205,6 +273,7 @@ const resolveControllersWithMetadata = async (
   options: GenerateOpenApiOptions,
 ): Promise<readonly ControllerWithMeta[]> => {
   const results: ControllerWithMeta[] = [];
+  const inspectOptions = buildInspectOptions(options);
 
   for (const info of metadata.controllers) {
     const cls = findControllerClass(controllers, info.name);
@@ -225,11 +294,7 @@ const resolveControllersWithMetadata = async (
       });
     }
 
-    const inspectOptions: InspectOptions = options.tsconfig
-      ? { tsconfig: options.tsconfig, expandStrategy: 'always' }
-      : { expandStrategy: 'always' };
     const typeMetadataResult = await getTypeMetadata(toInspectableClass(cls), inspectOptions);
-
     if (typeMetadataResult.isErr()) {
       const err = typeMetadataResult.error;
       throw new ZeltDecoratorUsageError({
@@ -239,19 +304,17 @@ const resolveControllersWithMetadata = async (
       });
     }
 
-    const typeMetadata = typeMetadataResult.value;
-
     results.push({
       info: { ...info, sourceFile },
       cls,
-      typeMetadata,
+      typeMetadata: typeMetadataResult.value,
     });
   }
 
   return results;
 };
 
-/** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
+/** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError | Error} */
 const buildOpenApiDoc = async (
   metadata: HttpMetadata,
   controllers: readonly ControllerClass[],
@@ -260,9 +323,22 @@ const buildOpenApiDoc = async (
   const schemas: SchemaMap = {};
   const paths: Record<string, PathItem> = {};
 
+  const tsconfigPath = resolve(options.tsconfig ?? 'tsconfig.json');
+  const programResult = await getOrCreateProgram(tsconfigPath);
+  if (programResult.isErr()) {
+    throw new Error(`Failed to load TypeScript program: ${programResult.error.message}`);
+  }
+  const { program, ts } = programResult.value;
+  const ctx: SchemaContext = {
+    program,
+    ts,
+    schemaAdapter: options.schemaAdapter,
+    schemaResolver: options.schemaResolver,
+  };
+
   const controllersWithMeta = await resolveControllersWithMetadata(metadata, controllers, options);
   for (const { info, typeMetadata } of controllersWithMeta) {
-    buildControllerRoutes(info, typeMetadata, schemas, paths);
+    await buildControllerRoutes(info, typeMetadata, ctx, schemas, paths);
   }
 
   return {
@@ -285,7 +361,7 @@ const writeIfChanged = async (path: string, content: string): Promise<boolean> =
   return true;
 };
 
-/** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
+/** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError | Error} */
 export const generateOpenApi = async (
   app: HttpAppLike,
   options: GenerateOpenApiOptions,

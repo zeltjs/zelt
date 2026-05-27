@@ -52,7 +52,7 @@ const buildGenerateOptions = (options: OpenApiPluginOptions): GenerateOpenApiOpt
   ...(options.version !== undefined && { version: options.version }),
 });
 
-/** @throws {ZeltDecoratorUsageError | ZeltPluginConfigurationError | UnsupportedTypeScriptVersionError} */
+/** @throws {ZeltDecoratorUsageError | ZeltPluginConfigurationError | UnsupportedTypeScriptVersionError | Error} */
 export const openapiPlugin = (options: OpenApiPluginOptions = {}): ZeltPlugin => ({
   name: 'openapi',
   async preBuild(ctx) {

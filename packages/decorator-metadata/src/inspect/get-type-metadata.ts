@@ -67,6 +67,17 @@ const findPropertyInClass = (
   return undefined;
 };
 
+const paramPosition = (
+  param: import('typescript').Symbol,
+  ts: TypeScriptModule,
+): Position | undefined => {
+  const decl = param.valueDeclaration ?? param.declarations?.[0];
+  if (!decl) return undefined;
+  const sourceFile = decl.getSourceFile();
+  const { line, character } = ts.getLineAndCharacterOfPosition(sourceFile, decl.getStart());
+  return { sourceFile: sourceFile.fileName, line: line + 1, column: character + 1 };
+};
+
 const extractMethodInfo = (
   m: StoredMethodMeta,
   classNode: TSClassDeclaration,
@@ -84,7 +95,11 @@ const extractMethodInfo = (
       if (sig) {
         for (const param of sig.getParameters()) {
           const paramType = checker.getTypeOfSymbol(param);
-          params.push({ name: param.getName(), type: extractType(paramType) });
+          params.push({
+            name: param.getName(),
+            type: extractType(paramType),
+            pos: paramPosition(param, ts),
+          });
         }
 
         let retType = sig.getReturnType();
