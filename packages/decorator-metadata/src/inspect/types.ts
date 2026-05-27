@@ -29,6 +29,7 @@ export type TypedPropertyInfo = {
 export type ParamInfo = {
   readonly name: string;
   readonly type: TypeInfo;
+  readonly pos: Position | undefined;
 };
 
 export type MethodInfo = {

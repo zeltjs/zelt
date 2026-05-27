@@ -1,98 +1,43 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-
+import type { SchemaResolver } from '@zeltjs/openapi';
 import { generateOpenApi } from '@zeltjs/openapi';
+import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
 import { describe, expect, it } from 'vitest';
 
 import { app } from '../src/app';
 
-type SchemaRef = { readonly $ref: string };
-type ObjectSchema = {
-  readonly type?: string;
-  readonly properties?: Record<string, unknown>;
-  readonly required?: readonly string[];
-};
-type OpenApiDoc = {
-  readonly openapi: string;
-  readonly info: { readonly title: string; readonly version: string };
-  readonly paths: Record<
-    string,
-    Record<
-      string,
-      {
-        readonly parameters?: ReadonlyArray<{
-          readonly name: string;
-          readonly in: string;
-          readonly required: boolean;
-          readonly schema: { readonly type: string };
-        }>;
-        readonly requestBody?: {
-          readonly content: { readonly 'application/json': { readonly schema: SchemaRef } };
-        };
-        readonly responses?: Record<string, unknown>;
-      }
-    >
-  >;
-  readonly components: { readonly schemas: Record<string, ObjectSchema> };
-};
-
 const tsconfig = resolve(__dirname, '../tsconfig.json');
+const fixturePath = resolve(__dirname, 'fixtures/openapi.expected.json');
 
-const generate = async (
-  options: { title?: string; version?: string } = {},
-): Promise<OpenApiDoc> => {
+// vitest's import() resolves .ts paths through its loader; the default
+// pathToFileURL-based resolver in @zeltjs/openapi only handles compiled .js.
+const schemaResolver: SchemaResolver = async (modulePath) =>
+  (await import(modulePath)) as Record<string, unknown>;
+
+const generateDoc = async (): Promise<unknown> => {
   const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
-  await generateOpenApi(app, { distDir: dist, tsconfig, ...options });
-  return JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as OpenApiDoc;
+  await generateOpenApi(app, {
+    distDir: dist,
+    tsconfig,
+    title: 'Hello World API',
+    version: '1.0.0',
+    schemaAdapter: valibotAdapter,
+    schemaResolver,
+  });
+  return JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as unknown;
 };
 
 describe('OpenAPI generation (hello-world)', () => {
-  it('emits valid envelope with custom title and version', async () => {
-    const doc = await generate({ title: 'Hello World API', version: '1.0.0' });
+  it('matches the committed fixture', async () => {
+    const actual = await generateDoc();
 
-    expect(doc.openapi).toBe('3.1.0');
-    expect(doc.info.title).toBe('Hello World API');
-    expect(doc.info.version).toBe('1.0.0');
-  });
+    if (process.env['UPDATE_OPENAPI_FIXTURE']) {
+      await writeFile(fixturePath, `${JSON.stringify(actual, null, 2)}\n`, 'utf8');
+    }
 
-  it('emits path with parameters for GET /hello/:name', async () => {
-    const doc = await generate();
-
-    expect(doc.paths['/hello/{name}']).toBeDefined();
-    const op = doc.paths['/hello/{name}']?.['get'];
-    expect(op?.parameters).toContainEqual({
-      name: 'name',
-      in: 'path',
-      required: true,
-      schema: { type: 'string' },
-    });
-  });
-
-  it('derives request body schema from validated(Schema) default param', async () => {
-    const doc = await generate();
-
-    const postOp = doc.paths['/users']?.['post'];
-    expect(postOp?.requestBody).toBeDefined();
-
-    const ref = postOp?.requestBody?.content['application/json'].schema.$ref;
-    expect(ref).toBeDefined();
-    const schemaName = ref?.replace('#/components/schemas/', '');
-    const schema = doc.components.schemas[schemaName];
-
-    expect(schema?.type).toBe('object');
-    expect(schema?.properties).toHaveProperty('name');
-    expect(schema?.properties).toHaveProperty('email');
-    expect(schema?.properties).toHaveProperty('age');
-    expect(schema?.required).toContain('name');
-    expect(schema?.required).toContain('email');
-    expect(schema?.required).not.toContain('age');
-  });
-
-  it('returns changed=false on second run with no changes', async () => {
-    const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
-    await generateOpenApi(app, { distDir: dist, tsconfig });
-    const second = await generateOpenApi(app, { distDir: dist, tsconfig });
-    expect(second.changed).toBe(false);
+    const expected = JSON.parse(await readFile(fixturePath, 'utf8')) as unknown;
+    expect(actual).toEqual(expected);
   });
 });

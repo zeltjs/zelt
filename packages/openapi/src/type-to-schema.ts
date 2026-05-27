@@ -17,6 +17,11 @@ const primitiveMap: Record<string, string> = {
 const convertProperty = (prop: TypedPropertyInfo, ctx: SchemaContext): JsonSchema =>
   convertTypeInfo(prop.type, ctx);
 
+// TypeScript surfaces `unique symbol` brand properties under names like
+// `__@___zeltValidatedBrand@3023`. These are implementation details of branded
+// types (ValidatedMarker, etc.) and must not leak into JSON Schema output.
+const isInternalBrandProperty = (name: string): boolean => name.startsWith('__@');
+
 const convertProperties = (
   props: readonly TypedPropertyInfo[],
   ctx: SchemaContext,
@@ -25,6 +30,7 @@ const convertProperties = (
   const required: string[] = [];
 
   for (const prop of props) {
+    if (isInternalBrandProperty(prop.name)) continue;
     properties[prop.name] = convertProperty(prop, ctx);
     if (!prop.optional) {
       required.push(prop.name);
@@ -32,6 +38,21 @@ const convertProperties = (
   }
 
   return { properties, required };
+};
+
+// hono's TypedResponse<T, S, F> surfaces as an object type
+// `{ _data: T; _status: S; _format: F }`. For OpenAPI we only care about the
+// response body, so unwrap to `_data` when the shape matches.
+const TYPED_RESPONSE_KEYS = new Set(['_data', '_status', '_format']);
+
+const findTypedResponseDataType = (props: readonly TypedPropertyInfo[]): TypeInfo | undefined => {
+  if (props.length !== TYPED_RESPONSE_KEYS.size) return undefined;
+  let dataProp: TypedPropertyInfo | undefined;
+  for (const prop of props) {
+    if (!TYPED_RESPONSE_KEYS.has(prop.name)) return undefined;
+    if (prop.name === '_data') dataProp = prop;
+  }
+  return dataProp?.type;
 };
 
 const isUndefinedType = (t: TypeInfo): boolean => t.kind === 'primitive' && t.type === 'undefined';
@@ -81,6 +102,9 @@ const convertTypeInfo = (type: TypeInfo, ctx: SchemaContext): JsonSchema =>
     .with({ kind: 'literal' }, (t) => ({ const: t.value }))
     .with({ kind: 'array' }, (t) => ({ type: 'array', items: convertTypeInfo(t.items, ctx) }))
     .with({ kind: 'object' }, (t) => {
+      const dataType = findTypedResponseDataType(t.properties);
+      if (dataType) return convertTypeInfo(dataType, ctx);
+
       const { properties, required } = convertProperties(t.properties, ctx);
       return {
         type: 'object',

@@ -1,7 +1,8 @@
 export { getClassMetadata } from '../runtime/store';
 export { getDependencies } from './get-dependencies';
 export { getTypeMetadata } from './get-type-metadata';
-export { clearProgramCache } from './program-cache';
+export type { ProgramCacheError } from './program-cache';
+export { clearProgramCache, getOrCreateProgram } from './program-cache';
 export type { GetSourcePositionOptions } from './source-position';
 export { getSourcePosition } from './source-position';
 export type {
