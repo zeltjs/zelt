@@ -1,3 +1,7 @@
+import { existsSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 export type Position = {
   readonly sourceFile: string;
   readonly line: number;
@@ -13,13 +17,33 @@ export type ResolvePositionOptions = {
   readonly isFrameworkPath?: (path: string) => boolean;
 };
 
+// Derive this package's root by walking up to the nearest package.json so
+// framework-path detection works regardless of bundled layout (src/runtime/
+// vs dist/) or install location (workspace symlinks vs node_modules realpath).
+// Without this, decorators defined inside this package leak their own file
+// paths as "user positions" because the stack frame falls inside dist/.
+const findPackageRoot = (start: string): string => {
+  let dir = dirname(start);
+  while (dir !== dirname(dir)) {
+    if (existsSync(`${dir}/package.json`)) return dir;
+    dir = dirname(dir);
+  }
+  return dir;
+};
+
+const PACKAGE_ROOT = findPackageRoot(fileURLToPath(import.meta.url)).replace(/\\/g, '/');
+
 const defaultIsFrameworkPath = (path: string): boolean => {
   const normalized = path.replace(/\\/g, '/');
-  return (
-    normalized.includes('/node_modules/') ||
-    normalized.includes('/packages/decorator-metadata/src/runtime/') ||
-    normalized.startsWith('node:')
-  );
+  if (normalized.includes('/node_modules/')) return true;
+  if (normalized.startsWith('node:')) return true;
+  if (!normalized.startsWith(`${PACKAGE_ROOT}/`)) return false;
+  // Test files within this package are user code that exercises decorators —
+  // they must remain visible to position resolution so decorator usage inside
+  // tests reports the test file, not framework internals.
+  const relative = normalized.slice(PACKAGE_ROOT.length + 1);
+  if (relative.startsWith('src/test/') || relative.startsWith('dist/test/')) return false;
+  return true;
 };
 
 // SWC, TypeScript, and Babel inject decorator helpers into transpiled output.
