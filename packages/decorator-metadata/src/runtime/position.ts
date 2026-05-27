@@ -87,13 +87,27 @@ const isTranspilerHelperFrame = (line: string): boolean => {
   return TRANSPILER_HELPER_NAMES.has(name);
 };
 
+// V8 stack frames for ESM-loaded modules use file:// URLs while frames for
+// CommonJS/transformed modules use plain paths. Normalize to plain paths so
+// downstream consumers (PACKAGE_ROOT comparison, TypeScript Program lookup)
+// work uniformly regardless of how a module was loaded.
+const normalizeStackFilePath = (file: string): string => {
+  if (!file.startsWith('file://')) return file;
+  try {
+    return fileURLToPath(file);
+  } catch {
+    return file;
+  }
+};
+
 const tryParseMatch = (
   match: RegExpMatchArray | null,
   isFrameworkPath: (path: string) => boolean,
 ): Position | undefined => {
   if (!match) return undefined;
-  const [, file, lineNum, colNum] = match;
-  if (!file || !lineNum || !colNum) return undefined;
+  const [, rawFile, lineNum, colNum] = match;
+  if (!rawFile || !lineNum || !colNum) return undefined;
+  const file = normalizeStackFilePath(rawFile);
   if (isFrameworkPath(file)) return undefined;
   return {
     sourceFile: file,
@@ -121,9 +135,9 @@ const isAnonymousPathFrame = (line: string): boolean =>
 
 const extractFilePath = (line: string): string | undefined => {
   const parenMatch = line.match(/\(([^)]+):\d+:\d+\)/);
-  if (parenMatch?.[1]) return parenMatch[1];
+  if (parenMatch?.[1]) return normalizeStackFilePath(parenMatch[1]);
   const atMatch = line.match(/at\s+([^\s]+):\d+:\d+/);
-  return atMatch?.[1];
+  return atMatch?.[1] ? normalizeStackFilePath(atMatch[1]) : undefined;
 };
 
 const extractOutsidePackageFiles = (stack: string): Set<string> => {
