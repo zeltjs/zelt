@@ -1,5 +1,5 @@
 export type JsonSchema = {
-  readonly type?: string;
+  readonly type?: string | readonly string[];
   readonly properties?: Record<string, JsonSchema>;
   readonly required?: readonly string[];
   readonly items?: JsonSchema;

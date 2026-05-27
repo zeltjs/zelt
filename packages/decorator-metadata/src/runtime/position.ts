@@ -1,3 +1,7 @@
+import { existsSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 export type Position = {
   readonly sourceFile: string;
   readonly line: number;
@@ -7,19 +11,50 @@ export type Position = {
 export type StackTrace = {
   _brand: 'StackTrace';
   readonly error: Error;
+  // Files belonging to wrapper functions (e.g. @zeltjs/core's Controller)
+  // identified by diffing the define-time stack against the call-time stack.
+  // resolvePosition treats these as framework paths so wrapper frames are
+  // skipped in favor of user code.
+  readonly wrapperFiles?: readonly string[];
 };
 
 export type ResolvePositionOptions = {
   readonly isFrameworkPath?: (path: string) => boolean;
 };
 
+// Derive this package's root by walking up to the nearest package.json so
+// framework-path detection works regardless of bundled layout (src/runtime/
+// vs dist/) or install location (workspace symlinks vs node_modules realpath).
+// Without this, decorators defined inside this package leak their own file
+// paths as "user positions" because the stack frame falls inside dist/.
+const findPackageRoot = (start: string): string => {
+  let dir = dirname(start);
+  while (dir !== dirname(dir)) {
+    if (existsSync(`${dir}/package.json`)) return dir;
+    dir = dirname(dir);
+  }
+  return dir;
+};
+
+const PACKAGE_ROOT = findPackageRoot(fileURLToPath(import.meta.url)).replace(/\\/g, '/');
+
+const isWithinPackageRoot = (path: string, packageRoot: string): boolean =>
+  path === packageRoot || path.startsWith(`${packageRoot}/`);
+
+const isPackageTestPath = (path: string, packageRoot: string): boolean => {
+  const relative = path.slice(packageRoot.length + 1);
+  return relative.startsWith('src/test/') || relative.startsWith('dist/test/');
+};
+
 const defaultIsFrameworkPath = (path: string): boolean => {
   const normalized = path.replace(/\\/g, '/');
-  return (
-    normalized.includes('/node_modules/') ||
-    normalized.includes('/packages/decorator-metadata/src/runtime/') ||
-    normalized.startsWith('node:')
-  );
+  if (normalized.includes('/node_modules/')) return true;
+  if (normalized.startsWith('node:')) return true;
+  if (!isWithinPackageRoot(normalized, PACKAGE_ROOT)) return false;
+  // Test files within this package are user code that exercises decorators —
+  // they must remain visible to position resolution so decorator usage inside
+  // tests reports the test file, not framework internals.
+  return !isPackageTestPath(normalized, PACKAGE_ROOT);
 };
 
 // SWC, TypeScript, and Babel inject decorator helpers into transpiled output.
@@ -52,13 +87,27 @@ const isTranspilerHelperFrame = (line: string): boolean => {
   return TRANSPILER_HELPER_NAMES.has(name);
 };
 
+// V8 stack frames for ESM-loaded modules use file:// URLs while frames for
+// CommonJS/transformed modules use plain paths. Normalize to plain paths so
+// downstream consumers (PACKAGE_ROOT comparison, TypeScript Program lookup)
+// work uniformly regardless of how a module was loaded.
+const normalizeStackFilePath = (file: string): string => {
+  if (!file.startsWith('file://')) return file;
+  try {
+    return fileURLToPath(file);
+  } catch {
+    return file;
+  }
+};
+
 const tryParseMatch = (
   match: RegExpMatchArray | null,
   isFrameworkPath: (path: string) => boolean,
 ): Position | undefined => {
   if (!match) return undefined;
-  const [, file, lineNum, colNum] = match;
-  if (!file || !lineNum || !colNum) return undefined;
+  const [, rawFile, lineNum, colNum] = match;
+  if (!rawFile || !lineNum || !colNum) return undefined;
+  const file = normalizeStackFilePath(rawFile);
   if (isFrameworkPath(file)) return undefined;
   return {
     sourceFile: file,
@@ -83,6 +132,53 @@ const parsePositionFromStackLine = (
 // Pattern: "    at /path/to/file.ts:line:col" (no function name before the path).
 const isAnonymousPathFrame = (line: string): boolean =>
   /^\s+at\s+\//.test(line) || /^\s+at\s+[a-zA-Z]:\\/.test(line);
+
+const extractFilePath = (line: string): string | undefined => {
+  const parenMatch = line.match(/\(([^)]+):\d+:\d+\)/);
+  if (parenMatch?.[1]) return normalizeStackFilePath(parenMatch[1]);
+  const atMatch = line.match(/at\s+([^\s]+):\d+:\d+/);
+  return atMatch?.[1] ? normalizeStackFilePath(atMatch[1]) : undefined;
+};
+
+const extractOutsidePackageFiles = (stack: string): Set<string> => {
+  const lines = stack.split('\n').slice(1);
+  const files = new Set<string>();
+  for (const line of lines) {
+    const file = extractFilePath(line);
+    if (!file) continue;
+    const normalized = file.replace(/\\/g, '/');
+    if (defaultIsFrameworkPath(normalized)) continue;
+    files.add(normalized);
+  }
+  return files;
+};
+
+const diffOutsidePackageFiles = (defineStack: string, callStack: string): readonly string[] => {
+  const callFiles = extractOutsidePackageFiles(callStack);
+  const defineFiles = extractOutsidePackageFiles(defineStack);
+  const wrapperFiles: string[] = [];
+  for (const file of defineFiles) {
+    if (!callFiles.has(file)) wrapperFiles.push(file);
+  }
+  return wrapperFiles;
+};
+
+// Diff define-time vs call-time stack: files present at definition (when
+// the wrapper called createClassDecorator) but absent at decoration (when
+// the returned decorator was applied to the class) are wrappers. User code
+// appears in both stacks, so it remains visible to resolvePosition.
+export const withWrapperFiles = (
+  defineTrace: StackTrace | undefined,
+  callTrace: StackTrace | undefined,
+): StackTrace | undefined => {
+  if (!defineTrace) return undefined;
+  const defineStack = defineTrace.error.stack;
+  const callStack = callTrace?.error.stack;
+  if (!defineStack || !callStack) return defineTrace;
+  const wrapperFiles = diffOutsidePackageFiles(defineStack, callStack);
+  if (wrapperFiles.length === 0) return defineTrace;
+  return { ...defineTrace, wrapperFiles };
+};
 
 const findFirstUserPosition = (
   stack: string,
@@ -118,6 +214,17 @@ export const captureStackTrace = (): StackTrace | undefined => {
   return { _brand: 'StackTrace', error: new Error() };
 };
 
+const buildIsFrameworkPath = (
+  trace: StackTrace,
+  options?: ResolvePositionOptions,
+): ((path: string) => boolean) => {
+  const baseIsFrameworkPath = options?.isFrameworkPath ?? defaultIsFrameworkPath;
+  const wrapperFiles = trace.wrapperFiles;
+  if (!wrapperFiles || wrapperFiles.length === 0) return baseIsFrameworkPath;
+  const wrapperSet = new Set(wrapperFiles);
+  return (path) => baseIsFrameworkPath(path) || wrapperSet.has(path.replace(/\\/g, '/'));
+};
+
 export const resolvePosition = (
   trace: StackTrace | undefined,
   options?: ResolvePositionOptions,
@@ -125,5 +232,5 @@ export const resolvePosition = (
   if (!trace) return undefined;
   const stack = trace.error.stack;
   if (!stack) return undefined;
-  return findFirstUserPosition(stack, options?.isFrameworkPath ?? defaultIsFrameworkPath);
+  return findFirstUserPosition(stack, buildIsFrameworkPath(trace, options));
 };

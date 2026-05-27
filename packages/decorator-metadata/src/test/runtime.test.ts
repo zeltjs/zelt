@@ -68,6 +68,32 @@ describe('captureStackTrace and resolvePosition', () => {
     });
     expect(skipTestAndNodeModules).toBeUndefined();
   });
+
+  it('resolvePosition skips wrapper frames identified by define/call diff', () => {
+    // Simulate what createClassDecorator does internally: a wrapper (e.g.
+    // @zeltjs/core's Controller) calls into the decorator factory, so its file
+    // appears in the define-time stack but not in the call-time stack. The
+    // diff is recorded as wrapperFiles and skipped during resolution.
+    const wrapperFile = '/tmp/app/wrappers/controller.ts';
+    const userFile = '/tmp/app/user.controller.ts';
+    const trace: StackTrace = {
+      _brand: 'StackTrace',
+      error: new Error('mock stack'),
+      wrapperFiles: [wrapperFile],
+    };
+    trace.error.stack = [
+      'Error: mock stack',
+      `    at someInternal (/some/framework/internal.ts:10:1)`,
+      `    at Controller (${wrapperFile}:5:3)`,
+      `    at ${userFile}:6:1`,
+    ].join('\n');
+
+    const pos = resolvePosition(trace);
+
+    expect(pos?.sourceFile).toBe(userFile);
+    expect(pos?.line).toBe(6);
+    expect(pos?.column).toBe(1);
+  });
 });
 
 describe('metadata store', () => {
