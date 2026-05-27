@@ -1,4 +1,4 @@
-import { createClassDecorator, createMethodDecorator } from '@zeltjs/decorator-metadata';
+import { Controller, Delete, Get, Post, Put } from '@zeltjs/core';
 
 export type CreateUserRequest = {
   name: string;
@@ -75,58 +75,58 @@ export type UserWithStatus = {
   status: Status;
 };
 
-@createClassDecorator({ decorator: 'Controller', basePath: '/users' })
+@Controller('/users')
 export class TypedUserController {
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Get', method: 'GET', path: '/' })
+  @Get('/')
   list(): UserResponse[] {
     return [];
   }
 
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Get', method: 'GET', path: '/:id' })
+  @Get('/:id')
   show(): UserResponse {
     return { id: '1', name: 'Test', email: 'test@example.com', age: null, createdAt: '' };
   }
 
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Post', method: 'POST', path: '/' })
+  @Post('/')
   create(body: CreateUserRequest): UserResponse {
     return { id: '1', name: body.name, email: body.email, age: body.age ?? null, createdAt: '' };
   }
 
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Put', method: 'PUT', path: '/:id' })
+  @Put('/:id')
   update(body: CreateUserRequest): UserResponse {
     return { id: '1', name: body.name, email: body.email, age: body.age ?? null, createdAt: '' };
   }
 
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Delete', method: 'DELETE', path: '/:id' })
+  @Delete('/:id')
   destroy(): void {
     return;
   }
 }
 
-@createClassDecorator({ decorator: 'Controller', basePath: '/addresses' })
+@Controller('/addresses')
 export class NestedObjectController {
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Get', method: 'GET', path: '/:id' })
+  @Get('/:id')
   show(): UserWithAddress {
     return { id: '1', name: 'Test', address: { street: '', city: '', country: '' } };
   }
 
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Post', method: 'POST', path: '/' })
+  @Post('/')
   create(body: UserWithAddress): UserWithAddress {
     return body;
   }
 }
 
-@createClassDecorator({ decorator: 'Controller', basePath: '/profiles' })
+@Controller('/profiles')
 export class DeepNestedController {
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Get', method: 'GET', path: '/:id' })
+  @Get('/:id')
   show(): UserWithProfile {
     return {
       id: '1',
@@ -135,34 +135,34 @@ export class DeepNestedController {
   }
 }
 
-@createClassDecorator({ decorator: 'Controller', basePath: '/posts' })
+@Controller('/posts')
 export class ArrayNestedController {
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Get', method: 'GET', path: '/' })
+  @Get('/')
   list(): PostItem[] {
     return [];
   }
 
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Get', method: 'GET', path: '/:id' })
+  @Get('/:id')
   show(): PostItem {
     return { id: '1', title: '', content: '', tags: [], author: { id: '1', name: '' } };
   }
 }
 
-@createClassDecorator({ decorator: 'Controller', basePath: '/paginated' })
+@Controller('/paginated')
 export class GenericTypeController {
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Get', method: 'GET', path: '/users' })
+  @Get('/users')
   listUsers(): PaginatedResponse<UserResponse> {
     return { items: [], total: 0, page: 1, pageSize: 10 };
   }
 }
 
-@createClassDecorator({ decorator: 'Controller', basePath: '/status' })
+@Controller('/status')
 export class UnionLiteralController {
   /** @throws {E} */
-  @createMethodDecorator({ decorator: 'Get', method: 'GET', path: '/:id' })
+  @Get('/:id')
   show(): UserWithStatus {
     return { id: '1', name: 'Test', status: 'active' };
   }
