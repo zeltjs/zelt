@@ -32,11 +32,13 @@ const protoProxy = new Proxy(Object.getPrototypeOf(new ReadyValueBase()) as obje
       currentState: 'ready',
     });
   },
-  set(_, prop) {
+  set(_, prop, __, receiver: object) {
+    const state = states.get(receiver);
     throw new ZeltLifecycleStateError({
       operation: `set '${String(prop)}'`,
-      currentState: 'ready',
+      currentState: state === 'pending' || state === 'disposed' ? state : 'ready',
     });
+  },
   },
 });
 
