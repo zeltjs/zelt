@@ -172,13 +172,13 @@ const buildOperation = (
 
 const buildControllerRoutes = (
   controller: ControllerRouteInfoWithSource,
-  typeMetadata: ClassMetadata | undefined,
+  typeMetadata: ClassMetadata,
   schemas: SchemaMap,
   paths: Record<string, PathItem>,
 ): void => {
   for (const route of controller.routes) {
     const oaPath = toOpenApiPath(route.fullPath);
-    const methodInfo = typeMetadata ? findMethodInfo(typeMetadata, route.methodName) : undefined;
+    const methodInfo = findMethodInfo(typeMetadata, route.methodName);
     const op = buildOperation(controller, route, methodInfo, schemas);
 
     const existing = paths[oaPath] ?? {};
@@ -195,7 +195,7 @@ const findControllerClass = (
 type ControllerWithMeta = {
   readonly info: ControllerRouteInfoWithSource;
   readonly cls: ControllerClass;
-  readonly typeMetadata: ClassMetadata | undefined;
+  readonly typeMetadata: ClassMetadata;
 };
 
 /** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
@@ -230,7 +230,16 @@ const resolveControllersWithMetadata = async (
       : { expandStrategy: 'always' };
     const typeMetadataResult = await getTypeMetadata(toInspectableClass(cls), inspectOptions);
 
-    const typeMetadata = typeMetadataResult.isOk() ? typeMetadataResult.value : undefined;
+    if (typeMetadataResult.isErr()) {
+      const err = typeMetadataResult.error;
+      throw new ZeltDecoratorUsageError({
+        decoratorName: 'Controller',
+        reason: 'missing_decorator',
+        targetName: `${info.name}: failed to get type metadata (${err.code}: ${err.message})`,
+      });
+    }
+
+    const typeMetadata = typeMetadataResult.value;
 
     results.push({
       info: { ...info, sourceFile },
