@@ -15,12 +15,13 @@ export const coreErrorDefinitions = {
 
   ZeltLifecycleStateError: (ctx: {
     operation: string;
-    currentState: 'disposed' | 'ready' | 'starting' | 'not_ready';
+    currentState: 'disposed' | 'ready' | 'starting' | 'not_ready' | 'pending';
   }) => {
     if (ctx.currentState === 'disposed') return `Cannot ${ctx.operation}() after shutdown()`;
     if (ctx.currentState === 'not_ready') return `Cannot ${ctx.operation}() before ready()`;
     if (ctx.currentState === 'starting')
       return `Cannot ${ctx.operation}() while startup is in progress`;
+    if (ctx.currentState === 'pending') return `Cannot ${ctx.operation}() before startup()`;
     return `Cannot ${ctx.operation}() after ready()`;
   },
 

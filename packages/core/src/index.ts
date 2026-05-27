@@ -56,6 +56,7 @@ export {
   ZeltRouteConfigurationError,
   ZeltSchemaValidationError,
 } from './kernel/errors';
+export type { ReadyValue } from './kernel/internal/ready-value';
 export type { Disposable, Lifecycle } from './kernel/lifecycle';
 export { LifecycleManager } from './kernel/lifecycle';
 export { Command } from './modules/command/definition/decorator';

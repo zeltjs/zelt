@@ -1,24 +1,35 @@
 import { injectable } from '@needle-di/core';
+import type { ReadyValue } from './internal/ready-value';
+import { createReadyValue, disposeReadyValue, sealReadyValue } from './internal/ready-value';
 
 export interface Disposable {
   shutdown(): Promise<void>;
 }
 
-export interface Lifecycle extends Disposable {
+export interface Lifecycle<TReady = void> extends Disposable {
   /** @throws {ZeltNotImplementedError} */
-  startup(): Promise<void>;
+  startup(): Promise<TReady>;
 }
 
 type WarmupHandler = () => Promise<void>;
 
+type LifecycleEntry = {
+  lc: Lifecycle<unknown>;
+  readyValue?: ReadyValue<object>;
+};
+
 @injectable()
 export class LifecycleManager {
-  private readonly lifecycles: Lifecycle[] = [];
+  private readonly lifecycles: LifecycleEntry[] = [];
   private startedIndex = 0;
   private readonly warmupHandlers: WarmupHandler[] = [];
 
-  register(lifecycle: Lifecycle): void {
-    this.lifecycles.push(lifecycle);
+  register(lifecycle: Lifecycle<void>): void;
+  register<T extends object>(lifecycle: Lifecycle<T>): ReadyValue<T>;
+  register(lifecycle: Lifecycle<unknown>): ReadyValue<object> | void {
+    const readyValue = createReadyValue<object>();
+    this.lifecycles.push({ lc: lifecycle, readyValue });
+    return readyValue;
   }
 
   registerWarmup(handler: WarmupHandler): void {
@@ -29,10 +40,16 @@ export class LifecycleManager {
     await this.startupPending();
   }
 
+  /** @throws {ZeltLifecycleStateError} */
   async startupPending(): Promise<void> {
     while (this.startedIndex < this.lifecycles.length) {
-      const lc = this.lifecycles[this.startedIndex];
-      if (lc) await lc.startup();
+      const entry = this.lifecycles[this.startedIndex];
+      if (entry) {
+        const result = await entry.lc.startup();
+        if (result && typeof result === 'object' && entry.readyValue) {
+          sealReadyValue(entry.readyValue, result);
+        }
+      }
       this.startedIndex++;
     }
   }
@@ -43,11 +60,16 @@ export class LifecycleManager {
     }
   }
 
+  /** @throws {ZeltLifecycleStateError} */
   async shutdown(): Promise<void> {
-    const stopAt = Math.max(this.startedIndex, this.lifecycles.length);
-    for (let i = stopAt - 1; i >= 0; i--) {
-      const lc = this.lifecycles[i];
-      if (lc) await lc.shutdown();
+    for (let i = this.startedIndex - 1; i >= 0; i--) {
+      const entry = this.lifecycles[i];
+      if (entry) {
+        await entry.lc.shutdown();
+        if (entry.readyValue) {
+          disposeReadyValue(entry.readyValue);
+        }
+      }
     }
   }
 }
