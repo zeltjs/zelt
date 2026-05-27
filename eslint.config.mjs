@@ -159,6 +159,13 @@ export default tseslint.config(
     },
   },
   {
+    // ReadyValue uses prototype-chain Proxy pattern which requires runtime type coercion
+    files: ['packages/core/src/kernel/internal/ready-value.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
     files: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
     rules: {
       'no-console': 'off',
