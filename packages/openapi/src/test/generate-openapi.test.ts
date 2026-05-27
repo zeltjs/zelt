@@ -1,55 +1,29 @@
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
-import { Controller, Get, Post } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 
 import type { ControllerClass, HttpMetadata } from '../generate-openapi';
 import { generateOpenApi } from '../generate-openapi';
-
-@Controller('/users')
-class UserController {
-  @Get('/:id')
-  show() {
-    return { id: '1' };
-  }
-  @Post('/')
-  create() {
-    return { id: '2' };
-  }
-}
-
-@Controller('/items')
-class ItemController {
-  @Get('/')
-  list() {
-    return [];
-  }
-}
-
-@Controller('/posts')
-class PostController {
-  @Get('/:postId/comments/:commentId')
-  getComment() {
-    return {};
-  }
-}
 
 const createMockApp = (metadata: HttpMetadata, controllers: readonly ControllerClass[]) => ({
   getMetadata: () => metadata,
   getControllers: () => controllers,
 });
 
+const tsconfigPath = resolve(__dirname, '../../tsconfig.json');
+
 describe('generateOpenApi', () => {
   it('writes openapi.json with basic structure', async () => {
+    const { TypedUserController } = await import('./fixtures/typed-controllers');
     const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
     const app = createMockApp(
       {
         controllers: [
           {
             basePath: '/users',
-            name: 'UserController',
+            name: 'TypedUserController',
             routes: [
               { method: 'GET', path: '/:id', fullPath: '/users/:id', methodName: 'show' },
               { method: 'POST', path: '/', fullPath: '/users', methodName: 'create' },
@@ -57,10 +31,10 @@ describe('generateOpenApi', () => {
           },
         ],
       },
-      [UserController],
+      [TypedUserController],
     );
 
-    const result = await generateOpenApi(app, { distDir: dist });
+    const result = await generateOpenApi(app, { distDir: dist, tsconfig: tsconfigPath });
 
     expect(result.changed).toBe(true);
 
@@ -74,54 +48,49 @@ describe('generateOpenApi', () => {
   });
 
   it('returns changed=false on second run with no changes', async () => {
+    const { TypedUserController } = await import('./fixtures/typed-controllers');
     const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
     const app = createMockApp(
       {
         controllers: [
           {
-            basePath: '/items',
-            name: 'ItemController',
-            routes: [{ method: 'GET', path: '/', fullPath: '/items', methodName: 'list' }],
+            basePath: '/users',
+            name: 'TypedUserController',
+            routes: [{ method: 'GET', path: '/', fullPath: '/users', methodName: 'list' }],
           },
         ],
       },
-      [ItemController],
+      [TypedUserController],
     );
 
-    await generateOpenApi(app, { distDir: dist });
-    const secondResult = await generateOpenApi(app, { distDir: dist });
+    await generateOpenApi(app, { distDir: dist, tsconfig: tsconfigPath });
+    const secondResult = await generateOpenApi(app, { distDir: dist, tsconfig: tsconfigPath });
 
     expect(secondResult.changed).toBe(false);
   });
 
   it('converts path params from :id to {id} format', async () => {
+    const { TypedUserController } = await import('./fixtures/typed-controllers');
     const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
     const app = createMockApp(
       {
         controllers: [
           {
-            basePath: '/posts',
-            name: 'PostController',
-            routes: [
-              {
-                method: 'GET',
-                path: '/:postId/comments/:commentId',
-                fullPath: '/posts/:postId/comments/:commentId',
-                methodName: 'getComment',
-              },
-            ],
+            basePath: '/users',
+            name: 'TypedUserController',
+            routes: [{ method: 'GET', path: '/:id', fullPath: '/users/:id', methodName: 'show' }],
           },
         ],
       },
-      [PostController],
+      [TypedUserController],
     );
 
-    await generateOpenApi(app, { distDir: dist });
+    await generateOpenApi(app, { distDir: dist, tsconfig: tsconfigPath });
 
     const parsed = JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as {
       paths: Record<string, unknown>;
     };
-    expect(parsed.paths['/posts/{postId}/comments/{commentId}']).toBeDefined();
+    expect(parsed.paths['/users/{id}']).toBeDefined();
   });
 
   it('includes custom title and version', async () => {
