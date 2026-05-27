@@ -1,5 +1,4 @@
-import type { FunctionMiddleware } from '@zeltjs/core';
-import { createApp } from '@zeltjs/core';
+import { createApp, fromHonoMiddleware } from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -44,15 +43,15 @@ describe('Middleware (global)', () => {
   });
 
   it('global middleware applies to all routes', async () => {
-    const globalMiddleware: FunctionMiddleware = async (c, next) => {
+    const GlobalMiddleware = fromHonoMiddleware(async (c, next) => {
       c.header('X-Global', 'applied');
       await next();
-    };
+    });
 
     const app = createApp({
       http: {
         controllers: [WildcardController],
-        middlewares: [globalMiddleware],
+        middlewares: [GlobalMiddleware],
       },
     });
     testApp = await onTest(app);
@@ -63,15 +62,15 @@ describe('Middleware (global)', () => {
   });
 
   it('global middleware applies to nested routes', async () => {
-    const globalMiddleware: FunctionMiddleware = async (c, next) => {
+    const GlobalMiddleware = fromHonoMiddleware(async (c, next) => {
       c.header('X-Global', 'applied');
       await next();
-    };
+    });
 
     const app = createApp({
       http: {
         controllers: [WildcardController],
-        middlewares: [globalMiddleware],
+        middlewares: [GlobalMiddleware],
       },
     });
     testApp = await onTest(app);

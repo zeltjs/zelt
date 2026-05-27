@@ -96,6 +96,7 @@ export { currentRoles, currentUser, setUser } from './modules/http/middleware/au
 export { Authorized } from './modules/http/middleware/auth/authorized';
 export { CorsConfig } from './modules/http/middleware/cors/cors.config';
 export { CorsMiddleware } from './modules/http/middleware/cors/cors.middleware';
+export { fromHonoMiddleware } from './modules/http/middleware/from-hono-middleware';
 export { Middleware } from './modules/http/middleware/middleware';
 export { SecureHeadersConfig } from './modules/http/middleware/secure-headers/secure-headers.config';
 export { SecureHeadersMiddleware } from './modules/http/middleware/secure-headers/secure-headers.middleware';
@@ -103,7 +104,6 @@ export { SkipMiddleware } from './modules/http/middleware/skip-middleware';
 export type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
-  FunctionMiddleware,
   MiddlewareClass,
   MiddlewareIdentifier,
   MiddlewareInput,

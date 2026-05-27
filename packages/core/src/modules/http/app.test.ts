@@ -1,5 +1,5 @@
 import { injectable } from '@needle-di/core';
-import type { Context, MiddlewareHandler, Next } from 'hono';
+import type { Context } from 'hono';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { App } from '../../app';
 import { createApp } from '../../app';
@@ -8,13 +8,16 @@ import { inject } from '../../kernel/di/inject';
 import type { Lifecycle } from '../../kernel/lifecycle';
 import { LifecycleManager } from '../../kernel/lifecycle';
 import { ErrorHandler } from './error/error-handler';
+import { fromHonoMiddleware } from './middleware/from-hono-middleware';
 import { Middleware } from './middleware/middleware';
 import { SkipMiddleware } from './middleware/skip-middleware';
+import type { Next } from './middleware/types';
 import { UseMiddleware } from './middleware/use-middleware';
 import type { ControllerClass } from './module';
 import { body } from './request/injection/body';
 import { getContext, setContext } from './request/injection/get-context';
 import { pathParam } from './request/injection/path-param';
+import { requestContext } from './request/request-context';
 import { Controller } from './routing/controller';
 import { Get, Post } from './routing/http-method';
 
@@ -183,10 +186,10 @@ describe('error paths', () => {
 describe('middleware', () => {
   it('executes global middleware on all routes', async () => {
     const executed: string[] = [];
-    const trackMiddleware: MiddlewareHandler = async (_c, next) => {
+    const trackMiddleware = fromHonoMiddleware(async (_c, next) => {
       executed.push('global');
       await next();
-    };
+    });
 
     @Controller('/test')
     class TestController {
@@ -210,18 +213,18 @@ describe('middleware', () => {
 
   it('executes middlewares in order: global -> controller -> method', async () => {
     const order: string[] = [];
-    const globalMiddleware: MiddlewareHandler = async (_c, next) => {
+    const globalMiddleware = fromHonoMiddleware(async (_c, next) => {
       order.push('global');
       await next();
-    };
-    const controllerMiddleware: MiddlewareHandler = async (_c, next) => {
+    });
+    const controllerMiddleware = fromHonoMiddleware(async (_c, next) => {
       order.push('controller');
       await next();
-    };
-    const methodMiddleware: MiddlewareHandler = async (_c, next) => {
+    });
+    const methodMiddleware = fromHonoMiddleware(async (_c, next) => {
       order.push('method');
       await next();
-    };
+    });
 
     @UseMiddleware(controllerMiddleware)
     @Controller('/test')
@@ -248,10 +251,10 @@ describe('middleware', () => {
 
   it('skips global middleware with @SkipMiddleware', async () => {
     const executed: string[] = [];
-    const authMiddleware: MiddlewareHandler = async (_c, next) => {
+    const authMiddleware = fromHonoMiddleware(async (_c, next) => {
       executed.push('auth');
       await next();
-    };
+    });
 
     @Controller('/test')
     class TestController {
@@ -298,7 +301,7 @@ describe('middleware', () => {
     class DIMiddleware {
       constructor(private config = inject(ConfigService)) {}
 
-      async use(_c: Context, next: Next): Promise<Response | undefined> {
+      async use(next: Next): Promise<Response | undefined> {
         setContext('configValue', this.config.getValue());
         await next();
         return undefined;
@@ -322,10 +325,10 @@ describe('middleware', () => {
   });
 
   it('middleware can set context values accessible in handler via getContext()', async () => {
-    const setUserMiddleware: MiddlewareHandler = async (_c, next) => {
+    const setUserMiddleware = fromHonoMiddleware(async (_c, next) => {
       setContext('user', { id: 123, name: 'alice' });
       await next();
-    };
+    });
 
     @Controller('/test')
     class TestController {
@@ -350,9 +353,9 @@ describe('middleware', () => {
   });
 
   it('middleware exception is handled by Koya error handler', async () => {
-    const throwingMiddleware: MiddlewareHandler = async () => {
+    const throwingMiddleware = fromHonoMiddleware(async () => {
       throw new Error('middleware error');
-    };
+    });
 
     @Controller('/test')
     class TestController {
@@ -375,12 +378,12 @@ describe('middleware', () => {
   });
 
   it('middleware can return Response to short-circuit', async () => {
-    const earlyReturnMiddleware: MiddlewareHandler = async () => {
+    const earlyReturnMiddleware = fromHonoMiddleware(async () => {
       return new Response(JSON.stringify({ blocked: true }), {
         status: 403,
         headers: { 'content-type': 'application/json' },
       });
-    };
+    });
 
     @Controller('/test')
     class TestController {
@@ -518,10 +521,10 @@ describe('errorHandlers', () => {
   it('middlewares and errorHandlers work together', async () => {
     const executed: string[] = [];
 
-    const beforeMiddleware: MiddlewareHandler = async (_c, next) => {
+    const beforeMiddleware = fromHonoMiddleware(async (_c, next) => {
       executed.push('middleware');
       await next();
-    };
+    });
 
     @ErrorHandler
     class TestErrorHandler {
@@ -916,7 +919,8 @@ describe('warmup option', () => {
 
     @Middleware
     class RateLimitMiddleware {
-      async use(c: Context, next: Next, options: RateLimitOptions): Promise<Response | undefined> {
+      async use(next: Next, options: RateLimitOptions): Promise<Response | undefined> {
+        const c = requestContext();
         c.header('X-RateLimit-Limit', String(options.limit));
         c.header('X-RateLimit-Window', String(options.windowSec));
         await next();

@@ -1,5 +1,14 @@
-import type { FunctionMiddleware, Next, RequestContext } from '@zeltjs/core';
-import { Controller, createApp, Get, Middleware, Post, UseMiddleware } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
+import {
+  Controller,
+  createApp,
+  fromHonoMiddleware,
+  Get,
+  Middleware,
+  Post,
+  requestContext,
+  UseMiddleware,
+} from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -9,7 +18,8 @@ const INCLUDED_VALUE = 'test_included';
 
 @Middleware
 class WildcardMiddleware {
-  async use(c: RequestContext, _next: Next) {
+  async use(_next: Next) {
+    const c = requestContext();
     return c.text(WILDCARD_VALUE);
   }
 }
@@ -60,14 +70,14 @@ describe('Middleware (class)', () => {
   });
 
   it('global function middleware applies to all routes', async () => {
-    const globalMiddleware: FunctionMiddleware = async (c, _next) => {
+    const GlobalMiddleware = fromHonoMiddleware(async (c, _next) => {
       return c.text(WILDCARD_VALUE);
-    };
+    });
 
     const app = createApp({
       http: {
         controllers: [HelloController],
-        middlewares: [globalMiddleware],
+        middlewares: [GlobalMiddleware],
       },
     });
     testApp = await onTest(app);
@@ -78,14 +88,14 @@ describe('Middleware (class)', () => {
   });
 
   it('global middleware applies to /test route', async () => {
-    const globalMiddleware: FunctionMiddleware = async (c, _next) => {
+    const GlobalMiddleware = fromHonoMiddleware(async (c, _next) => {
       return c.text(WILDCARD_VALUE);
-    };
+    });
 
     const app = createApp({
       http: {
         controllers: [TestController],
-        middlewares: [globalMiddleware],
+        middlewares: [GlobalMiddleware],
       },
     });
     testApp = await onTest(app);
@@ -96,6 +106,8 @@ describe('Middleware (class)', () => {
   });
 
   it('method-specific middleware does not affect other methods', async () => {
+    const MethodMiddleware = fromHonoMiddleware(async (c, _next) => c.text(INCLUDED_VALUE, 201));
+
     @Controller('/')
     class MethodSpecificController {
       @Get('/tests/included')
@@ -103,7 +115,7 @@ describe('Middleware (class)', () => {
         return RETURN_VALUE;
       }
 
-      @UseMiddleware(async (c, _next) => c.text(INCLUDED_VALUE, 201))
+      @UseMiddleware(MethodMiddleware)
       @Post('/tests/included')
       post() {
         return RETURN_VALUE;

@@ -1,9 +1,10 @@
-import type { Next, RequestContext } from '@zeltjs/core';
-import { Middleware } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
+import { Middleware, requestContext } from '@zeltjs/core';
 
 @Middleware
 export class LoggingMiddleware {
-  async use(c: RequestContext, next: Next) {
+  async use(next: Next) {
+    const c = requestContext();
     c.header('X-Middleware-Executed', 'true');
     await next();
     return undefined;

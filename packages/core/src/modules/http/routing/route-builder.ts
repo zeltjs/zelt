@@ -1,4 +1,4 @@
-import type { Context, Env, Hono, Input } from 'hono';
+import type { Context, Env, Hono, Input, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
 import type { ResolverHandle } from '../../../kernel/di/container';
@@ -11,11 +11,13 @@ import { runInContext } from '../../../kernel/internal/context-key';
 import type { LifecycleManager } from '../../../kernel/lifecycle';
 import { currentRoles, currentUser } from '../middleware/auth/auth';
 import type {
-  FunctionMiddleware,
   MiddlewareClass,
   MiddlewareInput,
   MiddlewareInputWithOptions,
 } from '../middleware/types';
+
+type ResolvedMiddleware = MiddlewareHandler<Env, string, Input>;
+
 import { setBody } from '../request/injection/body';
 import { setPathParams } from '../request/injection/path-param';
 import { setHonoContext } from '../request/request-context';
@@ -150,31 +152,23 @@ function narrowToClass(middleware: MiddlewareInput): MiddlewareInput {
   return middleware;
 }
 
-function narrowToFunction(middleware: MiddlewareInput): FunctionMiddleware;
-function narrowToFunction(middleware: MiddlewareInput): MiddlewareInput {
-  return middleware;
-}
-
 /** @throws {ZeltLifecycleStateError} */
 const resolveMiddleware = (
   middleware: MiddlewareInput,
   resolver: ResolverHandle,
-): FunctionMiddleware => {
+): ResolvedMiddleware => {
   if (checkMiddlewareWithOptions(middleware)) {
     const [mwClass, options] = narrowToWithOptions(middleware);
     const instance = resolver.get(mwClass);
-    return (c, next) => instance.use(c, next, options);
+    return (_c, next) => instance.use(next, options);
   }
-  if (checkMiddlewareClass(middleware)) {
-    const mwClass = narrowToClass(middleware);
-    const instance = resolver.get(mwClass);
-    return (c, next) => instance.use(c, next, undefined);
-  }
-  return narrowToFunction(middleware);
+  const mwClass = narrowToClass(middleware);
+  const instance = resolver.get(mwClass);
+  return (_c, next) => instance.use(next, undefined);
 };
 
 /** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
-const createAuthorizationMiddleware = (requiredRoles: readonly string[]): FunctionMiddleware => {
+const createAuthorizationMiddleware = (requiredRoles: readonly string[]): ResolvedMiddleware => {
   return async (_c, next) => {
     const user = currentUser();
     if (user === undefined) {
@@ -206,7 +200,7 @@ const collectRouteMiddlewares = (
   controllerClass: ControllerClass,
   methodName: string | symbol,
   resolver: ResolverHandle,
-): FunctionMiddleware[] => {
+): ResolvedMiddleware[] => {
   const controllerMeta = getControllerMiddlewareMetadata(controllerClass);
   const methodMetas = getMethodMiddlewareMetadata(controllerClass).filter(
     (m) => m.methodName === methodName,
@@ -235,7 +229,7 @@ const collectRouteMiddlewares = (
 
 /** @throws {ZeltMiddlewareExecutionError} */
 const composeHandler = (
-  middlewares: readonly FunctionMiddleware[],
+  middlewares: readonly ResolvedMiddleware[],
   finalHandler: (c: MiddlewareContext) => Promise<Response>,
 ): ((c: MiddlewareContext) => Promise<Response>) => {
   if (middlewares.length === 0) {

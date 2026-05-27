@@ -1,12 +1,14 @@
+import type { MiddlewareHandler } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';
 import { inject } from '../../../../kernel/di/inject';
+import { requestContext } from '../../request/request-context';
 import { Middleware } from '../middleware';
-import type { FunctionMiddleware, MiddlewareInstance, Next, RequestContext } from '../types';
+import type { MiddlewareInstance, Next } from '../types';
 import { SecureHeadersConfig } from './secure-headers.config';
 
 @Middleware
 export class SecureHeadersMiddleware implements MiddlewareInstance {
-  private readonly middleware: FunctionMiddleware;
+  private readonly middleware: MiddlewareHandler;
 
   constructor(config: SecureHeadersConfig = inject(SecureHeadersConfig)) {
     this.middleware = secureHeaders({
@@ -26,8 +28,9 @@ export class SecureHeadersMiddleware implements MiddlewareInstance {
     });
   }
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    await this.middleware(c, next);
+  /** @throws {ZeltContextNotAvailableError} */
+  async use(next: Next): Promise<Response | undefined> {
+    await this.middleware(requestContext(), next);
     return undefined;
   }
 }

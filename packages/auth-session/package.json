@@ -27,14 +27,12 @@
   },
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
-    "@zeltjs/kv": "workspace:*",
-    "hono": "^4.0.0"
+    "@zeltjs/kv": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.19.17",
     "@zeltjs/core": "workspace:*",
-    "@zeltjs/kv": "workspace:*",
-    "hono": "4.12.16"
+    "@zeltjs/kv": "workspace:*"
   },
   "volta": {
     "extends": "../../package.json"

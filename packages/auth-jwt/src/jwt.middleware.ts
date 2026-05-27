@@ -1,6 +1,5 @@
-import type { Next, RequestContext } from '@zeltjs/core';
-import { inject, Middleware, setUser } from '@zeltjs/core';
-import { getCookie } from 'hono/cookie';
+import type { Next } from '@zeltjs/core';
+import { cookie, header, inject, Middleware, setUser } from '@zeltjs/core';
 
 import { UnauthorizedException } from './exceptions';
 import { JwtConfig } from './jwt.config';
@@ -18,8 +17,8 @@ export class JwtMiddleware {
    * @throws {UnauthorizedException} When token is invalid or expired (401)
    * @throws {ZeltContextNotAvailableError}
    */
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const token = this.extractToken(c);
+  async use(next: Next): Promise<Response | undefined> {
+    const token = this.extractToken();
 
     if (!token) {
       throw new UnauthorizedException({ reason: 'missing_token' });
@@ -40,12 +39,13 @@ export class JwtMiddleware {
     return undefined;
   }
 
-  private extractToken(c: RequestContext): string | null {
+  /** @throws {ZeltContextNotAvailableError} */
+  private extractToken(): string | null {
     if (this.config.driver === 'cookie') {
-      return getCookie(c, this.config.cookieName) ?? null;
+      return cookie(this.config.cookieName) ?? null;
     }
 
-    const authHeader = c.req.header('Authorization');
+    const authHeader = header('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return null;
     }

@@ -1,10 +1,11 @@
-import type { Next, RequestContext } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
 import {
   Controller,
   createApp,
   Get,
   Middleware,
   Post,
+  requestContext,
   SkipMiddleware,
   UseMiddleware,
 } from '@zeltjs/core';
@@ -16,7 +17,8 @@ const MIDDLEWARE_VALUE = 'middleware';
 
 @Middleware
 class GlobalMiddleware {
-  async use(c: RequestContext, _next: Next) {
+  async use(_next: Next) {
+    const c = requestContext();
     return c.text(MIDDLEWARE_VALUE);
   }
 }

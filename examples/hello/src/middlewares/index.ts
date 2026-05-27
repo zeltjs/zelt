@@ -1,1 +1,1 @@
-export { loggingMiddleware } from './logging';
+export { LoggingMiddleware } from './logging';

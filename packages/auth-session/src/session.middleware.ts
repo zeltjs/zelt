@@ -1,6 +1,5 @@
-import type { Next, RequestContext } from '@zeltjs/core';
-import { inject, Middleware } from '@zeltjs/core';
-import { getCookie } from 'hono/cookie';
+import type { Next } from '@zeltjs/core';
+import { cookie, inject, Middleware, requestContext } from '@zeltjs/core';
 
 import { SessionConfig } from './session.config';
 import { runWithSessionContext } from './session.context.lib';
@@ -11,8 +10,9 @@ import type { StoredSession } from './session.types';
 export class SessionMiddleware {
   constructor(private readonly config = inject(SessionConfig)) {}
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const { sessionId, session, isNew } = await this.loadOrCreateSession(c);
+  /** @throws {ZeltContextNotAvailableError} */
+  async use(next: Next): Promise<Response | undefined> {
+    const { sessionId, session, isNew } = await this.loadOrCreateSession();
 
     const context = {
       sessionId,
@@ -26,7 +26,7 @@ export class SessionMiddleware {
 
     const cookieHeader = await this.getCookieHeader(sessionId, context);
     if (cookieHeader) {
-      c.res.headers.append('Set-Cookie', cookieHeader);
+      requestContext().res.headers.append('Set-Cookie', cookieHeader);
     }
 
     return undefined;
@@ -56,12 +56,13 @@ export class SessionMiddleware {
     return null;
   }
 
-  private async loadOrCreateSession(c: RequestContext): Promise<{
+  /** @throws {ZeltContextNotAvailableError} */
+  private async loadOrCreateSession(): Promise<{
     sessionId: string;
     session: StoredSession;
     isNew: boolean;
   }> {
-    const signedId = getCookie(c, this.config.cookieName);
+    const signedId = cookie(this.config.cookieName);
 
     if (signedId) {
       const sessionId = verifyAndExtractSessionId(signedId, this.config.secret);

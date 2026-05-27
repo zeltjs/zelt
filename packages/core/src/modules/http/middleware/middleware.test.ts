@@ -1,14 +1,14 @@
 import { Container } from '@needle-di/core';
-import type { Context, Next } from 'hono';
 import { describe, expect, it } from 'vitest';
 
 import { Middleware } from './middleware';
+import type { Next } from './types';
 
 describe('@Middleware', () => {
   it('makes class injectable and resolvable by container', () => {
     @Middleware
     class TestMiddleware {
-      use(_c: Context, next: Next) {
+      use(next: Next) {
         return next();
       }
     }
@@ -21,7 +21,7 @@ describe('@Middleware', () => {
 
   it('makes class injectable when TC39 context has no metadata', () => {
     class TestMiddleware {
-      use(_c: Context, next: Next) {
+      use(next: Next) {
         return next();
       }
     }
@@ -44,7 +44,7 @@ describe('@Middleware', () => {
   it('preserves class identity after decoration', () => {
     @Middleware
     class LoggingMiddleware {
-      use(_c: Context, next: Next) {
+      use(next: Next) {
         return next();
       }
     }

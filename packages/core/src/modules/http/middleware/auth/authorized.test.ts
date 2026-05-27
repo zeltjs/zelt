@@ -1,21 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../../../../app';
+import { header } from '../../request/injection/header';
 import { Controller } from '../../routing/controller';
 import { Get } from '../../routing/http-method';
-import type { FunctionMiddleware } from '../types';
+import { Middleware } from '../middleware';
+import type { Next } from '../types';
 import { setUser } from './auth';
 import { Authorized } from './authorized';
 
-const authMiddleware: FunctionMiddleware = async (c, next) => {
-  const authHeader = c.req.header('Authorization');
-  if (authHeader === 'Bearer valid-token') {
-    setUser({ id: 1, name: 'alice' }, ['user']);
-  } else if (authHeader === 'Bearer admin-token') {
-    setUser({ id: 2, name: 'admin' }, ['admin', 'user']);
+@Middleware
+class AuthMiddleware {
+  async use(next: Next) {
+    const authHeader = header('Authorization');
+    if (authHeader === 'Bearer valid-token') {
+      setUser({ id: 1, name: 'alice' }, ['user']);
+    } else if (authHeader === 'Bearer admin-token') {
+      setUser({ id: 2, name: 'admin' }, ['admin', 'user']);
+    }
+    await next();
+    return undefined;
   }
-  await next();
-};
+}
 
 describe('@Authorized', () => {
   it('returns 401 when user is not authenticated', async () => {
@@ -31,7 +37,7 @@ describe('@Authorized', () => {
     const app = createApp({
       http: {
         controllers: [TestController],
-        middlewares: [authMiddleware],
+        middlewares: [AuthMiddleware],
       },
     });
     await app.ready();
@@ -57,7 +63,7 @@ describe('@Authorized', () => {
     const app = createApp({
       http: {
         controllers: [TestController],
-        middlewares: [authMiddleware],
+        middlewares: [AuthMiddleware],
       },
     });
     await app.ready();
@@ -82,7 +88,7 @@ describe('@Authorized', () => {
     const app = createApp({
       http: {
         controllers: [AdminController],
-        middlewares: [authMiddleware],
+        middlewares: [AuthMiddleware],
       },
     });
     await app.ready();
@@ -110,7 +116,7 @@ describe('@Authorized', () => {
     const app = createApp({
       http: {
         controllers: [AdminController],
-        middlewares: [authMiddleware],
+        middlewares: [AuthMiddleware],
       },
     });
     await app.ready();
@@ -135,7 +141,7 @@ describe('@Authorized', () => {
     const app = createApp({
       http: {
         controllers: [ContentController],
-        middlewares: [authMiddleware],
+        middlewares: [AuthMiddleware],
       },
     });
     await app.ready();

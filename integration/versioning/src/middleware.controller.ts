@@ -1,9 +1,9 @@
 import { Controller, Get, UseMiddleware } from '@zeltjs/core';
 
-import { helloFromMiddleware } from './hello-from-middleware';
+import { HelloFromMiddleware } from './hello-from-middleware';
 
 // V1 middleware controller: mounted at /v1/middleware
-@UseMiddleware(helloFromMiddleware)
+@UseMiddleware(HelloFromMiddleware)
 @Controller('/v1/middleware')
 export class MiddlewareV1Controller {
   @Get('/')
@@ -13,7 +13,7 @@ export class MiddlewareV1Controller {
 }
 
 // Partial override to V2: same controller exposing the override route at v2.
-@UseMiddleware(helloFromMiddleware)
+@UseMiddleware(HelloFromMiddleware)
 @Controller('/v2/middleware')
 export class MiddlewareV2Controller {
   @Get('/override')

@@ -1,38 +1,51 @@
-import type { MiddlewareHandler } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { Injectable } from '../../../kernel/di/injectable';
 import { Controller } from '../routing/controller';
 import { Get } from '../routing/http-method';
 import { getControllerMiddlewareMetadata, getMethodMiddlewareMetadata } from '../routing/metadata';
-import type { MiddlewareInputWithOptions } from './types';
+import { Middleware } from './middleware';
+import type { MiddlewareInputWithOptions, Next } from './types';
 import { UseMiddleware } from './use-middleware';
 
-const testMiddleware: MiddlewareHandler = async (_c, next) => next();
-const anotherMiddleware: MiddlewareHandler = async (_c, next) => next();
+@Middleware
+class TestMiddleware {
+  async use(next: Next) {
+    await next();
+    return undefined;
+  }
+}
+
+@Middleware
+class AnotherMiddleware {
+  async use(next: Next) {
+    await next();
+    return undefined;
+  }
+}
 
 describe('@UseMiddleware', () => {
   it('registers middlewares on controller metadata', () => {
-    @UseMiddleware(testMiddleware)
+    @UseMiddleware(TestMiddleware)
     @Controller('/test')
     class TestController {}
 
     const meta = getControllerMiddlewareMetadata(TestController);
-    expect(meta).toEqual([[testMiddleware]]);
+    expect(meta).toEqual([[TestMiddleware]]);
   });
 
   it('registers multiple middlewares on controller as a single set', () => {
-    @UseMiddleware(testMiddleware, anotherMiddleware)
+    @UseMiddleware(TestMiddleware, AnotherMiddleware)
     @Controller('/test')
     class TestController {}
 
     const meta = getControllerMiddlewareMetadata(TestController);
-    expect(meta).toEqual([[testMiddleware, anotherMiddleware]]);
+    expect(meta).toEqual([[TestMiddleware, AnotherMiddleware]]);
   });
 
   it('appends middlewares on method metadata', () => {
     @Controller('/test')
     class TestController {
-      @UseMiddleware(testMiddleware)
+      @UseMiddleware(TestMiddleware)
       @Get('/')
       handler() {
         return {};
@@ -42,14 +55,14 @@ describe('@UseMiddleware', () => {
     const meta = getMethodMiddlewareMetadata(TestController);
     expect(meta).toHaveLength(1);
     expect(meta[0]?.methodName).toBe('handler');
-    expect(meta[0]?.middlewares).toContain(testMiddleware);
+    expect(meta[0]?.middlewares).toContain(TestMiddleware);
   });
 
   it('appends multiple method-level middlewares', () => {
     @Controller('/test')
     class TestController {
-      @UseMiddleware(testMiddleware)
-      @UseMiddleware(anotherMiddleware)
+      @UseMiddleware(TestMiddleware)
+      @UseMiddleware(AnotherMiddleware)
       @Get('/')
       handler() {
         return {};
@@ -64,7 +77,7 @@ describe('@UseMiddleware', () => {
     expect(() => {
       @Controller('/test')
       class TestController {
-        @UseMiddleware(testMiddleware)
+        @UseMiddleware(TestMiddleware)
         static staticHandler() {
           return {};
         }
@@ -76,7 +89,7 @@ describe('@UseMiddleware', () => {
   it('registers middleware with options as tuple on method metadata', () => {
     @Injectable()
     class OptionsMiddleware {
-      async use(_c: unknown, next: () => Promise<void>, _options: { limit: number }) {
+      async use(next: () => Promise<void>, _options: { limit: number }) {
         await next();
         return undefined;
       }
@@ -103,7 +116,7 @@ describe('@UseMiddleware', () => {
   it('registers middleware with options as tuple on controller metadata', () => {
     @Injectable()
     class OptionsMiddleware {
-      async use(_c: unknown, next: () => Promise<void>, _options: { limit: number }) {
+      async use(next: () => Promise<void>, _options: { limit: number }) {
         await next();
         return undefined;
       }
@@ -121,13 +134,13 @@ describe('@UseMiddleware', () => {
   });
 
   it('keeps each @UseMiddleware application as a separate set on the class', () => {
-    @UseMiddleware(testMiddleware)
-    @UseMiddleware(anotherMiddleware)
+    @UseMiddleware(TestMiddleware)
+    @UseMiddleware(AnotherMiddleware)
     @Controller('/test')
     class TestController {}
 
     const meta = getControllerMiddlewareMetadata(TestController);
-    // Innermost decorator is evaluated first, so [anotherMiddleware] comes first.
-    expect(meta).toEqual([[anotherMiddleware], [testMiddleware]]);
+    // Innermost decorator is evaluated first, so [AnotherMiddleware] comes first.
+    expect(meta).toEqual([[AnotherMiddleware], [TestMiddleware]]);
   });
 });

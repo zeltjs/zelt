@@ -247,9 +247,6 @@ importers:
       '@zeltjs/testing':
         specifier: workspace:*
         version: link:../testing
-      hono:
-        specifier: 4.12.16
-        version: 4.12.16
       jose:
         specifier: 6.0.11
         version: 6.0.11
@@ -265,9 +262,6 @@ importers:
       '@zeltjs/kv':
         specifier: workspace:*
         version: link:../kv
-      hono:
-        specifier: 4.12.16
-        version: 4.12.16
 
   packages/cli:
     dependencies:

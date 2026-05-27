@@ -26,14 +26,12 @@
     "typecheck": "tsc -b"
   },
   "peerDependencies": {
-    "@zeltjs/core": "workspace:*",
-    "hono": "^4.0.0"
+    "@zeltjs/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.19.17",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/testing": "workspace:*",
-    "hono": "4.12.16",
     "jose": "6.0.11"
   },
   "volta": {
