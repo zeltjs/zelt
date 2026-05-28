@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getScheduleMetadata } from '../scheduler-metadata.lib';
+import { getScheduleMetadata } from '..';
 
 import { Daily } from './daily.decorator';
 import { Scheduled } from './scheduled.decorator';

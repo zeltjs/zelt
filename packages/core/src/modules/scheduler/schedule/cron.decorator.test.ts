@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getScheduleMetadata } from '../scheduler-metadata.lib';
+import { getScheduleMetadata } from '..';
 
 import { Cron } from './cron.decorator';
 import { Scheduled } from './scheduled.decorator';
