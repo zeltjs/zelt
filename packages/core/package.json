@@ -35,12 +35,12 @@
   },
   "dependencies": {
     "@zeltjs/decorator-metadata": "workspace:*",
-    "hono": "4.12.16"
+    "hono": "catalog:"
   },
   "devDependencies": {
     "@needle-di/core": "1.1.2",
     "@zeltjs/unsafe-type-lib": "workspace:*",
-    "@types/node": "22.19.17",
+    "@types/node": "catalog:",
     "croner": "9.1.0",
     "neverthrow": "8.2.0",
     "ts-pattern": "5.6.2"

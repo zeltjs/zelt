@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@types/aws-lambda": "8.10.150",
-    "@types/node": "22.19.17"
+    "@types/node": "catalog:"
   },
   "volta": {
     "extends": "../../package.json"

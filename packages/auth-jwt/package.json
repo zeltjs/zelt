@@ -27,13 +27,13 @@
   },
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
-    "hono": "^4.0.0"
+    "hono": "catalog:peer"
   },
   "devDependencies": {
-    "@types/node": "22.19.17",
+    "@types/node": "catalog:",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/testing": "workspace:*",
-    "hono": "4.12.16",
+    "hono": "catalog:",
     "jose": "6.0.11"
   },
   "volta": {

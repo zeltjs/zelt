@@ -34,7 +34,7 @@
     "ts-pattern": "5.7.1"
   },
   "devDependencies": {
-    "@types/node": "22.19.17",
+    "@types/node": "catalog:",
     "@zeltjs/cli": "workspace:*"
   },
   "volta": {
