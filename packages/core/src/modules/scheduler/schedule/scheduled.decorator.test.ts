@@ -1,7 +1,7 @@
 import { Container } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
-import { getScheduledMetadata } from '..';
+import { getScheduledMetadata } from '../scheduler-metadata.lib';
 
 import { Scheduled } from './scheduled.decorator';
 
