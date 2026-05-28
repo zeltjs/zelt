@@ -1,4 +1,4 @@
-import type { Disposable, Lifecycle } from '@zeltjs/core';
+import type { Lifecycle } from '@zeltjs/core';
 import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
 
 export type SpyEvent = {
@@ -64,18 +64,15 @@ export class SecondSpy implements Lifecycle {
 }
 
 @Injectable()
-export class DisposableSpy implements Disposable {
+export class DisposableSpy implements Lifecycle {
   shutdownCalls = 0;
 
-  // Disposable has no startup, but LifecycleManager only accepts Lifecycle.
-  // We bridge with an inline no-op startup so the shutdown side is still registered in order.
   constructor(private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager)) {
-    this.lifecycleManager.register({
-      startup: async () => {
-        activeLog.current?.push({ source: 'disposable', phase: 'startup' });
-      },
-      shutdown: () => this.shutdown(),
-    });
+    this.lifecycleManager.register(this);
+  }
+
+  async startup(): Promise<void> {
+    activeLog.current?.push({ source: 'disposable', phase: 'startup' });
   }
 
   async shutdown(): Promise<void> {
