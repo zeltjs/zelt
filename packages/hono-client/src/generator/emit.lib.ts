@@ -1,4 +1,5 @@
 import { relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { ZeltDecoratorUsageError } from '@zeltjs/core';
 import { getSourcePosition } from '@zeltjs/decorator-metadata/inspect';
@@ -12,11 +13,13 @@ import type {
 
 const stripTsExtension = (p: string): string => p.replace(/\.tsx?$/, '');
 
-const stripFileProtocol = (p: string): string => (p.startsWith('file://') ? p.slice(7) : p);
+const toFilePath = (p: string): string => (p.startsWith('file://') ? fileURLToPath(p) : p);
+
+const toPosixPath = (p: string): string => p.replaceAll('\\', '/');
 
 export const toRelativeImport = (distDir: string, modulePath: string): string => {
-  const normalizedPath = stripFileProtocol(modulePath);
-  const rel = stripTsExtension(relative(distDir, normalizedPath));
+  const filePath = toFilePath(modulePath);
+  const rel = toPosixPath(stripTsExtension(relative(distDir, filePath)));
   return rel.startsWith('.') ? rel : `./${rel}`;
 };
 

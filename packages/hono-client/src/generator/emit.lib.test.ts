@@ -25,6 +25,20 @@ describe('toRelativeImport', () => {
     const result = toRelativeImport(distDir, filePath);
     expect(result).toBe('./types');
   });
+
+  it('decodes percent-encoded characters in file:// URL', () => {
+    const distDir = '/app/generated';
+    const fileUrl = 'file:///app/src/controllers/user%20controller.ts';
+    const result = toRelativeImport(distDir, fileUrl);
+    expect(result).toBe('../src/controllers/user controller');
+  });
+
+  it('always uses forward slashes in output', () => {
+    const distDir = '/app/generated';
+    const filePath = '/app/src/controllers/userController.ts';
+    const result = toRelativeImport(distDir, filePath);
+    expect(result).not.toContain('\\');
+  });
 });
 
 @Controller('/users')
