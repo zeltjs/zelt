@@ -12,8 +12,11 @@ import type {
 
 const stripTsExtension = (p: string): string => p.replace(/\.tsx?$/, '');
 
-const toRelativeImport = (distDir: string, modulePath: string): string => {
-  const rel = stripTsExtension(relative(distDir, modulePath));
+const stripFileProtocol = (p: string): string => (p.startsWith('file://') ? p.slice(7) : p);
+
+export const toRelativeImport = (distDir: string, modulePath: string): string => {
+  const normalizedPath = stripFileProtocol(modulePath);
+  const rel = stripTsExtension(relative(distDir, normalizedPath));
   return rel.startsWith('.') ? rel : `./${rel}`;
 };
 

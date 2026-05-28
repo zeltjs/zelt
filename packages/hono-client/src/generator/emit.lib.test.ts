@@ -1,8 +1,31 @@
 import { Controller } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 
-import { emitAppType } from './emit.lib';
+import { emitAppType, toRelativeImport } from './emit.lib';
 import type { ControllerClass, HttpMetadata } from './generator.types';
+
+describe('toRelativeImport', () => {
+  it('handles file:// URL by stripping protocol and converting to relative path', () => {
+    const distDir = '/app/generated';
+    const fileUrl = 'file:///app/src/controllers/userController.ts';
+    const result = toRelativeImport(distDir, fileUrl);
+    expect(result).toBe('../src/controllers/userController');
+  });
+
+  it('handles normal file path', () => {
+    const distDir = '/app/generated';
+    const filePath = '/app/src/controllers/userController.ts';
+    const result = toRelativeImport(distDir, filePath);
+    expect(result).toBe('../src/controllers/userController');
+  });
+
+  it('adds ./ prefix for same directory', () => {
+    const distDir = '/app/generated';
+    const filePath = '/app/generated/types.ts';
+    const result = toRelativeImport(distDir, filePath);
+    expect(result).toBe('./types');
+  });
+});
 
 @Controller('/users')
 class UserController {
