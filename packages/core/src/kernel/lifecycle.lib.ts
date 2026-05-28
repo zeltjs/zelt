@@ -2,13 +2,10 @@ import { injectable } from '@needle-di/core';
 import type { ReadyValue } from './internal';
 import { createReadyValue, disposeReadyValue, sealReadyValue } from './internal';
 
-export interface Disposable {
-  shutdown(): Promise<void>;
-}
-
-export interface Lifecycle<TReady = void> extends Disposable {
+export interface Lifecycle<TReady = void> {
   /** @throws {ZeltNotImplementedError} */
-  startup(): Promise<TReady>;
+  startup(): Promise<TReady> | TReady;
+  shutdown(): Promise<void> | void;
 }
 
 type WarmupHandler = () => Promise<void>;

@@ -34,7 +34,7 @@ export {
   PrettyFormatterConfig,
   withLogContext,
 } from './built-in-service/logger';
-export type { Disposable, Lifecycle } from './kernel';
+export type { Lifecycle } from './kernel';
 export { LifecycleManager } from './kernel';
 // DI primitives
 // DI
