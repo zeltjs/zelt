@@ -38,7 +38,6 @@ export type { Disposable, Lifecycle } from './kernel';
 export { LifecycleManager } from './kernel';
 // DI primitives
 // DI
-export type { Token } from './kernel/di';
 export { Injectable, inject } from './kernel/di';
 export type { CoreErrorContextMap } from './kernel/errors';
 // Errors

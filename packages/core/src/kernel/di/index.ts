@@ -1,5 +1,4 @@
 export type { ResolverHandle } from './container.lib';
-export type { Token } from './inject.lib';
 export { inject } from './inject.lib';
 export { Injectable } from './injectable.lib';
 export {
