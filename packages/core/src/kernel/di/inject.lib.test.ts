@@ -21,6 +21,15 @@ class Consumer {
 }
 
 describe('inject (unified)', () => {
+  it('does not expose needle-di options in the public signature', () => {
+    const compileOnly = () => {
+      // @ts-expect-error Zelt inject() intentionally accepts only the token argument.
+      inject(Service, { optional: true });
+    };
+
+    expect(compileOnly).toBeDefined();
+  });
+
   it('resolves a constructor default through container.get', () => {
     const container = new Container();
     container.bind(Service);

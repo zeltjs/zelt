@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### ⚠ BREAKING CHANGES
+
+* **di:** `inject(token, options)` is no longer part of the Zelt API. Code using
+  needle-di options such as `{ optional: true }` through `inject()` should model
+  the dependency explicitly instead of relying on optional injection.
+
 ## [0.5.0](https://github.com/zeltjs/zelt/compare/core-v0.4.0...core-v0.5.0) (2026-05-17)
 
 
