@@ -1,8 +1,8 @@
 import type { MiddlewareHandler } from 'hono';
 import { describe, expect, it } from 'vitest';
+import { getSkipMiddlewareMetadata } from '../routing';
 import { Controller } from '../routing/controller.decorator';
 import { Get } from '../routing/http-method.decorator';
-import { getSkipMiddlewareMetadata } from '../routing';
 import { SkipMiddleware } from './skip-middleware.decorator';
 
 const authMiddleware: MiddlewareHandler = async (_c, next) => next();

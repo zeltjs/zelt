@@ -6,8 +6,6 @@ import { errAsync, okAsync } from 'neverthrow';
 import type { Position, StackTrace } from '../runtime/index';
 import { getInternalClassMetadata, resolvePosition } from '../runtime/index';
 import { findClassAtPosition } from './ast.lib';
-import type { ProgramCacheError } from './program-cache.lib';
-import { getOrCreateProgram } from './program-cache.lib';
 import type {
   ClassMetadata,
   InspectError,
@@ -17,6 +15,8 @@ import type {
   PropertyInfo,
   TypeInfo,
 } from './inspect.types';
+import type { ProgramCacheError } from './program-cache.lib';
+import { getOrCreateProgram } from './program-cache.lib';
 import { createTypeExtractor } from './type-extractor.lib';
 
 const DEFAULT_TSCONFIG = './tsconfig.json';

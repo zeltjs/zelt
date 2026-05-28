@@ -1,6 +1,6 @@
 import type { Context, Env, Hono, Input } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-
+import type { LifecycleManager } from '../../../kernel';
 import type { ResolverHandle } from '../../../kernel/di';
 import {
   ZeltDecoratorUsageError,
@@ -8,7 +8,6 @@ import {
   ZeltRouteConfigurationError,
 } from '../../../kernel/errors';
 import { runInContext } from '../../../kernel/internal';
-import type { LifecycleManager } from '../../../kernel';
 import { currentRoles, currentUser } from '../middleware/auth';
 import type {
   FunctionMiddleware,
@@ -16,8 +15,9 @@ import type {
   MiddlewareInput,
   MiddlewareInputWithOptions,
 } from '../middleware/middleware.types';
-import { setBody, setPathParams } from '../request/injection';
 import { setHonoContext } from '../request';
+import { setBody, setPathParams } from '../request/injection';
+import { joinPath } from './path-utils.lib';
 import type { HttpMethod } from './routing-metadata.lib';
 import {
   getAuthorizedMetadata,
@@ -27,7 +27,6 @@ import {
   getRouteMetadata,
   getSkipMiddlewareMetadata,
 } from './routing-metadata.lib';
-import { joinPath } from './path-utils.lib';
 
 export { joinPath };
 

@@ -1,11 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 
 import { ZeltContextNotAvailableError } from '../../../../kernel/errors';
-import {
-  createContextKey,
-  getInternal,
-  setInternal,
-} from '../../../../kernel/internal';
+import { createContextKey, getInternal, setInternal } from '../../../../kernel/internal';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
 

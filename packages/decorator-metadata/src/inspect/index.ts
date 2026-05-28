@@ -1,10 +1,6 @@
 export { getClassMetadata } from '../runtime/index';
 export { getDependencies } from './get-dependencies.lib';
 export { getTypeMetadata } from './get-type-metadata.lib';
-export type { ProgramCacheError } from './program-cache.lib';
-export { clearProgramCache, getOrCreateProgram } from './program-cache.lib';
-export type { GetSourcePositionOptions } from './source-position.lib';
-export { getSourcePosition } from './source-position.lib';
 export type {
   ClassMetadata,
   DependencyInfo,
@@ -20,3 +16,7 @@ export type {
   TypedPropertyInfo,
   TypeInfo,
 } from './inspect.types';
+export type { ProgramCacheError } from './program-cache.lib';
+export { clearProgramCache, getOrCreateProgram } from './program-cache.lib';
+export type { GetSourcePositionOptions } from './source-position.lib';
+export { getSourcePosition } from './source-position.lib';

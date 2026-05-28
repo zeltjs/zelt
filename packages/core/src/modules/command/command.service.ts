@@ -1,18 +1,17 @@
 import { Container, InjectionToken } from '@needle-di/core';
-
+import type { Lifecycle } from '../../kernel';
+import { LifecycleManager } from '../../kernel';
 import { Injectable, inject, resolve } from '../../kernel/di';
 import {
   ZeltAppConfigurationError,
   ZeltCommandExecutionError,
   ZeltDecoratorUsageError,
 } from '../../kernel/errors';
-import type { Lifecycle } from '../../kernel';
-import { LifecycleManager } from '../../kernel';
+import type { CommandClass } from './command.types';
 import { getCommandMetadata } from './definition';
 import type { ExecResult } from './exec-result.types';
 import { parseArgv, runInCommandContext } from './input';
 import type { SchemaDefinition } from './input/command-schema.types';
-import type { CommandClass } from './command.types';
 
 export const COMMAND_OPTIONS = new InjectionToken<readonly CommandClass[]>('COMMAND_OPTIONS');
 

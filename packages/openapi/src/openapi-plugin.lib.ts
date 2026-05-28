@@ -4,11 +4,7 @@ import { pathToFileURL } from 'node:url';
 import type { ZeltPlugin } from '@zeltjs/cli';
 import { ZeltPluginConfigurationError } from '@zeltjs/core';
 
-import type {
-  ControllerClass,
-  GenerateOpenApiOptions,
-  HttpMetadata,
-} from './generate-openapi.lib';
+import type { ControllerClass, GenerateOpenApiOptions, HttpMetadata } from './generate-openapi.lib';
 import { generateOpenApi } from './generate-openapi.lib';
 
 type HttpAppLike = {

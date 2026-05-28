@@ -5,8 +5,8 @@ import { match } from 'ts-pattern';
 
 import type { ZeltConfigLoadError } from './cli.errors';
 import { isZeltConfigLoadError, isZeltNoEntryError, ZeltNoEntryError } from './cli.errors';
-import { loadZeltConfig } from './config/index';
 import type { DevConfig } from './config/config.types';
+import { loadZeltConfig } from './config/index';
 import { startDevServer } from './dev-server.lib';
 
 const cliConfig = new NodeCliConfig();

@@ -13,8 +13,8 @@ import {
   ZeltCliExecutionError,
   ZeltNoCliEntryError,
 } from './cli.errors';
-import { loadZeltConfig } from './config/index';
 import type { CliConfig } from './config/config.types';
+import { loadZeltConfig } from './config/index';
 
 const cliConfig = new NodeCliConfig();
 

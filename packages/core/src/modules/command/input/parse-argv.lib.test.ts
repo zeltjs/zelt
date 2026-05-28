@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-
-import { parseArgv } from './parse-argv.lib';
 import { cliSchema } from './command-schema.types';
+import { parseArgv } from './parse-argv.lib';
 
 describe('parseArgv', () => {
   describe('empty schema', () => {

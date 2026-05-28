@@ -1,3 +1,4 @@
+export { buildRoutes, warmupControllers } from './route-builder.lib';
 export type { ControllerRouteInfo, HttpMethod, RouteInfo } from './routing-metadata.lib';
 export {
   collectControllerRouteInfo,
@@ -8,4 +9,3 @@ export {
   getRouteMetadata,
   getSkipMiddlewareMetadata,
 } from './routing-metadata.lib';
-export { buildRoutes, warmupControllers } from './route-builder.lib';

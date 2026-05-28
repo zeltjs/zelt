@@ -1,8 +1,7 @@
 import { Container } from '@needle-di/core';
 import { describe, expect, it, vi } from 'vitest';
-
-import { ZeltLifecycleStateError } from '../kernel/errors';
 import { LifecycleManager } from '../kernel';
+import { ZeltLifecycleStateError } from '../kernel/errors';
 import { AppRuntime } from './app-runtime.lib';
 
 describe('AppRuntime', () => {

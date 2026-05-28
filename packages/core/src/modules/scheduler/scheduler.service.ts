@@ -1,11 +1,10 @@
 import { Container, InjectionToken } from '@needle-di/core';
-
-import { Injectable, inject, resolve } from '../../kernel/di';
 import type { Lifecycle } from '../../kernel';
 import { LifecycleManager } from '../../kernel';
+import { Injectable, inject, resolve } from '../../kernel/di';
+import type { SchedulerClass } from './scheduler.types';
 import type { JobInfo, SchedulerRunner } from './scheduler-runner.lib';
 import { createSchedulerRunner } from './scheduler-runner.lib';
-import type { SchedulerClass } from './scheduler.types';
 
 export const SCHEDULER_OPTIONS = new InjectionToken<readonly SchedulerClass[]>('SCHEDULER_OPTIONS');
 

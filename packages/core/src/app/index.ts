@@ -1,5 +1,5 @@
-export { AppRuntime } from './app-runtime.lib';
 export type { ReadyOptions, ReadyResult } from './app-runtime.lib';
+export { AppRuntime } from './app-runtime.lib';
 export { ConfigRegistry } from './config-registry.lib';
 export {
   type App,
@@ -9,6 +9,6 @@ export {
   type HttpApp,
   type SchedulerApp,
 } from './create-app.lib';
-export { DefaultModules } from './default-modules.lib';
 export type { DefaultModulesConfig } from './default-modules.lib';
-export { type Override, attachContainer, override } from './override.lib';
+export { DefaultModules } from './default-modules.lib';
+export { attachContainer, type Override, override } from './override.lib';

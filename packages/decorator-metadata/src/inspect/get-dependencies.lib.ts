@@ -5,9 +5,9 @@ import { errAsync, okAsync } from 'neverthrow';
 
 import { getInternalClassMetadata, resolvePosition } from '../runtime/index';
 import { findClassAtPosition, findClassByName } from './ast.lib';
+import type { DependencyInfo, GetDependenciesOptions, InspectError } from './inspect.types';
 import type { ProgramCacheError } from './program-cache.lib';
 import { getOrCreateProgram } from './program-cache.lib';
-import type { DependencyInfo, GetDependenciesOptions, InspectError } from './inspect.types';
 
 type TypeScriptModule = typeof import('typescript');
 type TSSourceFile = import('typescript').SourceFile;

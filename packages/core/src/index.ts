@@ -1,4 +1,5 @@
 export { HTTPException } from 'hono/http-exception';
+export type { DefaultModulesConfig } from './app';
 export {
   type App,
   type CommandApp,
@@ -9,7 +10,6 @@ export {
   type ReadyResult,
   type SchedulerApp,
 } from './app';
-export type { DefaultModulesConfig } from './app';
 export type { Signal, SignalHandler } from './built-in-service/cli';
 export { CliConfig } from './built-in-service/cli';
 export type { ConfigClass } from './built-in-service/config';
@@ -34,10 +34,11 @@ export {
   PrettyFormatterConfig,
   withLogContext,
 } from './built-in-service/logger';
+export type { Disposable, Lifecycle } from './kernel';
+export { LifecycleManager } from './kernel';
 // DI primitives
-export { inject } from './kernel/di';
 // DI
-export { Injectable } from './kernel/di';
+export { Injectable, inject } from './kernel/di';
 export type { CoreErrorContextMap } from './kernel/errors';
 // Errors
 export {
@@ -56,22 +57,6 @@ export {
   ZeltSchemaValidationError,
 } from './kernel/errors';
 export type { ReadyValue } from './kernel/internal';
-export type { Disposable, Lifecycle } from './kernel';
-export { LifecycleManager } from './kernel';
-export { Command } from './modules/command/definition';
-export type { CommandMetadata } from './modules/command/definition';
-export { getCommandMetadata } from './modules/command/definition';
-export type { ExecResult } from './modules/command/exec-result.types';
-export type { CommandContextStore } from './modules/command/input';
-export { runInCommandContext } from './modules/command/input';
-export { args } from './modules/command/input/injection';
-export type {
-  ArgDef,
-  InferSchema,
-  OptionDef,
-  SchemaDefinition,
-} from './modules/command/input/command-schema.types';
-export { cliSchema } from './modules/command/input/command-schema.types';
 export type { CommandCapabilities } from './modules/command/command.module';
 export type {
   ArgDefinition,
@@ -84,13 +69,28 @@ export type {
   OptionDefinition,
   OptionsDefinition,
 } from './modules/command/command.types';
-export { ErrorHandler } from './modules/http/error/error-handler.decorator';
+export type { CommandMetadata } from './modules/command/definition';
+export { Command, getCommandMetadata } from './modules/command/definition';
+export type { ExecResult } from './modules/command/exec-result.types';
+export type { CommandContextStore } from './modules/command/input';
+export { runInCommandContext } from './modules/command/input';
+export type {
+  ArgDef,
+  InferSchema,
+  OptionDef,
+  SchemaDefinition,
+} from './modules/command/input/command-schema.types';
+export { cliSchema } from './modules/command/input/command-schema.types';
+export { args } from './modules/command/input/injection';
 export type {
   ErrorBody,
   InternalErrorBody,
   ValidationErrorBody,
   ValidationIssue,
 } from './modules/http/error/error.types';
+export { ErrorHandler } from './modules/http/error/error-handler.decorator';
+export type { HttpCapabilities } from './modules/http/http.module';
+export type { HttpMetadata } from './modules/http/http.service';
 export type { ControllerClass } from './modules/http/http.types';
 // HTTP primitives
 export { currentRoles, currentUser, setUser } from './modules/http/middleware/auth';
@@ -115,8 +115,7 @@ export { SecureHeadersConfig } from './modules/http/middleware/secure-headers/se
 export { SecureHeadersMiddleware } from './modules/http/middleware/secure-headers/secure-headers.middleware';
 export { SkipMiddleware } from './modules/http/middleware/skip-middleware.decorator';
 export { UseMiddleware } from './modules/http/middleware/use-middleware.decorator';
-export type { HttpCapabilities } from './modules/http/http.module';
-export type { HttpMetadata } from './modules/http/http.service';
+export { requestContext } from './modules/http/request';
 export type { RequestContextSchema } from './modules/http/request/injection';
 export {
   body,
@@ -132,7 +131,6 @@ export {
   setContext,
   url,
 } from './modules/http/request/injection';
-export { requestContext } from './modules/http/request';
 export type {
   ExtractValidated,
   ExtractValidationTarget,
@@ -148,13 +146,11 @@ export type {
   ZeltStreamWriter,
 } from './modules/http/response';
 export { response } from './modules/http/response';
-export { Controller } from './modules/http/routing/controller.decorator';
-export { Delete, Get, Patch, Post, Put } from './modules/http/routing/http-method.decorator';
 export type { ControllerRouteInfo, RouteInfo } from './modules/http/routing';
 export { getControllerMetadata } from './modules/http/routing';
+export { Controller } from './modules/http/routing/controller.decorator';
+export { Delete, Get, Patch, Post, Put } from './modules/http/routing/http-method.decorator';
 export type { Module, ModuleCapsMap, ModuleConfigMap } from './modules/module.types';
-export type { SchedulerCapabilities } from './modules/scheduler/scheduler.module';
-export type { SchedulerClass } from './modules/scheduler/scheduler.types';
 // Scheduler decorators
 export { Cron } from './modules/scheduler/schedule/cron.decorator';
 export { Daily } from './modules/scheduler/schedule/daily.decorator';
@@ -162,3 +158,5 @@ export { Every } from './modules/scheduler/schedule/every.decorator';
 export { Hourly } from './modules/scheduler/schedule/hourly.decorator';
 export { Scheduled } from './modules/scheduler/schedule/scheduled.decorator';
 export { Weekly } from './modules/scheduler/schedule/weekly.decorator';
+export type { SchedulerCapabilities } from './modules/scheduler/scheduler.module';
+export type { SchedulerClass } from './modules/scheduler/scheduler.types';

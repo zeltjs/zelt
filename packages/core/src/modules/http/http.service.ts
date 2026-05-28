@@ -1,18 +1,16 @@
 import { Container, InjectionToken } from '@needle-di/core';
 import { Hono } from 'hono';
-
-import { Injectable, inject, resolve } from '../../kernel/di';
 import type { Lifecycle } from '../../kernel';
 import { LifecycleManager } from '../../kernel';
+import { Injectable, inject, resolve } from '../../kernel/di';
 import { DefaultErrorHandler } from './error/default.error-handler';
+import type { ControllerClass } from './http.types';
 import { createErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
-import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import type { ErrorHandlerClass, MiddlewareInput } from './middleware/middleware.types';
+import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import type { ControllerRouteInfo } from './routing';
 import { buildRoutes, collectControllerRouteInfo, warmupControllers } from './routing';
-
-import type { ControllerClass } from './http.types';
 
 export type HttpOptions = {
   readonly controllers: readonly ControllerClass[];

@@ -1,8 +1,4 @@
-import {
-  createContextKey,
-  getInternal,
-  setInternal,
-} from '../../../../kernel/internal';
+import { createContextKey, getInternal, setInternal } from '../../../../kernel/internal';
 
 export interface RequestContextSchema {
   user: unknown;

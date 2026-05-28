@@ -1,5 +1,5 @@
-export { type SessionConfigErrorReason, ZeltSessionConfigError } from './session.errors';
 export { SessionConfig } from './session.config';
+export { type SessionConfigErrorReason, ZeltSessionConfigError } from './session.errors';
 export {
   destroySession,
   getSession,

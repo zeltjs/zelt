@@ -16,8 +16,8 @@ import {
   isZeltNoEntryError,
   ZeltNoEntryError,
 } from './cli.errors';
-import { loadZeltConfig } from './config/index';
 import type { BuildConfig } from './config/config.types';
+import { loadZeltConfig } from './config/index';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 import { runTsdownBuild } from './tsdown.lib';
 

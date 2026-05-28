@@ -41,12 +41,14 @@ const rule: Rule.RuleModule = {
           allowedFiles: {
             type: 'array',
             items: { type: 'string' },
-            description: 'File names that are allowed without double-dot naming (e.g., "main.ts", "cli.ts")',
+            description:
+              'File names that are allowed without double-dot naming (e.g., "main.ts", "cli.ts")',
           },
           allowedPatterns: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Glob patterns for files allowed without double-dot naming (e.g., "on-*.ts")',
+            description:
+              'Glob patterns for files allowed without double-dot naming (e.g., "on-*.ts")',
           },
           allowedSuffixes: {
             type: 'array',
@@ -70,7 +72,10 @@ const rule: Rule.RuleModule = {
 
     const allowedFiles = new Set([...DEFAULT_ALLOWED_FILES, ...(options.allowedFiles ?? [])]);
     const allowedPatterns = options.allowedPatterns ?? [];
-    const allowedSuffixes = new Set([...DEFAULT_ALLOWED_SUFFIXES, ...(options.allowedSuffixes ?? [])]);
+    const allowedSuffixes = new Set([
+      ...DEFAULT_ALLOWED_SUFFIXES,
+      ...(options.allowedSuffixes ?? []),
+    ]);
 
     if (basename.endsWith('.test.ts') || basename.endsWith('.d.ts')) {
       return {};

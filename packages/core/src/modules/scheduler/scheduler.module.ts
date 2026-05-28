@@ -1,7 +1,7 @@
 import type { Module } from '../module.types';
-import type { JobInfo } from './scheduler-runner.lib';
 import { SCHEDULER_OPTIONS, SchedulerService } from './scheduler.service';
 import type { SchedulerClass } from './scheduler.types';
+import type { JobInfo } from './scheduler-runner.lib';
 
 export type SchedulerCapabilities = {
   readonly startScheduler: () => Promise<void>;

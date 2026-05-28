@@ -1,5 +1,4 @@
-import { inject } from '../../kernel/di';
-import { Injectable } from '../../kernel/di';
+import { Injectable, inject } from '../../kernel/di';
 import { ZeltEnvError } from '../../kernel/errors';
 
 import { EnvAdaptor } from './env.adaptor';

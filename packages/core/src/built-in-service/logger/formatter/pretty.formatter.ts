@@ -1,5 +1,4 @@
-import { inject } from '../../../kernel/di';
-import { Injectable } from '../../../kernel/di';
+import { Injectable, inject } from '../../../kernel/di';
 import type { LogEntry } from '../logger.types';
 import type { LoggerFormatter } from './formatter.types';
 import { PrettyFormatterConfig } from './pretty.formatter.config';

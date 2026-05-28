@@ -1,6 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-
 import { LifecycleManager } from '@zeltjs/core';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DatabaseService } from './database.service';
 
