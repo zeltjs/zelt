@@ -1,1 +1,1 @@
-export { validated } from './validated';
+export { validated } from './validated.lib';

@@ -1,4 +1,4 @@
-import { inject } from '../../kernel/di/inject';
+import { inject } from '../../kernel/di';
 import { Config } from '../config';
 
 import type { LoggerFormatter } from './formatter';
@@ -19,8 +19,8 @@ export class LoggerConfig {
   private readonly _transports: readonly TransportBinding[];
 
   constructor(
-    private console = inject(ConsoleTransport),
-    private jsonl = inject(JsonlFormatter),
+    private readonly console = inject(ConsoleTransport),
+    private readonly jsonl = inject(JsonlFormatter),
   ) {
     this._transports = Object.freeze([{ transport: this.console, formatter: this.jsonl }]);
   }

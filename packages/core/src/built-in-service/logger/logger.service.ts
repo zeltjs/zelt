@@ -1,5 +1,5 @@
-import { inject } from '../../kernel/di/inject';
-import { Injectable } from '../../kernel/di/injectable';
+import { inject } from '../../kernel/di';
+import { Injectable } from '../../kernel/di';
 import { LoggerConfig } from './logger.config';
 import { getLogContext } from './logger.context.lib';
 import { LOG_LEVEL_PRIORITY } from './logger.lib';
@@ -8,8 +8,8 @@ import type { LogContext, LogEntry, LogLevel } from './logger.types';
 @Injectable()
 export class LoggerService {
   constructor(
-    private config = inject(LoggerConfig),
-    private bindings: LogContext = {},
+    private readonly config = inject(LoggerConfig),
+    private readonly bindings: LogContext = {},
   ) {}
 
   debug(msg: string, ctx: LogContext = {}): void {

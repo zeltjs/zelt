@@ -1,4 +1,4 @@
-export { app } from './app';
+export { app } from './app.lib';
 export { GenerateCommand } from './commands';
 export type {
   BuildAppType,
@@ -16,6 +16,6 @@ export type {
   RouteInfo,
 } from './generator';
 export { GeneratorService } from './generator';
-export { generateHonoAppTypeFromApp } from './legacy';
-export type { HonoClientPluginOptions } from './plugin';
-export { honoClientPlugin } from './plugin';
+export { generateHonoAppTypeFromApp } from './legacy.lib';
+export type { HonoClientPluginOptions } from './plugin.lib';
+export { honoClientPlugin } from './plugin.lib';

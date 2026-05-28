@@ -1,10 +1,10 @@
-export { getClassMetadata } from '../runtime/store';
-export { getDependencies } from './get-dependencies';
-export { getTypeMetadata } from './get-type-metadata';
-export type { ProgramCacheError } from './program-cache';
-export { clearProgramCache, getOrCreateProgram } from './program-cache';
-export type { GetSourcePositionOptions } from './source-position';
-export { getSourcePosition } from './source-position';
+export { getClassMetadata } from '../runtime/index';
+export { getDependencies } from './get-dependencies.lib';
+export { getTypeMetadata } from './get-type-metadata.lib';
+export type { ProgramCacheError } from './program-cache.lib';
+export { clearProgramCache, getOrCreateProgram } from './program-cache.lib';
+export type { GetSourcePositionOptions } from './source-position.lib';
+export { getSourcePosition } from './source-position.lib';
 export type {
   ClassMetadata,
   DependencyInfo,
@@ -19,4 +19,4 @@ export type {
   PropertyInfo,
   TypedPropertyInfo,
   TypeInfo,
-} from './types';
+} from './inspect.types';

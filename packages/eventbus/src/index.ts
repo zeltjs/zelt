@@ -1,2 +1,2 @@
 export { MemoryEventBusAdaptor } from './adaptor-memory';
-export type { EventBusAdaptor, EventBusSchema } from './types';
+export type { EventBusAdaptor, EventBusSchema } from './eventbus.types';

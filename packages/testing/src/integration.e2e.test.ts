@@ -1,9 +1,9 @@
 import { Config, Controller, createApp, Get, Injectable, inject } from '@zeltjs/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { configureTestDefaults } from './global-config';
+import { configureTestDefaults } from './global-config.lib';
 import { onTest } from './on-test';
-import { createTestTarget } from './test-target';
+import { createTestTarget } from './test-target.lib';
 
 // Shared config hierarchy for E2E tests
 @Config

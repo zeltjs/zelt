@@ -1,8 +1,7 @@
 import type { LoggerService } from '@zeltjs/core';
-import type { AtomicKVStore } from '@zeltjs/kv';
-import { MemoryKVService } from '@zeltjs/kv';
+import type { AtomicKVAdaptor, AtomicKVStore } from '@zeltjs/kv';
 import { createTestTarget } from '@zeltjs/testing';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { RateLimitConfig } from './rate-limit.config';
 import { RateLimitService } from './rate-limit.service';
@@ -14,21 +13,18 @@ const mockLoggerService = {
   error: vi.fn(),
 } as unknown as LoggerService;
 
-let memoryKv: MemoryKVService;
-
-beforeAll(async () => {
-  const { target } = await createTestTarget(MemoryKVService);
-  memoryKv = target;
-});
-
-const makeDefaultLimiter = () => {
-  const config = new RateLimitConfig(memoryKv);
+const makeDefaultLimiter = async (): Promise<RateLimitService> => {
+  const { target: config } = await createTestTarget(RateLimitConfig);
   return new RateLimitService(config, mockLoggerService);
 };
 
+const fakeKv = (store: AtomicKVStore): AtomicKVAdaptor => ({
+  namespace: () => store,
+});
+
 describe('RateLimitService', () => {
   it('hit returns allowed=true within limit', async () => {
-    const limiter = makeDefaultLimiter();
+    const limiter = await makeDefaultLimiter();
     const r = await limiter.hit('test:k1', { limit: 3, windowSec: 60 });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('expected ok');
@@ -38,7 +34,7 @@ describe('RateLimitService', () => {
   });
 
   it('hit returns allowed=false after limit exceeded', async () => {
-    const limiter = makeDefaultLimiter();
+    const limiter = await makeDefaultLimiter();
     await limiter.hit('test:k2', { limit: 2, windowSec: 60 });
     await limiter.hit('test:k2', { limit: 2, windowSec: 60 });
     const r = await limiter.hit('test:k2', { limit: 2, windowSec: 60 });
@@ -50,7 +46,7 @@ describe('RateLimitService', () => {
   });
 
   it('uses Config defaults when opts omitted', async () => {
-    const limiter = makeDefaultLimiter();
+    const limiter = await makeDefaultLimiter();
     const r = await limiter.hit('test:k3');
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('expected ok');
@@ -58,7 +54,7 @@ describe('RateLimitService', () => {
   });
 
   it('reset deletes the counter', async () => {
-    const limiter = makeDefaultLimiter();
+    const limiter = await makeDefaultLimiter();
     await limiter.hit('test:k4', { limit: 1, windowSec: 60 });
     const resetR = await limiter.reset('test:k4');
     expect(resetR.ok).toBe(true);
@@ -68,13 +64,19 @@ describe('RateLimitService', () => {
   });
 
   it('failureMode=open returns allowed when store throws', async () => {
+    const failingStore = {
+      incr: vi.fn().mockRejectedValue(new Error('redis connection refused')),
+      del: vi.fn(),
+    } as unknown as AtomicKVStore;
     class FailingOpenConfig extends RateLimitConfig {
-      override readonly store = {
-        incr: vi.fn().mockRejectedValue(new Error('redis connection refused')),
-        del: vi.fn(),
-      } as unknown as AtomicKVStore;
+      constructor() {
+        super(fakeKv(failingStore));
+      }
     }
-    const limiter = new RateLimitService(new FailingOpenConfig(memoryKv), mockLoggerService);
+    const { target: config } = await createTestTarget(RateLimitConfig, {
+      configs: [FailingOpenConfig],
+    });
+    const limiter = new RateLimitService(config, mockLoggerService);
     const r = await limiter.hit('test:k5', { limit: 5, windowSec: 60 });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('expected ok');
@@ -82,14 +84,20 @@ describe('RateLimitService', () => {
   });
 
   it('failureMode=closed returns error when store throws', async () => {
+    const failingStore = {
+      incr: vi.fn().mockRejectedValue(new Error('redis connection refused')),
+      del: vi.fn(),
+    } as unknown as AtomicKVStore;
     class FailingClosedConfig extends RateLimitConfig {
-      override readonly store = {
-        incr: vi.fn().mockRejectedValue(new Error('redis connection refused')),
-        del: vi.fn(),
-      } as unknown as AtomicKVStore;
+      constructor() {
+        super(fakeKv(failingStore));
+      }
       override readonly failureMode = 'closed' as const;
     }
-    const limiter = new RateLimitService(new FailingClosedConfig(memoryKv), mockLoggerService);
+    const { target: config } = await createTestTarget(RateLimitConfig, {
+      configs: [FailingClosedConfig],
+    });
+    const limiter = new RateLimitService(config, mockLoggerService);
     const r = await limiter.hit('test:k6', { limit: 5, windowSec: 60 });
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('expected error');

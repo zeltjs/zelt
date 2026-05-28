@@ -1,11 +1,14 @@
 export type {
   ClassDecoratorFn,
   ClassDecoratorOptions,
+  ClassMeta,
   MethodDecoratorFn,
   MethodDecoratorOptions,
+  MethodMeta,
   PropertyDecoratorFn,
   PropertyDecoratorOptions,
-} from './runtime/decorators';
+  PropertyMeta,
+} from './runtime/index';
 export {
   composeClassDecorators,
   composeMethodDecorators,
@@ -13,6 +16,5 @@ export {
   createClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
-} from './runtime/decorators';
-export type { ClassMeta, MethodMeta, PropertyMeta } from './runtime/store';
-export { getClassMetadata } from './runtime/store';
+  getClassMetadata,
+} from './runtime/index';

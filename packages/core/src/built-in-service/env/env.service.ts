@@ -1,5 +1,5 @@
-import { inject } from '../../kernel/di/inject';
-import { Injectable } from '../../kernel/di/injectable';
+import { inject } from '../../kernel/di';
+import { Injectable } from '../../kernel/di';
 
 import { EnvConfig } from './env.config';
 
@@ -9,7 +9,7 @@ import { EnvConfig } from './env.config';
  */
 @Injectable()
 export class EnvService {
-  constructor(private config = inject(EnvConfig)) {}
+  constructor(private readonly config = inject(EnvConfig)) {}
 
   getString<D extends string | null | undefined>(key: string, defaultValue: D): string | D {
     return this.config.get(key) ?? defaultValue;

@@ -1,7 +1,7 @@
 import { Injectable } from '@zeltjs/core';
 
 import { emitAppType } from './emit.lib';
-import type { ControllerClass, GenerateOptions, HttpMetadata } from './types';
+import type { ControllerClass, GenerateOptions, HttpMetadata } from './generator.types';
 
 type HttpAppLike = {
   getMetadata: () => HttpMetadata;

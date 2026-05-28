@@ -1,1 +1,1 @@
-export { RedisKVAdaptor } from './redis-kv-adaptor';
+export { RedisKVAdaptor } from './redis-kv.adaptor';

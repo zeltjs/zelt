@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Config } from '../built-in-service/config';
-import { createApp } from './create-app';
+import { createApp } from './create-app.lib';
 
 describe('config token', () => {
   describe('Config resolution priority', () => {

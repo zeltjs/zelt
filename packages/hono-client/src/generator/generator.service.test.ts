@@ -2,7 +2,7 @@ import { Controller } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 
 import { GeneratorService } from './generator.service';
-import type { ControllerClass, HttpMetadata } from './types';
+import type { ControllerClass, HttpMetadata } from './generator.types';
 
 @Controller('/users')
 class UserController {

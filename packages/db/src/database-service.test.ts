@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { DatabaseService } from './database-service';
+import { LifecycleManager } from '@zeltjs/core';
+
+import { DatabaseService } from './database.service';
 
 class MockDatabaseService extends DatabaseService<{ query: (sql: string) => string }> {
   setupCalled = false;
+  shutdownCalled = false;
   transactionCalls: unknown[] = [];
 
   async setup() {
@@ -18,52 +21,38 @@ class MockDatabaseService extends DatabaseService<{ query: (sql: string) => stri
     this.transactionCalls.push({ client });
     return fn(client);
   }
+
+  async shutdown() {
+    this.shutdownCalled = true;
+  }
 }
 
-const mockLifecycleManager = {
-  register: vi.fn(),
-};
-
-vi.mock('@zeltjs/core', () => ({
-  inject: vi.fn(() => mockLifecycleManager),
-  LifecycleManager: class {},
-}));
-
 describe('DatabaseService', () => {
+  let lifecycle: LifecycleManager;
   let service: MockDatabaseService;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    service = new MockDatabaseService();
+  beforeEach(async () => {
+    lifecycle = new LifecycleManager();
+    service = new MockDatabaseService(lifecycle);
+    await lifecycle.startup();
   });
 
   describe('lifecycle', () => {
-    it('should register with LifecycleManager on construction', () => {
-      expect(mockLifecycleManager.register).toHaveBeenCalledWith(service);
-    });
-
-    it('should call setup() on startup and set originalClient', async () => {
-      await service.startup();
-
+    it('should call setup() on startup and set client', () => {
       expect(service.setupCalled).toBe(true);
       expect(service.client.query('test')).toBe('result: test');
     });
   });
 
   describe('client getter', () => {
-    it('should return originalClient when not in transaction', async () => {
-      await service.startup();
-
+    it('should return client when not in transaction', () => {
       const result = service.client.query('SELECT 1');
-
       expect(result).toBe('result: SELECT 1');
     });
   });
 
   describe('withTransaction', () => {
     it('should execute function within transaction context', async () => {
-      await service.startup();
-
       const result = await service.withTransaction(async () => {
         return service.client.query('SELECT * FROM users');
       });
@@ -73,7 +62,6 @@ describe('DatabaseService', () => {
     });
 
     it('should provide tx client inside transaction', async () => {
-      await service.startup();
       let clientInsideTx: { query: (sql: string) => string } | undefined;
 
       await service.withTransaction(async () => {
@@ -86,7 +74,6 @@ describe('DatabaseService', () => {
 
   describe('nested transactions', () => {
     it('should use current tx client for nested withTransaction', async () => {
-      await service.startup();
       const clients: unknown[] = [];
 
       await service.withTransaction(async () => {
@@ -101,7 +88,6 @@ describe('DatabaseService', () => {
     });
 
     it('should restore previous tx context after nested transaction completes', async () => {
-      await service.startup();
       let outerClientAfterNested: unknown;
 
       await service.withTransaction(async () => {
@@ -116,19 +102,9 @@ describe('DatabaseService', () => {
   });
 
   describe('shutdown', () => {
-    it('should call shutdown handlers in reverse order', async () => {
-      await service.startup();
-      const order: number[] = [];
-      service['onShutdown'](async () => {
-        order.push(1);
-      });
-      service['onShutdown'](async () => {
-        order.push(2);
-      });
-
+    it('should call subclass shutdown', async () => {
       await service.shutdown();
-
-      expect(order).toEqual([2, 1]);
+      expect(service.shutdownCalled).toBe(true);
     });
   });
 });

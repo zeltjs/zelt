@@ -1,6 +1,6 @@
 import { afterAll } from 'vitest';
 
-import { shutdownAll } from '../shutdown-registry';
+import { shutdownAll } from '../index';
 
 afterAll(shutdownAll);
 

@@ -2,12 +2,13 @@ import { LifecycleManager } from '@zeltjs/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MemoryKVAdaptor } from './adaptor-memory';
+import { KVUtilService } from './util';
 
 describe('MemoryKVAdaptor (KVStore ops)', () => {
   let kv: MemoryKVAdaptor;
 
   beforeEach(() => {
-    kv = new MemoryKVAdaptor(new LifecycleManager());
+    kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
   });
 
   it('set + get round-trips a JSON object', async () => {
@@ -58,7 +59,7 @@ describe('MemoryKVAdaptor (TTL)', () => {
   });
 
   it('TTL expires the key', async () => {
-    const kv = new MemoryKVAdaptor(new LifecycleManager());
+    const kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
     const store = kv.namespace('test:');
     await store.set('foo', 1, { ttlSec: 10 });
     expect(await store.get('foo')).toBe(1);
@@ -67,7 +68,7 @@ describe('MemoryKVAdaptor (TTL)', () => {
   });
 
   it('expire(key, ttl) extends TTL on existing key, returns true', async () => {
-    const kv = new MemoryKVAdaptor(new LifecycleManager());
+    const kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
     const store = kv.namespace('test:');
     await store.set('foo', 1);
     expect(await store.expire('foo', 5)).toBe(true);
@@ -76,7 +77,7 @@ describe('MemoryKVAdaptor (TTL)', () => {
   });
 
   it('expire(key, ttl) returns false for missing key', async () => {
-    const kv = new MemoryKVAdaptor(new LifecycleManager());
+    const kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
     const store = kv.namespace('test:');
     expect(await store.expire('missing', 5)).toBe(false);
   });
@@ -84,12 +85,12 @@ describe('MemoryKVAdaptor (TTL)', () => {
 
 describe('MemoryKVAdaptor (Disposable)', () => {
   it('shutdown() resolves without error', async () => {
-    const kv = new MemoryKVAdaptor(new LifecycleManager());
+    const kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
     await expect(kv.shutdown()).resolves.toBeUndefined();
   });
 
   it('shutdown() stops the GC interval (calling shutdown twice does not throw)', async () => {
-    const kv = new MemoryKVAdaptor(new LifecycleManager());
+    const kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
     await kv.shutdown();
     await expect(kv.shutdown()).resolves.toBeUndefined();
   });
@@ -97,7 +98,7 @@ describe('MemoryKVAdaptor (Disposable)', () => {
 
 describe('MemoryKVAdaptor (AtomicKVStore ops)', () => {
   it('incr from missing key starts at 1, then increments', async () => {
-    const kv = new MemoryKVAdaptor(new LifecycleManager());
+    const kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
     const store = kv.namespace('test:');
     expect(await store.incr('counter')).toBe(1);
     expect(await store.incr('counter')).toBe(2);
@@ -107,7 +108,7 @@ describe('MemoryKVAdaptor (AtomicKVStore ops)', () => {
   it('incr sets TTL only on first call when ttlSec given', async () => {
     vi.useFakeTimers();
     try {
-      const kv = new MemoryKVAdaptor(new LifecycleManager());
+      const kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
       const store = kv.namespace('test:');
       await store.incr('c', 1, { ttlSec: 10 });
       vi.advanceTimersByTime(5_000);
@@ -120,7 +121,7 @@ describe('MemoryKVAdaptor (AtomicKVStore ops)', () => {
   });
 
   it('setnx returns true on first call, false on existing', async () => {
-    const kv = new MemoryKVAdaptor(new LifecycleManager());
+    const kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
     const store = kv.namespace('test:');
     expect(await store.setnx('lock', 'token-1')).toBe(true);
     expect(await store.setnx('lock', 'token-2')).toBe(false);
@@ -130,7 +131,7 @@ describe('MemoryKVAdaptor (AtomicKVStore ops)', () => {
   it('setnx with ttlSec sets expiry', async () => {
     vi.useFakeTimers();
     try {
-      const kv = new MemoryKVAdaptor(new LifecycleManager());
+      const kv = new MemoryKVAdaptor(new KVUtilService(), new LifecycleManager());
       const store = kv.namespace('test:');
       await store.setnx('lock', 'token', { ttlSec: 5 });
       vi.advanceTimersByTime(6_000);

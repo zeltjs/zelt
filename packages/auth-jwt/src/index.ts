@@ -1,5 +1,5 @@
-export { type JwtConfigErrorReason, ZeltJwtConfigError } from './errors';
-export { UnauthorizedException, type UnauthorizedReason } from './exceptions';
+export { type JwtConfigErrorReason, ZeltJwtConfigError } from './jwt.errors';
+export { UnauthorizedException, type UnauthorizedReason } from './jwt.exceptions';
 export type { ResolveUserResult } from './jwt.config';
 export { JwtConfig } from './jwt.config';
 export { JwtMiddleware } from './jwt.middleware';

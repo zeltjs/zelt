@@ -1,36 +1,26 @@
-import { MemoryKV } from '@zeltjs/kv';
 import { createTestTarget } from '@zeltjs/testing';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { RateLimitConfig } from './rate-limit.config';
 
-let memoryKv: MemoryKV;
-
-beforeAll(async () => {
-  const { target } = await createTestTarget(MemoryKV);
-  memoryKv = target;
-});
-
 describe('RateLimitConfig', () => {
-  it('default limit is 100', () => {
-    const config = new RateLimitConfig(memoryKv);
-    expect(config.defaultLimit).toBe(100);
+  it('default limit is 100', async () => {
+    const { target } = await createTestTarget(RateLimitConfig);
+    expect(target.defaultLimit).toBe(100);
   });
 
-  it('default windowSec is 60', () => {
-    const config = new RateLimitConfig(memoryKv);
-    expect(config.defaultWindowSec).toBe(60);
+  it('default windowSec is 60', async () => {
+    const { target } = await createTestTarget(RateLimitConfig);
+    expect(target.defaultWindowSec).toBe(60);
   });
 
-  it('default failureMode is open', () => {
-    const config = new RateLimitConfig(memoryKv);
-    expect(config.failureMode).toBe('open');
+  it('default failureMode is open', async () => {
+    const { target } = await createTestTarget(RateLimitConfig);
+    expect(target.failureMode).toBe('open');
   });
 
-  it('store is namespaced AtomicKVStore', async () => {
-    const config = new RateLimitConfig(memoryKv);
-    await config.store.set('foo', 1);
-    const value = await config.store.get('foo');
-    expect(value).toBe(1);
+  it('default kvStoreNamespace is "rate-limit:"', async () => {
+    const { target } = await createTestTarget(RateLimitConfig);
+    expect(target.kvStoreNamespace).toBe('rate-limit:');
   });
 });

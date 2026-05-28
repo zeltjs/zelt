@@ -1,7 +1,7 @@
 import { Injectable } from '@zeltjs/core';
 import mitt from 'mitt';
 
-import type { EventBusAdaptor, EventBusSchema } from '../types';
+import type { EventBusAdaptor, EventBusSchema } from '../eventbus.types';
 
 @Injectable()
 export class MemoryEventBusAdaptor implements EventBusAdaptor {

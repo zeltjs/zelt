@@ -1,1 +1,1 @@
-export { type Override, override } from '../app/override';
+export { type Override, override } from '../app';

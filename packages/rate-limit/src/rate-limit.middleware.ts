@@ -1,9 +1,9 @@
 import type { Next, RequestContext } from '@zeltjs/core';
 import { Injectable, inject, UseMiddleware } from '@zeltjs/core';
 
-import { RateLimitExceededException, RateLimitUnavailableException } from './exceptions';
+import { RateLimitExceededException, RateLimitUnavailableException } from './rate-limit.exceptions';
 import { RateLimitService } from './rate-limit.service';
-import type { RateLimitOptions } from './types';
+import type { RateLimitOptions } from './rate-limit.types';
 
 @Injectable()
 export class RateLimitMiddleware {

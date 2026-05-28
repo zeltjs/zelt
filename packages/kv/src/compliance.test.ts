@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ZeltKVInvalidTtlError } from './errors';
-import type { AtomicKVAdaptor, AtomicKVStore, KVAdaptor, KVStore } from './types';
+import { ZeltKVInvalidTtlError } from './kv.errors';
+import type { AtomicKVAdaptor, AtomicKVStore, KVAdaptor, KVStore } from './kv.types';
 
 export type ComplianceOptions = {
   /** Use real wall-clock sleeps instead of fake timers for TTL tests (needed for real backends like Redis). */

@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { GenerateCommand } from '../commands';
 import { GeneratorService } from '../generator';
-import type { ControllerClass, HttpMetadata } from '../generator/types';
+import type { ControllerClass, HttpMetadata } from '../generator/generator.types';
 
 const createTestCliConfig = (cwd: string): typeof CliConfig => {
   @Config

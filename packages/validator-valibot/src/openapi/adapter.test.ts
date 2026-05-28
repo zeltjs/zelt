@@ -1,7 +1,7 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
-import { valibotAdapter } from './adapter';
+import { valibotAdapter } from './valibot-adapter.lib';
 
 describe('valibotAdapter', () => {
   it('converts valibot object schema to JSON Schema', () => {

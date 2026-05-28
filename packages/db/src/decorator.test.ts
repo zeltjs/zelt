@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DatabaseService } from './database-service';
-import { createTransactionDecorator } from './decorator';
+import { DatabaseService } from './database.service';
+import { createTransactionDecorator } from './db.decorator';
 
 class MockDatabaseService extends DatabaseService<{ id: string }> {
   withTransactionCalls: (() => Promise<unknown>)[] = [];
@@ -18,6 +18,8 @@ class MockDatabaseService extends DatabaseService<{ id: string }> {
     this.withTransactionCalls.push(fn as () => Promise<unknown>);
     return fn();
   }
+
+  async shutdown() {}
 }
 
 const mockService = new MockDatabaseService();

@@ -3,7 +3,7 @@ import { relative } from 'node:path';
 import { ZeltDecoratorUsageError } from '@zeltjs/core';
 import { getSourcePosition } from '@zeltjs/decorator-metadata/inspect';
 
-import type { ControllerClass, ControllerRouteInfo, HttpMetadata, RouteInfo } from './types';
+import type { ControllerClass, ControllerRouteInfo, HttpMetadata, RouteInfo } from './generator.types';
 
 const stripTsExtension = (p: string): string => p.replace(/\.tsx?$/, '');
 

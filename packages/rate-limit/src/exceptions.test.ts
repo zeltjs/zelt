@@ -1,7 +1,7 @@
 import { HTTPException } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 
-import { RateLimitExceededException, RateLimitUnavailableException } from './exceptions';
+import { RateLimitExceededException, RateLimitUnavailableException } from './rate-limit.exceptions';
 
 describe('RateLimitExceededException', () => {
   it('is instanceof HTTPException', () => {

@@ -1,4 +1,4 @@
-import { Injectable } from '../../../kernel/di/injectable';
+import { Injectable } from '../../../kernel/di';
 import type { LogEntry } from '../logger.types';
 import type { LoggerFormatter } from './formatter.types';
 import { safeStringify } from './safe-stringify.lib';

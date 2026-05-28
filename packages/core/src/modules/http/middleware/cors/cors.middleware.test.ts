@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { createApp } from '../../../../app/create-app';
-import { Controller } from '../../routing/controller';
-import { Get } from '../../routing/http-method';
-import { UseMiddleware } from '../use-middleware';
+import { createApp } from '../../../../app';
+import { Controller } from '../../routing/controller.decorator';
+import { Get } from '../../routing/http-method.decorator';
+import { UseMiddleware } from '../use-middleware.decorator';
 import { CorsConfig } from './cors.config';
 import { CorsMiddleware } from './cors.middleware';
 

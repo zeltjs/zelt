@@ -1,7 +1,7 @@
 import { Config, Controller, createApp, Get, inject } from '@zeltjs/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { configureTestDefaults } from './global-config';
+import { configureTestDefaults } from './global-config.lib';
 import { onTest } from './on-test';
 
 // Isolated base config used only for the global-default test

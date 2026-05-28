@@ -1,7 +1,12 @@
 import { cors } from 'hono/cors';
-import { inject } from '../../../../kernel/di/inject';
-import { Middleware } from '../middleware';
-import type { FunctionMiddleware, MiddlewareInstance, Next, RequestContext } from '../types';
+import { inject } from '../../../../kernel/di';
+import { Middleware } from '../middleware.decorator';
+import type {
+  FunctionMiddleware,
+  MiddlewareInstance,
+  Next,
+  RequestContext,
+} from '../middleware.types';
 import { CorsConfig } from './cors.config';
 
 @Middleware

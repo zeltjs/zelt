@@ -1,7 +1,7 @@
 import { HTTPException } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 
-import { UnauthorizedException } from './exceptions';
+import { UnauthorizedException } from './jwt.exceptions';
 
 describe('UnauthorizedException', () => {
   it('is instanceof HTTPException', () => {

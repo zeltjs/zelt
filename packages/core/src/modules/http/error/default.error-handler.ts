@@ -2,12 +2,12 @@ import { inject } from '@needle-di/core';
 import { HTTPException } from 'hono/http-exception';
 
 import { EnvService } from '../../../built-in-service/env';
-import type { RequestContext } from '../middleware/types';
-import { ErrorHandler } from './error-handler';
+import type { RequestContext } from '../middleware/middleware.types';
+import { ErrorHandler } from './error-handler.decorator';
 
 @ErrorHandler
 export class DefaultErrorHandler {
-  constructor(private env = inject(EnvService)) {}
+  constructor(private readonly env = inject(EnvService)) {}
 
   onError(err: Error, _c: RequestContext): Response {
     if (err instanceof HTTPException) return err.getResponse();

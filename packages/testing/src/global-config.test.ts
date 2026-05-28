@@ -1,7 +1,7 @@
 import { Config } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 
-import { configureTestDefaults, getTestDefaults } from './global-config';
+import { configureTestDefaults, getTestDefaults } from './global-config.lib';
 
 describe('configureTestDefaults', () => {
   it('stores config classes for fallback', () => {

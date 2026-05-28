@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ZeltKVInvalidTtlError } from './errors';
+import { ZeltKVInvalidTtlError } from './kv.errors';
 
 describe('ZeltKVInvalidTtlError', () => {
   it('creates error with correct name and message', () => {
