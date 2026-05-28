@@ -1,6 +1,6 @@
 import { after } from 'node:test';
 
-import { shutdownAll } from '../shutdown-registry';
+import { shutdownAll } from '../index';
 
 after(shutdownAll);
 

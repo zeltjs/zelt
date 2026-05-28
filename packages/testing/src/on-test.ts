@@ -1,7 +1,7 @@
 import type { App, ConfigClass, ReadyResult } from '@zeltjs/core';
 
-import { getTestDefaults } from './global-config';
-import { registerShutdown } from './shutdown-registry';
+import { getTestDefaults } from './global-config.lib';
+import { registerShutdown } from './shutdown-registry.lib';
 
 type AnyConfigClass = ConfigClass<object>;
 

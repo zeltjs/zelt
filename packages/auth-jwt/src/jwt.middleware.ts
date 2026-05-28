@@ -1,9 +1,8 @@
 import type { Next, RequestContext } from '@zeltjs/core';
 import { inject, Middleware, setUser } from '@zeltjs/core';
 import { getCookie } from 'hono/cookie';
-
-import { UnauthorizedException } from './exceptions';
 import { JwtConfig } from './jwt.config';
+import { UnauthorizedException } from './jwt.exceptions';
 import { JwtService } from './jwt.service';
 
 @Middleware

@@ -1,5 +1,6 @@
 import type { Next, RequestContext } from '@zeltjs/core';
 import { inject, Middleware } from '@zeltjs/core';
+import type { KVStore } from '@zeltjs/kv';
 import { getCookie } from 'hono/cookie';
 
 import { SessionConfig } from './session.config';
@@ -9,7 +10,11 @@ import type { StoredSession } from './session.types';
 
 @Middleware
 export class SessionMiddleware {
-  constructor(private readonly config = inject(SessionConfig)) {}
+  private readonly store: KVStore;
+
+  constructor(private readonly config = inject(SessionConfig)) {
+    this.store = config.kv.namespace(config.kvStoreNamespace);
+  }
 
   async use(c: RequestContext, next: Next): Promise<Response | undefined> {
     const { sessionId, session, isNew } = await this.loadOrCreateSession(c);
@@ -42,13 +47,13 @@ export class SessionMiddleware {
     },
   ): Promise<string | null> {
     if (ctx.isDestroyed) {
-      await this.config.store.del(sessionId);
+      await this.store.del(sessionId);
       return this.buildDeleteCookieHeader();
     }
 
     if (ctx.isDirty || ctx.isNew) {
       ctx.session.meta.expiresAt = Date.now() + this.config.ttlSec * 1000;
-      await this.config.store.set(sessionId, ctx.session, { ttlSec: this.config.ttlSec });
+      await this.store.set(sessionId, ctx.session, { ttlSec: this.config.ttlSec });
       const signedId = signSessionId(sessionId, this.config.secret);
       return this.buildSetCookieHeader(signedId);
     }
@@ -66,7 +71,7 @@ export class SessionMiddleware {
     if (signedId) {
       const sessionId = verifyAndExtractSessionId(signedId, this.config.secret);
       if (sessionId) {
-        const stored = await this.config.store.get<StoredSession>(sessionId);
+        const stored = await this.store.get<StoredSession>(sessionId);
         if (stored && stored.meta.expiresAt > Date.now()) {
           return { sessionId, session: stored, isNew: false };
         }

@@ -1,18 +1,17 @@
 import { Config, Env, inject } from '@zeltjs/core';
-import type { KVStore } from '@zeltjs/kv';
+import type { KVAdaptor } from '@zeltjs/kv';
+import { MemoryKV } from '@zeltjs/kv';
 
-import { ZeltSessionConfigError } from './errors';
+import { ZeltSessionConfigError } from './session.errors';
 
 @Config
 export class SessionConfig {
-  constructor(private env = inject(Env)) {}
+  constructor(
+    private readonly env = inject(Env),
+    readonly kv: KVAdaptor = inject(MemoryKV),
+  ) {}
 
-  /**
-   * @throws {ZeltSessionConfigError} When store is not overridden
-   */
-  get store(): KVStore {
-    throw new ZeltSessionConfigError({ reason: 'store_not_overridden' });
-  }
+  readonly kvStoreNamespace: string = 'session:';
 
   get cookieName(): string {
     return 'sid';

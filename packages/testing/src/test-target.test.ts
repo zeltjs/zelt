@@ -1,8 +1,8 @@
 import { Config, Injectable, inject } from '@zeltjs/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { configureTestDefaults } from './global-config';
-import { createTestTarget } from './test-target';
+import { configureTestDefaults } from './global-config.lib';
+import { createTestTarget } from './test-target.lib';
 
 describe('createTestTarget', () => {
   it('resolves a simple injectable class', async () => {

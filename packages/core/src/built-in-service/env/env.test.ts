@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { App } from '../../app/create-app';
-import { createApp } from '../../app/create-app';
+import type { App } from '../../app';
+import { createApp } from '../../app';
 import { Config } from '../config';
 
 import { Env } from './env';

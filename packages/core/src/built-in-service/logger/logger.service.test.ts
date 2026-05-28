@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from '../../app/create-app';
+import { createApp } from '../../app';
 import { Config } from '../config';
 
 import { LoggerConfig } from './logger.config';

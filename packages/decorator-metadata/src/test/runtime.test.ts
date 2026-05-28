@@ -1,24 +1,23 @@
 /* biome-ignore-all lint/complexity/noStaticOnlyClass: test fixtures */
 import { describe, expect, it } from 'vitest';
 
-import { getSourcePosition } from '../inspect/source-position';
+import { getSourcePosition } from '../inspect/index';
+import type { StackTrace } from '../runtime/index';
 import {
+  aggregateMembers,
+  captureStackTrace,
   composeClassDecorators,
   composeMethodDecorators,
   composePropertyDecorators,
   createClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
-} from '../runtime/decorators';
-import type { StackTrace } from '../runtime/position';
-import { captureStackTrace, resolvePosition } from '../runtime/position';
-import {
-  aggregateMembers,
   getClassMetadata,
   recordClass,
   recordMethod,
   recordProperty,
-} from '../runtime/store';
+  resolvePosition,
+} from '../runtime/index';
 
 describe('captureStackTrace and resolvePosition', () => {
   it('captureStackTrace returns StackTrace with error', () => {

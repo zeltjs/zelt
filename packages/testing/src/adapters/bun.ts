@@ -1,6 +1,6 @@
 import { afterAll } from 'bun:test';
 
-import { shutdownAll } from '../shutdown-registry';
+import { shutdownAll } from '../index';
 
 afterAll(shutdownAll);
 

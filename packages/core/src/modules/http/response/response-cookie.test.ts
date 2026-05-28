@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../app';
-import { Controller } from '../routing/controller';
-import { Post } from '../routing/http-method';
+import { Controller } from '../routing/controller.decorator';
+import { Post } from '../routing/http-method.decorator';
 
-import { response } from './response';
+import { response } from './response.lib';
 
 describe('response.setCookie', () => {
   it('sets a cookie', async () => {

@@ -1,10 +1,15 @@
 import type { Lifecycle } from '@zeltjs/core';
 import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
 
-import { ZeltKVInvalidTtlError } from '../errors';
-import { joinPrefix } from '../namespace';
-import { deserialize, serialize } from '../serialize';
-import type { AtomicKVAdaptor, AtomicKVStore, Defined, NonEmptyString, SetOptions } from '../types';
+import { ZeltKVInvalidTtlError } from '../kv.errors';
+import type {
+  AtomicKVAdaptor,
+  AtomicKVStore,
+  Defined,
+  NonEmptyString,
+  SetOptions,
+} from '../kv.types';
+import { KVUtilService } from '../util';
 
 type Entry = {
   raw: string;
@@ -26,7 +31,10 @@ export class MemoryKVAdaptor implements AtomicKVAdaptor, Lifecycle {
   private readonly data = new Map<string, Entry>();
   private readonly gcInterval: ReturnType<typeof setInterval>;
 
-  constructor(lifecycle = inject(LifecycleManager)) {
+  constructor(
+    private readonly util = inject(KVUtilService),
+    lifecycle = inject(LifecycleManager),
+  ) {
     this.gcInterval = setInterval(() => this.gc(), 60_000);
     this.gcInterval.unref();
     lifecycle.register(this);
@@ -48,7 +56,7 @@ export class MemoryKVAdaptor implements AtomicKVAdaptor, Lifecycle {
   }
 
   namespace<const S extends string>(prefix: NonEmptyString<S>): AtomicKVStore {
-    return new MemoryKVStore(this.data, prefix);
+    return new MemoryKVStore(this.data, prefix, this.util);
   }
 }
 
@@ -56,10 +64,11 @@ class MemoryKVStore implements AtomicKVStore {
   constructor(
     private readonly data: Map<string, Entry>,
     private readonly prefix: string,
+    private readonly util: KVUtilService,
   ) {}
 
   private k(key: string): string {
-    return this.prefix + key;
+    return this.util.joinPrefix(this.prefix, key);
   }
 
   private current(key: string): Entry | undefined {
@@ -74,13 +83,13 @@ class MemoryKVStore implements AtomicKVStore {
 
   async get<T>(key: string): Promise<T | undefined> {
     const entry = this.current(key);
-    return entry ? deserialize<T>(entry.raw) : undefined;
+    return entry ? this.util.deserialize<T>(entry.raw) : undefined;
   }
 
   /** @throws {ZeltKVInvalidTtlError} */
   async set<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<void> {
     validateTtl(opts?.ttlSec);
-    const raw = serialize(value);
+    const raw = this.util.serialize(value);
     this.data.set(this.k(key), makeEntry(raw, opts?.ttlSec));
   }
 
@@ -102,7 +111,7 @@ class MemoryKVStore implements AtomicKVStore {
   }
 
   namespace<const S extends string>(sub: NonEmptyString<S>): AtomicKVStore {
-    return new MemoryKVStore(this.data, joinPrefix(this.prefix, sub));
+    return new MemoryKVStore(this.data, this.util.joinPrefix(this.prefix, sub), this.util);
   }
 
   /** @throws {ZeltKVInvalidTtlError} */
@@ -111,12 +120,12 @@ class MemoryKVStore implements AtomicKVStore {
     const k = this.k(key);
     const entry = this.current(key);
     if (!entry) {
-      const raw = serialize(by);
+      const raw = this.util.serialize(by);
       this.data.set(k, makeEntry(raw, opts?.ttlSec));
       return by;
     }
-    const next = (deserialize<number>(entry.raw) ?? 0) + by;
-    entry.raw = serialize(next);
+    const next = (this.util.deserialize<number>(entry.raw) ?? 0) + by;
+    entry.raw = this.util.serialize(next);
     return next;
   }
 
@@ -124,7 +133,7 @@ class MemoryKVStore implements AtomicKVStore {
   async setnx<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<boolean> {
     validateTtl(opts?.ttlSec);
     if (this.current(key)) return false;
-    const raw = serialize(value);
+    const raw = this.util.serialize(value);
     this.data.set(this.k(key), makeEntry(raw, opts?.ttlSec));
     return true;
   }

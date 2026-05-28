@@ -4,7 +4,7 @@ import { RedisService } from '@zeltjs/redis';
 import type Redis from 'ioredis';
 import mitt from 'mitt';
 
-import type { EventBusAdaptor, EventBusSchema } from '../types';
+import type { EventBusAdaptor, EventBusSchema } from '../eventbus.types';
 
 @Injectable()
 export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {

@@ -1,5 +1,4 @@
-import { inject } from '../../../kernel/di/inject';
-import { Injectable } from '../../../kernel/di/injectable';
+import { Injectable, inject } from '../../../kernel/di';
 import type { LogEntry } from '../logger.types';
 import type { LoggerFormatter } from './formatter.types';
 import { PrettyFormatterConfig } from './pretty.formatter.config';
@@ -8,7 +7,7 @@ import { safeStringify } from './safe-stringify.lib';
 
 @Injectable()
 export class PrettyFormatter implements LoggerFormatter {
-  constructor(private config = inject(PrettyFormatterConfig)) {}
+  constructor(private readonly config = inject(PrettyFormatterConfig)) {}
 
   format(entry: LogEntry): string {
     const { level, message, timestamp, context } = entry;

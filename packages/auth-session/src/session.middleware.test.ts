@@ -1,6 +1,4 @@
-import { Controller, createApp, Get, inject, Post, UseMiddleware } from '@zeltjs/core';
-import type { KVStore } from '@zeltjs/kv';
-import { MemoryKV } from '@zeltjs/kv';
+import { Controller, createApp, Get, Post, UseMiddleware } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 import { SessionConfig } from './session.config';
 import { destroySession, getSession, isNewSession, setSession } from './session.functions.lib';
@@ -15,12 +13,6 @@ declare module '@zeltjs/auth-session' {
 }
 
 class TestSessionConfig extends SessionConfig {
-  private readonly memoryKV = inject(MemoryKV);
-
-  override get store(): KVStore {
-    return this.memoryKV.namespace('test:');
-  }
-
   override get secret(): string {
     return 'test-session-secret-key-for-testing';
   }

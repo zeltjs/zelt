@@ -6,4 +6,4 @@ export type {
   HttpAppLike,
   HttpMetadata,
   RouteInfo,
-} from './types';
+} from './generator.types';

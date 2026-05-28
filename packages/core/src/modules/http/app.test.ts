@@ -4,19 +4,17 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { App } from '../../app';
 import { createApp } from '../../app';
 import { Config } from '../../built-in-service/config';
-import { inject } from '../../kernel/di/inject';
-import type { Lifecycle } from '../../kernel/lifecycle';
-import { LifecycleManager } from '../../kernel/lifecycle';
-import { ErrorHandler } from './error/error-handler';
-import { Middleware } from './middleware/middleware';
-import { SkipMiddleware } from './middleware/skip-middleware';
-import { UseMiddleware } from './middleware/use-middleware';
-import type { ControllerClass } from './module';
-import { body } from './request/injection/body';
-import { getContext, setContext } from './request/injection/get-context';
-import { pathParam } from './request/injection/path-param';
-import { Controller } from './routing/controller';
-import { Get, Post } from './routing/http-method';
+import type { Lifecycle } from '../../kernel';
+import { LifecycleManager } from '../../kernel';
+import { inject } from '../../kernel/di';
+import { ErrorHandler } from './error/error-handler.decorator';
+import type { ControllerClass } from './http.types';
+import { Middleware } from './middleware/middleware.decorator';
+import { SkipMiddleware } from './middleware/skip-middleware.decorator';
+import { UseMiddleware } from './middleware/use-middleware.decorator';
+import { body, getContext, pathParam, setContext } from './request/injection';
+import { Controller } from './routing/controller.decorator';
+import { Get, Post } from './routing/http-method.decorator';
 
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
@@ -594,7 +592,7 @@ describe('createApp 2-phase initialization', () => {
 
     app = createApp({ http: { controllers: [TestController] } });
     await expect(app.fetch(new Request('https://example.com/test/'))).rejects.toThrow(
-      'Cannot fetch() before ready()',
+      /before startup\(\)/,
     );
   });
 

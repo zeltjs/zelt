@@ -1,10 +1,9 @@
 import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 
-import { runInContext } from '../../../kernel/internal/context-key';
-import { body, setBody } from './injection/body';
-import { pathParam, setPathParams } from './injection/path-param';
-import { requestContext, setHonoContext } from './request-context';
+import { runInContext } from '../../../kernel/internal';
+import { body, pathParam, setBody, setPathParams } from './injection';
+import { requestContext, setHonoContext } from './request-context.lib';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
 

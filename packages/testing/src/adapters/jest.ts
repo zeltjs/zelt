@@ -1,6 +1,6 @@
 import { afterAll } from '@jest/globals';
 
-import { shutdownAll } from '../shutdown-registry';
+import { shutdownAll } from '../index';
 
 afterAll(shutdownAll);
 

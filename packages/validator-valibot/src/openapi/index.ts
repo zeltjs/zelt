@@ -1,1 +1,1 @@
-export { valibotAdapter } from './adapter';
+export { valibotAdapter } from './valibot-adapter.lib';

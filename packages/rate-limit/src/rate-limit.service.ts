@@ -1,9 +1,9 @@
 import { Injectable, inject, Logger } from '@zeltjs/core';
-
-import type { RateLimitError } from './errors';
-import { kvFailed } from './errors';
+import type { AtomicKVStore } from '@zeltjs/kv';
 import { RateLimitConfig } from './rate-limit.config';
-import type { RateLimitResult } from './types';
+import type { RateLimitError } from './rate-limit.errors';
+import { kvFailed } from './rate-limit.errors';
+import type { RateLimitResult } from './rate-limit.types';
 
 export type RateLimiterHitResult =
   | { ok: true; value: RateLimitResult }
@@ -11,10 +11,14 @@ export type RateLimiterHitResult =
 
 @Injectable()
 export class RateLimitService {
+  private readonly store: AtomicKVStore;
+
   constructor(
-    private config = inject(RateLimitConfig),
-    private logger = inject(Logger),
-  ) {}
+    private readonly config = inject(RateLimitConfig),
+    private readonly logger = inject(Logger),
+  ) {
+    this.store = config.kv.namespace(config.kvStoreNamespace);
+  }
 
   async hit(
     key: string,
@@ -24,7 +28,7 @@ export class RateLimitService {
     const windowSec = opts?.windowSec ?? this.config.defaultWindowSec;
 
     try {
-      const count = await this.config.store.incr(key, 1, { ttlSec: windowSec });
+      const count = await this.store.incr(key, 1, { ttlSec: windowSec });
       return { ok: true, value: this.buildResult(count, limit, windowSec) };
     } catch (err) {
       return this.handleKVError(err, key, limit);
@@ -33,7 +37,7 @@ export class RateLimitService {
 
   async reset(key: string): Promise<RateLimiterHitResult> {
     try {
-      await this.config.store.del(key);
+      await this.store.del(key);
       return { ok: true, value: this.openResult(this.config.defaultLimit) };
     } catch (err) {
       return { ok: false, error: kvFailed(err) };

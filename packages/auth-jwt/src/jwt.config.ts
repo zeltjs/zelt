@@ -1,7 +1,7 @@
 import type { RequestContextSchema } from '@zeltjs/core';
 import { Config, Env, inject } from '@zeltjs/core';
 
-import { ZeltJwtConfigError } from './errors';
+import { ZeltJwtConfigError } from './jwt.errors';
 import type { JwtDriver, JwtPayload } from './jwt.types';
 
 export interface ResolveUserResult {
@@ -11,7 +11,7 @@ export interface ResolveUserResult {
 
 @Config
 export class JwtConfig {
-  constructor(private env = inject(Env)) {}
+  constructor(private readonly env = inject(Env)) {}
 
   /**
    * @throws {ZeltJwtConfigError} When JWT_SECRET is not set

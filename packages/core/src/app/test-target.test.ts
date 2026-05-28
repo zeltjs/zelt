@@ -4,7 +4,7 @@ import { Config } from '../built-in-service/config';
 import type { Lifecycle } from '../index';
 import { Injectable, inject, LifecycleManager } from '../index';
 
-import { createApp } from './create-app';
+import { createApp } from './create-app.lib';
 
 describe('createApp for testing', () => {
   it('instantiates configs before calling startup', async () => {

@@ -1,12 +1,11 @@
-import { inject } from '../../kernel/di/inject';
-import { Injectable } from '../../kernel/di/injectable';
+import { Injectable, inject } from '../../kernel/di';
 import { ZeltEnvError } from '../../kernel/errors';
 
 import { EnvAdaptor } from './env.adaptor';
 
 @Injectable()
 export class Env {
-  constructor(private source = inject(EnvAdaptor)) {}
+  constructor(private readonly source = inject(EnvAdaptor)) {}
 
   getString(key: string, defaultValue: string = ''): string {
     return this.source.get(key) ?? defaultValue;

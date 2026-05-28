@@ -55,6 +55,10 @@ export default tseslint.config(
       '**/*.test.{ts,tsx}',
       '**/*.type.{ts,tsx}',
       '**/*.types.{ts,tsx}',
+      '**/*.errors.{ts,tsx}',
+      '**/*.exceptions.{ts,tsx}',
+      '**/*.decorator.{ts,tsx}',
+      '**/*.module.{ts,tsx}',
     ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
@@ -88,6 +92,36 @@ export default tseslint.config(
     rules: {
       'zelt/config-di-scope': 'error',
       'zelt/decorator-file-naming': ['error', { allowedNames: ['Env'] }],
+      'zelt/double-dot-naming': [
+        'error',
+        {
+          allowedFiles: ['main.ts', 'cli.ts'],
+          allowedPatterns: ['on-*.ts'],
+        },
+      ],
+    },
+  },
+  {
+    // Files exposed as public API sub-paths in package.json exports.
+    // Renaming would break consumers; keep the current names.
+    files: [
+      'packages/core/src/internal-bridge/testing.ts',
+      'packages/core/src/internal-bridge/errors.ts',
+      'packages/testing/src/adapters/vitest.ts',
+      'packages/testing/src/adapters/jest.ts',
+      'packages/testing/src/adapters/bun.ts',
+      'packages/testing/src/adapters/node.ts',
+    ],
+    rules: {
+      'zelt/double-dot-naming': 'off',
+    },
+  },
+  {
+    // TODO(bit:f955d0d8): transaction.middleware uses factory pattern to handle
+    // generic DatabaseService<T>. Remove this exception once the design is reworked.
+    files: ['packages/db/src/transaction.middleware.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
     },
   },
   {
@@ -153,14 +187,14 @@ export default tseslint.config(
   {
     // adaptClassContext handler types cls as object for store compatibility;
     // toConstructor narrows it to constructor type for afterApply callbacks.
-    files: ['packages/decorator-metadata/src/runtime/decorators.ts'],
+    files: ['packages/decorator-metadata/src/runtime/decorators.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {
     // ReadyValue uses prototype-chain Proxy pattern which requires runtime type coercion
-    files: ['packages/core/src/kernel/internal/ready-value.ts'],
+    files: ['packages/core/src/kernel/internal/ready-value.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -180,14 +214,14 @@ export default tseslint.config(
   },
   {
     // context-key: branded ContextKey<T> construction and generic store retrieval require unsafe casts.
-    files: ['packages/core/src/kernel/internal/context-key.ts'],
+    files: ['packages/core/src/kernel/internal/context-key.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {
     // Leaf: prototype chain traversal, branded types, DI container boundary casts.
-    files: ['packages/core/src/kernel/di/leaf.ts'],
+    files: ['packages/core/src/kernel/di/leaf.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
@@ -195,7 +229,7 @@ export default tseslint.config(
   },
   {
     // inject: needle-di API boundary casts.
-    files: ['packages/core/src/kernel/di/inject.ts'],
+    files: ['packages/core/src/kernel/di/inject.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -244,21 +278,48 @@ export default tseslint.config(
   {
     // CLI entry points: type predicate needed for error type guard.
     files: [
-      'packages/cli/src/errors.ts',
-      'packages/cli/src/config/loader.ts',
-      'packages/cli/src/builders/tsdown.ts',
-      'packages/cli/src/commands/run.ts',
-      'packages/cli/src/commands/dev.ts',
-      'packages/cli/src/commands/build.ts',
+      'packages/cli/src/cli.errors.ts',
+      'packages/cli/src/config/config-loader.lib.ts',
+      'packages/cli/src/tsdown.lib.ts',
+      'packages/cli/src/run.command.ts',
+      'packages/cli/src/dev.command.ts',
+      'packages/cli/src/build.command.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-type-predicate': 'off',
     },
   },
   {
+    // citty-based CLI entry points: defineCommand exports plain command objects,
+    // not Zelt @Command DI classes, so the needle-di module conventions don't apply.
+    files: [
+      'packages/cli/src/build.command.ts',
+      'packages/cli/src/dev.command.ts',
+      'packages/cli/src/run.command.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
+  {
+    // Decorator factory modules export decorator functions (not DI-injectable classes).
+    files: [
+      'packages/core/src/modules/command/definition/command.decorator.ts',
+      'packages/core/src/modules/scheduler/schedule/cron.decorator.ts',
+      'packages/core/src/modules/scheduler/schedule/daily.decorator.ts',
+      'packages/core/src/modules/scheduler/schedule/every.decorator.ts',
+      'packages/core/src/modules/scheduler/schedule/hourly.decorator.ts',
+      'packages/core/src/modules/scheduler/schedule/scheduled.decorator.ts',
+      'packages/core/src/modules/scheduler/schedule/weekly.decorator.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+    },
+  },
+  {
     // metadata.ts casts readonly unknown[] to domain types (MiddlewareInput[], MiddlewareIdentifier[])
     // that have no runtime tag for structural validation.
-    files: ['packages/core/src/modules/http/routing/metadata.ts'],
+    files: ['packages/core/src/modules/http/routing/routing-metadata.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -266,7 +327,7 @@ export default tseslint.config(
   {
     // TC39 method decorator requires `any` for generic method type compatibility.
     // Type assertion is unavoidable at this decorator type boundary.
-    files: ['packages/db/src/decorator.ts'],
+    files: ['packages/db/src/db.decorator.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
@@ -278,7 +339,7 @@ export default tseslint.config(
   {
     // createTransactionMiddleware defines a dynamic class inline via a factory function.
     // inject() returns `any` at the generic type boundary; the class name cannot match the file.
-    files: ['packages/db/src/middleware.ts'],
+    files: ['packages/db/src/transaction.middleware.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       'zelt/decorator-file-naming': 'off',
@@ -287,7 +348,7 @@ export default tseslint.config(
   {
     // Command module uses AsyncLocalStorage and generic type inference at runtime boundaries.
     // Type assertions are needed for inferred schema types.
-    files: ['packages/core/src/modules/command/input/injection/args.ts'],
+    files: ['packages/core/src/modules/command/input/injection/args.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -304,7 +365,7 @@ export default tseslint.config(
   {
     // hono-client plugin uses dynamic import for user app files.
     // The imported module type is unknown at compile time.
-    files: ['packages/hono-client/src/plugin.ts'],
+    files: ['packages/hono-client/src/plugin.lib.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
     },
@@ -312,7 +373,7 @@ export default tseslint.config(
   {
     // openapi plugin uses dynamic import for user app files.
     // The imported module type is unknown at compile time.
-    files: ['packages/openapi/src/plugin.ts'],
+    files: ['packages/openapi/src/openapi-plugin.lib.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
     },
@@ -359,7 +420,7 @@ export default tseslint.config(
     // core/src/app layer cannot import from modules (layer violation)
     // Exception: default-modules.ts which is the bridge between app and modules
     files: ['packages/core/src/app/**/*.{ts,tsx}'],
-    ignores: ['packages/core/src/app/default-modules.ts'],
+    ignores: ['packages/core/src/app/default-modules.lib.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

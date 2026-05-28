@@ -2,7 +2,7 @@ import { Controller, createApp, Post } from '@zeltjs/core';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
-import { validated } from './validated';
+import { validated } from './validated.lib';
 
 const Schema = v.object({ name: v.string(), age: v.number() });
 

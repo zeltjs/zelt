@@ -3,9 +3,7 @@ export {
   MemoryKVAdaptor as MemoryKV,
   MemoryKVAdaptor as MemoryKVService,
 } from './adaptor-memory';
-export { ZeltKVInvalidTtlError } from './errors';
-export { joinPrefix } from './namespace';
-export { deserialize, serialize } from './serialize';
+export { ZeltKVInvalidTtlError } from './kv.errors';
 export type {
   AtomicKVAdaptor,
   AtomicKVStore,
@@ -14,4 +12,5 @@ export type {
   KVStore,
   NonEmptyString,
   SetOptions,
-} from './types';
+} from './kv.types';
+export { KVUtilService } from './util';
