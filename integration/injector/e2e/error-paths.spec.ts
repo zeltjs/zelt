@@ -18,7 +18,7 @@ class ConsumerOfUnregistered {
 
 @Injectable()
 class OptionalDepConsumer {
-  // needle-di's `optional: true` returns undefined when no provider is bound.
+  // @ts-expect-error Zelt inject() intentionally does not expose needle-di options.
   constructor(public readonly dep = inject(NotRegisteredService, { optional: true })) {}
 }
 
@@ -72,12 +72,11 @@ describe('Injector — DI error paths', () => {
   });
 
   describe('optional injection', () => {
-    it('returns undefined for an unbound token when { optional: true } is passed', async () => {
+    it('does not allow { optional: true } to bypass unresolved dependency errors', async () => {
       const app = createApp({ http: { controllers: [] } });
       const testApp = await onTest(app);
 
-      const consumer = testApp.get(OptionalDepConsumer);
-      expect(consumer.dep).toBeUndefined();
+      expect(() => testApp.get(OptionalDepConsumer)).toThrow(/No provider/);
     });
   });
 
