@@ -1,3 +1,4 @@
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createTwoslasher } from 'twoslash';
@@ -6,6 +7,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // src/twoslash -> website -> repo root
 const rootDir = path.resolve(__dirname, '../../..');
 const tsLibDirectory = path.resolve(rootDir, 'node_modules/typescript/lib');
+
+// Resolve a third-party package's types through pnpm's content-addressed store
+// by prefix instead of hard-coding the (peer-hashed) version directory. The
+// hard-coded path drifts on every dependency bump and only happens to resolve
+// in a non-clean node_modules, which silently breaks type-checking on a fresh
+// install (CI, new worktree).
+const pnpmModulesDir = path.join(rootDir, 'node_modules/.pnpm');
+const pnpmEntries = existsSync(pnpmModulesDir) ? readdirSync(pnpmModulesDir) : [];
+const pnpmTypes = (prefix: string, subpath: string): string[] => {
+  const match = pnpmEntries
+    .filter((dir) => dir.startsWith(prefix))
+    .sort()
+    .pop();
+  return match ? [`./node_modules/.pnpm/${match}/node_modules/${subpath}`] : [];
+};
 
 /**
  * Shared Twoslash instance used both by the Docusaurus build (to render
@@ -41,13 +57,11 @@ export const twoslasher = createTwoslasher({
       '@zeltjs/testing/bun': ['./packages/testing/dist/adapters/bun.d.ts'],
       '@zeltjs/testing/node': ['./packages/testing/dist/adapters/node.d.ts'],
       '@zeltjs/*': ['./packages/*/dist/index.d.ts'],
-      valibot: [
-        './node_modules/.pnpm/valibot@1.0.0_typescript@6.0.2/node_modules/valibot/dist/index.d.ts',
-      ],
-      hono: ['./node_modules/.pnpm/hono@4.12.16/node_modules/hono/dist/types/index.d.ts'],
-      'hono/*': ['./node_modules/.pnpm/hono@4.12.16/node_modules/hono/dist/types/*.d.ts'],
-      ioredis: ['./node_modules/.pnpm/ioredis@5.10.1/node_modules/ioredis/built/index.d.ts'],
-      bullmq: ['./node_modules/.pnpm/bullmq@5.76.9/node_modules/bullmq/dist/esm/index.d.ts'],
+      valibot: pnpmTypes('valibot@', 'valibot/dist/index.d.mts'),
+      hono: pnpmTypes('hono@', 'hono/dist/types/index.d.ts'),
+      'hono/*': pnpmTypes('hono@', 'hono/dist/types/*.d.ts'),
+      ioredis: pnpmTypes('ioredis@', 'ioredis/built/index.d.ts'),
+      bullmq: pnpmTypes('bullmq@', 'bullmq/dist/esm/index.d.ts'),
     },
   },
 });
