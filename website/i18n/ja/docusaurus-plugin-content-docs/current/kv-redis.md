@@ -70,17 +70,13 @@ const app = createApp({
 `RedisConfig` を継承して接続設定をカスタマイズできます。`options` getter は ioredis の `RedisOptions` を返します:
 
 ```typescript twoslash
-import { Config, EnvService, inject } from '@zeltjs/core';
+import { Config } from '@zeltjs/core';
 import { RedisConfig } from '@zeltjs/redis';
 // ---cut---
 @Config
 class CustomRedisConfig extends RedisConfig {
-  constructor(private envService = inject(EnvService)) {
-    super();
-  }
-
   override get url(): string {
-    return this.envService.getString('REDIS_URL', 'redis://localhost:6379');
+    return this.env.getString('REDIS_URL', 'redis://localhost:6379');
   }
 
   override get options() {
@@ -95,14 +91,13 @@ class CustomRedisConfig extends RedisConfig {
 デフォルトの代わりにカスタム config を登録します:
 
 ```typescript twoslash
-import { createApp, Config, EnvService, inject, Controller, Get } from '@zeltjs/core';
+import { createApp, Config, Controller, Get } from '@zeltjs/core';
 import { RedisConfig } from '@zeltjs/redis';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 
 @Config
 class CustomRedisConfig extends RedisConfig {
-  constructor(private envService = inject(EnvService)) { super(); }
-  override get url(): string { return this.envService.getString('REDIS_URL', 'redis://localhost:6379'); }
+  override get url(): string { return this.env.getString('REDIS_URL', 'redis://localhost:6379'); }
   override get options() { return { maxRetriesPerRequest: 3 }; }
 }
 @Controller('/app')

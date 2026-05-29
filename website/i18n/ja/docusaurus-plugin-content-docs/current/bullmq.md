@@ -16,7 +16,7 @@ pnpm add bullmq ioredis
 Create a service that manages the Redis connection and exposes the BullMQ client:
 
 ```typescript
-import { Injectable, inject, Config, EnvConfig, LifecycleManager, type Lifecycle } from '@zeltjs/core';
+import { Injectable, inject, Config, Env, LifecycleManager, type Lifecycle } from '@zeltjs/core';
 import { Redis, type RedisOptions } from 'ioredis';
 import { Queue, Worker, type Job } from 'bullmq';
 // ---cut---
@@ -24,12 +24,12 @@ import { Queue, Worker, type Job } from 'bullmq';
 class BullMQConfig {
   static readonly Token = BullMQConfig;
 
-  constructor(private env = inject(EnvConfig)) {}
+  constructor(private env = inject(Env)) {}
 
   get connection(): RedisOptions {
     return {
-      host: this.env.get('REDIS_HOST') ?? 'localhost',
-      port: Number(this.env.get('REDIS_PORT') ?? 6379),
+      host: this.env.getString('REDIS_HOST', 'localhost'),
+      port: Number(this.env.getString('REDIS_PORT', '6379')),
     };
   }
 }
@@ -167,13 +167,13 @@ class UserController {
 Register your services in the app:
 
 ```typescript
-import { createApp, Config, EnvConfig, inject } from '@zeltjs/core';
+import { createApp, Config, Env, inject } from '@zeltjs/core';
 type ConnectionOptions = { host?: string; port?: number };
 declare class UserController {}
 @Config
 class BullMQConfig {
   static readonly Token = BullMQConfig;
-  constructor(private env = inject(EnvConfig)) {}
+  constructor(private env = inject(Env)) {}
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }
 // ---cut---
@@ -188,14 +188,14 @@ export default app;
 To start workers, ensure they are instantiated at startup:
 
 ```typescript
-import { createApp, inject, Config, EnvConfig } from '@zeltjs/core';
+import { createApp, inject, Config, Env } from '@zeltjs/core';
 type ConnectionOptions = { host?: string; port?: number };
 declare class UserController {}
 declare class EmailWorker {}
 @Config
 class BullMQConfig {
   static readonly Token = BullMQConfig;
-  constructor(private env = inject(EnvConfig)) {}
+  constructor(private env = inject(Env)) {}
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }
 // ---cut---
@@ -215,12 +215,12 @@ app.ready().then(() => {
 Extend `BullMQConfig` for different environments:
 
 ```typescript
-import { Config, EnvConfig, inject } from '@zeltjs/core';
+import { Config, Env, inject } from '@zeltjs/core';
 type ConnectionOptions = { host?: string; port?: number; password?: string; tls?: object };
 @Config
 class BullMQConfig {
   static readonly Token = BullMQConfig;
-  constructor(protected env = inject(EnvConfig)) {}
+  constructor(protected env = inject(Env)) {}
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }
 // ---cut---
@@ -228,10 +228,10 @@ class BullMQConfig {
 class ProductionBullMQConfig extends BullMQConfig {
   override get connection(): ConnectionOptions {
     return {
-      host: this.env.get('REDIS_HOST')!,
-      port: Number(this.env.get('REDIS_PORT') ?? 6379),
-      password: this.env.get('REDIS_PASSWORD'),
-      tls: this.env.get('REDIS_TLS') === 'true' ? {} : undefined,
+      host: this.env.getRequired('REDIS_HOST'),
+      port: Number(this.env.getString('REDIS_PORT', '6379')),
+      password: this.env.getString('REDIS_PASSWORD'),
+      tls: this.env.getString('REDIS_TLS') === 'true' ? {} : undefined,
     };
   }
 }
@@ -308,7 +308,7 @@ describe('EmailService', () => {
 For integration tests, use Testcontainers with a test config override:
 
 ```typescript
-import { Config, EnvConfig, inject } from '@zeltjs/core';
+import { Config, Env, inject } from '@zeltjs/core';
 declare class GenericContainer {
   constructor(image: string);
   withExposedPorts(port: number): this;
@@ -318,7 +318,7 @@ type ConnectionOptions = { host?: string; port?: number };
 @Config
 class BullMQConfig {
   static readonly Token = BullMQConfig;
-  constructor(protected env = inject(EnvConfig)) {}
+  constructor(protected env = inject(Env)) {}
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }
 // ---cut---

@@ -97,14 +97,14 @@ Redis アダプターには `@zeltjs/redis` の設定が必要です：
 
 ```typescript
 // @noErrors
-import { createApp, EnvConfig } from '@zeltjs/core';
+import { createApp } from '@zeltjs/core';
 import { RedisConfig } from '@zeltjs/redis';
 
 const app = createApp({
   http: {
     controllers: [OrderController],
   },
-  configs: [EnvConfig, RedisConfig],
+  configs: [RedisConfig],
 });
 ```
 

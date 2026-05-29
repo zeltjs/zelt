@@ -237,7 +237,7 @@ class MySessionConfig extends SessionConfig {
 |--------|------|---------|-------------|
 | `kv` | `KVAdaptor` | `MemoryKV` | KV adaptor (constructor arg 2) backing session storage |
 | `kvStoreNamespace` | `string` | `'session:'` | Namespace prefix for session keys |
-| `secret` | `string` | `env.get('SESSION_SECRET')` | Secret for signing session IDs |
+| `secret` | `string` | `env.getString('SESSION_SECRET')` | Secret for signing session IDs |
 | `cookieName` | `string` | `'session'` | Cookie name |
 | `ttlSec` | `number` | `86400` (1 day) | Session TTL in seconds |
 | `cookieOptions` | `object` | See below | Cookie configuration |
@@ -245,17 +245,16 @@ class MySessionConfig extends SessionConfig {
 ### Default Cookie Options
 
 ```typescript
-import { Config, EnvService, inject } from '@zeltjs/core';
+import { Config } from '@zeltjs/core';
 import { SessionConfig } from '@zeltjs/auth-session';
 
 @Config
 class MySessionConfig extends SessionConfig {
-  constructor(private envService = inject(EnvService)) { super(); }
 // ---cut---
   override get cookieOptions() {
     return {
       httpOnly: true,
-      secure: this.envService.getString('NODE_ENV', '') === 'production',
+      secure: this.env.getString('NODE_ENV', '') === 'production',
       sameSite: 'Lax' as const,
       path: '/',
     };

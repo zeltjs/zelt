@@ -106,7 +106,7 @@ Configure the Logger using `LoggerConfig`:
 ```typescript
 import {
   Config,
-  EnvConfig,
+  Env,
   inject,
   LoggerConfig,
   ConsoleTransport,
@@ -119,7 +119,7 @@ type TransportBinding = { transport: { write(msg: string): void }; formatter: { 
 @Config
 export class AppLoggerConfig extends LoggerConfig {
   constructor(
-    private env = inject(EnvConfig),
+    private env = inject(Env),
     private consoleTransport = inject(ConsoleTransport),
     private jsonlFormatter = inject(JsonlFormatter),
   ) {
@@ -127,7 +127,7 @@ export class AppLoggerConfig extends LoggerConfig {
   }
 
   override get level(): LogLevel {
-    return (this.env.get('LOG_LEVEL') as LogLevel) ?? 'info';
+    return (this.env.getString('LOG_LEVEL') as LogLevel) ?? 'info';
   }
 
   override get transports(): readonly TransportBinding[] {

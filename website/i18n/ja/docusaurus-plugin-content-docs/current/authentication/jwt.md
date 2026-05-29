@@ -188,7 +188,7 @@ Extend `JwtConfig` to customize behavior:
 
 ```typescript
 import { JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
-import { Config, EnvConfig, Injectable, inject } from '@zeltjs/core';
+import { Config, Env, Injectable, inject } from '@zeltjs/core';
 
 type User = { id: string; name: string; email: string; roles: string[] };
 
@@ -201,15 +201,12 @@ class UserRepository {
 // ---cut---
 @Config
 class CustomJwtConfig extends JwtConfig {
-  constructor(
-    private envConfig = inject(EnvConfig),
-    private userRepo = inject(UserRepository)
-  ) {
+  constructor(private userRepo = inject(UserRepository)) {
     super();
   }
 
   override get secret(): string {
-    return this.envConfig.get('JWT_SECRET')!;
+    return this.env.getRequired('JWT_SECRET');
   }
 
   override get expiresIn(): string {
@@ -234,7 +231,7 @@ Register your custom config:
 import { createApp, Controller, Post, Get, Authorized, currentUser, inject } from '@zeltjs/core';
 import { JwtMiddleware, JwtService } from '@zeltjs/auth-jwt';
 import { JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
-import { Config, EnvConfig, Injectable } from '@zeltjs/core';
+import { Config, Env, Injectable } from '@zeltjs/core';
 
 type User = { id: string; name: string; email: string; roles: string[] };
 
@@ -247,11 +244,8 @@ class UserRepository {
 
 @Config
 class CustomJwtConfig extends JwtConfig {
-  constructor(
-    private envConfig = inject(EnvConfig),
-    private userRepo = inject(UserRepository)
-  ) { super(); }
-  override get secret(): string { return this.envConfig.get('JWT_SECRET')!; }
+  constructor(private userRepo = inject(UserRepository)) { super(); }
+  override get secret(): string { return this.env.getRequired('JWT_SECRET'); }
   override get expiresIn(): string { return '7d'; }
   override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {
     return async (payload) => {
@@ -287,7 +281,7 @@ const app = createApp({
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `secret` | `string` | `env.get('JWT_SECRET')` | Secret key for signing |
+| `secret` | `string` | `env.getRequired('JWT_SECRET')` | Secret key for signing |
 | `expiresIn` | `string` | `'1h'` | Token expiration (e.g., `'15m'`, `'7d'`) |
 | `resolveUser` | `function` | Returns `{ user: sub, roles: [] }` | Resolves user from JWT payload |
 

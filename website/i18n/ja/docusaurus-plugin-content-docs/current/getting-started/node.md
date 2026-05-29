@@ -174,11 +174,11 @@ Zelt provides configuration classes for managing environment variables.
 ### Using Environment Variables
 
 ```typescript
-import { Controller, Get, inject, EnvService } from '@zeltjs/core';
+import { Controller, Get, inject, Env } from '@zeltjs/core';
 // ---cut---
 @Controller('/config')
 export class ConfigController {
-  constructor(private env = inject(EnvService)) {}
+  constructor(private env = inject(Env)) {}
 
   @Get('/api-host')
   getApiHost() {
@@ -187,13 +187,13 @@ export class ConfigController {
 }
 ```
 
-Register the config in your app:
+Register your app:
 
 ```typescript
-import { createApp, EnvConfig, Controller, Get, inject, EnvService } from '@zeltjs/core';
+import { createApp, Controller, Get, inject, Env } from '@zeltjs/core';
 @Controller('/config')
 class ConfigController {
-  constructor(private env = inject(EnvService)) {}
+  constructor(private env = inject(Env)) {}
   @Get('/api-host')
   getApiHost() { return { apiHost: this.env.getString('API_HOST', 'localhost') }; }
 }
@@ -202,20 +202,7 @@ export const app = createApp({
   http: {
     controllers: [ConfigController],
   },
-  configs: [EnvConfig],
 });
-```
-
-### Node.js-Specific Configs
-
-The `@zeltjs/adapter-node` package provides additional configuration options:
-
-```typescript
-import { ProcessEnvConfig } from '@zeltjs/adapter-node';
-// ---cut---
-// ProcessEnvConfig: Reads from process.env (default behavior).
-// For .env files, import 'dotenv/config' at your entry point.
-void ProcessEnvConfig;
 ```
 
 ## What's Next?

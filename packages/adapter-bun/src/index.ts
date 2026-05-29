@@ -1,5 +1,5 @@
 export { BunCliConfig } from './bun-cli.config';
-export { BunEnvConfig } from './bun-env.config';
+export { BunEnvAdaptor } from './bun-env.adaptor';
 export {
   type BunApp,
   type BunAppOptions,

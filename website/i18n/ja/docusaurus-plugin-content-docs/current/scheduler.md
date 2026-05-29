@@ -281,14 +281,14 @@ process.on('SIGTERM', async () => {
 You can conditionally enable the scheduler using configuration:
 
 ```typescript
-import { createApp, Config, EnvConfig, inject, Scheduled, Daily } from '@zeltjs/core';
+import { createApp, Config, Env, inject, Scheduled, Daily } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Config
 class SchedulerConfig {
   static readonly Token = SchedulerConfig;
-  constructor(private env = inject(EnvConfig)) {}
-  get enabled() { return this.env.get('ENABLE_SCHEDULER') !== 'false'; }
+  constructor(private env = inject(Env)) {}
+  get enabled() { return this.env.getString('ENABLE_SCHEDULER') !== 'false'; }
 }
 
 @Scheduled() class MyScheduler { @Daily({ hour: 9 }) async task() {} }

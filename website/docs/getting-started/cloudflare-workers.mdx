@@ -141,14 +141,14 @@ Visit `http://localhost:8787/hello/world` to see:
 
 ### Environment Variables
 
-In Cloudflare Workers, environment variables are configured in `wrangler.toml` and accessed via `EnvService`.
+In Cloudflare Workers, environment variables are configured in `wrangler.toml` and accessed via `Env`.
 
 ```typescript
-import { Controller, Get, inject, EnvService } from '@zeltjs/core';
+import { Controller, Get, inject, Env } from '@zeltjs/core';
 // ---cut---
 @Controller('/config')
 export class ConfigController {
-  constructor(private env = inject(EnvService)) {}
+  constructor(private env = inject(Env)) {}
 
   @Get('/api-host')
   getApiHost() {
@@ -157,13 +157,11 @@ export class ConfigController {
 }
 ```
 
-Register `EnvConfig` in your app:
-
 ```typescript
-import { createApp, EnvConfig, Controller, Get, inject, EnvService } from '@zeltjs/core';
+import { createApp, Controller, Get, inject, Env } from '@zeltjs/core';
 @Controller('/config')
 class ConfigController {
-  constructor(private env = inject(EnvService)) {}
+  constructor(private env = inject(Env)) {}
   @Get('/api-host')
   getApiHost() { return { apiHost: this.env.getString('API_HOST', 'localhost') }; }
 }
@@ -172,11 +170,10 @@ export const app = createApp({
   http: {
     controllers: [ConfigController],
   },
-  configs: [EnvConfig],
 });
 ```
 
-**Important:** When you register `EnvConfig` and use `onCloudflareWorkers()`, the adapter automatically replaces it with `CloudflareWorkersEnvConfig`. This reads environment variables from the Workers runtime (`cloudflare:workers` module) instead of `process.env`.
+**Important:** `onCloudflareWorkers()` automatically registers the env adaptor, so `inject(Env)` reads environment variables from the Workers runtime (`cloudflare:workers` module) without any extra configuration.
 
 ### Secrets
 
@@ -186,14 +183,14 @@ For sensitive values, use Wrangler secrets instead of `[vars]`:
 npx wrangler secret put DATABASE_URL
 ```
 
-Access them the same way via `EnvService`:
+Access them the same way via `Env`:
 
 ```typescript
-import { Injectable, EnvService, inject } from '@zeltjs/core';
+import { Injectable, Env, inject } from '@zeltjs/core';
 
 @Injectable()
 class DatabaseService {
-  constructor(private env = inject(EnvService)) {}
+  constructor(private env = inject(Env)) {}
 // ---cut---
   get connectionUrl() {
     return this.env.getString('DATABASE_URL', '');

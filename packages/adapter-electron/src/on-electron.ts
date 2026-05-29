@@ -1,6 +1,6 @@
 import type { HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
 
-import { ElectronEnvConfig } from './electron-env.config';
+import { ElectronEnvAdaptor } from './electron-env.adaptor';
 
 export type ElectronAppOptions = {
   readonly warmup?: boolean;
@@ -15,7 +15,7 @@ export const onElectron = async (
   app: HttpApp,
   options: ElectronAppOptions = {},
 ): Promise<ElectronApp> => {
-  app.addFallbackConfig(ElectronEnvConfig);
+  app.addFallbackConfig(ElectronEnvAdaptor);
 
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
   const resolver = await app.ready(readyOptions);

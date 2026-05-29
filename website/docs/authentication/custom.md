@@ -161,20 +161,20 @@ export class BasicAuthMiddleware {
 For OAuth integration, use `@Config` for credentials and `@Injectable` for services:
 
 ```typescript
-import { Config, EnvConfig, Injectable, Middleware, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { Config, Env, Injectable, Middleware, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
 
 @Config
 class OAuthConfig {
   static readonly Token = OAuthConfig;
 
-  constructor(private env = inject(EnvConfig)) {}
+  constructor(private env = inject(Env)) {}
 
   get clientId() {
-    return this.env.get('OAUTH_CLIENT_ID');
+    return this.env.getString('OAUTH_CLIENT_ID');
   }
 
   get clientSecret() {
-    return this.env.get('OAUTH_CLIENT_SECRET');
+    return this.env.getString('OAUTH_CLIENT_SECRET');
   }
 }
 

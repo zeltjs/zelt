@@ -20,7 +20,7 @@ Import from the adapter for your test runner. This auto-registers cleanup via `a
 ```typescript
 // @noErrors
 // Reason: import-only example for test framework setup
-import { onTest, createTestTarget, type TestApp } from '@zeltjs/testing/vitest';
+import { onTest, createTestTarget } from '@zeltjs/testing/vitest';
 ```
 
 ### Jest
@@ -28,7 +28,7 @@ import { onTest, createTestTarget, type TestApp } from '@zeltjs/testing/vitest';
 ```typescript
 // @noErrors
 // Reason: import-only example for test framework setup
-import { onTest, createTestTarget, type TestApp } from '@zeltjs/testing/jest';
+import { onTest, createTestTarget } from '@zeltjs/testing/jest';
 ```
 
 ### Bun
@@ -36,7 +36,7 @@ import { onTest, createTestTarget, type TestApp } from '@zeltjs/testing/jest';
 ```typescript
 // @noErrors
 // Reason: import-only example for test framework setup
-import { onTest, createTestTarget, type TestApp } from '@zeltjs/testing/bun';
+import { onTest, createTestTarget } from '@zeltjs/testing/bun';
 ```
 
 ### Node.js Test Runner
@@ -44,7 +44,7 @@ import { onTest, createTestTarget, type TestApp } from '@zeltjs/testing/bun';
 ```typescript
 // @noErrors
 // Reason: import-only example for test framework setup
-import { onTest, createTestTarget, type TestApp } from '@zeltjs/testing/node';
+import { onTest, createTestTarget } from '@zeltjs/testing/node';
 ```
 
 ### Manual Setup
@@ -54,7 +54,7 @@ If you prefer manual control or use a different test runner, import from the bas
 ```typescript
 // @noErrors
 // Reason: import-only example for test framework setup
-import { onTest, createTestTarget, shutdownAll, type TestApp } from '@zeltjs/testing';
+import { onTest, createTestTarget, shutdownAll } from '@zeltjs/testing';
 import { afterAll } from 'your-test-runner';
 
 afterAll(shutdownAll);
@@ -67,7 +67,6 @@ afterAll(shutdownAll);
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { createTestTarget } from '@zeltjs/testing';
-import { ProcessEnvConfig } from '@zeltjs/adapter-node';
 import { Injectable } from '@zeltjs/core';
 
 @Injectable()
@@ -77,9 +76,7 @@ class UserService {
 // ---cut---
 describe('UserService', () => {
   it('should create user', async () => {
-    const { target } = await createTestTarget(UserService, {
-      configs: [ProcessEnvConfig],
-    });
+    const { target } = await createTestTarget(UserService);
 
     const user = await target.create({ name: 'Alice' });
     expect(user.name).toBe('Alice');

@@ -109,18 +109,18 @@ By default, services are **singletons** — the same instance is shared across a
 - Caching services
 
 ```typescript
-import { Injectable, EnvConfig, inject } from '@zeltjs/core';
+import { Injectable, Env, inject } from '@zeltjs/core';
 
 @Injectable()
 export class ConfigService {
-  constructor(private env = inject(EnvConfig)) {}
+  constructor(private env = inject(Env)) {}
 
   get databaseUrl() {
-    return this.env.get('DATABASE_URL') ?? '';
+    return this.env.getString('DATABASE_URL');
   }
 
   get apiKey() {
-    return this.env.get('API_KEY') ?? '';
+    return this.env.getString('API_KEY');
   }
 }
 ```

@@ -1,9 +1,9 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { CloudflareWorkersEnvConfig } from './cloudflare-workers-env.config';
+import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 
-describe('CloudflareWorkersEnvConfig', () => {
+describe('CloudflareWorkersEnvAdaptor', () => {
   const mockEnv = env as Record<string, string | undefined>;
 
   beforeEach(() => {
@@ -15,13 +15,13 @@ describe('CloudflareWorkersEnvConfig', () => {
   it('returns string value from cloudflare env', () => {
     mockEnv['API_KEY'] = 'secret123';
 
-    const config = new CloudflareWorkersEnvConfig();
+    const config = new CloudflareWorkersEnvAdaptor();
 
     expect(config.get('API_KEY')).toBe('secret123');
   });
 
   it('returns undefined for missing key', () => {
-    const config = new CloudflareWorkersEnvConfig();
+    const config = new CloudflareWorkersEnvAdaptor();
 
     expect(config.get('NON_EXISTENT')).toBeUndefined();
   });
@@ -30,7 +30,7 @@ describe('CloudflareWorkersEnvConfig', () => {
     (mockEnv as Record<string, unknown>)['NUMBER_VAL'] = 123;
     (mockEnv as Record<string, unknown>)['OBJECT_VAL'] = { foo: 'bar' };
 
-    const config = new CloudflareWorkersEnvConfig();
+    const config = new CloudflareWorkersEnvAdaptor();
 
     expect(config.get('NUMBER_VAL')).toBeUndefined();
     expect(config.get('OBJECT_VAL')).toBeUndefined();

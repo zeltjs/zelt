@@ -5,7 +5,7 @@ import {
   Cron,
   cliSchema,
   createApp,
-  EnvConfig,
+  EnvAdaptor,
   Get,
   Scheduled,
 } from '@zeltjs/core';
@@ -98,10 +98,10 @@ describe('onNode with HTTP', () => {
     expect(body.status).toBe('ok');
   });
 
-  it('auto-injects ProcessEnvSource when EnvConfig token is in configs', async () => {
+  it('registers ProcessEnvAdaptor as fallback', async () => {
     const app = createApp({
       http: { controllers: [] },
-      configs: [EnvConfig],
+      configs: [EnvAdaptor],
     });
     const addFallbackConfigSpy = vi.spyOn(app, 'addFallbackConfig');
 
@@ -121,7 +121,7 @@ describe('onNode with HTTP', () => {
     expect(addFallbackConfigSpy).toHaveBeenCalledWith(NodeCliConfig);
   });
 
-  it('silently skips ProcessEnvConfig injection when EnvConfig is not in configs', async () => {
+  it('works without explicit EnvAdaptor in configs', async () => {
     @Controller('/')
     class SimpleController {
       @Get('/')
@@ -169,11 +169,11 @@ describe('onNode with HTTP', () => {
 
     const app = createApp({
       http: { controllers: [ServiceController] },
-      configs: [EnvConfig],
+      configs: [EnvAdaptor],
     });
     nodeApp = await onNode(app);
 
-    const env = nodeApp.get(EnvConfig);
+    const env = nodeApp.get(EnvAdaptor);
     expect(env.get).toBeTypeOf('function');
   });
 });

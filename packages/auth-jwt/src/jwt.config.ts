@@ -11,7 +11,7 @@ export interface ResolveUserResult {
 
 @Config
 export class JwtConfig {
-  constructor(private readonly env = inject(Env)) {}
+  constructor(protected readonly env = inject(Env)) {}
 
   /**
    * @throws {ZeltJwtConfigError} When JWT_SECRET is not set
