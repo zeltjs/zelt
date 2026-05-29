@@ -100,10 +100,17 @@ export const remarkTwoslashBlock = (options: RemarkTwoslashBlockOptions) => {
     for (const { node, parent, index } of codeNodes) {
       const lang = node.lang as string;
       const code = node.value as string;
+      const meta = (node.meta as string | null) ?? '';
 
       if (!langs.includes(lang)) continue;
 
       if (!isTypeScriptLang(lang)) continue;
+
+      // Example excerpts (```ts source=...```) are verbatim slices of real
+      // example apps validated by check-example-excerpts.ts. They reference
+      // sibling modules that don't resolve in the isolated twoslash VFS, so
+      // render them as plain highlighted code instead of type-checking them.
+      if (/\bsource=/.test(meta)) continue;
 
       let twoslashHtml: string | null = null;
       let plainCodeHtml: string | null = null;

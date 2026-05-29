@@ -9,7 +9,7 @@ Zelt provides `@zeltjs/kv` for namespace-based key-value storage with TTL suppor
 
 The KV module provides:
 
-- **`KVDriver` / `AtomicKVDriver`** — Top-level drivers that create namespaced stores
+- **`KVAdaptor` / `AtomicKVAdaptor`** — Top-level adaptors that create namespaced stores
 - **`KVStore` / `AtomicKVStore`** — Interfaces for data operations (get, set, del, etc.)
 - **`MemoryKV`** — In-memory implementation with automatic garbage collection
 - **Promise-based API** — All operations return `Promise` and throw on errors

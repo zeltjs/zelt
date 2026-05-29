@@ -108,29 +108,27 @@ export class AuthController {
 
 ## Custom Configuration
 
-Extend `RateLimitConfig` to customize behavior:
+Extend `RateLimitConfig` to customize behavior. To back the limiter with Redis instead of the default in-memory store, pass a `RedisKVAdaptor` to `super()`:
 
 ```typescript
-import { Config, EnvConfig, inject } from '@zeltjs/core';
+import { Config, inject } from '@zeltjs/core';
 import { RateLimitConfig } from '@zeltjs/rate-limit';
-import type { AtomicKVStore } from '@zeltjs/kv';
-
-declare function createRedisKVStore(opts: { url: string | undefined }): AtomicKVStore;
+import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 // ---cut---
 @Config
 class CustomRateLimitConfig extends RateLimitConfig {
-  override readonly store: AtomicKVStore;
-
-  constructor(private env = inject(EnvConfig)) {
-    super();
-    this.store = createRedisKVStore({ url: this.env.get('REDIS_URL') });
+  constructor(kv = inject(RedisKVAdaptor)) {
+    super(kv);
   }
 
+  override readonly kvStoreNamespace = 'ratelimit:';
   override readonly defaultLimit = 200;
   override readonly defaultWindowSec = 120;
   override readonly failureMode = 'closed' as const;
 }
 ```
+
+Using Redis requires registering `RedisConfig` (from `@zeltjs/redis`) so the adaptor can resolve its connection.
 
 ## Response Headers and Errors
 

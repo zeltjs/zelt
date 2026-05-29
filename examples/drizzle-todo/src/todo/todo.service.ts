@@ -26,7 +26,10 @@ export class TodoService {
     return result;
   }
 
-  update(id: number, data: Partial<Pick<Todo, 'title' | 'completed'>>): Todo | undefined {
+  update(
+    id: number,
+    data: { title?: string | undefined; completed?: boolean | undefined },
+  ): Todo | undefined {
     const result = this.drizzle.db
       .update(todos)
       .set(data)

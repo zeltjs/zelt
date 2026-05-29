@@ -85,8 +85,11 @@ const config: KnipConfig = {
         'docusaurus.config.ts',
         'src/prism-theme-kanagawa.ts',
         'src/remark/*.ts',
+        'src/twoslash/*.ts',
         'scripts/check-doc-slugs.ts',
         'scripts/extract-doc-tests.ts',
+        'scripts/typecheck-docs.ts',
+        'scripts/check-example-excerpts.ts',
       ],
       // prism-react-renderer is used internally by Docusaurus for code block syntax highlighting
       // wrangler is used by Cloudflare Workers build system for deployment

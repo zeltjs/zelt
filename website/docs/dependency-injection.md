@@ -42,11 +42,8 @@ Zelt provides utilities to combine multiple decorators into a single meta-decora
 Combines multiple class decorators into one.
 
 ```typescript
-import {
-  Controller,
-  createClassDecorator,
-  composeClassDecorators,
-} from '@zeltjs/core';
+import { Controller } from '@zeltjs/core';
+import { createClassDecorator, composeClassDecorators } from '@zeltjs/decorator-metadata';
 // ---cut---
 const GraphqlController = (path: string) =>
   composeClassDecorators(
@@ -67,7 +64,7 @@ import {
   createClassDecorator,
   createMethodDecorator,
   composeMethodDecorators,
-} from '@zeltjs/core';
+} from '@zeltjs/decorator-metadata';
 // ---cut---
 const Controller = () => createClassDecorator({});
 const Route = (method: string, path: string) =>
@@ -95,7 +92,7 @@ import {
   createClassDecorator,
   createPropertyDecorator,
   composePropertyDecorators,
-} from '@zeltjs/core';
+} from '@zeltjs/decorator-metadata';
 // ---cut---
 const Entity = () => createClassDecorator({});
 const Column = (opts?: { nullable?: boolean }) =>

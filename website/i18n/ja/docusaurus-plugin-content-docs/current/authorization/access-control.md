@@ -308,7 +308,7 @@ Check for any role in a hierarchy:
 import { Controller, Authorized, Put, currentRoles } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
 // ---cut---
-const isEditor = (roles: string[]) =>
+const isEditor = (roles: readonly string[]) =>
   roles.some(r => ['admin', 'editor'].includes(r));
 
 @Controller('/posts')
