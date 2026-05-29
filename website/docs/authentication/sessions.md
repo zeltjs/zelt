@@ -25,20 +25,15 @@ SESSION_SECRET=your-secret-key-at-least-32-characters
 
 ### 2. Configure Session Store
 
-Create a custom config that provides a KV store for session data:
+Sessions are stored in a KV store. By default `SessionConfig` uses the in-memory adaptor under the `session:` namespace. To customize the namespace (or other options), extend `SessionConfig`:
 
 ```typescript
-import { Config, inject } from '@zeltjs/core';
-import { MemoryKVService } from '@zeltjs/kv';
+import { Config } from '@zeltjs/core';
 import { SessionConfig } from '@zeltjs/auth-session';
 // ---cut---
 @Config
 class MySessionConfig extends SessionConfig {
-  private kv = inject(MemoryKVService);
-
-  override get store() {
-    return this.kv.namespace('sessions');
-  }
+  override readonly kvStoreNamespace = 'sessions:';
 }
 ```
 
@@ -52,8 +47,7 @@ import { HTTPException } from 'hono/http-exception';
 
 @Config
 class MySessionConfig extends SessionConfig {
-  private kv = inject(MemoryKVService);
-  override get store() { return this.kv.namespace('sessions'); }
+  override readonly kvStoreNamespace = 'sessions:';
 }
 
 @Controller('/auth')
@@ -211,17 +205,12 @@ setSession({ userId: '123', name: 'Alice' });
 Extend `SessionConfig` to customize behavior:
 
 ```typescript
-import { Config, inject } from '@zeltjs/core';
-import { MemoryKVService } from '@zeltjs/kv';
+import { Config } from '@zeltjs/core';
 import { SessionConfig } from '@zeltjs/auth-session';
 // ---cut---
 @Config
 class MySessionConfig extends SessionConfig {
-  private kv = inject(MemoryKVService);
-
-  override get store() {
-    return this.kv.namespace('sessions');
-  }
+  override readonly kvStoreNamespace = 'sessions:';
 
   override get cookieName(): string {
     return 'my_session';  // default: 'session'
@@ -246,7 +235,8 @@ class MySessionConfig extends SessionConfig {
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `store` | `KVNamespace` | Required | KV namespace for session storage |
+| `kv` | `KVAdaptor` | `MemoryKV` | KV adaptor (constructor arg 2) backing session storage |
+| `kvStoreNamespace` | `string` | `'session:'` | Namespace prefix for session keys |
 | `secret` | `string` | `env.get('SESSION_SECRET')` | Secret for signing session IDs |
 | `cookieName` | `string` | `'session'` | Cookie name |
 | `ttlSec` | `number` | `86400` (1 day) | Session TTL in seconds |
@@ -260,12 +250,12 @@ import { SessionConfig } from '@zeltjs/auth-session';
 
 @Config
 class MySessionConfig extends SessionConfig {
-  constructor(private env = inject(EnvService)) { super(); }
+  constructor(private envService = inject(EnvService)) { super(); }
 // ---cut---
   override get cookieOptions() {
     return {
       httpOnly: true,
-      secure: this.env.getString('NODE_ENV', '') === 'production',
+      secure: this.envService.getString('NODE_ENV', '') === 'production',
       sameSite: 'Lax' as const,
       path: '/',
     };
@@ -279,51 +269,37 @@ class MySessionConfig extends SessionConfig {
 
 ```typescript
 import { Config, inject } from '@zeltjs/core';
-import { MemoryKVService } from '@zeltjs/kv';
+import { MemoryKV } from '@zeltjs/kv';
 import { SessionConfig } from '@zeltjs/auth-session';
 // ---cut---
 @Config
 class MySessionConfig extends SessionConfig {
-  private kv = inject(MemoryKVService);
-  override get store() {
-    return this.kv.namespace('sessions');
+  constructor(kv = inject(MemoryKV)) {
+    super(undefined, kv);
   }
 }
 ```
 
 ### Redis (Production)
 
-```typescript
-import { Config, inject } from '@zeltjs/core';
-import { MemoryKVService } from '@zeltjs/kv';
-import { SessionConfig } from '@zeltjs/auth-session';
-declare class RedisKVService extends MemoryKVService {}
-// ---cut---
-@Config
-class MySessionConfig extends SessionConfig {
-  private kv = inject(RedisKVService);
-  override get store() {
-    return this.kv.namespace('sessions');
-  }
-}
-```
-
-### Cloudflare KV
+`SessionConfig` takes the KV adaptor as its second constructor argument. Pass a `RedisKVAdaptor` to `super()` to store sessions in Redis (leave the first argument as `undefined` to keep the default `Env` injection):
 
 ```typescript
 import { Config, inject } from '@zeltjs/core';
-import { MemoryKVService } from '@zeltjs/kv';
 import { SessionConfig } from '@zeltjs/auth-session';
-declare class CloudflareKVService extends MemoryKVService {}
+import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 // ---cut---
 @Config
 class MySessionConfig extends SessionConfig {
-  private kv = inject(CloudflareKVService);
-  override get store() {
-    return this.kv.namespace('sessions');
+  constructor(kv = inject(RedisKVAdaptor)) {
+    super(undefined, kv);
   }
+
+  override readonly kvStoreNamespace = 'sessions:';
 }
 ```
+
+Using Redis requires registering `RedisConfig` (from `@zeltjs/redis`) so the adaptor can resolve its connection.
 
 ## Integration with User Context
 
@@ -381,8 +357,7 @@ class UserRepository {
 
 @Config
 class MySessionConfig extends SessionConfig {
-  private kv = inject(MemoryKVService);
-  override get store() { return this.kv.namespace('sessions'); }
+  override readonly kvStoreNamespace = 'sessions:';
 }
 
 @Middleware

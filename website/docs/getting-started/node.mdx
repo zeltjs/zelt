@@ -200,12 +200,11 @@ export const app = createApp({
 The `@zeltjs/adapter-node` package provides additional configuration options:
 
 ```typescript
-import { ProcessEnvConfig, DotEnvConfig } from '@zeltjs/adapter-node';
+import { ProcessEnvConfig } from '@zeltjs/adapter-node';
 // ---cut---
-// ProcessEnvConfig: Reads from process.env (default behavior)
-// DotEnvConfig: Reads from .env file
+// ProcessEnvConfig: Reads from process.env (default behavior).
+// For .env files, import 'dotenv/config' at your entry point.
 void ProcessEnvConfig;
-void DotEnvConfig;
 ```
 
 ## What's Next?

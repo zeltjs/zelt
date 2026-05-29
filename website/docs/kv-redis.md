@@ -3,58 +3,63 @@
 
 # Redis KV Driver
 
-`@zeltjs/kv-driver-redis` provides a Redis backend for the KV abstraction. It implements `AtomicKVDriver` using [ioredis](https://github.com/redis/ioredis), supporting atomic operations like `incr` and `setnx`.
+`@zeltjs/kv` ships a Redis backend through its `@zeltjs/kv/adaptor-redis` entry point. `RedisKVAdaptor` implements `AtomicKVAdaptor` on top of [ioredis](https://github.com/redis/ioredis), supporting atomic operations like `incr` and `setnx`.
 
 ## Installation
 
 ```bash
-pnpm add @zeltjs/kv-driver-redis
+pnpm add @zeltjs/kv @zeltjs/redis
 ```
 
-Peer dependencies:
+Peer dependency:
 
 ```bash
-pnpm add @zeltjs/core @zeltjs/kv
+pnpm add @zeltjs/core
 ```
 
 ## Basic Setup
 
-Register `RedisConfig` and inject `RedisKV` into your services:
+Inject `RedisKVAdaptor` and create a namespaced store. `namespace()` returns an `AtomicKVStore` directly, and `get()` resolves to the value (or `undefined` when the key is missing) — there is no result wrapper to unwrap:
 
-```typescript
-import { createApp, Injectable, inject, Controller, Get } from '@zeltjs/core';
-interface AtomicKVStore {
-  get<T>(key: string): Promise<{ unwrapOr<U>(fallback: U): T | U }>;
-  set<T>(key: string, value: T, opts?: { ttlSec?: number }): Promise<void>;
-}
-declare class RedisConfig {}
-declare class RedisKV {
-  namespace(prefix: string): { unwrapOr<T>(fallback: T): AtomicKVStore | T };
-}
-@Controller('/app')
-class AppController { @Get('/') get() { return {}; } }
+```typescript twoslash
+import { Injectable, inject } from '@zeltjs/core';
+import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
+import type { AtomicKVStore, Defined } from '@zeltjs/kv';
 // ---cut---
 @Injectable()
-class CacheService {
-  private store = inject(RedisKV).namespace('cache:').unwrapOr(null);
+export class CacheService {
+  private store: AtomicKVStore;
 
-  async get<T>(key: string): Promise<T | undefined> {
-    if (!this.store) return undefined;
-    const result = await this.store.get<T>(key);
-    return result.unwrapOr(undefined);
+  constructor(kv = inject(RedisKVAdaptor)) {
+    this.store = kv.namespace('cache:');
   }
 
-  async set<T>(key: string, value: T, ttlSec?: number): Promise<void> {
-    if (!this.store) return;
+  async get<T>(key: string): Promise<T | undefined> {
+    return this.store.get<T>(key);
+  }
+
+  async set<T extends Defined>(key: string, value: T, ttlSec?: number): Promise<void> {
     await this.store.set(key, value, { ttlSec });
   }
 }
+```
 
+Register `RedisConfig` and `RedisKVAdaptor` when creating the app. `RedisConfig` provides the connection settings (consumed by `RedisService`, which `RedisKVAdaptor` depends on), so listing `RedisKVAdaptor` in `injectables` is enough — its dependencies resolve automatically:
+
+```typescript twoslash
+import { createApp, Controller, Get } from '@zeltjs/core';
+import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
+import { RedisConfig } from '@zeltjs/redis';
+
+@Controller('/app')
+class AppController { @Get('/') get() { return {}; } }
+// ---cut---
 const app = createApp({
   http: {
     controllers: [AppController],
   },
   configs: [RedisConfig],
+  injectables: [RedisKVAdaptor],
 });
 ```
 
@@ -62,31 +67,23 @@ By default, `RedisConfig` reads the connection URL from the `REDIS_URL` environm
 
 ## Custom Configuration
 
-Extend `RedisConfig` to customize connection settings:
+Extend `RedisConfig` to customize connection settings. The `options` getter returns ioredis `RedisOptions`:
 
-```typescript
+```typescript twoslash
 import { Config, EnvService, inject } from '@zeltjs/core';
-type RedisOptions = {
-  maxRetriesPerRequest?: number;
-  retryStrategy?: (times: number) => number | null;
-  enableReadyCheck?: boolean;
-};
-declare class RedisConfig {
-  get url(): string;
-  get options(): RedisOptions;
-}
+import { RedisConfig } from '@zeltjs/redis';
 // ---cut---
 @Config
 class CustomRedisConfig extends RedisConfig {
-  constructor(private env = inject(EnvService)) {
+  constructor(private envService = inject(EnvService)) {
     super();
   }
 
   override get url(): string {
-    return this.env.getString('REDIS_URL', 'redis://localhost:6379');
+    return this.envService.getString('REDIS_URL', 'redis://localhost:6379');
   }
 
-  override get options(): RedisOptions {
+  override get options() {
     return {
       maxRetriesPerRequest: 3,
       retryStrategy: (times: number) => Math.min(times * 100, 3000),
@@ -97,18 +94,16 @@ class CustomRedisConfig extends RedisConfig {
 
 Register your custom config instead of the default:
 
-```typescript
+```typescript twoslash
 import { createApp, Config, EnvService, inject, Controller, Get } from '@zeltjs/core';
-type RedisOptions = { maxRetriesPerRequest?: number };
-declare class RedisConfig {
-  get url(): string;
-  get options(): RedisOptions;
-}
+import { RedisConfig } from '@zeltjs/redis';
+import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
+
 @Config
 class CustomRedisConfig extends RedisConfig {
-  constructor(private env = inject(EnvService)) { super(); }
-  override get url(): string { return this.env.getString('REDIS_URL', 'redis://localhost:6379'); }
-  override get options(): RedisOptions { return { maxRetriesPerRequest: 3 }; }
+  constructor(private envService = inject(EnvService)) { super(); }
+  override get url(): string { return this.envService.getString('REDIS_URL', 'redis://localhost:6379'); }
+  override get options() { return { maxRetriesPerRequest: 3 }; }
 }
 @Controller('/app')
 class AppController { @Get('/') get() { return {}; } }
@@ -118,27 +113,29 @@ const app = createApp({
     controllers: [AppController],
   },
   configs: [CustomRedisConfig],
+  injectables: [RedisKVAdaptor],
 });
 ```
 
 ## API Reference
 
-### RedisKV
+### RedisKVAdaptor
 
 | Method | Description |
 |--------|-------------|
 | `namespace(prefix)` | Returns a namespaced `AtomicKVStore` |
-| `shutdown()` | Disconnects from Redis |
+
+`RedisKVAdaptor` participates in the application lifecycle. The underlying ioredis connection is owned by `RedisService` and is disconnected automatically on shutdown (see [Graceful Shutdown](#graceful-shutdown)).
 
 ### AtomicKVStore Methods
 
 | Method | Description |
 |--------|-------------|
-| `get<T>(key)` | Retrieve a value |
+| `get<T>(key)` | Retrieve a value, or `undefined` if missing |
 | `set<T>(key, value, opts?)` | Store a value with optional TTL |
 | `del(key)` | Delete a key |
 | `has(key)` | Check if key exists |
-| `expire(key, ttlSec)` | Update TTL for existing key |
+| `expire(key, ttlSec)` | Update TTL for an existing key |
 | `incr(key, by?, opts?)` | Atomic increment |
 | `setnx<T>(key, value, opts?)` | Set if not exists |
 | `namespace(prefix)` | Create nested namespace |
@@ -147,21 +144,13 @@ const app = createApp({
 
 For production deployments, configure connection pooling and retry behavior:
 
-```typescript
+```typescript twoslash
 import { Config } from '@zeltjs/core';
-type RedisOptions = {
-  maxRetriesPerRequest?: number;
-  enableReadyCheck?: boolean;
-  retryStrategy?: (times: number) => number | null;
-};
-declare class RedisConfig {
-  get url(): string;
-  get options(): RedisOptions;
-}
+import { RedisConfig } from '@zeltjs/redis';
 // ---cut---
 @Config
 class ProductionRedisConfig extends RedisConfig {
-  override get options(): RedisOptions {
+  override get options() {
     return {
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
@@ -176,38 +165,27 @@ class ProductionRedisConfig extends RedisConfig {
 
 ### Graceful Shutdown
 
-Call `shutdown()` when your application terminates:
+You do not need to disconnect Redis manually. `RedisService` registers itself with the lifecycle manager, so when the application shuts down it disconnects the ioredis client automatically.
 
-```typescript
-import { createApp, Controller, Get, Injectable, inject, Config, EnvService } from '@zeltjs/core';
+With `@zeltjs/adapter-node`, `onNode` installs `SIGINT`/`SIGTERM` handlers that trigger this shutdown, and `handle.shutdown()` does the same:
+
+```typescript twoslash
+import { createApp, Controller, Get } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
-declare class RedisKV { shutdown(): Promise<void>; }
-declare class RedisConfig {}
-interface AtomicKVStore { get<T>(key: string): Promise<{ unwrapOr<U>(fallback: U): T | U }>; }
-
-@Injectable()
-class CacheService {
-  private store = inject(RedisKV) as unknown as { namespace(prefix: string): { unwrapOr<T>(fallback: T): AtomicKVStore | T } };
-  async get<T>(key: string): Promise<T | undefined> {
-    const ns = this.store.namespace('cache:').unwrapOr(null);
-    if (!ns) return undefined;
-    const result = await ns.get<T>(key);
-    return result.unwrapOr(undefined);
-  }
-}
+import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
+import { RedisConfig } from '@zeltjs/redis';
 
 @Controller('/app') class AppController { @Get('/') get() { return {}; } }
 
 const app = createApp({
   http: { controllers: [AppController] },
   configs: [RedisConfig],
+  injectables: [RedisKVAdaptor],
 });
 const nodeApp = await onNode(app);
 // ---cut---
 const handle = await nodeApp.listen({ port: 3000 });
 
-process.on('SIGTERM', async () => {
-  await nodeApp.get(RedisKV).shutdown();
-  await handle.shutdown();
-});
+// Disconnects the server and runs lifecycle shutdown (Redis included)
+await handle.shutdown();
 ```

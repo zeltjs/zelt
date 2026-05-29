@@ -202,14 +202,14 @@ class UserRepository {
 @Config
 class CustomJwtConfig extends JwtConfig {
   constructor(
-    private env = inject(EnvConfig),
+    private envConfig = inject(EnvConfig),
     private userRepo = inject(UserRepository)
   ) {
     super();
   }
 
   override get secret(): string {
-    return this.env.get('JWT_SECRET')!;
+    return this.envConfig.get('JWT_SECRET')!;
   }
 
   override get expiresIn(): string {
@@ -248,10 +248,10 @@ class UserRepository {
 @Config
 class CustomJwtConfig extends JwtConfig {
   constructor(
-    private env = inject(EnvConfig),
+    private envConfig = inject(EnvConfig),
     private userRepo = inject(UserRepository)
   ) { super(); }
-  override get secret(): string { return this.env.get('JWT_SECRET')!; }
+  override get secret(): string { return this.envConfig.get('JWT_SECRET')!; }
   override get expiresIn(): string { return '7d'; }
   override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {
     return async (payload) => {

@@ -37,7 +37,7 @@ describe('/hello', () => {
     });
     expect(res.status).toBe(400);
     if (res.status === 400) {
-      const body: { code: string; issues: unknown[] } = await res.json();
+      const body: { code: string; issues: readonly unknown[] } = await res.json();
       expect(body.code).toBe('VALIDATION_FAILED');
       expect(Array.isArray(body.issues)).toBe(true);
     }

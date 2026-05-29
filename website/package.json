@@ -13,6 +13,9 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
+    "typecheck:docs": "bun scripts/typecheck-docs.ts",
+    "check:examples": "bun scripts/check-example-excerpts.ts",
+    "verify:docs": "bun scripts/typecheck-docs.ts && bun scripts/check-example-excerpts.ts",
     "lint:slugs": "bun scripts/check-doc-slugs.ts",
     "test:docs": "bun scripts/extract-doc-tests.ts && vitest run",
     "test:docs:watch": "bun scripts/extract-doc-tests.ts && vitest"
@@ -50,6 +53,7 @@
     "@zeltjs/auth-session": "workspace:*",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/db": "workspace:*",
+    "@zeltjs/decorator-metadata": "workspace:*",
     "@zeltjs/hono-client": "workspace:*",
     "@zeltjs/kv": "workspace:*",
     "@zeltjs/rate-limit": "workspace:*",

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx src/entry/node.ts",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
