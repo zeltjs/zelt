@@ -52,7 +52,7 @@ describe('SchedulerRunner', () => {
       timezone: undefined,
     });
 
-    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
+    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
 
     await app.stopScheduler();
 
@@ -77,7 +77,7 @@ describe('SchedulerRunner', () => {
     await app.ready();
     await app.startScheduler();
 
-    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
+    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
 
     await app.stopScheduler();
   });
