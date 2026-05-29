@@ -43,7 +43,7 @@
     }
   },
   "devDependencies": {
-    "@types/node": "22.19.17",
+    "@types/node": "catalog:",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/redis": "workspace:*",
     "ioredis": "5.10.1",

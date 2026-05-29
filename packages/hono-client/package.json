@@ -32,18 +32,18 @@
     "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/cli": "workspace:*",
     "@zeltjs/core": "workspace:*",
-    "hono": "4.12.16"
+    "hono": "catalog:"
   },
   "dependencies": {
     "@zeltjs/decorator-metadata": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "22.19.17",
+    "@types/node": "catalog:",
     "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/cli": "workspace:*",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/testing": "workspace:*",
-    "hono": "4.12.16"
+    "hono": "catalog:"
   },
   "volta": {
     "extends": "../../package.json"

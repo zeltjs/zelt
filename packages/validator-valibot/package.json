@@ -32,9 +32,9 @@
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
     "@zeltjs/openapi": "workspace:*",
-    "hono": "4.12.16",
-    "valibot": "^1.0.0",
-    "@valibot/to-json-schema": "^1.0.0"
+    "hono": "catalog:",
+    "valibot": "catalog:peer",
+    "@valibot/to-json-schema": "catalog:peer"
   },
   "peerDependenciesMeta": {
     "@zeltjs/openapi": {
@@ -45,12 +45,12 @@
     }
   },
   "devDependencies": {
-    "@types/node": "22.19.17",
-    "@valibot/to-json-schema": "1.6.0",
+    "@types/node": "catalog:",
+    "@valibot/to-json-schema": "catalog:",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/openapi": "workspace:*",
-    "hono": "4.12.16",
-    "valibot": "1.3.1"
+    "hono": "catalog:",
+    "valibot": "catalog:"
   },
   "volta": {
     "extends": "../../package.json"

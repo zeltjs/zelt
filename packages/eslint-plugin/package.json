@@ -31,10 +31,10 @@
   "devDependencies": {
     "@types/eslint": "^9.6.1",
     "@types/estree": "^1.0.7",
-    "@types/node": "^22.15.21",
-    "tsdown": "^0.12.6",
-    "typescript": "^5.8.3",
-    "vitest": "^4.1.5"
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "keywords": [
     "eslint",

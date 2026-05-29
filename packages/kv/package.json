@@ -47,7 +47,7 @@
     "@zeltjs/core": "workspace:*",
     "@zeltjs/redis": "workspace:*",
     "@zeltjs/unsafe-type-lib": "workspace:*",
-    "@types/node": "22.19.17",
+    "@types/node": "catalog:",
     "ioredis": "5.10.1"
   },
   "volta": {

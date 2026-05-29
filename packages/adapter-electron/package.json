@@ -29,7 +29,7 @@
     "@zeltjs/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "22.19.17"
+    "@types/node": "catalog:"
   },
   "peerDependencies": {
     "electron": ">=28.0.0"

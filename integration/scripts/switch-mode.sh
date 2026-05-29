@@ -62,6 +62,67 @@ get_npm_version() {
   fi
 }
 
+# root pnpm-workspace.yaml の default catalog から指定キーのバージョンを取得する
+# (catalog を単一の情報源とし、integration 用 package.json への版のハードコードを避ける)
+get_catalog_version() {
+  local key="$1"
+  awk -v key="$key" '
+    /^catalog:[[:space:]]*$/ { in_cat = 1; next }
+    /^[^[:space:]]/ { in_cat = 0 }
+    in_cat {
+      line = $0
+      gsub(/^[[:space:]]+/, "", line)
+      gsub(/"/, "", line)
+      n = index(line, ":")
+      if (n > 0) {
+        k = substr(line, 1, n - 1)
+        v = substr(line, n + 1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+        if (k == key) { print v; exit }
+      }
+    }
+  ' "$ROOT_DIR/pnpm-workspace.yaml"
+}
+
+# @zeltjs/* 各パッケージの dependencies/peerDependencies を走査し、
+# `catalog:` プロトコルで参照されている依存名を重複なく列挙する。
+# (どの依存が catalog 管理かをハードコードせず実際の package.json から導出する)
+collect_catalog_dep_names() {
+  node -e '
+    const fs = require("fs");
+    const path = require("path");
+    const dir = process.argv[1];
+    const names = new Set();
+    for (const pkg of fs.readdirSync(dir)) {
+      const pj = path.join(dir, pkg, "package.json");
+      if (!fs.existsSync(pj)) continue;
+      const json = JSON.parse(fs.readFileSync(pj, "utf8"));
+      for (const field of ["dependencies", "peerDependencies"]) {
+        for (const [name, spec] of Object.entries(json[field] || {})) {
+          if (typeof spec === "string" && spec.startsWith("catalog:")) names.add(name);
+        }
+      }
+    }
+    for (const name of [...names].sort()) console.log(name);
+  ' "$ROOT_DIR/packages"
+}
+
+# catalog 参照されている依存を default catalog の実バージョンに固定する
+# pnpm.overrides 用 JSON 断片を生成する (例: "hono": "4.12.16","valibot": "1.3.1")
+build_catalog_overrides() {
+  local fragment="" name version
+  while IFS= read -r name; do
+    [[ -z "$name" ]] && continue
+    version=$(get_catalog_version "$name")
+    if [[ -z "$version" ]]; then
+      echo "ERROR: '$name' は catalog: 参照だが default catalog に版が無い" >&2
+      exit 1
+    fi
+    fragment="$fragment\"$name\": \"$version\","
+  done < <(collect_catalog_dep_names)
+  echo "${fragment%,}"
+}
+
 generate_package_json() {
   local mode="$1"
   local integration_dir="$2"
@@ -96,6 +157,16 @@ generate_package_json() {
   deps="${deps%,}"
   overrides="${overrides%,}"
 
+  # integration テストが直接 import するライブラリ。版は root catalog を単一の情報源とする
+  local hono_ver valibot_ver to_json_schema_ver
+  hono_ver=$(get_catalog_version "hono")
+  valibot_ver=$(get_catalog_version "valibot")
+  to_json_schema_ver=$(get_catalog_version "@valibot/to-json-schema")
+
+  # @zeltjs/* が catalog: で参照する依存を実バージョンに固定する overrides 断片
+  local catalog_overrides
+  catalog_overrides=$(build_catalog_overrides)
+
   if [[ "$mode" == "public" ]]; then
     cat <<EOF
 {
@@ -112,13 +183,16 @@ generate_package_json() {
   },
   "devDependencies": {
     "vitest": "3.2.4",
-    "valibot": "1.3.1",
-    "@valibot/to-json-schema": "1.6.0",
-    "hono": "4.12.16"
+    "valibot": "$valibot_ver",
+    "@valibot/to-json-schema": "$to_json_schema_ver",
+    "hono": "$hono_ver"
   }
 }
 EOF
   else
+    # dist/pack モードは @zeltjs/* を file: でソース参照するため、各 package.json の
+    # `catalog:` 指定が workspace 外 (--ignore-workspace) で解決できない。
+    # catalog 管理の第三者ランタイム依存を overrides で実バージョンに固定して解決する。
     cat <<EOF
 {
   "name": "@integration/$name",
@@ -134,13 +208,14 @@ EOF
   },
   "devDependencies": {
     "vitest": "3.2.4",
-    "valibot": "1.3.1",
-    "@valibot/to-json-schema": "1.6.0",
-    "hono": "4.12.16"
+    "valibot": "$valibot_ver",
+    "@valibot/to-json-schema": "$to_json_schema_ver",
+    "hono": "$hono_ver"
   },
   "pnpm": {
     "overrides": {
-      $overrides
+      $overrides,
+      $catalog_overrides
     }
   }
 }
