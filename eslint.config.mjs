@@ -228,13 +228,6 @@ export default tseslint.config(
     },
   },
   {
-    // inject: needle-di API boundary casts.
-    files: ['packages/core/src/kernel/di/inject.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
     // Env module needs process.env access
     files: [
       // ProcessEnvSource reads process.env as Node.js environment adapter
