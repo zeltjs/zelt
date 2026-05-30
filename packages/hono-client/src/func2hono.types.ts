@@ -28,12 +28,13 @@ export type ExtractRequestBody<H extends (...args: never[]) => unknown> = H exte
     : ExtractValidated<A0>
   : never;
 
-type WrapRaw<T> =
-  [T] extends [TypedResponse<infer _D, infer _S extends StatusCode, infer _F extends string>]
-    ? T
-    : [T] extends [Response]
-      ? never
-      : TypedResponse<T, 200, 'json'>;
+type WrapRaw<T> = [T] extends [
+  TypedResponse<infer _D, infer _S extends StatusCode, infer _F extends string>,
+]
+  ? T
+  : [T] extends [Response]
+    ? never
+    : TypedResponse<T, 200, 'json'>;
 
 export type ExtractResponse<H extends (...args: never[]) => unknown> = WrapRaw<
   Awaited<ReturnType<H>>
