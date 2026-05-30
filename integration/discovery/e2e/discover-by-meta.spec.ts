@@ -1,4 +1,6 @@
+import type { App, HttpModule } from '@zeltjs/core';
 import { getClassMetadata } from '@zeltjs/decorator-metadata';
+import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -17,7 +19,7 @@ import { providers } from '../src/providers';
 import { WebhooksExplorer } from '../src/webhooks.explorer';
 
 describe('Discovery', () => {
-  let testApp: Awaited<ReturnType<typeof onTest>>;
+  let testApp: TestableApp<App<[HttpModule]>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

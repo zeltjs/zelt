@@ -1,10 +1,12 @@
+import type { App, HttpModule } from '@zeltjs/core';
+import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { app } from '../src/app';
 
 describe('URI Versioning - with middleware applied', () => {
-  let testApp: Awaited<ReturnType<typeof onTest>>;
+  let testApp: TestableApp<App<[HttpModule]>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

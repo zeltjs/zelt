@@ -26,7 +26,7 @@ class OptionalDepConsumer {
 class SelfReferencingService {
   // Self-injection inside the same constructor must be detected by needle-di.
   // biome-ignore lint: intentional self-injection for circular-dependency test
-  constructor(public readonly self = inject(SelfReferencingService)) {}
+  constructor(public readonly self: SelfReferencingService = inject(SelfReferencingService)) {}
 }
 
 @Controller('/broken')
