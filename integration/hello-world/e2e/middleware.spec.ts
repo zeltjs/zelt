@@ -1,5 +1,6 @@
-import type { FunctionMiddleware } from '@zeltjs/core';
+import type { App, FunctionMiddleware, HttpModule } from '@zeltjs/core';
 import { createApp } from '@zeltjs/core';
+import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -7,7 +8,7 @@ import { app } from '../src/app';
 import { WildcardController } from '../src/wildcard.controller';
 
 describe('Middleware', () => {
-  let testApp: Awaited<ReturnType<typeof onTest>>;
+  let testApp: TestableApp<App<[HttpModule]>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);
@@ -37,7 +38,7 @@ describe('Middleware', () => {
 });
 
 describe('Middleware (global)', () => {
-  let testApp: Awaited<ReturnType<typeof onTest>>;
+  let testApp: TestableApp<App<[HttpModule]>>;
 
   afterEach(async () => {
     await shutdownAll();

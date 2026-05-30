@@ -19,7 +19,7 @@ export class FileService {
     return Readable.toWeb(createReadStream(README_PATH)) as ReadableStream<Uint8Array>;
   }
 
-  getBuffer(): Uint8Array {
+  getBuffer(): Uint8Array<ArrayBuffer> {
     // Return a fresh Uint8Array view so the consumer can't mutate the shared buffer.
     return new Uint8Array(README_BUFFER);
   }

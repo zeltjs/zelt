@@ -47,6 +47,13 @@ run_tests() {
     echo "Running tests: $name"
     echo "=========================================="
 
+    if (cd "$dir" && npx tsc --noEmit); then
+      echo "✓ $name: tsc --noEmit passed"
+    else
+      echo "✗ $name: tsc --noEmit FAILED"
+      exit_code=1
+    fi
+
     if (cd "$dir" && pnpm test); then
       echo "✓ $name: PASSED"
     else

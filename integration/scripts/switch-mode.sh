@@ -158,10 +158,12 @@ generate_package_json() {
   overrides="${overrides%,}"
 
   # integration テストが直接 import するライブラリ。版は root catalog を単一の情報源とする
-  local hono_ver valibot_ver to_json_schema_ver
+  local hono_ver valibot_ver to_json_schema_ver types_node_ver typescript_ver
   hono_ver=$(get_catalog_version "hono")
   valibot_ver=$(get_catalog_version "valibot")
   to_json_schema_ver=$(get_catalog_version "@valibot/to-json-schema")
+  types_node_ver=$(get_catalog_version "@types/node")
+  typescript_ver=$(get_catalog_version "typescript")
 
   # @zeltjs/* が catalog: で参照する依存を実バージョンに固定する overrides 断片
   local catalog_overrides
@@ -185,7 +187,9 @@ generate_package_json() {
     "vitest": "3.2.4",
     "valibot": "$valibot_ver",
     "@valibot/to-json-schema": "$to_json_schema_ver",
-    "hono": "$hono_ver"
+    "hono": "$hono_ver",
+    "@types/node": "$types_node_ver",
+    "typescript": "$typescript_ver"
   }
 }
 EOF
@@ -210,7 +214,9 @@ EOF
     "vitest": "3.2.4",
     "valibot": "$valibot_ver",
     "@valibot/to-json-schema": "$to_json_schema_ver",
-    "hono": "$hono_ver"
+    "hono": "$hono_ver",
+    "@types/node": "$types_node_ver",
+    "typescript": "$typescript_ver"
   },
   "pnpm": {
     "overrides": {
