@@ -1,7 +1,10 @@
 import { Container } from '@needle-di/core';
 
 import type { ConfigClass } from '../built-in-service/config';
-import type { ModuleCapsMap } from '../modules/module.types';
+import type { CommandModule } from '../modules/command/command.module';
+import type { HttpModule } from '../modules/http/http.module';
+import type { Module, ModuleCapsAll, ModuleCapsMap } from '../modules/module.types';
+import type { SchedulerModule } from '../modules/scheduler/scheduler.module';
 import type { ReadyOptions, ReadyResult } from './app-runtime.lib';
 import { AppRuntime } from './app-runtime.lib';
 import { ConfigRegistry } from './config-registry.lib';
@@ -22,14 +25,16 @@ type BaseApp = {
   readonly overrideConfig: (config: ConfigClass<object>) => void;
 };
 
-export type App<TOptions extends CreateAppOptions = CreateAppOptions> = BaseApp &
+export type App<M extends readonly Module[] = []> = BaseApp & ModuleCapsAll<M>;
+
+export type HttpApp = App<[HttpModule]>;
+
+export type CommandApp = App<[CommandModule]>;
+
+export type SchedulerApp = App<[SchedulerModule]>;
+
+type AppFromOptions<TOptions extends CreateAppOptions> = BaseApp &
   ModuleCapsMap<typeof DefaultModules, TOptions>;
-
-export type HttpApp = App<{ http: NonNullable<CreateAppOptions['http']> }>;
-
-export type CommandApp = App<{ commands: NonNullable<CreateAppOptions['commands']> }>;
-
-export type SchedulerApp = App<{ schedulers: NonNullable<CreateAppOptions['schedulers']> }>;
 
 export type { ReadyOptions, ReadyResult } from './app-runtime.lib';
 
@@ -60,9 +65,11 @@ const buildBaseApp = (runtime: AppRuntime, configRegistry: ConfigRegistry): Base
 // --- Main ---
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-export function createApp<TOptions extends CreateAppOptions>(options: TOptions): App<TOptions>;
+export function createApp<TOptions extends CreateAppOptions>(
+  options: TOptions,
+): AppFromOptions<TOptions>;
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-export function createApp(options: CreateAppOptions): App<CreateAppOptions> {
+export function createApp(options: CreateAppOptions): AppFromOptions<CreateAppOptions> {
   const container = new Container();
   bindDefaultModules(container, options);
 

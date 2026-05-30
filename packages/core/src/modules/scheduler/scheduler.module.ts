@@ -10,6 +10,7 @@ export type SchedulerCapabilities = {
   readonly getSchedulerJobs: () => readonly JobInfo[];
 };
 
+export type SchedulerModule = typeof SchedulerModule;
 export const SchedulerModule: Module<
   'schedulers',
   readonly SchedulerClass[],

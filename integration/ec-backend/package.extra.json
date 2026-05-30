@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "better-sqlite3": "12.9.0",
+    "drizzle-orm": "0.45.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.13"
+  },
+  "scripts": {
+    "postinstall": "cd node_modules/better-sqlite3 && npx --yes node-gyp@11.1.0 rebuild"
+  }
+}

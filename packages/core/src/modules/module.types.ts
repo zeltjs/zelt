@@ -37,6 +37,15 @@ export type ModuleCapsMap<M extends readonly Module[], TConfig> = M extends read
   ? ModuleCapsEntry<First, TConfig> & ModuleCapsMap<Rest, TConfig>
   : object;
 
+type ExtractCaps<M> = M extends Module<string, unknown, infer Caps> ? Caps : object;
+
+export type ModuleCapsAll<M extends readonly Module[]> = M extends readonly [
+  infer First extends Module,
+  ...infer Rest extends readonly Module[],
+]
+  ? ExtractCaps<First> & ModuleCapsAll<Rest>
+  : object;
+
 type ModuleCapsEntry<M, TConfig> = M extends {
   readonly key: infer K extends string;
   readonly bind: (container: never, config: infer C) => void;

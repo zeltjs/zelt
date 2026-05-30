@@ -249,6 +249,29 @@ prepare_pack_mode() {
 }
 
 # Per-directory setup (generate package.json + install)
+merge_extra_deps() {
+  local integration_dir="$1"
+  local extra_file="$integration_dir/package.extra.json"
+  local pkg_file="$integration_dir/package.json"
+
+  if [[ ! -f "$extra_file" ]]; then
+    return
+  fi
+
+  echo "  Merging package.extra.json..."
+  node -e '
+    const fs = require("fs");
+    const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    const extra = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+    for (const field of ["dependencies", "devDependencies", "scripts"]) {
+      if (extra[field]) {
+        pkg[field] = { ...(pkg[field] || {}), ...extra[field] };
+      }
+    }
+    fs.writeFileSync(process.argv[1], JSON.stringify(pkg, null, 2) + "\n");
+  ' "$pkg_file" "$extra_file"
+}
+
 setup_integration_dir() {
   local mode="$1"
   local integration_dir="$2"
@@ -257,6 +280,7 @@ setup_integration_dir() {
 
   echo "Setting up $name..."
   generate_package_json "$mode" "$integration_dir" > "$integration_dir/package.json"
+  merge_extra_deps "$integration_dir"
 
   echo "  Installing dependencies..."
   (cd "$integration_dir" && rm -rf node_modules pnpm-lock.yaml && pnpm install --ignore-workspace 2>/dev/null)

@@ -9,6 +9,7 @@ export type CommandCapabilities = {
   readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
 };
 
+export type CommandModule = typeof CommandModule;
 export const CommandModule: Module<'commands', readonly CommandClass[], CommandCapabilities> = {
   key: 'commands',
   bind: (container, commands) => {

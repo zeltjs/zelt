@@ -2,7 +2,7 @@ import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 
 import { NodeCliConfig } from '@zeltjs/adapter-node';
-import type { App, CreateAppOptions, SignalHandler } from '@zeltjs/core';
+import type { App, SignalHandler } from '@zeltjs/core';
 import { createApp } from '@zeltjs/core';
 import consola from 'consola';
 
@@ -23,7 +23,7 @@ type DevServerState = {
   childProcess: ChildProcess | undefined;
   watcher: WatcherHandle | undefined;
   isShuttingDown: boolean;
-  app: App<CreateAppOptions>;
+  app: App;
 };
 
 const DEFAULT_WATCH_PATTERNS = ['./src/**/*.ts'];
@@ -82,11 +82,7 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
 };
 
 /** @throws {ZeltMultipleBuildHooksError} */
-const runHooks = async (
-  cwd: string,
-  config: ZeltConfig,
-  app: App<CreateAppOptions>,
-): Promise<void> => {
+const runHooks = async (cwd: string, config: ZeltConfig, app: App): Promise<void> => {
   const hookOptions = { cwd, config, app };
 
   await runPreBuildHooks(hookOptions);
