@@ -82,11 +82,7 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
 };
 
 /** @throws {ZeltMultipleBuildHooksError} */
-const runHooks = async (
-  cwd: string,
-  config: ZeltConfig,
-  app: App,
-): Promise<void> => {
+const runHooks = async (cwd: string, config: ZeltConfig, app: App): Promise<void> => {
   const hookOptions = { cwd, config, app };
 
   await runPreBuildHooks(hookOptions);
