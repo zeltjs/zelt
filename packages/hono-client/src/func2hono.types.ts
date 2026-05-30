@@ -28,12 +28,13 @@ export type ExtractRequestBody<H extends (...args: never[]) => unknown> = H exte
     : ExtractValidated<A0>
   : never;
 
-type WrapRaw<T> =
-  T extends TypedResponse<infer _D, infer _S extends StatusCode, infer _F extends string>
-    ? T
-    : T extends Response
-      ? never
-      : TypedResponse<T, 200, 'json'>;
+type WrapRaw<T> = [T] extends [
+  TypedResponse<infer _D, infer _S extends StatusCode, infer _F extends string>,
+]
+  ? T
+  : [T] extends [Response]
+    ? never
+    : TypedResponse<T, 200, 'json'>;
 
 export type ExtractResponse<H extends (...args: never[]) => unknown> = WrapRaw<
   Awaited<ReturnType<H>>
@@ -101,31 +102,25 @@ type RouteMethodEntry<
   } & RouteResponseEndpoints<R['response']>;
 };
 
-type Merge<A, B> = {
-  [K in keyof A | keyof B]: K extends keyof A
-    ? K extends keyof B
-      ? A[K] & B[K]
-      : A[K]
-    : K extends keyof B
-      ? B[K]
-      : never;
-};
+type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (
+  x: infer I,
+) => void
+  ? I
+  : never;
 
-type BuildSchema<Routes extends readonly unknown[]> = Routes extends readonly [
-  infer Head,
-  ...infer Tail,
-]
-  ? Head extends {
-      method: string;
-      path: infer P extends string;
-      params: unknown;
-      body: unknown;
-      response: unknown;
-    }
-    ? Merge<{ [K in P]: RouteMethodEntry<Head & { method: string }> }, BuildSchema<Tail>>
-    : BuildSchema<Tail>
-  : // biome-ignore lint/complexity/noBannedTypes: {} is required here
-    {};
+type RouteToSchema<R> = R extends {
+  method: string;
+  path: infer P extends string;
+  params: unknown;
+  body: unknown;
+  response: unknown;
+}
+  ? { [K in P]: RouteMethodEntry<R & { method: string }> }
+  : never;
+
+type BuildSchema<Routes extends readonly unknown[]> = UnionToIntersection<
+  RouteToSchema<Routes[number]>
+>;
 
 export type BuildAppType<
   Routes extends readonly { readonly method: string; readonly path: string }[],
