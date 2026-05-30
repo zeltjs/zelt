@@ -1,3 +1,5 @@
+import type { App, HttpModule } from '@zeltjs/core';
+import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -11,7 +13,7 @@ type ContextResponse = {
 };
 
 describe('Middleware <-> handler context integration', () => {
-  let testApp: Awaited<ReturnType<typeof onTest>>;
+  let testApp: TestableApp<App<[HttpModule]>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

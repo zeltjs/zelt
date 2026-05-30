@@ -1,3 +1,5 @@
+import type { App, HttpModule } from '@zeltjs/core';
+import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -5,7 +7,7 @@ import { app } from '../src/app';
 import { RequestIdService } from '../src/request-id.service';
 
 describe('Request-scoped data via getContext/setContext', () => {
-  let testApp: Awaited<ReturnType<typeof onTest>>;
+  let testApp: TestableApp<App<[HttpModule]>>;
   let serviceCallsAtStart = 0;
 
   beforeAll(async () => {

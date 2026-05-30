@@ -1,4 +1,6 @@
+import type { App, HttpModule } from '@zeltjs/core';
 import { createApp } from '@zeltjs/core';
+import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -6,7 +8,7 @@ import { authMiddleware } from '../src/auth.middleware';
 import { GuardsController } from '../src/guards.controller';
 
 describe('Guards (Authorization)', () => {
-  let testApp: Awaited<ReturnType<typeof onTest>>;
+  let testApp: TestableApp<App<[HttpModule]>>;
 
   beforeAll(async () => {
     const app = createApp({

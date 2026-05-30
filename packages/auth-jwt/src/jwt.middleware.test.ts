@@ -13,7 +13,7 @@ class TestJwtConfig extends JwtConfig {
 
   override get resolveUser() {
     return async (payload: JwtPayload) => ({
-      user: payload.sub,
+      user: { sub: payload.sub },
       roles: ['user', 'admin'] as string[],
     });
   }
@@ -141,7 +141,7 @@ describe('JwtMiddleware — setUser integration', () => {
     });
 
     expect(res.status).toBe(200);
-    expect(capturedUser).toBe('user-42');
+    expect(capturedUser).toEqual({ sub: 'user-42' });
     expect(capturedRoles).toEqual(['user', 'admin']);
     await shutdown();
   });
@@ -163,7 +163,7 @@ describe('JwtMiddleware — cookie driver', () => {
 
     override get resolveUser() {
       return async (payload: JwtPayload) => ({
-        user: payload.sub,
+        user: { sub: payload.sub },
         roles: ['user'] as string[],
       });
     }
@@ -259,7 +259,7 @@ describe('JwtMiddleware — cookie driver', () => {
     });
 
     expect(res.status).toBe(200);
-    expect(capturedUser).toBe('cookie-user-99');
+    expect(capturedUser).toEqual({ sub: 'cookie-user-99' });
     await shutdown();
   });
 });

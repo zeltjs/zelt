@@ -1,5 +1,6 @@
-import type { FunctionMiddleware, Next, RequestContext } from '@zeltjs/core';
+import type { App, FunctionMiddleware, HttpModule, Next, RequestContext } from '@zeltjs/core';
 import { Controller, createApp, Get, Middleware, Post, UseMiddleware } from '@zeltjs/core';
+import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -42,7 +43,7 @@ class TestController {
 }
 
 describe('Middleware (class)', () => {
-  let testApp: Awaited<ReturnType<typeof onTest>>;
+  let testApp: TestableApp<App<[HttpModule]>>;
 
   afterEach(async () => {
     await shutdownAll();
