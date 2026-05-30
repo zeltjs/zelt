@@ -11,7 +11,7 @@ export type ReadyOptions = {
 };
 
 export type ReadyResult = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => T;
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
 };
 
 type AppRuntimeState = 'idle' | 'starting' | 'ready' | 'disposed';
@@ -77,11 +77,13 @@ export class AppRuntime {
   /** @throws {ZeltLifecycleStateError} */
   private buildReadyResult(): ReadyResult {
     return {
-      get: <T extends object>(cls: new (...args: never[]) => T): T => {
+      get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => {
         if (this.state === 'disposed') {
           throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });
         }
-        return resolve(this.container, cls);
+        const instance = resolve(this.container, cls);
+        await this.lifecycleManager.startupPending();
+        return instance;
       },
     };
   }

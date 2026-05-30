@@ -43,7 +43,7 @@ describe('createApp for testing', () => {
     const { get } = await app.ready();
 
     expect(events).toEqual(['config:constructor', 'config:startup']);
-    expect(get(TestService).getValue()).toBe('test-value');
+    expect((await get(TestService)).getValue()).toBe('test-value');
 
     await app.shutdown();
     expect(events).toEqual(['config:constructor', 'config:startup', 'config:shutdown']);
@@ -84,6 +84,6 @@ describe('createApp for testing', () => {
 
     await app.shutdown();
 
-    expect(() => get(SomeService)).toThrow(/Cannot get\(\) after shutdown\(\)/);
+    await expect(get(SomeService)).rejects.toThrow(/Cannot get\(\) after shutdown\(\)/);
   });
 });

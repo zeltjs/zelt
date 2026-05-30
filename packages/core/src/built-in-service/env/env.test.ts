@@ -19,7 +19,7 @@ let app: App;
 const setupEnv = async () => {
   app = createApp({ configs: [TestEnvSource] });
   const { get } = await app.ready();
-  env = get(Env);
+  env = await get(Env);
 };
 
 describe('Env', () => {

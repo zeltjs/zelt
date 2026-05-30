@@ -164,7 +164,7 @@ export async function onBun(
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
   const resolver = await app.ready(readyOptions);
 
-  const cliConfig = resolver.get(BunCliConfig);
+  const cliConfig = await resolver.get(BunCliConfig);
 
   let shuttingDown = false;
   const detachSignals = (): void => {

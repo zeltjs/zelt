@@ -210,7 +210,7 @@ export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
   const resolver = await app.ready(readyOptions);
 
-  const cliConfig = resolver.get(NodeCliConfig);
+  const cliConfig = await resolver.get(NodeCliConfig);
 
   let shuttingDown = false;
   const detachSignals = (): void => {

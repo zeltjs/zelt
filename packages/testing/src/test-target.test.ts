@@ -83,7 +83,7 @@ describe('createTestTarget', () => {
 
     expect(target.name).toBe('A');
 
-    const serviceB = get(ServiceB);
+    const serviceB = await get(ServiceB);
     expect(serviceB.name).toBe('B');
   });
 

@@ -39,34 +39,34 @@ describe('config token', () => {
     it('returns base default when nothing is configured', async () => {
       const app = createApp({});
       const { get } = await app.ready();
-      expect(get(BaseConfig).value).toBe('base-default');
+      expect((await get(BaseConfig)).value).toBe('base-default');
     });
 
     it('fallback wins over base default', async () => {
       const app = createApp({});
       app.addFallbackConfig(FallbackConfig);
       const { get } = await app.ready();
-      expect(get(BaseConfig).value).toBe('fallback');
+      expect((await get(BaseConfig)).value).toBe('fallback');
     });
 
     it('configs wins over fallback', async () => {
       const app = createApp({ configs: [UserConfig] });
       app.addFallbackConfig(FallbackConfig);
       const { get } = await app.ready();
-      expect(get(BaseConfig).value).toBe('user-config');
+      expect((await get(BaseConfig)).value).toBe('user-config');
     });
 
     it('configs wins over base default', async () => {
       const app = createApp({ configs: [UserConfig] });
       const { get } = await app.ready();
-      expect(get(BaseConfig).value).toBe('user-config');
+      expect((await get(BaseConfig)).value).toBe('user-config');
     });
 
     it('override wins over configs', async () => {
       const app = createApp({ configs: [UserConfig] });
       app.overrideConfig(OverrideConfig);
       const { get } = await app.ready();
-      expect(get(BaseConfig).value).toBe('override');
+      expect((await get(BaseConfig)).value).toBe('override');
     });
 
     it('override wins over fallback', async () => {
@@ -74,7 +74,7 @@ describe('config token', () => {
       app.addFallbackConfig(FallbackConfig);
       app.overrideConfig(OverrideConfig);
       const { get } = await app.ready();
-      expect(get(BaseConfig).value).toBe('override');
+      expect((await get(BaseConfig)).value).toBe('override');
     });
 
     it('override wins over all (configs + fallback + base)', async () => {
@@ -82,14 +82,14 @@ describe('config token', () => {
       app.addFallbackConfig(FallbackConfig);
       app.overrideConfig(OverrideConfig);
       const { get } = await app.ready();
-      expect(get(BaseConfig).value).toBe('override');
+      expect((await get(BaseConfig)).value).toBe('override');
     });
 
     it('explicit base in configs prevents fallback', async () => {
       const app = createApp({ configs: [BaseConfig] });
       app.addFallbackConfig(FallbackConfig);
       const { get } = await app.ready();
-      expect(get(BaseConfig).value).toBe('base-default');
+      expect((await get(BaseConfig)).value).toBe('base-default');
     });
   });
 
@@ -104,7 +104,7 @@ describe('config token', () => {
 
       const app = createApp({});
       const { get } = await app.ready();
-      expect(get(ImplicitConfig).value).toBe('implicit');
+      expect((await get(ImplicitConfig)).value).toBe('implicit');
     });
   });
 
@@ -140,8 +140,8 @@ describe('config token', () => {
       app.addFallbackConfig(FallbackCacheConfig);
       const { get } = await app.ready();
 
-      expect(get(DbConfig).url).toBe('db://user');
-      expect(get(CacheConfig).url).toBe('cache://fallback');
+      expect((await get(DbConfig)).url).toBe('db://user');
+      expect((await get(CacheConfig)).url).toBe('cache://fallback');
     });
   });
 });

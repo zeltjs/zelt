@@ -173,7 +173,7 @@ describe('onNode with HTTP', () => {
     });
     nodeApp = await onNode(app);
 
-    const env = nodeApp.get(EnvAdaptor);
+    const env = await nodeApp.get(EnvAdaptor);
     expect(env.get).toBeTypeOf('function');
   });
 });

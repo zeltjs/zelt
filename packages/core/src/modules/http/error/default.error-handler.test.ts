@@ -28,11 +28,11 @@ const setupHandlers = async () => {
 
   const prodApp = createApp({ configs: [ProdEnvAdaptor] });
   const { get: prodGet } = await prodApp.ready();
-  handler = prodGet(DefaultErrorHandler);
+  handler = await prodGet(DefaultErrorHandler);
 
   const devApp = createApp({ configs: [DevEnvAdaptor] });
   const { get: devGet } = await devApp.ready();
-  devHandler = devGet(DefaultErrorHandler);
+  devHandler = await devGet(DefaultErrorHandler);
 };
 
 const dummyContext = {} as Parameters<DefaultErrorHandler['onError']>[1];

@@ -22,44 +22,44 @@ describe('Injector', () => {
   });
 
   describe('constructor injection', () => {
-    it('resolves a leaf service with no dependencies', () => {
-      const leaf = testApp.get(LeafService);
+    it('resolves a leaf service with no dependencies', async () => {
+      const leaf = await testApp.get(LeafService);
       expect(leaf.value()).toBe('leaf');
     });
 
-    it('resolves a service whose constructor depends on another service', () => {
-      const middle = testApp.get(MiddleService);
+    it('resolves a service whose constructor depends on another service', async () => {
+      const middle = await testApp.get(MiddleService);
       expect(middle.compose()).toBe('middle(leaf)');
     });
 
-    it('resolves multi-level dependency chains', () => {
-      const root = testApp.get(RootService);
+    it('resolves multi-level dependency chains', async () => {
+      const root = await testApp.get(RootService);
       expect(root.compose()).toBe('root(middle(leaf),leaf)');
     });
 
-    it('injects the same shared dependency into multiple constructor params', () => {
-      const root = testApp.get(RootService);
+    it('injects the same shared dependency into multiple constructor params', async () => {
+      const root = await testApp.get(RootService);
       expect(root.leaf).toBe(root.middle.leaf);
     });
   });
 
   describe('singleton scope', () => {
-    it('returns the same instance for every get() call', () => {
-      const a = testApp.get(LeafService);
-      const b = testApp.get(LeafService);
+    it('returns the same instance for every get() call', async () => {
+      const a = await testApp.get(LeafService);
+      const b = await testApp.get(LeafService);
       expect(a).toBe(b);
     });
 
-    it('shares one instance across different consumer services', () => {
-      const root = testApp.get(RootService);
-      const middle = testApp.get(MiddleService);
-      const leaf = testApp.get(LeafService);
+    it('shares one instance across different consumer services', async () => {
+      const root = await testApp.get(RootService);
+      const middle = await testApp.get(MiddleService);
+      const leaf = await testApp.get(LeafService);
       expect(root.leaf).toBe(leaf);
       expect(middle.leaf).toBe(leaf);
     });
 
     it('shares one instance across controllers via HTTP requests', async () => {
-      const before = testApp.get(CounterService).value();
+      const before = (await testApp.get(CounterService)).value();
 
       const res1 = await testApp.request('/counter-a/inc');
       expect(res1.status).toBe(200);
@@ -87,20 +87,20 @@ describe('Injector', () => {
   });
 
   describe('Config (leaf) injection', () => {
-    it('resolves a @Config() class via testApp.get', () => {
-      const config = testApp.get(AppConfig);
+    it('resolves a @Config() class via testApp.get', async () => {
+      const config = await testApp.get(AppConfig);
       expect(config.appName).toBe('injector-test');
       expect(config.version).toBe(1);
     });
 
-    it('returns the same Config instance on every resolve', () => {
-      expect(testApp.get(AppConfig)).toBe(testApp.get(AppConfig));
+    it('returns the same Config instance on every resolve', async () => {
+      expect(await testApp.get(AppConfig)).toBe(await testApp.get(AppConfig));
     });
 
-    it('injects @Config() into a service constructor', () => {
-      const consumer = testApp.get(ConfigConsumerService);
+    it('injects @Config() into a service constructor', async () => {
+      const consumer = await testApp.get(ConfigConsumerService);
       expect(consumer.describe()).toBe('injector-test@1');
-      expect(consumer.config).toBe(testApp.get(AppConfig));
+      expect(consumer.config).toBe(await testApp.get(AppConfig));
     });
 
     it('exposes injected Config through a controller endpoint', async () => {
@@ -112,19 +112,17 @@ describe('Injector', () => {
   });
 
   describe('class inheritance', () => {
-    it('resolves a subclass instance via testApp.get(SubClass)', () => {
-      const ext = testApp.get(ExtendedService);
+    it('resolves a subclass instance via testApp.get(SubClass)', async () => {
+      const ext = await testApp.get(ExtendedService);
       expect(ext).toBeInstanceOf(ExtendedService);
       expect(ext).toBeInstanceOf(BaseService);
       expect(ext.kind()).toBe('extended');
       expect(ext.bonus()).toBe('bonus');
     });
 
-    it('exposes the same instance for the subclass and its base when only the subclass is bound', () => {
-      // needle-di pollutes the base class token when a subclass is resolved,
-      // so inject(BaseService) yields the previously resolved ExtendedService instance.
-      const ext = testApp.get(ExtendedService);
-      const base = testApp.get(BaseService);
+    it('exposes the same instance for the subclass and its base when only the subclass is bound', async () => {
+      const ext = await testApp.get(ExtendedService);
+      const base = await testApp.get(BaseService);
       expect(base).toBe(ext);
       expect(base.kind()).toBe('extended');
     });
