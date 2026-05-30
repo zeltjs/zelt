@@ -21,7 +21,7 @@
     "test": "vitest run",
     "test:integration": "./integration/scripts/run-tests.sh dist",
     "typecheck": "tsc -b",
-    "precommit": "pnpx lint-staged && pnpm typecheck && pnpm lint:cycle && pnpm build && pnpm --filter '@examples/*' typecheck && pnpm --filter website verify:docs && pnpm verify-dist && pnpm check:no-neverthrow-leak && pnpm throw-trace && pnpm test && npx precommit-verify save",
+    "precommit": "./scripts/format-staged.sh && pnpx lint-staged && pnpm typecheck && pnpm lint:cycle && pnpm build && pnpm --filter '@examples/*' typecheck && pnpm --filter website verify:docs && pnpm verify-dist && pnpm check:no-neverthrow-leak && pnpm throw-trace && pnpm test && npx precommit-verify save",
     "prepare": "pnpx lefthook install",
     "codepolicy:diff": "time codepolicy --filter=diff 2>&1 | tee codepolicy.diff.log",
     "throw-trace": "throw-trace check --exclude '**/*.test.ts' packages",
@@ -60,7 +60,6 @@
     "npm": "11.14.1"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,json}": "biome check --write --unsafe",
     "*.{ts,tsx,js,jsx}": [
       "eslint --fix",
       "oxlint --fix"
