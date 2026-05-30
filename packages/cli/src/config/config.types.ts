@@ -1,4 +1,4 @@
-import type { App, CreateAppOptions } from '@zeltjs/core';
+import type { App } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const BuildConfigSchema = v.object({
@@ -39,7 +39,7 @@ export type ZeltPlugin = {
 export type BuildContext = {
   readonly cwd: string;
   readonly config: ZeltConfig;
-  readonly app: App<CreateAppOptions>;
+  readonly app: App;
 };
 
 export type BuildResult = {

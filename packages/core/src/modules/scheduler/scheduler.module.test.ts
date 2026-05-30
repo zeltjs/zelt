@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { App } from '../../app';
 import { createApp } from '../../app';
+import type { HttpModule } from '../http/http.module';
 import { Cron } from './schedule/cron.decorator';
 import { Scheduled } from './schedule/scheduled.decorator';
-import type { SchedulerClass } from './scheduler.types';
+import type { SchedulerModule } from './scheduler.module';
 
 describe('createApp with schedulers', () => {
-  let app: App<{ http: { controllers: [] }; schedulers: SchedulerClass[] }> | undefined;
+  let app: App<[HttpModule, SchedulerModule]> | undefined;
 
   afterEach(async () => {
     if (app) {

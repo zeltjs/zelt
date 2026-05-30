@@ -10,6 +10,7 @@ export type HttpCapabilities = {
   readonly getMetadata: () => HttpMetadata;
 };
 
+export type HttpModule = typeof HttpModule;
 export const HttpModule: Module<'http', HttpOptions, HttpCapabilities> = {
   key: 'http',
   bind: (container, config) => {

@@ -8,7 +8,7 @@ import type { Lifecycle } from '../../kernel';
 import { LifecycleManager } from '../../kernel';
 import { inject } from '../../kernel/di';
 import { ErrorHandler } from './error/error-handler.decorator';
-import type { ControllerClass } from './http.types';
+import type { HttpModule } from './http.module';
 import { Middleware } from './middleware/middleware.decorator';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
@@ -553,8 +553,7 @@ describe('errorHandlers', () => {
 });
 
 describe('createApp 2-phase initialization', () => {
-  type TestAppOptions = { http: { controllers: ControllerClass[] } };
-  let app: App<TestAppOptions> | undefined;
+  let app: App<[HttpModule]> | undefined;
 
   afterEach(async () => {
     if (app) {
