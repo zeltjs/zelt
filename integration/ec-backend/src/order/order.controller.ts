@@ -1,28 +1,27 @@
+import { JwtMiddleware } from '@zeltjs/auth-jwt';
 import {
   Authorized,
   Controller,
   Get,
-  Post,
-  UseMiddleware,
   inject,
+  Post,
   pathParam,
   queryParam,
   response,
+  UseMiddleware,
 } from '@zeltjs/core';
-import { JwtMiddleware } from '@zeltjs/auth-jwt';
 import { HTTPException } from 'hono/http-exception';
 
 import { requireUser } from '../auth/current-user.lib';
-import { OrderService } from './order.service';
 import { OrderHandlers } from './order.handlers';
+import { OrderService } from './order.service';
 
 @UseMiddleware(JwtMiddleware)
 @Controller('/api/orders')
 export class OrderController {
   constructor(
     private readonly orderService = inject(OrderService),
-    // OrderHandlers is not a controller, so we inject it here to ensure DI resolves it
-    private readonly _handlers = inject(OrderHandlers),
+    readonly _handlers = inject(OrderHandlers),
   ) {}
 
   @Authorized()
@@ -35,10 +34,7 @@ export class OrderController {
 
   @Authorized()
   @Get('/')
-  async list(
-    pageStr = queryParam('page'),
-    limitStr = queryParam('limit'),
-  ) {
+  async list(pageStr = queryParam('page'), limitStr = queryParam('limit')) {
     const user = requireUser();
     const page = Math.max(1, parseInt(pageStr ?? '1', 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(limitStr ?? '20', 10) || 20));

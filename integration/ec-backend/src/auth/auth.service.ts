@@ -1,10 +1,9 @@
-import { scrypt, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-
-import { Injectable, inject } from '@zeltjs/core';
 import { JwtService } from '@zeltjs/auth-jwt';
-import { HTTPException } from 'hono/http-exception';
+import { Injectable, inject } from '@zeltjs/core';
 import { eq } from 'drizzle-orm';
+import { HTTPException } from 'hono/http-exception';
 
 import { DrizzleService } from '../db/drizzle.service';
 import { users } from '../db/schema';
@@ -33,11 +32,7 @@ export class AuthService {
   ) {}
 
   async register(data: RegisterInput): Promise<{ id: number; email: string; name: string }> {
-    const existing = this.drizzle.db
-      .select()
-      .from(users)
-      .where(eq(users.email, data.email))
-      .get();
+    const existing = this.drizzle.db.select().from(users).where(eq(users.email, data.email)).get();
 
     if (existing) {
       throw new HTTPException(409, { message: 'Email already exists' });
@@ -79,7 +74,9 @@ export class AuthService {
     return { token };
   }
 
-  async getProfile(userId: number): Promise<{ id: number; email: string; name: string; role: string } | undefined> {
+  async getProfile(
+    userId: number,
+  ): Promise<{ id: number; email: string; name: string; role: string } | undefined> {
     const user = this.drizzle.db.select().from(users).where(eq(users.id, userId)).get();
     if (!user) return undefined;
     return { id: user.id, email: user.email, name: user.name, role: user.role };

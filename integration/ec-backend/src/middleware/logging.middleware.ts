@@ -1,6 +1,5 @@
 import type { Next, RequestContext } from '@zeltjs/core';
-import { inject, Middleware } from '@zeltjs/core';
-import { LoggerService } from '@zeltjs/core';
+import { inject, LoggerService, Middleware } from '@zeltjs/core';
 
 @Middleware
 export class LoggingMiddleware {

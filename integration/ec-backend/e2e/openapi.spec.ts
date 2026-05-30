@@ -31,9 +31,7 @@ describe('OpenAPI generation', () => {
       schemaResolver,
     });
 
-    const doc = JSON.parse(
-      await readFile(join(dist, 'openapi.json'), 'utf8'),
-    ) as OpenApiDoc;
+    const doc = JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as OpenApiDoc;
 
     expect(doc.info.title).toBe('EC Backend API');
     expect(doc.info.version).toBe('1.0.0');
@@ -64,11 +62,12 @@ describe('OpenAPI generation', () => {
       schemaResolver,
     });
 
-    const doc = JSON.parse(
-      await readFile(join(dist, 'openapi.json'), 'utf8'),
-    ) as OpenApiDoc;
+    const doc = JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as OpenApiDoc;
 
-    const registerPath = doc.paths['/api/auth/register'] as Record<string, { requestBody?: unknown }>;
+    const registerPath = doc.paths['/api/auth/register'] as Record<
+      string,
+      { requestBody?: unknown }
+    >;
     expect(registerPath?.post?.requestBody).toBeDefined();
 
     const productPath = doc.paths['/api/products'] as Record<string, { requestBody?: unknown }>;

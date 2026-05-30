@@ -1,10 +1,20 @@
-import { Authorized, Controller, Delete, Get, Post, Put, UseMiddleware, inject, pathParam } from '@zeltjs/core';
 import { JwtMiddleware } from '@zeltjs/auth-jwt';
+import {
+  Authorized,
+  Controller,
+  Delete,
+  Get,
+  inject,
+  Post,
+  Put,
+  pathParam,
+  UseMiddleware,
+} from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
 
 import { requireUser } from '../auth/current-user.lib';
-import { CartService } from './cart.service';
 import { AddToCartSchema, UpdateCartItemSchema } from './cart.schema';
+import { CartService } from './cart.service';
 
 @UseMiddleware(JwtMiddleware)
 @Controller('/api/cart')
@@ -30,10 +40,7 @@ export class CartController {
 
   @Authorized()
   @Put('/items/:productId')
-  async updateItem(
-    productIdStr = pathParam('productId'),
-    data = validated(UpdateCartItemSchema),
-  ) {
+  async updateItem(productIdStr = pathParam('productId'), data = validated(UpdateCartItemSchema)) {
     const user = requireUser();
     const productId = parseInt(productIdStr, 10);
     const cart = await this.cartService.updateQuantity(user.id, productId, data.quantity);

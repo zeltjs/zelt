@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@zeltjs/core';
-import { MemoryKVAdaptor } from '@zeltjs/kv';
 import type { KVStore } from '@zeltjs/kv';
+import { MemoryKVAdaptor } from '@zeltjs/kv';
 import { HTTPException } from 'hono/http-exception';
 
 import { ProductService } from '../product/product.service';
@@ -56,10 +56,7 @@ export class CartService {
         i === existingIndex ? { ...item, quantity: newQuantity } : item,
       ) as CartItem[];
     } else {
-      updatedItems = [
-        ...cart.items,
-        { productId, quantity, price: product.price },
-      ] as CartItem[];
+      updatedItems = [...cart.items, { productId, quantity, price: product.price }] as CartItem[];
     }
 
     const updated: CartData = { items: updatedItems };
@@ -97,9 +94,7 @@ export class CartService {
 
   async removeItem(userId: number, productId: number): Promise<CartData> {
     const cart = await this.getCart(userId);
-    const updatedItems = cart.items.filter(
-      (item) => item.productId !== productId,
-    ) as CartItem[];
+    const updatedItems = cart.items.filter((item) => item.productId !== productId) as CartItem[];
 
     const updated: CartData = { items: updatedItems };
     if (updatedItems.length === 0) {

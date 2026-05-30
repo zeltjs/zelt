@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
+import type { TestApp } from './helpers/test-setup';
 import {
-  type TestApp,
   authRequest,
   createTestApp,
   loginUser,
@@ -108,13 +107,9 @@ describe('Cart API', () => {
 
   describe('PUT /api/cart/items/:productId', () => {
     it('updates item quantity', async () => {
-      const res = await authRequest(
-        testApp,
-        userToken,
-        'PUT',
-        `/api/cart/items/${productId}`,
-        { quantity: 1 },
-      );
+      const res = await authRequest(testApp, userToken, 'PUT', `/api/cart/items/${productId}`, {
+        quantity: 1,
+      });
       expect(res.status).toBe(200);
 
       const body = await res.json();
@@ -122,13 +117,9 @@ describe('Cart API', () => {
     });
 
     it('removes item when quantity is 0', async () => {
-      const res = await authRequest(
-        testApp,
-        userToken,
-        'PUT',
-        `/api/cart/items/${productId}`,
-        { quantity: 0 },
-      );
+      const res = await authRequest(testApp, userToken, 'PUT', `/api/cart/items/${productId}`, {
+        quantity: 0,
+      });
       expect(res.status).toBe(200);
 
       const body = await res.json();
@@ -143,12 +134,7 @@ describe('Cart API', () => {
         quantity: 3,
       });
 
-      const res = await authRequest(
-        testApp,
-        userToken,
-        'DELETE',
-        `/api/cart/items/${productId}`,
-      );
+      const res = await authRequest(testApp, userToken, 'DELETE', `/api/cart/items/${productId}`);
       expect(res.status).toBe(200);
 
       const body = await res.json();

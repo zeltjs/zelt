@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
+import type { TestApp } from './helpers/test-setup';
 import {
-  type TestApp,
   authRequest,
   createTestApp,
   loginUser,

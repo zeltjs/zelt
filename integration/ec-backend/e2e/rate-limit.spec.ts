@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
-import { type TestApp, createTestApp, shutdownAll } from './helpers/test-setup';
+import type { TestApp } from './helpers/test-setup';
+import { createTestApp, shutdownAll } from './helpers/test-setup';
 
 describe('Rate Limit', () => {
   let testApp: TestApp;

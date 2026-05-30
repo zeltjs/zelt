@@ -1,22 +1,21 @@
+import { JwtMiddleware } from '@zeltjs/auth-jwt';
 import {
   Authorized,
   Controller,
   Delete,
   Get,
+  inject,
   Post,
   Put,
-  UseMiddleware,
-  inject,
   pathParam,
   queryParam,
   response,
+  UseMiddleware,
 } from '@zeltjs/core';
-import { JwtMiddleware } from '@zeltjs/auth-jwt';
-import { HTTPException } from 'hono/http-exception';
 import { validated } from '@zeltjs/validator-valibot';
-
-import { ProductService } from './product.service';
+import { HTTPException } from 'hono/http-exception';
 import { CreateProductSchema, UpdateProductSchema } from './product.schema';
+import { ProductService } from './product.service';
 
 @Controller('/api/products')
 export class ProductController {

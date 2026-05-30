@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
+import type { TestApp } from './helpers/test-setup';
 import {
-  type TestApp,
   authRequest,
   createTestApp,
   loginUser,
@@ -179,7 +178,13 @@ describe('Auth API', () => {
     });
 
     it('admin can update products', async () => {
-      const createRes = await authRequest(authApp, adminToken, 'POST', '/api/products', productData);
+      const createRes = await authRequest(
+        authApp,
+        adminToken,
+        'POST',
+        '/api/products',
+        productData,
+      );
       const created = await createRes.json();
 
       const res = await authRequest(authApp, adminToken, 'PUT', `/api/products/${created.id}`, {
@@ -189,7 +194,13 @@ describe('Auth API', () => {
     });
 
     it('admin can delete products', async () => {
-      const createRes = await authRequest(authApp, adminToken, 'POST', '/api/products', productData);
+      const createRes = await authRequest(
+        authApp,
+        adminToken,
+        'POST',
+        '/api/products',
+        productData,
+      );
       const created = await createRes.json();
 
       const res = await authRequest(authApp, adminToken, 'DELETE', `/api/products/${created.id}`);
@@ -197,7 +208,13 @@ describe('Auth API', () => {
     });
 
     it('regular user cannot delete products', async () => {
-      const createRes = await authRequest(authApp, adminToken, 'POST', '/api/products', productData);
+      const createRes = await authRequest(
+        authApp,
+        adminToken,
+        'POST',
+        '/api/products',
+        productData,
+      );
       const created = await createRes.json();
 
       const res = await authRequest(authApp, userToken, 'DELETE', `/api/products/${created.id}`);

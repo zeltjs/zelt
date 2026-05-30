@@ -1,12 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
-import {
-  type TestApp,
-  authRequest,
-  createTestApp,
-  seedAdmin,
-  shutdownAll,
-} from './helpers/test-setup';
+import type { TestApp } from './helpers/test-setup';
+import { authRequest, createTestApp, seedAdmin, shutdownAll } from './helpers/test-setup';
 
 describe('Product API', () => {
   let testApp: TestApp;
@@ -117,13 +111,10 @@ describe('Product API', () => {
       });
       const created = await createRes.json();
 
-      const res = await authRequest(
-        testApp,
-        adminToken,
-        'PUT',
-        `/api/products/${created.id}`,
-        { name: 'After Update', price: 1500 },
-      );
+      const res = await authRequest(testApp, adminToken, 'PUT', `/api/products/${created.id}`, {
+        name: 'After Update',
+        price: 1500,
+      });
       expect(res.status).toBe(200);
 
       const updated = await res.json();
@@ -133,13 +124,9 @@ describe('Product API', () => {
     });
 
     it('returns 404 for non-existent product', async () => {
-      const res = await authRequest(
-        testApp,
-        adminToken,
-        'PUT',
-        '/api/products/99999',
-        { name: 'Ghost' },
-      );
+      const res = await authRequest(testApp, adminToken, 'PUT', '/api/products/99999', {
+        name: 'Ghost',
+      });
       expect(res.status).toBe(404);
     });
   });
@@ -168,12 +155,7 @@ describe('Product API', () => {
     });
 
     it('returns 404 for non-existent product', async () => {
-      const res = await authRequest(
-        testApp,
-        adminToken,
-        'DELETE',
-        '/api/products/99999',
-      );
+      const res = await authRequest(testApp, adminToken, 'DELETE', '/api/products/99999');
       expect(res.status).toBe(404);
     });
   });

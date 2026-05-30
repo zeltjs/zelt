@@ -1,12 +1,11 @@
 import { Injectable, inject } from '@zeltjs/core';
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus';
-import { HTTPException } from 'hono/http-exception';
 import { eq, sql } from 'drizzle-orm';
-
-import { DrizzleService } from '../db/drizzle.service';
-import { orders, orderItems, products } from '../db/schema';
-import type { Order } from '../db/schema';
+import { HTTPException } from 'hono/http-exception';
 import { CartService } from '../cart/cart.service';
+import { DrizzleService } from '../db/drizzle.service';
+import type { Order } from '../db/schema';
+import { orderItems, orders, products } from '../db/schema';
 import './order.events';
 
 @Injectable()
@@ -23,18 +22,11 @@ export class OrderService {
       throw new HTTPException(400, { message: 'Cart is empty' });
     }
 
-    const totalPrice = cart.items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
+    const totalPrice = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     const order = this.drizzle.db.transaction((tx) => {
       for (const item of cart.items) {
-        const product = tx
-          .select()
-          .from(products)
-          .where(eq(products.id, item.productId))
-          .get();
+        const product = tx.select().from(products).where(eq(products.id, item.productId)).get();
 
         if (!product || product.stock < item.quantity) {
           throw new HTTPException(409, {
@@ -110,21 +102,13 @@ export class OrderService {
   }
 
   async findById(orderId: number, userId: number): Promise<Order | undefined> {
-    const order = this.drizzle.db
-      .select()
-      .from(orders)
-      .where(eq(orders.id, orderId))
-      .get();
+    const order = this.drizzle.db.select().from(orders).where(eq(orders.id, orderId)).get();
 
     if (!order || order.userId !== userId) return undefined;
     return order;
   }
 
   async getOrderItems(orderId: number) {
-    return this.drizzle.db
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, orderId))
-      .all();
+    return this.drizzle.db.select().from(orderItems).where(eq(orderItems.orderId, orderId)).all();
   }
 }

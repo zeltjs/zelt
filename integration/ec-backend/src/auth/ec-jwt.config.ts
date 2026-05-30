@@ -1,6 +1,6 @@
-import { Config } from '@zeltjs/core';
-import type { ResolveUserResult, JwtPayload } from '@zeltjs/auth-jwt';
+import type { JwtPayload, ResolveUserResult } from '@zeltjs/auth-jwt';
 import { JwtConfig } from '@zeltjs/auth-jwt';
+import { Config } from '@zeltjs/core';
 
 import type { EcUser } from './current-user.lib';
 

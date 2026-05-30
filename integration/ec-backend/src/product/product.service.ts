@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@zeltjs/core';
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, sql } from 'drizzle-orm';
 
 import { DrizzleService } from '../db/drizzle.service';
+import type { NewProduct, Product } from '../db/schema';
 import { products } from '../db/schema';
-import type { Product, NewProduct } from '../db/schema';
 import type { CreateProductInput, UpdateProductInput } from './product.schema';
 
 @Injectable()
@@ -38,20 +38,14 @@ export class ProductService {
         .where(where)
         .limit(opts.limit)
         .offset((opts.page - 1) * opts.limit),
-      this.drizzle.db
-        .select({ count: sql<number>`count(*)` })
-        .from(products)
-        .where(where),
+      this.drizzle.db.select({ count: sql<number>`count(*)` }).from(products).where(where),
     ]);
 
     return { items, total: countResult[0]?.count ?? 0 };
   }
 
   async findById(id: number): Promise<Product | undefined> {
-    const result = await this.drizzle.db
-      .select()
-      .from(products)
-      .where(eq(products.id, id));
+    const result = await this.drizzle.db.select().from(products).where(eq(products.id, id));
     return result[0];
   }
 

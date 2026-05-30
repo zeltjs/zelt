@@ -23,10 +23,7 @@ export const registerUser = async (
   return { res, body: await res.json() };
 };
 
-export const loginUser = async (
-  app: TestApp,
-  data: { email: string; password: string },
-) => {
+export const loginUser = async (app: TestApp, data: { email: string; password: string }) => {
   const res = await app.request('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -43,9 +40,7 @@ export const seedAdmin = async (app: TestApp): Promise<string> => {
   });
 
   // Directly update role via drizzle
-  const drizzle = app.get(
-    (await import('../../src/db/drizzle.service')).DrizzleService,
-  );
+  const drizzle = app.get((await import('../../src/db/drizzle.service')).DrizzleService);
   const { users } = await import('../../src/db/schema');
   const { eq } = await import('drizzle-orm');
   drizzle.db.update(users).set({ role: 'admin' }).where(eq(users.email, 'admin@example.com')).run();
