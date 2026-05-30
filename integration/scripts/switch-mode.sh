@@ -263,7 +263,7 @@ merge_extra_deps() {
     const fs = require("fs");
     const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
     const extra = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-    for (const field of ["dependencies", "devDependencies"]) {
+    for (const field of ["dependencies", "devDependencies", "scripts"]) {
       if (extra[field]) {
         pkg[field] = { ...(pkg[field] || {}), ...extra[field] };
       }
