@@ -14,7 +14,7 @@ export type { Signal, SignalHandler } from './built-in-service/cli';
 export { CliConfig } from './built-in-service/cli';
 export type { ConfigClass } from './built-in-service/config';
 export { Config, overrideConfig } from './built-in-service/config';
-export { Env, EnvAdaptor, EnvConfig, EnvService } from './built-in-service/env';
+export { Env, EnvAdaptor } from './built-in-service/env';
 export type {
   LogContext,
   LogEntry,

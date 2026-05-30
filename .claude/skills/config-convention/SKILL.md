@@ -1,6 +1,6 @@
 ---
 name: config-convention
-description: Use when creating @Config classes for DI configuration. Required pattern for EnvConfig, LoggerConfig, JwtConfig, etc.
+description: Use when creating @Config classes for DI configuration. Required pattern for EnvAdaptor, LoggerConfig, JwtConfig, etc.
 ---
 
 # @Config Convention
@@ -34,12 +34,7 @@ export class XxxConfig {
 
 ```typescript
 @Config
-class MyEnvConfig extends EnvConfig {
-  constructor() {
-    super();
-    // initialization logic (e.g., dotenv loading)
-  }
-
+class MyEnvAdaptor extends EnvAdaptor {
   override get(key: string): string | undefined {
     // custom implementation
   }
@@ -48,7 +43,7 @@ class MyEnvConfig extends EnvConfig {
 // Usage
 createApp({
   controllers,
-  configs: [MyEnvConfig],
+  configs: [MyEnvAdaptor],
 })
 ```
 

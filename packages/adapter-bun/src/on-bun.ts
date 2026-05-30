@@ -1,7 +1,7 @@
 import type { CommandApp, ExecResult, HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
 
 import { BunCliConfig } from './bun-cli.config';
-import { BunEnvConfig } from './bun-env.config';
+import { BunEnvAdaptor } from './bun-env.adaptor';
 
 type ServeOptions = {
   readonly port?: number;
@@ -159,7 +159,7 @@ export async function onBun(
   options: BunAppOptions = {},
 ): Promise<BunApp> {
   app.addFallbackConfig(BunCliConfig);
-  app.addFallbackConfig(BunEnvConfig);
+  app.addFallbackConfig(BunEnvAdaptor);
 
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
   const resolver = await app.ready(readyOptions);

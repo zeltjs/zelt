@@ -1,7 +1,7 @@
-import { Controller, createApp, EnvConfig, Get } from '@zeltjs/core';
+import { Controller, createApp, EnvAdaptor, Get } from '@zeltjs/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import { CloudflareWorkersEnvConfig } from './cloudflare-workers-env.config';
+import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 import { onCloudflareWorkers } from './on-cloudflare-workers';
 
 @Controller('/hello')
@@ -82,26 +82,26 @@ describe('onCloudflareWorkers', () => {
     expect(ctx.waitUntil).toHaveBeenCalled();
   });
 
-  it('adds CloudflareWorkersEnvConfig as fallback', async () => {
+  it('registers CloudflareWorkersEnvAdaptor as fallback', async () => {
     const app = createApp({
       http: { controllers: [HelloController] },
-      configs: [EnvConfig],
+      configs: [EnvAdaptor],
     });
     const addFallbackConfigSpy = vi.spyOn(app, 'addFallbackConfig');
 
     await onCloudflareWorkers(app);
 
-    expect(addFallbackConfigSpy).toHaveBeenCalledWith(CloudflareWorkersEnvConfig);
+    expect(addFallbackConfigSpy).toHaveBeenCalledWith(CloudflareWorkersEnvAdaptor);
   });
 
   it('provides get() to retrieve dependencies from container', async () => {
     const app = createApp({
       http: { controllers: [HelloController] },
-      configs: [EnvConfig],
+      configs: [EnvAdaptor],
     });
     const workersApp = await onCloudflareWorkers(app);
 
-    const env = workersApp.get(EnvConfig);
+    const env = workersApp.get(EnvAdaptor);
     expect(env.get).toBeTypeOf('function');
   });
 });

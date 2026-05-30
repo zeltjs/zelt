@@ -64,7 +64,7 @@ For complete E2E tests with real dependencies, use `onTest()` to apply test conf
 ```typescript
 import { createApp, Controller, Get, Post, pathParam, response } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
-import { onTest, type TestApp } from '@zeltjs/testing/vitest';
+import { onTest } from '@zeltjs/testing/vitest';
 import { RedisConfig } from '@zeltjs/redis';
 import { RedisTestContainerConfig } from '@zeltjs/redis/testing';
 import * as v from 'valibot';
@@ -92,7 +92,7 @@ const app = createApp({
 });
 
 describe('API E2E', () => {
-  let testApp: TestApp;
+  let testApp: Awaited<ReturnType<typeof onTest>>;
   let client: AppType;
 
   beforeAll(async () => {
@@ -102,7 +102,7 @@ describe('API E2E', () => {
     });
     client = hc<AppType>('http://localhost', {
       fetch: (input: RequestInfo | URL, init?: RequestInit) => 
-        testApp.fetch(new Request(input, init)),
+        app.fetch(new Request(input, init)),
     });
   });
 

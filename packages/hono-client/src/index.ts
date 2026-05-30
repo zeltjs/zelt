@@ -16,6 +16,5 @@ export type {
   RouteInfo,
 } from './generator';
 export { GeneratorService } from './generator';
-export { generateHonoAppTypeFromApp } from './legacy.lib';
 export type { HonoClientPluginOptions } from './plugin.lib';
 export { honoClientPlugin } from './plugin.lib';

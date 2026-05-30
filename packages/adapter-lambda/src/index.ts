@@ -1,4 +1,4 @@
-export { LambdaEnvConfig } from './lambda-env.config';
+export { LambdaEnvAdaptor } from './lambda-env.adaptor';
 export {
   type LambdaApp,
   type LambdaAppOptions,

@@ -7,7 +7,7 @@ import type {
   Context,
 } from 'aws-lambda';
 
-import { LambdaEnvConfig } from './lambda-env.config';
+import { LambdaEnvAdaptor } from './lambda-env.adaptor';
 
 export type LambdaAppOptions = {
   readonly warmup?: boolean;
@@ -184,7 +184,7 @@ export const onLambda = async (
   app: HttpApp,
   options: LambdaAppOptions = {},
 ): Promise<LambdaApp> => {
-  app.addFallbackConfig(LambdaEnvConfig);
+  app.addFallbackConfig(LambdaEnvAdaptor);
 
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? false };
   const resolver = await app.ready(readyOptions);

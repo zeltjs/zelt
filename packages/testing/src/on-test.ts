@@ -11,16 +11,6 @@ type OnTestOptions = {
 
 export type TestableApp<T extends App> = T & Pick<ReadyResult, 'get'>;
 
-/** @deprecated Use TestableApp<T> instead */
-export type TestApp = TestableApp<
-  App & { fetch: HttpAppMethods['fetch']; request: HttpAppMethods['request'] }
->;
-
-type HttpAppMethods = {
-  readonly fetch: (request: Request) => Promise<Response>;
-  readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
-};
-
 const applyOverrides = (app: App, configs: readonly AnyConfigClass[]): void => {
   for (const configClass of configs) {
     app.overrideConfig(configClass);

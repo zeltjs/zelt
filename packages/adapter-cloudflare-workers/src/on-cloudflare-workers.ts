@@ -1,6 +1,6 @@
 import type { HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
 
-import { CloudflareWorkersEnvConfig } from './cloudflare-workers-env.config';
+import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 
 export type CloudflareWorkersOptions = {
   readonly warmup?: boolean;
@@ -15,7 +15,7 @@ export const onCloudflareWorkers = async (
   app: HttpApp,
   options: CloudflareWorkersOptions = {},
 ): Promise<CloudflareWorkersApp> => {
-  app.addFallbackConfig(CloudflareWorkersEnvConfig);
+  app.addFallbackConfig(CloudflareWorkersEnvAdaptor);
 
   const readyOptions: ReadyOptions = { warmup: options.warmup ?? false };
   const resolver = await app.ready(readyOptions);

@@ -230,12 +230,10 @@ export default tseslint.config(
   {
     // Env module needs process.env access
     files: [
-      // ProcessEnvSource reads process.env as Node.js environment adapter
+      // EnvAdaptor implementations in adapters read process.env directly
       'packages/adapter-node/src/process-env.adaptor.ts',
-      // EnvConfig implementations in adapters read process.env directly
-      'packages/adapter-node/src/process-env.config.ts',
-      'packages/adapter-electron/src/electron-env.config.ts',
-      'packages/adapter-lambda/src/lambda-env.config.ts',
+      'packages/adapter-electron/src/electron-env.adaptor.ts',
+      'packages/adapter-lambda/src/lambda-env.adaptor.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',

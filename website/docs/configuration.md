@@ -5,11 +5,6 @@
 
 Zelt provides a type-safe configuration system using the `@Config` decorator and `inject()` helper.
 
-:::info Migration Note
-As of version X.X, use `inject(Env)` instead of `inject(EnvConfig)` or `inject(EnvService)`.
-The old classes are deprecated and will be removed in the next major version.
-:::
-
 ## Defining Configuration
 
 Use the `@Config` decorator to define a configuration class. Each config class must have a static `Token` property:

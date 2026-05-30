@@ -7,7 +7,7 @@ import { ZeltSessionConfigError } from './session.errors';
 @Config
 export class SessionConfig {
   constructor(
-    private readonly env = inject(Env),
+    protected readonly env = inject(Env),
     readonly kv: KVAdaptor = inject(MemoryKV),
   ) {}
 
