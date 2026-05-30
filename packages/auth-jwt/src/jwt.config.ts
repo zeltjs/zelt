@@ -38,7 +38,7 @@ export class JwtConfig {
 
   get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {
     return async (payload) => ({
-      user: payload.sub,
+      user: { sub: payload.sub },
       roles: [],
     });
   }

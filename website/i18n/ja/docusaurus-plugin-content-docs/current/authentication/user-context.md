@@ -87,7 +87,7 @@ class ProfileController {
 
 ## Type-Safe User Context
 
-By default, `currentUser()` returns `unknown`. Extend `RequestContextSchema` to get full type safety:
+By default, `currentUser()` returns `Record<string, unknown>`. Extend `RequestContextSchema` via declaration merging to get full type safety:
 
 ```typescript
 // @noErrors
@@ -203,9 +203,16 @@ interface RequestContextSchemaBad {
 Use the user ID to fetch more data in specific handlers:
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+import '@zeltjs/core';
+declare module '@zeltjs/core' {
+  interface RequestContextSchema {
+    user: { id: string };
+  }
+}
 import { Controller, Get, Authorized, Injectable, inject, currentUser } from '@zeltjs/core';
 
-interface User { id: string; }
 type FullUser = { preferences: object };
 
 @Injectable()
@@ -214,6 +221,7 @@ class UserRepository {
     return { preferences: {} };
   }
 }
+// ---cut---
 
 @Controller('/settings')
 class SettingsController {
@@ -222,7 +230,8 @@ class SettingsController {
   @Authorized()
   @Get('/')
   async getSettings() {
-    const user = currentUser() as User;
+    const user = currentUser();
+    if (!user) return;
     const fullUser = await this.userRepo.findById(user.id);
     return { preferences: fullUser.preferences };
   }
@@ -245,12 +254,19 @@ type BadRoles = ('can_edit_posts' | 'can_delete_posts' | 'can_view_analytics')[]
 For fine-grained permissions, check roles in your service layer:
 
 ```typescript
+// @noErrors
+// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+import '@zeltjs/core';
+declare module '@zeltjs/core' {
+  interface RequestContextSchema {
+    user: { id: string };
+  }
+}
 import { currentUser, currentRoles } from '@zeltjs/core';
 interface Post { authorId: string; }
-interface User { id: string; }
 // ---cut---
 function canEdit(post: Post): boolean {
-  const user = currentUser() as User | undefined;
+  const user = currentUser();
   const roles = currentRoles();
   if (roles.includes('admin')) return true;
   if (roles.includes('editor') && post.authorId === user?.id) return true;
