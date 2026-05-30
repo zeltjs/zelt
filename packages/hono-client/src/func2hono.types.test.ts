@@ -1,6 +1,7 @@
 import type { hc } from 'hono/client';
+import type { TypedResponse } from 'hono/types';
 import { describe, expectTypeOf, it } from 'vitest';
-import type { BuildAppType, Route } from './func2hono.types.js';
+import type { BuildAppType, ExtractResponse, Route } from './func2hono.types.js';
 
 type DummyHandler = () => Promise<{ id: string }>;
 
@@ -74,5 +75,16 @@ describe('BuildSchema recursion depth', () => {
     expectTypeOf<Client['r01']['$put']>().toBeFunction();
     expectTypeOf<Client['r01']['$delete']>().toBeFunction();
     expectTypeOf<Client['r01']['$patch']>().toBeFunction();
+  });
+});
+
+describe('WrapRaw distribution', () => {
+  it('does not distribute union return types', () => {
+    type UnionHandler = () => Promise<{ ok: true; data: string } | { ok: false; err: string }>;
+    type Result = ExtractResponse<UnionHandler>;
+
+    expectTypeOf<Result>().toEqualTypeOf<
+      TypedResponse<{ ok: true; data: string } | { ok: false; err: string }, 200, 'json'>
+    >();
   });
 });

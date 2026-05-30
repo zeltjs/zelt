@@ -29,9 +29,9 @@ export type ExtractRequestBody<H extends (...args: never[]) => unknown> = H exte
   : never;
 
 type WrapRaw<T> =
-  T extends TypedResponse<infer _D, infer _S extends StatusCode, infer _F extends string>
+  [T] extends [TypedResponse<infer _D, infer _S extends StatusCode, infer _F extends string>]
     ? T
-    : T extends Response
+    : [T] extends [Response]
       ? never
       : TypedResponse<T, 200, 'json'>;
 
