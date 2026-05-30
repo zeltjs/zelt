@@ -190,8 +190,7 @@ export default tseslint.config(
         'error',
         {
           selector: 'NewExpression[callee.name="HTTPException"]',
-          message:
-            'Use defineHttpException() in *.exceptions.ts instead of direct HTTPException',
+          message: 'Use defineHttpException() in *.exceptions.ts instead of direct HTTPException',
         },
       ],
     },
