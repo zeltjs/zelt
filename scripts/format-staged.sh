@@ -5,10 +5,10 @@ set -euo pipefail
 # Unstaged files get formatted in the working tree (benefiting future commits)
 # but are NOT added to the current commit.
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+STAGED=$(git diff --cached -z --name-only --diff-filter=ACMR)
 
 pnpm format
 
 if [ -n "$STAGED" ]; then
-  echo "$STAGED" | xargs git add
+  printf '%s' "$STAGED" | xargs -0 git add
 fi
