@@ -793,6 +793,205 @@ describe('addFallbackConfig', () => {
   });
 });
 
+describe('nested children', () => {
+  it('child routes are accessible at prefixed paths', async () => {
+    @Controller('/users')
+    class UserController {
+      @Get('/')
+      list() {
+        return { users: [] };
+      }
+    }
+
+    const app = createApp({
+      http: {
+        controllers: [],
+        children: [
+          {
+            path: '/api',
+            controllers: [UserController],
+          },
+        ],
+      },
+    });
+    await app.ready();
+
+    const res = await app.request('/api/users/');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ users: [] });
+  });
+
+  it('middlewares accumulate from parent to child', async () => {
+    const order: string[] = [];
+    const parentMiddleware: MiddlewareHandler = async (_c, next) => {
+      order.push('parent');
+      await next();
+    };
+    const childMiddleware: MiddlewareHandler = async (_c, next) => {
+      order.push('child');
+      await next();
+    };
+
+    @Controller('/test')
+    class ChildController {
+      @Get('/')
+      get() {
+        order.push('handler');
+        return { ok: true };
+      }
+    }
+
+    const app = createApp({
+      http: {
+        controllers: [],
+        middlewares: [parentMiddleware],
+        children: [
+          {
+            path: '/api',
+            controllers: [ChildController],
+            middlewares: [childMiddleware],
+          },
+        ],
+      },
+    });
+    await app.ready();
+
+    await app.request('/api/test/');
+    expect(order).toEqual(['parent', 'child', 'handler']);
+  });
+
+  it('error handlers are scoped per child level', async () => {
+    @ErrorHandler
+    class ChildErrorHandler {
+      onError(error: Error, _c: Context) {
+        return Response.json({ scope: 'child', message: error.message }, { status: 400 });
+      }
+    }
+
+    @Controller('/test')
+    class ChildController {
+      @Get('/')
+      get() {
+        throw new Error('child error');
+      }
+    }
+
+    const app = createApp({
+      http: {
+        controllers: [],
+        children: [
+          {
+            path: '/api',
+            controllers: [ChildController],
+            errorHandlers: [ChildErrorHandler],
+          },
+        ],
+      },
+    });
+    await app.ready();
+
+    const res = await app.request('/api/test/');
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ scope: 'child', message: 'child error' });
+  });
+
+  it('multi-level nesting works (3 levels)', async () => {
+    @Controller('/items')
+    class ItemController {
+      @Get('/')
+      list() {
+        return { items: ['a', 'b'] };
+      }
+    }
+
+    const app = createApp({
+      http: {
+        controllers: [],
+        children: [
+          {
+            path: '/api',
+            children: [
+              {
+                path: '/v1',
+                controllers: [ItemController],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await app.ready();
+
+    const res = await app.request('/api/v1/items/');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ items: ['a', 'b'] });
+  });
+
+  it('getControllers() returns flattened array including children', async () => {
+    @Controller('/a')
+    class ControllerA {
+      @Get('/')
+      get() {
+        return {};
+      }
+    }
+
+    @Controller('/b')
+    class ControllerB {
+      @Get('/')
+      get() {
+        return {};
+      }
+    }
+
+    const app = createApp({
+      http: {
+        controllers: [ControllerA],
+        children: [
+          {
+            path: '/child',
+            controllers: [ControllerB],
+          },
+        ],
+      },
+    });
+    await app.ready();
+
+    const controllers = app.getControllers();
+    expect(controllers).toContain(ControllerA);
+    expect(controllers).toContain(ControllerB);
+    expect(controllers).toHaveLength(2);
+  });
+
+  it('getMetadata() returns prefix-joined paths for children', async () => {
+    @Controller('/items')
+    class MetaController {
+      @Get('/:id')
+      getById() {
+        return {};
+      }
+    }
+
+    const app = createApp({
+      http: {
+        controllers: [],
+        children: [
+          {
+            path: '/api',
+            controllers: [MetaController],
+          },
+        ],
+      },
+    });
+    await app.ready();
+
+    const meta = app.getMetadata();
+    expect(meta.controllers).toHaveLength(1);
+    expect(meta.controllers[0]?.basePath).toBe('/api/items');
+    expect(meta.controllers[0]?.routes[0]?.fullPath).toBe('/api/items/:id');
+  });
+});
+
 describe('warmup option', () => {
   it('lazy mode (default): lifecycle starts on first request', async () => {
     const events: string[] = [];
