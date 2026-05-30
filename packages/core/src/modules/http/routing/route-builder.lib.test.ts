@@ -85,7 +85,7 @@ describe('parseRequestBody — malformed body handling', () => {
   const app = createApp({ http: { controllers: [BodyController] } });
   const ready = app.ready();
 
-  it('returns 400 for malformed JSON', async () => {
+  it('returns 400 JSON for malformed JSON', async () => {
     await ready;
     const res = await app.fetch(
       new Request('http://localhost/body/json', {
@@ -95,8 +95,10 @@ describe('parseRequestBody — malformed body handling', () => {
       }),
     );
     expect(res.status).toBe(400);
-    const text = await res.text();
-    expect(text).toMatch(/Invalid JSON/);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    const json = (await res.json()) as { code: string; message: string };
+    expect(json.code).toBe('BAD_REQUEST');
+    expect(json.message).toMatch(/Invalid JSON/);
   });
 
   it('returns 200 for valid JSON', async () => {

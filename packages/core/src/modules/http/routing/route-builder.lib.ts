@@ -1,5 +1,4 @@
 import type { Context, Env, Hono, Input } from 'hono';
-import { HTTPException } from 'hono/http-exception';
 import type { LifecycleManager } from '../../../kernel';
 import type { ResolverHandle } from '../../../kernel/di';
 import {
@@ -8,6 +7,7 @@ import {
   ZeltRouteConfigurationError,
 } from '../../../kernel/errors';
 import { runInContext } from '../../../kernel/internal';
+import { BadRequestException } from '../http.exceptions';
 import { currentRoles, currentUser } from '../middleware/auth';
 import type {
   FunctionMiddleware,
@@ -87,7 +87,7 @@ type ParsedBody =
   | { type: 'text'; val: string }
   | { type: 'none'; val: undefined };
 
-/** @throws {HTTPException} */
+/** @throws {BadRequestException} */
 const parseRequestBody = async (
   c: Parameters<Parameters<Hono['on']>[2]>[0],
 ): Promise<ParsedBody> => {
@@ -95,7 +95,7 @@ const parseRequestBody = async (
 
   if (contentType.includes('application/json')) {
     const val = await c.req.json<unknown>().catch((e: Error) => {
-      throw new HTTPException(400, { message: `Invalid JSON: ${e.message}` });
+      throw new BadRequestException({ reason: `Invalid JSON: ${e.message}` });
     });
     return { type: 'json', val };
   }
@@ -105,14 +105,14 @@ const parseRequestBody = async (
     contentType.includes('application/x-www-form-urlencoded')
   ) {
     const val: FormBody = await c.req.parseBody({ all: true }).catch((e: Error) => {
-      throw new HTTPException(400, { message: `Invalid form data: ${e.message}` });
+      throw new BadRequestException({ reason: `Invalid form data: ${e.message}` });
     });
     return { type: 'form', val };
   }
 
   if (contentType.startsWith('text/')) {
     const val = await c.req.text().catch((e: Error) => {
-      throw new HTTPException(400, { message: `Invalid text body: ${e.message}` });
+      throw new BadRequestException({ reason: `Invalid text body: ${e.message}` });
     });
     return { type: 'text', val };
   }
@@ -305,7 +305,7 @@ const registerRoute = (
     ctx.resolver,
   );
 
-  /** @throws {HTTPException | ZeltContextNotAvailableError | ZeltMiddlewareExecutionError | ZeltRouteConfigurationError} */
+  /** @throws {BadRequestException | ZeltContextNotAvailableError | ZeltMiddlewareExecutionError | ZeltRouteConfigurationError} */
   const handler = async (c: MiddlewareContext): Promise<Response> => {
     const instance = getOrCreateInstance(ctx, route.controllerClass);
     await ctx.lifecycle.startupPending();
