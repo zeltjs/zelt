@@ -34,7 +34,7 @@ export class HttpService implements Lifecycle<{ hono: Hono }> {
     this.ready = this.lifecycleManager.register(this);
     this.lifecycleManager.registerWarmup(async () => {
       await warmupControllers(
-        this.options.controllers,
+        collectAllControllers(this.options),
         {
           get: <T extends object>(cls: new (...args: never[]) => T): T =>
             resolve(this.container, cls),
