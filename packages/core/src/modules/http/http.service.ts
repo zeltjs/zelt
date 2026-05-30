@@ -97,10 +97,11 @@ export class HttpService implements Lifecycle<{ hono: Hono }> {
 
     for (const child of children) {
       const childMiddlewares = [...middlewares, ...(child.middlewares ?? [])];
+      const childErrorHandlers = [...(child.errorHandlers ?? []), ...errorHandlerClasses];
       const childHono = this.buildHonoInstance(
         child.controllers ?? [],
         childMiddlewares,
-        child.errorHandlers ?? [],
+        childErrorHandlers,
         child.children ?? [],
         fallbackHandler,
         resolver,

@@ -895,6 +895,107 @@ describe('nested children', () => {
     expect(await res.json()).toEqual({ scope: 'child', message: 'child error' });
   });
 
+  it('parent error handler applies when child has no handler', async () => {
+    @ErrorHandler
+    class ParentErrorHandler {
+      onError(error: Error, _c: Context) {
+        return Response.json({ handler: 'parent', message: error.message }, { status: 502 });
+      }
+    }
+
+    @Controller('/test')
+    class ChildController {
+      @Get('/')
+      get() {
+        throw new Error('child error');
+      }
+    }
+
+    const app = createApp({
+      http: {
+        controllers: [],
+        errorHandlers: [ParentErrorHandler],
+        children: [
+          {
+            path: '/api',
+            controllers: [ChildController],
+          },
+        ],
+      },
+    });
+    await app.ready();
+
+    const res = await app.request('/api/test/');
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ handler: 'parent', message: 'child error' });
+  });
+
+  it('error handlers bubble child -> parent -> default', async () => {
+    @ErrorHandler
+    class ParentHandler {
+      onError(error: Error, _c: Context) {
+        if (error.message === 'parent-handles') {
+          return Response.json({ handler: 'parent' }, { status: 400 });
+        }
+        return undefined;
+      }
+    }
+
+    @ErrorHandler
+    class ChildHandler {
+      onError(error: Error, _c: Context) {
+        if (error.message === 'child-handles') {
+          return Response.json({ handler: 'child' }, { status: 422 });
+        }
+        return undefined;
+      }
+    }
+
+    @Controller('/test')
+    class BubbleController {
+      @Get('/child-error')
+      childError() {
+        throw new Error('child-handles');
+      }
+
+      @Get('/parent-error')
+      parentError() {
+        throw new Error('parent-handles');
+      }
+
+      @Get('/default-error')
+      defaultError() {
+        throw new Error('unhandled');
+      }
+    }
+
+    const app = createApp({
+      http: {
+        controllers: [],
+        errorHandlers: [ParentHandler],
+        children: [
+          {
+            path: '/api',
+            controllers: [BubbleController],
+            errorHandlers: [ChildHandler],
+          },
+        ],
+      },
+    });
+    await app.ready();
+
+    const childRes = await app.request('/api/test/child-error');
+    expect(childRes.status).toBe(422);
+    expect(await childRes.json()).toEqual({ handler: 'child' });
+
+    const parentRes = await app.request('/api/test/parent-error');
+    expect(parentRes.status).toBe(400);
+    expect(await parentRes.json()).toEqual({ handler: 'parent' });
+
+    const defaultRes = await app.request('/api/test/default-error');
+    expect(defaultRes.status).toBe(500);
+  });
+
   it('multi-level nesting works (3 levels)', async () => {
     @Controller('/items')
     class ItemController {
