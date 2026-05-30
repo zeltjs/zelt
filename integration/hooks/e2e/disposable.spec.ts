@@ -21,7 +21,7 @@ describe('Disposable shutdown', () => {
 
   it('invokes Disposable.shutdown when the app shuts down', async () => {
     const { get } = await app.ready({ warmup: true });
-    const instance = get(DisposableSpy);
+    const instance = await get(DisposableSpy);
     expect(instance.shutdownCalls).toBe(0);
 
     await app.shutdown();

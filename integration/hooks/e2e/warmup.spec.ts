@@ -21,7 +21,7 @@ describe('Lifecycle warmup', () => {
 
   it('runs registered warmup handlers when ready({ warmup: true })', async () => {
     const { get } = await app.ready({ warmup: true });
-    const instance = get(WarmupSpy);
+    const instance = await get(WarmupSpy);
 
     expect(instance.warmupCalls).toBe(1);
     expect(log.events.some((e) => e.phase === 'warmup')).toBe(true);
