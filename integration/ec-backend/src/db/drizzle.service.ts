@@ -13,6 +13,7 @@ export class DrizzleService implements Lifecycle {
 
   constructor(lifecycle = inject(LifecycleManager)) {
     this.sqlite = new Database(':memory:');
+    this.sqlite.pragma('foreign_keys = ON');
     this.db = drizzle(this.sqlite, { schema });
     this.initSchema();
     lifecycle.register(this);

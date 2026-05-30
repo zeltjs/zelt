@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@zeltjs/core';
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus';
-import { eq, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { HTTPException } from 'hono/http-exception';
 import { CartService } from '../cart/cart.service';
 import { DrizzleService } from '../db/drizzle.service';
@@ -88,6 +88,7 @@ export class OrderService {
       .select()
       .from(orders)
       .where(eq(orders.userId, userId))
+      .orderBy(desc(orders.createdAt), desc(orders.id))
       .limit(limit)
       .offset((page - 1) * limit)
       .all();
