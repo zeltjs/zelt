@@ -1,7 +1,7 @@
 import { createContextKey, getInternal, setInternal } from '../../../../kernel/internal';
 
 export interface RequestContextSchema {
-  user: unknown;
+  user: Record<string, unknown>;
   authRoles: readonly string[];
 }
 
