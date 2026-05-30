@@ -176,6 +176,26 @@ export default tseslint.config(
     },
   },
   {
+    // Forbid direct HTTPException — use defineHttpException in *.exceptions.ts instead
+    files: ['packages/**/*.{ts,tsx}'],
+    ignores: [
+      ...TEST_FILES,
+      ...FIXTURE_FILES,
+      '**/errors/**',
+      '**/define-http-exception.lib.ts',
+      '**/*.exceptions.ts',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'NewExpression[callee.name="HTTPException"]',
+          message: 'Use defineHttpException() in *.exceptions.ts instead of direct HTTPException',
+        },
+      ],
+    },
+  },
+  {
     // decorator-metadata/inspect uses TypeScript Compiler API which requires
     // type assertions for internal type narrowing (e.g., StringLiteralType, TypeReference)
     files: ['packages/decorator-metadata/src/inspect/**/*.ts'],

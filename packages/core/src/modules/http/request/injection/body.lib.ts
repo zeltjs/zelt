@@ -1,7 +1,6 @@
-import { HTTPException } from 'hono/http-exception';
-
 import { ZeltContextNotAvailableError } from '../../../../kernel/errors';
 import { createContextKey, getInternal, setInternal } from '../../../../kernel/internal';
+import { UnsupportedMediaTypeException } from '../../http.exceptions';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
 
@@ -29,20 +28,18 @@ const getBody = (): ParsedBody => {
   return ctx;
 };
 
-/** @throws {ZeltContextNotAvailableError | HTTPException} */
+/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
 export function body(type?: 'json'): unknown;
-/** @throws {ZeltContextNotAvailableError | HTTPException} */
+/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
 export function body(type: 'form'): FormBody;
-/** @throws {ZeltContextNotAvailableError | HTTPException} */
+/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
 export function body(type: 'text'): string;
-/** @throws {ZeltContextNotAvailableError | HTTPException} */
+/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
 export function body(type: 'json' | 'form' | 'text' = 'json'): unknown {
   const parsedBody = getBody();
 
   if (parsedBody.type !== type) {
-    throw new HTTPException(415, {
-      message: `Expected ${type} body, got ${parsedBody.type}`,
-    });
+    throw new UnsupportedMediaTypeException({ expected: type, actual: parsedBody.type });
   }
 
   return parsedBody.val;

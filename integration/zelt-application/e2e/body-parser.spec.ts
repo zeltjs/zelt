@@ -75,7 +75,9 @@ describe('Body parsing', () => {
         body: '',
       });
       expect(res.status).toBe(400);
-      expect(await res.text()).toBe('Invalid JSON: Unexpected end of JSON input');
+      const json = (await res.json()) as { code: string; message: string };
+      expect(json.code).toBe('BAD_REQUEST');
+      expect(json.message).toBe('Invalid JSON: Unexpected end of JSON input');
     });
 
     it('parses empty application/x-www-form-urlencoded body as empty object', async () => {
