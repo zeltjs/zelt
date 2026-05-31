@@ -4,10 +4,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { ReadyApp } from '../../app';
 import { createApp } from '../../app';
 import { Config } from '../../built-in-service/config';
+import { http } from '../../features/http.feature';
 import type { Lifecycle } from '../../kernel';
 import { LifecycleManager } from '../../kernel';
 import { inject } from '../../kernel/di';
-import { http } from '../../features/http.feature';
 import { ErrorHandler } from './error/error-handler.decorator';
 import { Middleware } from './middleware/middleware.decorator';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
@@ -155,7 +155,9 @@ describe('createApp() — request', () => {
   it('ignores init when input is a Request (Request takes precedence)', async () => {
     const readyApp = await buildApp();
     // Request の method は GET、init で POST を指定しても Request 側が優先される
-    const res = await readyApp.http.request(new Request('https://x/hello/zelt'), { method: 'POST' });
+    const res = await readyApp.http.request(new Request('https://x/hello/zelt'), {
+      method: 'POST',
+    });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ message: 'hello, zelt' });
   });
@@ -619,9 +621,7 @@ describe('config override / fallback via ready()', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-    ], { configs: [OverrideConfig] });
+    const app = createApp([http({ controllers: [TestController] })], { configs: [OverrideConfig] });
     const readyApp = await app.ready();
 
     const res = await readyApp.http.request('/test/');
@@ -655,9 +655,7 @@ describe('config override / fallback via ready()', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-    ]);
+    const app = createApp([http({ controllers: [TestController] })]);
     const readyApp = await app.ready({ fallbackConfigs: [FallbackConfig] });
 
     const res = await readyApp.http.request('/test/');
@@ -698,9 +696,7 @@ describe('config override / fallback via ready()', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-    ], { configs: [UserConfig] });
+    const app = createApp([http({ controllers: [TestController] })], { configs: [UserConfig] });
     const readyApp = await app.ready({ fallbackConfigs: [FallbackConfig] });
 
     const res = await readyApp.http.request('/test/');

@@ -1,10 +1,10 @@
 import {
   args,
   Command,
-  command,
   Controller,
   Cron,
   cliSchema,
+  command,
   createApp,
   EnvAdaptor,
   Get,
@@ -25,7 +25,13 @@ afterAll(() => {
 });
 
 import { NodeCliConfig } from './node-cli.config';
-import type { HttpNodeApp, CommandNodeApp, NodeApp, SchedulerNodeAppPart, ServerHandle } from './on-node';
+import type {
+  CommandNodeApp,
+  HttpNodeApp,
+  NodeApp,
+  SchedulerNodeAppPart,
+  ServerHandle,
+} from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
 
@@ -380,10 +386,7 @@ describe('onNode with schedulers', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-      scheduler([TestScheduler]),
-    ]);
+    const app = createApp([http({ controllers: [TestController] }), scheduler([TestScheduler])]);
     nodeApp = await onNode(app);
 
     expect('startScheduler' in nodeApp).toBe(true);
@@ -409,10 +412,7 @@ describe('onNode with schedulers', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-      scheduler([TestScheduler]),
-    ]);
+    const app = createApp([http({ controllers: [TestController] }), scheduler([TestScheduler])]);
     nodeApp = await onNode(app);
 
     expect(taskFn).not.toHaveBeenCalled();

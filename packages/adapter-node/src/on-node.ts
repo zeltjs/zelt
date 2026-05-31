@@ -1,12 +1,12 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
 import type {
+  ReadyApp as AnyReadyApp,
   CommandCapabilities,
   ConfiguredFeature,
   ExecResult,
   FeatureApp,
   HttpCapabilities,
-  ReadyApp as AnyReadyApp,
   SchedulerCapabilities,
 } from '@zeltjs/core';
 
@@ -104,10 +104,13 @@ type Resolver = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
 };
 
-const extractCapabilities = (readyApp: AnyReadyApp<readonly ConfiguredFeature[]>): AppCapabilities => ({
+const extractCapabilities = (
+  readyApp: AnyReadyApp<readonly ConfiguredFeature[]>,
+): AppCapabilities => ({
   fetch:
     'http' in readyApp
-      ? (readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }).http.fetch
+      ? (readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }).http
+          .fetch
       : undefined,
   execCommand:
     'commands' in readyApp

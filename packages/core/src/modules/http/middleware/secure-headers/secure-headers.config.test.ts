@@ -30,9 +30,9 @@ describe('SecureHeadersConfig', () => {
       override readonly referrerPolicy = 'strict-origin-when-cross-origin';
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-    ], { configs: [MySecureHeadersConfig] });
+    const app = createApp([http({ controllers: [TestController] })], {
+      configs: [MySecureHeadersConfig],
+    });
     const readyApp = await app.ready();
 
     const res = await readyApp.http.request('/test');
@@ -49,9 +49,9 @@ describe('SecureHeadersConfig', () => {
       override readonly xXssProtection = false;
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-    ], { configs: [MySecureHeadersConfig] });
+    const app = createApp([http({ controllers: [TestController] })], {
+      configs: [MySecureHeadersConfig],
+    });
     const readyApp = await app.ready();
 
     const res = await readyApp.http.request('/test');

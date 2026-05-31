@@ -90,7 +90,9 @@ describe('Full EC Flow', () => {
     expect(emptyCart.items).toEqual([]);
 
     // 8. Verify stock reduced
-    const laptopAfter = await testApp.http.request(`/api/products/${laptop.id}`).then((r) => r.json());
+    const laptopAfter = await testApp.http
+      .request(`/api/products/${laptop.id}`)
+      .then((r) => r.json());
     expect(laptopAfter.stock).toBe(4);
 
     const keyboardAfter = await testApp.http

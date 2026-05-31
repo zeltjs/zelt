@@ -7,7 +7,9 @@ import { Cron } from './schedule/cron.decorator';
 import { Scheduled } from './schedule/scheduled.decorator';
 
 describe('createApp with schedulers', () => {
-  let readyApp: ReadyApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]> | undefined;
+  let readyApp:
+    | ReadyApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]>
+    | undefined;
 
   afterEach(async () => {
     if (readyApp) {
@@ -24,10 +26,7 @@ describe('createApp with schedulers', () => {
       hourlyTask() {}
     }
 
-    const app = createApp([
-      http({ controllers: [] }),
-      scheduler([TestScheduler]),
-    ]);
+    const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
     readyApp = await app.ready();
 
     expect(readyApp.schedulers.startScheduler).toBeDefined();
@@ -45,10 +44,7 @@ describe('createApp with schedulers', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [] }),
-      scheduler([TestScheduler]),
-    ]);
+    const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
     readyApp = await app.ready();
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -66,10 +62,7 @@ describe('createApp with schedulers', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [] }),
-      scheduler([TestScheduler]),
-    ]);
+    const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
     readyApp = await app.ready();
     await readyApp.schedulers.startScheduler();
 
@@ -87,10 +80,7 @@ describe('createApp with schedulers', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [] }),
-      scheduler([TestScheduler]),
-    ]);
+    const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
     readyApp = await app.ready();
     await readyApp.schedulers.startScheduler();
 
@@ -104,9 +94,7 @@ describe('createApp with schedulers', () => {
   });
 
   it('works without schedulers option', async () => {
-    const app = createApp([
-      http({ controllers: [] }),
-    ]);
+    const app = createApp([http({ controllers: [] })]);
     const localReadyApp = await app.ready();
 
     expect(localReadyApp.shutdown).toBeDefined();

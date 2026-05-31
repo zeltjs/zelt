@@ -1,4 +1,12 @@
-import { Controller, createApp, currentRoles, currentUser, Get, http, UseMiddleware } from '@zeltjs/core';
+import {
+  Controller,
+  createApp,
+  currentRoles,
+  currentUser,
+  Get,
+  http,
+  UseMiddleware,
+} from '@zeltjs/core';
 import { createTestTarget } from '@zeltjs/testing';
 import { describe, expect, it } from 'vitest';
 import { JwtConfig } from './jwt.config';

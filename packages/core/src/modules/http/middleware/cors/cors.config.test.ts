@@ -29,9 +29,7 @@ describe('CorsConfig', () => {
       override readonly origin = 'http://example.com';
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-    ], { configs: [MyCorsConfig] });
+    const app = createApp([http({ controllers: [TestController] })], { configs: [MyCorsConfig] });
     const readyApp = await app.ready();
 
     const res = await readyApp.http.request('/test', {
@@ -49,9 +47,7 @@ describe('CorsConfig', () => {
       override readonly origin = ['http://example.com', 'http://localhost:3000'];
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-    ], { configs: [MyCorsConfig] });
+    const app = createApp([http({ controllers: [TestController] })], { configs: [MyCorsConfig] });
     const readyApp = await app.ready();
 
     const res = await readyApp.http.request('/test', {
@@ -70,9 +66,7 @@ describe('CorsConfig', () => {
       override readonly credentials = true;
     }
 
-    const app = createApp([
-      http({ controllers: [TestController] }),
-    ], { configs: [MyCorsConfig] });
+    const app = createApp([http({ controllers: [TestController] })], { configs: [MyCorsConfig] });
     const readyApp = await app.ready();
 
     const res = await readyApp.http.request('/test', {

@@ -25,7 +25,6 @@ export type ReadyApp<F extends readonly ConfiguredFeature[] = readonly Configure
   readonly shutdown: () => Promise<void>;
 } & NamespacedCaps<F>;
 
-
 // ─── Helpers ───
 
 const bindFeatures = (container: Container, features: readonly ConfiguredFeature[]): void => {

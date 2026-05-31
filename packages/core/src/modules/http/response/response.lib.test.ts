@@ -71,7 +71,9 @@ describe('response()', () => {
 
   it('redirect', async () => {
     const readyApp = await ready;
-    const res = await readyApp.http.fetch(new Request('http://localhost/r/redirect', { redirect: 'manual' }));
+    const res = await readyApp.http.fetch(
+      new Request('http://localhost/r/redirect', { redirect: 'manual' }),
+    );
     expect(res.status).toBe(301);
     expect(res.headers.get('location')).toBe('/new');
   });
@@ -92,7 +94,9 @@ describe('response()', () => {
 
   it('raw return wraps with c.json', async () => {
     const readyApp = await ready;
-    const res = await readyApp.http.fetch(new Request('http://localhost/r/raw', { method: 'POST' }));
+    const res = await readyApp.http.fetch(
+      new Request('http://localhost/r/raw', { method: 'POST' }),
+    );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ wrapped: true });
   });

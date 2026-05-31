@@ -3,8 +3,8 @@ export { AppRuntime } from './app-runtime.lib';
 export { ConfigRegistry } from './config-registry.lib';
 export {
   type App,
-  createApp,
   type CreateAppOptions,
+  createApp,
   type ReadyApp,
   type ReadyOptions,
 } from './create-app.lib';

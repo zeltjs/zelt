@@ -1,6 +1,6 @@
-import type { JobInfo } from '../modules/scheduler/scheduler-runner.lib';
 import { SCHEDULER_OPTIONS, SchedulerService } from '../modules/scheduler/scheduler.service';
 import type { SchedulerClass } from '../modules/scheduler/scheduler.types';
+import type { JobInfo } from '../modules/scheduler/scheduler-runner.lib';
 import type { ConfiguredFeature } from './feature.types';
 
 export type SchedulerCapabilities = {

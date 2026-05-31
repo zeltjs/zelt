@@ -18,7 +18,9 @@ describe('response.setCookie', () => {
 
     const app = createApp([http({ controllers: [TestController] })]);
     const readyApp = await app.ready();
-    const res = await readyApp.http.fetch(new Request('http://localhost/login', { method: 'POST' }));
+    const res = await readyApp.http.fetch(
+      new Request('http://localhost/login', { method: 'POST' }),
+    );
 
     expect(res.headers.get('Set-Cookie')).toBe('session=abc123; Path=/');
     expect(await res.json()).toEqual({ ok: true });
@@ -42,7 +44,9 @@ describe('response.setCookie', () => {
 
     const app = createApp([http({ controllers: [TestController] })]);
     const readyApp = await app.ready();
-    const res = await readyApp.http.fetch(new Request('http://localhost/login', { method: 'POST' }));
+    const res = await readyApp.http.fetch(
+      new Request('http://localhost/login', { method: 'POST' }),
+    );
 
     const cookie = res.headers.get('Set-Cookie');
     expect(cookie).toContain('session=abc123');
@@ -64,7 +68,9 @@ describe('response.deleteCookie', () => {
 
     const app = createApp([http({ controllers: [TestController] })]);
     const readyApp = await app.ready();
-    const res = await readyApp.http.fetch(new Request('http://localhost/logout', { method: 'POST' }));
+    const res = await readyApp.http.fetch(
+      new Request('http://localhost/logout', { method: 'POST' }),
+    );
 
     const cookie = res.headers.get('Set-Cookie');
     expect(cookie).toContain('session=');

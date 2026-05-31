@@ -18,7 +18,9 @@ class NoopController {
 }
 
 describe('SchedulerRunner', () => {
-  let readyApp: ReadyApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]> | undefined;
+  let readyApp:
+    | ReadyApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]>
+    | undefined;
 
   afterEach(async () => {
     if (readyApp) {
@@ -38,10 +40,7 @@ describe('SchedulerRunner', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [NoopController] }),
-      scheduler([TestScheduler]),
-    ]);
+    const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
     readyApp = await app.ready();
 
     expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
@@ -74,10 +73,7 @@ describe('SchedulerRunner', () => {
       }
     }
 
-    const app = createApp([
-      http({ controllers: [NoopController] }),
-      scheduler([TestScheduler]),
-    ]);
+    const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
     readyApp = await app.ready();
     await readyApp.schedulers.startScheduler();
 
@@ -93,10 +89,7 @@ describe('SchedulerRunner', () => {
       tokyoMorning() {}
     }
 
-    const app = createApp([
-      http({ controllers: [NoopController] }),
-      scheduler([TestScheduler]),
-    ]);
+    const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
     readyApp = await app.ready();
 
     expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
