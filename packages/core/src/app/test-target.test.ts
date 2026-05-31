@@ -39,13 +39,13 @@ describe('createApp for testing', () => {
       }
     }
 
-    const app = createApp({ configs: [TestConfig] });
-    const { get } = await app.ready();
+    const app = createApp([], { configs: [TestConfig] });
+    const readyApp = await app.ready();
 
     expect(events).toEqual(['config:constructor', 'config:startup']);
-    expect((await get(TestService)).getValue()).toBe('test-value');
+    expect((await readyApp.get(TestService)).getValue()).toBe('test-value');
 
-    await app.shutdown();
+    await readyApp.shutdown();
     expect(events).toEqual(['config:constructor', 'config:startup', 'config:shutdown']);
   });
 
@@ -65,12 +65,12 @@ describe('createApp for testing', () => {
       }
     }
 
-    const app = createApp({ configs: [IdempotentConfig] });
-    await app.ready();
+    const app = createApp([], { configs: [IdempotentConfig] });
+    const readyApp = await app.ready();
 
-    await app.shutdown();
-    await app.shutdown();
-    await app.shutdown();
+    await readyApp.shutdown();
+    await readyApp.shutdown();
+    await readyApp.shutdown();
 
     expect(events).toEqual(['shutdown']);
   });
@@ -79,11 +79,11 @@ describe('createApp for testing', () => {
     @Injectable()
     class SomeService {}
 
-    const app = createApp({});
-    const { get } = await app.ready();
+    const app = createApp([]);
+    const readyApp = await app.ready();
 
-    await app.shutdown();
+    await readyApp.shutdown();
 
-    await expect(get(SomeService)).rejects.toThrow(/Cannot get\(\) after shutdown\(\)/);
+    await expect(readyApp.get(SomeService)).rejects.toThrow(/Cannot get\(\) after shutdown\(\)/);
   });
 });

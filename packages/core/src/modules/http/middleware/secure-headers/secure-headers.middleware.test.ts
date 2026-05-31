@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../../../../app';
+import { http } from '../../../../features/http.feature';
 import { Controller } from '../../routing/controller.decorator';
 import { Get } from '../../routing/http-method.decorator';
 import { UseMiddleware } from '../use-middleware.decorator';
@@ -16,17 +17,17 @@ describe('SecureHeadersMiddleware', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [TestController] },
-    });
-    await app.ready();
+    const app = createApp([
+      http({ controllers: [TestController] }),
+    ]);
+    const readyApp = await app.ready();
 
-    const res = await app.fetch(new Request('http://localhost/test'));
+    const res = await readyApp.http.fetch(new Request('http://localhost/test'));
 
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
 
-    await app.shutdown();
+    await readyApp.shutdown();
   });
 
   it('can be used with @UseMiddleware', async () => {
@@ -39,15 +40,15 @@ describe('SecureHeadersMiddleware', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [TestController] },
-    });
-    await app.ready();
+    const app = createApp([
+      http({ controllers: [TestController] }),
+    ]);
+    const readyApp = await app.ready();
 
-    const res = await app.fetch(new Request('http://localhost/test'));
+    const res = await readyApp.http.fetch(new Request('http://localhost/test'));
 
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
 
-    await app.shutdown();
+    await readyApp.shutdown();
   });
 });

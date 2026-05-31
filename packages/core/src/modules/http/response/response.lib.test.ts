@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../app';
+import { http } from '../../../features/http.feature';
 import { Controller } from '../routing/controller.decorator';
 import { Get, Post } from '../routing/http-method.decorator';
 
@@ -58,40 +59,40 @@ class ResponseTestController {
 }
 
 describe('response()', () => {
-  const app = createApp({ http: { controllers: [ResponseTestController] } });
+  const app = createApp([http({ controllers: [ResponseTestController] })]);
   const ready = app.ready();
 
   it('json status code', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/r/json'));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/json'));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ ok: true });
   });
 
   it('redirect', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/r/redirect', { redirect: 'manual' }));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/redirect', { redirect: 'manual' }));
     expect(res.status).toBe(301);
     expect(res.headers.get('location')).toBe('/new');
   });
 
   it('text', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/r/text'));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/text'));
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('hello');
   });
 
   it('header chainable', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/r/header'));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/header'));
     expect(res.headers.get('x-foo')).toBe('bar');
     expect(await res.json()).toEqual({ ok: true });
   });
 
   it('raw return wraps with c.json', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/r/raw', { method: 'POST' }));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/raw', { method: 'POST' }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ wrapped: true });
   });
@@ -101,16 +102,16 @@ describe('response()', () => {
   });
 
   it('stream returns chunked response', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/r/stream'));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/stream'));
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).toBe('chunk1chunk2');
   });
 
   it('streamText returns text/plain with lines', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/r/stream-text'));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/stream-text'));
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/plain');
     const text = await res.text();
@@ -118,8 +119,8 @@ describe('response()', () => {
   });
 
   it('sse returns event stream', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/r/sse'));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/sse'));
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/event-stream');
     const text = await res.text();

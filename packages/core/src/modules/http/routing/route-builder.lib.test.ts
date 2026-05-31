@@ -1,6 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../app';
+import { http } from '../../../features/http.feature';
 import { body } from '../request/injection';
 import { Controller } from './controller.decorator';
 import { Get, Post } from './http-method.decorator';
@@ -64,9 +65,9 @@ describe('buildRoutes (instanceof Response branch)', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [PassthroughController] } });
-    await app.ready();
-    const res = await app.fetch(new Request('http://localhost/passthrough/teapot'));
+    const app = createApp([http({ controllers: [PassthroughController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(new Request('http://localhost/passthrough/teapot'));
     expect(res.status).toBe(418);
     expect(res.headers.get('X-Custom')).toBe('yes');
     expect(await res.text()).toBe('I am a teapot');
@@ -82,12 +83,12 @@ describe('parseRequestBody — malformed body handling', () => {
     }
   }
 
-  const app = createApp({ http: { controllers: [BodyController] } });
+  const app = createApp([http({ controllers: [BodyController] })]);
   const ready = app.ready();
 
   it('returns 400 JSON for malformed JSON', async () => {
-    await ready;
-    const res = await app.fetch(
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/body/json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -102,8 +103,8 @@ describe('parseRequestBody — malformed body handling', () => {
   });
 
   it('returns 200 for valid JSON', async () => {
-    await ready;
-    const res = await app.fetch(
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/body/json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -134,19 +135,19 @@ describe('route-builder — error path integration', () => {
     }
   }
 
-  const app = createApp({ http: { controllers: [ErrController] } });
+  const app = createApp([http({ controllers: [ErrController] })]);
   const ready = app.ready();
 
   it('serializes HTTPException to status + custom body via getResponse()', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/err/not-found'));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/err/not-found'));
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ code: 'NOT_FOUND', message: 'gone' });
   });
 
   it('passes through user-provided res override via getResponse()', async () => {
-    await ready;
-    const res = await app.fetch(new Request('http://localhost/err/teapot'));
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/err/teapot'));
     expect(res.status).toBe(418);
     expect(await res.json()).toEqual({ shape: 'teapot' });
   });

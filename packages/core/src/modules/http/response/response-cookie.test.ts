@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../app';
+import { http } from '../../../features/http.feature';
 import { Controller } from '../routing/controller.decorator';
 import { Post } from '../routing/http-method.decorator';
 
@@ -15,9 +16,9 @@ describe('response.setCookie', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(new Request('http://localhost/login', { method: 'POST' }));
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(new Request('http://localhost/login', { method: 'POST' }));
 
     expect(res.headers.get('Set-Cookie')).toBe('session=abc123; Path=/');
     expect(await res.json()).toEqual({ ok: true });
@@ -39,9 +40,9 @@ describe('response.setCookie', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(new Request('http://localhost/login', { method: 'POST' }));
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(new Request('http://localhost/login', { method: 'POST' }));
 
     const cookie = res.headers.get('Set-Cookie');
     expect(cookie).toContain('session=abc123');
@@ -61,9 +62,9 @@ describe('response.deleteCookie', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(new Request('http://localhost/logout', { method: 'POST' }));
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(new Request('http://localhost/logout', { method: 'POST' }));
 
     const cookie = res.headers.get('Set-Cookie');
     expect(cookie).toContain('session=');

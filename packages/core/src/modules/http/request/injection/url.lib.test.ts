@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../../app';
+import { http } from '../../../../features/http.feature';
 import { Controller } from '../../routing/controller.decorator';
 import { Get, Post } from '../../routing/http-method.decorator';
 
@@ -15,9 +16,9 @@ describe('url', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(new Request('http://localhost/info?foo=bar'));
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(new Request('http://localhost/info?foo=bar'));
     expect(await res.json()).toEqual({ url: 'http://localhost/info?foo=bar' });
   });
 });
@@ -32,9 +33,9 @@ describe('path', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(new Request('http://localhost/users/123?include=profile'));
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(new Request('http://localhost/users/123?include=profile'));
     expect(await res.json()).toEqual({ path: '/users/123' });
   });
 });
@@ -54,13 +55,13 @@ describe('method', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
 
-    const getRes = await app.fetch(new Request('http://localhost/test'));
+    const getRes = await readyApp.http.fetch(new Request('http://localhost/test'));
     expect(await getRes.json()).toEqual({ method: 'GET' });
 
-    const postRes = await app.fetch(new Request('http://localhost/test', { method: 'POST' }));
+    const postRes = await readyApp.http.fetch(new Request('http://localhost/test', { method: 'POST' }));
     expect(await postRes.json()).toEqual({ method: 'POST' });
   });
 });

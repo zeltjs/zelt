@@ -1,19 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { App } from '../../app';
+import type { ReadyApp } from '../../app';
 import { createApp } from '../../app';
-import type { HttpModule } from '../http/http.module';
+import { http } from '../../features/http.feature';
+import { scheduler } from '../../features/scheduler.feature';
 import { Cron } from './schedule/cron.decorator';
 import { Scheduled } from './schedule/scheduled.decorator';
-import type { SchedulerModule } from './scheduler.module';
 
 describe('createApp with schedulers', () => {
-  let app: App<[HttpModule, SchedulerModule]> | undefined;
+  let readyApp: ReadyApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]> | undefined;
 
   afterEach(async () => {
-    if (app) {
-      await app.stopScheduler();
-      await app.shutdown();
-      app = undefined;
+    if (readyApp) {
+      await readyApp.schedulers.stopScheduler();
+      await readyApp.shutdown();
+      readyApp = undefined;
     }
   });
 
@@ -24,14 +24,14 @@ describe('createApp with schedulers', () => {
       hourlyTask() {}
     }
 
-    app = createApp({
-      http: { controllers: [] },
-      schedulers: [TestScheduler],
-    });
-    await app.ready();
+    const app = createApp([
+      http({ controllers: [] }),
+      scheduler([TestScheduler]),
+    ]);
+    readyApp = await app.ready();
 
-    expect(app.startScheduler).toBeDefined();
-    expect(app.stopScheduler).toBeDefined();
+    expect(readyApp.schedulers.startScheduler).toBeDefined();
+    expect(readyApp.schedulers.stopScheduler).toBeDefined();
   });
 
   it('scheduler does not run automatically after ready()', async () => {
@@ -45,11 +45,11 @@ describe('createApp with schedulers', () => {
       }
     }
 
-    app = createApp({
-      http: { controllers: [] },
-      schedulers: [TestScheduler],
-    });
-    await app.ready();
+    const app = createApp([
+      http({ controllers: [] }),
+      scheduler([TestScheduler]),
+    ]);
+    readyApp = await app.ready();
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
     expect(taskFn).not.toHaveBeenCalled();
@@ -66,12 +66,12 @@ describe('createApp with schedulers', () => {
       }
     }
 
-    app = createApp({
-      http: { controllers: [] },
-      schedulers: [TestScheduler],
-    });
-    await app.ready();
-    await app.startScheduler();
+    const app = createApp([
+      http({ controllers: [] }),
+      scheduler([TestScheduler]),
+    ]);
+    readyApp = await app.ready();
+    await readyApp.schedulers.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
   });
@@ -87,29 +87,29 @@ describe('createApp with schedulers', () => {
       }
     }
 
-    app = createApp({
-      http: { controllers: [] },
-      schedulers: [TestScheduler],
-    });
-    await app.ready();
-    await app.startScheduler();
+    const app = createApp([
+      http({ controllers: [] }),
+      scheduler([TestScheduler]),
+    ]);
+    readyApp = await app.ready();
+    await readyApp.schedulers.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
 
     const callCountBefore = taskFn.mock.calls.length;
-    await app.stopScheduler();
+    await readyApp.schedulers.stopScheduler();
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
     expect(taskFn.mock.calls.length).toBe(callCountBefore);
   });
 
   it('works without schedulers option', async () => {
-    const localApp = createApp({
-      http: { controllers: [] },
-    });
-    await localApp.ready();
+    const app = createApp([
+      http({ controllers: [] }),
+    ]);
+    const localReadyApp = await app.ready();
 
-    expect(localApp.shutdown).toBeDefined();
-    await localApp.shutdown();
+    expect(localReadyApp.shutdown).toBeDefined();
+    await localReadyApp.shutdown();
   });
 });

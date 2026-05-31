@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { Controller, createApp, Get } from '../index';
+import { Controller, createApp, Get, http } from '../index';
 
 describe('HttpApp.getControllers', () => {
-  it('returns the list of registered controllers', () => {
+  it('returns the list of registered controllers', async () => {
     @Controller('/a')
     class AController {
       @Get('/') get() {
@@ -18,8 +18,9 @@ describe('HttpApp.getControllers', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [AController, BController] } });
+    const app = createApp([http({ controllers: [AController, BController] })]);
+    const readyApp = await app.ready();
 
-    expect(app.getControllers()).toEqual([AController, BController]);
+    expect(readyApp.http.getControllers()).toEqual([AController, BController]);
   });
 });

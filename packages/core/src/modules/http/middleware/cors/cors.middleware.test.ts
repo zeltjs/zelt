@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../../../../app';
+import { http } from '../../../../features/http.feature';
 import { Controller } from '../../routing/controller.decorator';
 import { Get } from '../../routing/http-method.decorator';
 import { UseMiddleware } from '../use-middleware.decorator';
@@ -21,13 +22,12 @@ describe('CorsMiddleware', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [TestController] },
-      configs: [CustomCorsConfig],
-    });
-    await app.ready();
+    const app = createApp([
+      http({ controllers: [TestController] }),
+    ], { configs: [CustomCorsConfig] });
+    const readyApp = await app.ready();
 
-    const res = await app.fetch(
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/test', {
         headers: { Origin: 'https://example.com' },
       }),
@@ -35,7 +35,7 @@ describe('CorsMiddleware', () => {
 
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://example.com');
 
-    await app.shutdown();
+    await readyApp.shutdown();
   });
 
   it('can be used with @UseMiddleware', async () => {
@@ -48,13 +48,12 @@ describe('CorsMiddleware', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [TestController] },
-      configs: [CustomCorsConfig],
-    });
-    await app.ready();
+    const app = createApp([
+      http({ controllers: [TestController] }),
+    ], { configs: [CustomCorsConfig] });
+    const readyApp = await app.ready();
 
-    const res = await app.fetch(
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/test', {
         headers: { Origin: 'https://example.com' },
       }),
@@ -62,6 +61,6 @@ describe('CorsMiddleware', () => {
 
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://example.com');
 
-    await app.shutdown();
+    await readyApp.shutdown();
   });
 });

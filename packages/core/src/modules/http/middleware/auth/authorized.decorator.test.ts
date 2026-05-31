@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../../../../app';
+import { http } from '../../../../features/http.feature';
 import { Controller } from '../../routing/controller.decorator';
 import { Get } from '../../routing/http-method.decorator';
 import type { FunctionMiddleware } from '../middleware.types';
@@ -28,15 +29,15 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createApp({
-      http: {
+    const app = createApp([
+      http({
         controllers: [TestController],
         middlewares: [authMiddleware],
-      },
-    });
-    await app.ready();
+      }),
+    ]);
+    const readyApp = await app.ready();
 
-    const res = await app.request('/test/');
+    const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({
       code: 'UNAUTHORIZED',
@@ -54,15 +55,15 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createApp({
-      http: {
+    const app = createApp([
+      http({
         controllers: [TestController],
         middlewares: [authMiddleware],
-      },
-    });
-    await app.ready();
+      }),
+    ]);
+    const readyApp = await app.ready();
 
-    const res = await app.request('/test/', {
+    const res = await readyApp.http.request('/test/', {
       headers: { Authorization: 'Bearer valid-token' },
     });
     expect(res.status).toBe(200);
@@ -79,15 +80,15 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createApp({
-      http: {
+    const app = createApp([
+      http({
         controllers: [AdminController],
         middlewares: [authMiddleware],
-      },
-    });
-    await app.ready();
+      }),
+    ]);
+    const readyApp = await app.ready();
 
-    const res = await app.request('/admin/', {
+    const res = await readyApp.http.request('/admin/', {
       headers: { Authorization: 'Bearer valid-token' },
     });
     expect(res.status).toBe(403);
@@ -107,15 +108,15 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createApp({
-      http: {
+    const app = createApp([
+      http({
         controllers: [AdminController],
         middlewares: [authMiddleware],
-      },
-    });
-    await app.ready();
+      }),
+    ]);
+    const readyApp = await app.ready();
 
-    const res = await app.request('/admin/', {
+    const res = await readyApp.http.request('/admin/', {
       headers: { Authorization: 'Bearer admin-token' },
     });
     expect(res.status).toBe(200);
@@ -132,15 +133,15 @@ describe('@Authorized', () => {
       }
     }
 
-    const app = createApp({
-      http: {
+    const app = createApp([
+      http({
         controllers: [ContentController],
         middlewares: [authMiddleware],
-      },
-    });
-    await app.ready();
+      }),
+    ]);
+    const readyApp = await app.ready();
 
-    const res = await app.request('/content/', {
+    const res = await readyApp.http.request('/content/', {
       headers: { Authorization: 'Bearer admin-token' },
     });
     expect(res.status).toBe(200);

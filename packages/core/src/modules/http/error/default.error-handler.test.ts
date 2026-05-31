@@ -1,7 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { App } from '../../../app';
+import type { ReadyApp } from '../../../app';
 import { createApp } from '../../../app';
 import { Config } from '../../../built-in-service/config';
 import { EnvAdaptor } from '../../../built-in-service/env/env.adaptor';
@@ -11,8 +11,8 @@ import { DefaultErrorHandler } from './default.error-handler';
 
 let handler: DefaultErrorHandler;
 let devHandler: DefaultErrorHandler;
-let prodApp: App;
-let devApp: App;
+let prodReadyApp: ReadyApp<[]>;
+let devReadyApp: ReadyApp<[]>;
 
 const setupHandlers = async () => {
   @Config
@@ -29,13 +29,13 @@ const setupHandlers = async () => {
     }
   }
 
-  prodApp = createApp({ configs: [ProdEnvAdaptor] });
-  const { get: prodGet } = await prodApp.ready();
-  handler = await prodGet(DefaultErrorHandler);
+  const prodApp = createApp([], { configs: [ProdEnvAdaptor] });
+  prodReadyApp = await prodApp.ready();
+  handler = await prodReadyApp.get(DefaultErrorHandler);
 
-  devApp = createApp({ configs: [DevEnvAdaptor] });
-  const { get: devGet } = await devApp.ready();
-  devHandler = await devGet(DefaultErrorHandler);
+  const devApp = createApp([], { configs: [DevEnvAdaptor] });
+  devReadyApp = await devApp.ready();
+  devHandler = await devReadyApp.get(DefaultErrorHandler);
 };
 
 const dummyContext = {} as Parameters<DefaultErrorHandler['onError']>[1];
@@ -46,8 +46,8 @@ describe('DefaultErrorHandler', () => {
   });
 
   afterAll(async () => {
-    await prodApp.shutdown();
-    await devApp.shutdown();
+    await prodReadyApp.shutdown();
+    await devReadyApp.shutdown();
   });
 
   describe('HTTPException with res (defineHttpException pattern)', () => {

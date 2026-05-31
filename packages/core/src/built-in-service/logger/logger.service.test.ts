@@ -19,9 +19,9 @@ describe('LoggerService', () => {
 
   describe('child logger', () => {
     it('child inherits parent bindings and merges context', async () => {
-      const app = createApp({});
-      const { get } = await app.ready();
-      const logger = await get(LoggerService);
+      const app = createApp([]);
+      const readyApp = await app.ready();
+      const logger = await readyApp.get(LoggerService);
       const child1 = logger.child({ service: 'auth' });
       const child2 = child1.child({ module: 'jwt' });
 
@@ -31,18 +31,18 @@ describe('LoggerService', () => {
       const logged = JSON.parse(rawCall) as Record<string, unknown>;
       expect(logged['service']).toBe('auth');
       expect(logged['module']).toBe('jwt');
-      await app.shutdown();
+      await readyApp.shutdown();
     });
 
     it('child is not DI-managed (lightweight wrapper)', async () => {
-      const app = createApp({});
-      const { get } = await app.ready();
-      const logger = await get(LoggerService);
+      const app = createApp([]);
+      const readyApp = await app.ready();
+      const logger = await readyApp.get(LoggerService);
       const child = logger.child({ service: 'test' });
 
       expect(child).not.toBe(logger);
       expect(child).toBeInstanceOf(LoggerService);
-      await app.shutdown();
+      await readyApp.shutdown();
     });
   });
 
@@ -55,9 +55,9 @@ describe('LoggerService', () => {
         }
       }
 
-      const app = createApp({ configs: [WarnOnlyConfig] });
-      const { get } = await app.ready();
-      const logger = await get(LoggerService);
+      const app = createApp([], { configs: [WarnOnlyConfig] });
+      const readyApp = await app.ready();
+      const logger = await readyApp.get(LoggerService);
 
       logger.debug('skip');
       logger.info('skip');
@@ -65,7 +65,7 @@ describe('LoggerService', () => {
       logger.error('log');
 
       expect(consoleSpy).toHaveBeenCalledTimes(2);
-      await app.shutdown();
+      await readyApp.shutdown();
     });
   });
 });

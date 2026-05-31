@@ -48,6 +48,15 @@ export type FullBunApp = HttpBunApp & CommandBunApp;
 
 export type BunApp = HttpBunApp | CommandBunApp | FullBunApp;
 
+type BunAppFor<F extends readonly ConfiguredFeature[]> =
+  ReadyApp<F> extends { http: unknown; commands: unknown }
+    ? FullBunApp
+    : ReadyApp<F> extends { http: unknown }
+      ? HttpBunApp
+      : ReadyApp<F> extends { commands: unknown }
+        ? CommandBunApp
+        : BunApp;
+
 type Stderr = { write: (s: string) => void };
 
 const createServeForHttp = (
@@ -178,7 +187,7 @@ const mergeBunApps = (
 export const onBun = async <const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
   options: BunAppOptions = {},
-): Promise<BunApp> => {
+): Promise<BunAppFor<F>> => {
   const readyApp = await app.ready({
     fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
     warmup: options.warmup ?? true,
@@ -215,5 +224,5 @@ export const onBun = async <const F extends readonly ConfiguredFeature[]>(
   const resolver: Resolver = { get: readyApp.get };
   const result = buildBunApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeBunApps(result, resolver, shutdown, args);
+  return mergeBunApps(result, resolver, shutdown, args) as BunAppFor<F>;
 };

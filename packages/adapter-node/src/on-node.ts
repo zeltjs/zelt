@@ -56,6 +56,21 @@ export type FullNodeApp = HttpNodeApp & CommandNodeApp;
 
 export type NodeApp = HttpNodeApp | CommandNodeApp | FullNodeApp;
 
+type NodeAppFor<F extends readonly ConfiguredFeature[]> =
+  ReadyApp<F> extends { http: unknown; commands: unknown; schedulers: unknown }
+    ? FullNodeApp & SchedulerNodeAppPart
+    : ReadyApp<F> extends { http: unknown; schedulers: unknown }
+      ? HttpNodeApp & SchedulerNodeAppPart
+      : ReadyApp<F> extends { commands: unknown; schedulers: unknown }
+        ? CommandNodeApp & SchedulerNodeAppPart
+        : ReadyApp<F> extends { http: unknown; commands: unknown }
+          ? FullNodeApp
+          : ReadyApp<F> extends { http: unknown }
+            ? HttpNodeApp
+            : ReadyApp<F> extends { commands: unknown }
+              ? CommandNodeApp
+              : NodeApp;
+
 type Stderr = { write: (s: string) => void };
 
 const createListenForHttp = (
@@ -219,7 +234,7 @@ const mergeNodeApps = (
 export const onNode = async <const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
   options: NodeAppOptions = {},
-): Promise<NodeApp> => {
+): Promise<NodeAppFor<F>> => {
   const readyApp = await app.ready({
     fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
     warmup: options.warmup ?? true,
@@ -256,5 +271,5 @@ export const onNode = async <const F extends readonly ConfiguredFeature[]>(
   const resolver: Resolver = { get: readyApp.get };
   const result = buildNodeApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeNodeApps(result, resolver, shutdown, args);
+  return mergeNodeApps(result, resolver, shutdown, args) as NodeAppFor<F>;
 };

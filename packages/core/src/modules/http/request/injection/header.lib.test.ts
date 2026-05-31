@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../../app';
+import { http } from '../../../../features/http.feature';
 import { Controller } from '../../routing/controller.decorator';
 import { Get } from '../../routing/http-method.decorator';
 
@@ -15,9 +16,9 @@ describe('header', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/', {
         headers: { 'User-Agent': 'test-agent' },
       }),
@@ -34,9 +35,9 @@ describe('header', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(new Request('http://localhost/'));
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(new Request('http://localhost/'));
     expect(await res.json()).toEqual({ custom: 'none' });
   });
 });

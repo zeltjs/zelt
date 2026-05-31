@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SchedulerApp } from '../../app';
+import type { ReadyApp } from '../../app';
 import { createApp } from '../../app';
+import { http } from '../../features/http.feature';
+import { scheduler } from '../../features/scheduler.feature';
 import { Controller } from '../http/routing/controller.decorator';
 import { Get } from '../http/routing/http-method.decorator';
 
@@ -16,11 +18,13 @@ class NoopController {
 }
 
 describe('SchedulerRunner', () => {
-  let app: SchedulerApp | undefined;
+  let readyApp: ReadyApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]> | undefined;
 
   afterEach(async () => {
-    await app?.stopScheduler();
-    await app?.shutdown();
+    if (readyApp) {
+      await readyApp.schedulers.stopScheduler();
+      await readyApp.shutdown();
+    }
   });
 
   it('starts and stops scheduler jobs', async () => {
@@ -34,19 +38,19 @@ describe('SchedulerRunner', () => {
       }
     }
 
-    app = createApp({
-      http: { controllers: [NoopController] },
-      schedulers: [TestScheduler],
-    });
-    await app.ready();
+    const app = createApp([
+      http({ controllers: [NoopController] }),
+      scheduler([TestScheduler]),
+    ]);
+    readyApp = await app.ready();
 
-    expect(app.isSchedulerRunning()).toBe(false);
+    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
 
-    await app.startScheduler();
+    await readyApp.schedulers.startScheduler();
 
-    expect(app.isSchedulerRunning()).toBe(true);
-    expect(app.getSchedulerJobs()).toHaveLength(1);
-    expect(app.getSchedulerJobs()[0]).toEqual({
+    expect(readyApp.schedulers.isSchedulerRunning()).toBe(true);
+    expect(readyApp.schedulers.getSchedulerJobs()).toHaveLength(1);
+    expect(readyApp.schedulers.getSchedulerJobs()[0]).toEqual({
       name: 'everySecond',
       cronExpression: '* * * * * *',
       timezone: undefined,
@@ -54,9 +58,9 @@ describe('SchedulerRunner', () => {
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
 
-    await app.stopScheduler();
+    await readyApp.schedulers.stopScheduler();
 
-    expect(app.isSchedulerRunning()).toBe(false);
+    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
   });
 
   it('executes scheduled method', async () => {
@@ -70,16 +74,16 @@ describe('SchedulerRunner', () => {
       }
     }
 
-    app = createApp({
-      http: { controllers: [NoopController] },
-      schedulers: [TestScheduler],
-    });
-    await app.ready();
-    await app.startScheduler();
+    const app = createApp([
+      http({ controllers: [NoopController] }),
+      scheduler([TestScheduler]),
+    ]);
+    readyApp = await app.ready();
+    await readyApp.schedulers.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
 
-    await app.stopScheduler();
+    await readyApp.schedulers.stopScheduler();
   });
 
   it('respects timezone setting', async () => {
@@ -89,26 +93,26 @@ describe('SchedulerRunner', () => {
       tokyoMorning() {}
     }
 
-    app = createApp({
-      http: { controllers: [NoopController] },
-      schedulers: [TestScheduler],
-    });
-    await app.ready();
+    const app = createApp([
+      http({ controllers: [NoopController] }),
+      scheduler([TestScheduler]),
+    ]);
+    readyApp = await app.ready();
 
-    expect(app.isSchedulerRunning()).toBe(false);
+    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
 
-    await app.startScheduler();
+    await readyApp.schedulers.startScheduler();
 
-    expect(app.isSchedulerRunning()).toBe(true);
-    expect(app.getSchedulerJobs()).toHaveLength(1);
-    expect(app.getSchedulerJobs()[0]).toEqual({
+    expect(readyApp.schedulers.isSchedulerRunning()).toBe(true);
+    expect(readyApp.schedulers.getSchedulerJobs()).toHaveLength(1);
+    expect(readyApp.schedulers.getSchedulerJobs()[0]).toEqual({
       name: 'tokyoMorning',
       cronExpression: '0 9 * * *',
       timezone: 'Asia/Tokyo',
     });
 
-    await app.stopScheduler();
+    await readyApp.schedulers.stopScheduler();
 
-    expect(app.isSchedulerRunning()).toBe(false);
+    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
   });
 });

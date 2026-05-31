@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../../app';
+import { http } from '../../../../features/http.feature';
 import { Controller } from '../../routing/controller.decorator';
 import { Post } from '../../routing/http-method.decorator';
 
@@ -15,9 +16,9 @@ describe('body', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
         body: JSON.stringify({ name: 'test' }),
@@ -36,9 +37,9 @@ describe('body', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
         body: JSON.stringify({ value: 21 }),
@@ -57,12 +58,12 @@ describe('body', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
+    const app = createApp([http({ controllers: [TestController] })]);
     const formData = new FormData();
     formData.append('name', 'John');
 
-    await app.ready();
-    const res = await app.fetch(
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/form', {
         method: 'POST',
         body: formData,
@@ -80,9 +81,9 @@ describe('body', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/text', {
         method: 'POST',
         body: 'hello world',
@@ -101,9 +102,9 @@ describe('body', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
         body: 'plain text',
