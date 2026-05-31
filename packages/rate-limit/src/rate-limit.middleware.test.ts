@@ -1,6 +1,8 @@
-import { Controller, createApp, Get } from '@zeltjs/core';
+import { Config, Controller, createApp, Get } from '@zeltjs/core';
+import { onTest } from '@zeltjs/testing';
 import { describe, expect, it } from 'vitest';
 
+import { RateLimitConfig } from './rate-limit.config';
 import { RateLimit } from './rate-limit.middleware';
 
 describe('@RateLimit decorator', () => {
@@ -65,6 +67,33 @@ describe('@RateLimit decorator', () => {
     const r2 = await app.request('/dyn');
     expect(r1.status).toBe(200);
     expect(r2.status).toBe(200);
+  });
+
+  it('skips rate limiting when enabled is false', async () => {
+    @Config
+    class DisabledRateLimitConfig extends RateLimitConfig {
+      override readonly enabled = false;
+    }
+
+    @Controller('/')
+    class TestController {
+      @Get('/disabled')
+      @RateLimit({ limit: 1, windowSec: 60, key: 'test:disabled' })
+      hit() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp({ http: { controllers: [TestController] } });
+    const testApp = await onTest(app, { configs: [DisabledRateLimitConfig] });
+
+    const r1 = await testApp.request('/disabled');
+    const r2 = await testApp.request('/disabled');
+    const r3 = await testApp.request('/disabled');
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+    expect(r3.status).toBe(200);
+    expect(r1.headers.get('X-RateLimit-Limit')).toBeNull();
   });
 
   it('stacking: both decorators must allow', async () => {

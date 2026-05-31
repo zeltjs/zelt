@@ -6,6 +6,7 @@ import { MemoryKV } from '@zeltjs/kv';
 export class RateLimitConfig {
   constructor(readonly kv: AtomicKVAdaptor = inject(MemoryKV)) {}
 
+  readonly enabled: boolean = true;
   readonly kvStoreNamespace: string = 'rate-limit:';
   readonly defaultLimit: number = 100;
   readonly defaultWindowSec: number = 60;
