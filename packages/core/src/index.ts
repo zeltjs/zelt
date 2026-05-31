@@ -1,12 +1,18 @@
 export { HTTPException } from 'hono/http-exception';
-export type { DefaultModulesConfig } from './app';
+// New App types
+export type {
+  DefaultModulesConfig,
+  NewApp as FeatureApp,
+  NewCreateAppOptions as FeatureAppOptions,
+  ReadyApp,
+  ReadyOptions,
+} from './app';
 export {
   type App,
   type CommandApp,
   type CreateAppOptions,
   createApp,
   type HttpApp,
-  type ReadyOptions,
   type ReadyResult,
   type SchedulerApp,
 } from './app';
@@ -34,6 +40,14 @@ export {
   PrettyFormatterConfig,
   withLogContext,
 } from './built-in-service/logger';
+export type {
+  CommandCapabilities,
+  ConfiguredFeature,
+  HttpCapabilities,
+  SchedulerCapabilities,
+} from './features';
+// Feature factories
+export { command, http, scheduler } from './features';
 export type { Lifecycle } from './kernel';
 export { LifecycleManager } from './kernel';
 // DI primitives
@@ -57,7 +71,7 @@ export {
   ZeltSchemaValidationError,
 } from './kernel/errors';
 export type { ReadyValue } from './kernel/internal';
-export type { CommandCapabilities, CommandModule } from './modules/command/command.module';
+export type { CommandModule } from './modules/command/command.module';
 export type {
   ArgDefinition,
   ArgsDefinition,
@@ -89,7 +103,7 @@ export type {
   ValidationIssue,
 } from './modules/http/error/error.types';
 export { ErrorHandler } from './modules/http/error/error-handler.decorator';
-export type { HttpCapabilities, HttpModule } from './modules/http/http.module';
+export type { HttpModule } from './modules/http/http.module';
 export type { HttpMetadata } from './modules/http/http.service';
 export type { ControllerClass } from './modules/http/http.types';
 // HTTP primitives
@@ -158,5 +172,5 @@ export { Every } from './modules/scheduler/schedule/every.decorator';
 export { Hourly } from './modules/scheduler/schedule/hourly.decorator';
 export { Scheduled } from './modules/scheduler/schedule/scheduled.decorator';
 export { Weekly } from './modules/scheduler/schedule/weekly.decorator';
-export type { SchedulerCapabilities, SchedulerModule } from './modules/scheduler/scheduler.module';
+export type { SchedulerModule } from './modules/scheduler/scheduler.module';
 export type { SchedulerClass } from './modules/scheduler/scheduler.types';
