@@ -43,6 +43,15 @@ PACKAGES=(
   "cli"
 )
 
+get_volta_section() {
+  node -e '
+    const pkg = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    const v = pkg.volta || {};
+    const parts = Object.entries(v).map(([k, val]) => `    "${k}": "${val}"`);
+    console.log(parts.join(",\n"));
+  ' "$ROOT_DIR/package.json"
+}
+
 get_integration_dirs() {
   if [[ "$TARGET" == "all" ]]; then
     find "$INTEGRATION_DIR" -maxdepth 1 -mindepth 1 -type d ! -name scripts ! -name '.pack-cache' ! -name '.*'
@@ -169,6 +178,9 @@ generate_package_json() {
   local catalog_overrides
   catalog_overrides=$(build_catalog_overrides)
 
+  local volta_section
+  volta_section=$(get_volta_section)
+
   if [[ "$mode" == "public" ]]; then
     cat <<EOF
 {
@@ -190,6 +202,9 @@ generate_package_json() {
     "hono": "$hono_ver",
     "@types/node": "$types_node_ver",
     "typescript": "$typescript_ver"
+  },
+  "volta": {
+$volta_section
   }
 }
 EOF
@@ -217,6 +232,9 @@ EOF
     "hono": "$hono_ver",
     "@types/node": "$types_node_ver",
     "typescript": "$typescript_ver"
+  },
+  "volta": {
+$volta_section
   },
   "pnpm": {
     "overrides": {
@@ -289,7 +307,7 @@ setup_integration_dir() {
   merge_extra_deps "$integration_dir"
 
   echo "  Installing dependencies..."
-  (cd "$integration_dir" && rm -rf node_modules pnpm-lock.yaml && pnpm install --ignore-workspace 2>/dev/null)
+  (cd "$integration_dir" && rm -rf node_modules pnpm-lock.yaml && VOLTA_FEATURE_PNPM=1 pnpm install --ignore-workspace 2>/dev/null)
 
   echo "  ✓ $name ready"
 }
