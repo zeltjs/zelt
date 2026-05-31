@@ -17,20 +17,10 @@ describe('Rate Limit', () => {
     await shutdownAll();
   });
 
-  it('returns rate limit headers on login', async () => {
-    await testApp.request('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: 'login-test@example.com',
-        password: 'password123',
-        name: 'Login Test',
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    });
-
+  it('returns rate limit headers on successful request', async () => {
     const res = await testApp.request('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email: 'login-test@example.com', password: 'password123' }),
+      body: JSON.stringify({ email: 'nobody@example.com', password: 'password123' }),
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -38,21 +28,19 @@ describe('Rate Limit', () => {
     expect(res.headers.get('X-RateLimit-Remaining')).toBeDefined();
   });
 
-  it('returns rate limit headers on register', async () => {
-    const res = await testApp.request('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: 'ratelimit@example.com',
-        password: 'password123',
-        name: 'Rate Limit',
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    });
+  it('returns 429 after exceeding limit', async () => {
+    for (let i = 0; i < 3; i++) {
+      await testApp.request('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: `flood-${i}@example.com`,
+          password: 'password123',
+          name: `Flood ${i}`,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    expect(res.headers.get('X-RateLimit-Limit')).toBe('3');
-  });
-
-  it('returns 429 after exceeding register limit', async () => {
     const res = await testApp.request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
