@@ -1,0 +1,58 @@
+import { Container } from '@needle-di/core';
+import { describe, expect, it } from 'vitest';
+
+import { LifecycleManager } from '../kernel';
+import { Command } from '../modules/command/definition/command.decorator';
+import { cliSchema } from '../modules/command/input/command-schema.types';
+import { command } from './command.feature';
+
+@Command({ name: 'greet' })
+class GreetCommand {
+  static schema = cliSchema({});
+  run() {}
+}
+
+describe('command feature', () => {
+  it('returns a ConfiguredFeature with key "commands"', () => {
+    const feature = command([GreetCommand]);
+    expect(feature.key).toBe('commands');
+    expect(typeof feature.bind).toBe('function');
+    expect(typeof feature.resolve).toBe('function');
+  });
+
+  it('resolve returns CommandCapabilities', () => {
+    const feature = command([GreetCommand]);
+    const container = new Container();
+    feature.bind(container);
+    const caps = feature.resolve(container);
+    expect(typeof caps.hasCommand).toBe('function');
+    expect(typeof caps.getCommands).toBe('function');
+    expect(typeof caps.execCommand).toBe('function');
+  });
+
+  it('caps.hasCommand detects registered commands', () => {
+    const feature = command([GreetCommand]);
+    const container = new Container();
+    feature.bind(container);
+    const caps = feature.resolve(container);
+
+    expect(caps.hasCommand('greet')).toBe(true);
+    expect(caps.hasCommand('unknown')).toBe(false);
+  });
+
+  it('caps.execCommand runs a registered command', async () => {
+    const feature = command([GreetCommand]);
+    const container = new Container();
+    feature.bind(container);
+    const caps = feature.resolve(container);
+
+    const lifecycle = container.get(LifecycleManager);
+    await lifecycle.warmup();
+    await lifecycle.startup();
+
+    const result = await caps.execCommand(['greet']);
+    expect(result.exitCode).toBe(0);
+
+    await lifecycle.shutdown();
+  });
+});
