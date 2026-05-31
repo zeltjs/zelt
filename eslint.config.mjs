@@ -220,6 +220,13 @@ export default tseslint.config(
     },
   },
   {
+    // createApp: runtime-resolved caps from features cannot be statically proven to match NamespacedCaps<F>
+    files: ['packages/core/src/app/create-app.lib.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
     files: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
     rules: {
       'no-console': 'off',
