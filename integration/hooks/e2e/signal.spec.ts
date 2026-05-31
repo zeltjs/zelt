@@ -23,7 +23,7 @@ describe('Signal-triggered shutdown', () => {
 
   it('exposes a CliConfig token that accepts SIGINT/SIGTERM handlers', async () => {
     const { get } = await app.ready({ warmup: true });
-    const cli = get(CliConfig) as TestCliConfig;
+    const cli = (await get(CliConfig)) as TestCliConfig;
 
     const handler = () => {};
     cli.onSignal('SIGINT', handler);
@@ -35,8 +35,8 @@ describe('Signal-triggered shutdown', () => {
 
   it('invokes app.shutdown when a signal-bound handler fires', async () => {
     const { get } = await app.ready({ warmup: true });
-    const cli = get(CliConfig) as TestCliConfig;
-    const firstSpy = get(FirstSpy);
+    const cli = (await get(CliConfig)) as TestCliConfig;
+    const firstSpy = await get(FirstSpy);
 
     let shutdownPromise: Promise<void> | undefined;
     const handler = () => {
@@ -55,7 +55,7 @@ describe('Signal-triggered shutdown', () => {
 
   it('removes handlers via offSignal', async () => {
     const { get } = await app.ready({ warmup: true });
-    const cli = get(CliConfig) as TestCliConfig;
+    const cli = (await get(CliConfig)) as TestCliConfig;
 
     let calls = 0;
     const handler = () => {

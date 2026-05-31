@@ -51,14 +51,14 @@ describe('Injector — DI error paths', () => {
       const app = createApp({ http: { controllers: [] } });
       const testApp = await onTest(app);
 
-      expect(() => testApp.get(ConsumerOfUnregistered)).toThrow(/No provider/);
+      await expect(testApp.get(ConsumerOfUnregistered)).rejects.toThrow(/No provider/);
     });
 
     it('reports the missing token name in the error message', async () => {
       const app = createApp({ http: { controllers: [] } });
       const testApp = await onTest(app);
 
-      expect(() => testApp.get(ConsumerOfUnregistered)).toThrow(/NotRegisteredService/);
+      await expect(testApp.get(ConsumerOfUnregistered)).rejects.toThrow(/NotRegisteredService/);
     });
   });
 
@@ -67,7 +67,7 @@ describe('Injector — DI error paths', () => {
       const app = createApp({ http: { controllers: [] } });
       const testApp = await onTest(app);
 
-      expect(() => testApp.get(SelfReferencingService)).toThrow(/[Cc]ircular/);
+      await expect(testApp.get(SelfReferencingService)).rejects.toThrow(/[Cc]ircular/);
     });
   });
 
@@ -76,7 +76,7 @@ describe('Injector — DI error paths', () => {
       const app = createApp({ http: { controllers: [] } });
       const testApp = await onTest(app);
 
-      expect(() => testApp.get(OptionalDepConsumer)).toThrow(/No provider/);
+      await expect(testApp.get(OptionalDepConsumer)).rejects.toThrow(/No provider/);
     });
   });
 

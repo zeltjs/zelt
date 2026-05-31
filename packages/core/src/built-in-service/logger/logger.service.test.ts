@@ -21,7 +21,7 @@ describe('LoggerService', () => {
     it('child inherits parent bindings and merges context', async () => {
       const app = createApp({});
       const { get } = await app.ready();
-      const logger = get(LoggerService);
+      const logger = await get(LoggerService);
       const child1 = logger.child({ service: 'auth' });
       const child2 = child1.child({ module: 'jwt' });
 
@@ -37,7 +37,7 @@ describe('LoggerService', () => {
     it('child is not DI-managed (lightweight wrapper)', async () => {
       const app = createApp({});
       const { get } = await app.ready();
-      const logger = get(LoggerService);
+      const logger = await get(LoggerService);
       const child = logger.child({ service: 'test' });
 
       expect(child).not.toBe(logger);
@@ -57,7 +57,7 @@ describe('LoggerService', () => {
 
       const app = createApp({ configs: [WarnOnlyConfig] });
       const { get } = await app.ready();
-      const logger = get(LoggerService);
+      const logger = await get(LoggerService);
 
       logger.debug('skip');
       logger.info('skip');

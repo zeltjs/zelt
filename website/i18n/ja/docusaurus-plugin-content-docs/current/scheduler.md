@@ -300,7 +300,7 @@ const app = createApp({
 });
 const nodeApp = await onNode(app);
 // ---cut---
-const config = nodeApp.get(SchedulerConfig);
+const config = await nodeApp.get(SchedulerConfig);
 if (config.enabled) {
   await nodeApp.startScheduler();
 }

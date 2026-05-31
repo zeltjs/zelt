@@ -47,8 +47,8 @@ describe('DI dependency-driven lifecycle order', () => {
 
   it('resolves DependencyA with its DependencyB wired through constructor injection', async () => {
     const { get } = await app.ready({ warmup: true });
-    const a = get(DependencyA);
-    const b = get(DependencyB);
+    const a = await get(DependencyA);
+    const b = await get(DependencyB);
 
     expect(a.b).toBe(b);
   });
@@ -71,7 +71,7 @@ describe('Services without lifecycle hooks', () => {
 
   it('coexist with Lifecycle services without triggering errors during startup or shutdown', async () => {
     const { get } = await app.ready({ warmup: true });
-    const noHook = get(NoHookService);
+    const noHook = await get(NoHookService);
 
     expect(noHook.ping()).toBe('pong');
 

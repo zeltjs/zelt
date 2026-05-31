@@ -20,16 +20,16 @@ describe('Injector — Config override', () => {
 
   it('returns the original Config when no override is supplied', async () => {
     const testApp = await onTest(makeApp());
-    expect(testApp.get(AppConfig).appName).toBe('injector-test');
-    expect(testApp.get(AppConfig).version).toBe(1);
+    expect((await testApp.get(AppConfig)).appName).toBe('injector-test');
+    expect((await testApp.get(AppConfig)).version).toBe(1);
   });
 
   it('substitutes the Config with a subclass passed via onTest({ configs })', async () => {
     const testApp = await onTest(makeApp(), { configs: [TestAppConfig] });
 
-    expect(testApp.get(AppConfig).appName).toBe('override-name');
-    expect(testApp.get(AppConfig).version).toBe(999);
-    expect(testApp.get(ConfigConsumerService).describe()).toBe('override-name@999');
+    expect((await testApp.get(AppConfig)).appName).toBe('override-name');
+    expect((await testApp.get(AppConfig)).version).toBe(999);
+    expect((await testApp.get(ConfigConsumerService)).describe()).toBe('override-name@999');
   });
 
   it('propagates the overridden Config through the controller endpoint', async () => {

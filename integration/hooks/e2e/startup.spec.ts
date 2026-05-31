@@ -21,7 +21,7 @@ describe('Lifecycle startup', () => {
 
   it('calls startup on registered Lifecycle services when app becomes ready', async () => {
     const { get } = await app.ready({ warmup: true });
-    const instance = get(FirstSpy);
+    const instance = await get(FirstSpy);
 
     expect(instance.startupCalls).toBe(1);
     expect(log.events.some((e) => e.source === 'first' && e.phase === 'startup')).toBe(true);
@@ -31,7 +31,7 @@ describe('Lifecycle startup', () => {
     await app.ready({ warmup: true });
     await app.ready({ warmup: true });
     const { get } = await app.ready({ warmup: true });
-    const instance = get(FirstSpy);
+    const instance = await get(FirstSpy);
 
     expect(instance.startupCalls).toBe(1);
   });

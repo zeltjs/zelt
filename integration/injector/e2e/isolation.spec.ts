@@ -23,8 +23,8 @@ describe('Injector — per-app isolation', () => {
     const app1 = await onTest(makeApp());
     const app2 = await onTest(makeApp());
 
-    const leaf1 = app1.get(LeafService);
-    const leaf2 = app2.get(LeafService);
+    const leaf1 = await app1.get(LeafService);
+    const leaf2 = await app2.get(LeafService);
 
     expect(leaf1).not.toBe(leaf2);
     expect(leaf1.value()).toBe('leaf');
@@ -35,10 +35,10 @@ describe('Injector — per-app isolation', () => {
     const app1 = await onTest(makeApp());
     const app2 = await onTest(makeApp());
 
-    app1.get(CounterService).increment();
-    app1.get(CounterService).increment();
+    (await app1.get(CounterService)).increment();
+    (await app1.get(CounterService)).increment();
 
-    expect(app1.get(CounterService).value()).toBe(2);
-    expect(app2.get(CounterService).value()).toBe(0);
+    expect((await app1.get(CounterService)).value()).toBe(2);
+    expect((await app2.get(CounterService)).value()).toBe(0);
   });
 });

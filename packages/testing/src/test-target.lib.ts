@@ -20,7 +20,7 @@ export type CreateTestTargetOptions = {
 
 export type TestTargetResult<T> = {
   readonly target: T;
-  readonly get: <U extends object>(cls: new (...args: never[]) => U) => U;
+  readonly get: <U extends object>(cls: new (...args: never[]) => U) => Promise<U>;
   readonly shutdown: () => Promise<void>;
 };
 
@@ -49,7 +49,7 @@ export const createTestTarget = async <T extends object>(
   registerShutdown(app.shutdown.bind(app));
 
   return {
-    target: get(targetClass),
+    target: await get(targetClass),
     get,
     shutdown: app.shutdown.bind(app),
   };
