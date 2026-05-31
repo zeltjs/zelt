@@ -18,18 +18,23 @@ describe('Rate Limit', () => {
   });
 
   it('returns rate limit headers on successful request', async () => {
-    const res = await testApp.request('/api/auth/login', {
+    const res = await testApp.request('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email: 'nobody@example.com', password: 'password123' }),
+      body: JSON.stringify({
+        email: 'header-test@example.com',
+        password: 'password123',
+        name: 'Header Test',
+      }),
       headers: { 'Content-Type': 'application/json' },
     });
 
-    expect(res.headers.get('X-RateLimit-Limit')).toBe('5');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-RateLimit-Limit')).toBe('3');
     expect(res.headers.get('X-RateLimit-Remaining')).toBeDefined();
   });
 
   it('returns 429 after exceeding limit', async () => {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       await testApp.request('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({
