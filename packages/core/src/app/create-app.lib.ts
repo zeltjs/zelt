@@ -76,16 +76,17 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
       const runtime = container.get(AppRuntime);
       const configRegistry = container.get(ConfigRegistry);
 
-      // Configs must be registered before resolving caps,
-      // otherwise services that depend on Config classes get default values
       registerConfigs(configRegistry, baseConfigs, undefined);
       registerConfigs(configRegistry, readyOptions?.configs, readyOptions?.fallbackConfigs);
 
-      const caps = resolveNamespacedCaps(container, features);
+      let caps: Record<string, object> = {};
 
-      const readyResult = await runtime.ready(
-        readyOptions?.warmup !== undefined ? { warmup: readyOptions.warmup } : undefined,
-      );
+      const readyResult = await runtime.ready({
+        beforeStartup: () => {
+          caps = resolveNamespacedCaps(container, features);
+        },
+        ...(readyOptions?.warmup !== undefined ? { warmup: readyOptions.warmup } : {}),
+      });
 
       const readyApp = {
         ...caps,

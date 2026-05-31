@@ -8,6 +8,7 @@ import { ConfigRegistry } from './config-registry.lib';
 
 export type ReadyOptions = {
   readonly warmup?: boolean;
+  readonly beforeStartup?: () => void;
 };
 
 export type ReadyResult = {
@@ -45,6 +46,7 @@ export class AppRuntime {
   /** @throws {ZeltLifecycleStateError} */
   private async doReady(options?: ReadyOptions): Promise<ReadyResult> {
     this.bindConfigs();
+    options?.beforeStartup?.();
     if (options?.warmup) {
       await this.lifecycleManager.warmup();
     }

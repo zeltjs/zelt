@@ -30,6 +30,9 @@ export const eventbus = (
   key: 'eventbus',
   bind: (container) => {
     container.bind({ provide: opts.adaptor, useClass: opts.adaptor });
+    for (const handler of opts.handlers ?? []) {
+      container.bind({ provide: handler, useClass: handler });
+    }
   },
   resolve: (container) => {
     for (const handler of opts.handlers ?? []) {
