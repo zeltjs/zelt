@@ -6,7 +6,7 @@ import type {
   ExecResult,
   FeatureApp,
   HttpCapabilities,
-  ReadyApp,
+  ReadyApp as AnyReadyApp,
   SchedulerCapabilities,
 } from '@zeltjs/core';
 
@@ -56,21 +56,6 @@ export type FullNodeApp = HttpNodeApp & CommandNodeApp;
 
 export type NodeApp = HttpNodeApp | CommandNodeApp | FullNodeApp;
 
-type NodeAppFor<F extends readonly ConfiguredFeature[]> =
-  ReadyApp<F> extends { http: unknown; commands: unknown; schedulers: unknown }
-    ? FullNodeApp & SchedulerNodeAppPart
-    : ReadyApp<F> extends { http: unknown; schedulers: unknown }
-      ? HttpNodeApp & SchedulerNodeAppPart
-      : ReadyApp<F> extends { commands: unknown; schedulers: unknown }
-        ? CommandNodeApp & SchedulerNodeAppPart
-        : ReadyApp<F> extends { http: unknown; commands: unknown }
-          ? FullNodeApp
-          : ReadyApp<F> extends { http: unknown }
-            ? HttpNodeApp
-            : ReadyApp<F> extends { commands: unknown }
-              ? CommandNodeApp
-              : NodeApp;
-
 type Stderr = { write: (s: string) => void };
 
 const createListenForHttp = (
@@ -119,15 +104,15 @@ type Resolver = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
 };
 
-const extractCapabilities = (readyApp: ReadyApp<readonly ConfiguredFeature[]>): AppCapabilities => ({
+const extractCapabilities = (readyApp: AnyReadyApp<readonly ConfiguredFeature[]>): AppCapabilities => ({
   fetch:
     'http' in readyApp
-      ? (readyApp as ReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }).http.fetch
+      ? (readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }).http.fetch
       : undefined,
   execCommand:
     'commands' in readyApp
       ? (
-          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
+          readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & {
             commands: CommandCapabilities;
           }
         ).commands.execCommand
@@ -135,7 +120,7 @@ const extractCapabilities = (readyApp: ReadyApp<readonly ConfiguredFeature[]>): 
   startScheduler:
     'schedulers' in readyApp
       ? (
-          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
+          readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & {
             schedulers: SchedulerCapabilities;
           }
         ).schedulers.startScheduler
@@ -143,7 +128,7 @@ const extractCapabilities = (readyApp: ReadyApp<readonly ConfiguredFeature[]>): 
   stopScheduler:
     'schedulers' in readyApp
       ? (
-          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
+          readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & {
             schedulers: SchedulerCapabilities;
           }
         ).schedulers.stopScheduler
@@ -234,7 +219,7 @@ const mergeNodeApps = (
 export const onNode = async <const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
   options: NodeAppOptions = {},
-): Promise<NodeAppFor<F>> => {
+): Promise<NodeApp> => {
   const readyApp = await app.ready({
     fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
     warmup: options.warmup ?? true,
@@ -271,5 +256,5 @@ export const onNode = async <const F extends readonly ConfiguredFeature[]>(
   const resolver: Resolver = { get: readyApp.get };
   const result = buildNodeApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeNodeApps(result, resolver, shutdown, args) as NodeAppFor<F>;
+  return mergeNodeApps(result, resolver, shutdown, args);
 };

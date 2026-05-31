@@ -420,6 +420,9 @@ importers:
 
   packages/eventbus:
     devDependencies:
+      '@needle-di/core':
+        specifier: 1.1.2
+        version: 1.1.2
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.17

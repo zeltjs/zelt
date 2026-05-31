@@ -25,12 +25,17 @@ afterAll(() => {
 });
 
 import { NodeCliConfig } from './node-cli.config';
-import type { CommandNodeApp, HttpNodeApp, SchedulerNodeAppPart, ServerHandle } from './on-node';
+import type { HttpNodeApp, CommandNodeApp, NodeApp, SchedulerNodeAppPart, ServerHandle } from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
 
+const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp => 'listen' in app;
+const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'execCommand' in app;
+const hasScheduler = (app: NodeApp): app is NodeApp & SchedulerNodeAppPart =>
+  'startScheduler' in app;
+
 describe('onNode with HTTP', () => {
-  let nodeApp: HttpNodeApp | undefined;
+  let nodeApp: NodeApp | undefined;
   let handle: ServerHandle | undefined;
 
   afterEach(async () => {
@@ -51,6 +56,9 @@ describe('onNode with HTTP', () => {
 
     const app = createApp([http({ controllers: [TestController] })]);
     nodeApp = await onNode(app);
+
+    expect(isHttpNodeApp(nodeApp)).toBe(true);
+    if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
     handle = await nodeApp.listen(0);
 
     expect(handle.address.port).toBeGreaterThan(0);
@@ -72,6 +80,8 @@ describe('onNode with HTTP', () => {
 
     const app = createApp([http({ controllers: [PingController] })]);
     nodeApp = await onNode(app);
+
+    if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
     handle = await nodeApp.listen(0);
 
     expect(handle.address.port).toBeGreaterThan(0);
@@ -95,6 +105,7 @@ describe('onNode with HTTP', () => {
 
     expect(readySpy).toHaveBeenCalledOnce();
 
+    if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
     handle = await nodeApp.listen(0);
     const res = await fetch(`http://localhost:${handle.address.port}/health/`);
     const body: { status: string } = await res.json();
@@ -124,6 +135,8 @@ describe('onNode with HTTP', () => {
 
     const app = createApp([http({ controllers: [SimpleController] })]);
     nodeApp = await onNode(app);
+
+    if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
     handle = await nodeApp.listen(0);
 
     const res = await fetch(`http://localhost:${handle.address.port}/`);
@@ -141,6 +154,8 @@ describe('onNode with HTTP', () => {
 
     const app = createApp([http({ controllers: [ShutdownController] })]);
     nodeApp = await onNode(app);
+
+    if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
     handle = await nodeApp.listen(0);
     const { port } = handle.address;
 
@@ -170,7 +185,7 @@ describe('onNode with HTTP', () => {
 });
 
 describe('onNode with commands', () => {
-  let nodeApp: CommandNodeApp | undefined;
+  let nodeApp: NodeApp | undefined;
 
   afterEach(async () => {
     await nodeApp?.shutdown();
@@ -192,6 +207,7 @@ describe('onNode with commands', () => {
     const app = createApp([command([TestCommand])]);
     nodeApp = await onNode(app);
 
+    if (!isCommandNodeApp(nodeApp)) throw new Error('expected execCommand');
     const result = await nodeApp.execCommand(['test-cmd']);
 
     expect(result.exitCode).toBe(0);
@@ -209,6 +225,7 @@ describe('onNode with commands', () => {
     const app = createApp([command([ExistingCommand])]);
     nodeApp = await onNode(app);
 
+    if (!isCommandNodeApp(nodeApp)) throw new Error('expected execCommand');
     const result = await nodeApp.execCommand(['nonexistent']);
 
     expect(result.exitCode).toBe(1);
@@ -225,6 +242,7 @@ describe('onNode with commands', () => {
     const app = createApp([command([TestCommand])]);
     nodeApp = await onNode(app);
 
+    if (!isCommandNodeApp(nodeApp)) throw new Error('expected execCommand');
     const result = await nodeApp.execCommand([]);
 
     expect(result.exitCode).toBe(1);
@@ -243,6 +261,7 @@ describe('onNode with commands', () => {
     const app = createApp([command([FailingCommand])]);
     nodeApp = await onNode(app);
 
+    if (!isCommandNodeApp(nodeApp)) throw new Error('expected execCommand');
     const result = await nodeApp.execCommand(['failing']);
 
     expect(result.exitCode).toBe(1);
@@ -265,6 +284,8 @@ describe('onNode with commands', () => {
 
     const app = createApp([command([GreetCommand])]);
     nodeApp = await onNode(app);
+
+    if (!isCommandNodeApp(nodeApp)) throw new Error('expected execCommand');
     const result = await nodeApp.execCommand(['greet', 'Alice']);
 
     expect(result.exitCode).toBe(0);
@@ -293,6 +314,8 @@ describe('onNode with commands', () => {
 
     const app = createApp([command([ServeCommand])]);
     nodeApp = await onNode(app);
+
+    if (!isCommandNodeApp(nodeApp)) throw new Error('expected execCommand');
     const result = await nodeApp.execCommand(['serve', '-v']);
 
     expect(result.exitCode).toBe(0);
@@ -319,6 +342,7 @@ describe('command transient behavior', () => {
 
     const nodeApp = await onNode(app);
 
+    if (!isCommandNodeApp(nodeApp)) throw new Error('expected execCommand');
     await nodeApp.execCommand(['track']);
     await nodeApp.execCommand(['track']);
     await nodeApp.execCommand(['track']);
@@ -326,19 +350,19 @@ describe('command transient behavior', () => {
     await nodeApp.shutdown();
 
     expect(instanceIds).toHaveLength(3);
-    expect(new Set(instanceIds).size).toBe(3); // All different IDs
+    expect(new Set(instanceIds).size).toBe(3);
   });
 });
 
 describe('onNode with schedulers', () => {
-  let nodeApp: (HttpNodeApp & SchedulerNodeAppPart) | undefined;
+  let nodeApp: NodeApp | undefined;
 
   afterEach(async () => {
-    if (nodeApp) {
+    if (nodeApp && hasScheduler(nodeApp)) {
       await nodeApp.stopScheduler();
-      await nodeApp.shutdown();
-      nodeApp = undefined;
     }
+    await nodeApp?.shutdown();
+    nodeApp = undefined;
   });
 
   it('provides startScheduler and stopScheduler methods', async () => {
@@ -362,8 +386,8 @@ describe('onNode with schedulers', () => {
     ]);
     nodeApp = await onNode(app);
 
-    expect(nodeApp.startScheduler).toBeTypeOf('function');
-    expect(nodeApp.stopScheduler).toBeTypeOf('function');
+    expect('startScheduler' in nodeApp).toBe(true);
+    expect('stopScheduler' in nodeApp).toBe(true);
   });
 
   it('scheduler runs after explicit startScheduler()', async () => {
@@ -393,6 +417,7 @@ describe('onNode with schedulers', () => {
 
     expect(taskFn).not.toHaveBeenCalled();
 
+    if (!hasScheduler(nodeApp)) throw new Error('expected startScheduler');
     await nodeApp.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
