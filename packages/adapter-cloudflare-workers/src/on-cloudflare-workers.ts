@@ -1,9 +1,4 @@
-import type {
-  AppRequiring,
-  ConfiguredFeature,
-  HttpCapabilities,
-  ReadyApp,
-} from '@zeltjs/core';
+import type { HttpCapabilities, ReadyApp, ReadyOptions } from '@zeltjs/core';
 
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 
@@ -11,14 +6,20 @@ export type CloudflareWorkersOptions = {
   readonly warmup?: boolean;
 };
 
+type HttpReadyApp = ReadyApp & { readonly http: HttpCapabilities };
+
+type HttpApp = {
+  readonly ready: (options?: ReadyOptions) => Promise<HttpReadyApp>;
+};
+
 export type CloudflareWorkersApp = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
+  readonly get: HttpReadyApp['get'];
   readonly fetch: (request: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
 };
 
-export const onCloudflareWorkers = async <const F extends readonly ConfiguredFeature[]>(
-  app: AppRequiring<F, { readonly http: HttpCapabilities }>,
+export const onCloudflareWorkers = async (
+  app: HttpApp,
   options: CloudflareWorkersOptions = {},
 ): Promise<CloudflareWorkersApp> => {
   const readyApp = await app.ready({
@@ -26,16 +27,12 @@ export const onCloudflareWorkers = async <const F extends readonly ConfiguredFea
     warmup: options.warmup ?? false,
   });
 
-  const httpCaps = (
-    readyApp as ReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }
-  ).http;
-
   const fetch = async (
     request: Request,
     _env: unknown,
     ctx: ExecutionContext,
   ): Promise<Response> => {
-    const response = httpCaps.fetch(request);
+    const response = readyApp.http.fetch(request);
     ctx.waitUntil(response.then(() => {}));
     return response;
   };

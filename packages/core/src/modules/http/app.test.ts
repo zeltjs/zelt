@@ -593,7 +593,7 @@ describe('createApp 2-phase initialization', () => {
   });
 });
 
-describe('addFallbackConfig via ready()', () => {
+describe('config override / fallback via ready()', () => {
   it('overrides config via createApp configs', async () => {
     @Config
     class BaseConfig {

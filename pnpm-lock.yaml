@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@needle-di/core':
+      specifier: 1.1.2
+      version: 1.1.2
     '@types/node':
       specifier: 22.19.17
       version: 22.19.17
@@ -346,7 +349,7 @@ importers:
         version: 4.12.16
     devDependencies:
       '@needle-di/core':
-        specifier: 1.1.2
+        specifier: 'catalog:'
         version: 1.1.2
       '@types/node':
         specifier: 'catalog:'
@@ -424,7 +427,7 @@ importers:
   packages/eventbus:
     devDependencies:
       '@needle-di/core':
-        specifier: 1.1.2
+        specifier: 'catalog:'
         version: 1.1.2
       '@types/node':
         specifier: 'catalog:'

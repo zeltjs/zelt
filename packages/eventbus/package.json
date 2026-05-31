@@ -43,7 +43,7 @@
     }
   },
   "devDependencies": {
-    "@needle-di/core": "1.1.2",
+    "@needle-di/core": "catalog:",
     "@types/node": "catalog:",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/redis": "workspace:*",

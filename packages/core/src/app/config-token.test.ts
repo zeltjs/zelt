@@ -6,9 +6,9 @@ import { createApp } from './create-app.lib';
 describe('config token', () => {
   describe('Config resolution priority', () => {
     // Priority (high to low):
-    // 1. overrideConfig
-    // 2. configs (user-provided)
-    // 3. addFallbackConfig
+    // 1. ready({ configs }) — override
+    // 2. createApp([], { configs }) — user-provided
+    // 3. ready({ fallbackConfigs }) — fallback
     // 4. BaseConfig default getter value
 
     @Config

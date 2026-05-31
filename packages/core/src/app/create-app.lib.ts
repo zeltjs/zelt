@@ -25,10 +25,6 @@ export type ReadyApp<F extends readonly ConfiguredFeature[] = readonly Configure
   readonly shutdown: () => Promise<void>;
 } & NamespacedCaps<F>;
 
-export type AppRequiring<
-  F extends readonly ConfiguredFeature[],
-  TCaps extends object,
-> = ReadyApp<F> extends TCaps ? App<F> : never;
 
 // ─── Helpers ───
 

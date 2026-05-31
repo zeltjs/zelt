@@ -62,6 +62,7 @@ describe('createApp (feature-based)', () => {
     type Result = ReadyApp<readonly [EmptyFeature]>;
     expectTypeOf<Result>().toHaveProperty('get');
     expectTypeOf<Result>().toHaveProperty('shutdown');
+    expectTypeOf<Result>().not.toHaveProperty('empty');
   });
 
   it('caps are correctly namespaced in types', () => {
