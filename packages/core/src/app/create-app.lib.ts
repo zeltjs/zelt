@@ -25,6 +25,11 @@ export type ReadyApp<F extends readonly ConfiguredFeature[] = readonly Configure
   readonly shutdown: () => Promise<void>;
 } & NamespacedCaps<F>;
 
+export type AppRequiring<
+  F extends readonly ConfiguredFeature[],
+  TCaps extends object,
+> = ReadyApp<F> extends TCaps ? App<F> : never;
+
 // ─── Helpers ───
 
 const bindFeatures = (container: Container, features: readonly ConfiguredFeature[]): void => {
@@ -73,14 +78,15 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
 
       bindFeatures(container, features);
 
-      // Resolve caps before ready() so services register their lifecycles
-      const caps = resolveNamespacedCaps(container, features);
-
       const runtime = container.get(AppRuntime);
       const configRegistry = container.get(ConfigRegistry);
 
+      // Configs must be registered before resolving caps,
+      // otherwise services that depend on Config classes get default values
       registerConfigs(configRegistry, baseConfigs, undefined);
       registerConfigs(configRegistry, readyOptions?.configs, readyOptions?.fallbackConfigs);
+
+      const caps = resolveNamespacedCaps(container, features);
 
       const readyResult = await runtime.ready(
         readyOptions?.warmup !== undefined ? { warmup: readyOptions.warmup } : undefined,

@@ -124,8 +124,7 @@ describe('Auth API', () => {
         }),
         headers: { 'Content-Type': 'application/json' },
       });
-      // May be 409 or 429 depending on rate limit state
-      expect([409, 429]).toContain(res.status);
+      expect(res.status).toBe(409);
     });
   });
 

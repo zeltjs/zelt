@@ -1,12 +1,19 @@
+import { Config } from '@zeltjs/core';
+import { RateLimitConfig } from '@zeltjs/rate-limit';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 
 import { createEcApp } from '../../src/app';
+
+@Config
+class TestRateLimitConfig extends RateLimitConfig {
+  override readonly enabled = false;
+}
 
 export type TestApp = Awaited<ReturnType<typeof createTestApp>>;
 
 export const createTestApp = async () => {
   const app = createEcApp();
-  return onTest(app);
+  return onTest(app, { configs: [TestRateLimitConfig] });
 };
 
 export const registerUser = async (

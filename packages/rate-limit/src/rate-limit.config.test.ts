@@ -23,4 +23,9 @@ describe('RateLimitConfig', () => {
     const { target } = await createTestTarget(RateLimitConfig);
     expect(target.kvStoreNamespace).toBe('rate-limit:');
   });
+
+  it('default enabled is true', async () => {
+    const { target } = await createTestTarget(RateLimitConfig);
+    expect(target.enabled).toBe(true);
+  });
 });

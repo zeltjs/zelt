@@ -1,6 +1,8 @@
-import { Controller, createApp, Get, http } from '@zeltjs/core';
+import { Config, Controller, createApp, Get, http } from '@zeltjs/core';
+import { onTest } from '@zeltjs/testing';
 import { describe, expect, it } from 'vitest';
 
+import { RateLimitConfig } from './rate-limit.config';
 import { RateLimit } from './rate-limit.middleware';
 
 describe('@RateLimit decorator', () => {
@@ -60,11 +62,37 @@ describe('@RateLimit decorator', () => {
     }
     const app = createApp([http({ controllers: [TestController] })]);
     const readyApp = await app.ready();
-    // Different keys per request → both succeed
     const r1 = await readyApp.http.request('/dyn');
     const r2 = await readyApp.http.request('/dyn');
     expect(r1.status).toBe(200);
     expect(r2.status).toBe(200);
+  });
+
+  it('skips rate limiting when enabled is false', async () => {
+    @Config
+    class DisabledRateLimitConfig extends RateLimitConfig {
+      override readonly enabled = false;
+    }
+
+    @Controller('/')
+    class TestController {
+      @Get('/disabled')
+      @RateLimit({ limit: 1, windowSec: 60, key: 'test:disabled' })
+      hit() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [TestController] })]);
+    const testApp = await onTest(app, { configs: [DisabledRateLimitConfig] });
+
+    const r1 = await testApp.http.request('/disabled');
+    const r2 = await testApp.http.request('/disabled');
+    const r3 = await testApp.http.request('/disabled');
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+    expect(r3.status).toBe(200);
+    expect(r1.headers.get('X-RateLimit-Limit')).toBeNull();
   });
 
   it('stacking: both decorators must allow', async () => {
@@ -82,7 +110,6 @@ describe('@RateLimit decorator', () => {
     const r1 = await readyApp.http.request('/stack');
     expect(r1.status).toBe(200);
     const r2 = await readyApp.http.request('/stack');
-    // strict limit (1) blocks the second
     expect(r2.status).toBe(429);
   });
 });

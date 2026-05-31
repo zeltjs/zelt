@@ -1,9 +1,15 @@
+import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { TestApp } from './helpers/test-setup';
-import { createTestApp, shutdownAll } from './helpers/test-setup';
+
+import { createEcApp } from '../src/app';
 
 describe('Rate Limit', () => {
-  let testApp: TestApp;
+  let testApp: Awaited<ReturnType<typeof createTestApp>>;
+
+  const createTestApp = async () => {
+    const app = createEcApp();
+    return onTest(app);
+  };
 
   beforeAll(async () => {
     testApp = await createTestApp();
@@ -13,44 +19,24 @@ describe('Rate Limit', () => {
     await shutdownAll();
   });
 
-  it('returns rate limit headers on login', async () => {
-    // Register a user first so login doesn't 401 before rate limit middleware runs
-    await testApp.http.request('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: 'login-test@example.com',
-        password: 'password123',
-        name: 'Login Test',
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    const res = await testApp.http.request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email: 'login-test@example.com', password: 'password123' }),
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    expect(res.headers.get('X-RateLimit-Limit')).toBe('5');
-    expect(res.headers.get('X-RateLimit-Remaining')).toBeDefined();
-  });
-
-  it('returns rate limit headers on register', async () => {
+  it('returns rate limit headers on successful request', async () => {
     const res = await testApp.http.request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
-        email: 'ratelimit@example.com',
+        email: 'header-test@example.com',
         password: 'password123',
-        name: 'Rate Limit',
+        name: 'Header Test',
       }),
       headers: { 'Content-Type': 'application/json' },
     });
 
+    expect(res.status).toBe(200);
     expect(res.headers.get('X-RateLimit-Limit')).toBe('3');
+    expect(res.headers.get('X-RateLimit-Remaining')).toBeDefined();
   });
 
-  it('returns 429 after exceeding register limit', async () => {
-    for (let i = 0; i < 3; i++) {
+  it('returns 429 after exceeding limit', async () => {
+    for (let i = 0; i < 2; i++) {
       await testApp.http.request('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({

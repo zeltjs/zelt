@@ -2,6 +2,7 @@ export { HTTPException } from 'hono/http-exception';
 export type {
   App,
   App as FeatureApp,
+  AppRequiring,
   CreateAppOptions,
   ReadyApp,
   ReadyOptions,

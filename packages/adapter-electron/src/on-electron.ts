@@ -1,6 +1,6 @@
 import type {
+  AppRequiring,
   ConfiguredFeature,
-  FeatureApp,
   HttpCapabilities,
   ReadyApp,
 } from '@zeltjs/core';
@@ -18,7 +18,7 @@ export type ElectronApp = {
 };
 
 export const onElectron = async <const F extends readonly ConfiguredFeature[]>(
-  app: FeatureApp<F>,
+  app: AppRequiring<F, { readonly http: HttpCapabilities }>,
   options: ElectronAppOptions = {},
 ): Promise<ElectronApp> => {
   const readyApp = await app.ready({

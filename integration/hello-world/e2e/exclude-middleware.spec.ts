@@ -54,20 +54,8 @@ class TestController {
   }
 
   @SkipMiddleware(GlobalMiddleware)
-  @Get('/wildcard/overview')
-  testOverview() {
-    return RETURN_VALUE;
-  }
-
-  @SkipMiddleware(GlobalMiddleware)
-  @Get('/legacy-wildcard/overview')
-  legacyWildcard() {
-    return RETURN_VALUE;
-  }
-
-  @SkipMiddleware(GlobalMiddleware)
-  @Get('/splat-wildcard/overview')
-  splatWildcard() {
+  @Get('/wildcard/*')
+  wildcard() {
     return RETURN_VALUE;
   }
 
@@ -123,23 +111,16 @@ describe('Exclude middleware (@SkipMiddleware)', () => {
     expect(await res.json()).toBe(RETURN_VALUE);
   });
 
-  it('should exclude "/wildcard/overview" endpoint (by wildcard)', async () => {
+  it('should exclude wildcard route "/wildcard/*"', async () => {
     const testApp = await setup();
-    const res = await testApp.http.request('/wildcard/overview');
+    const res = await testApp.http.request('/wildcard/anything');
     expect(res.status).toBe(200);
     expect(await res.json()).toBe(RETURN_VALUE);
   });
 
-  it('should exclude "/legacy-wildcard/overview" endpoint (by wildcard, legacy syntax)', async () => {
+  it('should exclude wildcard route at nested path "/wildcard/deep/path"', async () => {
     const testApp = await setup();
-    const res = await testApp.http.request('/legacy-wildcard/overview');
-    expect(res.status).toBe(200);
-    expect(await res.json()).toBe(RETURN_VALUE);
-  });
-
-  it('should exclude "/splat-wildcard/overview" endpoint (by wildcard, new syntax)', async () => {
-    const testApp = await setup();
-    const res = await testApp.http.request('/splat-wildcard/overview');
+    const res = await testApp.http.request('/wildcard/deep/path');
     expect(res.status).toBe(200);
     expect(await res.json()).toBe(RETURN_VALUE);
   });

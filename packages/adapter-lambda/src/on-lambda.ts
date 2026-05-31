@@ -1,6 +1,6 @@
 import type {
+  AppRequiring,
   ConfiguredFeature,
-  FeatureApp,
   HttpCapabilities,
   ReadyApp,
 } from '@zeltjs/core';
@@ -187,7 +187,7 @@ const createHandlerV1 = (appFetch: (request: Request) => Promise<Response>): Lam
 };
 
 export const onLambda = async <const F extends readonly ConfiguredFeature[]>(
-  app: FeatureApp<F>,
+  app: AppRequiring<F, { readonly http: HttpCapabilities }>,
   options: LambdaAppOptions = {},
 ): Promise<LambdaApp> => {
   const readyApp = await app.ready({

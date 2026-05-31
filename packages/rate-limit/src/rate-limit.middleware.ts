@@ -1,19 +1,28 @@
 import type { Next, RequestContext } from '@zeltjs/core';
 import { Injectable, inject, UseMiddleware } from '@zeltjs/core';
 
+import { RateLimitConfig } from './rate-limit.config';
 import { RateLimitExceededException, RateLimitUnavailableException } from './rate-limit.exceptions';
 import { RateLimitService } from './rate-limit.service';
 import type { RateLimitOptions } from './rate-limit.types';
 
 @Injectable()
 export class RateLimitMiddleware {
-  constructor(private readonly limiter = inject(RateLimitService)) {}
+  constructor(
+    private readonly limiter = inject(RateLimitService),
+    private readonly config = inject(RateLimitConfig),
+  ) {}
 
   /**
    * @throws {RateLimitExceededException} When rate limit is exceeded (429)
    * @throws {RateLimitUnavailableException} When rate limit service is unavailable (503)
    */
   async use(c: RequestContext, next: Next, opts: RateLimitOptions): Promise<Response | undefined> {
+    if (!this.config.enabled) {
+      await next();
+      return undefined;
+    }
+
     const key = typeof opts.key === 'string' ? opts.key : opts.key();
     const r = await this.limiter.hit(key, {
       limit: opts.limit,
