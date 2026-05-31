@@ -1,6 +1,4 @@
-import type { App, HttpModule } from '@zeltjs/core';
 import { getClassMetadata } from '@zeltjs/decorator-metadata';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -19,7 +17,7 @@ import { providers } from '../src/providers';
 import { WebhooksExplorer } from '../src/webhooks.explorer';
 
 describe('Discovery', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
+  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);
@@ -30,7 +28,7 @@ describe('Discovery', () => {
   });
 
   it('app boots so discovery can run alongside an active HTTP module', async () => {
-    const res = await testApp.request('/hello');
+    const res = await testApp.http.request('/hello');
     expect(res.status).toBe(200);
   });
 

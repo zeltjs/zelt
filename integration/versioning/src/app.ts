@@ -1,4 +1,4 @@
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 
 import { AppV1Controller } from './app-v1.controller';
 import { AppV2Controller } from './app-v2.controller';
@@ -17,8 +17,8 @@ import { NoVersioningController } from './no-versioning.controller';
 import { OverrideController } from './override.controller';
 import { OverridePartialController } from './override-partial.controller';
 
-export const app = createApp({
-  http: {
+export const app = createApp([
+  http({
     controllers: [
       AppV1Controller,
       AppV2Controller,
@@ -39,5 +39,5 @@ export const app = createApp({
       DeepNestedV1Controller,
       DeepNestedV2Controller,
     ],
-  },
-});
+  }),
+]);

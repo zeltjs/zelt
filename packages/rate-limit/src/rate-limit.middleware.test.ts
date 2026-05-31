@@ -1,4 +1,4 @@
-import { Controller, createApp, Get } from '@zeltjs/core';
+import { Controller, createApp, Get, http } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 
 import { RateLimit } from './rate-limit.middleware';
@@ -14,16 +14,16 @@ describe('@RateLimit decorator', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
 
-    const r1 = await app.request('/limited');
+    const r1 = await readyApp.http.request('/limited');
     expect(r1.status).toBe(200);
 
-    const r2 = await app.request('/limited');
+    const r2 = await readyApp.http.request('/limited');
     expect(r2.status).toBe(200);
 
-    const r3 = await app.request('/limited');
+    const r3 = await readyApp.http.request('/limited');
     expect(r3.status).toBe(429);
     expect(r3.headers.get('Retry-After')).toBe('60');
   });
@@ -37,9 +37,9 @@ describe('@RateLimit decorator', () => {
         return { ok: true };
       }
     }
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.request('/headers');
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const res = await readyApp.http.request('/headers');
     expect(res.headers.get('X-RateLimit-Limit')).toBe('5');
     expect(res.headers.get('X-RateLimit-Remaining')).toBe('4');
   });
@@ -58,11 +58,11 @@ describe('@RateLimit decorator', () => {
         return { ok: true };
       }
     }
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
     // Different keys per request → both succeed
-    const r1 = await app.request('/dyn');
-    const r2 = await app.request('/dyn');
+    const r1 = await readyApp.http.request('/dyn');
+    const r2 = await readyApp.http.request('/dyn');
     expect(r1.status).toBe(200);
     expect(r2.status).toBe(200);
   });
@@ -77,11 +77,11 @@ describe('@RateLimit decorator', () => {
         return { ok: true };
       }
     }
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const r1 = await app.request('/stack');
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.ready();
+    const r1 = await readyApp.http.request('/stack');
     expect(r1.status).toBe(200);
-    const r2 = await app.request('/stack');
+    const r2 = await readyApp.http.request('/stack');
     // strict limit (1) blocks the second
     expect(r2.status).toBe(429);
   });

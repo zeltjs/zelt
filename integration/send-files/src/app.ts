@@ -1,9 +1,5 @@
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 
 import { FileController } from './file.controller';
 
-export const app = createApp({
-  http: {
-    controllers: [FileController],
-  },
-});
+export const app = createApp([http({ controllers: [FileController] })]);

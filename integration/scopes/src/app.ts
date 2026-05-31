@@ -1,11 +1,11 @@
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 
 import { assignIdMiddleware, MiddlewareController } from './middleware.controller';
 import { ScopesController } from './scopes.controller';
 
-export const app = createApp({
-  http: {
+export const app = createApp([
+  http({
     controllers: [ScopesController, MiddlewareController],
     middlewares: [assignIdMiddleware],
-  },
-});
+  }),
+]);

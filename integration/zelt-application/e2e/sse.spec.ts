@@ -1,12 +1,10 @@
-import type { App, HttpModule } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { app } from '../src/app';
 
 describe('Server-Sent Events', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
+  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);
@@ -17,7 +15,7 @@ describe('Server-Sent Events', () => {
   });
 
   it('streams events with text/event-stream content type', async () => {
-    const res = await testApp.request('/sse/messages');
+    const res = await testApp.http.request('/sse/messages');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/event-stream');
 
@@ -32,7 +30,7 @@ describe('Server-Sent Events', () => {
   it('delivers every event when bursting payloads', async () => {
     const n = 30;
     const size = 1024;
-    const res = await testApp.request(`/sse/burst?n=${n}&size=${size}`);
+    const res = await testApp.http.request(`/sse/burst?n=${n}&size=${size}`);
     expect(res.status).toBe(200);
 
     const text = await res.text();

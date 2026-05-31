@@ -184,6 +184,9 @@ importers:
 
   examples/workers-url-shortener:
     dependencies:
+      '@zeltjs/adapter-cloudflare-workers':
+        specifier: workspace:*
+        version: link:../../packages/adapter-cloudflare-workers
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../../packages/core

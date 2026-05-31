@@ -66,7 +66,7 @@ describe('Auth API', () => {
     });
 
     it('rejects wrong password', async () => {
-      const res = await testApp.request('/api/auth/login', {
+      const res = await testApp.http.request('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email: 'user@example.com', password: 'wrong-password' }),
         headers: { 'Content-Type': 'application/json' },
@@ -75,7 +75,7 @@ describe('Auth API', () => {
     });
 
     it('rejects non-existent user', async () => {
-      const res = await testApp.request('/api/auth/login', {
+      const res = await testApp.http.request('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email: 'nobody@example.com', password: 'password123' }),
         headers: { 'Content-Type': 'application/json' },
@@ -101,7 +101,7 @@ describe('Auth API', () => {
     });
 
     it('returns 401 without token', async () => {
-      const res = await testApp.request('/api/auth/me');
+      const res = await testApp.http.request('/api/auth/me');
       expect(res.status).toBe(401);
     });
 
@@ -115,7 +115,7 @@ describe('Auth API', () => {
     it('rejects duplicate email', async () => {
       // This is a separate describe to manage rate limit ordering
       // user@example.com was registered in the previous describe block
-      const res = await testApp.request('/api/auth/register', {
+      const res = await testApp.http.request('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({
           email: 'user@example.com',
@@ -169,7 +169,7 @@ describe('Auth API', () => {
     });
 
     it('unauthenticated cannot create products', async () => {
-      const res = await authApp.request('/api/products', {
+      const res = await authApp.http.request('/api/products', {
         method: 'POST',
         body: JSON.stringify(productData),
         headers: { 'Content-Type': 'application/json' },

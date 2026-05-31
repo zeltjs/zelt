@@ -1,9 +1,14 @@
-import type { HttpCapabilities } from '../modules/http/http.module';
-import type { HttpOptions } from '../modules/http/http.service';
+import type { HttpMetadata, HttpOptions } from '../modules/http/http.service';
 import { HTTP_OPTIONS, HttpService } from '../modules/http/http.service';
+import type { ControllerClass } from '../modules/http/http.types';
 import type { ConfiguredFeature } from './feature.types';
 
-export type { HttpCapabilities };
+export type HttpCapabilities = {
+  readonly fetch: (request: Request) => Promise<Response>;
+  readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
+  readonly getControllers: () => readonly ControllerClass[];
+  readonly getMetadata: () => HttpMetadata;
+};
 
 export const http = (opts: HttpOptions): ConfiguredFeature<'http', HttpCapabilities> => ({
   key: 'http',

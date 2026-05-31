@@ -6,29 +6,28 @@ import { activeLog, createEventLog, WarmupSpy } from '../src/lifecycle-spy';
 
 describe('Lifecycle warmup', () => {
   let log: EventLog;
-  let app: ReturnType<typeof buildApp>;
+  let readyApp: Awaited<ReturnType<ReturnType<typeof buildApp>['ready']>>;
 
   beforeEach(() => {
     log = createEventLog();
     activeLog.current = log;
-    app = buildApp();
   });
 
   afterEach(async () => {
-    await app.shutdown();
+    await readyApp?.shutdown();
     activeLog.current = undefined;
   });
 
   it('runs registered warmup handlers when ready({ warmup: true })', async () => {
-    const { get } = await app.ready({ warmup: true });
-    const instance = await get(WarmupSpy);
+    readyApp = await buildApp().ready({ warmup: true });
+    const instance = await readyApp.get(WarmupSpy);
 
     expect(instance.warmupCalls).toBe(1);
     expect(log.events.some((e) => e.phase === 'warmup')).toBe(true);
   });
 
   it('runs all warmup handlers before completing ready()', async () => {
-    await app.ready({ warmup: true });
+    readyApp = await buildApp().ready({ warmup: true });
 
     const phases = log.events.map((e) => e.phase);
     const lastWarmup = phases.lastIndexOf('warmup');

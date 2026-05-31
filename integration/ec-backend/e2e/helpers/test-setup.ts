@@ -1,10 +1,8 @@
-import type { App, HttpModule } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 
 import { createEcApp } from '../../src/app';
 
-export type TestApp = TestableApp<App<[HttpModule]>>;
+export type TestApp = Awaited<ReturnType<typeof createTestApp>>;
 
 export const createTestApp = async () => {
   const app = createEcApp();
@@ -15,7 +13,7 @@ export const registerUser = async (
   app: TestApp,
   data: { email: string; password: string; name: string },
 ) => {
-  const res = await app.request('/api/auth/register', {
+  const res = await app.http.request('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify(data),
     headers: { 'Content-Type': 'application/json' },
@@ -24,7 +22,7 @@ export const registerUser = async (
 };
 
 export const loginUser = async (app: TestApp, data: { email: string; password: string }) => {
-  const res = await app.request('/api/auth/login', {
+  const res = await app.http.request('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify(data),
     headers: { 'Content-Type': 'application/json' },
@@ -67,7 +65,7 @@ export const authRequest = (
     headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(body);
   }
-  return app.request(path, init);
+  return app.http.request(path, init);
 };
 
 export { shutdownAll };

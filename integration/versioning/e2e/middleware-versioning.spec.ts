@@ -1,12 +1,10 @@
-import type { App, HttpModule } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { app } from '../src/app';
 
 describe('URI Versioning - with middleware applied', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
+  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);
@@ -18,7 +16,7 @@ describe('URI Versioning - with middleware applied', () => {
 
   describe('GET /middleware', () => {
     it('should return "Hello from middleware function!" (v1)', async () => {
-      const res = await testApp.request('/v1/middleware');
+      const res = await testApp.http.request('/v1/middleware');
       expect(res.status).toBe(200);
       expect(await res.text()).toBe('Hello from middleware function!');
     });
@@ -26,7 +24,7 @@ describe('URI Versioning - with middleware applied', () => {
 
   describe('GET /middleware/override', () => {
     it('should return "Hello from middleware function!" (v2)', async () => {
-      const res = await testApp.request('/v2/middleware/override');
+      const res = await testApp.http.request('/v2/middleware/override');
       expect(res.status).toBe(200);
       expect(await res.text()).toBe('Hello from middleware function!');
     });
@@ -34,13 +32,13 @@ describe('URI Versioning - with middleware applied', () => {
 
   describe('GET /middleware/multiple', () => {
     it('should return "Hello from middleware function!" (v1)', async () => {
-      const res = await testApp.request('/v1/middleware/multiple');
+      const res = await testApp.http.request('/v1/middleware/multiple');
       expect(res.status).toBe(200);
       expect(await res.text()).toBe('Hello from middleware function!');
     });
 
     it('should return "Hello from middleware function!" (v2)', async () => {
-      const res = await testApp.request('/v2/middleware/multiple');
+      const res = await testApp.http.request('/v2/middleware/multiple');
       expect(res.status).toBe(200);
       expect(await res.text()).toBe('Hello from middleware function!');
     });
@@ -48,7 +46,7 @@ describe('URI Versioning - with middleware applied', () => {
 
   describe('GET /middleware/neutral', () => {
     it('should return "Hello from middleware function!" (no version)', async () => {
-      const res = await testApp.request('/middleware/neutral');
+      const res = await testApp.http.request('/middleware/neutral');
       expect(res.status).toBe(200);
       expect(await res.text()).toBe('Hello from middleware function!');
     });

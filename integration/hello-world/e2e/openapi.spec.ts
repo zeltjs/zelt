@@ -17,16 +17,21 @@ const schemaResolver: SchemaResolver = async (modulePath) =>
   (await import(modulePath)) as Record<string, unknown>;
 
 const generateDoc = async (): Promise<unknown> => {
-  const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
-  await generateOpenApi(app, {
-    distDir: dist,
-    tsconfig,
-    title: 'Hello World API',
-    version: '1.0.0',
-    schemaAdapter: valibotAdapter,
-    schemaResolver,
-  });
-  return JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as unknown;
+  const readyApp = await app.ready();
+  try {
+    const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
+    await generateOpenApi(readyApp.http, {
+      distDir: dist,
+      tsconfig,
+      title: 'Hello World API',
+      version: '1.0.0',
+      schemaAdapter: valibotAdapter,
+      schemaResolver,
+    });
+    return JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as unknown;
+  } finally {
+    await readyApp.shutdown();
+  }
 };
 
 describe('OpenAPI generation (hello-world)', () => {

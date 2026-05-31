@@ -1,9 +1,14 @@
-import type { SchedulerCapabilities } from '../modules/scheduler/scheduler.module';
+import type { JobInfo } from '../modules/scheduler/scheduler-runner.lib';
 import { SCHEDULER_OPTIONS, SchedulerService } from '../modules/scheduler/scheduler.service';
 import type { SchedulerClass } from '../modules/scheduler/scheduler.types';
 import type { ConfiguredFeature } from './feature.types';
 
-export type { SchedulerCapabilities };
+export type SchedulerCapabilities = {
+  readonly startScheduler: () => Promise<void>;
+  readonly stopScheduler: () => Promise<void>;
+  readonly isSchedulerRunning: () => boolean;
+  readonly getSchedulerJobs: () => readonly JobInfo[];
+};
 
 export const scheduler = (
   schedulers: readonly SchedulerClass[],

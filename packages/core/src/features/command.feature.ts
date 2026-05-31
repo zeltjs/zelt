@@ -1,9 +1,13 @@
-import type { CommandCapabilities } from '../modules/command/command.module';
 import { COMMAND_OPTIONS, CommandService } from '../modules/command/command.service';
 import type { CommandClass } from '../modules/command/command.types';
+import type { ExecResult } from '../modules/command/exec-result.types';
 import type { ConfiguredFeature } from './feature.types';
 
-export type { CommandCapabilities };
+export type CommandCapabilities = {
+  readonly hasCommand: (name: string) => boolean;
+  readonly getCommands: () => ReadonlyMap<string, CommandClass>;
+  readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
+};
 
 export const command = (
   commands: readonly CommandClass[],

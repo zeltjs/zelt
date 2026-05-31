@@ -1,4 +1,4 @@
-import { Controller, createApp, ip, Post } from '@zeltjs/core';
+import { Controller, createApp, http, ip, Post } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
 import { object, string } from 'valibot';
 import { describe, expect, it } from 'vitest';
@@ -18,10 +18,10 @@ describe('rate-limit integration with primitives', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [AuthController] } });
-    await app.ready();
+    const app = createApp([http({ controllers: [AuthController] })]);
+    const readyApp = await app.ready();
 
-    const r1 = await app.request('/auth/login', {
+    const r1 = await readyApp.http.request('/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'cf-connecting-ip': '1.1.1.1' },
       body: JSON.stringify({ email: 'a@a' }),
@@ -29,7 +29,7 @@ describe('rate-limit integration with primitives', () => {
     expect(r1.status).toBe(200);
 
     // Same IP — blocked
-    const r2 = await app.request('/auth/login', {
+    const r2 = await readyApp.http.request('/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'cf-connecting-ip': '1.1.1.1' },
       body: JSON.stringify({ email: 'a@a' }),
@@ -37,7 +37,7 @@ describe('rate-limit integration with primitives', () => {
     expect(r2.status).toBe(429);
 
     // Different IP — allowed
-    const r3 = await app.request('/auth/login', {
+    const r3 = await readyApp.http.request('/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'cf-connecting-ip': '2.2.2.2' },
       body: JSON.stringify({ email: 'a@a' }),
@@ -59,24 +59,24 @@ describe('rate-limit integration with primitives', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [AuthController2] } });
-    await app.ready();
+    const app = createApp([http({ controllers: [AuthController2] })]);
+    const readyApp = await app.ready();
 
-    const r1 = await app.request('/auth/login', {
+    const r1 = await readyApp.http.request('/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: 'a@a' }),
     });
     expect(r1.status).toBe(200);
 
-    const r2 = await app.request('/auth/login', {
+    const r2 = await readyApp.http.request('/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: 'a@a' }),
     });
     expect(r2.status).toBe(429);
 
-    const r3 = await app.request('/auth/login', {
+    const r3 = await readyApp.http.request('/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: 'b@b' }),

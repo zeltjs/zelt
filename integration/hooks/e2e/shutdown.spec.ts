@@ -6,12 +6,10 @@ import { activeLog, createEventLog, FirstSpy } from '../src/lifecycle-spy';
 
 describe('Lifecycle shutdown', () => {
   let log: EventLog;
-  let app: ReturnType<typeof buildApp>;
 
   beforeEach(() => {
     log = createEventLog();
     activeLog.current = log;
-    app = buildApp();
   });
 
   afterEach(() => {
@@ -19,22 +17,22 @@ describe('Lifecycle shutdown', () => {
   });
 
   it('calls shutdown on Lifecycle services when app shuts down', async () => {
-    const { get } = await app.ready({ warmup: true });
-    const instance = await get(FirstSpy);
+    const readyApp = await buildApp().ready({ warmup: true });
+    const instance = await readyApp.get(FirstSpy);
     expect(instance.shutdownCalls).toBe(0);
 
-    await app.shutdown();
+    await readyApp.shutdown();
 
     expect(instance.shutdownCalls).toBe(1);
     expect(log.events.some((e) => e.source === 'first' && e.phase === 'shutdown')).toBe(true);
   });
 
   it('is idempotent: subsequent shutdown calls do not re-run hooks', async () => {
-    const { get } = await app.ready({ warmup: true });
-    const instance = await get(FirstSpy);
+    const readyApp = await buildApp().ready({ warmup: true });
+    const instance = await readyApp.get(FirstSpy);
 
-    await app.shutdown();
-    await app.shutdown();
+    await readyApp.shutdown();
+    await readyApp.shutdown();
 
     expect(instance.shutdownCalls).toBe(1);
   });

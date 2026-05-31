@@ -1,28 +1,33 @@
+import type { ReadyApp } from '@zeltjs/core';
 import { hc } from 'hono/client';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { AppType } from '../../generated/app.gen';
 import { app } from '../app';
 
+let readyApp: ReadyApp;
+
 beforeAll(async () => {
-  await app.ready();
+  readyApp = await app.ready();
 });
 
 describe('/hello', () => {
-  const client = hc<AppType>('https://example.local', {
-    fetch: (input: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(input, init)),
-  });
+  const getClient = () =>
+    hc<AppType>('https://example.local', {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        readyApp.http.fetch(new Request(input, init)),
+    });
 
   it('GET narrows response and returns greeting', async () => {
     // GET has no validated() arg, so AppType narrows status to 200 only — no
     // 400 union branch. `await res.json()` returns GreetResponse directly.
-    const res = await client.hello[':name'].$get({ param: { name: 'zelt' } });
+    const res = await getClient().hello[':name'].$get({ param: { name: 'zelt' } });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({ message: 'hello, zelt' });
   });
 
   it('POST returns 201 with validated body', async () => {
-    const res = await client.hello.$post({ json: { name: 'zelt', excited: true } });
+    const res = await getClient().hello.$post({ json: { name: 'zelt', excited: true } });
     expect(res.status).toBe(201);
     if (res.status === 201) {
       const body = await res.json();
@@ -31,7 +36,7 @@ describe('/hello', () => {
   });
 
   it('POST returns 400 ValidationErrorBody on invalid payload', async () => {
-    const res = await client.hello.$post({
+    const res = await getClient().hello.$post({
       // @ts-expect-error — purposely invalid payload to trigger validation error
       json: { name: 123 },
     });

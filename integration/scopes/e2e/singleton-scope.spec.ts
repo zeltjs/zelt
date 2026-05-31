@@ -1,5 +1,3 @@
-import type { App, HttpModule } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -8,7 +6,7 @@ import { CounterService } from '../src/counter.service';
 import { ScopesController } from '../src/scopes.controller';
 
 describe('Singleton (DEFAULT) scope', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
+  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
   let controllerCallsAtStart = 0;
   let serviceCallsAtStart = 0;
 
@@ -23,25 +21,25 @@ describe('Singleton (DEFAULT) scope', () => {
   });
 
   it('constructs the @Injectable() service exactly once for the whole app', async () => {
-    await testApp.request('/scopes/singleton');
-    await testApp.request('/scopes/singleton');
-    await testApp.request('/scopes/singleton');
+    await testApp.http.request('/scopes/singleton');
+    await testApp.http.request('/scopes/singleton');
+    await testApp.http.request('/scopes/singleton');
 
     expect(CounterService.constructorCalls - serviceCallsAtStart).toBe(1);
   });
 
   it('constructs the controller exactly once for the whole app', async () => {
-    await testApp.request('/scopes/singleton');
-    await testApp.request('/scopes/singleton');
+    await testApp.http.request('/scopes/singleton');
+    await testApp.http.request('/scopes/singleton');
 
     expect(ScopesController.constructorCalls - controllerCallsAtStart).toBe(1);
   });
 
   it('shares mutable state across requests because the singleton is reused', async () => {
-    const beforeRes = await testApp.request('/scopes/singleton');
+    const beforeRes = await testApp.http.request('/scopes/singleton');
     const beforeBody = (await beforeRes.json()) as { value: number };
 
-    const afterRes = await testApp.request('/scopes/singleton');
+    const afterRes = await testApp.http.request('/scopes/singleton');
     const afterBody = (await afterRes.json()) as { value: number };
 
     expect(afterBody.value).toBe(beforeBody.value + 1);

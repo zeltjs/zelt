@@ -56,7 +56,7 @@ describe('Cart API', () => {
     });
 
     it('requires authentication', async () => {
-      const res = await testApp.request('/api/cart');
+      const res = await testApp.http.request('/api/cart');
       expect(res.status).toBe(401);
     });
   });

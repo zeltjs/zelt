@@ -1,5 +1,5 @@
 import { NodeCliConfig } from '@zeltjs/adapter-node';
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
@@ -51,7 +51,7 @@ const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
     throw new ZeltNoEntryError({});
   }
 
-  const app = createApp({ http: { controllers: [] } });
+  const app = createApp([http({ controllers: [] })]);
   const hookOptions = { cwd, config, app };
 
   await runPreBuildHooks(hookOptions);

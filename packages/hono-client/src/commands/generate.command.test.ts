@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { CliConfig, Config, Controller, createApp, Get, runInCommandContext } from '@zeltjs/core';
+import { CliConfig, Config, Controller, createApp, Get, http, runInCommandContext } from '@zeltjs/core';
 import { createTestTarget, shutdownAll } from '@zeltjs/testing';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -52,13 +52,13 @@ describe('GenerateCommand', () => {
       }
     }
 
-    const targetApp = createApp({ http: { controllers: [HelloController] } });
-    await targetApp.ready();
+    const targetApp = createApp([http({ controllers: [HelloController] })]);
+    const readyApp = await targetApp.ready();
 
     const targetAppPath = join(tempDir, 'target-app.mjs');
     const appContent = `
       export const app = {
-        getMetadata: () => (${JSON.stringify(targetApp.getMetadata())}),
+        getMetadata: () => (${JSON.stringify(readyApp.http.getMetadata())}),
         getControllers: () => []
       };
     `;

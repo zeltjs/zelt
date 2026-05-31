@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 
 import { NodeCliConfig } from '@zeltjs/adapter-node';
 import type { App, SignalHandler } from '@zeltjs/core';
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 import consola from 'consola';
 
 import type { DevConfig, ZeltConfig } from './config/config.types';
@@ -164,7 +164,7 @@ const registerSignalHandlers = (onSignal: () => Promise<void>): SignalHandler =>
 export const startDevServer = async (options: DevServerOptions): Promise<void> => {
   const { cwd, config, devConfig } = options;
 
-  const app = createApp({ http: { controllers: [] } });
+  const app = createApp([http({ controllers: [] })]);
 
   const state: DevServerState = {
     childProcess: undefined,

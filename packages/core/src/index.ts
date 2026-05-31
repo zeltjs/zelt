@@ -1,21 +1,13 @@
 export { HTTPException } from 'hono/http-exception';
-// New App types
 export type {
-  DefaultModulesConfig,
-  NewApp as FeatureApp,
-  NewCreateAppOptions as FeatureAppOptions,
+  App,
+  App as FeatureApp,
+  CreateAppOptions,
   ReadyApp,
   ReadyOptions,
+  ReadyResult,
 } from './app';
-export {
-  type App,
-  type CommandApp,
-  type CreateAppOptions,
-  createApp,
-  type HttpApp,
-  type ReadyResult,
-  type SchedulerApp,
-} from './app';
+export { createApp } from './app';
 export type { Signal, SignalHandler } from './built-in-service/cli';
 export { CliConfig } from './built-in-service/cli';
 export type { ConfigClass } from './built-in-service/config';
@@ -71,7 +63,6 @@ export {
   ZeltSchemaValidationError,
 } from './kernel/errors';
 export type { ReadyValue } from './kernel/internal';
-export type { CommandModule } from './modules/command/command.module';
 export type {
   ArgDefinition,
   ArgsDefinition,
@@ -103,7 +94,6 @@ export type {
   ValidationIssue,
 } from './modules/http/error/error.types';
 export { ErrorHandler } from './modules/http/error/error-handler.decorator';
-export type { HttpModule } from './modules/http/http.module';
 export type { HttpMetadata } from './modules/http/http.service';
 export type { ControllerClass } from './modules/http/http.types';
 // HTTP primitives
@@ -164,7 +154,6 @@ export type { ControllerRouteInfo, RouteInfo } from './modules/http/routing';
 export { getControllerMetadata } from './modules/http/routing';
 export { Controller } from './modules/http/routing/controller.decorator';
 export { Delete, Get, Patch, Post, Put } from './modules/http/routing/http-method.decorator';
-export type { Module, ModuleCapsAll, ModuleCapsMap, ModuleConfigMap } from './modules/module.types';
 // Scheduler decorators
 export { Cron } from './modules/scheduler/schedule/cron.decorator';
 export { Daily } from './modules/scheduler/schedule/daily.decorator';
@@ -172,5 +161,4 @@ export { Every } from './modules/scheduler/schedule/every.decorator';
 export { Hourly } from './modules/scheduler/schedule/hourly.decorator';
 export { Scheduled } from './modules/scheduler/schedule/scheduled.decorator';
 export { Weekly } from './modules/scheduler/schedule/weekly.decorator';
-export type { SchedulerModule } from './modules/scheduler/scheduler.module';
 export type { SchedulerClass } from './modules/scheduler/scheduler.types';

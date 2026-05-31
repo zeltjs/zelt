@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@zeltjs/adapter-cloudflare-workers": "workspace:*",
     "@zeltjs/core": "workspace:*",
     "valibot": "catalog:",
     "@zeltjs/validator-valibot": "workspace:*"

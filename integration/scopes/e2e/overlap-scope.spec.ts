@@ -1,5 +1,3 @@
-import type { App, HttpModule } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -8,7 +6,7 @@ import { app } from '../src/app';
 const OVERLAP_REQUEST_COUNT = 1000;
 
 describe('Overlapping requests preserve per-request context isolation', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
+  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);
@@ -23,7 +21,7 @@ describe('Overlapping requests preserve per-request context isolation', () => {
       Array.from({ length: OVERLAP_REQUEST_COUNT }, (_unused, index) => {
         // Randomized delay forces requests to interleave inside the singleton.
         const delay = (index % 5) * 2;
-        return testApp.request(`/scopes/overlap?id=req-${index}&delay=${delay}`);
+        return testApp.http.request(`/scopes/overlap?id=req-${index}&delay=${delay}`);
       }),
     );
 

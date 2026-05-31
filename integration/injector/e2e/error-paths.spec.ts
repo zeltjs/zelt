@@ -1,4 +1,4 @@
-import { Controller, createApp, Get, Injectable, inject } from '@zeltjs/core';
+import { Controller, createApp, Get, http, Injectable, inject } from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -48,14 +48,14 @@ describe('Injector — DI error paths', () => {
 
   describe('unresolved dependency', () => {
     it('throws when inject() targets a class without @Injectable()', async () => {
-      const app = createApp({ http: { controllers: [] } });
+      const app = createApp([http({ controllers: [] })]);
       const testApp = await onTest(app);
 
       await expect(testApp.get(ConsumerOfUnregistered)).rejects.toThrow(/No provider/);
     });
 
     it('reports the missing token name in the error message', async () => {
-      const app = createApp({ http: { controllers: [] } });
+      const app = createApp([http({ controllers: [] })]);
       const testApp = await onTest(app);
 
       await expect(testApp.get(ConsumerOfUnregistered)).rejects.toThrow(/NotRegisteredService/);
@@ -64,7 +64,7 @@ describe('Injector — DI error paths', () => {
 
   describe('self-injection', () => {
     it('detects a circular dependency when a service injects itself', async () => {
-      const app = createApp({ http: { controllers: [] } });
+      const app = createApp([http({ controllers: [] })]);
       const testApp = await onTest(app);
 
       await expect(testApp.get(SelfReferencingService)).rejects.toThrow(/[Cc]ircular/);
@@ -73,7 +73,7 @@ describe('Injector — DI error paths', () => {
 
   describe('optional injection', () => {
     it('does not allow { optional: true } to bypass unresolved dependency errors', async () => {
-      const app = createApp({ http: { controllers: [] } });
+      const app = createApp([http({ controllers: [] })]);
       const testApp = await onTest(app);
 
       await expect(testApp.get(OptionalDepConsumer)).rejects.toThrow(/No provider/);
@@ -82,19 +82,16 @@ describe('Injector — DI error paths', () => {
 
   describe('HTTP app readiness failure', () => {
     it('rejects app.ready({ warmup: true }) when a controller has an unresolvable dependency', async () => {
-      const app = createApp({ http: { controllers: [BrokenController] } });
+      const app = createApp([http({ controllers: [BrokenController] })]);
 
-      // warmup eagerly resolves every controller, surfacing needle-di's "No provider(s) found".
       await expect(app.ready({ warmup: true })).rejects.toThrow(/No provider/);
-      await app.shutdown();
     });
 
     it('fails the first request when a controller has an unresolvable dependency', async () => {
-      const app = createApp({ http: { controllers: [BrokenController] } });
+      const app = createApp([http({ controllers: [BrokenController] })]);
       const testApp = await onTest(app);
 
-      // Without warmup, controller resolution is deferred until the first request hits its route.
-      const res = await testApp.request('/broken');
+      const res = await testApp.http.request('/broken');
       expect(res.status).toBe(500);
     });
   });

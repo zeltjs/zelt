@@ -20,57 +20,65 @@ type OpenApiDoc = {
 
 describe('OpenAPI generation', () => {
   it('generates spec with all endpoints', async () => {
-    const app = createEcApp();
-    const dist = await mkdtemp(join(tmpdir(), 'ec-openapi-'));
-    await generateOpenApi(app, {
-      distDir: dist,
-      tsconfig,
-      title: 'EC Backend API',
-      version: '1.0.0',
-      schemaAdapter: valibotAdapter,
-      schemaResolver,
-    });
+    const readyApp = await createEcApp().ready();
+    try {
+      const dist = await mkdtemp(join(tmpdir(), 'ec-openapi-'));
+      await generateOpenApi(readyApp.http, {
+        distDir: dist,
+        tsconfig,
+        title: 'EC Backend API',
+        version: '1.0.0',
+        schemaAdapter: valibotAdapter,
+        schemaResolver,
+      });
 
-    const doc = JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as OpenApiDoc;
+      const doc = JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as OpenApiDoc;
 
-    expect(doc.info.title).toBe('EC Backend API');
-    expect(doc.info.version).toBe('1.0.0');
+      expect(doc.info.title).toBe('EC Backend API');
+      expect(doc.info.version).toBe('1.0.0');
 
-    const paths = Object.keys(doc.paths);
+      const paths = Object.keys(doc.paths);
 
-    expect(paths).toContain('/api/auth/register');
-    expect(paths).toContain('/api/auth/login');
-    expect(paths).toContain('/api/auth/me');
-    expect(paths).toContain('/api/products');
-    expect(paths).toContain('/api/products/{id}');
-    expect(paths).toContain('/api/cart');
-    expect(paths).toContain('/api/cart/items');
-    expect(paths).toContain('/api/cart/items/{productId}');
-    expect(paths).toContain('/api/orders');
-    expect(paths).toContain('/api/orders/{id}');
+      expect(paths).toContain('/api/auth/register');
+      expect(paths).toContain('/api/auth/login');
+      expect(paths).toContain('/api/auth/me');
+      expect(paths).toContain('/api/products');
+      expect(paths).toContain('/api/products/{id}');
+      expect(paths).toContain('/api/cart');
+      expect(paths).toContain('/api/cart/items');
+      expect(paths).toContain('/api/cart/items/{productId}');
+      expect(paths).toContain('/api/orders');
+      expect(paths).toContain('/api/orders/{id}');
+    } finally {
+      await readyApp.shutdown();
+    }
   });
 
   it('includes request body schemas for POST endpoints', async () => {
-    const app = createEcApp();
-    const dist = await mkdtemp(join(tmpdir(), 'ec-openapi-'));
-    await generateOpenApi(app, {
-      distDir: dist,
-      tsconfig,
-      title: 'EC Backend API',
-      version: '1.0.0',
-      schemaAdapter: valibotAdapter,
-      schemaResolver,
-    });
+    const readyApp = await createEcApp().ready();
+    try {
+      const dist = await mkdtemp(join(tmpdir(), 'ec-openapi-'));
+      await generateOpenApi(readyApp.http, {
+        distDir: dist,
+        tsconfig,
+        title: 'EC Backend API',
+        version: '1.0.0',
+        schemaAdapter: valibotAdapter,
+        schemaResolver,
+      });
 
-    const doc = JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as OpenApiDoc;
+      const doc = JSON.parse(await readFile(join(dist, 'openapi.json'), 'utf8')) as OpenApiDoc;
 
-    const registerPath = doc.paths['/api/auth/register'] as Record<
-      string,
-      { requestBody?: unknown }
-    >;
-    expect(registerPath?.post?.requestBody).toBeDefined();
+      const registerPath = doc.paths['/api/auth/register'] as Record<
+        string,
+        { requestBody?: unknown }
+      >;
+      expect(registerPath?.post?.requestBody).toBeDefined();
 
-    const productPath = doc.paths['/api/products'] as Record<string, { requestBody?: unknown }>;
-    expect(productPath?.post?.requestBody).toBeDefined();
+      const productPath = doc.paths['/api/products'] as Record<string, { requestBody?: unknown }>;
+      expect(productPath?.post?.requestBody).toBeDefined();
+    } finally {
+      await readyApp.shutdown();
+    }
   });
 });

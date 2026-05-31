@@ -15,7 +15,7 @@ describe('Rate Limit', () => {
 
   it('returns rate limit headers on login', async () => {
     // Register a user first so login doesn't 401 before rate limit middleware runs
-    await testApp.request('/api/auth/register', {
+    await testApp.http.request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         email: 'login-test@example.com',
@@ -25,7 +25,7 @@ describe('Rate Limit', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    const res = await testApp.request('/api/auth/login', {
+    const res = await testApp.http.request('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email: 'login-test@example.com', password: 'password123' }),
       headers: { 'Content-Type': 'application/json' },
@@ -36,7 +36,7 @@ describe('Rate Limit', () => {
   });
 
   it('returns rate limit headers on register', async () => {
-    const res = await testApp.request('/api/auth/register', {
+    const res = await testApp.http.request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         email: 'ratelimit@example.com',
@@ -51,7 +51,7 @@ describe('Rate Limit', () => {
 
   it('returns 429 after exceeding register limit', async () => {
     for (let i = 0; i < 3; i++) {
-      await testApp.request('/api/auth/register', {
+      await testApp.http.request('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({
           email: `flood-${i}@example.com`,
@@ -62,7 +62,7 @@ describe('Rate Limit', () => {
       });
     }
 
-    const res = await testApp.request('/api/auth/register', {
+    const res = await testApp.http.request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         email: 'one-more@example.com',

@@ -1,12 +1,10 @@
-import type { App, HttpModule } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { app } from '../src/app';
 
 describe('Body parsing', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
+  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);
@@ -17,7 +15,7 @@ describe('Body parsing', () => {
   });
 
   it('parses JSON request body', async () => {
-    const res = await testApp.request('/body/json', {
+    const res = await testApp.http.request('/body/json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Alice', age: 30 }),
@@ -27,7 +25,7 @@ describe('Body parsing', () => {
   });
 
   it('returns 400 for invalid JSON payload', async () => {
-    const res = await testApp.request('/body/json', {
+    const res = await testApp.http.request('/body/json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{ not valid',
@@ -36,7 +34,7 @@ describe('Body parsing', () => {
   });
 
   it('parses text/plain request body', async () => {
-    const res = await testApp.request('/body/text', {
+    const res = await testApp.http.request('/body/text', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: 'hello zelt',
@@ -46,7 +44,7 @@ describe('Body parsing', () => {
   });
 
   it('parses application/x-www-form-urlencoded body', async () => {
-    const res = await testApp.request('/body/form', {
+    const res = await testApp.http.request('/body/form', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: 'name=John&role=admin',
@@ -61,7 +59,7 @@ describe('Body parsing', () => {
     formData.append('label', 'profile');
     formData.append('file', new File(['file-contents'], 'avatar.txt', { type: 'text/plain' }));
 
-    const res = await testApp.request('/body/multipart', {
+    const res = await testApp.http.request('/body/multipart', {
       method: 'POST',
       body: formData,
     });
@@ -71,7 +69,7 @@ describe('Body parsing', () => {
 
   describe('empty / missing bodies', () => {
     it('returns 400 for empty JSON body', async () => {
-      const res = await testApp.request('/body/json', {
+      const res = await testApp.http.request('/body/json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '',
@@ -83,7 +81,7 @@ describe('Body parsing', () => {
     });
 
     it('parses empty application/x-www-form-urlencoded body as empty object', async () => {
-      const res = await testApp.request('/body/form', {
+      const res = await testApp.http.request('/body/form', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: '',
@@ -93,7 +91,7 @@ describe('Body parsing', () => {
     });
 
     it('parses empty multipart/form-data as empty fields', async () => {
-      const res = await testApp.request('/body/multipart', {
+      const res = await testApp.http.request('/body/multipart', {
         method: 'POST',
         body: new FormData(),
       });
@@ -106,19 +104,19 @@ describe('Body parsing', () => {
     // ZeltBodyTypeMismatchError, not mapped to a client error). These tests are
     // marked todo so the bug fix isn't treated as a regression.
     it.todo('returns 4xx for POST without Content-Type to a json endpoint', async () => {
-      const res = await testApp.request('/body/json', { method: 'POST' });
+      const res = await testApp.http.request('/body/json', { method: 'POST' });
       expect(res.status).toBeGreaterThanOrEqual(400);
       expect(res.status).toBeLessThan(500);
     });
 
     it.todo('returns 4xx for POST without Content-Type to a form endpoint', async () => {
-      const res = await testApp.request('/body/form', { method: 'POST' });
+      const res = await testApp.http.request('/body/form', { method: 'POST' });
       expect(res.status).toBeGreaterThanOrEqual(400);
       expect(res.status).toBeLessThan(500);
     });
 
     it.todo('returns 4xx for POST without Content-Type to a text endpoint', async () => {
-      const res = await testApp.request('/body/text', { method: 'POST' });
+      const res = await testApp.http.request('/body/text', { method: 'POST' });
       expect(res.status).toBeGreaterThanOrEqual(400);
       expect(res.status).toBeLessThan(500);
     });

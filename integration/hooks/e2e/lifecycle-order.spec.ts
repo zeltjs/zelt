@@ -6,12 +6,10 @@ import { activeLog, createEventLog } from '../src/lifecycle-spy';
 
 describe('Lifecycle ordering', () => {
   let log: EventLog;
-  let app: ReturnType<typeof buildApp>;
 
   beforeEach(() => {
     log = createEventLog();
     activeLog.current = log;
-    app = buildApp();
   });
 
   afterEach(() => {
@@ -19,8 +17,8 @@ describe('Lifecycle ordering', () => {
   });
 
   it('runs startup before shutdown across the lifetime', async () => {
-    await app.ready({ warmup: true });
-    await app.shutdown();
+    const readyApp = await buildApp().ready({ warmup: true });
+    await readyApp.shutdown();
 
     const phases = log.events.map((e) => e.phase);
     const firstShutdownIdx = phases.indexOf('shutdown');
@@ -31,11 +29,11 @@ describe('Lifecycle ordering', () => {
   });
 
   it('shuts down in reverse registration order', async () => {
-    await app.ready({ warmup: true });
+    const readyApp = await buildApp().ready({ warmup: true });
 
     const startupOrder = log.events.filter((e) => e.phase === 'startup').map((e) => e.source);
 
-    await app.shutdown();
+    await readyApp.shutdown();
 
     const shutdownOrder = log.events.filter((e) => e.phase === 'shutdown').map((e) => e.source);
 
