@@ -1,4 +1,9 @@
-import type { HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
+import type {
+  ConfiguredFeature,
+  FeatureApp,
+  HttpCapabilities,
+  ReadyApp,
+} from '@zeltjs/core';
 import type {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
@@ -23,7 +28,8 @@ export type LambdaHandlerV1 = (
   context: Context,
 ) => Promise<APIGatewayProxyResult>;
 
-export type LambdaApp = ReadyResult & {
+export type LambdaApp = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly handler: LambdaHandlerV2;
   readonly handlerV1: LambdaHandlerV1;
   readonly shutdown: () => Promise<void>;
@@ -180,22 +186,26 @@ const createHandlerV1 = (appFetch: (request: Request) => Promise<Response>): Lam
   };
 };
 
-export const onLambda = async (
-  app: HttpApp,
+export const onLambda = async <const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
   options: LambdaAppOptions = {},
 ): Promise<LambdaApp> => {
-  app.addFallbackConfig(LambdaEnvAdaptor);
+  const readyApp = await app.ready({
+    fallbackConfigs: [LambdaEnvAdaptor],
+    warmup: options.warmup ?? false,
+  });
 
-  const readyOptions: ReadyOptions = { warmup: options.warmup ?? false };
-  const resolver = await app.ready(readyOptions);
+  const httpCaps = (
+    readyApp as ReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }
+  ).http;
 
-  const handler = createHandlerV2(app.fetch);
-  const handlerV1 = createHandlerV1(app.fetch);
+  const handler = createHandlerV2(httpCaps.fetch);
+  const handlerV1 = createHandlerV1(httpCaps.fetch);
 
   return {
-    ...resolver,
+    get: readyApp.get,
     handler,
     handlerV1,
-    shutdown: app.shutdown,
+    shutdown: readyApp.shutdown,
   };
 };

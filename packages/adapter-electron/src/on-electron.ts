@@ -1,4 +1,9 @@
-import type { HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
+import type {
+  ConfiguredFeature,
+  FeatureApp,
+  HttpCapabilities,
+  ReadyApp,
+} from '@zeltjs/core';
 
 import { ElectronEnvAdaptor } from './electron-env.adaptor';
 
@@ -6,23 +11,28 @@ export type ElectronAppOptions = {
   readonly warmup?: boolean;
 };
 
-export type ElectronApp = ReadyResult & {
+export type ElectronApp = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly fetch: (request: Request) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
 };
 
-export const onElectron = async (
-  app: HttpApp,
+export const onElectron = async <const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
   options: ElectronAppOptions = {},
 ): Promise<ElectronApp> => {
-  app.addFallbackConfig(ElectronEnvAdaptor);
+  const readyApp = await app.ready({
+    fallbackConfigs: [ElectronEnvAdaptor],
+    warmup: options.warmup ?? true,
+  });
 
-  const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
-  const resolver = await app.ready(readyOptions);
+  const httpCaps = (
+    readyApp as ReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }
+  ).http;
 
   return {
-    ...resolver,
-    fetch: app.fetch,
-    shutdown: app.shutdown,
+    get: readyApp.get,
+    fetch: httpCaps.fetch,
+    shutdown: readyApp.shutdown,
   };
 };

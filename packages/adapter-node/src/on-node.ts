@@ -1,12 +1,13 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
 import type {
-  CommandApp,
+  CommandCapabilities,
+  ConfiguredFeature,
   ExecResult,
-  HttpApp,
-  ReadyOptions,
-  ReadyResult,
-  SchedulerApp,
+  FeatureApp,
+  HttpCapabilities,
+  ReadyApp,
+  SchedulerCapabilities,
 } from '@zeltjs/core';
 
 import { NodeCliConfig } from './node-cli.config';
@@ -32,14 +33,16 @@ type NodeAppBase = {
   readonly args: readonly string[];
 };
 
-export type HttpNodeApp = ReadyResult &
-  NodeAppBase & {
+export type HttpNodeApp = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
+} & NodeAppBase & {
     readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
     readonly shutdown: () => Promise<void>;
   };
 
-export type CommandNodeApp = ReadyResult &
-  NodeAppBase & {
+export type CommandNodeApp = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
+} & NodeAppBase & {
     readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
     readonly shutdown: () => Promise<void>;
   };
@@ -91,15 +94,46 @@ const getStderr = (): Stderr => globalThis.process.stderr;
 const getArgs = (): readonly string[] => globalThis.process.argv.slice(2);
 
 type AppCapabilities = {
-  fetch?: (request: Request) => Promise<Response>;
-  execCommand?: (argv: readonly string[]) => Promise<ExecResult>;
-  startScheduler?: () => Promise<void>;
-  stopScheduler?: () => Promise<void>;
+  fetch?: ((request: Request) => Promise<Response>) | undefined;
+  execCommand?: ((argv: readonly string[]) => Promise<ExecResult>) | undefined;
+  startScheduler?: (() => Promise<void>) | undefined;
+  stopScheduler?: (() => Promise<void>) | undefined;
 };
 
-type AnyApp = HttpApp | CommandApp | SchedulerApp | (HttpApp & CommandApp & SchedulerApp);
+type Resolver = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
+};
 
-const extractCapabilities = (app: AnyApp): AppCapabilities => app;
+const extractCapabilities = (readyApp: ReadyApp<readonly ConfiguredFeature[]>): AppCapabilities => ({
+  fetch:
+    'http' in readyApp
+      ? (readyApp as ReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }).http.fetch
+      : undefined,
+  execCommand:
+    'commands' in readyApp
+      ? (
+          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
+            commands: CommandCapabilities;
+          }
+        ).commands.execCommand
+      : undefined,
+  startScheduler:
+    'schedulers' in readyApp
+      ? (
+          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
+            schedulers: SchedulerCapabilities;
+          }
+        ).schedulers.startScheduler
+      : undefined,
+  stopScheduler:
+    'schedulers' in readyApp
+      ? (
+          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
+            schedulers: SchedulerCapabilities;
+          }
+        ).schedulers.stopScheduler
+      : undefined,
+});
 
 type BuildResult = {
   httpResult: HttpNodeApp | undefined;
@@ -109,7 +143,7 @@ type BuildResult = {
 
 const buildHttpNodeApp = (
   caps: AppCapabilities,
-  resolver: ReadyResult,
+  resolver: Resolver,
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): HttpNodeApp | undefined => {
@@ -119,7 +153,7 @@ const buildHttpNodeApp = (
 
 const buildCommandNodeApp = (
   caps: AppCapabilities,
-  resolver: ReadyResult,
+  resolver: Resolver,
   shutdown: () => Promise<void>,
   stderr: Stderr,
   args: readonly string[],
@@ -149,7 +183,7 @@ const buildSchedulerPart = (caps: AppCapabilities): SchedulerNodeAppPart | undef
 
 const buildNodeApps = (
   caps: AppCapabilities,
-  resolver: ReadyResult,
+  resolver: Resolver,
   shutdown: () => Promise<void>,
   stderr: Stderr,
   args: readonly string[],
@@ -161,7 +195,7 @@ const buildNodeApps = (
 
 const mergeNodeApps = (
   result: BuildResult,
-  resolver: ReadyResult,
+  resolver: Resolver,
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): NodeApp => {
@@ -182,35 +216,16 @@ const mergeNodeApps = (
 };
 
 /** @throws {ZeltLifecycleStateError} */
-export function onNode(
-  app: HttpApp & CommandApp & SchedulerApp,
-  options?: NodeAppOptions,
-): Promise<FullNodeApp & SchedulerNodeAppPart>;
-/** @throws {ZeltLifecycleStateError} */
-export function onNode(
-  app: HttpApp & SchedulerApp,
-  options?: NodeAppOptions,
-): Promise<HttpNodeApp & SchedulerNodeAppPart>;
-/** @throws {ZeltLifecycleStateError} */
-export function onNode(
-  app: CommandApp & SchedulerApp,
-  options?: NodeAppOptions,
-): Promise<CommandNodeApp & SchedulerNodeAppPart>;
-/** @throws {ZeltLifecycleStateError} */
-export function onNode(app: HttpApp & CommandApp, options?: NodeAppOptions): Promise<FullNodeApp>;
-/** @throws {ZeltLifecycleStateError} */
-export function onNode(app: HttpApp, options?: NodeAppOptions): Promise<HttpNodeApp>;
-/** @throws {ZeltLifecycleStateError} */
-export function onNode(app: CommandApp, options?: NodeAppOptions): Promise<CommandNodeApp>;
-/** @throws {ZeltLifecycleStateError} */
-export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise<NodeApp> {
-  app.addFallbackConfig(NodeCliConfig);
-  app.addFallbackConfig(ProcessEnvAdaptor);
+export const onNode = async <const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
+  options: NodeAppOptions = {},
+): Promise<NodeApp> => {
+  const readyApp = await app.ready({
+    fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
+    warmup: options.warmup ?? true,
+  });
 
-  const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
-  const resolver = await app.ready(readyOptions);
-
-  const cliConfig = await resolver.get(NodeCliConfig);
+  const cliConfig = await readyApp.get(NodeCliConfig);
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -222,7 +237,7 @@ export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise
     if (shuttingDown) return;
     shuttingDown = true;
     try {
-      await app.shutdown();
+      await readyApp.shutdown();
     } finally {
       detachSignals();
     }
@@ -235,10 +250,11 @@ export async function onNode(app: AnyApp, options: NodeAppOptions = {}): Promise
   cliConfig.onSignal('SIGINT', gracefulShutdown);
   cliConfig.onSignal('SIGTERM', gracefulShutdown);
 
-  const caps = extractCapabilities(app);
+  const caps = extractCapabilities(readyApp);
   const stderr = getStderr();
   const args = getArgs();
+  const resolver: Resolver = { get: readyApp.get };
   const result = buildNodeApps(caps, resolver, shutdown, stderr, args);
 
   return mergeNodeApps(result, resolver, shutdown, args);
-}
+};

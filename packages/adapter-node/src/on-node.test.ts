@@ -1,13 +1,16 @@
 import {
   args,
   Command,
+  command,
   Controller,
   Cron,
   cliSchema,
   createApp,
   EnvAdaptor,
   Get,
+  http,
   Scheduled,
+  scheduler,
 } from '@zeltjs/core';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -22,9 +25,12 @@ afterAll(() => {
 });
 
 import { NodeCliConfig } from './node-cli.config';
-import type { CommandNodeApp, HttpNodeApp, SchedulerNodeAppPart, ServerHandle } from './on-node';
+import type { CommandNodeApp, HttpNodeApp, NodeApp, SchedulerNodeAppPart, ServerHandle } from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
+
+const asHttp = (app: NodeApp): HttpNodeApp => app as HttpNodeApp;
+const asCommand = (app: NodeApp): CommandNodeApp => app as CommandNodeApp;
 
 describe('onNode with HTTP', () => {
   let nodeApp: HttpNodeApp | undefined;
@@ -46,8 +52,8 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    nodeApp = await onNode(app);
+    const app = createApp([http({ controllers: [TestController] })]);
+    nodeApp = asHttp(await onNode(app));
     handle = await nodeApp.listen(0);
 
     expect(handle.address.port).toBeGreaterThan(0);
@@ -67,8 +73,8 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [PingController] } });
-    nodeApp = await onNode(app);
+    const app = createApp([http({ controllers: [PingController] })]);
+    nodeApp = asHttp(await onNode(app));
     handle = await nodeApp.listen(0);
 
     expect(handle.address.port).toBeGreaterThan(0);
@@ -85,10 +91,10 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [HealthController] } });
+    const app = createApp([http({ controllers: [HealthController] })]);
     const readySpy = vi.spyOn(app, 'ready');
 
-    nodeApp = await onNode(app);
+    nodeApp = asHttp(await onNode(app));
 
     expect(readySpy).toHaveBeenCalledOnce();
 
@@ -98,27 +104,16 @@ describe('onNode with HTTP', () => {
     expect(body.status).toBe('ok');
   });
 
-  it('registers ProcessEnvAdaptor as fallback', async () => {
-    const app = createApp({
-      http: { controllers: [] },
-      configs: [EnvAdaptor],
+  it('passes fallback configs to ready()', async () => {
+    const app = createApp([http({ controllers: [] })], { configs: [EnvAdaptor] });
+    const readySpy = vi.spyOn(app, 'ready');
+
+    nodeApp = asHttp(await onNode(app));
+
+    expect(readySpy).toHaveBeenCalledWith({
+      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
+      warmup: true,
     });
-    const addFallbackConfigSpy = vi.spyOn(app, 'addFallbackConfig');
-
-    nodeApp = await onNode(app);
-
-    expect(addFallbackConfigSpy).toHaveBeenCalledWith(ProcessEnvAdaptor);
-  });
-
-  it('auto-injects NodeCliConfig when no CliConfig is configured', async () => {
-    const app = createApp({
-      http: { controllers: [] },
-    });
-    const addFallbackConfigSpy = vi.spyOn(app, 'addFallbackConfig');
-
-    nodeApp = await onNode(app);
-
-    expect(addFallbackConfigSpy).toHaveBeenCalledWith(NodeCliConfig);
   });
 
   it('works without explicit EnvAdaptor in configs', async () => {
@@ -130,8 +125,8 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [SimpleController] } });
-    nodeApp = await onNode(app);
+    const app = createApp([http({ controllers: [SimpleController] })]);
+    nodeApp = asHttp(await onNode(app));
     handle = await nodeApp.listen(0);
 
     const res = await fetch(`http://localhost:${handle.address.port}/`);
@@ -147,8 +142,8 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [ShutdownController] } });
-    nodeApp = await onNode(app);
+    const app = createApp([http({ controllers: [ShutdownController] })]);
+    nodeApp = asHttp(await onNode(app));
     handle = await nodeApp.listen(0);
     const { port } = handle.address;
 
@@ -167,11 +162,10 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [ServiceController] },
+    const app = createApp([http({ controllers: [ServiceController] })], {
       configs: [EnvAdaptor],
     });
-    nodeApp = await onNode(app);
+    nodeApp = asHttp(await onNode(app));
 
     const env = await nodeApp.get(EnvAdaptor);
     expect(env.get).toBeTypeOf('function');
@@ -198,8 +192,8 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'test-cmd' })(TestCommand);
 
-    const app = createApp({ commands: [TestCommand] });
-    nodeApp = await onNode(app);
+    const app = createApp([command([TestCommand])]);
+    nodeApp = asCommand(await onNode(app));
 
     const result = await nodeApp.execCommand(['test-cmd']);
 
@@ -215,8 +209,8 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'existing' })(ExistingCommand);
 
-    const app = createApp({ commands: [ExistingCommand] });
-    nodeApp = await onNode(app);
+    const app = createApp([command([ExistingCommand])]);
+    nodeApp = asCommand(await onNode(app));
 
     const result = await nodeApp.execCommand(['nonexistent']);
 
@@ -231,8 +225,8 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'test' })(TestCommand);
 
-    const app = createApp({ commands: [TestCommand] });
-    nodeApp = await onNode(app);
+    const app = createApp([command([TestCommand])]);
+    nodeApp = asCommand(await onNode(app));
 
     const result = await nodeApp.execCommand([]);
 
@@ -249,8 +243,8 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'failing' })(FailingCommand);
 
-    const app = createApp({ commands: [FailingCommand] });
-    nodeApp = await onNode(app);
+    const app = createApp([command([FailingCommand])]);
+    nodeApp = asCommand(await onNode(app));
 
     const result = await nodeApp.execCommand(['failing']);
 
@@ -272,8 +266,8 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'greet' })(GreetCommand);
 
-    const app = createApp({ commands: [GreetCommand] });
-    nodeApp = await onNode(app);
+    const app = createApp([command([GreetCommand])]);
+    nodeApp = asCommand(await onNode(app));
     const result = await nodeApp.execCommand(['greet', 'Alice']);
 
     expect(result.exitCode).toBe(0);
@@ -300,8 +294,8 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'serve' })(ServeCommand);
 
-    const app = createApp({ commands: [ServeCommand] });
-    nodeApp = await onNode(app);
+    const app = createApp([command([ServeCommand])]);
+    nodeApp = asCommand(await onNode(app));
     const result = await nodeApp.execCommand(['serve', '-v']);
 
     expect(result.exitCode).toBe(0);
@@ -324,11 +318,9 @@ describe('command transient behavior', () => {
       }
     }
 
-    const app = createApp({
-      commands: [TrackCommand],
-    });
+    const app = createApp([command([TrackCommand])]);
 
-    const nodeApp = await onNode(app);
+    const nodeApp = asCommand(await onNode(app));
 
     await nodeApp.execCommand(['track']);
     await nodeApp.execCommand(['track']);
@@ -367,11 +359,11 @@ describe('onNode with schedulers', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [TestController] },
-      schedulers: [TestScheduler],
-    });
-    nodeApp = await onNode(app);
+    const app = createApp([
+      http({ controllers: [TestController] }),
+      scheduler([TestScheduler]),
+    ]);
+    nodeApp = (await onNode(app)) as HttpNodeApp & SchedulerNodeAppPart;
 
     expect(nodeApp.startScheduler).toBeTypeOf('function');
     expect(nodeApp.stopScheduler).toBeTypeOf('function');
@@ -396,11 +388,11 @@ describe('onNode with schedulers', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [TestController] },
-      schedulers: [TestScheduler],
-    });
-    nodeApp = await onNode(app);
+    const app = createApp([
+      http({ controllers: [TestController] }),
+      scheduler([TestScheduler]),
+    ]);
+    nodeApp = (await onNode(app)) as HttpNodeApp & SchedulerNodeAppPart;
 
     expect(taskFn).not.toHaveBeenCalled();
 
