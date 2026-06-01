@@ -22,10 +22,11 @@ pre-push:
     knip:
       run: pnpm knip
     prevent-force-push:
+      use_stdin: true
       run: |
         while read local_ref local_sha remote_ref remote_sha; do
           if [ "$remote_sha" != "0000000000000000000000000000000000000000" ] && [ "$local_sha" != "0000000000000000000000000000000000000000" ]; then
-            # Check if local commit is NOT an ancestor of remote (history rewrite)
+            # Reject pushes where the remote commit is not an ancestor of the local commit.
             if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
               echo "ERROR: Push rejected - would rewrite remote history."
               echo "  Local ref: $local_ref"
