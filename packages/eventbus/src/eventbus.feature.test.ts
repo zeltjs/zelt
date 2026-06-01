@@ -7,6 +7,10 @@ import { MemoryEventBusAdaptor } from './adaptor-memory';
 import { eventbus } from './eventbus.feature';
 import type { EventBusAdaptor, EventBusSchema } from './eventbus.types';
 
+const createRuntime = (container: Container) => ({
+  get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => container.get(cls),
+});
+
 @Config
 class BaseEventBusConfig {
   get value() {
@@ -74,20 +78,20 @@ describe('eventbus feature', () => {
     const feature = eventbus({ adaptor: MemoryEventBusAdaptor });
     expect(feature.key).toBe('eventbus');
     expect(typeof feature.bind).toBe('function');
-    expect(typeof feature.resolve).toBe('function');
+    expect(typeof feature.createCapabilities).toBe('function');
   });
 
-  it('resolve returns EventBus capabilities', () => {
+  it('createCapabilities returns EventBus capabilities', async () => {
     const feature = eventbus({ adaptor: MemoryEventBusAdaptor });
     const container = new Container();
     feature.bind(container);
-    const caps = feature.resolve(container);
+    const caps = await feature.createCapabilities(createRuntime(container));
     expect(typeof caps.emit).toBe('function');
     expect(typeof caps.on).toBe('function');
     expect(typeof caps.once).toBe('function');
   });
 
-  it('resolves adaptor and handlers after config binding but before startup', async () => {
+  it('resolves adaptor and handlers after config binding and starts pending lifecycle', async () => {
     ConfigAwareEventBusAdaptor.constructedValue = undefined;
     ConfigAwareEventBusAdaptor.startedValue = undefined;
     ConfigAwareEventBusHandler.constructedValue = undefined;

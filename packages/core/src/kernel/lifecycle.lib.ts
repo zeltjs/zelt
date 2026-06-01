@@ -8,8 +8,6 @@ export interface Lifecycle<TReady = void> {
   shutdown(): Promise<void> | void;
 }
 
-type WarmupHandler = () => Promise<void>;
-
 type LifecycleEntry = {
   lc: Lifecycle<unknown>;
   readyValue?: ReadyValue<object>;
@@ -19,7 +17,6 @@ type LifecycleEntry = {
 export class LifecycleManager {
   private readonly lifecycles: LifecycleEntry[] = [];
   private startedIndex = 0;
-  private readonly warmupHandlers: WarmupHandler[] = [];
 
   register(lifecycle: Lifecycle<void>): void;
   register<T extends object>(lifecycle: Lifecycle<T>): ReadyValue<T>;
@@ -27,10 +24,6 @@ export class LifecycleManager {
     const readyValue = createReadyValue<object>();
     this.lifecycles.push({ lc: lifecycle, readyValue });
     return readyValue;
-  }
-
-  registerWarmup(handler: WarmupHandler): void {
-    this.warmupHandlers.push(handler);
   }
 
   async startup(): Promise<void> {
@@ -48,12 +41,6 @@ export class LifecycleManager {
         }
       }
       this.startedIndex++;
-    }
-  }
-
-  async warmup(): Promise<void> {
-    for (const handler of this.warmupHandlers) {
-      await handler();
     }
   }
 

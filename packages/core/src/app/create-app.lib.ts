@@ -1,7 +1,7 @@
 import { Container } from '@needle-di/core';
 
 import type { ConfigClass } from '../built-in-service/config';
-import type { ConfiguredFeature, NamespacedCaps } from '../features/feature.types';
+import type { ConfiguredFeature, FeatureRuntime, NamespacedCaps } from '../features/feature.types';
 import { AppRuntime } from './app-runtime.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import { attachContainer } from './override.lib';
@@ -33,18 +33,27 @@ const bindFeatures = (container: Container, features: readonly ConfiguredFeature
   }
 };
 
-const resolveNamespacedCaps = (
-  container: Container,
+const createNamespacedCapabilities = async (
+  runtime: FeatureRuntime,
   features: readonly ConfiguredFeature[],
-): Record<string, object> => {
+): Promise<Record<string, object>> => {
   const caps: Record<string, object> = {};
   for (const feature of features) {
-    const resolved = feature.resolve(container);
-    if (Object.keys(resolved).length > 0) {
-      caps[feature.key] = resolved;
+    const capabilities = await feature.createCapabilities(runtime);
+    if (Object.keys(capabilities).length > 0) {
+      caps[feature.key] = capabilities;
     }
   }
   return caps;
+};
+
+const warmupFeatures = async (
+  runtime: FeatureRuntime,
+  features: readonly ConfiguredFeature[],
+): Promise<void> => {
+  for (const feature of features) {
+    await feature.warmup?.(runtime);
+  }
 };
 
 const registerConfigs = (
@@ -78,15 +87,15 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
 
       registerConfigs(configRegistry, baseConfigs, undefined);
       registerConfigs(configRegistry, readyOptions?.configs, readyOptions?.fallbackConfigs);
+      runtime.applyRegisteredConfigs();
 
-      let caps: Record<string, object> = {};
+      const readyResult = await runtime.ready();
 
-      const readyResult = await runtime.ready({
-        beforeStartup: () => {
-          caps = resolveNamespacedCaps(container, features);
-        },
-        ...(readyOptions?.warmup !== undefined ? { warmup: readyOptions.warmup } : {}),
-      });
+      const caps = await createNamespacedCapabilities(readyResult, features);
+
+      if (readyOptions?.warmup) {
+        await warmupFeatures(readyResult, features);
+      }
 
       const readyApp = {
         ...caps,

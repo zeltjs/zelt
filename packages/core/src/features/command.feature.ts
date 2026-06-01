@@ -16,8 +16,8 @@ export const command = (
   bind: (container) => {
     container.bind({ provide: COMMAND_OPTIONS, useValue: commands });
   },
-  resolve: (container) => {
-    const service = container.get(CommandService);
+  createCapabilities: async (runtime) => {
+    const service = await runtime.get(CommandService);
     return {
       hasCommand: (name) => service.hasCommand(name),
       getCommands: () => service.getCommands(),

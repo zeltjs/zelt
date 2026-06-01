@@ -6,6 +6,10 @@ import { Command } from '../modules/command/definition/command.decorator';
 import { cliSchema } from '../modules/command/input/command-schema.types';
 import { command } from './command.feature';
 
+const createRuntime = (container: Container) => ({
+  get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => container.get(cls),
+});
+
 @Command({ name: 'greet' })
 class GreetCommand {
   static schema = cliSchema({});
@@ -17,24 +21,24 @@ describe('command feature', () => {
     const feature = command([GreetCommand]);
     expect(feature.key).toBe('commands');
     expect(typeof feature.bind).toBe('function');
-    expect(typeof feature.resolve).toBe('function');
+    expect(typeof feature.createCapabilities).toBe('function');
   });
 
-  it('resolve returns CommandCapabilities', () => {
+  it('createCapabilities returns CommandCapabilities', async () => {
     const feature = command([GreetCommand]);
     const container = new Container();
     feature.bind(container);
-    const caps = feature.resolve(container);
+    const caps = await feature.createCapabilities(createRuntime(container));
     expect(typeof caps.hasCommand).toBe('function');
     expect(typeof caps.getCommands).toBe('function');
     expect(typeof caps.execCommand).toBe('function');
   });
 
-  it('caps.hasCommand detects registered commands', () => {
+  it('caps.hasCommand detects registered commands', async () => {
     const feature = command([GreetCommand]);
     const container = new Container();
     feature.bind(container);
-    const caps = feature.resolve(container);
+    const caps = await feature.createCapabilities(createRuntime(container));
 
     expect(caps.hasCommand('greet')).toBe(true);
     expect(caps.hasCommand('unknown')).toBe(false);
@@ -44,10 +48,9 @@ describe('command feature', () => {
     const feature = command([GreetCommand]);
     const container = new Container();
     feature.bind(container);
-    const caps = feature.resolve(container);
+    const caps = await feature.createCapabilities(createRuntime(container));
 
     const lifecycle = container.get(LifecycleManager);
-    await lifecycle.warmup();
     await lifecycle.startup();
 
     const result = await caps.execCommand(['greet']);

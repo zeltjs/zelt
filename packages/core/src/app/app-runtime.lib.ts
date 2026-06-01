@@ -6,11 +6,6 @@ import { inject, resolve } from '../kernel/di';
 import { ZeltLifecycleStateError } from '../kernel/errors';
 import { ConfigRegistry } from './config-registry.lib';
 
-export type ReadyOptions = {
-  readonly warmup?: boolean;
-  readonly beforeStartup?: () => void;
-};
-
 export type ReadyResult = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
 };
@@ -30,7 +25,7 @@ export class AppRuntime {
   ) {}
 
   /** @throws {ZeltLifecycleStateError} */
-  async ready(options?: ReadyOptions): Promise<ReadyResult> {
+  async ready(): Promise<ReadyResult> {
     if (this.state === 'disposed') {
       throw new ZeltLifecycleStateError({ operation: 'ready', currentState: 'disposed' });
     }
@@ -39,17 +34,12 @@ export class AppRuntime {
     }
 
     this.state = 'starting';
-    this.readyPromise = this.doReady(options);
+    this.readyPromise = this.doReady();
     return this.readyPromise;
   }
 
   /** @throws {ZeltLifecycleStateError} */
-  private async doReady(options?: ReadyOptions): Promise<ReadyResult> {
-    this.bindConfigs();
-    options?.beforeStartup?.();
-    if (options?.warmup) {
-      await this.lifecycleManager.warmup();
-    }
+  private async doReady(): Promise<ReadyResult> {
     await this.lifecycleManager.startup();
 
     if (this.state === 'disposed') {
@@ -61,7 +51,10 @@ export class AppRuntime {
     return this.cachedResult;
   }
 
-  private bindConfigs(): void {
+  /** @throws {ZeltLifecycleStateError} */
+  applyRegisteredConfigs(): void {
+    this.assertCanModifyConfig('applyRegisteredConfigs');
+
     const allConfigs = this.configRegistry.getOverrides();
     const defaults = this.configRegistry.getDefaults();
 

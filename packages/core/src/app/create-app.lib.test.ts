@@ -58,7 +58,7 @@ describe('createApp (feature-based)', () => {
   });
 
   it('empty caps features do not appear on ReadyApp', () => {
-    type EmptyFeature = { key: 'empty'; bind: () => void; resolve: () => object };
+    type EmptyFeature = { key: 'empty'; bind: () => void; createCapabilities: () => object };
     type Result = ReadyApp<readonly [EmptyFeature]>;
     expectTypeOf<Result>().toHaveProperty('get');
     expectTypeOf<Result>().toHaveProperty('shutdown');

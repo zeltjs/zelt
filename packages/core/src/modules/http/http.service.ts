@@ -32,16 +32,17 @@ export class HttpService implements Lifecycle<{ hono: Hono }> {
     private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
   ) {
     this.ready = this.lifecycleManager.register(this);
-    this.lifecycleManager.registerWarmup(async () => {
-      await warmupControllers(
-        collectAllControllers(this.options),
-        {
-          get: <T extends object>(cls: new (...args: never[]) => T): T =>
-            resolve(this.container, cls),
-        },
-        this.lifecycleManager,
-      );
-    });
+  }
+
+  async warmupControllers(): Promise<void> {
+    await warmupControllers(
+      collectAllControllers(this.options),
+      {
+        get: <T extends object>(cls: new (...args: never[]) => T): T =>
+          resolve(this.container, cls),
+      },
+      this.lifecycleManager,
+    );
   }
 
   /** @throws {ZeltNotImplementedError} */

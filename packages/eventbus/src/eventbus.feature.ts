@@ -34,12 +34,12 @@ export const eventbus = (
       container.bind({ provide: handler, useClass: handler });
     }
   },
-  resolve: (container) => {
+  createCapabilities: async (runtime) => {
     for (const handler of opts.handlers ?? []) {
-      container.get(handler);
+      await runtime.get(handler);
     }
 
-    const adaptor = container.get(opts.adaptor);
+    const adaptor = await runtime.get(opts.adaptor);
     return {
       emit: (event, data) => adaptor.emit(event, data),
       on: (event, handler) => adaptor.on(event, handler),

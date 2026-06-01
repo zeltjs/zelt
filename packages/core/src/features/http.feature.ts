@@ -15,13 +15,17 @@ export const http = (opts: HttpOptions): ConfiguredFeature<'http', HttpCapabilit
   bind: (container) => {
     container.bind({ provide: HTTP_OPTIONS, useValue: opts });
   },
-  resolve: (container) => {
-    const service = container.get(HttpService);
+  createCapabilities: async (runtime) => {
+    const service = await runtime.get(HttpService);
     return {
       fetch: (req) => service.fetch(req),
       request: (input, init) => service.request(input, init),
       getControllers: () => service.getControllers(),
       getMetadata: () => service.getMetadata(),
     };
+  },
+  warmup: async (runtime) => {
+    const service = await runtime.get(HttpService);
+    await service.warmupControllers();
   },
 });

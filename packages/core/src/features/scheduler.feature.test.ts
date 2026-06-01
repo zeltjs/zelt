@@ -6,6 +6,10 @@ import { Cron } from '../modules/scheduler/schedule/cron.decorator';
 import { Scheduled } from '../modules/scheduler/schedule/scheduled.decorator';
 import { scheduler } from './scheduler.feature';
 
+const createRuntime = (container: Container) => ({
+  get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => container.get(cls),
+});
+
 @Scheduled()
 class TestScheduler {
   @Cron('0 0 * * *')
@@ -27,17 +31,16 @@ describe('scheduler feature', () => {
     const feature = scheduler([TestScheduler]);
     expect(feature.key).toBe('schedulers');
     expect(typeof feature.bind).toBe('function');
-    expect(typeof feature.resolve).toBe('function');
+    expect(typeof feature.createCapabilities).toBe('function');
   });
 
-  it('resolve returns SchedulerCapabilities', async () => {
+  it('createCapabilities returns SchedulerCapabilities', async () => {
     const feature = scheduler([TestScheduler]);
     container = new Container();
     feature.bind(container);
-    const caps = feature.resolve(container);
+    const caps = await feature.createCapabilities(createRuntime(container));
 
     const lifecycle = container.get(LifecycleManager);
-    await lifecycle.warmup();
     await lifecycle.startup();
 
     expect(typeof caps.startScheduler).toBe('function');
@@ -50,10 +53,9 @@ describe('scheduler feature', () => {
     const feature = scheduler([TestScheduler]);
     container = new Container();
     feature.bind(container);
-    const caps = feature.resolve(container);
+    const caps = await feature.createCapabilities(createRuntime(container));
 
     const lifecycle = container.get(LifecycleManager);
-    await lifecycle.warmup();
     await lifecycle.startup();
 
     expect(caps.isSchedulerRunning()).toBe(false);
