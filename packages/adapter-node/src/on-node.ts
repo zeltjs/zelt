@@ -30,22 +30,22 @@ export type NodeAppOptions = {
 export type { ExecResult } from '@zeltjs/core';
 
 type NodeAppBase = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly args: readonly string[];
+  readonly shutdown: () => Promise<void>;
 };
 
-export type HttpNodeApp = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
-} & NodeAppBase & {
-    readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
-    readonly shutdown: () => Promise<void>;
-  };
+type HttpNodeAppPart = {
+  readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
+};
 
-export type CommandNodeApp = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
-} & NodeAppBase & {
-    readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
-    readonly shutdown: () => Promise<void>;
-  };
+export type HttpNodeApp = NodeAppBase & HttpNodeAppPart;
+
+type CommandNodeAppPart = {
+  readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
+};
+
+export type CommandNodeApp = NodeAppBase & CommandNodeAppPart;
 
 export type SchedulerNodeAppPart = {
   readonly startScheduler: () => Promise<void>;
@@ -54,7 +54,31 @@ export type SchedulerNodeAppPart = {
 
 export type FullNodeApp = HttpNodeApp & CommandNodeApp;
 
-export type NodeApp = HttpNodeApp | CommandNodeApp | FullNodeApp;
+export type NodeApp =
+  | NodeAppBase
+  | HttpNodeApp
+  | CommandNodeApp
+  | (NodeAppBase & SchedulerNodeAppPart)
+  | FullNodeApp
+  | (HttpNodeApp & SchedulerNodeAppPart)
+  | (CommandNodeApp & SchedulerNodeAppPart)
+  | (FullNodeApp & SchedulerNodeAppPart);
+
+type FeatureKeys<F extends readonly ConfiguredFeature[]> = F[number]['key'];
+
+type WithFeature<
+  F extends readonly ConfiguredFeature[],
+  TKey extends string,
+  TPart extends object,
+> = TKey extends FeatureKeys<F> ? TPart : unknown;
+
+type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> =
+  string extends FeatureKeys<F>
+    ? NodeApp
+    : NodeAppBase &
+        WithFeature<F, 'http', HttpNodeAppPart> &
+        WithFeature<F, 'commands', CommandNodeAppPart> &
+        WithFeature<F, 'schedulers', SchedulerNodeAppPart>;
 
 type Stderr = { write: (s: string) => void };
 
@@ -222,7 +246,7 @@ const mergeNodeApps = (
 export const onNode = async <const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
   options: NodeAppOptions = {},
-): Promise<NodeApp> => {
+): Promise<NodeAppForFeatures<F>> => {
   const readyApp = await app.ready({
     fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
     warmup: options.warmup ?? true,
@@ -259,5 +283,5 @@ export const onNode = async <const F extends readonly ConfiguredFeature[]>(
   const resolver: Resolver = { get: readyApp.get };
   const result = buildNodeApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeNodeApps(result, resolver, shutdown, args);
+  return mergeNodeApps(result, resolver, shutdown, args) as NodeAppForFeatures<F>;
 };

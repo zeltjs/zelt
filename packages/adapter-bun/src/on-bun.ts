@@ -27,26 +27,41 @@ export type BunAppOptions = {
 export type { ExecResult } from '@zeltjs/core';
 
 type BunAppBase = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly args: readonly string[];
+  readonly shutdown: () => Promise<void>;
 };
 
-export type HttpBunApp = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
-} & BunAppBase & {
-    readonly serve: (options?: ServeOptions) => ServerHandle;
-    readonly shutdown: () => Promise<void>;
-  };
+type HttpBunAppPart = {
+  readonly serve: (options?: ServeOptions) => ServerHandle;
+};
 
-export type CommandBunApp = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
-} & BunAppBase & {
-    readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
-    readonly shutdown: () => Promise<void>;
-  };
+export type HttpBunApp = BunAppBase & HttpBunAppPart;
+
+type CommandBunAppPart = {
+  readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
+};
+
+export type CommandBunApp = BunAppBase & CommandBunAppPart;
 
 export type FullBunApp = HttpBunApp & CommandBunApp;
 
-export type BunApp = HttpBunApp | CommandBunApp | FullBunApp;
+export type BunApp = BunAppBase | HttpBunApp | CommandBunApp | FullBunApp;
+
+type FeatureKeys<F extends readonly ConfiguredFeature[]> = F[number]['key'];
+
+type WithFeature<
+  F extends readonly ConfiguredFeature[],
+  TKey extends string,
+  TPart extends object,
+> = TKey extends FeatureKeys<F> ? TPart : unknown;
+
+type BunAppForFeatures<F extends readonly ConfiguredFeature[]> =
+  string extends FeatureKeys<F>
+    ? BunApp
+    : BunAppBase &
+        WithFeature<F, 'http', HttpBunAppPart> &
+        WithFeature<F, 'commands', CommandBunAppPart>;
 
 type Stderr = { write: (s: string) => void };
 
@@ -178,7 +193,7 @@ const mergeBunApps = (
 export const onBun = async <const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
   options: BunAppOptions = {},
-): Promise<BunApp> => {
+): Promise<BunAppForFeatures<F>> => {
   const readyApp = await app.ready({
     fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
     warmup: options.warmup ?? true,
@@ -215,5 +230,5 @@ export const onBun = async <const F extends readonly ConfiguredFeature[]>(
   const resolver: Resolver = { get: readyApp.get };
   const result = buildBunApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeBunApps(result, resolver, shutdown, args);
+  return mergeBunApps(result, resolver, shutdown, args) as BunAppForFeatures<F>;
 };

@@ -1,3 +1,4 @@
+import type { ConfiguredFeature, FeatureApp } from '@zeltjs/core';
 import {
   args,
   Command,
@@ -12,7 +13,7 @@ import {
   Scheduled,
   scheduler,
 } from '@zeltjs/core';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 const originalMaxListeners = process.getMaxListeners();
 
@@ -39,6 +40,56 @@ const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp => 'listen' in app;
 const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'execCommand' in app;
 const hasScheduler = (app: NodeApp): app is NodeApp & SchedulerNodeAppPart =>
   'startScheduler' in app;
+
+const inferOnNodeReturn = <const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
+): Awaited<ReturnType<typeof onNode<F>>> => {
+  void app;
+  return undefined as never;
+};
+
+describe('onNode return types', () => {
+  it('narrows adapter methods from configured features', () => {
+    const httpFeature = http({ controllers: [] });
+    const httpOnly = inferOnNodeReturn(createApp([httpFeature]));
+
+    expectTypeOf(httpOnly).toHaveProperty('listen');
+    expectTypeOf(httpOnly).not.toHaveProperty('execCommand');
+    expectTypeOf(httpOnly).not.toHaveProperty('startScheduler');
+
+    class TestCommand {
+      static schema = cliSchema({});
+      run() {}
+    }
+    Command({ name: 'test' })(TestCommand);
+
+    const commandFeature = command([TestCommand]);
+    const commandOnly = inferOnNodeReturn(createApp([commandFeature]));
+
+    expectTypeOf(commandOnly).toHaveProperty('execCommand');
+    expectTypeOf(commandOnly).not.toHaveProperty('listen');
+    expectTypeOf(commandOnly).not.toHaveProperty('startScheduler');
+
+    @Scheduled()
+    class TestScheduler {
+      @Cron('0 * * * *')
+      hourlyTask() {}
+    }
+
+    const schedulerFeature = scheduler([TestScheduler]);
+    const schedulerOnly = inferOnNodeReturn(createApp([schedulerFeature]));
+
+    expectTypeOf(schedulerOnly).toHaveProperty('startScheduler');
+    expectTypeOf(schedulerOnly).not.toHaveProperty('listen');
+    expectTypeOf(schedulerOnly).not.toHaveProperty('execCommand');
+
+    const full = inferOnNodeReturn(createApp([httpFeature, commandFeature, schedulerFeature]));
+
+    expectTypeOf(full).toHaveProperty('listen');
+    expectTypeOf(full).toHaveProperty('execCommand');
+    expectTypeOf(full).toHaveProperty('startScheduler');
+  });
+});
 
 describe('onNode with HTTP', () => {
   let nodeApp: NodeApp | undefined;
