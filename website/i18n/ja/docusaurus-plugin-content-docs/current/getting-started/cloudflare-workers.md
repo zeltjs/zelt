@@ -62,18 +62,16 @@ export class HelloController {
 Create `src/app.ts` to wire up your controllers:
 
 ```typescript
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
-export const app = createApp({
-  http: {
+export const app = createApp([http({
     controllers: [HelloController],
-  },
-});
+  })]);
 ```
 
 ### Step 3: Create the Worker Entry Point
@@ -81,7 +79,7 @@ export const app = createApp({
 Create `src/index.ts` as the Cloudflare Workers entry point:
 
 ```typescript
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 
 @Controller('/hello')
@@ -90,7 +88,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const workers = await onCloudflareWorkers(app);
 
@@ -167,7 +165,7 @@ export class ConfigController {
 Register your app:
 
 ```typescript
-import { createApp, Controller, Get, inject, Env } from '@zeltjs/core';
+import { createApp, Controller, Get, inject, Env, http } from '@zeltjs/core';
 @Controller('/config')
 class ConfigController {
   constructor(private env = inject(Env)) {}
@@ -175,11 +173,9 @@ class ConfigController {
   getApiHost() { return { apiHost: this.env.getString('API_HOST', 'localhost') }; }
 }
 // ---cut---
-export const app = createApp({
-  http: {
+export const app = createApp([http({
     controllers: [ConfigController],
-  },
-});
+  })]);
 ```
 
 **Important:** When you use `onCloudflareWorkers()`, the adapter automatically registers the environment configuration. This reads environment variables from the Workers runtime (`cloudflare:workers` module) instead of `process.env`.
@@ -259,7 +255,7 @@ By default, `onCloudflareWorkers()` uses lazy initialization (`warmup: false`) t
 If you prefer to resolve all controllers at initialization (useful for debugging or when cold start time is less critical), set `warmup: true`:
 
 ```typescript
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 
 @Controller('/hello')
@@ -268,7 +264,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const workers = await onCloudflareWorkers(app, { warmup: true });
 

@@ -54,18 +54,16 @@ export class HelloController {
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http, command } from '@zeltjs/core';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
-export const app = createApp({
-  http: {
+export const app = createApp([http({
     controllers: [HelloController],
-  },
-});
+  })]);
 ```
 
 ### Step 3: エントリーポイントの作成
@@ -74,7 +72,7 @@ export const app = createApp({
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http, command } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
@@ -83,7 +81,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const bunApp = await onBun(app);
 
@@ -116,7 +114,7 @@ bun run src/index.ts
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http, command } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
@@ -125,7 +123,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 const bunApp = await onBun(app);
 // ---cut---
 const server = bunApp.serve({
@@ -145,7 +143,7 @@ const server = bunApp.serve({
 
 ```typescript
 // @noErrors
-import { createApp, Command, Arg, Controller, Get } from '@zeltjs/core';
+import { createApp, Command, Arg, Controller, Get, http, command } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
@@ -159,10 +157,7 @@ class GreetCommand {
   run() { console.log(`Hello, ${this.name}!`); }
 }
 
-const app = createApp({
-  http: { controllers: [HelloController] },
-  commands: [GreetCommand],
-});
+const app = createApp([http({ controllers: [HelloController] }), command([GreetCommand])]);
 // ---cut---
 const bunApp = await onBun(app);
 
@@ -178,7 +173,7 @@ console.log(result.exitCode); // 0 or 1
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http, command } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
@@ -187,7 +182,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const bunApp = await onBun(app, { warmup: false });
 ```

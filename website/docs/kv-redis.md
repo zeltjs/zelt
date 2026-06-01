@@ -47,20 +47,16 @@ export class CacheService {
 Register `RedisConfig` and `RedisKVAdaptor` when creating the app. `RedisConfig` provides the connection settings (consumed by `RedisService`, which `RedisKVAdaptor` depends on), so listing `RedisKVAdaptor` in `injectables` is enough — its dependencies resolve automatically:
 
 ```typescript twoslash
-import { createApp, Controller, Get } from '@zeltjs/core';
+import { createApp, Controller, Get, http } from '@zeltjs/core';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
 @Controller('/app')
 class AppController { @Get('/') get() { return {}; } }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AppController],
-  },
-  configs: [RedisConfig],
-  injectables: [RedisKVAdaptor],
-});
+  })], { configs: [RedisConfig] });
 ```
 
 By default, `RedisConfig` reads the connection URL from the `REDIS_URL` environment variable, falling back to `redis://localhost:6379`.
@@ -91,7 +87,7 @@ class CustomRedisConfig extends RedisConfig {
 Register your custom config instead of the default:
 
 ```typescript twoslash
-import { createApp, Config, Controller, Get } from '@zeltjs/core';
+import { createApp, Config, Controller, Get, http } from '@zeltjs/core';
 import { RedisConfig } from '@zeltjs/redis';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 
@@ -103,13 +99,9 @@ class CustomRedisConfig extends RedisConfig {
 @Controller('/app')
 class AppController { @Get('/') get() { return {}; } }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AppController],
-  },
-  configs: [CustomRedisConfig],
-  injectables: [RedisKVAdaptor],
-});
+  })], { configs: [CustomRedisConfig] });
 ```
 
 ## API Reference
@@ -165,18 +157,14 @@ You do not need to disconnect Redis manually. `RedisService` registers itself wi
 With `@zeltjs/adapter-node`, `onNode` installs `SIGINT`/`SIGTERM` handlers that trigger this shutdown, and `handle.shutdown()` does the same:
 
 ```typescript twoslash
-import { createApp, Controller, Get } from '@zeltjs/core';
+import { createApp, Controller, Get, http } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
 @Controller('/app') class AppController { @Get('/') get() { return {}; } }
 
-const app = createApp({
-  http: { controllers: [AppController] },
-  configs: [RedisConfig],
-  injectables: [RedisKVAdaptor],
-});
+const app = createApp([http({ controllers: [AppController] })], { configs: [RedisConfig] });
 const nodeApp = await onNode(app);
 // ---cut---
 const handle = await nodeApp.listen({ port: 3000 });

@@ -443,7 +443,7 @@ Mock the user context in tests:
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { onTest } from '@zeltjs/testing';
-import { createApp, setUser, Controller, Get, Authorized, currentUser } from '@zeltjs/core';
+import { createApp, setUser, Controller, Get, Authorized, currentUser, http } from '@zeltjs/core';
 
 @Controller('/users')
 class UserController {
@@ -451,7 +451,7 @@ class UserController {
   me() { return currentUser(); }
 }
 
-const app = createApp({ http: { controllers: [UserController] } });
+const app = createApp([http({ controllers: [UserController] })]);
 // ---cut---
 describe('Protected routes', () => {
   it('returns user data when authenticated', async () => {
@@ -460,7 +460,7 @@ describe('Protected routes', () => {
     // Mock authentication
     setUser({ id: '123', name: 'Test User' }, ['admin']);
     
-    const res = await testApp.request('/users/me');
+    const res = await (testApp as Awaited<ReturnType<typeof app.ready>>).http.request('/users/me');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ id: '123', name: 'Test User' });
   });

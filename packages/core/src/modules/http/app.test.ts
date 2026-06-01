@@ -1,7 +1,6 @@
 import { injectable } from '@needle-di/core';
 import type { Context, MiddlewareHandler, Next } from 'hono';
-import { afterEach, describe, expect, it } from 'vitest';
-import type { ReadyApp } from '../../app';
+import { describe, expect, it } from 'vitest';
 import { createApp } from '../../app';
 import { Config } from '../../built-in-service/config';
 import { http } from '../../features/http.feature';

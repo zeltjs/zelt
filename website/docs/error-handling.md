@@ -230,18 +230,16 @@ Return a `Response` to handle the error, or `undefined` to pass it to the next h
 Pass error handlers to `createApp` via the `errorHandlers` option:
 
 ```typescript
-import { createApp, Controller, Get, ErrorHandler, RequestContext } from '@zeltjs/core';
+import { createApp, Controller, Get, ErrorHandler, RequestContext, http } from '@zeltjs/core';
 
 @Controller('/users') class UserController { @Get('/') findAll() { return { users: [] }; } }
 @ErrorHandler class DatabaseErrorHandler { onError(error: Error, c: RequestContext) { return undefined; } }
 @ErrorHandler class ValidationErrorHandler { onError(error: Error, c: RequestContext) { return undefined; } }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [UserController],
     errorHandlers: [DatabaseErrorHandler, ValidationErrorHandler],
-  },
-});
+  })]);
 ```
 
 ### Handler Chain
@@ -253,7 +251,7 @@ Error handlers execute in the order they are registered:
 3. If all handlers return `undefined`, the default error handler runs
 
 ```typescript
-import { createApp, Controller, Get, ErrorHandler, RequestContext } from '@zeltjs/core';
+import { createApp, Controller, Get, ErrorHandler, RequestContext, http } from '@zeltjs/core';
 
 class CustomError extends Error {}
 @Controller('/') class MyController { @Get('/') index() { return { ok: true }; } }
@@ -276,12 +274,10 @@ class FallbackHandler {
   }
 }
 
-createApp({
-  http: {
+createApp([http({
     controllers: [MyController],
     errorHandlers: [FirstHandler, FallbackHandler],
-  },
-});
+  })]);
 ```
 
 ### Dependency Injection

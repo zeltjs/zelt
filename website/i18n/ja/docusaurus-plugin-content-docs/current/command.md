@@ -32,7 +32,7 @@ export class GreetCommand {
 Create a `src/cli.ts` entry point for your CLI:
 
 ```typescript
-import { createApp, Command, cliSchema, args } from '@zeltjs/core';
+import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Command({ name: 'greet', description: 'Greet a user' })
@@ -41,7 +41,7 @@ class GreetCommand {
   run(ctx = args(GreetCommand)) { console.log(`Hello, ${ctx.name}!`); }
 }
 // ---cut---
-const app = createApp({ commands: [GreetCommand] });
+const app = createApp([command([GreetCommand])]);
 const nodeApp = await onNode(app);
 await nodeApp.execCommand([...nodeApp.args]);
 ```
@@ -251,7 +251,7 @@ export class MigrateCommand {
 Commands can be executed programmatically using `onNode()`:
 
 ```typescript
-import { createApp, Command, cliSchema, args } from '@zeltjs/core';
+import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 @Command({ name: 'migrate' })
 class MigrateCommand {
@@ -259,7 +259,7 @@ class MigrateCommand {
   run(ctx = args(MigrateCommand)) {}
 }
 // ---cut---
-const app = createApp({ commands: [MigrateCommand] });
+const app = createApp([command([MigrateCommand])]);
 const nodeApp = await onNode(app);
 
 const result = await nodeApp.execCommand(['migrate', '--force']);

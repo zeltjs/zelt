@@ -1,4 +1,4 @@
-import type { Context, Env, Hono, Input } from 'hono';
+import type { Context, Env, Input } from 'hono';
 import type { LifecycleManager } from '../../../kernel';
 import type { ResolverHandle } from '../../../kernel/di';
 import {
@@ -31,6 +31,14 @@ import {
 export { joinPath };
 
 type MiddlewareContext = Context<Env, string, Input>;
+type RouteHandler = (c: MiddlewareContext) => Promise<Response>;
+type HonoRouter = {
+  readonly get: (path: string, handler: RouteHandler) => unknown;
+  readonly post: (path: string, handler: RouteHandler) => unknown;
+  readonly put: (path: string, handler: RouteHandler) => unknown;
+  readonly patch: (path: string, handler: RouteHandler) => unknown;
+  readonly delete: (path: string, handler: RouteHandler) => unknown;
+};
 
 import type { ControllerClass } from '../http.types';
 
@@ -88,9 +96,7 @@ type ParsedBody =
   | { type: 'none'; val: undefined };
 
 /** @throws {BadRequestException} */
-const parseRequestBody = async (
-  c: Parameters<Parameters<Hono['on']>[2]>[0],
-): Promise<ParsedBody> => {
+const parseRequestBody = async (c: MiddlewareContext): Promise<ParsedBody> => {
   const contentType = c.req.header('content-type') ?? '';
 
   if (contentType.includes('application/json')) {
@@ -293,7 +299,7 @@ const getOrCreateInstance = (
 
 /** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
 const registerRoute = (
-  hono: Hono,
+  hono: HonoRouter,
   ctx: RouteBuilderContext,
   route: Route,
   globalMiddlewares: readonly MiddlewareInput[],
@@ -342,7 +348,7 @@ const registerRoute = (
 };
 
 export type BuildRoutesOptions = {
-  readonly hono: Hono;
+  readonly hono: HonoRouter;
   readonly controllers: readonly ControllerClass[];
   readonly resolver: ResolverHandle;
   readonly lifecycle: LifecycleManager;

@@ -221,9 +221,29 @@ export default tseslint.config(
   },
   {
     // createApp: runtime-resolved caps from features cannot be statically proven to match NamespacedCaps<F>
-    files: ['packages/core/src/app/create-app.lib.ts'],
+    files: [
+      'packages/core/src/app/create-app.lib.ts',
+      'packages/core/src/modules/http/http.service.ts',
+    ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // Adapters project runtime feature caps into narrowed public API types.
+    files: ['packages/adapter-node/src/on-node.ts', 'packages/adapter-bun/src/on-bun.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@9wick/strict-type-rules/no-in-operator': 'off',
+    },
+  },
+  {
+    // Feature factories intentionally use *.feature.ts naming and can bridge module internals.
+    files: ['packages/core/src/features/*.feature.ts', 'packages/eventbus/src/*.feature.ts'],
+    rules: {
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+      '@9wick/strict-type-rules/no-cross-directory-lib-import': 'off',
+      'zelt/double-dot-naming': 'off',
     },
   },
   {

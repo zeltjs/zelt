@@ -1,10 +1,9 @@
-import type { ReadyApp } from '@zeltjs/core';
 import { hc } from 'hono/client';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { AppType } from '../../generated/app.gen';
 import { app } from '../app';
 
-let readyApp: ReadyApp;
+let readyApp: Awaited<ReturnType<typeof app.ready>>;
 
 beforeAll(async () => {
   readyApp = await app.ready();

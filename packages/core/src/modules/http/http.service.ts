@@ -1,5 +1,4 @@
 import { Container, InjectionToken } from '@needle-di/core';
-import { Hono } from 'hono';
 import type { Lifecycle } from '../../kernel';
 import { LifecycleManager } from '../../kernel';
 import { Injectable, inject, resolve } from '../../kernel/di';
@@ -8,7 +7,11 @@ import type { ControllerClass, HttpChildOptions, HttpOptions } from './http.type
 import { collectAllControllerMetadata, collectAllControllers } from './http-children.lib';
 import { createErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
-import type { ErrorHandlerClass, MiddlewareInput } from './middleware/middleware.types';
+import type {
+  ErrorHandlerClass,
+  MiddlewareInput,
+  RequestContext,
+} from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import type { ControllerRouteInfo } from './routing';
 import { buildRoutes, warmupControllers } from './routing';
@@ -21,8 +24,23 @@ export type HttpMetadata = {
 
 export const HTTP_OPTIONS = new InjectionToken<HttpOptions>('HTTP_OPTIONS');
 
+type RouteHandler = (c: RequestContext) => Promise<Response>;
+
+type HonoInstance = {
+  readonly get: (path: string, handler: RouteHandler) => unknown;
+  readonly post: (path: string, handler: RouteHandler) => unknown;
+  readonly put: (path: string, handler: RouteHandler) => unknown;
+  readonly patch: (path: string, handler: RouteHandler) => unknown;
+  readonly delete: (path: string, handler: RouteHandler) => unknown;
+  readonly onError: (handler: (err: Error, c: RequestContext) => Promise<Response>) => unknown;
+  readonly route: (path: string, app: HonoInstance) => unknown;
+  readonly fetch: (request: Request) => Response | Promise<Response>;
+};
+
+type HonoConstructor = new (options: { readonly strict: boolean }) => HonoInstance;
+
 @Injectable()
-export class HttpService implements Lifecycle<{ hono: Hono }> {
+export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
   private readonly ready;
 
   /** @throws {ZeltNotImplementedError} */
@@ -46,12 +64,13 @@ export class HttpService implements Lifecycle<{ hono: Hono }> {
   }
 
   /** @throws {ZeltNotImplementedError} */
-  async startup(): Promise<{ hono: Hono }> {
+  async startup(): Promise<{ hono: HonoInstance }> {
     return { hono: await this.initializeHono() };
   }
 
   /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-  private async initializeHono(): Promise<Hono> {
+  private async initializeHono(): Promise<HonoInstance> {
+    const Hono = await this.loadHonoConstructor();
     const fallbackHandler = resolve(this.container, DefaultErrorHandler);
     const resolver = {
       get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
@@ -70,8 +89,14 @@ export class HttpService implements Lifecycle<{ hono: Hono }> {
       this.options.children ?? [],
       fallbackHandler,
       resolver,
+      Hono,
     );
     return hono;
+  }
+
+  private async loadHonoConstructor(): Promise<HonoConstructor> {
+    const honoModule = await import('hono');
+    return honoModule.Hono as unknown as HonoConstructor;
   }
 
   /** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError} */
@@ -82,7 +107,8 @@ export class HttpService implements Lifecycle<{ hono: Hono }> {
     children: readonly HttpChildOptions[],
     fallbackHandler: InstanceType<typeof DefaultErrorHandler>,
     resolver: { get: <T extends object>(cls: new (...args: never[]) => T) => T },
-  ): Hono {
+    Hono: HonoConstructor,
+  ): HonoInstance {
     const hono = new Hono({ strict: false });
 
     const errorHandlers = resolveErrorHandlers(errorHandlerClasses, this.container);
@@ -106,6 +132,7 @@ export class HttpService implements Lifecycle<{ hono: Hono }> {
         child.children ?? [],
         fallbackHandler,
         resolver,
+        Hono,
       );
       hono.route(child.path, childHono);
     }

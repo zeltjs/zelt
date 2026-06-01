@@ -107,7 +107,7 @@ if (response.ok) {
 ### Testing with Type-Safe Client
 
 ```typescript
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 declare function describe(name: string, fn: () => void): void;
 declare function it(name: string, fn: () => Promise<void>): void;
 declare function expect(value: any): { toBe(expected: any): void };
@@ -126,11 +126,12 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
+const readyApp = await app.ready();
 // ---cut---
 describe('Hello API', () => {
   const client = hc<AppType>('http://localhost', {
-    fetch: (input, init) => app.fetch(new Request(input, init)),
+    fetch: (input, init) => readyApp.http.fetch(new Request(input, init)),
   });
 
   it('should return greeting', async () => {

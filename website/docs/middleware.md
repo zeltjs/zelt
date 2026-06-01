@@ -29,7 +29,7 @@ Zelt supports middleware at three levels, executed in order: **global → contro
 Apply to all routes via `createApp()`:
 
 ```typescript
-import { createApp, Controller, Get, type FunctionMiddleware } from '@zeltjs/core';
+import { createApp, Controller, Get, type FunctionMiddleware, http } from '@zeltjs/core';
 
 const loggingMiddleware: FunctionMiddleware = async (c, next) => {
   const start = Date.now();
@@ -38,12 +38,10 @@ const loggingMiddleware: FunctionMiddleware = async (c, next) => {
 };
 @Controller('/users') class UserController { @Get('/') findAll() { return []; } }
 // ---cut---
-export const app = createApp({
-  http: {
+export const app = createApp([http({
     controllers: [UserController],
     middlewares: [loggingMiddleware],
-  },
-});
+  })]);
 ```
 
 ### Controller Middleware

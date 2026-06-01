@@ -26,7 +26,7 @@ JWT_SECRET=your-secret-key-at-least-32-characters
 ### 2. Register Middleware
 
 ```typescript
-import { createApp, Controller, Post, Get, Authorized, currentUser, inject } from '@zeltjs/core';
+import { createApp, Controller, Post, Get, Authorized, currentUser, inject, http } from '@zeltjs/core';
 import { JwtMiddleware, JwtConfig, JwtService } from '@zeltjs/auth-jwt';
 
 @Controller('/auth')
@@ -42,13 +42,10 @@ class UserController {
   me() { return currentUser(); }
 }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AuthController, UserController],
     middlewares: [JwtMiddleware],
-  },
-  configs: [JwtConfig],
-});
+  })], { configs: [JwtConfig] });
 ```
 
 ### 3. Generate Tokens
@@ -228,7 +225,7 @@ class CustomJwtConfig extends JwtConfig {
 Register your custom config:
 
 ```typescript
-import { createApp, Controller, Post, Get, Authorized, currentUser, inject } from '@zeltjs/core';
+import { createApp, Controller, Post, Get, Authorized, currentUser, inject, http } from '@zeltjs/core';
 import { JwtMiddleware, JwtService } from '@zeltjs/auth-jwt';
 import { JwtConfig, type JwtPayload, type ResolveUserResult } from '@zeltjs/auth-jwt';
 import { Config, Env, Injectable } from '@zeltjs/core';
@@ -268,13 +265,10 @@ class UserController {
   me() { return currentUser(); }
 }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AuthController, UserController],
     middlewares: [JwtMiddleware],
-  },
-  configs: [CustomJwtConfig],  // Your config replaces JwtConfig
-});
+  })], { configs: [CustomJwtConfig] });
 ```
 
 ### Configuration Options

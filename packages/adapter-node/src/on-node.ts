@@ -1,12 +1,12 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
 import type {
-  ReadyApp as AnyReadyApp,
   CommandCapabilities,
   ConfiguredFeature,
   ExecResult,
   FeatureApp,
   HttpCapabilities,
+  ReadyApp,
   SchedulerCapabilities,
 } from '@zeltjs/core';
 
@@ -129,17 +129,16 @@ type Resolver = {
 };
 
 const extractCapabilities = (
-  readyApp: AnyReadyApp<readonly ConfiguredFeature[]>,
+  readyApp: ReadyApp<readonly ConfiguredFeature[]>,
 ): AppCapabilities => ({
   fetch:
     'http' in readyApp
-      ? (readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }).http
-          .fetch
+      ? (readyApp as ReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }).http.fetch
       : undefined,
   execCommand:
     'commands' in readyApp
       ? (
-          readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & {
+          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
             commands: CommandCapabilities;
           }
         ).commands.execCommand
@@ -147,7 +146,7 @@ const extractCapabilities = (
   startScheduler:
     'schedulers' in readyApp
       ? (
-          readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & {
+          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
             schedulers: SchedulerCapabilities;
           }
         ).schedulers.startScheduler
@@ -155,7 +154,7 @@ const extractCapabilities = (
   stopScheduler:
     'schedulers' in readyApp
       ? (
-          readyApp as AnyReadyApp<readonly ConfiguredFeature[]> & {
+          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
             schedulers: SchedulerCapabilities;
           }
         ).schedulers.stopScheduler

@@ -27,10 +27,14 @@ pnpm dev
 **Worker entry point** (`src/worker.ts`):
 
 ```typescript source=examples/workers-url-shortener/src/worker.ts
+import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
+
 import { app } from './app';
 
+const cfApp = await onCloudflareWorkers(app);
+
 export default {
-  fetch: app.fetch,
+  fetch: cfApp.fetch,
 };
 ```
 

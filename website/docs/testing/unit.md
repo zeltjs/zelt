@@ -161,7 +161,7 @@ Reusing a global app instance causes errors:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { createApp, Command, cliSchema, ZeltLifecycleStateError } from '@zeltjs/core';
+import { createApp, Command, cliSchema, ZeltLifecycleStateError, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Command({ name: 'greet' })
@@ -170,7 +170,7 @@ class GreetCommand {
   run() { console.log('Hello!'); }
 }
 
-const app = createApp({ commands: [GreetCommand] });
+const app = createApp([command([GreetCommand])]);
 // ---cut---
 describe('GreetCommand', () => {
   it('test 1', async () => {
@@ -194,7 +194,7 @@ Create a new app instance for each test:
 
 ```typescript
 import { describe, it, afterEach } from 'vitest';
-import { createApp, Command, cliSchema } from '@zeltjs/core';
+import { createApp, Command, cliSchema, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Command({ name: 'greet' })
@@ -204,21 +204,21 @@ class GreetCommand {
 }
 // ---cut---
 describe('GreetCommand', () => {
-  let nodeApp: Awaited<ReturnType<typeof onNode>> | undefined;
+  let nodeApp: { shutdown(): Promise<void>; execCommand(argv: readonly string[]): Promise<{ exitCode: number }> } | undefined;
 
   afterEach(async () => {
     await nodeApp?.shutdown();
   });
 
   it('test 1', async () => {
-    const app = createApp({ commands: [GreetCommand] });
+    const app = createApp([command([GreetCommand])]);
     nodeApp = await onNode(app);
     await nodeApp.execCommand(['greet']);
     // works
   });
 
   it('test 2', async () => {
-    const app = createApp({ commands: [GreetCommand] });
+    const app = createApp([command([GreetCommand])]);
     nodeApp = await onNode(app);
     await nodeApp.execCommand(['greet']);
     // works — fresh app instance
@@ -232,7 +232,7 @@ For cleaner tests, extract app creation into a factory:
 
 ```typescript
 import { describe, it, afterEach } from 'vitest';
-import { createApp, Command, cliSchema } from '@zeltjs/core';
+import { createApp, Command, cliSchema, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Command({ name: 'greet' })
@@ -242,11 +242,11 @@ class GreetCommand {
 }
 // ---cut---
 function createTestApp() {
-  return createApp({ commands: [GreetCommand] });
+  return createApp([command([GreetCommand])]);
 }
 
 describe('GreetCommand', () => {
-  let nodeApp: Awaited<ReturnType<typeof onNode>> | undefined;
+  let nodeApp: { shutdown(): Promise<void>; execCommand(argv: readonly string[]): Promise<{ exitCode: number }> } | undefined;
 
   afterEach(async () => {
     await nodeApp?.shutdown();
