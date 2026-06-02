@@ -82,13 +82,19 @@ export class DisposableSpy implements Lifecycle {
 }
 
 @Injectable()
-export class WarmupSpy {
+export class WarmupSpy implements Lifecycle {
   warmupCalls = 0;
 
   constructor(private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager)) {
-    this.lifecycleManager.registerWarmup(async () => {
-      this.warmupCalls++;
-      activeLog.current?.push({ source: 'warmup', phase: 'warmup' });
-    });
+    this.lifecycleManager.register(this);
+  }
+
+  async startup(): Promise<void> {
+    this.warmupCalls++;
+    activeLog.current?.push({ source: 'warmup', phase: 'warmup' });
+  }
+
+  async shutdown(): Promise<void> {
+    // WarmupSpy only records startup-as-warmup; shutdown is intentionally inert.
   }
 }
