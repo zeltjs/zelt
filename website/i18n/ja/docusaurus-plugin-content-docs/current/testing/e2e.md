@@ -61,12 +61,11 @@ describe('Hello API', () => {
 
 ## Full Application Testing
 
-For complete E2E tests with real dependencies, use `onTest()` to apply test config overrides to your production app:
+For complete E2E tests with real dependencies, call `ready()` with test config overrides and production fallbacks:
 
 ```typescript
 import { createApp, Controller, Get, Post, pathParam, response, http } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
-import { onTest } from '@zeltjs/testing/vitest';
 import { RedisConfig } from '@zeltjs/redis';
 import { RedisTestContainerConfig } from '@zeltjs/redis/testing';
 import * as v from 'valibot';
@@ -88,17 +87,18 @@ type AppType = {
 };
 // ---cut---
 // Production app - same as your real application
-const app = createApp([http({ controllers: [UserController] })], { configs: [RedisConfig] });
+const app = createApp([http({ controllers: [UserController] })]);
 
 describe('API E2E', () => {
   let testApp: Awaited<ReturnType<typeof app.ready>>;
   let client: AppType;
 
   beforeAll(async () => {
-    // onTest() overrides RedisConfig with RedisTestContainerConfig
-    testApp = (await onTest(app, {
+    // ready() applies RedisTestContainerConfig and keeps RedisConfig as the fallback
+    testApp = await app.ready({
       configs: [RedisTestContainerConfig],
-    })) as Awaited<ReturnType<typeof app.ready>>;
+      fallbackConfigs: [RedisConfig],
+    });
     client = hc<AppType>('http://localhost', {
       fetch: (input: RequestInfo | URL, init?: RequestInit) => 
         testApp.http.fetch(new Request(input, init)),

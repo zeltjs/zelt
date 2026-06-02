@@ -199,9 +199,8 @@ class BullMQConfig {
 const app = createApp([http({ controllers: [UserController] })], { configs: [BullMQConfig] });
 
 // Instantiate worker to start processing
-app.ready().then(() => {
-  inject(EmailWorker);
-});
+const readyApp = await app.ready();
+await readyApp.get(EmailWorker);
 ```
 
 ## Custom Configuration

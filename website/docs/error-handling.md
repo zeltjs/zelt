@@ -227,7 +227,7 @@ Return a `Response` to handle the error, or `undefined` to pass it to the next h
 
 ### Registering Error Handlers
 
-Pass error handlers to `createApp` via the `errorHandlers` option:
+Pass error handlers to the `http(...)` feature with `controllers` via the `errorHandlers` option:
 
 ```typescript
 import { createApp, Controller, Get, ErrorHandler, RequestContext, http } from '@zeltjs/core';
@@ -244,7 +244,7 @@ const app = createApp([http({
 
 ### Handler Chain
 
-Error handlers execute in the order they are registered:
+Error handlers execute in the order they are registered in `http({ errorHandlers: [...] })`:
 
 1. First handler's `onError` is called
 2. If it returns `undefined`, the next handler is called

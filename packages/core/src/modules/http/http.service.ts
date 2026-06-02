@@ -1,4 +1,5 @@
 import { Container, InjectionToken } from '@needle-di/core';
+import type { Hono } from 'hono';
 import type { Lifecycle } from '../../kernel';
 import { LifecycleManager } from '../../kernel';
 import { Injectable, inject, resolve } from '../../kernel/di';
@@ -26,18 +27,28 @@ export const HTTP_OPTIONS = new InjectionToken<HttpOptions>('HTTP_OPTIONS');
 
 type RouteHandler = (c: RequestContext) => Promise<Response>;
 
-type HonoInstance = {
+type HonoInstance = Hono;
+
+type HonoConstructor = typeof import('hono').Hono;
+
+type _HonoConstructorCheck = HonoConstructor extends new (options: {
+  readonly strict: boolean;
+}) => HonoInstance
+  ? true
+  : never;
+
+type _HonoInstanceCheck = HonoInstance extends {
   readonly get: (path: string, handler: RouteHandler) => unknown;
   readonly post: (path: string, handler: RouteHandler) => unknown;
   readonly put: (path: string, handler: RouteHandler) => unknown;
   readonly patch: (path: string, handler: RouteHandler) => unknown;
   readonly delete: (path: string, handler: RouteHandler) => unknown;
   readonly onError: (handler: (err: Error, c: RequestContext) => Promise<Response>) => unknown;
-  readonly route: (path: string, app: HonoInstance) => unknown;
+  readonly route: (path: string, app: Hono) => unknown;
   readonly fetch: (request: Request) => Response | Promise<Response>;
-};
-
-type HonoConstructor = new (options: { readonly strict: boolean }) => HonoInstance;
+}
+  ? true
+  : never;
 
 @Injectable()
 export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
@@ -96,7 +107,7 @@ export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
 
   private async loadHonoConstructor(): Promise<HonoConstructor> {
     const honoModule = await import('hono');
-    return honoModule.Hono as unknown as HonoConstructor;
+    return honoModule.Hono;
   }
 
   /** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError} */
