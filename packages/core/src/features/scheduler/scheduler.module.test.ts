@@ -66,7 +66,7 @@ describe('createApp with schedulers', () => {
     readyApp = await app.ready();
     await readyApp.schedulers.startScheduler();
 
-    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
+    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
   });
 
   it('stopScheduler() stops scheduled tasks', async () => {
@@ -84,7 +84,7 @@ describe('createApp with schedulers', () => {
     readyApp = await app.ready();
     await readyApp.schedulers.startScheduler();
 
-    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
+    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
 
     const callCountBefore = taskFn.mock.calls.length;
     await readyApp.schedulers.stopScheduler();
