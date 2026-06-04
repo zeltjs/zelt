@@ -36,6 +36,7 @@ export type {
   CommandCapabilities,
   ConfiguredFeature,
   HttpCapabilities,
+  HttpStaticCapabilities,
   SchedulerCapabilities,
 } from './features';
 // Feature factories

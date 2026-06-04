@@ -2,7 +2,12 @@ import { Container } from '@needle-di/core';
 import { unsafeObjectFromKeyedValues } from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service/config';
-import type { ConfiguredFeature, FeatureRuntime, NamespacedCaps } from '../features/feature.types';
+import type {
+  ConfiguredFeature,
+  FeatureRuntime,
+  NamespacedCaps,
+  StaticNamespacedCaps,
+} from '../features/feature.types';
 import { AppRuntime } from './app-runtime.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import { attachContainer } from './override.lib';
@@ -19,7 +24,7 @@ export type ReadyOptions = {
 
 export type App<F extends readonly ConfiguredFeature[]> = {
   readonly ready: (options?: ReadyOptions) => Promise<ReadyApp<F>>;
-};
+} & StaticNamespacedCaps<F>;
 
 export type ReadyApp<F extends readonly ConfiguredFeature[]> = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
@@ -39,6 +44,18 @@ const createNamespacedCapabilities = async <const F extends readonly ConfiguredF
   features: F,
 ): Promise<NamespacedCaps<F>> => {
   return unsafeObjectFromKeyedValues(features, 'createCapabilities', runtime);
+};
+
+const createStaticCapabilities = <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+): StaticNamespacedCaps<F> => {
+  const result: Record<PropertyKey, object> = {};
+  for (const feature of features) {
+    if ('staticCapabilities' in feature && typeof feature.staticCapabilities === 'function') {
+      result[feature.key] = feature.staticCapabilities();
+    }
+  }
+  return result as StaticNamespacedCaps<F>;
 };
 
 const warmupFeatures = async (
@@ -69,8 +86,10 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
   options?: CreateAppOptions,
 ): App<F> => {
   const baseConfigs = options?.configs;
+  const staticCaps = createStaticCapabilities(features);
 
   return {
+    ...staticCaps,
     ready: async (readyOptions?: ReadyOptions): Promise<ReadyApp<F>> => {
       const container = new Container();
 

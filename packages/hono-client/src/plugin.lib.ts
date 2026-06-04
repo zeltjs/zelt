@@ -13,8 +13,24 @@ type HttpAppLikeWithControllers = HttpAppLike & {
 };
 
 type AppModule = {
-  app?: HttpAppLikeWithControllers;
-  default?: HttpAppLikeWithControllers;
+  app?: { http?: HttpAppLikeWithControllers } | HttpAppLikeWithControllers;
+  default?: { http?: HttpAppLikeWithControllers } | HttpAppLikeWithControllers;
+};
+
+const resolveHttpApp = (mod: AppModule): HttpAppLikeWithControllers | undefined => {
+  const exported = mod.app ?? mod.default;
+  if (!exported) return undefined;
+
+  if (typeof (exported as HttpAppLikeWithControllers).getMetadata === 'function') {
+    return exported as HttpAppLikeWithControllers;
+  }
+
+  const namespaced = exported as { http?: HttpAppLikeWithControllers };
+  if (namespaced.http && typeof namespaced.http.getMetadata === 'function') {
+    return namespaced.http;
+  }
+
+  return undefined;
 };
 
 export type HonoClientPluginOptions = {
@@ -28,8 +44,8 @@ const loadApp = async (cwd: string, entry: string): Promise<HttpAppLikeWithContr
   const absPath = resolve(cwd, entry);
   const fileUrl = pathToFileURL(absPath).href;
   const mod: AppModule = await import(fileUrl);
-  const app = mod.app ?? mod.default;
-  if (app == null || typeof app.getMetadata !== 'function') {
+  const app = resolveHttpApp(mod);
+  if (!app) {
     throw new ZeltPluginConfigurationError({
       pluginName: 'hono-client',
       reason: 'app_not_found',

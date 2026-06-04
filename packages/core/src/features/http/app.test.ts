@@ -968,9 +968,8 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
 
-    const controllers = readyApp.http.getControllers();
+    const controllers = app.http.getControllers();
     expect(controllers).toContain(ControllerA);
     expect(controllers).toContain(ControllerB);
     expect(controllers).toHaveLength(2);
@@ -996,9 +995,8 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
 
-    const meta = readyApp.http.getMetadata();
+    const meta = app.http.getMetadata();
     expect(meta.controllers).toHaveLength(1);
     expect(meta.controllers[0]?.basePath).toBe('/api/items');
     expect(meta.controllers[0]?.routes[0]?.fullPath).toBe('/api/items/:id');

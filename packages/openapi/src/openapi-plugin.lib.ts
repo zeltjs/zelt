@@ -13,8 +13,24 @@ type HttpAppLike = {
 };
 
 type AppModule = {
-  app?: HttpAppLike;
-  default?: HttpAppLike;
+  app?: { http?: HttpAppLike } | HttpAppLike;
+  default?: { http?: HttpAppLike } | HttpAppLike;
+};
+
+const resolveHttpApp = (mod: AppModule): HttpAppLike | undefined => {
+  const exported = mod.app ?? mod.default;
+  if (!exported) return undefined;
+
+  if (typeof (exported as HttpAppLike).getMetadata === 'function') {
+    return exported as HttpAppLike;
+  }
+
+  const namespaced = exported as { http?: HttpAppLike };
+  if (namespaced.http && typeof namespaced.http.getMetadata === 'function') {
+    return namespaced.http;
+  }
+
+  return undefined;
 };
 
 export type OpenApiPluginOptions = {
@@ -30,12 +46,8 @@ const loadApp = async (cwd: string, entry: string): Promise<HttpAppLike> => {
   const absPath = resolve(cwd, entry);
   const fileUrl = pathToFileURL(absPath).href;
   const mod: AppModule = await import(fileUrl);
-  const app = mod.app ?? mod.default;
-  if (
-    app == null ||
-    typeof app.getMetadata !== 'function' ||
-    typeof app.getControllers !== 'function'
-  ) {
+  const app = resolveHttpApp(mod);
+  if (!app || typeof app.getControllers !== 'function') {
     throw new ZeltPluginConfigurationError({
       pluginName: 'openapi',
       reason: 'app_not_found',

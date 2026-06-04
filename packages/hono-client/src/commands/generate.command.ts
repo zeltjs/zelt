@@ -16,6 +16,27 @@ import {
 import type { HttpAppLike } from '../generator';
 import { GeneratorService } from '../generator';
 
+type AppModule = {
+  app?: { http?: HttpAppLike } | HttpAppLike;
+  default?: { http?: HttpAppLike } | HttpAppLike;
+};
+
+const resolveHttpApp = (mod: AppModule): HttpAppLike | undefined => {
+  const exported = mod.app ?? mod.default;
+  if (!exported) return undefined;
+
+  if (typeof (exported as HttpAppLike).getMetadata === 'function') {
+    return exported as HttpAppLike;
+  }
+
+  const namespaced = exported as { http?: HttpAppLike };
+  if (namespaced.http && typeof namespaced.http.getMetadata === 'function') {
+    return namespaced.http;
+  }
+
+  return undefined;
+};
+
 @Command({ name: 'generate', description: 'Generate Hono client types from metadata' })
 export class GenerateCommand {
   static readonly schema = cliSchema({
@@ -52,14 +73,10 @@ export class GenerateCommand {
 
     const absolutePath = resolve(this.cli.cwd(), appPath);
     const fileUrl = pathToFileURL(absolutePath).href;
-    const mod: { app?: HttpAppLike; default?: HttpAppLike } = await import(fileUrl);
-    const httpApp = mod.app ?? mod.default;
+    const mod: AppModule = await import(fileUrl);
+    const httpApp = resolveHttpApp(mod);
 
-    if (
-      !httpApp ||
-      typeof httpApp.getMetadata !== 'function' ||
-      typeof httpApp.getControllers !== 'function'
-    ) {
+    if (!httpApp || typeof httpApp.getControllers !== 'function') {
       throw new ZeltPluginConfigurationError({
         pluginName: 'hono-client',
         reason: 'app_not_found',

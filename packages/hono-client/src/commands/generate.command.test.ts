@@ -51,6 +51,26 @@ describe('GenerateCommand', () => {
     await shutdownAll();
   });
 
+  it('resolves app with new Feature API (app.http namespace)', async () => {
+    const targetAppPath = join(tempDir, 'target-app.mjs');
+    const appContent = `
+      export const app = {
+        http: {
+          getMetadata: () => ({ controllers: [] }),
+          getControllers: () => []
+        }
+      };
+    `;
+    await writeFile(targetAppPath, appContent);
+
+    const { target: command } = await createTestTarget(GenerateCommand, {
+      configs: [createTestCliConfig(tempDir)],
+    });
+
+    const parsedArgs = { app: targetAppPath, dist: tempDir, output: 'types.ts' };
+    await expect(runInCommandContext({ parsedArgs }, () => command.run())).resolves.not.toThrow();
+  });
+
   it('throws when controller class is missing from getControllers', async () => {
     @Controller('/hello')
     class HelloController {
@@ -61,12 +81,11 @@ describe('GenerateCommand', () => {
     }
 
     const targetApp = createApp([http({ controllers: [HelloController] })]);
-    const readyApp = await targetApp.ready();
 
     const targetAppPath = join(tempDir, 'target-app.mjs');
     const appContent = `
       export const app = {
-        getMetadata: () => (${JSON.stringify(readyApp.http.getMetadata())}),
+        getMetadata: () => (${JSON.stringify(targetApp.http.getMetadata())}),
         getControllers: () => []
       };
     `;
