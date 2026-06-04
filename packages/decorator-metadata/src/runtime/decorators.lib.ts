@@ -1,4 +1,4 @@
-import { toUnknownCallable } from '@zeltjs/unsafe-type-lib';
+import { isClassConstructor, toUnknownCallable } from '@zeltjs/unsafe-type-lib';
 import { match, P } from 'ts-pattern';
 
 import { captureStackTrace, withWrapperFiles } from './position.lib';
@@ -22,7 +22,7 @@ export type ClassDecoratorOptions<E extends Error = Error> = {
 
 export type MethodDecoratorOptions<E extends Error = Error> = {
   readonly rejectStatic?: () => E;
-  readonly afterApply?: (method: (...args: never[]) => unknown, name: string | symbol) => void;
+  readonly afterApply?: (method: DecoratedMethod, name: string | symbol) => void;
 };
 
 export type ClassDecoratorFn = {
@@ -78,7 +78,10 @@ const asObject = (v: unknown): object | undefined => {
   return undefined;
 };
 
-type ClassHandler = (cls: object, classKey: object) => void;
+type Constructor = new (...args: never[]) => unknown;
+type DecoratedMethod = (...args: never[]) => unknown;
+
+type ClassHandler = (cls: Constructor, classKey: object) => void;
 
 const adaptClassContext = (handler: ClassHandler): ClassDecoratorFn => {
   function decorate<T extends abstract new (...args: never[]) => unknown>(
@@ -87,7 +90,7 @@ const adaptClassContext = (handler: ClassHandler): ClassDecoratorFn => {
   ): void;
   function decorate<T extends new (...args: never[]) => unknown>(target: T): T | undefined;
   function decorate(...args: unknown[]): unknown {
-    const cls = asObject(args[0]);
+    const cls = isClassConstructor(args[0]) ? args[0] : undefined;
     if (!cls) return undefined;
 
     return match(args[1])
@@ -107,13 +110,13 @@ type MethodInfo = {
   readonly classKey: object;
   readonly name: string | symbol;
   readonly isStatic: boolean;
-  readonly method: ((...args: never[]) => unknown) | undefined;
+  readonly method: DecoratedMethod | undefined;
 };
 
 type MethodHandler = (info: MethodInfo) => void;
 
-const toFunction = (v: unknown): ((...args: never[]) => unknown) | undefined =>
-  typeof v === 'function' ? (v as (...args: never[]) => unknown) : undefined;
+const toDecoratedMethod = (v: unknown): DecoratedMethod | undefined =>
+  typeof v === 'function' ? toUnknownCallable(v) : undefined;
 
 const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
   function decorate(
@@ -138,7 +141,7 @@ const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
           classKey: ctx.metadata,
           name: ctx.name,
           isStatic: ctx.static ?? false,
-          method: toFunction(target),
+          method: toDecoratedMethod(target),
         });
         return undefined;
       })
@@ -148,12 +151,13 @@ const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
         }
         const classKey = asObject(target);
         if (!classKey) return undefined;
-        const desc = descriptor as PropertyDescriptor | undefined;
+        const desc: PropertyDescriptor | undefined =
+          typeof descriptor === 'object' && descriptor !== null ? descriptor : undefined;
         handler({
           classKey,
           name: contextOrName,
           isStatic: typeof target === 'function',
-          method: toFunction(desc?.value),
+          method: toDecoratedMethod(desc?.value),
         });
         return undefined;
       });
@@ -194,13 +198,6 @@ const adaptPropertyContext = (handler: PropertyHandler): PropertyDecoratorFn => 
 // Public API
 // =============================================================================
 
-// cls is always a constructor (enforced by overload signatures in adaptClassContext),
-// but ClassHandler types it as object for compatibility with store functions.
-const toConstructor = (cls: object): (new (...args: never[]) => unknown) =>
-  cls as new (
-    ...args: never[]
-  ) => unknown;
-
 /** @throws {E} */
 export const createClassDecorator = <TProps extends object, E extends Error = Error>(
   props: TProps,
@@ -218,7 +215,7 @@ export const createClassDecorator = <TProps extends object, E extends Error = Er
     const trace = withWrapperFiles(defineTrace, captureStackTrace());
     recordClass(cls, trace, props);
     aggregateMembers(cls, classKey);
-    afterApply?.(toConstructor(cls));
+    afterApply?.(cls);
   });
 };
 

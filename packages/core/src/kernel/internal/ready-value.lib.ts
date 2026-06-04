@@ -1,16 +1,24 @@
+import type { DeferredValueHandle, DeferredValueOf } from '@zeltjs/unsafe-type-lib';
+import { DEFERRED_VALUE_TYPE, unsafeResolveDeferredValue } from '@zeltjs/unsafe-type-lib';
+
 import { ZeltLifecycleStateError } from '../errors';
 
 declare const READY_VALUE_BRAND: unique symbol;
 
-export type ReadyValue<T> = Readonly<T> & { [READY_VALUE_BRAND]: true };
+type ReadyValueShape<T extends object> = Readonly<T> & { [READY_VALUE_BRAND]: true };
+
+export type ReadyValue<T extends object> = DeferredValueOf<ReadyValueBase<T>>;
 
 type ReadyValueState = 'pending' | 'ready' | 'disposed';
 
 const states = new WeakMap<object, ReadyValueState>();
 
-class ReadyValueBase {}
+class ReadyValueBase<T extends object> implements DeferredValueHandle<ReadyValueShape<T>> {
+  declare [DEFERRED_VALUE_TYPE]: ReadyValueShape<T>;
+  declare [READY_VALUE_BRAND]: true;
+}
 
-const protoProxy = new Proxy(Object.getPrototypeOf(new ReadyValueBase()) as object, {
+const protoProxy = new Proxy(ReadyValueBase.prototype, {
   get(target, prop, receiver: object): unknown {
     if (typeof prop === 'symbol') return Reflect.get(target, prop, receiver);
 
@@ -42,10 +50,10 @@ const protoProxy = new Proxy(Object.getPrototypeOf(new ReadyValueBase()) as obje
 });
 
 export function createReadyValue<T extends object>(): ReadyValue<T> {
-  const obj: object = new ReadyValueBase();
+  const obj = new ReadyValueBase<T>();
   Object.setPrototypeOf(obj, protoProxy);
   states.set(obj, 'pending');
-  return obj as never;
+  return unsafeResolveDeferredValue(obj, obj);
 }
 
 /** @throws {ZeltLifecycleStateError} */
@@ -57,10 +65,9 @@ export function sealReadyValue<T extends object>(readyValue: ReadyValue<T>, valu
       currentState: state ?? 'disposed',
     });
   }
-  const valueRecord = value as never as Record<string, unknown>;
-  for (const key of Object.keys(value)) {
+  for (const [key, propertyValue] of Object.entries(value)) {
     Object.defineProperty(readyValue, key, {
-      value: valueRecord[key],
+      value: propertyValue,
       writable: false,
       enumerable: true,
       configurable: true,

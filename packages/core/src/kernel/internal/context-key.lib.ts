@@ -1,24 +1,22 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { DeferredValueHandle } from '@zeltjs/unsafe-type-lib';
+import { DEFERRED_VALUE_TYPE, unsafeResolveDeferredValue } from '@zeltjs/unsafe-type-lib';
 
 import { ZeltContextNotAvailableError } from '../errors';
 
-export type ContextKey<T> = {
-  readonly _symbol: symbol;
-  readonly _brand: T;
-};
+export class ContextKey<T> implements DeferredValueHandle<T> {
+  declare [DEFERRED_VALUE_TYPE]: T;
 
-const createKey = <T>(symbol: symbol): ContextKey<T> =>
-  ({ _symbol: symbol, _brand: undefined }) as unknown as ContextKey<T>;
+  constructor(readonly _symbol: symbol) {}
+}
 
-export const createContextKey = <T>(name: string): ContextKey<T> => createKey<T>(Symbol(name));
+export const createContextKey = <T>(name: string): ContextKey<T> => new ContextKey<T>(Symbol(name));
 
 type ContextStore = Record<symbol, unknown>;
 
 const storage = new AsyncLocalStorage<ContextStore>();
 
 export const runInContext = <T>(fn: () => T): T => storage.run({}, fn);
-
-const castValue = <T>(value: unknown): T | undefined => value as T | undefined;
 
 /** @throws {ZeltContextNotAvailableError} */
 export const getInternal = <T>(key: ContextKey<T>): T | undefined => {
@@ -28,7 +26,8 @@ export const getInternal = <T>(key: ContextKey<T>): T | undefined => {
       primitive: 'getInternal',
       requiredContext: 'entry',
     });
-  return castValue<T>(store[key._symbol]);
+  const value = store[key._symbol];
+  return value === undefined ? undefined : unsafeResolveDeferredValue(key, value);
 };
 
 /** @throws {ZeltContextNotAvailableError} */
