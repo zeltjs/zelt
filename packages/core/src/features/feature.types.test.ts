@@ -1,21 +1,16 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
-import type { ConfiguredFeature, ExtractCaps, IsEmpty, NamespacedCaps } from './feature.types';
+import type { ConfiguredFeature, ExtractCaps, NamespacedCaps } from './feature.types';
 
 type MockHttpCaps = { readonly fetch: (req: Request) => Promise<Response> };
 type MockHttpFeature = ConfiguredFeature<'http', MockHttpCaps>;
-// biome-ignore lint/complexity/noBannedTypes: intentional empty caps for testing IsEmpty filtering
-type MockEmptyFeature = ConfiguredFeature<'background', {}>;
+// biome-ignore lint/complexity/noBannedTypes: intentional empty caps for testing namespace preservation
+type MockEmptyCaps = {};
+type MockEmptyFeature = ConfiguredFeature<'background', MockEmptyCaps>;
 
 describe('Feature type utilities', () => {
   it('ExtractCaps extracts capabilities from a feature', () => {
     expectTypeOf<ExtractCaps<MockHttpFeature>>().toEqualTypeOf<MockHttpCaps>();
-  });
-
-  it('IsEmpty detects empty objects', () => {
-    // biome-ignore lint/complexity/noBannedTypes: intentional empty object for testing IsEmpty
-    expectTypeOf<IsEmpty<{}>>().toEqualTypeOf<true>();
-    expectTypeOf<IsEmpty<MockHttpCaps>>().toEqualTypeOf<false>();
   });
 
   it('NamespacedCaps maps feature key to caps', () => {
@@ -23,9 +18,12 @@ describe('Feature type utilities', () => {
     expectTypeOf<Result>().toEqualTypeOf<{ readonly http: MockHttpCaps }>();
   });
 
-  it('NamespacedCaps excludes features with empty caps', () => {
+  it('NamespacedCaps preserves features with empty caps', () => {
     type Result = NamespacedCaps<readonly [MockHttpFeature, MockEmptyFeature]>;
-    expectTypeOf<Result>().toEqualTypeOf<{ readonly http: MockHttpCaps }>();
+    expectTypeOf<Result>().toEqualTypeOf<{
+      readonly http: MockHttpCaps;
+      readonly background: MockEmptyCaps;
+    }>();
   });
 
   it('NamespacedCaps merges multiple features', () => {

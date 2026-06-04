@@ -55,7 +55,7 @@ const app = createApp([http({ controllers: [UserController] }), scheduler([Repor
 
 ### Starting the Scheduler
 
-The scheduler requires explicit startup. After calling `onNode()` and `ready()`, call `startScheduler()` to begin executing scheduled tasks:
+The scheduler requires explicit startup. After calling `onNode()` and `ready()`, call `schedulers.startScheduler()` to begin executing scheduled tasks:
 
 ```typescript
 import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler } from '@zeltjs/core';
@@ -70,7 +70,7 @@ import { onNode } from '@zeltjs/adapter-node';
 const app = createApp([http({ controllers: [UserController] }), scheduler([ReportScheduler])]);
 const nodeApp = await onNode(app);
 // ---cut---
-await nodeApp.startScheduler();
+await nodeApp.schedulers.startScheduler();
 ```
 
 To stop the scheduler gracefully:
@@ -88,7 +88,7 @@ import { onNode } from '@zeltjs/adapter-node';
 const app = createApp([http({ controllers: [UserController] }), scheduler([ReportScheduler])]);
 const nodeApp = await onNode(app);
 // ---cut---
-await nodeApp.stopScheduler();
+await nodeApp.schedulers.stopScheduler();
 ```
 
 The scheduler is **not started automatically** when the app becomes ready. This design allows you to:
@@ -267,10 +267,10 @@ const nodeApp = await onNode(app);
 const handle = await nodeApp.listen(3000);
 
 // Start scheduled tasks
-await nodeApp.startScheduler();
+await nodeApp.schedulers.startScheduler();
 
 process.on('SIGTERM', async () => {
-  await nodeApp.stopScheduler();
+  await nodeApp.schedulers.stopScheduler();
   await handle.shutdown();
 });
 ```
@@ -295,7 +295,7 @@ const nodeApp = await onNode(app);
 // ---cut---
 const config = await nodeApp.get(SchedulerConfig);
 if (config.enabled) {
-  await nodeApp.startScheduler();
+  await nodeApp.schedulers.startScheduler();
 }
 ```
 

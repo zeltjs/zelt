@@ -1,4 +1,5 @@
 import { Container } from '@needle-di/core';
+import { unsafeObjectFromKeyedValues } from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service/config';
 import type { ConfiguredFeature, FeatureRuntime, NamespacedCaps } from '../features/feature.types';
@@ -16,11 +17,11 @@ export type ReadyOptions = {
   readonly warmup?: boolean;
 };
 
-export type App<F extends readonly ConfiguredFeature[] = readonly ConfiguredFeature[]> = {
+export type App<F extends readonly ConfiguredFeature[]> = {
   readonly ready: (options?: ReadyOptions) => Promise<ReadyApp<F>>;
 };
 
-export type ReadyApp<F extends readonly ConfiguredFeature[] = readonly ConfiguredFeature[]> = {
+export type ReadyApp<F extends readonly ConfiguredFeature[]> = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly shutdown: () => Promise<void>;
 } & NamespacedCaps<F>;
@@ -33,18 +34,11 @@ const bindFeatures = (container: Container, features: readonly ConfiguredFeature
   }
 };
 
-const createNamespacedCapabilities = async (
+const createNamespacedCapabilities = async <const F extends readonly ConfiguredFeature[]>(
   runtime: FeatureRuntime,
-  features: readonly ConfiguredFeature[],
-): Promise<Record<string, object>> => {
-  const caps: Record<string, object> = {};
-  for (const feature of features) {
-    const capabilities = await feature.createCapabilities(runtime);
-    if (Object.keys(capabilities).length > 0) {
-      caps[feature.key] = capabilities;
-    }
-  }
-  return caps;
+  features: F,
+): Promise<NamespacedCaps<F>> => {
+  return unsafeObjectFromKeyedValues(features, 'createCapabilities', runtime);
 };
 
 const warmupFeatures = async (
@@ -97,11 +91,11 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
         await warmupFeatures(readyResult, features);
       }
 
-      const readyApp = {
+      const readyApp: ReadyApp<F> = {
         ...caps,
         get: readyResult.get,
         shutdown: () => runtime.shutdown(),
-      } as ReadyApp<F>;
+      };
 
       return attachContainer(readyApp, container);
     },

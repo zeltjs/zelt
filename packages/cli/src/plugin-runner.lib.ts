@@ -1,4 +1,4 @@
-import type { App } from '@zeltjs/core';
+import type { App, ConfiguredFeature } from '@zeltjs/core';
 import consola from 'consola';
 
 import { ZeltMultipleBuildHooksError } from './cli.errors';
@@ -7,7 +7,7 @@ import type { BuildContext, BuildResult, ZeltConfig, ZeltPlugin } from './config
 export type RunPluginHooksOptions = {
   readonly cwd: string;
   readonly config: ZeltConfig;
-  readonly app: App;
+  readonly app: App<readonly ConfiguredFeature[]>;
 };
 
 export const runPreBuildHooks = async (options: RunPluginHooksOptions): Promise<void> => {

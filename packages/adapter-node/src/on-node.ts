@@ -3,12 +3,12 @@ import { serve } from '@hono/node-server';
 import type {
   CommandCapabilities,
   ConfiguredFeature,
-  ExecResult,
   FeatureApp,
   HttpCapabilities,
   ReadyApp,
   SchedulerCapabilities,
 } from '@zeltjs/core';
+import { unsafeGetNamespacedCallable } from '@zeltjs/unsafe-type-lib';
 
 import { NodeCliConfig } from './node-cli.config';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
@@ -35,34 +35,25 @@ type NodeAppBase = {
   readonly shutdown: () => Promise<void>;
 };
 
+type EnvironmentNodeAppPart = {
+  readonly args: readonly string[];
+  readonly shutdown: () => Promise<void>;
+};
+
 type HttpNodeAppPart = {
   readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
 };
 
-export type HttpNodeApp = NodeAppBase & HttpNodeAppPart;
+export type HttpNodeApp = NodeAppBase & { readonly http: HttpCapabilities } & HttpNodeAppPart;
 
-type CommandNodeAppPart = {
-  readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
-};
+export type CommandNodeApp = NodeAppBase & { readonly commands: CommandCapabilities };
 
-export type CommandNodeApp = NodeAppBase & CommandNodeAppPart;
-
-export type SchedulerNodeAppPart = {
-  readonly startScheduler: () => Promise<void>;
-  readonly stopScheduler: () => Promise<void>;
-};
+export type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
 
 export type FullNodeApp = HttpNodeApp & CommandNodeApp;
 
-export type NodeApp =
-  | NodeAppBase
-  | HttpNodeApp
-  | CommandNodeApp
-  | (NodeAppBase & SchedulerNodeAppPart)
-  | FullNodeApp
-  | (HttpNodeApp & SchedulerNodeAppPart)
-  | (CommandNodeApp & SchedulerNodeAppPart)
-  | (FullNodeApp & SchedulerNodeAppPart);
+export type NodeApp = (ReadyApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart) &
+  Partial<HttpNodeAppPart>;
 
 type FeatureKeys<F extends readonly ConfiguredFeature[]> = F[number]['key'];
 
@@ -72,15 +63,11 @@ type WithFeature<
   TPart extends object,
 > = TKey extends FeatureKeys<F> ? TPart : unknown;
 
-type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> =
-  string extends FeatureKeys<F>
-    ? NodeApp
-    : NodeAppBase &
-        WithFeature<F, 'http', HttpNodeAppPart> &
-        WithFeature<F, 'commands', CommandNodeAppPart> &
-        WithFeature<F, 'schedulers', SchedulerNodeAppPart>;
-
-type Stderr = { write: (s: string) => void };
+type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = ReadyApp<F> &
+  EnvironmentNodeAppPart &
+  (string extends FeatureKeys<F>
+    ? Partial<HttpNodeAppPart>
+    : WithFeature<F, 'http', HttpNodeAppPart>);
 
 const createListenForHttp = (
   appFetch: (request: Request) => Promise<Response>,
@@ -113,139 +100,34 @@ const createListenForHttp = (
   };
 };
 
-const getStderr = (): Stderr => globalThis.process.stderr;
-
 const getArgs = (): readonly string[] => globalThis.process.argv.slice(2);
 
-type AppCapabilities = {
-  fetch?: ((request: Request) => Promise<Response>) | undefined;
-  execCommand?: ((argv: readonly string[]) => Promise<ExecResult>) | undefined;
-  startScheduler?: (() => Promise<void>) | undefined;
-  stopScheduler?: (() => Promise<void>) | undefined;
-};
-
-type Resolver = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
-};
-
-const extractCapabilities = (
+const createNodeApp = (
   readyApp: ReadyApp<readonly ConfiguredFeature[]>,
-): AppCapabilities => ({
-  fetch:
-    'http' in readyApp
-      ? (readyApp as ReadyApp<readonly ConfiguredFeature[]> & { http: HttpCapabilities }).http.fetch
-      : undefined,
-  execCommand:
-    'commands' in readyApp
-      ? (
-          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
-            commands: CommandCapabilities;
-          }
-        ).commands.execCommand
-      : undefined,
-  startScheduler:
-    'schedulers' in readyApp
-      ? (
-          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
-            schedulers: SchedulerCapabilities;
-          }
-        ).schedulers.startScheduler
-      : undefined,
-  stopScheduler:
-    'schedulers' in readyApp
-      ? (
-          readyApp as ReadyApp<readonly ConfiguredFeature[]> & {
-            schedulers: SchedulerCapabilities;
-          }
-        ).schedulers.stopScheduler
-      : undefined,
-});
-
-type BuildResult = {
-  httpResult: HttpNodeApp | undefined;
-  commandResult: CommandNodeApp | undefined;
-  schedulerPart: SchedulerNodeAppPart | undefined;
-};
-
-const buildHttpNodeApp = (
-  caps: AppCapabilities,
-  resolver: Resolver,
-  shutdown: () => Promise<void>,
-  args: readonly string[],
-): HttpNodeApp | undefined => {
-  if (typeof caps.fetch !== 'function') return undefined;
-  return { ...resolver, args, listen: createListenForHttp(caps.fetch, shutdown), shutdown };
-};
-
-const buildCommandNodeApp = (
-  caps: AppCapabilities,
-  resolver: Resolver,
-  shutdown: () => Promise<void>,
-  stderr: Stderr,
-  args: readonly string[],
-): CommandNodeApp | undefined => {
-  if (typeof caps.execCommand !== 'function') return undefined;
-
-  const coreExecCommand = caps.execCommand;
-  const execCommand = async (argv: readonly string[]): Promise<ExecResult> => {
-    const result = await coreExecCommand(argv);
-    if (result.exitCode === 1) {
-      stderr.write(`${result.reason.message}\n`);
-    }
-    return result;
-  };
-
-  return { ...resolver, args, execCommand, shutdown };
-};
-
-const buildSchedulerPart = (caps: AppCapabilities): SchedulerNodeAppPart | undefined => {
-  if (typeof caps.startScheduler !== 'function' || typeof caps.stopScheduler !== 'function')
-    return undefined;
-  return {
-    startScheduler: caps.startScheduler,
-    stopScheduler: caps.stopScheduler,
-  };
-};
-
-const buildNodeApps = (
-  caps: AppCapabilities,
-  resolver: Resolver,
-  shutdown: () => Promise<void>,
-  stderr: Stderr,
-  args: readonly string[],
-): BuildResult => ({
-  httpResult: buildHttpNodeApp(caps, resolver, shutdown, args),
-  commandResult: buildCommandNodeApp(caps, resolver, shutdown, stderr, args),
-  schedulerPart: buildSchedulerPart(caps),
-});
-
-const mergeNodeApps = (
-  result: BuildResult,
-  resolver: Resolver,
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): NodeApp => {
-  const { httpResult, commandResult, schedulerPart } = result;
-  const schedulerMethods = schedulerPart ?? {};
+  const fetch = unsafeGetNamespacedCallable<HttpCapabilities['fetch']>(readyApp, 'http', 'fetch');
+  const base: ReadyApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = {
+    ...readyApp,
+    args,
+    shutdown,
+  };
 
-  if (httpResult && commandResult) {
-    const fullApp: FullNodeApp = {
-      ...httpResult,
-      execCommand: commandResult.execCommand,
-      ...schedulerMethods,
-    };
-    return fullApp;
-  }
-  if (httpResult) return { ...httpResult, ...schedulerMethods };
-  if (commandResult) return { ...commandResult, ...schedulerMethods };
-  return { ...resolver, args, shutdown, listen: () => new Promise(() => {}), ...schedulerMethods };
+  if (typeof fetch !== 'function') return base;
+  return { ...base, listen: createListenForHttp(fetch, shutdown) };
 };
 
-/** @throws {ZeltLifecycleStateError} */
-export const onNode = async <const F extends readonly ConfiguredFeature[]>(
+export function onNode<const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
+  options?: NodeAppOptions,
+): Promise<NodeAppForFeatures<F>>;
+
+/** @throws {ZeltLifecycleStateError} */
+export async function onNode(
+  app: FeatureApp<readonly ConfiguredFeature[]>,
   options: NodeAppOptions = {},
-): Promise<NodeAppForFeatures<F>> => {
+): Promise<NodeApp> {
   const readyApp = await app.ready({
     fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
     warmup: options.warmup ?? true,
@@ -276,11 +158,7 @@ export const onNode = async <const F extends readonly ConfiguredFeature[]>(
   cliConfig.onSignal('SIGINT', gracefulShutdown);
   cliConfig.onSignal('SIGTERM', gracefulShutdown);
 
-  const caps = extractCapabilities(readyApp);
-  const stderr = getStderr();
   const args = getArgs();
-  const resolver: Resolver = { get: readyApp.get };
-  const result = buildNodeApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeNodeApps(result, resolver, shutdown, args) as NodeAppForFeatures<F>;
-};
+  return createNodeApp(readyApp, shutdown, args);
+}

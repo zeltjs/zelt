@@ -175,7 +175,7 @@ const app = createApp([command([GreetCommand])]);
 describe('GreetCommand', () => {
   it('test 1', async () => {
     const nodeApp = await onNode(app);
-    await nodeApp.execCommand(['greet']);
+    await nodeApp.commands.execCommand(['greet']);
     // works
   });
 
@@ -204,7 +204,12 @@ class GreetCommand {
 }
 // ---cut---
 describe('GreetCommand', () => {
-  let nodeApp: { shutdown(): Promise<void>; execCommand(argv: readonly string[]): Promise<{ exitCode: number }> } | undefined;
+  let nodeApp:
+    | {
+        shutdown(): Promise<void>;
+        commands: { execCommand(argv: readonly string[]): Promise<{ exitCode: number }> };
+      }
+    | undefined;
 
   afterEach(async () => {
     await nodeApp?.shutdown();
@@ -213,14 +218,14 @@ describe('GreetCommand', () => {
   it('test 1', async () => {
     const app = createApp([command([GreetCommand])]);
     nodeApp = await onNode(app);
-    await nodeApp.execCommand(['greet']);
+    await nodeApp.commands.execCommand(['greet']);
     // works
   });
 
   it('test 2', async () => {
     const app = createApp([command([GreetCommand])]);
     nodeApp = await onNode(app);
-    await nodeApp.execCommand(['greet']);
+    await nodeApp.commands.execCommand(['greet']);
     // works — fresh app instance
   });
 });
@@ -246,7 +251,12 @@ function createTestApp() {
 }
 
 describe('GreetCommand', () => {
-  let nodeApp: { shutdown(): Promise<void>; execCommand(argv: readonly string[]): Promise<{ exitCode: number }> } | undefined;
+  let nodeApp:
+    | {
+        shutdown(): Promise<void>;
+        commands: { execCommand(argv: readonly string[]): Promise<{ exitCode: number }> };
+      }
+    | undefined;
 
   afterEach(async () => {
     await nodeApp?.shutdown();
@@ -254,7 +264,7 @@ describe('GreetCommand', () => {
 
   it('executes successfully', async () => {
     nodeApp = await onNode(createTestApp());
-    const result = await nodeApp.execCommand(['greet']);
+    const result = await nodeApp.commands.execCommand(['greet']);
     // assert result
   });
 });

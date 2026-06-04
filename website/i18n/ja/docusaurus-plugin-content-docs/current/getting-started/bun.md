@@ -139,7 +139,7 @@ const server = bunApp.serve({
 
 ## コマンドサポート
 
-アプリにコマンドが含まれている場合、`onBun()` は CLI 実行用の `execCommand()` を返します：
+アプリにコマンドが含まれている場合、`onBun()` は CLI 実行用の機能を `commands` namespace に保持します：
 
 ```typescript
 // @noErrors
@@ -161,7 +161,7 @@ const app = createApp([http({ controllers: [HelloController] }), command([GreetC
 // ---cut---
 const bunApp = await onBun(app);
 
-const result = await bunApp.execCommand(['greet', 'world']);
+const result = await bunApp.commands.execCommand(['greet', 'world']);
 console.log(result.exitCode); // 0 or 1
 ```
 

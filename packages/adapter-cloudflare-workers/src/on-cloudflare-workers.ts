@@ -1,4 +1,4 @@
-import type { HttpCapabilities, ReadyApp, ReadyOptions } from '@zeltjs/core';
+import type { ConfiguredFeature, HttpCapabilities, ReadyApp, ReadyOptions } from '@zeltjs/core';
 
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 
@@ -6,7 +6,7 @@ export type CloudflareWorkersOptions = {
   readonly warmup?: boolean;
 };
 
-type HttpReadyApp = ReadyApp & { readonly http: HttpCapabilities };
+type HttpReadyApp = ReadyApp<readonly ConfiguredFeature[]> & { readonly http: HttpCapabilities };
 
 type HttpApp = {
   readonly ready: (options?: ReadyOptions) => Promise<HttpReadyApp>;

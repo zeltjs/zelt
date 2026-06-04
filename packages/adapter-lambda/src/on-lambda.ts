@@ -1,4 +1,4 @@
-import type { HttpCapabilities, ReadyApp, ReadyOptions } from '@zeltjs/core';
+import type { ConfiguredFeature, HttpCapabilities, ReadyApp, ReadyOptions } from '@zeltjs/core';
 import type {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
@@ -181,7 +181,7 @@ const createHandlerV1 = (appFetch: (request: Request) => Promise<Response>): Lam
   };
 };
 
-type HttpReadyApp = ReadyApp & { readonly http: HttpCapabilities };
+type HttpReadyApp = ReadyApp<readonly ConfiguredFeature[]> & { readonly http: HttpCapabilities };
 
 type HttpApp = {
   readonly ready: (options?: ReadyOptions) => Promise<HttpReadyApp>;

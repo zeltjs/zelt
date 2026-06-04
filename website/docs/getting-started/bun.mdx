@@ -129,7 +129,7 @@ const server = bunApp.serve({
 
 ## Command Support
 
-If your app includes commands, `onBun()` returns `execCommand()` for CLI execution:
+If your app includes commands, `onBun()` keeps command capabilities under the `commands` namespace for CLI execution:
 
 ```typescript
 // @noErrors
@@ -151,7 +151,7 @@ const app = createApp([http({ controllers: [HelloController] }), command([GreetC
 // ---cut---
 const bunApp = await onBun(app);
 
-const result = await bunApp.execCommand(['greet', 'world']);
+const result = await bunApp.commands.execCommand(['greet', 'world']);
 console.log(result.exitCode); // 0 or 1
 ```
 
