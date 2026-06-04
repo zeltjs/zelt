@@ -50,8 +50,6 @@ export type CommandNodeApp = NodeAppBase & { readonly commands: CommandCapabilit
 
 export type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
 
-export type FullNodeApp = HttpNodeApp & CommandNodeApp;
-
 export type NodeApp = (ReadyApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart) &
   Partial<HttpNodeAppPart>;
 
