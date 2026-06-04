@@ -96,9 +96,9 @@ describe('API E2E', () => {
 
   beforeAll(async () => {
     // onTest() overrides RedisConfig with RedisTestContainerConfig
-    testApp = (await onTest(app, {
+    testApp = await onTest(app, {
       configs: [RedisTestContainerConfig],
-    })) as Awaited<ReturnType<typeof app.ready>>;
+    });
     client = hc<AppType>('http://localhost', {
       fetch: (input: RequestInfo | URL, init?: RequestInit) => 
         testApp.http.fetch(new Request(input, init)),

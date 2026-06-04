@@ -460,7 +460,7 @@ describe('Protected routes', () => {
     // Mock authentication
     setUser({ id: '123', name: 'Test User' }, ['admin']);
     
-    const res = await (testApp as Awaited<ReturnType<typeof app.ready>>).http.request('/users/me');
+    const res = await testApp.http.request('/users/me');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ id: '123', name: 'Test User' });
   });
