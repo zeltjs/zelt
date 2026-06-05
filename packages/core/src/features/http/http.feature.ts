@@ -4,6 +4,8 @@ import { HTTP_OPTIONS, HttpService } from './http.service';
 import type { ControllerClass } from './http.types';
 import { collectAllControllerMetadata, collectAllControllers } from './http-children.lib';
 
+export const HTTP_FEATURE_KEY = 'http' as const;
+
 export type HttpStaticCapabilities = {
   readonly getControllers: () => readonly ControllerClass[];
   readonly getMetadata: () => HttpMetadata;
@@ -17,7 +19,7 @@ export type HttpCapabilities = {
 export const http = (
   opts: HttpOptions,
 ): ConfiguredFeature<'http', HttpCapabilities, HttpStaticCapabilities> => ({
-  key: 'http',
+  key: HTTP_FEATURE_KEY,
   bind: (container) => {
     container.bind({ provide: HTTP_OPTIONS, useValue: opts });
   },

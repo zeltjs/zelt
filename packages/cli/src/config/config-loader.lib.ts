@@ -20,9 +20,16 @@ const DEFAULT_DEV_CONFIG = {
   debounceMs: 300,
 } as const;
 
+type LoadedZeltConfig = Omit<ZeltConfig, 'app'> & {
+  readonly app?: ZeltConfig['app'];
+};
+
+const hasAppLoader = (config: LoadedZeltConfig): config is ZeltConfig =>
+  typeof config.app === 'function';
+
 /** @throws {ZeltConfigLoadError} */
 export const loadZeltConfig = async (options: LoadConfigOptions = {}): Promise<ZeltConfig> => {
-  const c12Options: Parameters<typeof loadConfig<ZeltConfig>>[0] = {
+  const c12Options: Parameters<typeof loadConfig<LoadedZeltConfig>>[0] = {
     name: 'zelt',
     defaults: {
       build: DEFAULT_BUILD_CONFIG,
@@ -38,9 +45,15 @@ export const loadZeltConfig = async (options: LoadConfigOptions = {}): Promise<Z
   }
 
   try {
-    const result = await loadConfig<ZeltConfig>(c12Options);
+    const result = await loadConfig<LoadedZeltConfig>(c12Options);
+    if (!hasAppLoader(result.config)) {
+      throw new ZeltConfigLoadError({});
+    }
     return result.config;
   } catch (cause) {
+    if (cause instanceof ZeltConfigLoadError) {
+      throw cause;
+    }
     throw new ZeltConfigLoadError({}, cause);
   }
 };

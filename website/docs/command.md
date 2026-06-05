@@ -49,10 +49,16 @@ await nodeApp.commands.execCommand([...nodeApp.args]);
 Then configure `cli.entry` in your `zelt.config.ts`:
 
 ```typescript
+// @filename: src/app.ts
+import { createApp, command } from '@zeltjs/core';
+
+export const app = createApp([command([])]);
+
+// @filename: zelt.config.ts
 import { defineConfig } from '@zeltjs/cli';
 
 export default defineConfig({
-  controllers: 'src/controllers/**/*.ts',
+  app: () => import('./src/app').then((m) => m.app),
   cli: { entry: './src/cli.ts' },
 });
 ```

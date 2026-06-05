@@ -1,5 +1,8 @@
 import { Container } from '@needle-di/core';
-import { unsafeObjectFromKeyedValues } from '@zeltjs/unsafe-type-lib';
+import {
+  unsafeObjectFromKeyedValues,
+  unsafeObjectFromNonEmptyKeyedValuesSync,
+} from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service/config';
 import type {
@@ -49,13 +52,7 @@ const createNamespacedCapabilities = async <const F extends readonly ConfiguredF
 const createStaticCapabilities = <const F extends readonly ConfiguredFeature[]>(
   features: F,
 ): StaticNamespacedCaps<F> => {
-  const result: Record<PropertyKey, object> = {};
-  for (const feature of features) {
-    if ('staticCapabilities' in feature && typeof feature.staticCapabilities === 'function') {
-      result[feature.key] = feature.staticCapabilities();
-    }
-  }
-  return result as StaticNamespacedCaps<F>;
+  return unsafeObjectFromNonEmptyKeyedValuesSync(features, 'staticCapabilities');
 };
 
 const warmupFeatures = async (

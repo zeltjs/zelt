@@ -2,8 +2,7 @@ import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 
 import { NodeCliConfig } from '@zeltjs/adapter-node';
-import type { App, ConfiguredFeature, SignalHandler } from '@zeltjs/core';
-import { createApp, http } from '@zeltjs/core';
+import type { SignalHandler } from '@zeltjs/core';
 import consola from 'consola';
 
 import type { DevConfig, ZeltConfig } from './config/config.types';
@@ -23,7 +22,6 @@ type DevServerState = {
   childProcess: ChildProcess | undefined;
   watcher: WatcherHandle | undefined;
   isShuttingDown: boolean;
-  app: App<readonly ConfiguredFeature[]>;
 };
 
 const DEFAULT_WATCH_PATTERNS = ['./src/**/*.ts'];
@@ -82,12 +80,8 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
 };
 
 /** @throws {ZeltMultipleBuildHooksError} */
-const runHooks = async (
-  cwd: string,
-  config: ZeltConfig,
-  app: App<readonly ConfiguredFeature[]>,
-): Promise<void> => {
-  const hookOptions = { cwd, config, app };
+const runHooks = async (cwd: string, config: ZeltConfig): Promise<void> => {
+  const hookOptions = { cwd, config, loadStaticApp: async () => config.app() };
 
   await runPreBuildHooks(hookOptions);
 
@@ -141,7 +135,7 @@ const createRestartHandler = (
     }
 
     try {
-      await runHooks(cwd, config, state.app);
+      await runHooks(cwd, config);
     } catch (error) {
       consola.error('Plugin hook failed:', error);
     }
@@ -168,13 +162,10 @@ const registerSignalHandlers = (onSignal: () => Promise<void>): SignalHandler =>
 export const startDevServer = async (options: DevServerOptions): Promise<void> => {
   const { cwd, config, devConfig } = options;
 
-  const app = createApp([http({ controllers: [] })]);
-
   const state: DevServerState = {
     childProcess: undefined,
     watcher: undefined,
     isShuttingDown: false,
-    app,
   };
 
   const watchPatterns = devConfig.watch ?? DEFAULT_WATCH_PATTERNS;
@@ -197,7 +188,7 @@ export const startDevServer = async (options: DevServerOptions): Promise<void> =
   });
 
   try {
-    await runHooks(cwd, config, app);
+    await runHooks(cwd, config);
   } catch (error) {
     consola.error('Plugin hook failed:', error);
   }

@@ -1,4 +1,3 @@
-import type { App, ConfiguredFeature } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const BuildConfigSchema = v.object({
@@ -22,32 +21,46 @@ const CliConfigSchema = v.object({
 });
 
 export const ZeltConfigSchema = v.object({
-  entry: v.optional(v.string()),
+  app: v.any(),
   plugins: v.optional(v.array(v.any())),
   build: v.optional(BuildConfigSchema),
   dev: v.optional(DevConfigSchema),
   cli: v.optional(CliConfigSchema),
 });
 
-export type ZeltPlugin = {
-  readonly name: string;
-  readonly preBuild?: (context: BuildContext) => Promise<void>;
-  readonly build?: (context: BuildContext) => Promise<void>;
-  readonly postBuild?: (context: BuildContext, result: BuildResult) => Promise<void>;
+export type AppLoader<TApp extends object = object> = () => TApp | Promise<TApp>;
+
+type ReadyCapable = {
+  readonly ready: (...args: never[]) => unknown;
 };
 
-export type BuildContext = {
+export type BuildTimeView<TApp extends object> = TApp extends ReadyCapable
+  ? Omit<TApp, 'ready'>
+  : TApp;
+
+export type ZeltPlugin<TStaticApp extends object = object> = {
+  readonly name: string;
+  readonly preBuild?: (context: BuildContext<TStaticApp>) => Promise<void>;
+  readonly build?: (context: BuildContext<TStaticApp>) => Promise<void>;
+  readonly postBuild?: (context: BuildContext<TStaticApp>, result: BuildResult) => Promise<void>;
+};
+
+export type BuildContext<TStaticApp extends object = object> = {
   readonly cwd: string;
-  readonly config: ZeltConfig;
-  readonly app: App<readonly ConfiguredFeature[]>;
+  readonly build: BuildConfig;
+  readonly loadStaticApp: () => Promise<TStaticApp>;
 };
 
 export type BuildResult = {
   readonly success: boolean;
 };
 
-export type ZeltConfig = v.InferOutput<typeof ZeltConfigSchema> & {
-  readonly plugins?: readonly ZeltPlugin[];
+export type ZeltConfig<TApp extends object = object> = Omit<
+  v.InferOutput<typeof ZeltConfigSchema>,
+  'app' | 'plugins'
+> & {
+  readonly app: AppLoader<TApp>;
+  readonly plugins?: readonly ZeltPlugin<BuildTimeView<TApp>>[];
 };
 export type BuildConfig = v.InferOutput<typeof BuildConfigSchema>;
 export type DevConfig = v.InferOutput<typeof DevConfigSchema>;
