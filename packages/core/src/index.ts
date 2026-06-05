@@ -40,7 +40,7 @@ export type {
   SchedulerCapabilities,
 } from './features';
 // Feature factories
-export { command, http, scheduler } from './features';
+export { command, HTTP_FEATURE_KEY, http, scheduler } from './features';
 export type {
   ArgDefinition,
   ArgsDefinition,

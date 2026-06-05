@@ -38,7 +38,7 @@ const config: KnipConfig = {
     },
     'examples/drizzle-todo': {
       entry: [
-        'src/entry/node.ts',
+        'src/node.ts',
         'src/app.ts',
         'src/controllers.ts',
         'src/todo/*.ts',
@@ -72,6 +72,11 @@ const config: KnipConfig = {
     },
     'packages/adapter-cloudflare-workers': {
       ignoreDependencies: ['@zeltjs/core', 'cloudflare'],
+    },
+    'packages/cli': {
+      // c12 is bundled into the CLI dist, but it imports jiti at runtime.
+      // jiti must stay external because its package assets are not bundle-safe.
+      ignoreDependencies: ['jiti'],
     },
     'packages/testing': {
       // node:test requires @types/node for types - referenced via optional peer dependency

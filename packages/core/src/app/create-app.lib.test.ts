@@ -10,12 +10,14 @@ const createStubFeature = <TKey extends string, TCaps extends object>(
 ): ConfiguredFeature<TKey, TCaps> => ({
   key,
   bind: vi.fn(),
+  staticCapabilities: () => ({}),
   createCapabilities: () => caps,
 });
 
 const createEmptyFeature = (key: string): ConfiguredFeature<string, object> => ({
   key,
   bind: vi.fn(),
+  staticCapabilities: () => ({}),
   createCapabilities: () => ({}),
 });
 

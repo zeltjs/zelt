@@ -36,7 +36,8 @@
   "dependencies": {
     "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/core": "workspace:*",
-    "chokidar": "5.0.0"
+    "chokidar": "5.0.0",
+    "jiti": "2.6.1"
   },
   "peerDependencies": {
     "typescript": "catalog:peer"

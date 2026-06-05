@@ -5,7 +5,7 @@ import { app } from './app.lib';
 
 const nodeApp = await onNode(app);
 const result = await nodeApp.commands.execCommand([...nodeApp.args]);
-if (result.exitCode !== 0 && result.reason) {
+if (result.exitCode !== 0) {
   globalThis.process.stderr.write(`${result.reason.message}\n`);
 }
 (await nodeApp.get(CliConfig)).exit(result.exitCode);
