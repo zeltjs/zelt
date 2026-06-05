@@ -82,7 +82,7 @@ const registerConfigs = (
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
-  features: [...F],
+  features: F,
   options?: CreateAppOptions,
 ): App<F> => {
   const baseConfigs = options?.configs;
