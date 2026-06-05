@@ -57,7 +57,7 @@ describe('Full EC Flow', () => {
     expect(token).toBeDefined();
 
     // 4. Browse products (public)
-    const productsRes = await testApp.request('/api/products');
+    const productsRes = await testApp.http.request('/api/products');
     const products = await productsRes.json();
     expect(products.items.length).toBeGreaterThanOrEqual(2);
 
@@ -90,10 +90,12 @@ describe('Full EC Flow', () => {
     expect(emptyCart.items).toEqual([]);
 
     // 8. Verify stock reduced
-    const laptopAfter = await testApp.request(`/api/products/${laptop.id}`).then((r) => r.json());
+    const laptopAfter = await testApp.http
+      .request(`/api/products/${laptop.id}`)
+      .then((r) => r.json());
     expect(laptopAfter.stock).toBe(4);
 
-    const keyboardAfter = await testApp
+    const keyboardAfter = await testApp.http
       .request(`/api/products/${keyboard.id}`)
       .then((r) => r.json());
     expect(keyboardAfter.stock).toBe(18);

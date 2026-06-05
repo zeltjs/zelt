@@ -8,16 +8,17 @@ Test your application's HTTP endpoints end-to-end using Hono's built-in request 
 ## HTTP Testing
 
 ```typescript
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 declare function describe(name: string, fn: () => void): void;
 declare function it(name: string, fn: () => void | Promise<void>): void;
 declare function expect<T>(value: T): { toBe(expected: T): void; toEqual(expected: unknown): void; };
 @Controller('/hello') class HelloController { @Get('/:name') greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; } }
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
+const readyApp = await app.createRuntime();
 // ---cut---
 describe('Hello API', () => {
   it('should return greeting', async () => {
-    const res = await app.request('/hello/world');
+    const res = await readyApp.http.request('/hello/world');
     
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -31,18 +32,19 @@ describe('Hello API', () => {
 Use the generated `AppType` with Hono's client for fully typed tests. See [OpenAPI & Type Generation](../openapi.md) for how to generate `AppType`.
 
 ```typescript
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 declare function hc<T>(baseUrl: string, options?: { fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> }): T;
 declare function describe(name: string, fn: () => void): void;
 declare function it(name: string, fn: () => void | Promise<void>): void;
 declare function expect<T>(value: T): { toBe(expected: T): void; };
 @Controller('/hello') class HelloController { @Get('/:name') greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; } }
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
+const readyApp = await app.createRuntime();
 type AppType = { hello: { ':name': { $get: (opts: { param: { name: string } }) => Promise<Response & { json(): Promise<{ message: string }> }> } } };
 // ---cut---
 describe('Hello API', () => {
   const client = hc<AppType>('http://localhost', {
-    fetch: (input: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(input, init)),
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => readyApp.http.fetch(new Request(input, init)),
   });
 
   it('should return greeting with type safety', async () => {
@@ -59,12 +61,11 @@ describe('Hello API', () => {
 
 ## Full Application Testing
 
-For complete E2E tests with real dependencies, use `onTest()` to apply test config overrides to your production app:
+For complete E2E tests with real dependencies, call `createRuntime()` with test config overrides and production fallbacks:
 
 ```typescript
-import { createApp, Controller, Get, Post, pathParam, response } from '@zeltjs/core';
+import { createApp, Controller, Get, Post, pathParam, response, http } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
-import { onTest } from '@zeltjs/testing/vitest';
 import { RedisConfig } from '@zeltjs/redis';
 import { RedisTestContainerConfig } from '@zeltjs/redis/testing';
 import * as v from 'valibot';
@@ -86,23 +87,21 @@ type AppType = {
 };
 // ---cut---
 // Production app - same as your real application
-const app = createApp({
-  configs: [RedisConfig],
-  http: { controllers: [UserController] },
-});
+const app = createApp([http({ controllers: [UserController] })]);
 
 describe('API E2E', () => {
-  let testApp: Awaited<ReturnType<typeof onTest>>;
+  let testApp: Awaited<ReturnType<typeof app.createRuntime>>;
   let client: AppType;
 
   beforeAll(async () => {
-    // onTest() overrides RedisConfig with RedisTestContainerConfig
-    testApp = await onTest(app, {
+    // createRuntime() applies RedisTestContainerConfig and keeps RedisConfig as the fallback
+    testApp = await app.createRuntime({
       configs: [RedisTestContainerConfig],
+      fallbackConfigs: [RedisConfig],
     });
     client = hc<AppType>('http://localhost', {
       fetch: (input: RequestInfo | URL, init?: RequestInit) => 
-        app.fetch(new Request(input, init)),
+        testApp.http.fetch(new Request(input, init)),
     });
   });
 

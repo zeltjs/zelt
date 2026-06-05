@@ -181,7 +181,7 @@ class ApiController {
 Handle authorization errors in your error handler:
 
 ```typescript
-import { createApp, Controller, Get, Authorized, HTTPException, type RequestContext } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, HTTPException, type RequestContext, http } from '@zeltjs/core';
 
 @Controller('/dashboard')
 class DashboardController {
@@ -195,9 +195,9 @@ class AdminController {
   listUsers() { return { users: [] }; }
 }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [DashboardController, AdminController],
+    // @ts-expect-error shorthand error handler example
     onError: (error: Error, c: RequestContext) => {
       if (error instanceof HTTPException) {
         if (error.status === 401) {
@@ -215,8 +215,7 @@ const app = createApp({
       }
       throw error;
     },
-  },
-});
+  })]);
 ```
 
 ## Common Patterns
@@ -393,7 +392,7 @@ class PostController {
 
 ```typescript
 import { it, expect } from 'vitest';
-import { createApp, Controller, Get, Authorized } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, http } from '@zeltjs/core';
 
 @Controller('/dashboard')
 class DashboardController {
@@ -401,11 +400,11 @@ class DashboardController {
   index() { return { stats: [] }; }
 }
 
-const app = createApp({ http: { controllers: [DashboardController] } });
-await app.ready();
+const app = createApp([http({ controllers: [DashboardController] })]);
+const readyApp = await app.createRuntime();
 // ---cut---
 it('returns 401 for unauthenticated requests', async () => {
-  const res = await app.request('/dashboard');
+  const res = await readyApp.http.request('/dashboard');
   
   expect(res.status).toBe(401);
 });
@@ -417,7 +416,7 @@ Use a middleware to inject the user within request context — `setUser()` must 
 
 ```typescript
 import { it, expect } from 'vitest';
-import { createApp, Controller, Get, Authorized, Middleware, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, Middleware, setUser, type RequestContext, type Next, http } from '@zeltjs/core';
 
 @Middleware
 class MockAuthMiddleware {
@@ -436,11 +435,11 @@ class DashboardController {
   index() { return { stats: [] }; }
 }
 
-const app = createApp({ http: { controllers: [DashboardController], middlewares: [MockAuthMiddleware] } });
-await app.ready();
+const app = createApp([http({ controllers: [DashboardController], middlewares: [MockAuthMiddleware] })]);
+const readyApp = await app.createRuntime();
 // ---cut---
 it('returns data for authenticated users', async () => {
-  const res = await app.request('/dashboard', { headers: { 'X-Test-User': 'true' } });
+  const res = await readyApp.http.request('/dashboard', { headers: { 'X-Test-User': 'true' } });
   expect(res.status).toBe(200);
 });
 ```
@@ -449,7 +448,7 @@ it('returns data for authenticated users', async () => {
 
 ```typescript
 import { it, expect } from 'vitest';
-import { createApp, Controller, Get, Authorized, Middleware, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, Middleware, setUser, type RequestContext, type Next, http } from '@zeltjs/core';
 
 @Middleware
 class MockRoleMiddleware {
@@ -469,16 +468,16 @@ class AdminController {
   listUsers() { return { users: [] }; }
 }
 
-const app = createApp({ http: { controllers: [AdminController], middlewares: [MockRoleMiddleware] } });
-await app.ready();
+const app = createApp([http({ controllers: [AdminController], middlewares: [MockRoleMiddleware] })]);
+const readyApp = await app.createRuntime();
 // ---cut---
 it('returns 403 for non-admin users', async () => {
-  const res = await app.request('/admin/users', { headers: { 'X-Test-Role': 'user' } });
+  const res = await readyApp.http.request('/admin/users', { headers: { 'X-Test-Role': 'user' } });
   expect(res.status).toBe(403);
 });
 
 it('allows admin access', async () => {
-  const res = await app.request('/admin/users', { headers: { 'X-Test-Role': 'admin' } });
+  const res = await readyApp.http.request('/admin/users', { headers: { 'X-Test-Role': 'admin' } });
   expect(res.status).toBe(200);
 });
 ```

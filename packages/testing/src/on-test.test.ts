@@ -1,4 +1,4 @@
-import { Config, Controller, createApp, Get, inject } from '@zeltjs/core';
+import { Config, Controller, createApp, Get, http, inject } from '@zeltjs/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { configureTestDefaults } from './global-config.lib';
@@ -50,13 +50,12 @@ describe('onTest', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [TestController] },
+    const app = createApp([http({ controllers: [TestController] })], {
       configs: [DbConfig],
     });
 
     const testApp = await onTest(app);
-    const res = await testApp.request('/');
+    const res = await testApp.http.request('/');
     const body: { url: string } = await res.json();
 
     expect(body.url).toBe('test://db');
@@ -72,8 +71,7 @@ describe('onTest', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [InlineTestController] },
+    const app = createApp([http({ controllers: [InlineTestController] })], {
       configs: [DbConfig2],
     });
 
@@ -81,7 +79,7 @@ describe('onTest', () => {
       configs: [InlineDbConfig],
     });
 
-    const res = await testApp.request('/');
+    const res = await testApp.http.request('/');
     const body: { url: string } = await res.json();
 
     expect(body.url).toBe('inline://db');

@@ -7,21 +7,20 @@ import { activeLog, createEventLog } from '../src/lifecycle-spy';
 
 describe('DI dependency-driven lifecycle order', () => {
   let log: EventLog;
-  let app: ReturnType<typeof buildDependencyApp>;
+  let readyApp: Awaited<ReturnType<ReturnType<typeof buildDependencyApp>['createRuntime']>>;
 
   beforeEach(() => {
     log = createEventLog();
     activeLog.current = log;
-    app = buildDependencyApp();
   });
 
   afterEach(async () => {
-    await app.shutdown();
+    await readyApp?.shutdown();
     activeLog.current = undefined;
   });
 
   it('starts up dependencies before dependents (B before A when A injects B)', async () => {
-    await app.ready({ warmup: true });
+    readyApp = await buildDependencyApp().createRuntime({ warmup: true });
 
     const startupOrder = log.events.filter((e) => e.phase === 'startup').map((e) => e.source);
 
@@ -33,8 +32,8 @@ describe('DI dependency-driven lifecycle order', () => {
   });
 
   it('shuts down dependents before dependencies (A before B)', async () => {
-    await app.ready({ warmup: true });
-    await app.shutdown();
+    readyApp = await buildDependencyApp().createRuntime({ warmup: true });
+    await readyApp.shutdown();
 
     const shutdownOrder = log.events.filter((e) => e.phase === 'shutdown').map((e) => e.source);
 
@@ -46,9 +45,9 @@ describe('DI dependency-driven lifecycle order', () => {
   });
 
   it('resolves DependencyA with its DependencyB wired through constructor injection', async () => {
-    const { get } = await app.ready({ warmup: true });
-    const a = await get(DependencyA);
-    const b = await get(DependencyB);
+    readyApp = await buildDependencyApp().createRuntime({ warmup: true });
+    const a = await readyApp.get(DependencyA);
+    const b = await readyApp.get(DependencyB);
 
     expect(a.b).toBe(b);
   });
@@ -56,31 +55,30 @@ describe('DI dependency-driven lifecycle order', () => {
 
 describe('Services without lifecycle hooks', () => {
   let log: EventLog;
-  let app: ReturnType<typeof buildDependencyApp>;
+  let readyApp: Awaited<ReturnType<ReturnType<typeof buildDependencyApp>['createRuntime']>>;
 
   beforeEach(() => {
     log = createEventLog();
     activeLog.current = log;
-    app = buildDependencyApp();
   });
 
   afterEach(async () => {
-    await app.shutdown();
+    await readyApp?.shutdown();
     activeLog.current = undefined;
   });
 
   it('coexist with Lifecycle services without triggering errors during startup or shutdown', async () => {
-    const { get } = await app.ready({ warmup: true });
-    const noHook = await get(NoHookService);
+    readyApp = await buildDependencyApp().createRuntime({ warmup: true });
+    const noHook = await readyApp.get(NoHookService);
 
     expect(noHook.ping()).toBe('pong');
 
-    await expect(app.shutdown()).resolves.toBeUndefined();
+    await expect(readyApp.shutdown()).resolves.toBeUndefined();
   });
 
   it('does not emit lifecycle events for services that never register with LifecycleManager', async () => {
-    await app.ready({ warmup: true });
-    await app.shutdown();
+    readyApp = await buildDependencyApp().createRuntime({ warmup: true });
+    await readyApp.shutdown();
 
     const sources = new Set(log.events.map((e) => e.source));
     expect(sources.has('no-hook')).toBe(false);

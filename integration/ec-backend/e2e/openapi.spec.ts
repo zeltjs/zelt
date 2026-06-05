@@ -22,7 +22,7 @@ describe('OpenAPI generation', () => {
   it('generates spec with all endpoints', async () => {
     const app = createEcApp();
     const dist = await mkdtemp(join(tmpdir(), 'ec-openapi-'));
-    await generateOpenApi(app, {
+    await generateOpenApi(app.http, {
       distDir: dist,
       tsconfig,
       title: 'EC Backend API',
@@ -53,7 +53,7 @@ describe('OpenAPI generation', () => {
   it('includes request body schemas for POST endpoints', async () => {
     const app = createEcApp();
     const dist = await mkdtemp(join(tmpdir(), 'ec-openapi-'));
-    await generateOpenApi(app, {
+    await generateOpenApi(app.http, {
       distDir: dist,
       tsconfig,
       title: 'EC Backend API',

@@ -32,7 +32,7 @@ export class GreetCommand {
 Create a `src/cli.ts` entry point for your CLI:
 
 ```typescript
-import { createApp, Command, cliSchema, args } from '@zeltjs/core';
+import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Command({ name: 'greet', description: 'Greet a user' })
@@ -41,18 +41,24 @@ class GreetCommand {
   run(ctx = args(GreetCommand)) { console.log(`Hello, ${ctx.name}!`); }
 }
 // ---cut---
-const app = createApp({ commands: [GreetCommand] });
+const app = createApp([command([GreetCommand])]);
 const nodeApp = await onNode(app);
-await nodeApp.execCommand([...nodeApp.args]);
+await nodeApp.commands.execCommand([...nodeApp.args]);
 ```
 
 Then configure `cli.entry` in your `zelt.config.ts`:
 
 ```typescript
+// @filename: src/app.ts
+import { createApp, command } from '@zeltjs/core';
+
+export const app = createApp([command([])]);
+
+// @filename: zelt.config.ts
 import { defineConfig } from '@zeltjs/cli';
 
 export default defineConfig({
-  controllers: 'src/controllers/**/*.ts',
+  app: () => import('./src/app').then((m) => m.app),
   cli: { entry: './src/cli.ts' },
 });
 ```
@@ -251,7 +257,7 @@ export class MigrateCommand {
 Commands can be executed programmatically using `onNode()`:
 
 ```typescript
-import { createApp, Command, cliSchema, args } from '@zeltjs/core';
+import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 @Command({ name: 'migrate' })
 class MigrateCommand {
@@ -259,10 +265,10 @@ class MigrateCommand {
   run(ctx = args(MigrateCommand)) {}
 }
 // ---cut---
-const app = createApp({ commands: [MigrateCommand] });
+const app = createApp([command([MigrateCommand])]);
 const nodeApp = await onNode(app);
 
-const result = await nodeApp.execCommand(['migrate', '--force']);
+const result = await nodeApp.commands.execCommand(['migrate', '--force']);
 console.log(`Exit code: ${result.exitCode}`);
 ```
 

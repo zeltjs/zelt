@@ -1,4 +1,4 @@
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -8,10 +8,7 @@ import { ConfigConsumerService } from '../src/config-consumer.service';
 import { TestAppConfig } from '../src/test-app-config';
 
 const makeApp = () =>
-  createApp({
-    http: { controllers: [ConfigController] },
-    configs: [AppConfig],
-  });
+  createApp([http({ controllers: [ConfigController] })], { configs: [AppConfig] });
 
 describe('Injector — Config override', () => {
   afterAll(async () => {
@@ -35,7 +32,7 @@ describe('Injector — Config override', () => {
   it('propagates the overridden Config through the controller endpoint', async () => {
     const testApp = await onTest(makeApp(), { configs: [TestAppConfig] });
 
-    const res = await testApp.request('/config');
+    const res = await testApp.http.request('/config');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ description: 'override-name@999' });
   });

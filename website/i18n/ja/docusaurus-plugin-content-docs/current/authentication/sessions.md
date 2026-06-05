@@ -40,7 +40,7 @@ class MySessionConfig extends SessionConfig {
 ### 3. Register Middleware
 
 ```typescript
-import { createApp, Config, Controller, Post, Get, inject } from '@zeltjs/core';
+import { createApp, Config, Controller, Post, Get, inject, http } from '@zeltjs/core';
 import { MemoryKVService } from '@zeltjs/kv';
 import { SessionMiddleware, SessionConfig, getSession, setSession, destroySession } from '@zeltjs/auth-session';
 import { HTTPException } from 'hono/http-exception';
@@ -69,14 +69,10 @@ class UserController {
   @Get('/') findAll() { return { users: [] }; }
 }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AuthController, UserController],
     middlewares: [SessionMiddleware],
-  },
-  configs: [MySessionConfig],
-  injectables: [MemoryKVService],
-});
+  })], { configs: [MySessionConfig] });
 ```
 
 ### 4. Manage Sessions
@@ -341,7 +337,7 @@ export class SessionAuthMiddleware {
 Register after `SessionMiddleware`:
 
 ```typescript
-import { createApp, Config, Controller, Get, Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { createApp, Config, Controller, Get, Middleware, Injectable, inject, setUser, type RequestContext, type Next, http } from '@zeltjs/core';
 import { MemoryKVService } from '@zeltjs/kv';
 import { SessionMiddleware, SessionConfig, getSession } from '@zeltjs/auth-session';
 
@@ -378,14 +374,10 @@ class UserController {
   @Get('/') findAll() { return { users: [] }; }
 }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [UserController],
     middlewares: [SessionMiddleware, SessionAuthMiddleware],
-  },
-  configs: [MySessionConfig],
-  injectables: [MemoryKVService],
-});
+  })], { configs: [MySessionConfig] });
 ```
 
 ## Security Considerations

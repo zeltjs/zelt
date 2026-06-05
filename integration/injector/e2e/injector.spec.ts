@@ -1,5 +1,3 @@
-import type { App, HttpModule } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -13,7 +11,7 @@ import { MiddleService } from '../src/middle.service';
 import { RootService } from '../src/root.service';
 
 describe('Injector', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);
@@ -63,17 +61,17 @@ describe('Injector', () => {
     it('shares one instance across controllers via HTTP requests', async () => {
       const before = (await testApp.get(CounterService)).value();
 
-      const res1 = await testApp.request('/counter-a/inc');
+      const res1 = await testApp.http.request('/counter-a/inc');
       expect(res1.status).toBe(200);
       const body1 = (await res1.json()) as { value: number };
 
-      const res2 = await testApp.request('/counter-b/inc');
+      const res2 = await testApp.http.request('/counter-b/inc');
       expect(res2.status).toBe(200);
       const body2 = (await res2.json()) as { value: number };
 
       expect(body2.value).toBe(body1.value + 1);
 
-      const res3 = await testApp.request('/counter-b/value');
+      const res3 = await testApp.http.request('/counter-b/value');
       const body3 = (await res3.json()) as { value: number };
       expect(body3.value).toBe(before + 2);
     });
@@ -81,7 +79,7 @@ describe('Injector', () => {
 
   describe('controller injection via HTTP', () => {
     it('serves a controller that depends on a multi-level service graph', async () => {
-      const res = await testApp.request('/chain');
+      const res = await testApp.http.request('/chain');
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toEqual({ composed: 'root(middle(leaf),leaf)' });
@@ -106,7 +104,7 @@ describe('Injector', () => {
     });
 
     it('exposes injected Config through a controller endpoint', async () => {
-      const res = await testApp.request('/config');
+      const res = await testApp.http.request('/config');
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toEqual({ description: 'injector-test@1' });
@@ -130,7 +128,7 @@ describe('Injector', () => {
     });
 
     it('serves a controller whose dependency is a subclass', async () => {
-      const res = await testApp.request('/extended');
+      const res = await testApp.http.request('/extended');
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toEqual({ kind: 'extended', bonus: 'bonus' });

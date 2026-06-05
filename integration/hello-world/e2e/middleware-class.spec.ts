@@ -1,6 +1,5 @@
-import type { App, FunctionMiddleware, HttpModule, Next, RequestContext } from '@zeltjs/core';
-import { Controller, createApp, Get, Middleware, Post, UseMiddleware } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
+import type { FunctionMiddleware, Next, RequestContext } from '@zeltjs/core';
+import { Controller, createApp, Get, http, Middleware, Post, UseMiddleware } from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -43,19 +42,15 @@ class TestController {
 }
 
 describe('Middleware (class)', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
-
   afterEach(async () => {
     await shutdownAll();
   });
 
   it('class middleware applies to all controller routes', async () => {
-    const app = createApp({
-      http: { controllers: [TestController] },
-    });
-    testApp = await onTest(app);
+    const app = createApp([http({ controllers: [TestController] })]);
+    const testApp = await onTest(app);
 
-    const res = await testApp.request('/test');
+    const res = await testApp.http.request('/test');
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(WILDCARD_VALUE);
   });
@@ -65,15 +60,15 @@ describe('Middleware (class)', () => {
       return c.text(WILDCARD_VALUE);
     };
 
-    const app = createApp({
-      http: {
+    const app = createApp([
+      http({
         controllers: [HelloController],
         middlewares: [globalMiddleware],
-      },
-    });
-    testApp = await onTest(app);
+      }),
+    ]);
+    const testApp = await onTest(app);
 
-    const res = await testApp.request('/hello');
+    const res = await testApp.http.request('/hello');
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(WILDCARD_VALUE);
   });
@@ -83,15 +78,15 @@ describe('Middleware (class)', () => {
       return c.text(WILDCARD_VALUE);
     };
 
-    const app = createApp({
-      http: {
+    const app = createApp([
+      http({
         controllers: [TestController],
         middlewares: [globalMiddleware],
-      },
-    });
-    testApp = await onTest(app);
+      }),
+    ]);
+    const testApp = await onTest(app);
 
-    const res = await testApp.request('/test');
+    const res = await testApp.http.request('/test');
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(WILDCARD_VALUE);
   });
@@ -111,16 +106,14 @@ describe('Middleware (class)', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [MethodSpecificController] },
-    });
-    testApp = await onTest(app);
+    const app = createApp([http({ controllers: [MethodSpecificController] })]);
+    const testApp = await onTest(app);
 
-    const getRes = await testApp.request('/tests/included');
+    const getRes = await testApp.http.request('/tests/included');
     expect(getRes.status).toBe(200);
     expect(await getRes.json()).toBe(RETURN_VALUE);
 
-    const postRes = await testApp.request('/tests/included', { method: 'POST' });
+    const postRes = await testApp.http.request('/tests/included', { method: 'POST' });
     expect(postRes.status).toBe(201);
     expect(await postRes.text()).toBe(INCLUDED_VALUE);
   });

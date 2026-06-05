@@ -1,4 +1,4 @@
-import { Controller, createApp, Post } from '@zeltjs/core';
+import { Controller, createApp, http, Post } from '@zeltjs/core';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
@@ -16,9 +16,9 @@ describe('validated()', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.createRuntime();
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
         body: JSON.stringify({ name: 'Ada', age: 36 }),
@@ -40,11 +40,11 @@ describe('validated()', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.createRuntime();
     const formData = new FormData();
     formData.append('name', 'Ada');
-    const res = await app.fetch(
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/form', {
         method: 'POST',
         body: formData,
@@ -63,9 +63,9 @@ describe('validated()', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.createRuntime();
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
         body: JSON.stringify({ name: 'Ada' }),
@@ -84,9 +84,9 @@ describe('validated()', () => {
       }
     }
 
-    const app = createApp({ http: { controllers: [TestController] } });
-    await app.ready();
-    const res = await app.fetch(
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.createRuntime();
+    const res = await readyApp.http.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
         body: JSON.stringify({ name: 'Ada' }),

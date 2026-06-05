@@ -1,5 +1,3 @@
-import type { App, HttpModule } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -7,7 +5,7 @@ import { app } from '../src/app';
 import { RequestIdService } from '../src/request-id.service';
 
 describe('Request-scoped data via getContext/setContext', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
   let serviceCallsAtStart = 0;
 
   beforeAll(async () => {
@@ -20,7 +18,7 @@ describe('Request-scoped data via getContext/setContext', () => {
   });
 
   it('isolates context values between sequential requests', async () => {
-    const firstRes = await testApp.request('/scopes/request', {
+    const firstRes = await testApp.http.request('/scopes/request', {
       headers: { 'X-Request-Id': 'req-1' },
     });
     const first = (await firstRes.json()) as {
@@ -29,7 +27,7 @@ describe('Request-scoped data via getContext/setContext', () => {
       trace: string[];
     };
 
-    const secondRes = await testApp.request('/scopes/request', {
+    const secondRes = await testApp.http.request('/scopes/request', {
       headers: { 'X-Request-Id': 'req-2' },
     });
     const second = (await secondRes.json()) as {
@@ -49,13 +47,13 @@ describe('Request-scoped data via getContext/setContext', () => {
   });
 
   it('still uses a single RequestIdService instance for every request', async () => {
-    await testApp.request('/scopes/request', {
+    await testApp.http.request('/scopes/request', {
       headers: { 'X-Request-Id': 'req-a' },
     });
-    await testApp.request('/scopes/request', {
+    await testApp.http.request('/scopes/request', {
       headers: { 'X-Request-Id': 'req-b' },
     });
-    await testApp.request('/scopes/request', {
+    await testApp.http.request('/scopes/request', {
       headers: { 'X-Request-Id': 'req-c' },
     });
 
@@ -63,7 +61,7 @@ describe('Request-scoped data via getContext/setContext', () => {
   });
 
   it('reports the singleton constructor count in the response payload', async () => {
-    const res = await testApp.request('/scopes/request', {
+    const res = await testApp.http.request('/scopes/request', {
       headers: { 'X-Request-Id': 'req-report' },
     });
     const body = (await res.json()) as {

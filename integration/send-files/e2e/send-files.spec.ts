@@ -1,5 +1,3 @@
-import type { App, HttpModule } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -7,7 +5,7 @@ import { app } from '../src/app';
 import { README_BUFFER, README_STRING } from '../src/fixtures';
 
 describe('Send Files', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);
@@ -18,14 +16,14 @@ describe('Send Files', () => {
   });
 
   it('should return a file from a stream', async () => {
-    const res = await testApp.request('/file/stream');
+    const res = await testApp.http.request('/file/stream');
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).toBe(README_STRING);
   });
 
   it('should return a file from a buffer', async () => {
-    const res = await testApp.request('/file/buffer');
+    const res = await testApp.http.request('/file/buffer');
     expect(res.status).toBe(200);
     const buffer = new Uint8Array(await res.arrayBuffer());
     expect(buffer.byteLength).toBe(README_BUFFER.byteLength);
@@ -33,21 +31,21 @@ describe('Send Files', () => {
   });
 
   it('should not stream a non-file', async () => {
-    const res = await testApp.request('/non-file/pipe-method');
+    const res = await testApp.http.request('/non-file/pipe-method');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({ value: 'Hello world' });
   });
 
   it('should return a file from an async stream', async () => {
-    const res = await testApp.request('/file/async/stream');
+    const res = await testApp.http.request('/file/async/stream');
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).toBe(README_STRING);
   });
 
   it('should return a file with correct headers', async () => {
-    const res = await testApp.request('/file/with/headers');
+    const res = await testApp.http.request('/file/with/headers');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('text/markdown');
     expect(res.headers.get('content-disposition')).toBe('attachment; filename="Readme.md"');
@@ -57,7 +55,7 @@ describe('Send Files', () => {
   });
 
   it('should return an error if the file does not exist', async () => {
-    const res = await testApp.request('/file/not/exist');
+    const res = await testApp.http.request('/file/not/exist');
     expect(res.status).toBe(400);
   });
 });

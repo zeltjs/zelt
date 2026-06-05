@@ -1,4 +1,4 @@
-import { Controller, createApp, EnvAdaptor, Get } from '@zeltjs/core';
+import { Controller, createApp, EnvAdaptor, Get, http } from '@zeltjs/core';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
@@ -21,7 +21,7 @@ const createMockExecutionContext = () =>
 
 describe('onCloudflareWorkers', () => {
   it('returns CloudflareWorkersApp with get and fetch', async () => {
-    const app = createApp({ http: { controllers: [HelloController] } });
+    const app = createApp([http({ controllers: [HelloController] })]);
     const workersApp = await onCloudflareWorkers(app);
 
     expect(workersApp.fetch).toBeDefined();
@@ -31,7 +31,7 @@ describe('onCloudflareWorkers', () => {
   });
 
   it('handles requests and returns responses', async () => {
-    const app = createApp({ http: { controllers: [HelloController] } });
+    const app = createApp([http({ controllers: [HelloController] })]);
     const workersApp = await onCloudflareWorkers(app);
     const ctx = createMockExecutionContext();
 
@@ -42,26 +42,32 @@ describe('onCloudflareWorkers', () => {
   });
 
   it('defaults to lazy mode (warmup: false)', async () => {
-    const app = createApp({ http: { controllers: [HelloController] } });
-    const readySpy = vi.spyOn(app, 'ready');
+    const app = createApp([http({ controllers: [HelloController] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     await onCloudflareWorkers(app);
 
-    expect(readySpy).toHaveBeenCalledWith({ warmup: false });
+    expect(readySpy).toHaveBeenCalledWith({
+      fallbackConfigs: [CloudflareWorkersEnvAdaptor],
+      warmup: false,
+    });
   });
 
   it('respects warmup: true option', async () => {
-    const app = createApp({ http: { controllers: [HelloController] } });
-    const readySpy = vi.spyOn(app, 'ready');
+    const app = createApp([http({ controllers: [HelloController] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     await onCloudflareWorkers(app, { warmup: true });
 
-    expect(readySpy).toHaveBeenCalledWith({ warmup: true });
+    expect(readySpy).toHaveBeenCalledWith({
+      fallbackConfigs: [CloudflareWorkersEnvAdaptor],
+      warmup: true,
+    });
   });
 
-  it('ready() is called once during onCloudflareWorkers', async () => {
-    const app = createApp({ http: { controllers: [HelloController] } });
-    const readySpy = vi.spyOn(app, 'ready');
+  it('createRuntime() is called once during onCloudflareWorkers', async () => {
+    const app = createApp([http({ controllers: [HelloController] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
     const ctx = createMockExecutionContext();
 
     const workersApp = await onCloudflareWorkers(app);
@@ -73,7 +79,7 @@ describe('onCloudflareWorkers', () => {
   });
 
   it('calls waitUntil on ExecutionContext', async () => {
-    const app = createApp({ http: { controllers: [HelloController] } });
+    const app = createApp([http({ controllers: [HelloController] })]);
     const workersApp = await onCloudflareWorkers(app);
     const ctx = createMockExecutionContext();
 
@@ -82,21 +88,22 @@ describe('onCloudflareWorkers', () => {
     expect(ctx.waitUntil).toHaveBeenCalled();
   });
 
-  it('registers CloudflareWorkersEnvAdaptor as fallback', async () => {
-    const app = createApp({
-      http: { controllers: [HelloController] },
+  it('passes fallback configs to createRuntime()', async () => {
+    const app = createApp([http({ controllers: [HelloController] })], {
       configs: [EnvAdaptor],
     });
-    const addFallbackConfigSpy = vi.spyOn(app, 'addFallbackConfig');
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     await onCloudflareWorkers(app);
 
-    expect(addFallbackConfigSpy).toHaveBeenCalledWith(CloudflareWorkersEnvAdaptor);
+    expect(readySpy).toHaveBeenCalledWith({
+      fallbackConfigs: [CloudflareWorkersEnvAdaptor],
+      warmup: false,
+    });
   });
 
   it('provides get() to retrieve dependencies from container', async () => {
-    const app = createApp({
-      http: { controllers: [HelloController] },
+    const app = createApp([http({ controllers: [HelloController] })], {
       configs: [EnvAdaptor],
     });
     const workersApp = await onCloudflareWorkers(app);

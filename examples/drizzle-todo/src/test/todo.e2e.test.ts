@@ -6,12 +6,15 @@ import { app } from '../app';
 
 type Todo = { id: number; title: string; completed: boolean };
 
+let httpFetch: (request: Request) => Promise<Response>;
+
 beforeAll(async () => {
-  await app.ready();
+  const readyApp = await app.createRuntime();
+  httpFetch = readyApp.http.fetch;
 });
 
 const appFetch = (input: RequestInfo | URL, init?: RequestInit) =>
-  app.fetch(new Request(input, init));
+  httpFetch(new Request(input, init));
 
 const baseUrl = 'https://example.local';
 

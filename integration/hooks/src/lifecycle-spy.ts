@@ -20,7 +20,7 @@ export const createEventLog = () => {
 export type EventLog = ReturnType<typeof createEventLog>;
 
 // Spy services push to whichever log is "active" when they fire. Each spec uses a fresh app
-// instance with its own log, and assigns it here before calling ready().
+// instance with its own log, and assigns it here before calling createRuntime().
 export const activeLog: { current: EventLog | undefined } = { current: undefined };
 
 @Injectable()
@@ -85,10 +85,8 @@ export class DisposableSpy implements Lifecycle {
 export class WarmupSpy {
   warmupCalls = 0;
 
-  constructor(private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager)) {
-    this.lifecycleManager.registerWarmup(async () => {
-      this.warmupCalls++;
-      activeLog.current?.push({ source: 'warmup', phase: 'warmup' });
-    });
+  recordWarmup(): void {
+    this.warmupCalls++;
+    activeLog.current?.push({ source: 'warmup', phase: 'warmup' });
   }
 }

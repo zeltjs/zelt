@@ -8,6 +8,6 @@ export default defineConfig({
   fixedExtension: false,
   deps: {
     alwaysBundle: ['c12', 'citty', 'consola', 'ts-pattern'],
-    neverBundle: [/^@zeltjs\//, 'tsdown', 'typescript', 'chokidar'],
+    neverBundle: [/^@zeltjs\//, 'tsdown', 'typescript', 'chokidar', 'jiti'],
   },
 });

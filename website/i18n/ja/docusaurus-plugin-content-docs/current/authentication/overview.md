@@ -74,7 +74,7 @@ pnpm add @zeltjs/auth-session @zeltjs/kv
 ### 2. Register middleware
 
 ```typescript
-import { createApp, Controller, Get, Authorized, currentUser } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, currentUser, http } from '@zeltjs/core';
 import { JwtMiddleware, JwtConfig } from '@zeltjs/auth-jwt';
 
 @Controller('/users')
@@ -83,13 +83,10 @@ class UserController {
   me() { return currentUser(); }
 }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [UserController],
     middlewares: [JwtMiddleware],
-  },
-  configs: [JwtConfig],
-});
+  })], { configs: [JwtConfig] });
 ```
 
 ### 3. Protect routes

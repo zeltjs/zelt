@@ -11,6 +11,16 @@ const FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
 const FORBIDDEN_TEST_PATTERNS = ['**/*.spec.{ts,tsx}', '**/*.e2e-spec.{ts,tsx}'];
 
+const TOOL_CONFIG_FILES = [
+  'eslint.config.mjs',
+  'knip.config.ts',
+  '**/tsdown.config.ts',
+  '**/vitest.config.ts',
+  '**/drizzle.config.ts',
+  '**/zelt.config.ts',
+  'vitest.shared.ts',
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -18,13 +28,7 @@ export default tseslint.config(
       '**/dist',
       '**/.nx',
       '**/*.d.ts',
-      '**/tsdown.config.ts',
-      '**/vitest.config.ts',
-      '**/drizzle.config.ts',
-      '**/zelt.config.ts',
-      'knip.config.ts',
       '**/*.config.{mjs,js}',
-      'eslint.config.mjs',
       '**/generated/**',
       'website/**',
       'vitest.shared.ts',
@@ -32,6 +36,7 @@ export default tseslint.config(
       'packages/unsafe-type-lib/**',
       'scripts/**',
       'integration/**',
+      ...TOOL_CONFIG_FILES,
     ],
   },
   tseslint.configs.recommended,
@@ -58,7 +63,7 @@ export default tseslint.config(
       '**/*.errors.{ts,tsx}',
       '**/*.exceptions.{ts,tsx}',
       '**/*.decorator.{ts,tsx}',
-      '**/*.module.{ts,tsx}',
+      '**/*.feature.{ts,tsx}',
     ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
@@ -313,15 +318,15 @@ export default tseslint.config(
     },
   },
   {
-    // Decorator factory modules export decorator functions (not DI-injectable classes).
+    // Decorator factory features export decorator functions (not DI-injectable classes).
     files: [
-      'packages/core/src/modules/command/definition/command.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/cron.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/daily.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/every.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/hourly.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/scheduled.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/weekly.decorator.ts',
+      'packages/core/src/features/command/definition/command.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/cron.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/daily.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/every.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/hourly.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/scheduled.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/weekly.decorator.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
@@ -330,7 +335,7 @@ export default tseslint.config(
   {
     // metadata.ts casts readonly unknown[] to domain types (MiddlewareInput[], MiddlewareIdentifier[])
     // that have no runtime tag for structural validation.
-    files: ['packages/core/src/modules/http/routing/routing-metadata.lib.ts'],
+    files: ['packages/core/src/features/http/routing/routing-metadata.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -359,7 +364,7 @@ export default tseslint.config(
   {
     // Command module uses AsyncLocalStorage and generic type inference at runtime boundaries.
     // Type assertions are needed for inferred schema types.
-    files: ['packages/core/src/modules/command/input/injection/args.lib.ts'],
+    files: ['packages/core/src/features/command/input/injection/args.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -428,10 +433,8 @@ export default tseslint.config(
     },
   },
   {
-    // core/src/app layer cannot import from modules (layer violation)
-    // Exception: default-modules.ts which is the bridge between app and modules
+    // core/src/app layer cannot import from features (layer violation)
     files: ['packages/core/src/app/**/*.{ts,tsx}'],
-    ignores: ['packages/core/src/app/default-modules.lib.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -445,10 +448,9 @@ export default tseslint.config(
           ],
           patterns: [
             {
-              group: ['../modules/*', '../modules/**'],
+              group: ['../features/*', '../features/**'],
               allowTypeImports: true,
-              message:
-                'app layer cannot import from modules layer (type imports are allowed). Use default-modules.ts as the bridge.',
+              message: 'app layer cannot import from features layer (type imports are allowed)',
             },
           ],
         },

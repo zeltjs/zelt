@@ -1,4 +1,4 @@
-import { Config, Controller, createApp, Get, Injectable, inject } from '@zeltjs/core';
+import { Config, Controller, createApp, Get, http, Injectable, inject } from '@zeltjs/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { configureTestDefaults } from './global-config.lib';
@@ -36,13 +36,12 @@ describe('E2E: onTest with global config', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [DbController] },
+    const app = createApp([http({ controllers: [DbController] })], {
       configs: [DatabaseConfig],
     });
 
     const testApp = await onTest(app);
-    const res = await testApp.request('/db');
+    const res = await testApp.http.request('/db');
     const body: { connection: string } = await res.json();
 
     expect(body.connection).toBe('test://database');
@@ -92,13 +91,12 @@ describe('E2E: inline config overrides global', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [CacheController] },
+    const app = createApp([http({ controllers: [CacheController] })], {
       configs: [CacheConfig],
     });
 
     const testApp = await onTest(app, { configs: [InlineCacheConfig] });
-    const res = await testApp.request('/ttl');
+    const res = await testApp.http.request('/ttl');
     const body: { ttl: number } = await res.json();
 
     expect(body.ttl).toBe(1);

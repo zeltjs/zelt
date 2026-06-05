@@ -58,18 +58,16 @@ export class HelloController {
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
-export const app = createApp({
-  http: {
+export const app = createApp([http({
     controllers: [HelloController],
-  },
-});
+  })]);
 ```
 
 ### Step 3: Lambda ハンドラーの作成
@@ -78,7 +76,7 @@ export const app = createApp({
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 import { onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
@@ -87,7 +85,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const lambdaApp = await onLambda(app);
 
@@ -154,7 +152,7 @@ sam deploy --guided
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 import { onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
@@ -163,7 +161,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 const lambdaApp = await onLambda(app);
 // ---cut---
 export const handler = lambdaApp.handler;
@@ -173,7 +171,7 @@ export const handler = lambdaApp.handler;
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 import { onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
@@ -182,7 +180,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 const lambdaApp = await onLambda(app);
 // ---cut---
 export const handler = lambdaApp.handlerV1;
@@ -196,7 +194,7 @@ export const handler = lambdaApp.handlerV1;
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 import { onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
@@ -205,7 +203,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const lambdaApp = await onLambda(app, { warmup: true });
 ```

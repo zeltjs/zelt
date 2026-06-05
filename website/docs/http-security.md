@@ -121,7 +121,7 @@ class MyCorsConfig extends CorsConfig {
 Register custom configs when creating the app:
 
 ```typescript
-import { createApp, Config, CorsConfig, SecureHeadersConfig, Controller, Get } from '@zeltjs/core';
+import { createApp, Config, CorsConfig, SecureHeadersConfig, Controller, Get, http } from '@zeltjs/core';
 
 @Config
 class MyCorsConfig extends CorsConfig {
@@ -136,12 +136,9 @@ class MySecureHeadersConfig extends SecureHeadersConfig {
 
 @Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
 
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AppController],
-  },
-  configs: [MyCorsConfig, MySecureHeadersConfig],
-});
+  })], { configs: [MyCorsConfig, MySecureHeadersConfig] });
 ```
 
 The framework automatically detects and uses your custom configuration classes when registered in the `configs` array.

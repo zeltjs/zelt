@@ -20,7 +20,7 @@ describe('Product API', () => {
 
   describe('GET /api/products', () => {
     it('returns empty list initially', async () => {
-      const res = await testApp.request('/api/products');
+      const res = await testApp.http.request('/api/products');
       expect(res.status).toBe(200);
 
       const body = await res.json();
@@ -30,7 +30,7 @@ describe('Product API', () => {
     });
 
     it('uses default pagination', async () => {
-      const res = await testApp.request('/api/products');
+      const res = await testApp.http.request('/api/products');
       const body = await res.json();
       expect(body.page).toBe(1);
       expect(body.limit).toBe(20);
@@ -81,7 +81,7 @@ describe('Product API', () => {
       });
       const created = await createRes.json();
 
-      const res = await testApp.request(`/api/products/${created.id}`);
+      const res = await testApp.http.request(`/api/products/${created.id}`);
       expect(res.status).toBe(200);
 
       const product = await res.json();
@@ -90,12 +90,12 @@ describe('Product API', () => {
     });
 
     it('returns 404 for non-existent product', async () => {
-      const res = await testApp.request('/api/products/99999');
+      const res = await testApp.http.request('/api/products/99999');
       expect(res.status).toBe(404);
     });
 
     it('returns 400 for invalid id', async () => {
-      const res = await testApp.request('/api/products/abc');
+      const res = await testApp.http.request('/api/products/abc');
       expect(res.status).toBe(400);
     });
   });
@@ -150,7 +150,7 @@ describe('Product API', () => {
       );
       expect(deleteRes.status).toBe(200);
 
-      const getRes = await testApp.request(`/api/products/${created.id}`);
+      const getRes = await testApp.http.request(`/api/products/${created.id}`);
       expect(getRes.status).toBe(404);
     });
 
@@ -180,7 +180,7 @@ describe('Product API', () => {
     });
 
     it('paginates results', async () => {
-      const res = await paginationApp.request('/api/products?page=2&limit=5');
+      const res = await paginationApp.http.request('/api/products?page=2&limit=5');
       const body = await res.json();
       expect(body.items).toHaveLength(5);
       expect(body.page).toBe(2);
@@ -189,14 +189,14 @@ describe('Product API', () => {
     });
 
     it('filters by category', async () => {
-      const res = await paginationApp.request('/api/products?category=clothing');
+      const res = await paginationApp.http.request('/api/products?category=clothing');
       const body = await res.json();
       expect(body.total).toBe(5);
       expect(body.items.every((p: { category: string }) => p.category === 'clothing')).toBe(true);
     });
 
     it('filters by price range', async () => {
-      const res = await paginationApp.request('/api/products?minPrice=500&maxPrice=1000');
+      const res = await paginationApp.http.request('/api/products?minPrice=500&maxPrice=1000');
       const body = await res.json();
       expect(body.items.every((p: { price: number }) => p.price >= 500 && p.price <= 1000)).toBe(
         true,
@@ -204,7 +204,7 @@ describe('Product API', () => {
     });
 
     it('ignores invalid query params gracefully', async () => {
-      const res = await paginationApp.request('/api/products?page=abc&limit=-5');
+      const res = await paginationApp.http.request('/api/products?page=abc&limit=-5');
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.page).toBe(1);

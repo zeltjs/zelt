@@ -6,37 +6,38 @@ import { activeLog, createEventLog, FirstSpy } from '../src/lifecycle-spy';
 
 describe('Lifecycle startup', () => {
   let log: EventLog;
-  let app: ReturnType<typeof buildApp>;
+  let readyApp: Awaited<ReturnType<ReturnType<typeof buildApp>['createRuntime']>>;
 
   beforeEach(() => {
     log = createEventLog();
     activeLog.current = log;
-    app = buildApp();
   });
 
   afterEach(async () => {
-    await app.shutdown();
+    await readyApp?.shutdown();
     activeLog.current = undefined;
   });
 
   it('calls startup on registered Lifecycle services when app becomes ready', async () => {
-    const { get } = await app.ready({ warmup: true });
-    const instance = await get(FirstSpy);
+    readyApp = await buildApp().createRuntime({ warmup: true });
+    const instance = await readyApp.get(FirstSpy);
 
     expect(instance.startupCalls).toBe(1);
     expect(log.events.some((e) => e.source === 'first' && e.phase === 'startup')).toBe(true);
   });
 
-  it('does not invoke startup again when ready() is called repeatedly', async () => {
-    await app.ready({ warmup: true });
-    await app.ready({ warmup: true });
-    const { get } = await app.ready({ warmup: true });
-    const instance = await get(FirstSpy);
+  it('does not invoke startup again when createRuntime() is called repeatedly', async () => {
+    const app = buildApp();
+    await app.createRuntime({ warmup: true });
+    await app.createRuntime({ warmup: true });
+    readyApp = await app.createRuntime({ warmup: true });
+    const instance = await readyApp.get(FirstSpy);
 
     expect(instance.startupCalls).toBe(1);
   });
 
-  it('does not invoke startup before ready() is called', () => {
+  it('does not invoke startup before createRuntime() is called', () => {
+    buildApp();
     expect(log.events.length).toBe(0);
   });
 });

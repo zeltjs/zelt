@@ -180,17 +180,14 @@ export class DevLoggerConfig extends LoggerConfig {
 Register the config when creating the app:
 
 ```typescript
-import { createApp, Config, LoggerConfig, Controller, Get } from '@zeltjs/core';
+import { createApp, Config, LoggerConfig, Controller, Get, http } from '@zeltjs/core';
 
 @Config class AppLoggerConfig extends LoggerConfig {}
 @Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AppController],
-  },
-  configs: [AppLoggerConfig],
-});
+  })], { configs: [AppLoggerConfig] });
 ```
 
 ## Transports and Formatters

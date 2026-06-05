@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/entry/node.ts",
+    "dev": "tsx src/node.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@zeltjs/adapter-node": "workspace:*",
+    "@zeltjs/cli": "workspace:*",
     "@zeltjs/core": "workspace:*",
     "better-sqlite3": "12.9.0",
     "drizzle-orm": "0.45.2",

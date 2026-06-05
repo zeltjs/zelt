@@ -1,4 +1,11 @@
-import type { CommandApp, ExecResult, HttpApp, ReadyOptions, ReadyResult } from '@zeltjs/core';
+import type {
+  CommandCapabilities,
+  ConfiguredFeature,
+  FeatureApp,
+  HttpCapabilities,
+  RuntimeApp,
+} from '@zeltjs/core';
+import { unsafeGetNamespacedCallable } from '@zeltjs/unsafe-type-lib';
 
 import { BunCliConfig } from './bun-cli.config';
 import { BunEnvAdaptor } from './bun-env.adaptor';
@@ -20,26 +27,42 @@ export type BunAppOptions = {
 export type { ExecResult } from '@zeltjs/core';
 
 type BunAppBase = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly args: readonly string[];
+  readonly shutdown: () => Promise<void>;
 };
 
-export type HttpBunApp = ReadyResult &
-  BunAppBase & {
-    readonly serve: (options?: ServeOptions) => ServerHandle;
-    readonly shutdown: () => Promise<void>;
-  };
+type EnvironmentBunAppPart = {
+  readonly args: readonly string[];
+  readonly shutdown: () => Promise<void>;
+};
 
-export type CommandBunApp = ReadyResult &
-  BunAppBase & {
-    readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
-    readonly shutdown: () => Promise<void>;
-  };
+type HttpBunAppPart = {
+  readonly serve: (options?: ServeOptions) => ServerHandle;
+};
+
+export type HttpBunApp = BunAppBase & { readonly http: HttpCapabilities } & HttpBunAppPart;
+
+export type CommandBunApp = BunAppBase & { readonly commands: CommandCapabilities };
 
 export type FullBunApp = HttpBunApp & CommandBunApp;
 
-export type BunApp = HttpBunApp | CommandBunApp | FullBunApp;
+export type BunApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart) &
+  Partial<HttpBunAppPart>;
 
-type Stderr = { write: (s: string) => void };
+type FeatureKeys<F extends readonly ConfiguredFeature[]> = F[number]['key'];
+
+type WithFeature<
+  F extends readonly ConfiguredFeature[],
+  TKey extends string,
+  TPart extends object,
+> = TKey extends FeatureKeys<F> ? TPart : unknown;
+
+type BunAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
+  EnvironmentBunAppPart &
+  (string extends FeatureKeys<F>
+    ? Partial<HttpBunAppPart>
+    : WithFeature<F, 'http', HttpBunAppPart>);
 
 const createServeForHttp = (
   appFetch: (request: Request) => Promise<Response>,
@@ -67,104 +90,40 @@ const createServeForHttp = (
   };
 };
 
-const getStderr = (): Stderr => globalThis.process.stderr;
-
 const getArgs = (): readonly string[] => Bun.argv.slice(2);
 
-type AppCapabilities = {
-  fetch?: (request: Request) => Promise<Response>;
-  execCommand?: (argv: readonly string[]) => Promise<ExecResult>;
-};
-
-const extractCapabilities = (app: HttpApp | CommandApp | (HttpApp & CommandApp)): AppCapabilities =>
-  app;
-
-type BuildResult = {
-  httpResult: HttpBunApp | undefined;
-  commandResult: CommandBunApp | undefined;
-};
-
-const buildHttpBunApp = (
-  caps: AppCapabilities,
-  resolver: ReadyResult,
-  shutdown: () => Promise<void>,
-  args: readonly string[],
-): HttpBunApp | undefined => {
-  if (typeof caps.fetch !== 'function') return undefined;
-  return { ...resolver, args, serve: createServeForHttp(caps.fetch, shutdown), shutdown };
-};
-
-const buildCommandBunApp = (
-  caps: AppCapabilities,
-  resolver: ReadyResult,
-  shutdown: () => Promise<void>,
-  stderr: Stderr,
-  args: readonly string[],
-): CommandBunApp | undefined => {
-  if (typeof caps.execCommand !== 'function') return undefined;
-
-  const coreExecCommand = caps.execCommand;
-  const execCommand = async (argv: readonly string[]): Promise<ExecResult> => {
-    const result = await coreExecCommand(argv);
-    if (result.exitCode === 1) {
-      stderr.write(`${result.reason.message}\n`);
-    }
-    return result;
-  };
-
-  return { ...resolver, args, execCommand, shutdown };
-};
-
-const buildBunApps = (
-  caps: AppCapabilities,
-  resolver: ReadyResult,
-  shutdown: () => Promise<void>,
-  stderr: Stderr,
-  args: readonly string[],
-): BuildResult => ({
-  httpResult: buildHttpBunApp(caps, resolver, shutdown, args),
-  commandResult: buildCommandBunApp(caps, resolver, shutdown, stderr, args),
-});
-
-const mergeBunApps = (
-  result: BuildResult,
-  resolver: ReadyResult,
+const createBunApp = (
+  readyApp: RuntimeApp<readonly ConfiguredFeature[]>,
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): BunApp => {
-  const { httpResult, commandResult } = result;
-  if (httpResult && commandResult) {
-    const fullApp: FullBunApp = { ...httpResult, execCommand: commandResult.execCommand };
-    return fullApp;
-  }
-  if (httpResult) return httpResult;
-  if (commandResult) return commandResult;
-  return {
-    ...resolver,
+  const fetch = unsafeGetNamespacedCallable<HttpCapabilities['fetch']>(readyApp, 'http', 'fetch');
+  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart = {
+    ...readyApp,
     args,
     shutdown,
-    serve: () => ({ address: { port: 0, hostname: '' }, shutdown }),
   };
+
+  if (typeof fetch !== 'function') return base;
+  return { ...base, serve: createServeForHttp(fetch, shutdown) };
 };
 
-/** @throws {ZeltLifecycleStateError} */
-export function onBun(app: HttpApp & CommandApp, options?: BunAppOptions): Promise<FullBunApp>;
-/** @throws {ZeltLifecycleStateError} */
-export function onBun(app: HttpApp, options?: BunAppOptions): Promise<HttpBunApp>;
-/** @throws {ZeltLifecycleStateError} */
-export function onBun(app: CommandApp, options?: BunAppOptions): Promise<CommandBunApp>;
+export function onBun<const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
+  options?: BunAppOptions,
+): Promise<BunAppForFeatures<F>>;
+
 /** @throws {ZeltLifecycleStateError} */
 export async function onBun(
-  app: HttpApp | CommandApp | (HttpApp & CommandApp),
+  app: FeatureApp<readonly ConfiguredFeature[]>,
   options: BunAppOptions = {},
 ): Promise<BunApp> {
-  app.addFallbackConfig(BunCliConfig);
-  app.addFallbackConfig(BunEnvAdaptor);
+  const readyApp = await app.createRuntime({
+    fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
+    warmup: options.warmup ?? true,
+  });
 
-  const readyOptions: ReadyOptions = { warmup: options.warmup ?? true };
-  const resolver = await app.ready(readyOptions);
-
-  const cliConfig = await resolver.get(BunCliConfig);
+  const cliConfig = await readyApp.get(BunCliConfig);
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -176,7 +135,7 @@ export async function onBun(
     if (shuttingDown) return;
     shuttingDown = true;
     try {
-      await app.shutdown();
+      await readyApp.shutdown();
     } finally {
       detachSignals();
     }
@@ -189,10 +148,7 @@ export async function onBun(
   cliConfig.onSignal('SIGINT', gracefulShutdown);
   cliConfig.onSignal('SIGTERM', gracefulShutdown);
 
-  const caps = extractCapabilities(app);
-  const stderr = getStderr();
   const args = getArgs();
-  const result = buildBunApps(caps, resolver, shutdown, stderr, args);
 
-  return mergeBunApps(result, resolver, shutdown, args);
+  return createBunApp(readyApp, shutdown, args);
 }

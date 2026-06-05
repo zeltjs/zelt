@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@needle-di/core':
+      specifier: 1.1.2
+      version: 1.1.2
     '@types/node':
       specifier: 22.19.17
       version: 22.19.17
@@ -119,6 +122,9 @@ importers:
       '@zeltjs/adapter-node':
         specifier: workspace:*
         version: link:../../packages/adapter-node
+      '@zeltjs/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -184,6 +190,9 @@ importers:
 
   examples/workers-url-shortener:
     dependencies:
+      '@zeltjs/adapter-cloudflare-workers':
+        specifier: workspace:*
+        version: link:../../packages/adapter-cloudflare-workers
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -209,6 +218,9 @@ importers:
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
+      '@zeltjs/unsafe-type-lib':
+        specifier: workspace:*
+        version: link:../unsafe-type-lib
     devDependencies:
       '@types/bun':
         specifier: 1.2.17
@@ -258,6 +270,9 @@ importers:
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
+      '@zeltjs/unsafe-type-lib':
+        specifier: workspace:*
+        version: link:../unsafe-type-lib
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -307,6 +322,9 @@ importers:
       chokidar:
         specifier: 5.0.0
         version: 5.0.0
+      jiti:
+        specifier: 2.6.1
+        version: 2.6.1
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -343,7 +361,7 @@ importers:
         version: 4.12.16
     devDependencies:
       '@needle-di/core':
-        specifier: 1.1.2
+        specifier: 'catalog:'
         version: 1.1.2
       '@types/node':
         specifier: 'catalog:'
@@ -420,6 +438,9 @@ importers:
 
   packages/eventbus:
     devDependencies:
+      '@needle-di/core':
+        specifier: 'catalog:'
+        version: 1.1.2
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.17
