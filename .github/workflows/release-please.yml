@@ -3,9 +3,16 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Canary version to publish, e.g. 0.1.0-canary.0"
+        required: true
+        type: string
 
 jobs:
   publish:
+    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -25,11 +32,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate canary version
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          PACKAGE_VERSION: ${{ inputs.version }}
+        run: |
+          node -e "const version = process.env.PACKAGE_VERSION?.replace(/^v/, '') ?? ''; if (!/^[0-9]+\\.[0-9]+\\.[0-9]+-canary(?:\\.[0-9A-Za-z-]+)*$/.test(version)) { console.error('Canary version must look like 0.1.0-canary.0'); process.exit(1); }"
+
       - name: Update versions
-        run: pnpm -r exec npm version ${{ github.event.release.tag_name }} --no-git-tag-version --allow-same-version
+        env:
+          PACKAGE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.release.tag_name }}
+        run: pnpm -r exec npm version "$PACKAGE_VERSION" --no-git-tag-version --allow-same-version
 
       - name: Build
         run: pnpm build
 
       - name: Publish packages
-        run: pnpm -r publish --access public --no-git-checks --provenance
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            pnpm -r publish --access public --no-git-checks --provenance --tag canary
+          else
+            pnpm -r publish --access public --no-git-checks --provenance
+          fi
