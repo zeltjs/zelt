@@ -2,7 +2,6 @@ export type { CommandCapabilities } from './command/command.feature';
 export { command } from './command/command.feature';
 export type {
   ConfiguredFeature,
-  ExtractCaps,
   NamespacedCaps,
   StaticNamespacedCaps,
 } from './feature.types';

@@ -1,11 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
-import type {
-  ConfiguredFeature,
-  ExtractCaps,
-  NamespacedCaps,
-  StaticNamespacedCaps,
-} from './feature.types';
+import type { ConfiguredFeature, NamespacedCaps, StaticNamespacedCaps } from './feature.types';
 
 type MockHttpReadyCaps = { readonly fetch: (req: Request) => Promise<Response> };
 type MockHttpStaticCaps = { readonly getMetadata: () => object };
@@ -15,10 +10,6 @@ type MockEmptyCaps = {};
 type MockEmptyFeature = ConfiguredFeature<'background', MockEmptyCaps>;
 
 describe('Feature type utilities', () => {
-  it('ExtractCaps extracts ready capabilities from a feature', () => {
-    expectTypeOf<ExtractCaps<MockHttpFeature>>().toEqualTypeOf<MockHttpReadyCaps>();
-  });
-
   it('NamespacedCaps maps feature key to ready caps', () => {
     type Result = NamespacedCaps<readonly [MockHttpFeature]>;
     expectTypeOf<Result>().toEqualTypeOf<{ readonly http: MockHttpReadyCaps }>();

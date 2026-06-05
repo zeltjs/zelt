@@ -1,13 +1,6 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
-import type {
-  CommandCapabilities,
-  ConfiguredFeature,
-  FeatureApp,
-  HttpCapabilities,
-  ReadyApp,
-  SchedulerCapabilities,
-} from '@zeltjs/core';
+import type { ConfiguredFeature, FeatureApp, HttpCapabilities, ReadyApp } from '@zeltjs/core';
 import { unsafeGetNamespacedCallable } from '@zeltjs/unsafe-type-lib';
 
 import { NodeCliConfig } from './node-cli.config';
@@ -29,12 +22,6 @@ export type NodeAppOptions = {
 
 export type { ExecResult } from '@zeltjs/core';
 
-type NodeAppBase = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
-  readonly args: readonly string[];
-  readonly shutdown: () => Promise<void>;
-};
-
 type EnvironmentNodeAppPart = {
   readonly args: readonly string[];
   readonly shutdown: () => Promise<void>;
@@ -43,12 +30,6 @@ type EnvironmentNodeAppPart = {
 type HttpNodeAppPart = {
   readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
 };
-
-export type HttpNodeApp = NodeAppBase & { readonly http: HttpCapabilities } & HttpNodeAppPart;
-
-export type CommandNodeApp = NodeAppBase & { readonly commands: CommandCapabilities };
-
-export type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
 
 export type NodeApp = (ReadyApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart) &
   Partial<HttpNodeAppPart>;

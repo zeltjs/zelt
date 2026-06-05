@@ -19,8 +19,6 @@ export type ConfiguredFeature<
   warmup?(runtime: FeatureRuntime): Promise<void> | void;
 };
 
-export type ExtractCaps<F> = F extends ConfiguredFeature<string, infer Caps> ? Caps : never;
-
 export type NamespacedCaps<F extends readonly ConfiguredFeature[]> = ObjectFromKeyedValues<
   F,
   'createCapabilities'

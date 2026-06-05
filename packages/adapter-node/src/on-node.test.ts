@@ -1,3 +1,4 @@
+import type { CommandCapabilities, HttpCapabilities, SchedulerCapabilities } from '@zeltjs/core';
 import {
   args,
   Command,
@@ -25,15 +26,17 @@ afterAll(() => {
 });
 
 import { NodeCliConfig } from './node-cli.config';
-import type {
-  CommandNodeApp,
-  HttpNodeApp,
-  NodeApp,
-  SchedulerNodeAppPart,
-  ServerHandle,
-} from './on-node';
+import type { NodeApp, ServerHandle } from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
+
+type HttpNodeApp = NodeApp & { readonly http: HttpCapabilities } & {
+  readonly listen: (
+    portOrOptions?: number | { readonly port?: number; readonly hostname?: string },
+  ) => Promise<ServerHandle>;
+};
+type CommandNodeApp = NodeApp & { readonly commands: CommandCapabilities };
+type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
 
 const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp => 'listen' in app;
 const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'commands' in app;
