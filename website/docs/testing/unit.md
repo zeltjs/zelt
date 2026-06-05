@@ -153,7 +153,7 @@ This ensures resources are properly cleaned up even if tests fail.
 
 ## Testing Commands
 
-When testing CLI commands, you need to create a fresh app instance for each test. App instances cannot be reused after `ready()` is called.
+When testing CLI commands, you need to create a fresh app instance for each test. App instances cannot be reused after `createRuntime()` is called.
 
 ### The Problem
 

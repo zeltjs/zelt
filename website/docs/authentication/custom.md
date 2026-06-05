@@ -461,7 +461,7 @@ const app = createApp([http({
     controllers: [UserController],
     middlewares: [mockAuthMiddleware],
   })]);
-const readyApp = await app.ready();
+const readyApp = await app.createRuntime();
 // ---cut---
 describe('Protected routes', () => {
   it('returns user data when authenticated', async () => {

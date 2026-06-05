@@ -18,7 +18,7 @@ describe('SecureHeadersMiddleware', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.fetch(new Request('http://localhost/test'));
 
@@ -39,7 +39,7 @@ describe('SecureHeadersMiddleware', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.fetch(new Request('http://localhost/test'));
 

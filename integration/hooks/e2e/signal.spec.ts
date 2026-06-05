@@ -8,7 +8,7 @@ import type { TestCliConfig } from '../src/test-cli.config';
 
 describe('Signal-triggered shutdown', () => {
   let log: EventLog;
-  let readyApp: Awaited<ReturnType<ReturnType<typeof buildSignalApp>['ready']>>;
+  let readyApp: Awaited<ReturnType<ReturnType<typeof buildSignalApp>['createRuntime']>>;
 
   beforeEach(() => {
     log = createEventLog();
@@ -21,7 +21,7 @@ describe('Signal-triggered shutdown', () => {
   });
 
   it('exposes a CliConfig token that accepts SIGINT/SIGTERM handlers', async () => {
-    readyApp = await buildSignalApp().ready({ warmup: true });
+    readyApp = await buildSignalApp().createRuntime({ warmup: true });
     const cli = (await readyApp.get(CliConfig)) as TestCliConfig;
 
     const handler = () => {};
@@ -33,7 +33,7 @@ describe('Signal-triggered shutdown', () => {
   });
 
   it('invokes app.shutdown when a signal-bound handler fires', async () => {
-    readyApp = await buildSignalApp().ready({ warmup: true });
+    readyApp = await buildSignalApp().createRuntime({ warmup: true });
     const cli = (await readyApp.get(CliConfig)) as TestCliConfig;
     const firstSpy = await readyApp.get(FirstSpy);
 
@@ -53,7 +53,7 @@ describe('Signal-triggered shutdown', () => {
   });
 
   it('removes handlers via offSignal', async () => {
-    readyApp = await buildSignalApp().ready({ warmup: true });
+    readyApp = await buildSignalApp().createRuntime({ warmup: true });
     const cli = (await readyApp.get(CliConfig)) as TestCliConfig;
 
     let calls = 0;

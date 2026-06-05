@@ -1,4 +1,9 @@
-import type { ConfiguredFeature, HttpCapabilities, ReadyApp, ReadyOptions } from '@zeltjs/core';
+import type {
+  ConfiguredFeature,
+  CreateRuntimeOptions,
+  HttpCapabilities,
+  RuntimeApp,
+} from '@zeltjs/core';
 import type {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
@@ -181,17 +186,19 @@ const createHandlerV1 = (appFetch: (request: Request) => Promise<Response>): Lam
   };
 };
 
-type HttpReadyApp = ReadyApp<readonly ConfiguredFeature[]> & { readonly http: HttpCapabilities };
+type HttpRuntimeApp = RuntimeApp<readonly ConfiguredFeature[]> & {
+  readonly http: HttpCapabilities;
+};
 
 type HttpApp = {
-  readonly ready: (options?: ReadyOptions) => Promise<HttpReadyApp>;
+  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<HttpRuntimeApp>;
 };
 
 export const onLambda = async (
   app: HttpApp,
   options: LambdaAppOptions = {},
 ): Promise<LambdaApp> => {
-  const readyApp = await app.ready({
+  const readyApp = await app.createRuntime({
     fallbackConfigs: [LambdaEnvAdaptor],
     warmup: options.warmup ?? false,
   });

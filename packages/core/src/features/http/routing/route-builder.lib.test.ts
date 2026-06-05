@@ -66,7 +66,7 @@ describe('buildRoutes (instanceof Response branch)', () => {
     }
 
     const app = createApp([http({ controllers: [PassthroughController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(new Request('http://localhost/passthrough/teapot'));
     expect(res.status).toBe(418);
     expect(res.headers.get('X-Custom')).toBe('yes');
@@ -84,7 +84,7 @@ describe('parseRequestBody — malformed body handling', () => {
   }
 
   const app = createApp([http({ controllers: [BodyController] })]);
-  const ready = app.ready();
+  const ready = app.createRuntime();
 
   it('returns 400 JSON for malformed JSON', async () => {
     const readyApp = await ready;
@@ -136,7 +136,7 @@ describe('route-builder — error path integration', () => {
   }
 
   const app = createApp([http({ controllers: [ErrController] })]);
-  const ready = app.ready();
+  const ready = app.createRuntime();
 
   it('serializes HTTPException to status + custom body via getResponse()', async () => {
     const readyApp = await ready;

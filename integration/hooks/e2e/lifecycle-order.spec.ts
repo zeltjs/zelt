@@ -17,7 +17,7 @@ describe('Lifecycle ordering', () => {
   });
 
   it('runs startup before shutdown across the lifetime', async () => {
-    const readyApp = await buildApp().ready({ warmup: true });
+    const readyApp = await buildApp().createRuntime({ warmup: true });
     await readyApp.shutdown();
 
     const phases = log.events.map((e) => e.phase);
@@ -29,7 +29,7 @@ describe('Lifecycle ordering', () => {
   });
 
   it('shuts down in reverse registration order', async () => {
-    const readyApp = await buildApp().ready({ warmup: true });
+    const readyApp = await buildApp().createRuntime({ warmup: true });
 
     const startupOrder = log.events.filter((e) => e.phase === 'startup').map((e) => e.source);
 

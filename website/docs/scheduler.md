@@ -55,7 +55,7 @@ const app = createApp([http({ controllers: [UserController] }), scheduler([Repor
 
 ### Starting the Scheduler
 
-The scheduler requires explicit startup. After calling `onNode()` and `ready()`, call `schedulers.startScheduler()` to begin executing scheduled tasks:
+The scheduler requires explicit startup. After calling `onNode()` and `createRuntime()`, call `schedulers.startScheduler()` to begin executing scheduled tasks:
 
 ```typescript
 import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler } from '@zeltjs/core';

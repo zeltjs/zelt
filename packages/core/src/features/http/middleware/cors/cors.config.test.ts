@@ -12,7 +12,7 @@ class TestController {
 describe('CorsConfig', () => {
   it('does not add CORS headers when origin is empty array (default)', async () => {
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test', {
       headers: { Origin: 'http://example.com' },
@@ -30,7 +30,7 @@ describe('CorsConfig', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })], { configs: [MyCorsConfig] });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test', {
       headers: { Origin: 'http://example.com' },
@@ -48,7 +48,7 @@ describe('CorsConfig', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })], { configs: [MyCorsConfig] });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test', {
       headers: { Origin: 'http://localhost:3000' },
@@ -67,7 +67,7 @@ describe('CorsConfig', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })], { configs: [MyCorsConfig] });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test', {
       headers: { Origin: 'http://example.com' },

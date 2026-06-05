@@ -178,7 +178,7 @@ describe('onNode with HTTP', () => {
     expect(res.status).toBe(200);
   });
 
-  it('calls app.ready() during onNode', async () => {
+  it('calls app.createRuntime() during onNode', async () => {
     @Controller('/health')
     class HealthController {
       @Get('/')
@@ -188,7 +188,7 @@ describe('onNode with HTTP', () => {
     }
 
     const app = createApp([http({ controllers: [HealthController] })]);
-    const readySpy = vi.spyOn(app, 'ready');
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app);
 
@@ -201,9 +201,9 @@ describe('onNode with HTTP', () => {
     expect(body.status).toBe('ok');
   });
 
-  it('passes fallback configs to ready()', async () => {
+  it('passes fallback configs to createRuntime()', async () => {
     const app = createApp([http({ controllers: [] })], { configs: [EnvAdaptor] });
-    const readySpy = vi.spyOn(app, 'ready');
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app);
 

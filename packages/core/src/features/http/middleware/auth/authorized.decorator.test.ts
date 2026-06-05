@@ -35,7 +35,7 @@ describe('@Authorized', () => {
         middlewares: [authMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(401);
@@ -61,7 +61,7 @@ describe('@Authorized', () => {
         middlewares: [authMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test/', {
       headers: { Authorization: 'Bearer valid-token' },
@@ -86,7 +86,7 @@ describe('@Authorized', () => {
         middlewares: [authMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/admin/', {
       headers: { Authorization: 'Bearer valid-token' },
@@ -114,7 +114,7 @@ describe('@Authorized', () => {
         middlewares: [authMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/admin/', {
       headers: { Authorization: 'Bearer admin-token' },
@@ -139,7 +139,7 @@ describe('@Authorized', () => {
         middlewares: [authMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/content/', {
       headers: { Authorization: 'Bearer admin-token' },

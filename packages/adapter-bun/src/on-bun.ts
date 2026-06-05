@@ -3,7 +3,7 @@ import type {
   ConfiguredFeature,
   FeatureApp,
   HttpCapabilities,
-  ReadyApp,
+  RuntimeApp,
 } from '@zeltjs/core';
 import { unsafeGetNamespacedCallable } from '@zeltjs/unsafe-type-lib';
 
@@ -47,7 +47,7 @@ export type CommandBunApp = BunAppBase & { readonly commands: CommandCapabilitie
 
 export type FullBunApp = HttpBunApp & CommandBunApp;
 
-export type BunApp = (ReadyApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart) &
+export type BunApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart) &
   Partial<HttpBunAppPart>;
 
 type FeatureKeys<F extends readonly ConfiguredFeature[]> = F[number]['key'];
@@ -58,7 +58,7 @@ type WithFeature<
   TPart extends object,
 > = TKey extends FeatureKeys<F> ? TPart : unknown;
 
-type BunAppForFeatures<F extends readonly ConfiguredFeature[]> = ReadyApp<F> &
+type BunAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
   EnvironmentBunAppPart &
   (string extends FeatureKeys<F>
     ? Partial<HttpBunAppPart>
@@ -93,12 +93,12 @@ const createServeForHttp = (
 const getArgs = (): readonly string[] => Bun.argv.slice(2);
 
 const createBunApp = (
-  readyApp: ReadyApp<readonly ConfiguredFeature[]>,
+  readyApp: RuntimeApp<readonly ConfiguredFeature[]>,
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): BunApp => {
   const fetch = unsafeGetNamespacedCallable<HttpCapabilities['fetch']>(readyApp, 'http', 'fetch');
-  const base: ReadyApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart = {
+  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart = {
     ...readyApp,
     args,
     shutdown,
@@ -118,7 +118,7 @@ export async function onBun(
   app: FeatureApp<readonly ConfiguredFeature[]>,
   options: BunAppOptions = {},
 ): Promise<BunApp> {
-  const readyApp = await app.ready({
+  const readyApp = await app.createRuntime({
     fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
     warmup: options.warmup ?? true,
   });

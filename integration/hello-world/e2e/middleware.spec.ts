@@ -7,7 +7,7 @@ import { app } from '../src/app';
 import { WildcardController } from '../src/wildcard.controller';
 
 describe('Middleware', () => {
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

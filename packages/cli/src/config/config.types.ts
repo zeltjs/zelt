@@ -30,12 +30,12 @@ export const ZeltConfigSchema = v.object({
 
 export type AppLoader<TApp extends object = object> = () => TApp | Promise<TApp>;
 
-type ReadyCapable = {
-  readonly ready: (...args: never[]) => unknown;
+type RuntimeCapable = {
+  readonly createRuntime: (...args: never[]) => unknown;
 };
 
-export type BuildTimeView<TApp extends object> = TApp extends ReadyCapable
-  ? Omit<TApp, 'ready'>
+export type BuildTimeView<TApp extends object> = TApp extends RuntimeCapable
+  ? Omit<TApp, 'createRuntime'>
   : TApp;
 
 export type ZeltPlugin<TStaticApp extends object = object> = {

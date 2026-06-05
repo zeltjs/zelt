@@ -12,7 +12,7 @@ describe('Guards (Authorization)', () => {
       middlewares: [authMiddleware],
     }),
   ]);
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

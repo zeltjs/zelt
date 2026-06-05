@@ -17,7 +17,7 @@ describe('Disposable shutdown', () => {
   });
 
   it('invokes Disposable.shutdown when the app shuts down', async () => {
-    const readyApp = await buildApp().ready({ warmup: true });
+    const readyApp = await buildApp().createRuntime({ warmup: true });
     const instance = await readyApp.get(DisposableSpy);
     expect(instance.shutdownCalls).toBe(0);
 

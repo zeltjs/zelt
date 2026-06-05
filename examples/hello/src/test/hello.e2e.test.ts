@@ -3,10 +3,10 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { AppType } from '../../generated/app.gen';
 import { app } from '../app';
 
-let readyApp: Awaited<ReturnType<typeof app.ready>>;
+let readyApp: Awaited<ReturnType<typeof app.createRuntime>>;
 
 beforeAll(async () => {
-  readyApp = await app.ready();
+  readyApp = await app.createRuntime();
 });
 
 describe('/hello', () => {

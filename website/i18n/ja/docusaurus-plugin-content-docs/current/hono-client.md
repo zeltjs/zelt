@@ -127,7 +127,7 @@ class HelloController {
 }
 
 const app = createApp([http({ controllers: [HelloController] })]);
-const readyApp = await app.ready();
+const readyApp = await app.createRuntime();
 // ---cut---
 describe('Hello API', () => {
   const client = hc<AppType>('http://localhost', {

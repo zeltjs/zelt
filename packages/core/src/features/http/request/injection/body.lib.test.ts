@@ -17,7 +17,7 @@ describe('body', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
@@ -38,7 +38,7 @@ describe('body', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(
       new Request('http://localhost/json', {
         method: 'POST',
@@ -62,7 +62,7 @@ describe('body', () => {
     const formData = new FormData();
     formData.append('name', 'John');
 
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(
       new Request('http://localhost/form', {
         method: 'POST',
@@ -82,7 +82,7 @@ describe('body', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(
       new Request('http://localhost/text', {
         method: 'POST',
@@ -103,7 +103,7 @@ describe('body', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(
       new Request('http://localhost/json', {
         method: 'POST',

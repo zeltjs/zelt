@@ -401,7 +401,7 @@ class DashboardController {
 }
 
 const app = createApp([http({ controllers: [DashboardController] })]);
-const readyApp = await app.ready();
+const readyApp = await app.createRuntime();
 // ---cut---
 it('returns 401 for unauthenticated requests', async () => {
   const res = await readyApp.http.request('/dashboard');
@@ -436,7 +436,7 @@ class DashboardController {
 }
 
 const app = createApp([http({ controllers: [DashboardController], middlewares: [MockAuthMiddleware] })]);
-const readyApp = await app.ready();
+const readyApp = await app.createRuntime();
 // ---cut---
 it('returns data for authenticated users', async () => {
   const res = await readyApp.http.request('/dashboard', { headers: { 'X-Test-User': 'true' } });
@@ -469,7 +469,7 @@ class AdminController {
 }
 
 const app = createApp([http({ controllers: [AdminController], middlewares: [MockRoleMiddleware] })]);
-const readyApp = await app.ready();
+const readyApp = await app.createRuntime();
 // ---cut---
 it('returns 403 for non-admin users', async () => {
   const res = await readyApp.http.request('/admin/users', { headers: { 'X-Test-Role': 'user' } });

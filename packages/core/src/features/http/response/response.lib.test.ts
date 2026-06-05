@@ -60,7 +60,7 @@ class ResponseTestController {
 
 describe('response()', () => {
   const app = createApp([http({ controllers: [ResponseTestController] })]);
-  const ready = app.ready();
+  const ready = app.createRuntime();
 
   it('json status code', async () => {
     const readyApp = await ready;

@@ -12,7 +12,7 @@ class TestController {
 describe('SecureHeadersConfig', () => {
   it('adds default security headers', async () => {
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test');
 
@@ -33,7 +33,7 @@ describe('SecureHeadersConfig', () => {
     const app = createApp([http({ controllers: [TestController] })], {
       configs: [MySecureHeadersConfig],
     });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test');
 
@@ -52,7 +52,7 @@ describe('SecureHeadersConfig', () => {
     const app = createApp([http({ controllers: [TestController] })], {
       configs: [MySecureHeadersConfig],
     });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test');
 

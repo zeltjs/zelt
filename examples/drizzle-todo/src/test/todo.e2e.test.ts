@@ -9,7 +9,7 @@ type Todo = { id: number; title: string; completed: boolean };
 let httpFetch: (request: Request) => Promise<Response>;
 
 beforeAll(async () => {
-  const readyApp = await app.ready();
+  const readyApp = await app.createRuntime();
   httpFetch = readyApp.http.fetch;
 });
 

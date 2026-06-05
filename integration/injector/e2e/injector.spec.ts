@@ -11,7 +11,7 @@ import { MiddleService } from '../src/middle.service';
 import { RootService } from '../src/root.service';
 
 describe('Injector', () => {
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

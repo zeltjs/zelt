@@ -6,7 +6,7 @@ import { CounterService } from '../src/counter.service';
 import { ScopesController } from '../src/scopes.controller';
 
 describe('Singleton (DEFAULT) scope', () => {
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
   let controllerCallsAtStart = 0;
   let serviceCallsAtStart = 0;
 

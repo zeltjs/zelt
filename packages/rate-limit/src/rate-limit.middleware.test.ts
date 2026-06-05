@@ -17,7 +17,7 @@ describe('@RateLimit decorator', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const r1 = await readyApp.http.request('/limited');
     expect(r1.status).toBe(200);
@@ -40,7 +40,7 @@ describe('@RateLimit decorator', () => {
       }
     }
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.request('/headers');
     expect(res.headers.get('X-RateLimit-Limit')).toBe('5');
     expect(res.headers.get('X-RateLimit-Remaining')).toBe('4');
@@ -61,7 +61,7 @@ describe('@RateLimit decorator', () => {
       }
     }
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const r1 = await readyApp.http.request('/dyn');
     const r2 = await readyApp.http.request('/dyn');
     expect(r1.status).toBe(200);
@@ -106,7 +106,7 @@ describe('@RateLimit decorator', () => {
       }
     }
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const r1 = await readyApp.http.request('/stack');
     expect(r1.status).toBe(200);
     const r2 = await readyApp.http.request('/stack');

@@ -40,7 +40,7 @@ const buildApp = async () => {
   const app = createApp([http({ controllers: [ProtectedController] })], {
     configs: [TestJwtConfig],
   });
-  const readyApp = await app.ready();
+  const readyApp = await app.createRuntime();
   return readyApp;
 };
 
@@ -142,7 +142,7 @@ describe('JwtMiddleware — setUser integration', () => {
     const httpApp = createApp([http({ controllers: [UserCheckController] })], {
       configs: [TestJwtConfig],
     });
-    const readyApp = await httpApp.ready();
+    const readyApp = await httpApp.createRuntime();
 
     const { jwtService, shutdown } = await buildJwtService();
     const token = await jwtService.sign({ sub: 'user-42' });
@@ -193,7 +193,7 @@ describe('JwtMiddleware — cookie driver', () => {
     const app = createApp([http({ controllers: [CookieProtectedController] })], {
       configs: [CookieDriverConfig],
     });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     return readyApp;
   };
 
@@ -262,7 +262,7 @@ describe('JwtMiddleware — cookie driver', () => {
     const httpApp = createApp([http({ controllers: [CookieUserCheckController] })], {
       configs: [CookieDriverConfig],
     });
-    const readyApp = await httpApp.ready();
+    const readyApp = await httpApp.createRuntime();
 
     const { jwtService, shutdown } = await buildCookieJwtService();
     const token = await jwtService.sign({ sub: 'cookie-user-99' });

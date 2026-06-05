@@ -1,5 +1,5 @@
 import { app } from './app';
 
-await app.ready();
+await app.createRuntime();
 
 export default app;

@@ -19,17 +19,17 @@ export type CreateAppOptions = {
   readonly configs?: readonly ConfigClass<object>[];
 };
 
-export type ReadyOptions = {
+export type CreateRuntimeOptions = {
   readonly configs?: readonly ConfigClass<object>[];
   readonly fallbackConfigs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
 };
 
 export type App<F extends readonly ConfiguredFeature[]> = {
-  readonly ready: (options?: ReadyOptions) => Promise<ReadyApp<F>>;
+  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<RuntimeApp<F>>;
 } & StaticNamespacedCaps<F>;
 
-export type ReadyApp<F extends readonly ConfiguredFeature[]> = {
+export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly shutdown: () => Promise<void>;
 } & NamespacedCaps<F>;
@@ -87,7 +87,7 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
 
   return {
     ...staticCaps,
-    ready: async (readyOptions?: ReadyOptions): Promise<ReadyApp<F>> => {
+    createRuntime: async (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> => {
       const container = new Container();
 
       bindFeatures(container, features);
@@ -96,18 +96,18 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
       const configRegistry = container.get(ConfigRegistry);
 
       registerConfigs(configRegistry, baseConfigs, undefined);
-      registerConfigs(configRegistry, readyOptions?.configs, readyOptions?.fallbackConfigs);
+      registerConfigs(configRegistry, runtimeOptions?.configs, runtimeOptions?.fallbackConfigs);
       runtime.applyRegisteredConfigs();
 
       const readyResult = await runtime.ready();
 
       const caps = await createNamespacedCapabilities(readyResult, features);
 
-      if (readyOptions?.warmup) {
+      if (runtimeOptions?.warmup) {
         await warmupFeatures(readyResult, features);
       }
 
-      const readyApp: ReadyApp<F> = {
+      const readyApp: RuntimeApp<F> = {
         ...caps,
         get: readyResult.get,
         shutdown: () => runtime.shutdown(),

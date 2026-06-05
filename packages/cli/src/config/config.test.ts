@@ -9,7 +9,7 @@ import { defineConfig } from './define-config.lib';
 
 describe('defineConfig', () => {
   it('returns the config as-is', () => {
-    const app = () => ({ http: { getMetadata: () => ({}) }, ready: async () => ({}) });
+    const app = () => ({ http: { getMetadata: () => ({}) }, createRuntime: async () => ({}) });
 
     const config = defineConfig({
       app,
@@ -30,24 +30,24 @@ describe('defineConfig', () => {
 
   it('exposes only build-time app capabilities to plugins', () => {
     type App = {
-      readonly ready: () => Promise<object>;
+      readonly createRuntime: () => Promise<object>;
       readonly http: { readonly getMetadata: () => object };
     };
 
     type StaticApp = BuildTimeView<App>;
     expectTypeOf<StaticApp>().toHaveProperty('http');
-    expectTypeOf<StaticApp>().not.toHaveProperty('ready');
+    expectTypeOf<StaticApp>().not.toHaveProperty('createRuntime');
 
     const plugin: ZeltPlugin<StaticApp> = {
       name: 'typed-plugin',
       preBuild: async (ctx) => {
         const app = await ctx.loadStaticApp();
         expectTypeOf(app).toHaveProperty('http');
-        expectTypeOf(app).not.toHaveProperty('ready');
+        expectTypeOf(app).not.toHaveProperty('createRuntime');
       },
     };
 
-    const app: App = { ready: async () => ({}), http: { getMetadata: () => ({}) } };
+    const app: App = { createRuntime: async () => ({}), http: { getMetadata: () => ({}) } };
     const config = defineConfig({ app: () => app, plugins: [plugin] });
 
     expect(config.plugins).toEqual([plugin]);

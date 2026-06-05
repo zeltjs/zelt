@@ -11,7 +11,7 @@ type ContextResponse = {
 };
 
 describe('Middleware <-> handler context integration', () => {
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

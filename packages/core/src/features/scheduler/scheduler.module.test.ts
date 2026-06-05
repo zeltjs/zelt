@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ReadyApp } from '../../app';
+import type { RuntimeApp } from '../../app';
 import { createApp } from '../../app';
 import { http } from '../http/http.feature';
 import { Cron } from './schedule/cron.decorator';
@@ -8,7 +8,7 @@ import { scheduler } from './scheduler.feature';
 
 describe('createApp with schedulers', () => {
   let readyApp:
-    | ReadyApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]>
+    | RuntimeApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]>
     | undefined;
 
   afterEach(async () => {
@@ -27,13 +27,13 @@ describe('createApp with schedulers', () => {
     }
 
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
-    readyApp = await app.ready();
+    readyApp = await app.createRuntime();
 
     expect(readyApp.schedulers.startScheduler).toBeDefined();
     expect(readyApp.schedulers.stopScheduler).toBeDefined();
   });
 
-  it('scheduler does not run automatically after ready()', async () => {
+  it('scheduler does not run automatically after createRuntime()', async () => {
     const taskFn = vi.fn();
 
     @Scheduled()
@@ -45,7 +45,7 @@ describe('createApp with schedulers', () => {
     }
 
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
-    readyApp = await app.ready();
+    readyApp = await app.createRuntime();
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
     expect(taskFn).not.toHaveBeenCalled();
@@ -63,7 +63,7 @@ describe('createApp with schedulers', () => {
     }
 
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
-    readyApp = await app.ready();
+    readyApp = await app.createRuntime();
     await readyApp.schedulers.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
@@ -81,7 +81,7 @@ describe('createApp with schedulers', () => {
     }
 
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
-    readyApp = await app.ready();
+    readyApp = await app.createRuntime();
     await readyApp.schedulers.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
@@ -95,9 +95,9 @@ describe('createApp with schedulers', () => {
 
   it('works without schedulers option', async () => {
     const app = createApp([http({ controllers: [] })]);
-    const localReadyApp = await app.ready();
+    const localRuntimeApp = await app.createRuntime();
 
-    expect(localReadyApp.shutdown).toBeDefined();
-    await localReadyApp.shutdown();
+    expect(localRuntimeApp.shutdown).toBeDefined();
+    await localRuntimeApp.shutdown();
   });
 });

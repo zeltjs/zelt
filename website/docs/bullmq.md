@@ -199,7 +199,7 @@ class BullMQConfig {
 const app = createApp([http({ controllers: [UserController] })], { configs: [BullMQConfig] });
 
 // Instantiate worker to start processing
-const readyApp = await app.ready();
+const readyApp = await app.createRuntime();
 await readyApp.get(EmailWorker);
 ```
 

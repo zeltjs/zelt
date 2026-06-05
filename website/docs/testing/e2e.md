@@ -14,7 +14,7 @@ declare function it(name: string, fn: () => void | Promise<void>): void;
 declare function expect<T>(value: T): { toBe(expected: T): void; toEqual(expected: unknown): void; };
 @Controller('/hello') class HelloController { @Get('/:name') greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; } }
 const app = createApp([http({ controllers: [HelloController] })]);
-const readyApp = await app.ready();
+const readyApp = await app.createRuntime();
 // ---cut---
 describe('Hello API', () => {
   it('should return greeting', async () => {
@@ -39,7 +39,7 @@ declare function it(name: string, fn: () => void | Promise<void>): void;
 declare function expect<T>(value: T): { toBe(expected: T): void; };
 @Controller('/hello') class HelloController { @Get('/:name') greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; } }
 const app = createApp([http({ controllers: [HelloController] })]);
-const readyApp = await app.ready();
+const readyApp = await app.createRuntime();
 type AppType = { hello: { ':name': { $get: (opts: { param: { name: string } }) => Promise<Response & { json(): Promise<{ message: string }> }> } } };
 // ---cut---
 describe('Hello API', () => {
@@ -91,7 +91,7 @@ type AppType = {
 const app = createApp([http({ controllers: [UserController] })], { configs: [RedisConfig] });
 
 describe('API E2E', () => {
-  let testApp: Awaited<ReturnType<typeof app.ready>>;
+  let testApp: Awaited<ReturnType<typeof app.createRuntime>>;
   let client: AppType;
 
   beforeAll(async () => {
