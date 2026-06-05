@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Controller, createApp, Get, http } from '../index';
 
 describe('HttpApp.getControllers', () => {
-  it('returns the list of registered controllers', async () => {
+  it('returns the list of registered controllers from static caps', () => {
     @Controller('/a')
     class AController {
       @Get('/') get() {
@@ -19,8 +19,7 @@ describe('HttpApp.getControllers', () => {
     }
 
     const app = createApp([http({ controllers: [AController, BController] })]);
-    const readyApp = await app.ready();
 
-    expect(readyApp.http.getControllers()).toEqual([AController, BController]);
+    expect(app.http.getControllers()).toEqual([AController, BController]);
   });
 });

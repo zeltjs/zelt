@@ -1,4 +1,9 @@
-import type { ConfiguredFeature, HttpCapabilities, ReadyApp, ReadyOptions } from '@zeltjs/core';
+import type {
+  ConfiguredFeature,
+  CreateRuntimeOptions,
+  HttpCapabilities,
+  RuntimeApp,
+} from '@zeltjs/core';
 
 import { ElectronEnvAdaptor } from './electron-env.adaptor';
 
@@ -6,14 +11,16 @@ export type ElectronAppOptions = {
   readonly warmup?: boolean;
 };
 
-type HttpReadyApp = ReadyApp<readonly ConfiguredFeature[]> & { readonly http: HttpCapabilities };
+type HttpRuntimeApp = RuntimeApp<readonly ConfiguredFeature[]> & {
+  readonly http: HttpCapabilities;
+};
 
 type HttpApp = {
-  readonly ready: (options?: ReadyOptions) => Promise<HttpReadyApp>;
+  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<HttpRuntimeApp>;
 };
 
 export type ElectronApp = {
-  readonly get: HttpReadyApp['get'];
+  readonly get: HttpRuntimeApp['get'];
   readonly fetch: (request: Request) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
 };
@@ -22,7 +29,7 @@ export const onElectron = async (
   app: HttpApp,
   options: ElectronAppOptions = {},
 ): Promise<ElectronApp> => {
-  const readyApp = await app.ready({
+  const readyApp = await app.createRuntime({
     fallbackConfigs: [ElectronEnvAdaptor],
     warmup: options.warmup ?? true,
   });

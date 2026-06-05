@@ -1,4 +1,3 @@
-import type { App, ConfiguredFeature } from '@zeltjs/core';
 import consola from 'consola';
 
 import { ZeltMultipleBuildHooksError } from './cli.errors';
@@ -7,17 +6,23 @@ import type { BuildContext, BuildResult, ZeltConfig, ZeltPlugin } from './config
 export type RunPluginHooksOptions = {
   readonly cwd: string;
   readonly config: ZeltConfig;
-  readonly app: App<readonly ConfiguredFeature[]>;
+  readonly loadStaticApp: () => Promise<object>;
 };
 
+const createBuildContext = (options: RunPluginHooksOptions): BuildContext => ({
+  cwd: options.cwd,
+  build: options.config.build ?? {},
+  loadStaticApp: options.loadStaticApp,
+});
+
 export const runPreBuildHooks = async (options: RunPluginHooksOptions): Promise<void> => {
-  const { cwd, config, app } = options;
+  const { config } = options;
   const plugins: readonly ZeltPlugin[] = config.plugins ?? [];
 
   for (const plugin of plugins) {
     if (plugin.preBuild !== undefined) {
       consola.info(`[${plugin.name}] Running preBuild hook...`);
-      const context: BuildContext = { cwd, config, app };
+      const context = createBuildContext(options);
       await plugin.preBuild(context);
       consola.success(`[${plugin.name}] preBuild completed`);
     }
@@ -30,7 +35,7 @@ export type RunBuildHookResult = {
 
 /** @throws {ZeltMultipleBuildHooksError} */
 export const runBuildHook = async (options: RunPluginHooksOptions): Promise<RunBuildHookResult> => {
-  const { cwd, config, app } = options;
+  const { config } = options;
   const plugins: readonly ZeltPlugin[] = config.plugins ?? [];
 
   const pluginsWithBuild = plugins.filter((p) => p.build !== undefined);
@@ -47,7 +52,7 @@ export const runBuildHook = async (options: RunPluginHooksOptions): Promise<RunB
   }
 
   consola.info(`[${plugin.name}] Running build hook...`);
-  const context: BuildContext = { cwd, config, app };
+  const context = createBuildContext(options);
   await plugin.build?.(context);
   consola.success(`[${plugin.name}] build completed`);
 
@@ -58,13 +63,13 @@ export const runPostBuildHooks = async (
   options: RunPluginHooksOptions,
   result: BuildResult,
 ): Promise<void> => {
-  const { cwd, config, app } = options;
+  const { config } = options;
   const plugins: readonly ZeltPlugin[] = config.plugins ?? [];
 
   for (const plugin of plugins) {
     if (plugin.postBuild !== undefined) {
       consola.info(`[${plugin.name}] Running postBuild hook...`);
-      const context: BuildContext = { cwd, config, app };
+      const context = createBuildContext(options);
       await plugin.postBuild(context, result);
       consola.success(`[${plugin.name}] postBuild completed`);
     }

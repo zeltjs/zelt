@@ -1,3 +1,4 @@
+import type { CommandCapabilities, HttpCapabilities, SchedulerCapabilities } from '@zeltjs/core';
 import {
   args,
   Command,
@@ -25,15 +26,17 @@ afterAll(() => {
 });
 
 import { NodeCliConfig } from './node-cli.config';
-import type {
-  CommandNodeApp,
-  HttpNodeApp,
-  NodeApp,
-  SchedulerNodeAppPart,
-  ServerHandle,
-} from './on-node';
+import type { NodeApp, ServerHandle } from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
+
+type HttpNodeApp = NodeApp & { readonly http: HttpCapabilities } & {
+  readonly listen: (
+    portOrOptions?: number | { readonly port?: number; readonly hostname?: string },
+  ) => Promise<ServerHandle>;
+};
+type CommandNodeApp = NodeApp & { readonly commands: CommandCapabilities };
+type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
 
 const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp => 'listen' in app;
 const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'commands' in app;
@@ -175,7 +178,7 @@ describe('onNode with HTTP', () => {
     expect(res.status).toBe(200);
   });
 
-  it('calls app.ready() during onNode', async () => {
+  it('calls app.createRuntime() during onNode', async () => {
     @Controller('/health')
     class HealthController {
       @Get('/')
@@ -185,7 +188,7 @@ describe('onNode with HTTP', () => {
     }
 
     const app = createApp([http({ controllers: [HealthController] })]);
-    const readySpy = vi.spyOn(app, 'ready');
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app);
 
@@ -198,9 +201,9 @@ describe('onNode with HTTP', () => {
     expect(body.status).toBe('ok');
   });
 
-  it('passes fallback configs to ready()', async () => {
+  it('passes fallback configs to createRuntime()', async () => {
     const app = createApp([http({ controllers: [] })], { configs: [EnvAdaptor] });
-    const readySpy = vi.spyOn(app, 'ready');
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app);
 

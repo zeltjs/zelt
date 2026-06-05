@@ -1,13 +1,6 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
-import type {
-  CommandCapabilities,
-  ConfiguredFeature,
-  FeatureApp,
-  HttpCapabilities,
-  ReadyApp,
-  SchedulerCapabilities,
-} from '@zeltjs/core';
+import type { ConfiguredFeature, FeatureApp, HttpCapabilities, RuntimeApp } from '@zeltjs/core';
 import { unsafeGetNamespacedCallable } from '@zeltjs/unsafe-type-lib';
 
 import { NodeCliConfig } from './node-cli.config';
@@ -29,12 +22,6 @@ export type NodeAppOptions = {
 
 export type { ExecResult } from '@zeltjs/core';
 
-type NodeAppBase = {
-  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
-  readonly args: readonly string[];
-  readonly shutdown: () => Promise<void>;
-};
-
 type EnvironmentNodeAppPart = {
   readonly args: readonly string[];
   readonly shutdown: () => Promise<void>;
@@ -44,13 +31,7 @@ type HttpNodeAppPart = {
   readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
 };
 
-export type HttpNodeApp = NodeAppBase & { readonly http: HttpCapabilities } & HttpNodeAppPart;
-
-export type CommandNodeApp = NodeAppBase & { readonly commands: CommandCapabilities };
-
-export type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
-
-export type NodeApp = (ReadyApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart) &
+export type NodeApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart) &
   Partial<HttpNodeAppPart>;
 
 type FeatureKeys<F extends readonly ConfiguredFeature[]> = F[number]['key'];
@@ -61,7 +42,7 @@ type WithFeature<
   TPart extends object,
 > = TKey extends FeatureKeys<F> ? TPart : unknown;
 
-type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = ReadyApp<F> &
+type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
   EnvironmentNodeAppPart &
   (string extends FeatureKeys<F>
     ? Partial<HttpNodeAppPart>
@@ -101,12 +82,12 @@ const createListenForHttp = (
 const getArgs = (): readonly string[] => globalThis.process.argv.slice(2);
 
 const createNodeApp = (
-  readyApp: ReadyApp<readonly ConfiguredFeature[]>,
+  readyApp: RuntimeApp<readonly ConfiguredFeature[]>,
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): NodeApp => {
   const fetch = unsafeGetNamespacedCallable<HttpCapabilities['fetch']>(readyApp, 'http', 'fetch');
-  const base: ReadyApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = {
+  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = {
     ...readyApp,
     args,
     shutdown,
@@ -126,7 +107,7 @@ export async function onNode(
   app: FeatureApp<readonly ConfiguredFeature[]>,
   options: NodeAppOptions = {},
 ): Promise<NodeApp> {
-  const readyApp = await app.ready({
+  const readyApp = await app.createRuntime({
     fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
     warmup: options.warmup ?? true,
   });

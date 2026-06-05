@@ -11,7 +11,7 @@ const websiteDir = path.resolve(__dirname, '..');
 // docs are deliberately excluded here: their blocks are verbatim excerpts of
 // the real example apps (which are type-checked on their own) and are verified
 // by check-example-excerpts.ts instead of being re-type-checked in isolation.
-const TARGET_DIRS = ['docs', 'i18n/ja/docusaurus-plugin-content-docs/current'];
+const TARGET_DIRS = ['docs', 'i18n/ja/docusaurus-plugin-content-docs/current', 'src/pages'];
 
 // Skip any markdown that lives under an `examples/` segment (the Japanese
 // example docs sit inside the i18n docs tree). Those are excerpt-checked.

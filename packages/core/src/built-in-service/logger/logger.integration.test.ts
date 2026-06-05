@@ -42,7 +42,7 @@ describe('Logger integration', () => {
       }
 
       const app = createApp([http({ controllers: [TestController] })]);
-      const readyApp = await app.ready();
+      const readyApp = await app.createRuntime();
 
       const res = await readyApp.http.fetch(new Request('http://localhost/test'));
       expect(res.status).toBe(200);
@@ -81,7 +81,7 @@ describe('Logger integration', () => {
       const app = createApp([
         http({ controllers: [TestController], middlewares: [RequestContextMiddleware] }),
       ]);
-      const readyApp = await app.ready();
+      const readyApp = await app.createRuntime();
 
       const res = await readyApp.http.fetch(new Request('http://localhost/test'));
       expect(res.status).toBe(200);
@@ -116,7 +116,7 @@ describe('Logger integration', () => {
       const app = createApp([http({ controllers: [TestController] })], {
         configs: [ErrorOnlyConfig],
       });
-      const readyApp = await app.ready();
+      const readyApp = await app.createRuntime();
 
       const res = await readyApp.http.fetch(new Request('http://localhost/test'));
       expect(res.status).toBe(200);
@@ -162,7 +162,7 @@ describe('Logger integration', () => {
       const app = createApp([http({ controllers: [TestController] })], {
         configs: [MultiTransportConfig],
       });
-      const readyApp = await app.ready();
+      const readyApp = await app.createRuntime();
 
       await readyApp.http.fetch(new Request('http://localhost/test'));
 
@@ -195,7 +195,7 @@ describe('Logger integration', () => {
       }
 
       const app = createApp([http({ controllers: [TestController] })]);
-      const readyApp = await app.ready();
+      const readyApp = await app.createRuntime();
 
       await readyApp.http.fetch(new Request('http://localhost/test'));
 

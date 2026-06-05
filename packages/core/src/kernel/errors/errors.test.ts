@@ -66,7 +66,7 @@ describe('ZeltLifecycleStateError', () => {
       operation: 'addFallbackConfig',
       currentState: 'ready',
     });
-    expect(error.message).toBe('Cannot addFallbackConfig() after ready()');
+    expect(error.message).toBe('Cannot addFallbackConfig() after createRuntime()');
   });
 
   it('formats not_ready state correctly', () => {
@@ -74,7 +74,7 @@ describe('ZeltLifecycleStateError', () => {
       operation: 'fetch',
       currentState: 'not_ready',
     });
-    expect(error.message).toBe('Cannot fetch() before ready()');
+    expect(error.message).toBe('Cannot fetch() before createRuntime()');
   });
 });
 

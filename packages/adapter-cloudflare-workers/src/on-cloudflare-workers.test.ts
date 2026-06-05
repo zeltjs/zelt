@@ -43,7 +43,7 @@ describe('onCloudflareWorkers', () => {
 
   it('defaults to lazy mode (warmup: false)', async () => {
     const app = createApp([http({ controllers: [HelloController] })]);
-    const readySpy = vi.spyOn(app, 'ready');
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     await onCloudflareWorkers(app);
 
@@ -55,7 +55,7 @@ describe('onCloudflareWorkers', () => {
 
   it('respects warmup: true option', async () => {
     const app = createApp([http({ controllers: [HelloController] })]);
-    const readySpy = vi.spyOn(app, 'ready');
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     await onCloudflareWorkers(app, { warmup: true });
 
@@ -65,9 +65,9 @@ describe('onCloudflareWorkers', () => {
     });
   });
 
-  it('ready() is called once during onCloudflareWorkers', async () => {
+  it('createRuntime() is called once during onCloudflareWorkers', async () => {
     const app = createApp([http({ controllers: [HelloController] })]);
-    const readySpy = vi.spyOn(app, 'ready');
+    const readySpy = vi.spyOn(app, 'createRuntime');
     const ctx = createMockExecutionContext();
 
     const workersApp = await onCloudflareWorkers(app);
@@ -88,11 +88,11 @@ describe('onCloudflareWorkers', () => {
     expect(ctx.waitUntil).toHaveBeenCalled();
   });
 
-  it('passes fallback configs to ready()', async () => {
+  it('passes fallback configs to createRuntime()', async () => {
     const app = createApp([http({ controllers: [HelloController] })], {
       configs: [EnvAdaptor],
     });
-    const readySpy = vi.spyOn(app, 'ready');
+    const readySpy = vi.spyOn(app, 'createRuntime');
 
     await onCloudflareWorkers(app);
 

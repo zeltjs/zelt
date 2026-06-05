@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ReadyApp } from '../../app';
+import type { RuntimeApp } from '../../app';
 import { createApp } from '../../app';
 import { http } from '../http/http.feature';
 import { Controller } from '../http/routing/controller.decorator';
@@ -18,7 +18,7 @@ class NoopController {
 
 describe('SchedulerRunner', () => {
   let readyApp:
-    | ReadyApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]>
+    | RuntimeApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]>
     | undefined;
 
   afterEach(async () => {
@@ -40,7 +40,7 @@ describe('SchedulerRunner', () => {
     }
 
     const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
-    readyApp = await app.ready();
+    readyApp = await app.createRuntime();
 
     expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
 
@@ -73,7 +73,7 @@ describe('SchedulerRunner', () => {
     }
 
     const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
-    readyApp = await app.ready();
+    readyApp = await app.createRuntime();
     await readyApp.schedulers.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
@@ -89,7 +89,7 @@ describe('SchedulerRunner', () => {
     }
 
     const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
-    readyApp = await app.ready();
+    readyApp = await app.createRuntime();
 
     expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
 

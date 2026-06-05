@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { app } from '../src/app';
 
 describe('Hello World', () => {
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

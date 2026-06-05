@@ -34,6 +34,7 @@ export const eventbus = (
       container.bind({ provide: handler, useClass: handler });
     }
   },
+  staticCapabilities: () => ({}),
   createCapabilities: async (runtime) => {
     for (const handler of opts.handlers ?? []) {
       await runtime.get(handler);

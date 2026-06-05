@@ -60,7 +60,7 @@ const buildApp = async () => {
   const app = createApp([
     http({ controllers: [HelloController, EchoController, UploadController] }),
   ]);
-  return app.ready();
+  return app.createRuntime();
 };
 
 describe('createApp() — fetch', () => {
@@ -114,14 +114,14 @@ describe('createApp() — fetch', () => {
     expect(b.status).toBe(200);
   });
 
-  it('throws at ready() when a controller is missing @Controller', async () => {
+  it('throws at createRuntime() when a controller is missing @Controller', async () => {
     class NoDecorator {
       @Get('/')
       list() {}
     }
     new NoDecorator();
     const app = createApp([http({ controllers: [NoDecorator] })]);
-    await expect(app.ready()).rejects.toThrow(/missing @Controller/);
+    await expect(app.createRuntime()).rejects.toThrow(/missing @Controller/);
   });
 });
 
@@ -172,7 +172,7 @@ describe('error paths', () => {
       }
     }
     const app = createApp([http({ controllers: [BrokenController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(new Request('https://example.com/x/'));
     expect(res.status).toBe(500);
   });
@@ -200,7 +200,7 @@ describe('middleware', () => {
         middlewares: [trackMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     await readyApp.http.request('/test/');
     expect(executed).toContain('global');
@@ -238,7 +238,7 @@ describe('middleware', () => {
         middlewares: [globalMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     await readyApp.http.request('/test/');
     expect(order).toEqual(['global', 'controller', 'method', 'handler']);
@@ -273,7 +273,7 @@ describe('middleware', () => {
         middlewares: [authMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     executed.length = 0;
     await readyApp.http.request('/test/protected');
@@ -313,7 +313,7 @@ describe('middleware', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ value: 'injected-value' });
@@ -340,7 +340,7 @@ describe('middleware', () => {
         middlewares: [setUserMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(200);
@@ -366,7 +366,7 @@ describe('middleware', () => {
         middlewares: [throwingMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(500);
@@ -394,7 +394,7 @@ describe('middleware', () => {
         middlewares: [earlyReturnMiddleware],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(403);
@@ -437,7 +437,7 @@ describe('errorHandlers', () => {
         errorHandlers: [CustomErrorHandler],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(400);
@@ -466,7 +466,7 @@ describe('errorHandlers', () => {
         errorHandlers: [SelectiveErrorHandler],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(500);
@@ -505,7 +505,7 @@ describe('errorHandlers', () => {
         errorHandlers: [FirstErrorHandler, SecondErrorHandler],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(500);
@@ -545,7 +545,7 @@ describe('errorHandlers', () => {
         errorHandlers: [TestErrorHandler],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     await readyApp.http.request('/test/');
     expect(executed).toEqual(['middleware', 'handler', 'errorHandler']);
@@ -553,7 +553,7 @@ describe('errorHandlers', () => {
 });
 
 describe('createApp 2-phase initialization', () => {
-  it('returns NewApp synchronously with ready() method', () => {
+  it('returns NewApp synchronously with createRuntime() method', () => {
     @Controller('/test')
     class TestController {
       @Get('/')
@@ -564,10 +564,10 @@ describe('createApp 2-phase initialization', () => {
 
     const app = createApp([http({ controllers: [TestController] })]);
     expect(app).toBeDefined();
-    expect(typeof app.ready).toBe('function');
+    expect(typeof app.createRuntime).toBe('function');
   });
 
-  it('ready() returns ReadyApp with http capabilities and shutdown', async () => {
+  it('createRuntime() returns RuntimeApp with http capabilities and shutdown', async () => {
     @Controller('/test')
     class TestController {
       @Get('/')
@@ -577,7 +577,7 @@ describe('createApp 2-phase initialization', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     expect(readyApp.http).toBeDefined();
     expect(typeof readyApp.http.fetch).toBe('function');
     expect(typeof readyApp.http.request).toBe('function');
@@ -588,13 +588,13 @@ describe('createApp 2-phase initialization', () => {
 
   it('shutdown() is idempotent', async () => {
     const app = createApp([http({ controllers: [] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     await readyApp.shutdown();
     await expect(readyApp.shutdown()).resolves.toBeUndefined();
   });
 });
 
-describe('config override / fallback via ready()', () => {
+describe('config override / fallback via createRuntime()', () => {
   it('overrides config via createApp configs', async () => {
     @Config
     class BaseConfig {
@@ -621,7 +621,7 @@ describe('config override / fallback via ready()', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })], { configs: [OverrideConfig] });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(200);
@@ -655,7 +655,7 @@ describe('config override / fallback via ready()', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready({ fallbackConfigs: [FallbackConfig] });
+    const readyApp = await app.createRuntime({ fallbackConfigs: [FallbackConfig] });
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(200);
@@ -696,7 +696,7 @@ describe('config override / fallback via ready()', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })], { configs: [UserConfig] });
-    const readyApp = await app.ready({ fallbackConfigs: [FallbackConfig] });
+    const readyApp = await app.createRuntime({ fallbackConfigs: [FallbackConfig] });
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(200);
@@ -726,7 +726,7 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/api/users/');
     expect(res.status).toBe(200);
@@ -766,7 +766,7 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     await readyApp.http.request('/api/test/');
     expect(order).toEqual(['parent', 'child', 'handler']);
@@ -800,7 +800,7 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/api/test/');
     expect(res.status).toBe(400);
@@ -835,7 +835,7 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/api/test/');
     expect(res.status).toBe(502);
@@ -894,7 +894,7 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const childRes = await readyApp.http.request('/api/test/child-error');
     expect(childRes.status).toBe(422);
@@ -933,7 +933,7 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/api/v1/items/');
     expect(res.status).toBe(200);
@@ -968,9 +968,8 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
 
-    const controllers = readyApp.http.getControllers();
+    const controllers = app.http.getControllers();
     expect(controllers).toContain(ControllerA);
     expect(controllers).toContain(ControllerB);
     expect(controllers).toHaveLength(2);
@@ -996,9 +995,8 @@ describe('nested children', () => {
         ],
       }),
     ]);
-    const readyApp = await app.ready();
 
-    const meta = readyApp.http.getMetadata();
+    const meta = app.http.getMetadata();
     expect(meta.controllers).toHaveLength(1);
     expect(meta.controllers[0]?.basePath).toBe('/api/items');
     expect(meta.controllers[0]?.routes[0]?.fullPath).toBe('/api/items/:id');
@@ -1039,7 +1037,7 @@ describe('warmup option', () => {
     }
 
     const app = createApp([http({ controllers: [LazyController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     expect(events).toEqual([]);
 
@@ -1051,7 +1049,7 @@ describe('warmup option', () => {
     await readyApp.shutdown();
   });
 
-  it('warmup: true - lifecycle starts during ready()', async () => {
+  it('warmup: true - lifecycle starts during createRuntime()', async () => {
     const events: string[] = [];
 
     @injectable()
@@ -1084,7 +1082,7 @@ describe('warmup option', () => {
     }
 
     const app = createApp([http({ controllers: [EagerController] })]);
-    const readyApp = await app.ready({ warmup: true });
+    const readyApp = await app.createRuntime({ warmup: true });
 
     expect(events).toEqual(['EagerService:startup']);
 
@@ -1110,7 +1108,7 @@ describe('warmup option', () => {
     }
 
     const app = createApp([http({ controllers: [CachedController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     await readyApp.http.request('/cached/');
     await readyApp.http.request('/cached/');
@@ -1143,7 +1141,7 @@ describe('warmup option', () => {
     }
 
     const app = createApp([http({ controllers: [ApiController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/api/');
     expect(res.status).toBe(200);

@@ -5,7 +5,7 @@ import { app } from '../src/app';
 import { README_BUFFER, README_STRING } from '../src/fixtures';
 
 describe('Send Files', () => {
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

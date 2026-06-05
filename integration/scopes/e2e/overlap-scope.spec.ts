@@ -6,7 +6,7 @@ import { app } from '../src/app';
 const OVERLAP_REQUEST_COUNT = 1000;
 
 describe('Overlapping requests preserve per-request context isolation', () => {
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

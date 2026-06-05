@@ -17,7 +17,7 @@ describe('response.setCookie', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(
       new Request('http://localhost/login', { method: 'POST' }),
     );
@@ -43,7 +43,7 @@ describe('response.setCookie', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(
       new Request('http://localhost/login', { method: 'POST' }),
     );
@@ -67,7 +67,7 @@ describe('response.deleteCookie', () => {
     }
 
     const app = createApp([http({ controllers: [TestController] })]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(
       new Request('http://localhost/logout', { method: 'POST' }),
     );

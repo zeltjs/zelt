@@ -40,7 +40,7 @@ export const createTestTarget = async <T extends object>(
   const mergedConfigs = mergeGlobalDefaults(options.configs ?? []);
 
   const app = createApp([], { configs: mergedConfigs });
-  const readyApp = await app.ready();
+  const readyApp = await app.createRuntime();
 
   if (options.overrides?.length) {
     override(readyApp, options.overrides);

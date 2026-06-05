@@ -24,17 +24,24 @@ describe('http feature', () => {
     expect(feature.key).toBe('http');
     expect(typeof feature.bind).toBe('function');
     expect(typeof feature.createCapabilities).toBe('function');
+    expect(typeof feature.staticCapabilities).toBe('function');
   });
 
-  it('createCapabilities returns HttpCapabilities', async () => {
+  it('staticCapabilities returns getControllers and getMetadata', () => {
+    const feature = http({ controllers: [TestController] });
+    const caps = feature.staticCapabilities();
+    expect(typeof caps.getControllers).toBe('function');
+    expect(typeof caps.getMetadata).toBe('function');
+    expect(caps.getControllers()).toEqual([TestController]);
+  });
+
+  it('createCapabilities returns fetch and request', async () => {
     const feature = http({ controllers: [TestController] });
     const container = new Container();
     feature.bind(container);
     const caps = await feature.createCapabilities(createRuntime(container));
     expect(typeof caps.fetch).toBe('function');
     expect(typeof caps.request).toBe('function');
-    expect(typeof caps.getControllers).toBe('function');
-    expect(typeof caps.getMetadata).toBe('function');
   });
 
   it('caps.request handles HTTP requests', async () => {

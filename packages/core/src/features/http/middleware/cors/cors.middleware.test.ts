@@ -25,7 +25,7 @@ describe('CorsMiddleware', () => {
     const app = createApp([http({ controllers: [TestController] })], {
       configs: [CustomCorsConfig],
     });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.fetch(
       new Request('http://localhost/test', {
@@ -51,7 +51,7 @@ describe('CorsMiddleware', () => {
     const app = createApp([http({ controllers: [TestController] })], {
       configs: [CustomCorsConfig],
     });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.fetch(
       new Request('http://localhost/test', {

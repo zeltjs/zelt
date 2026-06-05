@@ -18,6 +18,7 @@ const config: KnipConfig = {
     'examples/hello': {
       entry: [
         'src/main.ts',
+        'src/node.ts',
         'src/entry/*.ts',
         'src/app.ts',
         'src/controllers.ts',
@@ -29,8 +30,8 @@ const config: KnipConfig = {
         '@zeltjs/openapi',
         '@zeltjs/hono-client',
         '@zeltjs/adapter-node',
-        '@zeltjs/core',
         '@zeltjs/cli',
+        '@zeltjs/core',
         '@zeltjs/validator-valibot',
         'tsdown',
         'valibot',
@@ -38,7 +39,7 @@ const config: KnipConfig = {
     },
     'examples/drizzle-todo': {
       entry: [
-        'src/entry/node.ts',
+        'src/node.ts',
         'src/app.ts',
         'src/controllers.ts',
         'src/todo/*.ts',
@@ -47,6 +48,7 @@ const config: KnipConfig = {
       ],
       ignoreDependencies: [
         '@zeltjs/adapter-node',
+        '@zeltjs/cli',
         '@zeltjs/core',
         '@zeltjs/validator-valibot',
         '@zeltjs/openapi',
@@ -65,13 +67,18 @@ const config: KnipConfig = {
       // neverthrow は今後 Result wrapper に使う想定で keep。
       ignoreDependencies: ['neverthrow'],
       // barrel files used by test files via '..' import path (required by no-cross-directory-lib-import rule)
-      ignore: ['src/app/index.ts', 'src/modules/scheduler/index.ts'],
+      ignore: ['src/app/index.ts', 'src/features/scheduler/index.ts'],
     },
     'packages/adapter-node': {
       ignoreDependencies: ['@zeltjs/core'],
     },
     'packages/adapter-cloudflare-workers': {
       ignoreDependencies: ['@zeltjs/core', 'cloudflare'],
+    },
+    'packages/cli': {
+      // c12 is bundled into the CLI dist, but it imports jiti at runtime.
+      // jiti must stay external because its package assets are not bundle-safe.
+      ignoreDependencies: ['jiti'],
     },
     'packages/testing': {
       // node:test requires @types/node for types - referenced via optional peer dependency

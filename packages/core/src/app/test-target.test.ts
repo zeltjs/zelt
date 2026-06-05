@@ -40,7 +40,7 @@ describe('createApp for testing', () => {
     }
 
     const app = createApp([], { configs: [TestConfig] });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     expect(events).toEqual(['config:constructor', 'config:startup']);
     expect((await readyApp.get(TestService)).getValue()).toBe('test-value');
@@ -66,7 +66,7 @@ describe('createApp for testing', () => {
     }
 
     const app = createApp([], { configs: [IdempotentConfig] });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     await readyApp.shutdown();
     await readyApp.shutdown();
@@ -80,7 +80,7 @@ describe('createApp for testing', () => {
     class SomeService {}
 
     const app = createApp([]);
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     await readyApp.shutdown();
 

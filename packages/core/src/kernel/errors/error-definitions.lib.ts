@@ -18,11 +18,11 @@ export const coreErrorDefinitions = {
     currentState: 'disposed' | 'ready' | 'starting' | 'not_ready' | 'pending';
   }) => {
     if (ctx.currentState === 'disposed') return `Cannot ${ctx.operation}() after shutdown()`;
-    if (ctx.currentState === 'not_ready') return `Cannot ${ctx.operation}() before ready()`;
+    if (ctx.currentState === 'not_ready') return `Cannot ${ctx.operation}() before createRuntime()`;
     if (ctx.currentState === 'starting')
       return `Cannot ${ctx.operation}() while startup is in progress`;
     if (ctx.currentState === 'pending') return `Cannot ${ctx.operation}() before startup()`;
-    return `Cannot ${ctx.operation}() after ready()`;
+    return `Cannot ${ctx.operation}() after createRuntime()`;
   },
 
   ZeltContextNotAvailableError: (ctx: {

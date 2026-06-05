@@ -4,8 +4,8 @@ export { ConfigRegistry } from './config-registry.lib';
 export {
   type App,
   type CreateAppOptions,
+  type CreateRuntimeOptions,
   createApp,
-  type ReadyApp,
-  type ReadyOptions,
+  type RuntimeApp,
 } from './create-app.lib';
 export { attachContainer, type Override, override } from './override.lib';

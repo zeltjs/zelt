@@ -17,7 +17,7 @@ describe('Lifecycle shutdown', () => {
   });
 
   it('calls shutdown on Lifecycle services when app shuts down', async () => {
-    const readyApp = await buildApp().ready({ warmup: true });
+    const readyApp = await buildApp().createRuntime({ warmup: true });
     const instance = await readyApp.get(FirstSpy);
     expect(instance.shutdownCalls).toBe(0);
 
@@ -28,7 +28,7 @@ describe('Lifecycle shutdown', () => {
   });
 
   it('is idempotent: subsequent shutdown calls do not re-run hooks', async () => {
-    const readyApp = await buildApp().ready({ warmup: true });
+    const readyApp = await buildApp().createRuntime({ warmup: true });
     const instance = await readyApp.get(FirstSpy);
 
     await readyApp.shutdown();

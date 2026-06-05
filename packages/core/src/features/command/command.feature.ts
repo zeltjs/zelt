@@ -16,6 +16,7 @@ export const command = (
   bind: (container) => {
     container.bind({ provide: COMMAND_OPTIONS, useValue: commands });
   },
+  staticCapabilities: () => ({}),
   createCapabilities: async (runtime) => {
     const service = await runtime.get(CommandService);
     return {

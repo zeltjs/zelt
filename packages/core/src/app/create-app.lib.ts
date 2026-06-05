@@ -1,8 +1,16 @@
 import { Container } from '@needle-di/core';
-import { unsafeObjectFromKeyedValues } from '@zeltjs/unsafe-type-lib';
+import {
+  unsafeObjectFromKeyedValues,
+  unsafeObjectFromNonEmptyKeyedValuesSync,
+} from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service/config';
-import type { ConfiguredFeature, FeatureRuntime, NamespacedCaps } from '../features/feature.types';
+import type {
+  ConfiguredFeature,
+  FeatureRuntime,
+  NamespacedCaps,
+  StaticNamespacedCaps,
+} from '../features/feature.types';
 import { AppRuntime } from './app-runtime.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import { attachContainer } from './override.lib';
@@ -11,17 +19,17 @@ export type CreateAppOptions = {
   readonly configs?: readonly ConfigClass<object>[];
 };
 
-export type ReadyOptions = {
+export type CreateRuntimeOptions = {
   readonly configs?: readonly ConfigClass<object>[];
   readonly fallbackConfigs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
 };
 
 export type App<F extends readonly ConfiguredFeature[]> = {
-  readonly ready: (options?: ReadyOptions) => Promise<ReadyApp<F>>;
-};
+  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<RuntimeApp<F>>;
+} & StaticNamespacedCaps<F>;
 
-export type ReadyApp<F extends readonly ConfiguredFeature[]> = {
+export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly shutdown: () => Promise<void>;
 } & NamespacedCaps<F>;
@@ -39,6 +47,12 @@ const createNamespacedCapabilities = async <const F extends readonly ConfiguredF
   features: F,
 ): Promise<NamespacedCaps<F>> => {
   return unsafeObjectFromKeyedValues(features, 'createCapabilities', runtime);
+};
+
+const createStaticCapabilities = <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+): StaticNamespacedCaps<F> => {
+  return unsafeObjectFromNonEmptyKeyedValuesSync(features, 'staticCapabilities');
 };
 
 const warmupFeatures = async (
@@ -65,13 +79,15 @@ const registerConfigs = (
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
-  features: [...F],
+  features: F,
   options?: CreateAppOptions,
 ): App<F> => {
   const baseConfigs = options?.configs;
+  const staticCaps = createStaticCapabilities(features);
 
   return {
-    ready: async (readyOptions?: ReadyOptions): Promise<ReadyApp<F>> => {
+    ...staticCaps,
+    createRuntime: async (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> => {
       const container = new Container();
 
       bindFeatures(container, features);
@@ -80,18 +96,18 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
       const configRegistry = container.get(ConfigRegistry);
 
       registerConfigs(configRegistry, baseConfigs, undefined);
-      registerConfigs(configRegistry, readyOptions?.configs, readyOptions?.fallbackConfigs);
+      registerConfigs(configRegistry, runtimeOptions?.configs, runtimeOptions?.fallbackConfigs);
       runtime.applyRegisteredConfigs();
 
       const readyResult = await runtime.ready();
 
       const caps = await createNamespacedCapabilities(readyResult, features);
 
-      if (readyOptions?.warmup) {
+      if (runtimeOptions?.warmup) {
         await warmupFeatures(readyResult, features);
       }
 
-      const readyApp: ReadyApp<F> = {
+      const readyApp: RuntimeApp<F> = {
         ...caps,
         get: readyResult.get,
         shutdown: () => runtime.shutdown(),

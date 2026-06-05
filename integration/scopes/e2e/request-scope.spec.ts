@@ -5,7 +5,7 @@ import { app } from '../src/app';
 import { RequestIdService } from '../src/request-id.service';
 
 describe('Request-scoped data via getContext/setContext', () => {
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
   let serviceCallsAtStart = 0;
 
   beforeAll(async () => {

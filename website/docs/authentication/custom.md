@@ -461,13 +461,13 @@ const app = createApp([http({
     controllers: [UserController],
     middlewares: [mockAuthMiddleware],
   })]);
-const readyApp = await app.ready();
+const readyApp = await app.createRuntime();
 // ---cut---
 describe('Protected routes', () => {
   it('returns user data when authenticated', async () => {
     const testApp = await onTest(app);
     
-    const res = await (testApp as Awaited<ReturnType<typeof app.ready>>).http.request('/users/me');
+    const res = await testApp.http.request('/users/me');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ id: '123', name: 'Test User' });
   });

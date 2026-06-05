@@ -3,9 +3,9 @@ export type {
   App,
   App as FeatureApp,
   CreateAppOptions,
-  ReadyApp,
-  ReadyOptions,
+  CreateRuntimeOptions,
   ReadyResult,
+  RuntimeApp,
 } from './app';
 export { createApp } from './app';
 export type { Signal, SignalHandler } from './built-in-service/cli';
@@ -36,10 +36,11 @@ export type {
   CommandCapabilities,
   ConfiguredFeature,
   HttpCapabilities,
+  HttpStaticCapabilities,
   SchedulerCapabilities,
 } from './features';
 // Feature factories
-export { command, http, scheduler } from './features';
+export { command, HTTP_FEATURE_KEY, http, scheduler } from './features';
 export type {
   ArgDefinition,
   ArgsDefinition,

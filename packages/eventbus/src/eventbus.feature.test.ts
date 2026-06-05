@@ -106,7 +106,7 @@ describe('eventbus feature', () => {
       { configs: [OverrideEventBusConfig] },
     );
 
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
 
     expect(ConfigAwareEventBusAdaptor.constructedValue).toBe('override');
     expect(ConfigAwareEventBusAdaptor.startedValue).toBe('override');

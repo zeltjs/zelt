@@ -6,7 +6,7 @@ import { activeLog, createEventLog, WarmupSpy } from '../src/lifecycle-spy';
 
 describe('Lifecycle warmup', () => {
   let log: EventLog;
-  let readyApp: Awaited<ReturnType<ReturnType<typeof buildApp>['ready']>>;
+  let readyApp: Awaited<ReturnType<ReturnType<typeof buildApp>['createRuntime']>>;
 
   beforeEach(() => {
     log = createEventLog();
@@ -18,22 +18,22 @@ describe('Lifecycle warmup', () => {
     activeLog.current = undefined;
   });
 
-  it('runs registered warmup handlers when ready({ warmup: true })', async () => {
-    readyApp = await buildApp().ready({ warmup: true });
+  it('runs registered warmup handlers when createRuntime({ warmup: true })', async () => {
+    readyApp = await buildApp().createRuntime({ warmup: true });
     const instance = await readyApp.get(WarmupSpy);
 
     expect(instance.warmupCalls).toBe(1);
     expect(log.events.some((e) => e.phase === 'warmup')).toBe(true);
   });
 
-  it('runs all warmup handlers before completing ready()', async () => {
-    readyApp = await buildApp().ready({ warmup: true });
+  it('runs all warmup handlers before completing createRuntime()', async () => {
+    readyApp = await buildApp().createRuntime({ warmup: true });
 
     const phases = log.events.map((e) => e.phase);
     const lastWarmup = phases.lastIndexOf('warmup');
 
     expect(lastWarmup).toBeGreaterThanOrEqual(0);
-    // No further warmup events appear after ready() resolves.
+    // No further warmup events appear after createRuntime() resolves.
     expect(phases.slice(lastWarmup + 1)).not.toContain('warmup');
   });
 });

@@ -1,4 +1,9 @@
-import type { ConfiguredFeature, HttpCapabilities, ReadyApp, ReadyOptions } from '@zeltjs/core';
+import type {
+  ConfiguredFeature,
+  CreateRuntimeOptions,
+  HttpCapabilities,
+  RuntimeApp,
+} from '@zeltjs/core';
 
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 
@@ -6,14 +11,16 @@ export type CloudflareWorkersOptions = {
   readonly warmup?: boolean;
 };
 
-type HttpReadyApp = ReadyApp<readonly ConfiguredFeature[]> & { readonly http: HttpCapabilities };
+type HttpRuntimeApp = RuntimeApp<readonly ConfiguredFeature[]> & {
+  readonly http: HttpCapabilities;
+};
 
 type HttpApp = {
-  readonly ready: (options?: ReadyOptions) => Promise<HttpReadyApp>;
+  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<HttpRuntimeApp>;
 };
 
 export type CloudflareWorkersApp = {
-  readonly get: HttpReadyApp['get'];
+  readonly get: HttpRuntimeApp['get'];
   readonly fetch: (request: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
 };
@@ -22,7 +29,7 @@ export const onCloudflareWorkers = async (
   app: HttpApp,
   options: CloudflareWorkersOptions = {},
 ): Promise<CloudflareWorkersApp> => {
-  const readyApp = await app.ready({
+  const readyApp = await app.createRuntime({
     fallbackConfigs: [CloudflareWorkersEnvAdaptor],
     warmup: options.warmup ?? false,
   });

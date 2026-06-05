@@ -17,6 +17,7 @@ export const scheduler = (
   bind: (container) => {
     container.bind({ provide: SCHEDULER_OPTIONS, useValue: schedulers });
   },
+  staticCapabilities: () => ({}),
   createCapabilities: async (runtime) => {
     const service = await runtime.get(SchedulerService);
     return {

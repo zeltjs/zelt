@@ -1,4 +1,3 @@
-import { onNode } from '@zeltjs/adapter-node';
 import { createApp, http } from '@zeltjs/core';
 
 import { controllers } from './controllers';
@@ -10,5 +9,3 @@ export const app = createApp([
     middlewares: [loggingMiddleware],
   }),
 ]);
-
-export default await onNode(app);

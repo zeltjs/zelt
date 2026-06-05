@@ -17,7 +17,7 @@ import { providers } from '../src/providers';
 import { WebhooksExplorer } from '../src/webhooks.explorer';
 
 describe('Discovery', () => {
-  let testApp: Awaited<ReturnType<(typeof app)['ready']>>;
+  let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
 
   beforeAll(async () => {
     testApp = await onTest(app);

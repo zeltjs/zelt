@@ -81,10 +81,10 @@ describe('Injector — DI error paths', () => {
   });
 
   describe('HTTP app readiness failure', () => {
-    it('rejects app.ready({ warmup: true }) when a controller has an unresolvable dependency', async () => {
+    it('rejects app.createRuntime({ warmup: true }) when a controller has an unresolvable dependency', async () => {
       const app = createApp([http({ controllers: [BrokenController] })]);
 
-      await expect(app.ready({ warmup: true })).rejects.toThrow(/No provider/);
+      await expect(app.createRuntime({ warmup: true })).rejects.toThrow(/No provider/);
     });
 
     it('fails the first request when a controller has an unresolvable dependency', async () => {

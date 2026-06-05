@@ -55,7 +55,7 @@ const app = createApp([http({ controllers: [UserController] }), scheduler([Repor
 
 ### Starting the Scheduler
 
-`scheduler([ReportScheduler])` を `createApp()` の feature 配列に含めた後、`onNode()` と `ready()` が完了したら `schedulers.startScheduler()` を呼び出して scheduled tasks を開始します:
+`scheduler([ReportScheduler])` を `createApp()` の feature 配列に含めた後、`onNode()` と `createRuntime()` が完了したら `schedulers.startScheduler()` を呼び出して scheduled tasks を開始します:
 
 ```typescript
 import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler } from '@zeltjs/core';
@@ -275,7 +275,7 @@ process.on('SIGTERM', async () => {
 });
 ```
 
-configuration を使う場合も、`scheduler([MyScheduler])` は `http()` と同じ feature 配列に含め、`ready()` 後に条件付きで開始します:
+configuration を使う場合も、`scheduler([MyScheduler])` は `http()` と同じ feature 配列に含め、`createRuntime()` 後に条件付きで開始します:
 
 ```typescript
 import { createApp, Config, Env, inject, Scheduled, Daily, http, scheduler } from '@zeltjs/core';

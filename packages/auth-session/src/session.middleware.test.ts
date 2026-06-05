@@ -67,7 +67,7 @@ describe('SessionMiddleware', () => {
     const app = createApp([http({ controllers: [SessionTestController] })], {
       configs: [TestSessionConfig],
     });
-    const readyApp = await app.ready();
+    const readyApp = await app.createRuntime();
     return readyApp;
   };
 

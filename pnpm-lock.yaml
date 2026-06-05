@@ -122,6 +122,9 @@ importers:
       '@zeltjs/adapter-node':
         specifier: workspace:*
         version: link:../../packages/adapter-node
+      '@zeltjs/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -319,6 +322,9 @@ importers:
       chokidar:
         specifier: 5.0.0
         version: 5.0.0
+      jiti:
+        specifier: 2.6.1
+        version: 2.6.1
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
