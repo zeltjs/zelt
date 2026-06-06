@@ -3,6 +3,7 @@ import type { HttpMetadata, HttpOptions } from './http.service';
 import { HTTP_OPTIONS, HttpService } from './http.service';
 import type { ControllerClass } from './http.types';
 import { collectAllControllerMetadata, collectAllControllers } from './http-children.lib';
+import { collectRoutes } from './routing/route-builder.lib';
 
 export const HTTP_FEATURE_KEY = 'http' as const;
 
@@ -16,27 +17,33 @@ export type HttpCapabilities = {
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
 };
 
-/** @throws {ZeltReadyFailedError | ZeltLifecycleStateError} */
+/** @throws {ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
 export const http = (
   opts: HttpOptions,
-): ConfiguredFeature<'http', HttpCapabilities, HttpStaticCapabilities> => ({
-  key: HTTP_FEATURE_KEY,
-  bind: (container) => {
-    container.bind({ provide: HTTP_OPTIONS, useValue: opts });
-  },
-  staticCapabilities: () => ({
-    getControllers: () => collectAllControllers(opts),
-    getMetadata: () => ({ controllers: collectAllControllerMetadata(opts) }),
-  }),
-  createCapabilities: async (runtime) => {
-    const service = await runtime.get(HttpService);
-    return {
-      fetch: (req) => service.fetch(req),
-      request: (input, init) => service.request(input, init),
-    };
-  },
-  warmup: async (runtime) => {
-    const service = await runtime.get(HttpService);
-    await service.warmupControllers();
-  },
-});
+): ConfiguredFeature<'http', HttpCapabilities, HttpStaticCapabilities> => {
+  const controllers = collectAllControllers(opts);
+  collectRoutes(controllers);
+  const metadata = collectAllControllerMetadata(opts);
+
+  return {
+    key: HTTP_FEATURE_KEY,
+    bind: (container) => {
+      container.bind({ provide: HTTP_OPTIONS, useValue: opts });
+    },
+    staticCapabilities: () => ({
+      getControllers: () => controllers,
+      getMetadata: () => ({ controllers: metadata }),
+    }),
+    createCapabilities: async (runtime) => {
+      const service = await runtime.get(HttpService);
+      return {
+        fetch: (req) => service.fetch(req),
+        request: (input, init) => service.request(input, init),
+      };
+    },
+    warmup: async (runtime) => {
+      const service = await runtime.get(HttpService);
+      await service.warmupControllers();
+    },
+  };
+};

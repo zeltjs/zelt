@@ -6,7 +6,6 @@ import { Config } from '../../built-in-service/config';
 import type { Lifecycle } from '../../kernel';
 import { LifecycleManager } from '../../kernel';
 import { inject } from '../../kernel/di';
-import { ZeltReadyFailedError } from '../../kernel/errors';
 import { ErrorHandler } from './error/error-handler.decorator';
 import { http } from './http.feature';
 import { Middleware } from './middleware/middleware.decorator';
@@ -115,25 +114,13 @@ describe('createApp() — fetch', () => {
     expect(b.status).toBe(200);
   });
 
-  it('throws at createRuntime() when a controller is missing @Controller', async () => {
+  it('throws before createRuntime() when a controller is missing @Controller', () => {
     class NoDecorator {
       @Get('/')
       list() {}
     }
     new NoDecorator();
-    const app = createApp([http({ controllers: [NoDecorator] })]);
-    try {
-      await app.createRuntime();
-      expect.unreachable('createRuntime should fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ZeltReadyFailedError);
-      expect(error).toHaveProperty('cause');
-      expect((error as Error).cause).toBeInstanceOf(Error);
-      expect(((error as Error).cause as Error).cause).toBeInstanceOf(Error);
-      expect((((error as Error).cause as Error).cause as Error).message).toMatch(
-        /missing @Controller/,
-      );
-    }
+    expect(() => http({ controllers: [NoDecorator] })).toThrow(/missing @Controller/);
   });
 });
 
