@@ -2,14 +2,7 @@ import { Container, injectable } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
 import { Config } from '../../built-in-service/config';
-import {
-  findRootLeafClass,
-  getLeaf,
-  isLeafClass,
-  overrideLeaf,
-  registerAsLeaf,
-  resolveLeaf,
-} from './leaf.lib';
+import { getLeaf, isLeafClass, overrideLeaf, registerAsLeaf, resolveLeaf } from './leaf.lib';
 
 describe('leaf mechanism', () => {
   describe('registerAsLeaf / isLeafClass', () => {
@@ -48,42 +41,6 @@ describe('leaf mechanism', () => {
       class GrandchildLeaf extends ParentLeaf {}
 
       expect(isLeafClass(GrandchildLeaf)).toBe(true);
-    });
-  });
-
-  describe('findRootLeafClass', () => {
-    it('returns self for directly registered class', () => {
-      @injectable()
-      class DirectLeaf {}
-      registerAsLeaf(DirectLeaf);
-
-      expect(findRootLeafClass(DirectLeaf)).toBe(DirectLeaf);
-    });
-
-    it('returns ancestor for inherited leaf', () => {
-      @injectable()
-      class RootLeaf {}
-      registerAsLeaf(RootLeaf);
-
-      @injectable()
-      class ChildLeaf extends RootLeaf {}
-
-      expect(findRootLeafClass(ChildLeaf)).toBe(RootLeaf);
-    });
-
-    it('returns topmost registered ancestor in multi-level hierarchy', () => {
-      @injectable()
-      class TopLeaf {}
-      registerAsLeaf(TopLeaf);
-
-      @injectable()
-      class MiddleLeaf extends TopLeaf {}
-      registerAsLeaf(MiddleLeaf);
-
-      @injectable()
-      class BottomLeaf extends MiddleLeaf {}
-
-      expect(findRootLeafClass(BottomLeaf)).toBe(TopLeaf);
     });
   });
 

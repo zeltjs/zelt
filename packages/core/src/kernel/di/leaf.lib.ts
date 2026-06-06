@@ -44,20 +44,6 @@ export const isLeafClass = (cls: AnyClass): boolean => {
   return false;
 };
 
-export const findRootLeafClass = (cls: AnyClass): AnyClass => {
-  let current: AnyClass | null = cls;
-  let root: AnyClass = cls;
-
-  while (current) {
-    if (leafClasses.has(current)) {
-      root = current;
-    }
-    current = toAnyClass(Object.getPrototypeOf(current));
-  }
-
-  return root;
-};
-
 const findAncestorLeafClasses = (cls: AnyClass): AnyClass[] => {
   const ancestors: AnyClass[] = [];
   let current = toAnyClass(Object.getPrototypeOf(cls));
