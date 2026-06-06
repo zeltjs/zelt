@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
+import { Feature, hasFeature } from '../features';
 import type { ConfiguredFeature } from '../features/feature.types';
 import type { RuntimeApp } from './create-app.lib';
 import { createApp } from './create-app.lib';
@@ -20,6 +21,14 @@ const createEmptyFeature = (key: string): ConfiguredFeature<string, object> => (
   staticCapabilities: () => ({}),
   createCapabilities: () => ({}),
 });
+
+class TypedFeature extends Feature<'typed', { readonly value: () => string }> {
+  readonly key = 'typed' as const;
+
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({ value: () => 'ok' });
+}
 
 describe('createApp', () => {
   it('returns an App with createRuntime() method', () => {
@@ -84,5 +93,30 @@ describe('createApp', () => {
     expectTypeOf<Result>().toHaveProperty('get');
     expectTypeOf<Result>().toHaveProperty('shutdown');
     expectTypeOf<Result>().toHaveProperty('empty');
+  });
+
+  it('hasFeature works on static App before createRuntime', () => {
+    const app = createApp([new TypedFeature()]);
+
+    expect(hasFeature(app, TypedFeature)).toBe(true);
+
+    if (hasFeature(app, TypedFeature)) {
+      expectTypeOf(app).toHaveProperty('createRuntime');
+      expectTypeOf(app).not.toHaveProperty('typed');
+    }
+  });
+
+  it('hasFeature narrows RuntimeApp by feature class', async () => {
+    const app = createApp([new TypedFeature()]);
+    const readyApp = await app.createRuntime();
+
+    expect(hasFeature(readyApp, TypedFeature)).toBe(true);
+
+    if (hasFeature(readyApp, TypedFeature)) {
+      expectTypeOf(readyApp.typed.value).toEqualTypeOf<() => string>();
+      expect(readyApp.typed.value()).toBe('ok');
+    }
+
+    await readyApp.shutdown();
   });
 });

@@ -11,6 +11,7 @@ import type {
   NamespacedCaps,
   StaticNamespacedCaps,
 } from '../features/feature.types';
+import { attachFeatureClasses } from '../features/feature-metadata.lib';
 import { AppRuntime } from './app-runtime.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import { attachContainer } from './override.lib';
@@ -85,7 +86,7 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
   const baseConfigs = options?.configs;
   const staticCaps = createStaticCapabilities(features);
 
-  return {
+  const app = {
     ...staticCaps,
     createRuntime: async (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> => {
       const container = new Container();
@@ -107,13 +108,18 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
         await warmupFeatures(readyResult, features);
       }
 
-      const readyApp: RuntimeApp<F> = {
-        ...caps,
-        get: readyResult.get,
-        shutdown: () => runtime.shutdown(),
-      };
+      const readyApp: RuntimeApp<F> = attachFeatureClasses(
+        {
+          ...caps,
+          get: readyResult.get,
+          shutdown: () => runtime.shutdown(),
+        },
+        features,
+      );
 
       return attachContainer(readyApp, container);
     },
   };
+
+  return attachFeatureClasses(app, features);
 };
