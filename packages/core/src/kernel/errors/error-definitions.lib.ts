@@ -36,8 +36,12 @@ export const coreErrorDefinitions = {
   ZeltAppConfigurationError: (
     ctx:
       | { reason: 'duplicate_command'; details: string }
-      | { reason: 'duplicate_feature_key'; details: string },
+      | { reason: 'duplicate_feature_key'; details: string }
+      | { reason: 'reserved_feature_key'; details: string },
   ) => {
+    if (ctx.reason === 'reserved_feature_key') {
+      return `Reserved feature key: ${ctx.details}`;
+    }
     if (ctx.reason === 'duplicate_feature_key') {
       return `Duplicate feature key: ${ctx.details}`;
     }

@@ -57,10 +57,25 @@ const bindFeatures = (container: Container, features: readonly ConfiguredFeature
   }
 };
 
+const reservedFeatureKeys = new Set([
+  'createRuntime',
+  'features',
+  'get',
+  'getFeatureCapabilities',
+  'hasFeature',
+  'shutdown',
+]);
+
 /** @throws {ZeltAppConfigurationError} */
 const assertUniqueFeatureKeys = (features: readonly ConfiguredFeature[]): void => {
   const seen = new Set<string>();
   for (const feature of features) {
+    if (reservedFeatureKeys.has(feature.key)) {
+      throw new ZeltAppConfigurationError({
+        reason: 'reserved_feature_key',
+        details: feature.key,
+      });
+    }
     if (seen.has(feature.key)) {
       throw new ZeltAppConfigurationError({
         reason: 'duplicate_feature_key',

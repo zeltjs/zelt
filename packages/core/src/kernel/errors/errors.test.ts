@@ -130,6 +130,14 @@ describe('ZeltAppConfigurationError', () => {
     });
     expect(error.message).toBe('Duplicate feature key: http');
   });
+
+  it('formats reserved_feature_key reason correctly', () => {
+    const error = new ZeltAppConfigurationError({
+      reason: 'reserved_feature_key',
+      details: 'createRuntime',
+    });
+    expect(error.message).toBe('Reserved feature key: createRuntime');
+  });
 });
 
 describe('ZeltRouteConfigurationError', () => {

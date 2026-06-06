@@ -62,6 +62,15 @@ class DuplicateB extends Feature<'dup', { readonly b: () => string }> {
   createCapabilities = () => ({ b: () => 'b' });
 }
 
+const reservedStaticCapabilities = vi.fn(() => ({}));
+
+class ReservedCreateRuntimeFeature extends Feature<'createRuntime', { readonly run: () => void }> {
+  readonly key = 'createRuntime' as const;
+  bind = vi.fn();
+  staticCapabilities = reservedStaticCapabilities;
+  createCapabilities = () => ({ run: () => {} });
+}
+
 describe('createApp', () => {
   it('returns an App with createRuntime() method', () => {
     const app = createApp([createEmptyFeature('stub')]);
@@ -171,5 +180,14 @@ describe('createApp', () => {
       /Duplicate feature key: dup/,
     );
     expect(duplicateStaticCapabilities).not.toHaveBeenCalled();
+  });
+
+  it('rejects feature keys reserved by app capabilities', () => {
+    reservedStaticCapabilities.mockClear();
+
+    expect(() => createApp([new ReservedCreateRuntimeFeature()])).toThrow(
+      /Reserved feature key: createRuntime/,
+    );
+    expect(reservedStaticCapabilities).not.toHaveBeenCalled();
   });
 });

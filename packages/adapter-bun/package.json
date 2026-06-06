@@ -25,10 +25,11 @@
     "test": "vitest run",
     "typecheck": "tsc -b"
   },
-  "dependencies": {
+  "peerDependencies": {
     "@zeltjs/core": "workspace:*"
   },
   "devDependencies": {
+    "@zeltjs/core": "workspace:*",
     "@types/bun": "1.2.17"
   },
   "volta": {
