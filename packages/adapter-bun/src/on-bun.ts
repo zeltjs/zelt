@@ -99,14 +99,16 @@ const createBunApp = (
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): BunApp => {
-  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart = {
-    ...readyApp,
-    args,
-    shutdown,
-  };
+  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart = Object.assign(
+    readyApp,
+    {
+      args,
+      shutdown,
+    },
+  );
 
   if (!hasFeature(readyApp, HttpFeature)) return base;
-  return { ...base, serve: createServeForHttp(readyApp.http.fetch, shutdown) };
+  return Object.assign(base, { serve: createServeForHttp(readyApp.http.fetch, shutdown) });
 };
 
 export function onBun<const F extends readonly ConfiguredFeature[]>(
@@ -125,6 +127,7 @@ export async function onBun(
   });
 
   const cliConfig = await readyApp.get(BunCliConfig);
+  const runtimeShutdown = readyApp.shutdown;
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -136,7 +139,7 @@ export async function onBun(
     if (shuttingDown) return;
     shuttingDown = true;
     try {
-      await readyApp.shutdown();
+      await runtimeShutdown();
     } finally {
       detachSignals();
     }

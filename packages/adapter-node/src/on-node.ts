@@ -89,14 +89,16 @@ const createNodeApp = (
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): NodeApp => {
-  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = {
-    ...readyApp,
-    args,
-    shutdown,
-  };
+  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = Object.assign(
+    readyApp,
+    {
+      args,
+      shutdown,
+    },
+  );
 
   if (!hasFeature(readyApp, HttpFeature)) return base;
-  return { ...base, listen: createListenForHttp(readyApp.http.fetch, shutdown) };
+  return Object.assign(base, { listen: createListenForHttp(readyApp.http.fetch, shutdown) });
 };
 
 export function onNode<const F extends readonly ConfiguredFeature[]>(
@@ -115,6 +117,7 @@ export async function onNode(
   });
 
   const cliConfig = await readyApp.get(NodeCliConfig);
+  const runtimeShutdown = readyApp.shutdown;
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -126,7 +129,7 @@ export async function onNode(
     if (shuttingDown) return;
     shuttingDown = true;
     try {
-      await readyApp.shutdown();
+      await runtimeShutdown();
     } finally {
       detachSignals();
     }

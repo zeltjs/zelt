@@ -6,6 +6,7 @@ import {
   createApp,
   Feature,
   Get,
+  hasFeature,
   http,
   HttpFeature,
 } from '@zeltjs/core';
@@ -84,6 +85,7 @@ describe('onBun return types', () => {
 
     expectTypeOf(httpOnly).toHaveProperty('serve');
     expectTypeOf(httpOnly).not.toHaveProperty('execCommand');
+    expect(hasFeature(httpOnly, HttpFeature)).toBe(true);
 
     const directResponse = await httpOnly.http.fetch(new Request('http://localhost/'));
     await expect(directResponse.json()).resolves.toEqual({ ok: true });
@@ -152,6 +154,7 @@ describe('onBun return types', () => {
     expectTypeOf(bunApp).not.toHaveProperty('serve');
     expect('http' in bunApp).toBe(true);
     expect('serve' in bunApp).toBe(false);
+    expect(hasFeature(bunApp, HttpFeature)).toBe(false);
 
     await bunApp.shutdown();
   });
@@ -171,6 +174,7 @@ describe('onBun return types', () => {
 
     expectTypeOf(bunApp).toHaveProperty('serve');
     expect('serve' in bunApp).toBe(true);
+    expect(hasFeature(bunApp, HttpFeature)).toBe(true);
 
     await bunApp.shutdown();
   });

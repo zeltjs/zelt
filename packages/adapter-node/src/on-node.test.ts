@@ -10,6 +10,7 @@ import {
   EnvAdaptor,
   Feature,
   Get,
+  hasFeature,
   http,
   HttpFeature,
   Scheduled,
@@ -79,6 +80,7 @@ describe('onNode return types', () => {
     expectTypeOf(httpOnly).toHaveProperty('listen');
     expectTypeOf(httpOnly).not.toHaveProperty('execCommand');
     expectTypeOf(httpOnly).not.toHaveProperty('startScheduler');
+    expect(hasFeature(httpOnly, HttpFeature)).toBe(true);
 
     const directResponse = await httpOnly.http.fetch(new Request('http://localhost/'));
     await expect(directResponse.json()).resolves.toEqual({ ok: true });
@@ -167,6 +169,7 @@ describe('onNode return types', () => {
     expectTypeOf(nodeApp).not.toHaveProperty('listen');
     expect('http' in nodeApp).toBe(true);
     expect('listen' in nodeApp).toBe(false);
+    expect(hasFeature(nodeApp, HttpFeature)).toBe(false);
 
     await nodeApp.shutdown();
   });
@@ -186,6 +189,7 @@ describe('onNode return types', () => {
 
     expectTypeOf(nodeApp).toHaveProperty('listen');
     expect('listen' in nodeApp).toBe(true);
+    expect(hasFeature(nodeApp, HttpFeature)).toBe(true);
 
     await nodeApp.shutdown();
   });
