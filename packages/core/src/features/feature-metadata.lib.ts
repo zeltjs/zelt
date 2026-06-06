@@ -1,9 +1,9 @@
 import type { ConfiguredFeature, FeatureCaps, FeatureClass } from './feature.types';
 
-const FEATURE_CLASSES = Symbol('zelt.featureClasses');
+const FEATURES = Symbol('zelt.features');
 
 type FeatureMetadataHost = {
-  readonly [FEATURE_CLASSES]?: ReadonlySet<FeatureClass>;
+  readonly [FEATURES]?: readonly ConfiguredFeature[];
 };
 
 type StaticFeatureAppLike = {
@@ -14,12 +14,12 @@ export const attachFeatureClasses = <TApp extends object>(
   app: TApp,
   features: readonly ConfiguredFeature[],
 ): TApp => {
-  if (FEATURE_CLASSES in app) {
+  if (FEATURES in app) {
     return app;
   }
 
-  Object.defineProperty(app, FEATURE_CLASSES, {
-    value: new Set(features.map((feature) => feature.constructor as FeatureClass)),
+  Object.defineProperty(app, FEATURES, {
+    value: [...features],
     enumerable: false,
     configurable: false,
     writable: false,
@@ -40,5 +40,5 @@ export function hasFeature<TApp extends object, TFeatureClass extends FeatureCla
 
 export function hasFeature(app: object, featureClass: FeatureClass): boolean {
   const host = app as FeatureMetadataHost;
-  return host[FEATURE_CLASSES]?.has(featureClass) ?? false;
+  return host[FEATURES]?.some((feature) => feature instanceof featureClass) ?? false;
 }

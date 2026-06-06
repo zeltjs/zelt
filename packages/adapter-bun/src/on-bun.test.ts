@@ -1,6 +1,17 @@
-import { Command, Controller, cliSchema, command, createApp, Get, http } from '@zeltjs/core';
+import {
+  Command,
+  Controller,
+  cliSchema,
+  command,
+  createApp,
+  Feature,
+  Get,
+  http,
+  HttpFeature,
+} from '@zeltjs/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
+import type { ServerHandle } from './on-bun';
 import { onBun } from './on-bun';
 
 const originalBun = globalThis.Bun;
@@ -38,6 +49,25 @@ afterAll(() => {
     value: originalBun,
   });
 });
+
+class FakeHttpLikeFeature extends Feature<
+  'http',
+  {
+    readonly fetch: (request: Request) => Promise<Response>;
+    readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
+  }
+> {
+  readonly key = 'http' as const;
+
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({
+    fetch: async () => new Response('fake'),
+    request: async () => new Response('fake'),
+  });
+}
+
+class CustomHttpFeature extends HttpFeature {}
 
 describe('onBun return types', () => {
   it('narrows adapter methods from configured features and keeps feature capabilities working', async () => {
@@ -83,6 +113,7 @@ describe('onBun return types', () => {
 
     expectTypeOf(commandOnly).toHaveProperty('commands');
     expectTypeOf(commandOnly).not.toHaveProperty('serve');
+    expect('serve' in commandOnly).toBe(false);
 
     const commandResult = await commandOnly.commands.execCommand(['test']);
     expect(commandResult.exitCode).toBe(0);
@@ -99,5 +130,48 @@ describe('onBun return types', () => {
     expect(fullResult.exitCode).toBe(0);
 
     await full.shutdown();
+  });
+
+  it('keeps serve optional for widened HttpFeature arrays', async () => {
+    const maybeHttpFeatures: readonly HttpFeature[] = [];
+    const maybeHttpApp = await onBun(createApp(maybeHttpFeatures));
+
+    expectTypeOf(maybeHttpApp)
+      .toHaveProperty('serve')
+      .toEqualTypeOf<
+        ((options?: { readonly port?: number; readonly hostname?: string }) => ServerHandle) | undefined
+      >();
+    expect('serve' in maybeHttpApp).toBe(false);
+
+    await maybeHttpApp.shutdown();
+  });
+
+  it('does not add serve for non-HttpFeature http-shaped capabilities', async () => {
+    const bunApp = await onBun(createApp([new FakeHttpLikeFeature()]));
+
+    expectTypeOf(bunApp).not.toHaveProperty('serve');
+    expect('http' in bunApp).toBe(true);
+    expect('serve' in bunApp).toBe(false);
+
+    await bunApp.shutdown();
+  });
+
+  it('adds serve for HttpFeature subclasses', async () => {
+    @Controller('/')
+    class SubclassController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const bunApp = await onBun(
+      createApp([new CustomHttpFeature({ controllers: [SubclassController] })]),
+    );
+
+    expectTypeOf(bunApp).toHaveProperty('serve');
+    expect('serve' in bunApp).toBe(true);
+
+    await bunApp.shutdown();
   });
 });

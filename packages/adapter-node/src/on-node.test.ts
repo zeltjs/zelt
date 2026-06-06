@@ -8,8 +8,10 @@ import {
   command,
   createApp,
   EnvAdaptor,
+  Feature,
   Get,
   http,
+  HttpFeature,
   Scheduled,
   scheduler,
 } from '@zeltjs/core';
@@ -41,6 +43,25 @@ type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
 const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp => 'listen' in app;
 const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'commands' in app;
 const hasScheduler = (app: NodeApp): app is NodeApp & SchedulerNodeAppPart => 'schedulers' in app;
+
+class FakeHttpLikeFeature extends Feature<
+  'http',
+  {
+    readonly fetch: (request: Request) => Promise<Response>;
+    readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
+  }
+> {
+  readonly key = 'http' as const;
+
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({
+    fetch: async () => new Response('fake'),
+    request: async () => new Response('fake'),
+  });
+}
+
+class CustomHttpFeature extends HttpFeature {}
 
 describe('onNode return types', () => {
   it('narrows adapter methods from configured features and keeps feature capabilities working', async () => {
@@ -79,6 +100,7 @@ describe('onNode return types', () => {
     expectTypeOf(commandOnly).toHaveProperty('commands');
     expectTypeOf(commandOnly).not.toHaveProperty('listen');
     expectTypeOf(commandOnly).not.toHaveProperty('schedulers');
+    expect('listen' in commandOnly).toBe(false);
 
     const commandResult = await commandOnly.commands.execCommand(['test']);
     expect(commandResult.exitCode).toBe(0);
@@ -120,6 +142,52 @@ describe('onNode return types', () => {
     expect(full.schedulers.isSchedulerRunning()).toBe(false);
 
     await full.shutdown();
+  });
+
+  it('keeps listen optional for widened HttpFeature arrays', async () => {
+    const maybeHttpFeatures: readonly HttpFeature[] = [];
+    const maybeHttpApp = await onNode(createApp(maybeHttpFeatures));
+
+    expectTypeOf(maybeHttpApp)
+      .toHaveProperty('listen')
+      .toEqualTypeOf<
+        | ((
+            portOrOptions?: number | { readonly port?: number; readonly hostname?: string },
+          ) => Promise<ServerHandle>)
+        | undefined
+      >();
+    expect('listen' in maybeHttpApp).toBe(false);
+
+    await maybeHttpApp.shutdown();
+  });
+
+  it('does not add listen for non-HttpFeature http-shaped capabilities', async () => {
+    const nodeApp = await onNode(createApp([new FakeHttpLikeFeature()]));
+
+    expectTypeOf(nodeApp).not.toHaveProperty('listen');
+    expect('http' in nodeApp).toBe(true);
+    expect('listen' in nodeApp).toBe(false);
+
+    await nodeApp.shutdown();
+  });
+
+  it('adds listen for HttpFeature subclasses', async () => {
+    @Controller('/')
+    class SubclassController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const nodeApp = await onNode(
+      createApp([new CustomHttpFeature({ controllers: [SubclassController] })]),
+    );
+
+    expectTypeOf(nodeApp).toHaveProperty('listen');
+    expect('listen' in nodeApp).toBe(true);
+
+    await nodeApp.shutdown();
   });
 });
 

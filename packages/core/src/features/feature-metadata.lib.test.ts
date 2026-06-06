@@ -11,6 +11,8 @@ class TypedFeature extends Feature<'typed', { readonly value: () => string }> {
   createCapabilities = () => ({ value: () => 'ok' });
 }
 
+class TypedFeatureChild extends TypedFeature {}
+
 class OtherFeature extends Feature<'other', { readonly other: () => string }> {
   readonly key = 'other' as const;
 
@@ -47,6 +49,12 @@ describe('feature metadata', () => {
     const app = attachFeatureClasses({}, [new TypedFeature()]);
 
     expect(() => attachFeatureClasses(app, [new TypedFeature()])).not.toThrow();
+    expect(hasFeature(app, TypedFeature)).toBe(true);
+  });
+
+  it('matches subclasses through instanceof semantics', () => {
+    const app = attachFeatureClasses({ typed: { value: () => 'ok' } }, [new TypedFeatureChild()]);
+
     expect(hasFeature(app, TypedFeature)).toBe(true);
   });
 });
