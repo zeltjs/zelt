@@ -14,13 +14,8 @@ export {
   type ReadyValue,
 } from './internal';
 export {
-  ensureLeafBound,
-  getLeaf,
-  getTransient,
   Injectable,
   inject,
-  isLeafClass,
-  isTransientClass,
   overrideLeaf,
   registerAsLeaf,
   registerAsTransient,
