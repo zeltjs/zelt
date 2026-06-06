@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
-import type { ConfiguredFeature, NamespacedCaps, StaticNamespacedCaps } from './feature.types';
+import type { ConfiguredFeature, NamespacedCaps, StaticNamespacedCaps } from '../app';
 
 type MockHttpReadyCaps = { readonly fetch: (req: Request) => Promise<Response> };
 type MockHttpStaticCaps = { readonly getMetadata: () => object };
