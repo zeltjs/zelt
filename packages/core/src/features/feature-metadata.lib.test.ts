@@ -57,4 +57,12 @@ describe('feature metadata', () => {
 
     expect(hasFeature(app, TypedFeature)).toBe(true);
   });
+
+  it('preserves feature class metadata through object spread', () => {
+    const app = attachFeatureClasses({ typed: { value: () => 'ok' } }, [new TypedFeature()]);
+    const copied = { ...app, extra: true };
+
+    expect(hasFeature(copied, TypedFeature)).toBe(true);
+    expect(hasFeature(copied, OtherFeature)).toBe(false);
+  });
 });

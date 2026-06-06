@@ -99,16 +99,17 @@ const createBunApp = (
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): BunApp => {
-  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart = Object.assign(
-    readyApp,
-    {
-      args,
-      shutdown,
-    },
-  );
+  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart = {
+    ...readyApp,
+    args,
+    shutdown,
+  };
 
   if (!hasFeature(readyApp, HttpFeature)) return base;
-  return Object.assign(base, { serve: createServeForHttp(readyApp.http.fetch, shutdown) });
+  return {
+    ...base,
+    serve: createServeForHttp(readyApp.http.fetch, shutdown),
+  };
 };
 
 export function onBun<const F extends readonly ConfiguredFeature[]>(

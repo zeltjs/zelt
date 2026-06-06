@@ -89,16 +89,17 @@ const createNodeApp = (
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): NodeApp => {
-  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = Object.assign(
-    readyApp,
-    {
-      args,
-      shutdown,
-    },
-  );
+  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = {
+    ...readyApp,
+    args,
+    shutdown,
+  };
 
   if (!hasFeature(readyApp, HttpFeature)) return base;
-  return Object.assign(base, { listen: createListenForHttp(readyApp.http.fetch, shutdown) });
+  return {
+    ...base,
+    listen: createListenForHttp(readyApp.http.fetch, shutdown),
+  };
 };
 
 export function onNode<const F extends readonly ConfiguredFeature[]>(

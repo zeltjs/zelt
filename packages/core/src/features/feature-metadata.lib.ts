@@ -20,7 +20,8 @@ export const attachFeatureClasses = <TApp extends object>(
 
   Object.defineProperty(app, FEATURES, {
     value: [...features],
-    enumerable: false,
+    // Keep this symbol enumerable so object spread preserves feature identity metadata.
+    enumerable: true,
     configurable: false,
     writable: false,
   });
