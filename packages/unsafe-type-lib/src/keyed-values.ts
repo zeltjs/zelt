@@ -2,8 +2,8 @@ type KeyedItem = {
   readonly key: PropertyKey;
 };
 
-type KeyedMethodValue<TItem, TMethod extends PropertyKey> = TMethod extends keyof TItem
-  ? TItem[TMethod] extends (context: never) => infer TValue
+export type KeyedMethodValue<TItem, TMethod extends PropertyKey> = TMethod extends keyof TItem
+  ? TItem[TMethod] extends (...args: readonly never[]) => infer TValue
     ? Awaited<TValue>
     : never
   : never;
@@ -13,6 +13,16 @@ export type ObjectFromKeyedValues<
   TMethod extends PropertyKey,
 > = {
   readonly [TItem in TItems[number] as TItem['key']]: KeyedMethodValue<TItem, TMethod>;
+};
+
+export type MapFromKeyedValues<
+  TItems extends readonly KeyedItem[],
+  TMethod extends PropertyKey,
+> = ReadonlyMap<TItems[number], KeyedMethodValue<TItems[number], TMethod>>;
+
+export type KeyedValues<TItems extends readonly KeyedItem[], TMethod extends PropertyKey> = {
+  readonly object: ObjectFromKeyedValues<TItems, TMethod>;
+  readonly map: MapFromKeyedValues<TItems, TMethod>;
 };
 
 type IsEmptyObject<T> = keyof T extends never ? true : false;
@@ -85,4 +95,46 @@ export const unsafeObjectFromKeyedValues = async <
   }
 
   return result as ObjectFromKeyedValues<TItems, TMethod>;
+};
+
+export const unsafeKeyedValues = async <
+  TContext,
+  const TMethod extends PropertyKey,
+  const TItems extends readonly (KeyedItem & {
+    readonly [TKey in TMethod]: (context: TContext) => object | Promise<object>;
+  })[],
+>(
+  items: TItems,
+  method: TMethod,
+  context: TContext,
+): Promise<KeyedValues<TItems, TMethod>> => {
+  const object: Record<PropertyKey, object> = {};
+  const map = new Map<KeyedItem, object>();
+
+  for (const item of items) {
+    const value = await item[method](context);
+    object[item.key] = value;
+    map.set(item, value);
+  }
+
+  return {
+    object: object as ObjectFromKeyedValues<TItems, TMethod>,
+    map: map as unknown as MapFromKeyedValues<TItems, TMethod>,
+  };
+};
+
+export const unsafeGetKeyedValueForClass = <
+  const TMethod extends PropertyKey,
+  const TItems extends readonly KeyedItem[],
+  const TClass extends abstract new (
+    ...args: never[]
+  ) => TItems[number],
+>(
+  items: TItems,
+  values: MapFromKeyedValues<TItems, TMethod>,
+  itemClass: TClass,
+): KeyedMethodValue<InstanceType<TClass>, TMethod> | undefined => {
+  const item = items.find((candidate) => candidate instanceof itemClass);
+  if (!item) return undefined;
+  return values.get(item) as KeyedMethodValue<InstanceType<TClass>, TMethod> | undefined;
 };

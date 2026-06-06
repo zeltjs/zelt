@@ -214,17 +214,13 @@ importers:
         version: 4.88.0(@cloudflare/workers-types@4.20260506.1)
 
   packages/adapter-bun:
-    dependencies:
-      '@zeltjs/core':
-        specifier: workspace:*
-        version: link:../core
-      '@zeltjs/unsafe-type-lib':
-        specifier: workspace:*
-        version: link:../unsafe-type-lib
     devDependencies:
       '@types/bun':
         specifier: 1.2.17
         version: 1.2.17
+      '@zeltjs/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/adapter-cloudflare-workers:
     dependencies:
@@ -267,16 +263,13 @@ importers:
       '@hono/node-server':
         specifier: 2.0.1
         version: 2.0.1(hono@4.12.16)
-      '@zeltjs/core':
-        specifier: workspace:*
-        version: link:../core
-      '@zeltjs/unsafe-type-lib':
-        specifier: workspace:*
-        version: link:../unsafe-type-lib
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.17
+      '@zeltjs/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/auth-jwt:
     devDependencies:

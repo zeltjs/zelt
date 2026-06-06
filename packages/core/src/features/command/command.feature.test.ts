@@ -1,8 +1,8 @@
 import { Container } from '@needle-di/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { LifecycleManager } from '../../kernel';
-import { command } from './command.feature';
+import { CommandFeature, command } from './command.feature';
 import { Command } from './definition/command.decorator';
 import { cliSchema } from './input/command-schema.types';
 
@@ -17,6 +17,25 @@ class GreetCommand {
 }
 
 describe('command feature', () => {
+  it('command() returns CommandFeature instance', () => {
+    const feature = command([GreetCommand]);
+
+    expect(feature).toBeInstanceOf(CommandFeature);
+    expect(feature.key).toBe('commands');
+  });
+
+  it('infers command() as CommandFeature', () => {
+    expectTypeOf(command([GreetCommand])).toEqualTypeOf<CommandFeature>();
+  });
+
+  it('keeps feature methods callable when destructured', () => {
+    const feature = command([GreetCommand]);
+    const { bind } = feature;
+    const container = new Container();
+
+    expect(() => bind(container)).not.toThrow();
+  });
+
   it('returns a ConfiguredFeature with key "commands"', () => {
     const feature = command([GreetCommand]);
     expect(feature.key).toBe('commands');

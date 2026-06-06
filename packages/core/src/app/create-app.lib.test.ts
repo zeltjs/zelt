@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
+import { Feature } from '../features';
 import type { ConfiguredFeature } from '../features/feature.types';
 import type { RuntimeApp } from './create-app.lib';
 import { createApp } from './create-app.lib';
@@ -20,6 +21,55 @@ const createEmptyFeature = (key: string): ConfiguredFeature<string, object> => (
   staticCapabilities: () => ({}),
   createCapabilities: () => ({}),
 });
+
+class TypedFeature extends Feature<'typed', { readonly value: () => string }> {
+  readonly key = 'typed' as const;
+
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({ value: () => 'ok' });
+}
+
+class UserFeature extends Feature<'userFeature', { readonly run: () => number }> {
+  readonly key = 'userFeature' as const;
+
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({ run: () => 123 });
+}
+
+class OtherFeature extends Feature<'otherFeature', { readonly other: () => string }> {
+  readonly key = 'otherFeature' as const;
+
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({ other: () => 'no' });
+}
+
+const duplicateStaticCapabilities = vi.fn(() => ({}));
+
+class DuplicateA extends Feature<'dup', { readonly a: () => string }> {
+  readonly key = 'dup' as const;
+  bind = vi.fn();
+  staticCapabilities = duplicateStaticCapabilities;
+  createCapabilities = () => ({ a: () => 'a' });
+}
+
+class DuplicateB extends Feature<'dup', { readonly b: () => string }> {
+  readonly key = 'dup' as const;
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({ b: () => 'b' });
+}
+
+const reservedStaticCapabilities = vi.fn(() => ({}));
+
+class ReservedCreateRuntimeFeature extends Feature<'createRuntime', { readonly run: () => void }> {
+  readonly key = 'createRuntime' as const;
+  bind = vi.fn();
+  staticCapabilities = reservedStaticCapabilities;
+  createCapabilities = () => ({ run: () => {} });
+}
 
 describe('createApp', () => {
   it('returns an App with createRuntime() method', () => {
@@ -84,5 +134,70 @@ describe('createApp', () => {
     expectTypeOf<Result>().toHaveProperty('get');
     expectTypeOf<Result>().toHaveProperty('shutdown');
     expectTypeOf<Result>().toHaveProperty('empty');
+  });
+
+  it('hasFeature works on static App before createRuntime', () => {
+    const app = createApp([new TypedFeature()]);
+
+    expect(app.hasFeature(TypedFeature)).toBe(true);
+
+    expect(app.getFeatureCapabilities(TypedFeature)).toBeUndefined();
+  });
+
+  it('hasFeature narrows RuntimeApp by feature class', async () => {
+    const app = createApp([new TypedFeature()]);
+    const readyApp = await app.createRuntime();
+
+    expect(readyApp.hasFeature(TypedFeature)).toBe(true);
+
+    const caps = readyApp.getFeatureCapabilities(TypedFeature);
+    expect(caps).toBeDefined();
+    expectTypeOf(caps?.value).toEqualTypeOf<(() => string) | undefined>();
+    expect(caps?.value()).toBe('ok');
+
+    await readyApp.shutdown();
+  });
+
+  it('hasFeature supports user-defined feature classes without key tokens', async () => {
+    const app = createApp([new UserFeature()]);
+    const readyApp = await app.createRuntime();
+
+    expect(readyApp.hasFeature(UserFeature)).toBe(true);
+    expect(readyApp.hasFeature(OtherFeature)).toBe(false);
+
+    const caps = readyApp.getFeatureCapabilities(UserFeature);
+    expect(caps).toBeDefined();
+    expectTypeOf(caps?.run).toEqualTypeOf<(() => number) | undefined>();
+    expect(caps?.run()).toBe(123);
+
+    await readyApp.shutdown();
+  });
+
+  it('rejects duplicate feature keys', () => {
+    duplicateStaticCapabilities.mockClear();
+
+    expect(() => createApp([new DuplicateA(), new DuplicateB()])).toThrow(
+      /Duplicate feature key: dup/,
+    );
+    expect(duplicateStaticCapabilities).not.toHaveBeenCalled();
+  });
+
+  it('rejects feature keys reserved by app capabilities', () => {
+    reservedStaticCapabilities.mockClear();
+
+    expect(() => createApp([new ReservedCreateRuntimeFeature()])).toThrow(
+      /Reserved feature key: createRuntime/,
+    );
+    expect(reservedStaticCapabilities).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    '__proto__',
+    'constructor',
+    'prototype',
+  ])('rejects feature key reserved by JavaScript object semantics: %s', (key) => {
+    expect(() => createApp([createEmptyFeature(key)])).toThrow(
+      new RegExp(`Reserved feature key: ${key}`),
+    );
   });
 });

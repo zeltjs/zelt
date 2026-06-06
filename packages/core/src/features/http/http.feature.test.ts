@@ -1,8 +1,9 @@
 import { Container } from '@needle-di/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import { createApp } from '../../app';
 import { LifecycleManager } from '../../kernel';
-import { http } from './http.feature';
+import { HttpFeature, http } from './http.feature';
 import { Controller } from './routing/controller.decorator';
 import { Get } from './routing/http-method.decorator';
 
@@ -19,6 +20,47 @@ class TestController {
 }
 
 describe('http feature', () => {
+  it('http() returns HttpFeature instance', () => {
+    const feature = http({ controllers: [TestController] });
+
+    expect(feature).toBeInstanceOf(HttpFeature);
+    expect(feature.key).toBe('http');
+  });
+
+  it('infers http() as HttpFeature', () => {
+    expectTypeOf(http({ controllers: [TestController] })).toEqualTypeOf<HttpFeature>();
+  });
+
+  it('keeps feature methods callable when destructured', () => {
+    const feature = http({ controllers: [TestController] });
+    const { staticCapabilities } = feature;
+
+    expect(staticCapabilities().getControllers()).toEqual([TestController]);
+  });
+
+  it('createApp([http(...)]) exposes http capabilities in types', async () => {
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.createRuntime();
+
+    expectTypeOf(readyApp.http.fetch).toEqualTypeOf<(request: Request) => Promise<Response>>();
+
+    await readyApp.shutdown();
+  });
+
+  it('hasFeature narrows RuntimeApp by HttpFeature', async () => {
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.createRuntime();
+    expect(readyApp.hasFeature(HttpFeature)).toBe(true);
+
+    const caps = readyApp.getFeatureCapabilities(HttpFeature);
+    expect(caps).toBeDefined();
+    expectTypeOf(caps?.fetch).toEqualTypeOf<
+      ((request: Request) => Promise<Response>) | undefined
+    >();
+
+    await readyApp.shutdown();
+  });
+
   it('returns a ConfiguredFeature with key "http"', () => {
     const feature = http({ controllers: [TestController] });
     expect(feature.key).toBe('http');

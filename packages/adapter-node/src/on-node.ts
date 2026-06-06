@@ -1,7 +1,7 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
-import type { ConfiguredFeature, FeatureApp, HttpCapabilities, RuntimeApp } from '@zeltjs/core';
-import { unsafeGetNamespacedCallable } from '@zeltjs/unsafe-type-lib';
+import type { ConfiguredFeature, FeatureApp, RuntimeApp } from '@zeltjs/core';
+import { HttpFeature } from '@zeltjs/core';
 
 import { NodeCliConfig } from './node-cli.config';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
@@ -34,19 +34,20 @@ type HttpNodeAppPart = {
 export type NodeApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart) &
   Partial<HttpNodeAppPart>;
 
-type FeatureKeys<F extends readonly ConfiguredFeature[]> = F[number]['key'];
+type HasFeatureClass<F extends readonly ConfiguredFeature[], TFeature extends ConfiguredFeature> =
+  Extract<F[number], TFeature> extends never ? false : true;
 
-type WithFeature<
+type WithFeatureClass<
   F extends readonly ConfiguredFeature[],
-  TKey extends string,
+  TFeature extends ConfiguredFeature,
   TPart extends object,
-> = TKey extends FeatureKeys<F> ? TPart : unknown;
+> = HasFeatureClass<F, TFeature> extends true ? TPart : unknown;
 
 type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
   EnvironmentNodeAppPart &
-  (string extends FeatureKeys<F>
+  (number extends F['length']
     ? Partial<HttpNodeAppPart>
-    : WithFeature<F, 'http', HttpNodeAppPart>);
+    : WithFeatureClass<F, HttpFeature, HttpNodeAppPart>);
 
 const createListenForHttp = (
   appFetch: (request: Request) => Promise<Response>,
@@ -86,15 +87,18 @@ const createNodeApp = (
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): NodeApp => {
-  const fetch = unsafeGetNamespacedCallable<HttpCapabilities['fetch']>(readyApp, 'http', 'fetch');
   const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = {
     ...readyApp,
     args,
     shutdown,
   };
 
-  if (typeof fetch !== 'function') return base;
-  return { ...base, listen: createListenForHttp(fetch, shutdown) };
+  const httpCaps = readyApp.getFeatureCapabilities(HttpFeature);
+  if (!httpCaps) return base;
+  return {
+    ...base,
+    listen: createListenForHttp(httpCaps.fetch, shutdown),
+  };
 };
 
 export function onNode<const F extends readonly ConfiguredFeature[]>(
@@ -103,8 +107,8 @@ export function onNode<const F extends readonly ConfiguredFeature[]>(
 ): Promise<NodeAppForFeatures<F>>;
 
 /** @throws {ZeltLifecycleStateError} */
-export async function onNode(
-  app: FeatureApp<readonly ConfiguredFeature[]>,
+export async function onNode<const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
   options: NodeAppOptions = {},
 ): Promise<NodeApp> {
   const readyApp = await app.createRuntime({
@@ -113,6 +117,7 @@ export async function onNode(
   });
 
   const cliConfig = await readyApp.get(NodeCliConfig);
+  const runtimeShutdown = readyApp.shutdown;
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -124,7 +129,7 @@ export async function onNode(
     if (shuttingDown) return;
     shuttingDown = true;
     try {
-      await readyApp.shutdown();
+      await runtimeShutdown();
     } finally {
       detachSignals();
     }

@@ -1,10 +1,10 @@
 import { Container } from '@needle-di/core';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
 
 import { LifecycleManager } from '../../kernel';
 import { Cron } from './schedule/cron.decorator';
 import { Scheduled } from './schedule/scheduled.decorator';
-import { scheduler } from './scheduler.feature';
+import { SchedulerFeature, scheduler } from './scheduler.feature';
 
 const createRuntime = (container: Container) => ({
   get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => container.get(cls),
@@ -25,6 +25,26 @@ describe('scheduler feature', () => {
       await lifecycle.shutdown();
       container = undefined;
     }
+  });
+
+  it('scheduler() returns SchedulerFeature instance', () => {
+    const feature = scheduler([TestScheduler]);
+
+    expect(feature).toBeInstanceOf(SchedulerFeature);
+    expect(feature.key).toBe('schedulers');
+  });
+
+  it('infers scheduler() as SchedulerFeature', () => {
+    expectTypeOf(scheduler([TestScheduler])).toEqualTypeOf<SchedulerFeature>();
+  });
+
+  it('keeps feature methods callable when destructured', () => {
+    const feature = scheduler([TestScheduler]);
+    const { bind } = feature;
+    const testContainer = new Container();
+    container = testContainer;
+
+    expect(() => bind(testContainer)).not.toThrow();
   });
 
   it('returns a ConfiguredFeature with key "schedulers"', () => {

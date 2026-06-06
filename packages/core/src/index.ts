@@ -35,12 +35,27 @@ export {
 export type {
   CommandCapabilities,
   ConfiguredFeature,
+  FeatureCaps,
+  FeatureClass,
+  FeatureReadyCapabilities,
+  FeatureRuntime,
   HttpCapabilities,
   HttpStaticCapabilities,
+  NamespacedCaps,
   SchedulerCapabilities,
+  StaticNamespacedCaps,
 } from './features';
 // Feature factories
-export { command, HTTP_FEATURE_KEY, http, scheduler } from './features';
+export {
+  CommandFeature,
+  command,
+  Feature,
+  HTTP_FEATURE_KEY,
+  HttpFeature,
+  http,
+  SchedulerFeature,
+  scheduler,
+} from './features';
 export type {
   ArgDefinition,
   ArgsDefinition,

@@ -1,11 +1,5 @@
-import type {
-  CommandCapabilities,
-  ConfiguredFeature,
-  FeatureApp,
-  HttpCapabilities,
-  RuntimeApp,
-} from '@zeltjs/core';
-import { unsafeGetNamespacedCallable } from '@zeltjs/unsafe-type-lib';
+import type { CommandCapabilities, ConfiguredFeature, FeatureApp, RuntimeApp } from '@zeltjs/core';
+import { HttpFeature } from '@zeltjs/core';
 
 import { BunCliConfig } from './bun-cli.config';
 import { BunEnvAdaptor } from './bun-env.adaptor';
@@ -41,7 +35,7 @@ type HttpBunAppPart = {
   readonly serve: (options?: ServeOptions) => ServerHandle;
 };
 
-export type HttpBunApp = BunAppBase & { readonly http: HttpCapabilities } & HttpBunAppPart;
+export type HttpBunApp = BunAppBase & RuntimeApp<readonly [HttpFeature]> & HttpBunAppPart;
 
 export type CommandBunApp = BunAppBase & { readonly commands: CommandCapabilities };
 
@@ -50,19 +44,20 @@ export type FullBunApp = HttpBunApp & CommandBunApp;
 export type BunApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart) &
   Partial<HttpBunAppPart>;
 
-type FeatureKeys<F extends readonly ConfiguredFeature[]> = F[number]['key'];
+type HasFeatureClass<F extends readonly ConfiguredFeature[], TFeature extends ConfiguredFeature> =
+  Extract<F[number], TFeature> extends never ? false : true;
 
-type WithFeature<
+type WithFeatureClass<
   F extends readonly ConfiguredFeature[],
-  TKey extends string,
+  TFeature extends ConfiguredFeature,
   TPart extends object,
-> = TKey extends FeatureKeys<F> ? TPart : unknown;
+> = HasFeatureClass<F, TFeature> extends true ? TPart : unknown;
 
 type BunAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
   EnvironmentBunAppPart &
-  (string extends FeatureKeys<F>
+  (number extends F['length']
     ? Partial<HttpBunAppPart>
-    : WithFeature<F, 'http', HttpBunAppPart>);
+    : WithFeatureClass<F, HttpFeature, HttpBunAppPart>);
 
 const createServeForHttp = (
   appFetch: (request: Request) => Promise<Response>,
@@ -97,15 +92,18 @@ const createBunApp = (
   shutdown: () => Promise<void>,
   args: readonly string[],
 ): BunApp => {
-  const fetch = unsafeGetNamespacedCallable<HttpCapabilities['fetch']>(readyApp, 'http', 'fetch');
   const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart = {
     ...readyApp,
     args,
     shutdown,
   };
 
-  if (typeof fetch !== 'function') return base;
-  return { ...base, serve: createServeForHttp(fetch, shutdown) };
+  const httpCaps = readyApp.getFeatureCapabilities(HttpFeature);
+  if (!httpCaps) return base;
+  return {
+    ...base,
+    serve: createServeForHttp(httpCaps.fetch, shutdown),
+  };
 };
 
 export function onBun<const F extends readonly ConfiguredFeature[]>(
@@ -114,8 +112,8 @@ export function onBun<const F extends readonly ConfiguredFeature[]>(
 ): Promise<BunAppForFeatures<F>>;
 
 /** @throws {ZeltLifecycleStateError} */
-export async function onBun(
-  app: FeatureApp<readonly ConfiguredFeature[]>,
+export async function onBun<const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
   options: BunAppOptions = {},
 ): Promise<BunApp> {
   const readyApp = await app.createRuntime({
@@ -124,6 +122,7 @@ export async function onBun(
   });
 
   const cliConfig = await readyApp.get(BunCliConfig);
+  const runtimeShutdown = readyApp.shutdown;
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -135,7 +134,7 @@ export async function onBun(
     if (shuttingDown) return;
     shuttingDown = true;
     try {
-      await readyApp.shutdown();
+      await runtimeShutdown();
     } finally {
       detachSignals();
     }

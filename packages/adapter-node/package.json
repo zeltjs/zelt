@@ -26,11 +26,13 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@hono/node-server": "2.0.1",
-    "@zeltjs/core": "workspace:*",
-    "@zeltjs/unsafe-type-lib": "workspace:*"
+    "@hono/node-server": "2.0.1"
+  },
+  "peerDependencies": {
+    "@zeltjs/core": "workspace:*"
   },
   "devDependencies": {
+    "@zeltjs/core": "workspace:*",
     "@types/node": "catalog:"
   },
   "volta": {

@@ -1,4 +1,6 @@
-import type { ConfiguredFeature } from '../feature.types';
+import type { Container } from '@needle-di/core';
+import type { FeatureRuntime } from '../feature.types';
+import { Feature } from '../feature.types';
 import type { HttpMetadata, HttpOptions } from './http.service';
 import { HTTP_OPTIONS, HttpService } from './http.service';
 import type { ControllerClass } from './http.types';
@@ -18,32 +20,42 @@ export type HttpCapabilities = {
 };
 
 /** @throws {ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
-export const http = (
-  opts: HttpOptions,
-): ConfiguredFeature<'http', HttpCapabilities, HttpStaticCapabilities> => {
-  const controllers = collectAllControllers(opts);
-  collectRoutes(controllers);
-  const metadata = collectAllControllerMetadata(opts);
+export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCapabilities> {
+  readonly key = HTTP_FEATURE_KEY;
+  private readonly controllers: readonly ControllerClass[];
+  private readonly metadata: HttpMetadata;
 
-  return {
-    key: HTTP_FEATURE_KEY,
-    bind: (container) => {
-      container.bind({ provide: HTTP_OPTIONS, useValue: opts });
-    },
-    staticCapabilities: () => ({
-      getControllers: () => controllers,
-      getMetadata: () => ({ controllers: metadata }),
-    }),
-    createCapabilities: async (runtime) => {
-      const service = await runtime.get(HttpService);
-      return {
-        fetch: (req) => service.fetch(req),
-        request: (input, init) => service.request(input, init),
-      };
-    },
-    warmup: async (runtime) => {
-      const service = await runtime.get(HttpService);
-      await service.warmupControllers();
-    },
+  /** @throws {ZeltDecoratorUsageError} */
+  constructor(private readonly opts: HttpOptions) {
+    super();
+    this.controllers = collectAllControllers(opts);
+    collectRoutes(this.controllers);
+    this.metadata = { controllers: collectAllControllerMetadata(opts) };
+  }
+
+  readonly bind = (container: Container): void => {
+    container.bind({ provide: HTTP_OPTIONS, useValue: this.opts });
   };
-};
+
+  readonly staticCapabilities = (): HttpStaticCapabilities => {
+    return {
+      getControllers: () => this.controllers,
+      getMetadata: () => this.metadata,
+    };
+  };
+
+  readonly createCapabilities = async (runtime: FeatureRuntime): Promise<HttpCapabilities> => {
+    const service = await runtime.get(HttpService);
+    return {
+      fetch: (req) => service.fetch(req),
+      request: (input, init) => service.request(input, init),
+    };
+  };
+
+  override readonly warmup = async (runtime: FeatureRuntime): Promise<void> => {
+    const service = await runtime.get(HttpService);
+    await service.warmupControllers();
+  };
+}
+
+export const http = (opts: HttpOptions): HttpFeature => new HttpFeature(opts);
