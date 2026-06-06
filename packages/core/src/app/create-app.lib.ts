@@ -58,11 +58,14 @@ const bindFeatures = (container: Container, features: readonly ConfiguredFeature
 };
 
 const reservedFeatureKeys = new Set([
+  '__proto__',
   'createRuntime',
+  'constructor',
   'features',
   'get',
   'getFeatureCapabilities',
   'hasFeature',
+  'prototype',
   'shutdown',
 ]);
 

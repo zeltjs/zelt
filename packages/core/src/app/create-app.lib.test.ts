@@ -190,4 +190,14 @@ describe('createApp', () => {
     );
     expect(reservedStaticCapabilities).not.toHaveBeenCalled();
   });
+
+  it.each([
+    '__proto__',
+    'constructor',
+    'prototype',
+  ])('rejects feature key reserved by JavaScript object semantics: %s', (key) => {
+    expect(() => createApp([createEmptyFeature(key)])).toThrow(
+      new RegExp(`Reserved feature key: ${key}`),
+    );
+  });
 });
