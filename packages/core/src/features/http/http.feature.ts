@@ -3,7 +3,7 @@ import type { HttpMetadata, HttpOptions } from './http.service';
 import { HTTP_OPTIONS, HttpService } from './http.service';
 import type { ControllerClass } from './http.types';
 import { collectAllControllerMetadata, collectAllControllers } from './http-children.lib';
-import { collectRoutes } from './routing/route-builder.lib';
+import { collectRoutes } from './routing';
 
 export const HTTP_FEATURE_KEY = 'http' as const;
 
