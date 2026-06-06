@@ -77,7 +77,7 @@ const registerConfigs = (
   }
 };
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
   features: F,
   options?: CreateAppOptions,

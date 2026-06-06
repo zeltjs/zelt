@@ -12,6 +12,7 @@ coverage/
 lefthook-local.yml
 .worktrees/
 .codepolicy/
+.throw-trace/
 plans/*.md
 docs/superpowers/
 .claude/settings.local.json

@@ -114,14 +114,13 @@ describe('createApp() — fetch', () => {
     expect(b.status).toBe(200);
   });
 
-  it('throws at createRuntime() when a controller is missing @Controller', async () => {
+  it('throws before createRuntime() when a controller is missing @Controller', () => {
     class NoDecorator {
       @Get('/')
       list() {}
     }
     new NoDecorator();
-    const app = createApp([http({ controllers: [NoDecorator] })]);
-    await expect(app.createRuntime()).rejects.toThrow(/missing @Controller/);
+    expect(() => http({ controllers: [NoDecorator] })).toThrow(/missing @Controller/);
   });
 });
 

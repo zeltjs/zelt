@@ -7,6 +7,7 @@ import {
   ZeltLifecycleStateError,
   ZeltMiddlewareExecutionError,
   ZeltNotImplementedError,
+  ZeltReadyFailedError,
   ZeltRouteConfigurationError,
 } from './index';
 
@@ -75,6 +76,19 @@ describe('ZeltLifecycleStateError', () => {
       currentState: 'not_ready',
     });
     expect(error.message).toBe('Cannot fetch() before createRuntime()');
+  });
+});
+
+describe('ZeltReadyFailedError', () => {
+  it('formats lifecycle startup failure and preserves cause', () => {
+    const cause = new Error('startup failed');
+    const error = new ZeltReadyFailedError({ lifecycleName: 'HttpService' }, cause);
+
+    expect(error.message).toBe('Lifecycle startup failed: HttpService');
+    expect(error.name).toBe('ZeltReadyFailedError');
+    expect(error.context).toEqual({ lifecycleName: 'HttpService' });
+    expect(error.cause).toBe(cause);
+    expect(error).toBeInstanceOf(ZeltReadyFailedError);
   });
 });
 

@@ -26,6 +26,8 @@ export default tseslint.config(
     ignores: [
       '**/node_modules',
       '**/dist',
+      '**/.throw-trace',
+      '**/.throw-trace/**',
       '**/.nx',
       '**/*.d.ts',
       '**/*.config.{mjs,js}',
