@@ -45,7 +45,17 @@ export type {
   StaticNamespacedCaps,
 } from './features';
 // Feature factories
-export { command, Feature, hasFeature, HTTP_FEATURE_KEY, http, scheduler } from './features';
+export {
+  command,
+  CommandFeature,
+  Feature,
+  hasFeature,
+  HTTP_FEATURE_KEY,
+  HttpFeature,
+  http,
+  SchedulerFeature,
+  scheduler,
+} from './features';
 export type {
   ArgDefinition,
   ArgsDefinition,
