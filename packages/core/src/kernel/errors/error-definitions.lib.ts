@@ -25,6 +25,9 @@ export const coreErrorDefinitions = {
     return `Cannot ${ctx.operation}() after createRuntime()`;
   },
 
+  ZeltReadyFailedError: (ctx: { lifecycleName: string }) =>
+    `Lifecycle startup failed: ${ctx.lifecycleName}`,
+
   ZeltContextNotAvailableError: (ctx: {
     primitive: string;
     requiredContext: 'entry' | 'command';

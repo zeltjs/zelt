@@ -6,5 +6,5 @@
     "no-var": "error",
     "prefer-const": "error"
   },
-  "ignorePatterns": ["node_modules", "dist", ".nx"]
+  "ignorePatterns": ["node_modules", "dist", ".throw-trace", ".throw-trace/**", ".nx"]
 }

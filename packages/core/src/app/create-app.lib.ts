@@ -92,7 +92,7 @@ const registerConfigs = (
   }
 };
 
-/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
   features: F,
   options?: CreateAppOptions,

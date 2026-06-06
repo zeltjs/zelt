@@ -54,7 +54,7 @@ type _HonoInstanceCheck = HonoInstance extends {
 export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
   private readonly ready;
 
-  /** @throws {ZeltNotImplementedError} */
+  /** @throws {ZeltNotImplementedError | ZeltLifecycleStateError} */
   constructor(
     private readonly options: HttpOptions = inject(HTTP_OPTIONS),
     private readonly container: Container = inject(Container),
@@ -63,6 +63,7 @@ export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
     this.ready = this.lifecycleManager.register(this);
   }
 
+  /** @throws {ZeltReadyFailedError | ZeltLifecycleStateError} */
   async warmupControllers(): Promise<void> {
     await warmupControllers(
       collectAllControllers(this.options),
@@ -74,9 +75,13 @@ export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
     );
   }
 
-  /** @throws {ZeltNotImplementedError} */
+  /** @throws {Error} */
   async startup(): Promise<{ hono: HonoInstance }> {
-    return { hono: await this.initializeHono() };
+    try {
+      return { hono: await this.initializeHono() };
+    } catch (cause) {
+      throw new Error('HttpService startup failed', { cause });
+    }
   }
 
   /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */

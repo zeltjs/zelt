@@ -6,6 +6,7 @@ import type { HttpMetadata, HttpOptions } from './http.service';
 import { HTTP_OPTIONS, HttpService } from './http.service';
 import type { ControllerClass } from './http.types';
 import { collectAllControllerMetadata, collectAllControllers } from './http-children.lib';
+import { collectRoutes } from './routing';
 
 export const HTTP_FEATURE_KEY = 'http' as const;
 
@@ -19,11 +20,17 @@ export type HttpCapabilities = {
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
 };
 
+/** @throws {ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
 export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCapabilities> {
   readonly key = HTTP_FEATURE_KEY;
+  private readonly controllers: readonly ControllerClass[];
+  private readonly metadata: HttpMetadata;
 
   constructor(private readonly opts: HttpOptions) {
     super();
+    this.controllers = collectAllControllers(opts);
+    collectRoutes(this.controllers);
+    this.metadata = { controllers: collectAllControllerMetadata(opts) };
   }
 
   readonly bind = (container: Container): void => {
@@ -32,8 +39,8 @@ export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCap
 
   readonly staticCapabilities = (): HttpStaticCapabilities => {
     return {
-      getControllers: () => collectAllControllers(this.opts),
-      getMetadata: () => ({ controllers: collectAllControllerMetadata(this.opts) }),
+      getControllers: () => this.controllers,
+      getMetadata: () => this.metadata,
     };
   };
 

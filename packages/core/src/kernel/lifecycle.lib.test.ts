@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ZeltLifecycleStateError } from './errors';
+import { ZeltLifecycleStateError, ZeltReadyFailedError } from './errors';
 import type { Lifecycle } from './lifecycle.lib';
 import { LifecycleManager } from './lifecycle.lib';
 
@@ -142,6 +142,25 @@ describe('LifecycleManager', () => {
     expect(events).toEqual(['first:start', 'second:start', 'third:start']);
   });
 
+  it('wraps startup failures in ZeltReadyFailedError', async () => {
+    const manager = new LifecycleManager();
+    const cause = new Error('startup failed');
+    const lifecycle: Lifecycle = {
+      startup: async () => {
+        throw cause;
+      },
+      shutdown: async () => {},
+    };
+
+    manager.register(lifecycle);
+
+    await expect(manager.startup()).rejects.toMatchObject({
+      name: 'ZeltReadyFailedError',
+      cause,
+    });
+    await expect(manager.startup()).rejects.toBeInstanceOf(ZeltReadyFailedError);
+  });
+
   it('startupPending is idempotent when no new lifecycles registered', async () => {
     const manager = new LifecycleManager();
     let callCount = 0;
@@ -278,7 +297,7 @@ describe('LifecycleManager', () => {
       manager.register(second);
       manager.register(third);
 
-      await expect(manager.startup()).rejects.toThrow('startup failed');
+      await expect(manager.startup()).rejects.toBeInstanceOf(ZeltReadyFailedError);
       await manager.shutdown();
 
       expect(events).toEqual(['first:start', 'second:start', 'first:stop']);

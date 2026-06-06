@@ -12,7 +12,7 @@ export class GenerateCommand {
     private readonly logger = inject(Logger),
   ) {}
 
-  /** @throws {ZeltConfigLoadError | ZeltMultipleBuildHooksError | ZeltContextNotAvailableError} */
+  /** @throws {ZeltConfigLoadError | ZeltMultipleBuildHooksError | ZeltContextNotAvailableError | ZeltNotImplementedError} */
   async run(parsedArgs = args(GenerateCommand)): Promise<void> {
     const { config: configFile } = parsedArgs;
     const cwd = this.cli.cwd();
