@@ -1,6 +1,7 @@
 import { Container, injectable } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
+import { Config } from '../../built-in-service/config';
 import {
   findRootLeafClass,
   getLeaf,
@@ -123,6 +124,32 @@ describe('leaf mechanism', () => {
       overrideLeaf(container, ChildConfig);
 
       expect(getLeaf(container, BaseConfig).value).toBe('child');
+    });
+
+    it('resolves directly requested config subclass without changing ancestor token', () => {
+      @Config
+      class ConfigC {
+        get value() {
+          return 'c';
+        }
+      }
+
+      @Config
+      class ConfigB extends ConfigC {
+        override get value() {
+          return 'b';
+        }
+      }
+
+      const container = new Container();
+
+      const firstRoot = getLeaf(container, ConfigC);
+      const directChild = getLeaf(container, ConfigB);
+      const secondRoot = getLeaf(container, ConfigC);
+
+      expect(firstRoot.value).toBe('c');
+      expect(directChild.value).toBe('b');
+      expect(secondRoot).toBe(firstRoot);
     });
 
     it('respects fallback option', () => {

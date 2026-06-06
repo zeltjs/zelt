@@ -107,19 +107,6 @@ export default tseslint.config(
     },
   },
   {
-    files: [...TEST_FILES, ...EXAMPLE_FILES, ...TEST_FIXTURE_FILES],
-    rules: {
-      'no-console': 'off',
-      'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
-      'import-x/no-namespace': 'off',
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-    },
-  },
-  {
     // Files exposed as public API sub-paths in package.json exports.
     // Renaming would break consumers; keep the current names.
     files: [
@@ -171,6 +158,21 @@ export default tseslint.config(
       // Global: allow throw/try-catch everywhere (contract overrides below)
       '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
+    },
+  },
+  {
+    files: [...TEST_FILES, ...EXAMPLE_FILES, ...TEST_FIXTURE_FILES],
+    rules: {
+      'no-console': 'off',
+      'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
+      'import-x/no-namespace': 'off',
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
     },
   },
   {

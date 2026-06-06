@@ -58,13 +58,27 @@ export const findRootLeafClass = (cls: AnyClass): AnyClass => {
   return root;
 };
 
+const findAncestorLeafClasses = (cls: AnyClass): AnyClass[] => {
+  const ancestors: AnyClass[] = [];
+  let current = toAnyClass(Object.getPrototypeOf(cls));
+
+  while (current) {
+    if (leafClasses.has(current)) {
+      ancestors.push(current);
+    }
+    current = toAnyClass(Object.getPrototypeOf(current));
+  }
+
+  return ancestors;
+};
+
 /** @throws {ZeltLifecycleStateError} */
-const getLeafToken = <T extends object = object>(rootClass: AnyClass): LeafInjectionToken<T> => {
-  const existing = leafTokenMap.get<T>(rootClass);
+const getLeafToken = <T extends object = object>(cls: AnyClass<T>): LeafInjectionToken<T> => {
+  const existing = leafTokenMap.get<T>(cls);
   if (existing) return existing;
 
-  const token = new InjectionToken<T>(rootClass.name);
-  leafTokenMap.set(rootClass, token);
+  const token = new InjectionToken<T>(cls.name);
+  leafTokenMap.set(cls, token);
   return token;
 };
 
@@ -80,6 +94,15 @@ const markTokenBound = (container: Container, token: LeafInjectionToken): void =
     return;
   }
   boundTokens.set(container, new Set([token]));
+};
+
+const bindExistingLeaf = (
+  container: Container,
+  token: LeafInjectionToken,
+  existingToken: LeafInjectionToken,
+): void => {
+  container.bind({ provide: token, useExisting: existingToken });
+  markTokenBound(container, token);
 };
 
 /** @throws {ZeltLifecycleStateError} */
@@ -99,17 +122,12 @@ export const overrideLeaf = (
   cls: AnyClass,
   options?: { readonly fallback?: boolean },
 ): void => {
-  const rootClass = findRootLeafClass(cls);
-  const token = getLeafToken(rootClass);
+  const token = ensureLeafBound(container, cls);
+  const ancestorTokens = findAncestorLeafClasses(cls).map((ancestor) => getLeafToken(ancestor));
 
-  if (options?.fallback && isTokenBound(container, token)) return;
-
-  if (!isTokenBound(container, token)) {
-    bindLeafInternal(container, token, rootClass);
-  }
-
-  if (cls !== rootClass) {
-    bindLeafInternal(container, token, cls);
+  for (const ancestorToken of ancestorTokens) {
+    if (options?.fallback && isTokenBound(container, ancestorToken)) continue;
+    bindExistingLeaf(container, ancestorToken, token);
   }
 };
 
@@ -118,11 +136,10 @@ export const ensureLeafBound = <T extends object = object>(
   container: Container,
   cls: AnyClass<T>,
 ): LeafInjectionToken<T> => {
-  const rootClass = findRootLeafClass(cls);
-  const token = getLeafToken<T>(rootClass);
+  const token = getLeafToken(cls);
 
   if (!isTokenBound(container, token)) {
-    bindLeafInternal(container, token, rootClass);
+    bindLeafInternal(container, token, cls);
   }
 
   return token;
@@ -135,7 +152,6 @@ export const getLeaf = <T extends object>(
 ): T => container.get(ensureLeafBound(container, cls));
 
 export const resolveLeaf = (container: Container, cls: AnyClass): void => {
-  const rootClass = findRootLeafClass(cls);
-  const token = getLeafToken(rootClass);
+  const token = ensureLeafBound(container, cls);
   container.get(token);
 };
