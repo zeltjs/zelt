@@ -27,8 +27,7 @@
   },
   "dependencies": {
     "@hono/node-server": "2.0.1",
-    "@zeltjs/core": "workspace:*",
-    "@zeltjs/unsafe-type-lib": "workspace:*"
+    "@zeltjs/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:"

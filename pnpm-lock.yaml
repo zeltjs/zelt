@@ -218,9 +218,6 @@ importers:
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
-      '@zeltjs/unsafe-type-lib':
-        specifier: workspace:*
-        version: link:../unsafe-type-lib
     devDependencies:
       '@types/bun':
         specifier: 1.2.17
@@ -270,9 +267,6 @@ importers:
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
-      '@zeltjs/unsafe-type-lib':
-        specifier: workspace:*
-        version: link:../unsafe-type-lib
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
