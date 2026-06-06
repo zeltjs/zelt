@@ -1,7 +1,6 @@
 import type { Container } from '@needle-di/core';
-
-import { Feature } from '../feature.types';
 import type { FeatureRuntime } from '../feature.types';
+import { Feature } from '../feature.types';
 import { COMMAND_OPTIONS, CommandService } from './command.service';
 import type { CommandClass } from './command.types';
 import type { ExecResult } from './exec-result.types';
