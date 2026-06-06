@@ -38,7 +38,7 @@ export class GenerateCommand {
     private readonly logger = inject(Logger),
   ) {}
 
-  /** @throws {ZeltCommandArgumentError | ZeltPluginConfigurationError | ZeltContextNotAvailableError} */
+  /** @throws {ZeltCommandArgumentError | ZeltPluginConfigurationError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltNotImplementedError} */
   async run(parsedArgs = args(GenerateCommand)): Promise<void> {
     const { app: appPath, dist, output } = parsedArgs;
 

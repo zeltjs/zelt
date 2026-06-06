@@ -25,7 +25,7 @@ export const HTTP_OPTIONS = new InjectionToken<HttpOptions>('HTTP_OPTIONS');
 export class HttpService implements Lifecycle<{ hono: Hono }> {
   private readonly ready;
 
-  /** @throws {ZeltNotImplementedError} */
+  /** @throws {ZeltNotImplementedError | ZeltLifecycleStateError} */
   constructor(
     private readonly options: HttpOptions = inject(HTTP_OPTIONS),
     private readonly container: Container = inject(Container),
@@ -44,7 +44,7 @@ export class HttpService implements Lifecycle<{ hono: Hono }> {
     });
   }
 
-  /** @throws {ZeltNotImplementedError} */
+  /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError} */
   async startup(): Promise<{ hono: Hono }> {
     return { hono: await this.initializeHono() };
   }

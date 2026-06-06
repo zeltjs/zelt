@@ -3,7 +3,7 @@ import type { ReadyValue } from './internal';
 import { createReadyValue, disposeReadyValue, sealReadyValue } from './internal';
 
 export interface Lifecycle<TReady = void> {
-  /** @throws {ZeltNotImplementedError} */
+  /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError} */
   startup(): Promise<TReady> | TReady;
   shutdown(): Promise<void> | void;
 }
@@ -33,6 +33,7 @@ export class LifecycleManager {
     this.warmupHandlers.push(handler);
   }
 
+  /** @throws {ZeltLifecycleStateError} */
   async startup(): Promise<void> {
     await this.startupPending();
   }

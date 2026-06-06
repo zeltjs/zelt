@@ -88,6 +88,7 @@ export class AppRuntime {
     };
   }
 
+  /** @throws {ZeltLifecycleStateError} */
   async shutdown(): Promise<void> {
     if (this.state === 'disposed') {
       return;

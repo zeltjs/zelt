@@ -49,6 +49,7 @@ const registerInitialConfigs = (
   }
 };
 
+/** @throws {ZeltLifecycleStateError} */
 const buildBaseApp = (runtime: AppRuntime, configRegistry: ConfigRegistry): BaseApp => ({
   ready: (opts) => runtime.ready(opts),
   shutdown: () => runtime.shutdown(),
