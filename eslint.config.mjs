@@ -7,7 +7,7 @@ import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
 const TEST_FILES = ['**/*.test.{ts,tsx}', '**/*.e2e.test.{ts,tsx}'];
-const FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,tsx}'];
+const TEST_FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,tsx}'];
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
 const FORBIDDEN_TEST_PATTERNS = ['**/*.spec.{ts,tsx}', '**/*.e2e-spec.{ts,tsx}'];
 
@@ -93,7 +93,7 @@ export default tseslint.config(
   },
   {
     files: ['packages/**/*.{ts,tsx}'],
-    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
+    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...TEST_FIXTURE_FILES],
     rules: {
       'zelt/config-di-scope': 'error',
       'zelt/decorator-file-naming': ['error', { allowedNames: ['Env'] }],
@@ -131,7 +131,7 @@ export default tseslint.config(
   },
   {
     files: ['**/*.{ts,tsx}'],
-    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
+    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...TEST_FIXTURE_FILES],
     rules: {
       complexity: ['error', { max: 7 }],
       'sonarjs/cognitive-complexity': 'error',
@@ -142,7 +142,6 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
-      'import-x/order': 'off',
     },
   },
   {
@@ -156,20 +155,30 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
-    },
-  },
-  {
-    // Global: allow throw/try-catch everywhere (contract overrides below)
-    files: ['**/*.{ts,tsx}'],
-    rules: {
+      // Global: allow throw/try-catch everywhere (contract overrides below)
       '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
     },
   },
   {
+    files: [...TEST_FILES, ...EXAMPLE_FILES, ...TEST_FIXTURE_FILES],
+    rules: {
+      'no-console': 'off',
+      'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
+      'import-x/no-namespace': 'off',
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
+  {
     // Forbid raw Error — use structured Zelt*Error classes instead
     files: ['packages/core/src/**/*.{ts,tsx}'],
-    ignores: [...TEST_FILES, ...FIXTURE_FILES, '**/errors/**'],
+    ignores: [...TEST_FILES, ...TEST_FIXTURE_FILES, '**/errors/**'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -185,7 +194,7 @@ export default tseslint.config(
     files: ['packages/**/*.{ts,tsx}'],
     ignores: [
       ...TEST_FILES,
-      ...FIXTURE_FILES,
+      ...TEST_FIXTURE_FILES,
       '**/errors/**',
       '**/define-http-exception.lib.ts',
       '**/*.exceptions.ts',
@@ -207,49 +216,6 @@ export default tseslint.config(
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
       complexity: ['error', { max: 10 }],
-    },
-  },
-  {
-    // adaptClassContext handler types cls as object for store compatibility;
-    // toConstructor narrows it to constructor type for afterApply callbacks.
-    files: ['packages/decorator-metadata/src/runtime/decorators.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // ReadyValue uses prototype-chain Proxy pattern which requires runtime type coercion
-    files: ['packages/core/src/kernel/internal/ready-value.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    files: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
-    rules: {
-      'no-console': 'off',
-      'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
-      'import-x/no-namespace': 'off',
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-    },
-  },
-  {
-    // context-key: branded ContextKey<T> construction and generic store retrieval require unsafe casts.
-    files: ['packages/core/src/kernel/internal/context-key.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // Leaf: prototype chain traversal, branded types, DI container boundary casts.
-    files: ['packages/core/src/kernel/di/leaf.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
   {
@@ -284,10 +250,6 @@ export default tseslint.config(
   {
     files: EXAMPLE_FILES,
     rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
       'max-lines-per-function': 'off',
     },
   },

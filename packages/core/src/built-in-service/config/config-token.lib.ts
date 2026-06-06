@@ -1,7 +1,7 @@
 import type { Container } from '@needle-di/core';
 import { overrideLeaf, registerAsLeaf, resolveLeaf } from '../../kernel/di';
 
-type AnyConfigClass = new (...args: never[]) => unknown;
+type AnyConfigClass = new (...args: never[]) => object;
 
 export { registerAsLeaf as registerConfigClass };
 

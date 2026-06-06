@@ -3,7 +3,6 @@ export { inject } from './inject.lib';
 export { Injectable } from './injectable.lib';
 export {
   ensureLeafBound,
-  findRootLeafClass,
   getLeaf,
   isLeafClass,
   overrideLeaf,

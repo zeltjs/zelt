@@ -1,11 +1,12 @@
 import { injectable } from '@needle-di/core';
 import type { ClassDecoratorFn } from '@zeltjs/decorator-metadata';
 import { createClassDecorator } from '@zeltjs/decorator-metadata';
+import { isClassConstructor } from '@zeltjs/unsafe-type-lib';
 import { match } from 'ts-pattern';
 
 import { ZeltDecoratorUsageError } from '../errors';
 
-type AnyClass = new (...args: never[]) => unknown;
+type AnyClass = new (...args: never[]) => object;
 
 export type InjectableClassDecoratorHooks = {
   readonly afterApply?: (cls: AnyClass) => void;
@@ -41,7 +42,9 @@ export const createInjectableClassDecorator = <TProps extends { decorator: strin
   createClassDecorator<TProps, ZeltDecoratorUsageError>(props, {
     ...(options?.unique ? { rejectIfApplied: buildUniqueGuard(props.decorator) } : {}),
     afterApply: (cls) => {
-      hooks?.afterApply?.(cls);
+      if (isClassConstructor(cls)) {
+        hooks?.afterApply?.(cls);
+      }
       injectable()(cls);
     },
   });
