@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { Injectable } from '../../../kernel/di';
+import { Injectable } from '../../../kernel';
 import { getControllerMiddlewareMetadata, getMethodMiddlewareMetadata } from '../routing';
 import { Controller } from '../routing/controller.decorator';
 import { Get } from '../routing/http-method.decorator';

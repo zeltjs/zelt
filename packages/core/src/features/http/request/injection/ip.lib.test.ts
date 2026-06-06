@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 
-import { runInContext } from '../../../../kernel/internal';
+import { runInContext } from '../../../../kernel';
 import { setHonoContext } from '../index';
 import { setBody } from './body.lib';
 import { ip } from './ip.lib';

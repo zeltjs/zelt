@@ -1,6 +1,6 @@
 import { createMethodDecorator } from '@zeltjs/decorator-metadata';
 
-import { ZeltDecoratorUsageError } from '../../../kernel/errors';
+import { ZeltDecoratorUsageError } from '../../../kernel';
 
 type EveryOptions =
   | { readonly minutes: number; readonly seconds?: never }

@@ -1,5 +1,5 @@
-import { registerAsTransient } from '../../../kernel/di';
-import { createInjectableClassDecorator } from '../../../kernel/internal';
+import { registerAsTransient } from '../../../kernel';
+import { createInjectableClassDecorator } from '../../../kernel';
 
 type CommandOptions = {
   readonly name: string;

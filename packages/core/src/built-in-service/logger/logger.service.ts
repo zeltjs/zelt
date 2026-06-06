@@ -1,4 +1,4 @@
-import { Injectable, inject } from '../../kernel/di';
+import { Injectable, inject } from '../../kernel';
 import { LoggerConfig } from './logger.config';
 import { getLogContext } from './logger.context.lib';
 import { LOG_LEVEL_PRIORITY } from './logger.lib';

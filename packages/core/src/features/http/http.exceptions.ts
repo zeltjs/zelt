@@ -1,4 +1,4 @@
-import { defineHttpException } from '../../kernel/errors';
+import { defineHttpException } from '../../kernel';
 
 export const BadRequestException = defineHttpException(
   'BadRequestException',

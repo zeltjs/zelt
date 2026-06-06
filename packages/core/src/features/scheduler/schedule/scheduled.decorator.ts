@@ -1,4 +1,4 @@
-import { createInjectableClassDecorator } from '../../../kernel/internal';
+import { createInjectableClassDecorator } from '../../../kernel';
 
 /** @throws {E} */
 export const Scheduled = () =>

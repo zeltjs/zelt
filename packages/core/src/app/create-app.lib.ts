@@ -6,7 +6,7 @@ import {
   unsafeObjectFromNonEmptyKeyedValuesSync,
 } from '@zeltjs/unsafe-type-lib';
 
-import type { ConfigClass } from '../built-in-service/config';
+import type { ConfigClass } from '../built-in-service';
 import type {
   ConfiguredFeature,
   FeatureClass,
@@ -14,8 +14,8 @@ import type {
   FeatureRuntime,
   NamespacedCaps,
   StaticNamespacedCaps,
-} from '../features/feature.types';
-import { ZeltAppConfigurationError } from '../kernel/errors';
+} from './feature.types';
+import { ZeltAppConfigurationError } from '../kernel';
 import { AppRuntime } from './app-runtime.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import { attachContainer } from './override.lib';

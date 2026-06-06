@@ -1,6 +1,6 @@
 import type { Container } from '@needle-di/core';
-import type { FeatureRuntime } from '../feature.types';
-import { Feature } from '../feature.types';
+import type { FeatureRuntime } from '../../app';
+import { Feature } from '../../app';
 import { SCHEDULER_OPTIONS, SchedulerService } from './scheduler.service';
 import type { SchedulerClass } from './scheduler.types';
 import type { JobInfo } from './scheduler-runner.lib';

@@ -1,4 +1,4 @@
-import type { ZeltCommandExecutionError } from '../../kernel/errors';
+import type { ZeltCommandExecutionError } from '../../kernel';
 
 export type ExecResult =
   | { exitCode: 0 }

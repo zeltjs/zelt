@@ -21,6 +21,12 @@ const TOOL_CONFIG_FILES = [
   'vitest.shared.ts',
 ];
 
+const DECORATOR_METADATA_INSPECT_RESTRICTION = {
+  name: '@zeltjs/decorator-metadata/inspect',
+  message:
+    'inspect is for build-time tools only. Use @zeltjs/decorator-metadata (runtime) in core.',
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -379,17 +385,42 @@ export default tseslint.config(
     },
   },
   {
-    // core is runtime code — inspect module is for build-time tools only
-    files: ['packages/core/**/*.{ts,tsx}'],
+    files: ['packages/core/src/kernel/**/*.{ts,tsx}'],
+    ignores: [...TEST_FILES, ...TEST_FIXTURE_FILES],
     rules: {
       'no-restricted-imports': [
         'error',
         {
-          paths: [
+          paths: [DECORATOR_METADATA_INSPECT_RESTRICTION],
+          patterns: [
             {
-              name: '@zeltjs/decorator-metadata/inspect',
-              message:
-                'inspect is for build-time tools only. Use @zeltjs/decorator-metadata (runtime) in core.',
+              group: [
+                '../built-in-service',
+                '../built-in-service/*',
+                '../built-in-service/**',
+                '../../built-in-service',
+                '../../built-in-service/*',
+                '../../built-in-service/**',
+                '../app',
+                '../app/*',
+                '../app/**',
+                '../../app',
+                '../../app/*',
+                '../../app/**',
+                '../features',
+                '../features/*',
+                '../features/**',
+                '../../features',
+                '../../features/*',
+                '../../features/**',
+                '../internal-bridge',
+                '../internal-bridge/*',
+                '../internal-bridge/**',
+                '../../internal-bridge',
+                '../../internal-bridge/*',
+                '../../internal-bridge/**',
+              ],
+              message: 'kernel layer cannot import upper core layers',
             },
           ],
         },
@@ -397,24 +428,165 @@ export default tseslint.config(
     },
   },
   {
-    // core/src/app layer cannot import from features (layer violation)
-    files: ['packages/core/src/app/**/*.{ts,tsx}'],
+    files: ['packages/core/src/built-in-service/**/*.{ts,tsx}'],
+    ignores: [...TEST_FILES, ...TEST_FIXTURE_FILES],
     rules: {
       'no-restricted-imports': [
         'error',
         {
-          paths: [
-            {
-              name: '@zeltjs/decorator-metadata/inspect',
-              message:
-                'inspect is for build-time tools only. Use @zeltjs/decorator-metadata (runtime) in core.',
-            },
-          ],
+          paths: [DECORATOR_METADATA_INSPECT_RESTRICTION],
           patterns: [
             {
-              group: ['../features/*', '../features/**'],
-              allowTypeImports: true,
-              message: 'app layer cannot import from features layer (type imports are allowed)',
+              group: [
+                '../kernel/*',
+                '../kernel/**',
+                '../../kernel/*',
+                '../../kernel/**',
+                '../../../kernel/*',
+                '../../../kernel/**',
+                '../app',
+                '../app/*',
+                '../app/**',
+                '../../app',
+                '../../app/*',
+                '../../app/**',
+                '../../../app',
+                '../../../app/*',
+                '../../../app/**',
+                '../features',
+                '../features/*',
+                '../features/**',
+                '../../features',
+                '../../features/*',
+                '../../features/**',
+                '../../../features',
+                '../../../features/*',
+                '../../../features/**',
+                '../internal-bridge',
+                '../internal-bridge/*',
+                '../internal-bridge/**',
+                '../../internal-bridge',
+                '../../internal-bridge/*',
+                '../../internal-bridge/**',
+                '../../../internal-bridge',
+                '../../../internal-bridge/*',
+                '../../../internal-bridge/**',
+              ],
+              message:
+                'built-in-service layer can import lower layers only through their root index.ts',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/core/src/app/**/*.{ts,tsx}'],
+    ignores: [...TEST_FILES, ...TEST_FIXTURE_FILES],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [DECORATOR_METADATA_INSPECT_RESTRICTION],
+          patterns: [
+            {
+              group: [
+                '../kernel/*',
+                '../kernel/**',
+                '../built-in-service/*',
+                '../built-in-service/**',
+                '../features',
+                '../features/*',
+                '../features/**',
+                '../internal-bridge',
+                '../internal-bridge/*',
+                '../internal-bridge/**',
+              ],
+              message: 'app layer can import lower layers only through their root index.ts',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/core/src/features/**/*.{ts,tsx}'],
+    ignores: [...TEST_FILES, ...TEST_FIXTURE_FILES],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [DECORATOR_METADATA_INSPECT_RESTRICTION],
+          patterns: [
+            {
+              group: [
+                '../kernel/*',
+                '../kernel/**',
+                '../../kernel/*',
+                '../../kernel/**',
+                '../../../kernel/*',
+                '../../../kernel/**',
+                '../../../../kernel/*',
+                '../../../../kernel/**',
+                '../built-in-service/*',
+                '../built-in-service/**',
+                '../../built-in-service/*',
+                '../../built-in-service/**',
+                '../../../built-in-service/*',
+                '../../../built-in-service/**',
+                '../../../../built-in-service/*',
+                '../../../../built-in-service/**',
+                '../app/*',
+                '../app/**',
+                '../../app/*',
+                '../../app/**',
+                '../../../app/*',
+                '../../../app/**',
+                '../../../../app/*',
+                '../../../../app/**',
+                '../internal-bridge',
+                '../internal-bridge/*',
+                '../internal-bridge/**',
+                '../../internal-bridge',
+                '../../internal-bridge/*',
+                '../../internal-bridge/**',
+                '../../../internal-bridge',
+                '../../../internal-bridge/*',
+                '../../../internal-bridge/**',
+                '../../../../internal-bridge',
+                '../../../../internal-bridge/*',
+                '../../../../internal-bridge/**',
+              ],
+              message: 'features layer can import lower layers only through their root index.ts',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/core/src/internal-bridge/**/*.{ts,tsx}'],
+    ignores: [...TEST_FILES, ...TEST_FIXTURE_FILES],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [DECORATOR_METADATA_INSPECT_RESTRICTION],
+          patterns: [
+            {
+              group: [
+                '../kernel/*',
+                '../kernel/**',
+                '../app/*',
+                '../app/**',
+                '../built-in-service',
+                '../built-in-service/*',
+                '../built-in-service/**',
+                '../features',
+                '../features/*',
+                '../features/**',
+              ],
+              message: 'internal-bridge can import core layers only through their root index.ts',
             },
           ],
         },

@@ -1,5 +1,5 @@
 import { cors } from 'hono/cors';
-import { inject } from '../../../../kernel/di';
+import { inject } from '../../../../kernel';
 import { Middleware } from '../middleware.decorator';
 import type {
   FunctionMiddleware,

@@ -1,7 +1,7 @@
 import { Container, injectable } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
-import { Config } from '../../built-in-service/config';
+import { Config } from '../../built-in-service';
 import { getLeaf, isLeafClass, overrideLeaf, registerAsLeaf, resolveLeaf } from './leaf.lib';
 
 describe('leaf mechanism', () => {

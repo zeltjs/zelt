@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-import { ZeltContextNotAvailableError } from '../../../kernel/errors';
+import { ZeltContextNotAvailableError } from '../../../kernel';
 
 export type CommandContextStore = {
   readonly parsedArgs: Record<string, unknown>;

@@ -1,4 +1,4 @@
-import { Config } from '../../../../built-in-service/config';
+import { Config } from '../../../../built-in-service';
 
 type OverridableHeader = boolean | string;
 

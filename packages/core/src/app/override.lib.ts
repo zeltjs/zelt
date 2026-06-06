@@ -1,6 +1,6 @@
 import type { Container } from '@needle-di/core';
 
-import { ZeltInternalError } from '../kernel/errors';
+import { ZeltInternalError } from '../kernel';
 
 type AnyClass = new (...args: never[]) => unknown;
 

@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 
-import { ZeltContextNotAvailableError } from '../../../kernel/errors';
-import { createContextKey, getInternal, setInternal } from '../../../kernel/internal';
+import { ZeltContextNotAvailableError } from '../../../kernel';
+import { createContextKey, getInternal, setInternal } from '../../../kernel';
 
 const HONO_CONTEXT = createContextKey<Context>('zelt:hono');
 

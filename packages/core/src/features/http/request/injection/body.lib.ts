@@ -1,5 +1,5 @@
-import { ZeltContextNotAvailableError } from '../../../../kernel/errors';
-import { createContextKey, getInternal, setInternal } from '../../../../kernel/internal';
+import { ZeltContextNotAvailableError } from '../../../../kernel';
+import { createContextKey, getInternal, setInternal } from '../../../../kernel';
 import { UnsupportedMediaTypeException } from '../../http.exceptions';
 
 type FormBody = Record<string, string | File | (string | File)[]>;

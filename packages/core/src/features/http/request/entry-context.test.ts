@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 
-import { runInContext } from '../../../kernel/internal';
+import { runInContext } from '../../../kernel';
 import { body, pathParam, setBody, setPathParams } from './injection';
 import { requestContext, setHonoContext } from './request-context.lib';
 

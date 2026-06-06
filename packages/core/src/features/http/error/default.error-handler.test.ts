@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { RuntimeApp } from '../../../app';
 import { createApp } from '../../../app';
-import { Config } from '../../../built-in-service/config';
+import { Config } from '../../../built-in-service';
 import { EnvAdaptor } from '../../../built-in-service/env/env.adaptor';
 import { BadRequestException } from '../http.exceptions';
 

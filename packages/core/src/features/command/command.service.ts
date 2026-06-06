@@ -1,12 +1,12 @@
 import { Container, InjectionToken } from '@needle-di/core';
 import type { Lifecycle } from '../../kernel';
 import { LifecycleManager } from '../../kernel';
-import { Injectable, inject, resolve } from '../../kernel/di';
+import { Injectable, inject, resolve } from '../../kernel';
 import {
   ZeltAppConfigurationError,
   ZeltCommandExecutionError,
   ZeltDecoratorUsageError,
-} from '../../kernel/errors';
+} from '../../kernel';
 import type { CommandClass } from './command.types';
 import { getCommandMetadata } from './definition';
 import type { ExecResult } from './exec-result.types';

@@ -1,6 +1,6 @@
 import type { Container } from '@needle-di/core';
-import type { FeatureRuntime } from '../feature.types';
-import { Feature } from '../feature.types';
+import type { FeatureRuntime } from '../../app';
+import { Feature } from '../../app';
 import type { HttpMetadata, HttpOptions } from './http.service';
 import { HTTP_OPTIONS, HttpService } from './http.service';
 import type { ControllerClass } from './http.types';

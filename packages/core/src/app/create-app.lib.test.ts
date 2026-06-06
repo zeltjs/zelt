@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { Feature } from '../features';
-import type { ConfiguredFeature } from '../features/feature.types';
+import type { ConfiguredFeature } from './feature.types';
 import type { RuntimeApp } from './create-app.lib';
 import { createApp } from './create-app.lib';
 
