@@ -7,6 +7,9 @@ import {
 } from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service';
+import { ZeltAppConfigurationError } from '../kernel';
+import { AppRuntime } from './app-runtime.lib';
+import { ConfigRegistry } from './config-registry.lib';
 import type {
   ConfiguredFeature,
   FeatureClass,
@@ -15,9 +18,6 @@ import type {
   NamespacedCaps,
   StaticNamespacedCaps,
 } from './feature.types';
-import { ZeltAppConfigurationError } from '../kernel';
-import { AppRuntime } from './app-runtime.lib';
-import { ConfigRegistry } from './config-registry.lib';
 import { attachContainer } from './override.lib';
 
 export type CreateAppOptions = {
