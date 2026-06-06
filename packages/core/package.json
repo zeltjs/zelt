@@ -13,16 +13,34 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./internal-bridge/testing": {
-      "types": "./dist/internal-bridge/testing.d.ts",
-      "import": "./dist/internal-bridge/testing.js"
+      "import": {
+        "types": "./dist/internal-bridge/testing.d.ts",
+        "default": "./dist/internal-bridge/testing.js"
+      },
+      "require": {
+        "types": "./dist/internal-bridge/testing.d.cts",
+        "default": "./dist/internal-bridge/testing.cjs"
+      }
     },
     "./internal-bridge/errors": {
-      "types": "./dist/internal-bridge/errors.d.ts",
-      "import": "./dist/internal-bridge/errors.js"
+      "import": {
+        "types": "./dist/internal-bridge/errors.d.ts",
+        "default": "./dist/internal-bridge/errors.js"
+      },
+      "require": {
+        "types": "./dist/internal-bridge/errors.d.cts",
+        "default": "./dist/internal-bridge/errors.cjs"
+      }
     }
   },
   "files": [
@@ -47,5 +65,6 @@
   },
   "volta": {
     "extends": "../../package.json"
-  }
+  },
+  "main": "./dist/index.cjs"
 }
