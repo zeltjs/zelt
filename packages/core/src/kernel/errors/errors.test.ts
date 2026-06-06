@@ -108,6 +108,14 @@ describe('ZeltAppConfigurationError', () => {
     expect(error.name).toBe('ZeltAppConfigurationError');
     expect(error).toBeInstanceOf(ZeltAppConfigurationError);
   });
+
+  it('formats duplicate_feature_key reason correctly', () => {
+    const error = new ZeltAppConfigurationError({
+      reason: 'duplicate_feature_key',
+      details: 'http',
+    });
+    expect(error.message).toBe('Duplicate feature key: http');
+  });
 });
 
 describe('ZeltRouteConfigurationError', () => {

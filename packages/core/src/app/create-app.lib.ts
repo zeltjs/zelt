@@ -12,6 +12,7 @@ import type {
   StaticNamespacedCaps,
 } from '../features/feature.types';
 import { attachFeatureClasses } from '../features/feature-metadata.lib';
+import { ZeltAppConfigurationError } from '../kernel/errors';
 import { AppRuntime } from './app-runtime.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import { attachContainer } from './override.lib';
@@ -40,6 +41,19 @@ export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
 const bindFeatures = (container: Container, features: readonly ConfiguredFeature[]): void => {
   for (const feature of features) {
     feature.bind(container);
+  }
+};
+
+const assertUniqueFeatureKeys = (features: readonly ConfiguredFeature[]): void => {
+  const seen = new Set<string>();
+  for (const feature of features) {
+    if (seen.has(feature.key)) {
+      throw new ZeltAppConfigurationError({
+        reason: 'duplicate_feature_key',
+        details: feature.key,
+      });
+    }
+    seen.add(feature.key);
   }
 };
 
@@ -78,11 +92,13 @@ const registerConfigs = (
   }
 };
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
   features: F,
   options?: CreateAppOptions,
 ): App<F> => {
+  assertUniqueFeatureKeys(features);
+
   const baseConfigs = options?.configs;
   const staticCaps = createStaticCapabilities(features);
 

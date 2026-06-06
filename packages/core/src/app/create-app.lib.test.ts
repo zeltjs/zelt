@@ -30,6 +30,38 @@ class TypedFeature extends Feature<'typed', { readonly value: () => string }> {
   createCapabilities = () => ({ value: () => 'ok' });
 }
 
+class UserFeature extends Feature<'userFeature', { readonly run: () => number }> {
+  readonly key = 'userFeature' as const;
+
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({ run: () => 123 });
+}
+
+class OtherFeature extends Feature<'otherFeature', { readonly other: () => string }> {
+  readonly key = 'otherFeature' as const;
+
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({ other: () => 'no' });
+}
+
+const duplicateStaticCapabilities = vi.fn(() => ({}));
+
+class DuplicateA extends Feature<'dup', { readonly a: () => string }> {
+  readonly key = 'dup' as const;
+  bind = vi.fn();
+  staticCapabilities = duplicateStaticCapabilities;
+  createCapabilities = () => ({ a: () => 'a' });
+}
+
+class DuplicateB extends Feature<'dup', { readonly b: () => string }> {
+  readonly key = 'dup' as const;
+  bind = vi.fn();
+  staticCapabilities = () => ({});
+  createCapabilities = () => ({ b: () => 'b' });
+}
+
 describe('createApp', () => {
   it('returns an App with createRuntime() method', () => {
     const app = createApp([createEmptyFeature('stub')]);
@@ -118,5 +150,29 @@ describe('createApp', () => {
     }
 
     await readyApp.shutdown();
+  });
+
+  it('hasFeature supports user-defined feature classes without key tokens', async () => {
+    const app = createApp([new UserFeature()]);
+    const readyApp = await app.createRuntime();
+
+    expect(hasFeature(readyApp, UserFeature)).toBe(true);
+    expect(hasFeature(readyApp, OtherFeature)).toBe(false);
+
+    if (hasFeature(readyApp, UserFeature)) {
+      expectTypeOf(readyApp.userFeature.run).toEqualTypeOf<() => number>();
+      expect(readyApp.userFeature.run()).toBe(123);
+    }
+
+    await readyApp.shutdown();
+  });
+
+  it('rejects duplicate feature keys', () => {
+    duplicateStaticCapabilities.mockClear();
+
+    expect(() => createApp([new DuplicateA(), new DuplicateB()])).toThrow(
+      /Duplicate feature key: dup/,
+    );
+    expect(duplicateStaticCapabilities).not.toHaveBeenCalled();
   });
 });
