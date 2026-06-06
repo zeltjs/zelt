@@ -1,9 +1,8 @@
 import { Container } from '@needle-di/core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { createApp } from '../../app/create-app.lib';
+import { createApp } from '../../app';
 import { LifecycleManager } from '../../kernel';
-import { hasFeature } from '../feature-metadata.lib';
 import { HttpFeature, http } from './http.feature';
 import { Controller } from './routing/controller.decorator';
 import { Get } from './routing/http-method.decorator';
@@ -51,15 +50,13 @@ describe('http feature', () => {
   it('hasFeature narrows RuntimeApp by HttpFeature', async () => {
     const app = createApp([http({ controllers: [TestController] })]);
     const readyApp = await app.createRuntime();
-    const readyAppAsObject: object = readyApp;
+    expect(readyApp.hasFeature(HttpFeature)).toBe(true);
 
-    expect(hasFeature(readyAppAsObject, HttpFeature)).toBe(true);
-
-    if (hasFeature(readyAppAsObject, HttpFeature)) {
-      expectTypeOf(readyAppAsObject.http.fetch).toEqualTypeOf<
-        (request: Request) => Promise<Response>
-      >();
-    }
+    const caps = readyApp.getFeatureCapabilities(HttpFeature);
+    expect(caps).toBeDefined();
+    expectTypeOf(caps?.fetch).toEqualTypeOf<
+      ((request: Request) => Promise<Response>) | undefined
+    >();
 
     await readyApp.shutdown();
   });

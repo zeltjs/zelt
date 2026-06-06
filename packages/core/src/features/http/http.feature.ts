@@ -1,7 +1,6 @@
 import type { Container } from '@needle-di/core';
-
-import { Feature } from '../feature.types';
 import type { FeatureRuntime } from '../feature.types';
+import { Feature } from '../feature.types';
 import type { HttpMetadata, HttpOptions } from './http.service';
 import { HTTP_OPTIONS, HttpService } from './http.service';
 import type { ControllerClass } from './http.types';
@@ -26,6 +25,7 @@ export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCap
   private readonly controllers: readonly ControllerClass[];
   private readonly metadata: HttpMetadata;
 
+  /** @throws {ZeltDecoratorUsageError} */
   constructor(private readonly opts: HttpOptions) {
     super();
     this.controllers = collectAllControllers(opts);

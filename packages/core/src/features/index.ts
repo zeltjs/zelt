@@ -1,10 +1,10 @@
 export type { CommandCapabilities } from './command/command.feature';
 export { CommandFeature, command } from './command/command.feature';
-export { hasFeature } from './feature-metadata.lib';
 export type {
   ConfiguredFeature,
   FeatureCaps,
   FeatureClass,
+  FeatureReadyCapabilities,
   FeatureRuntime,
   NamespacedCaps,
   StaticNamespacedCaps,

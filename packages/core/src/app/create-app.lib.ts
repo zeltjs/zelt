@@ -1,17 +1,20 @@
 import { Container } from '@needle-di/core';
+import type { KeyedValues } from '@zeltjs/unsafe-type-lib';
 import {
-  unsafeObjectFromKeyedValues,
+  unsafeGetKeyedValueForClass,
+  unsafeKeyedValues,
   unsafeObjectFromNonEmptyKeyedValuesSync,
 } from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service/config';
 import type {
   ConfiguredFeature,
+  FeatureClass,
+  FeatureReadyCapabilities,
   FeatureRuntime,
   NamespacedCaps,
   StaticNamespacedCaps,
 } from '../features/feature.types';
-import { attachFeatureClasses } from '../features/feature-metadata.lib';
 import { ZeltAppConfigurationError } from '../kernel/errors';
 import { AppRuntime } from './app-runtime.lib';
 import { ConfigRegistry } from './config-registry.lib';
@@ -28,10 +31,20 @@ export type CreateRuntimeOptions = {
 };
 
 export type App<F extends readonly ConfiguredFeature[]> = {
+  readonly features: Readonly<F>;
+  readonly hasFeature: (featureClass: FeatureClass) => boolean;
+  readonly getFeatureCapabilities: <TFeatureClass extends FeatureClass>(
+    featureClass: TFeatureClass,
+  ) => undefined;
   readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<RuntimeApp<F>>;
 } & StaticNamespacedCaps<F>;
 
 export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
+  readonly features: Readonly<F>;
+  readonly hasFeature: (featureClass: FeatureClass) => boolean;
+  readonly getFeatureCapabilities: <TFeatureClass extends FeatureClass>(
+    featureClass: TFeatureClass,
+  ) => FeatureReadyCapabilities<InstanceType<TFeatureClass>> | undefined;
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly shutdown: () => Promise<void>;
 } & NamespacedCaps<F>;
@@ -44,6 +57,7 @@ const bindFeatures = (container: Container, features: readonly ConfiguredFeature
   }
 };
 
+/** @throws {ZeltAppConfigurationError} */
 const assertUniqueFeatureKeys = (features: readonly ConfiguredFeature[]): void => {
   const seen = new Set<string>();
   for (const feature of features) {
@@ -60,8 +74,8 @@ const assertUniqueFeatureKeys = (features: readonly ConfiguredFeature[]): void =
 const createNamespacedCapabilities = async <const F extends readonly ConfiguredFeature[]>(
   runtime: FeatureRuntime,
   features: F,
-): Promise<NamespacedCaps<F>> => {
-  return unsafeObjectFromKeyedValues(features, 'createCapabilities', runtime);
+): Promise<KeyedValues<F, 'createCapabilities'>> => {
+  return unsafeKeyedValues(features, 'createCapabilities', runtime);
 };
 
 const createStaticCapabilities = <const F extends readonly ConfiguredFeature[]>(
@@ -90,6 +104,13 @@ const registerConfigs = (
   for (const config of fallbackConfigs ?? []) {
     configRegistry.addFallbackConfig(config);
   }
+};
+
+const hasFeature = (
+  features: readonly ConfiguredFeature[],
+  featureClass: FeatureClass,
+): boolean => {
+  return features.some((feature) => feature instanceof featureClass);
 };
 
 /** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
@@ -124,18 +145,24 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
         await warmupFeatures(readyResult, features);
       }
 
-      const readyApp: RuntimeApp<F> = attachFeatureClasses(
-        {
-          ...caps,
-          get: readyResult.get,
-          shutdown: () => runtime.shutdown(),
-        },
+      const readyApp: RuntimeApp<F> = {
+        ...caps.object,
         features,
-      );
+        hasFeature: (featureClass) => hasFeature(features, featureClass),
+        getFeatureCapabilities: (featureClass) =>
+          unsafeGetKeyedValueForClass(features, caps.map, featureClass),
+        get: readyResult.get,
+        shutdown: () => runtime.shutdown(),
+      };
 
       return attachContainer(readyApp, container);
     },
   };
 
-  return attachFeatureClasses(app, features);
+  return {
+    ...app,
+    features,
+    hasFeature: (featureClass) => hasFeature(features, featureClass),
+    getFeatureCapabilities: () => undefined,
+  };
 };

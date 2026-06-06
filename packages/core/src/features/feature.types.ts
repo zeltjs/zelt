@@ -1,5 +1,9 @@
 import type { Container } from '@needle-di/core';
-import type { ObjectFromKeyedValues, ObjectFromNonEmptyKeyedValues } from '@zeltjs/unsafe-type-lib';
+import type {
+  KeyedMethodValue,
+  ObjectFromKeyedValues,
+  ObjectFromNonEmptyKeyedValues,
+} from '@zeltjs/unsafe-type-lib';
 
 export type FeatureRuntime = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
@@ -28,6 +32,11 @@ export type ConfiguredFeature<
 export type FeatureClass<TFeature extends ConfiguredFeature = ConfiguredFeature> = abstract new (
   ...args: never[]
 ) => TFeature;
+
+export type FeatureReadyCapabilities<TFeature extends ConfiguredFeature> = KeyedMethodValue<
+  TFeature,
+  'createCapabilities'
+>;
 
 export type FeatureCaps<TFeature extends ConfiguredFeature> = {
   readonly [TKey in TFeature['key']]: TFeature extends ConfiguredFeature<

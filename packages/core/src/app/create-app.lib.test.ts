@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
-import { Feature, hasFeature } from '../features';
+import { Feature } from '../features';
 import type { ConfiguredFeature } from '../features/feature.types';
 import type { RuntimeApp } from './create-app.lib';
 import { createApp } from './create-app.lib';
@@ -130,24 +130,21 @@ describe('createApp', () => {
   it('hasFeature works on static App before createRuntime', () => {
     const app = createApp([new TypedFeature()]);
 
-    expect(hasFeature(app, TypedFeature)).toBe(true);
+    expect(app.hasFeature(TypedFeature)).toBe(true);
 
-    if (hasFeature(app, TypedFeature)) {
-      expectTypeOf(app).toHaveProperty('createRuntime');
-      expectTypeOf(app).not.toHaveProperty('typed');
-    }
+    expect(app.getFeatureCapabilities(TypedFeature)).toBeUndefined();
   });
 
   it('hasFeature narrows RuntimeApp by feature class', async () => {
     const app = createApp([new TypedFeature()]);
     const readyApp = await app.createRuntime();
 
-    expect(hasFeature(readyApp, TypedFeature)).toBe(true);
+    expect(readyApp.hasFeature(TypedFeature)).toBe(true);
 
-    if (hasFeature(readyApp, TypedFeature)) {
-      expectTypeOf(readyApp.typed.value).toEqualTypeOf<() => string>();
-      expect(readyApp.typed.value()).toBe('ok');
-    }
+    const caps = readyApp.getFeatureCapabilities(TypedFeature);
+    expect(caps).toBeDefined();
+    expectTypeOf(caps?.value).toEqualTypeOf<(() => string) | undefined>();
+    expect(caps?.value()).toBe('ok');
 
     await readyApp.shutdown();
   });
@@ -156,13 +153,13 @@ describe('createApp', () => {
     const app = createApp([new UserFeature()]);
     const readyApp = await app.createRuntime();
 
-    expect(hasFeature(readyApp, UserFeature)).toBe(true);
-    expect(hasFeature(readyApp, OtherFeature)).toBe(false);
+    expect(readyApp.hasFeature(UserFeature)).toBe(true);
+    expect(readyApp.hasFeature(OtherFeature)).toBe(false);
 
-    if (hasFeature(readyApp, UserFeature)) {
-      expectTypeOf(readyApp.userFeature.run).toEqualTypeOf<() => number>();
-      expect(readyApp.userFeature.run()).toBe(123);
-    }
+    const caps = readyApp.getFeatureCapabilities(UserFeature);
+    expect(caps).toBeDefined();
+    expectTypeOf(caps?.run).toEqualTypeOf<(() => number) | undefined>();
+    expect(caps?.run()).toBe(123);
 
     await readyApp.shutdown();
   });

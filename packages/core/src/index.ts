@@ -37,6 +37,7 @@ export type {
   ConfiguredFeature,
   FeatureCaps,
   FeatureClass,
+  FeatureReadyCapabilities,
   FeatureRuntime,
   HttpCapabilities,
   HttpStaticCapabilities,
@@ -46,10 +47,9 @@ export type {
 } from './features';
 // Feature factories
 export {
-  command,
   CommandFeature,
+  command,
   Feature,
-  hasFeature,
   HTTP_FEATURE_KEY,
   HttpFeature,
   http,

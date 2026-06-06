@@ -1,7 +1,7 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
 import type { ConfiguredFeature, FeatureApp, RuntimeApp } from '@zeltjs/core';
-import { hasFeature, HttpFeature } from '@zeltjs/core';
+import { HttpFeature } from '@zeltjs/core';
 
 import { NodeCliConfig } from './node-cli.config';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
@@ -34,10 +34,8 @@ type HttpNodeAppPart = {
 export type NodeApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart) &
   Partial<HttpNodeAppPart>;
 
-type HasFeatureClass<
-  F extends readonly ConfiguredFeature[],
-  TFeature extends ConfiguredFeature,
-> = Extract<F[number], TFeature> extends never ? false : true;
+type HasFeatureClass<F extends readonly ConfiguredFeature[], TFeature extends ConfiguredFeature> =
+  Extract<F[number], TFeature> extends never ? false : true;
 
 type WithFeatureClass<
   F extends readonly ConfiguredFeature[],
@@ -95,10 +93,11 @@ const createNodeApp = (
     shutdown,
   };
 
-  if (!hasFeature(readyApp, HttpFeature)) return base;
+  const httpCaps = readyApp.getFeatureCapabilities(HttpFeature);
+  if (!httpCaps) return base;
   return {
     ...base,
-    listen: createListenForHttp(readyApp.http.fetch, shutdown),
+    listen: createListenForHttp(httpCaps.fetch, shutdown),
   };
 };
 
@@ -108,8 +107,8 @@ export function onNode<const F extends readonly ConfiguredFeature[]>(
 ): Promise<NodeAppForFeatures<F>>;
 
 /** @throws {ZeltLifecycleStateError} */
-export async function onNode(
-  app: FeatureApp<readonly ConfiguredFeature[]>,
+export async function onNode<const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
   options: NodeAppOptions = {},
 ): Promise<NodeApp> {
   const readyApp = await app.createRuntime({

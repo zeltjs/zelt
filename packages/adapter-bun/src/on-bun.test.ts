@@ -6,9 +6,8 @@ import {
   createApp,
   Feature,
   Get,
-  hasFeature,
-  http,
   HttpFeature,
+  http,
 } from '@zeltjs/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
@@ -85,7 +84,7 @@ describe('onBun return types', () => {
 
     expectTypeOf(httpOnly).toHaveProperty('serve');
     expectTypeOf(httpOnly).not.toHaveProperty('execCommand');
-    expect(hasFeature(httpOnly, HttpFeature)).toBe(true);
+    expect(httpOnly.hasFeature(HttpFeature)).toBe(true);
 
     const directResponse = await httpOnly.http.fetch(new Request('http://localhost/'));
     await expect(directResponse.json()).resolves.toEqual({ ok: true });
@@ -141,7 +140,8 @@ describe('onBun return types', () => {
     expectTypeOf(maybeHttpApp)
       .toHaveProperty('serve')
       .toEqualTypeOf<
-        ((options?: { readonly port?: number; readonly hostname?: string }) => ServerHandle) | undefined
+        | ((options?: { readonly port?: number; readonly hostname?: string }) => ServerHandle)
+        | undefined
       >();
     expect('serve' in maybeHttpApp).toBe(false);
 
@@ -154,7 +154,7 @@ describe('onBun return types', () => {
     expectTypeOf(bunApp).not.toHaveProperty('serve');
     expect('http' in bunApp).toBe(true);
     expect('serve' in bunApp).toBe(false);
-    expect(hasFeature(bunApp, HttpFeature)).toBe(false);
+    expect(bunApp.hasFeature(HttpFeature)).toBe(false);
 
     await bunApp.shutdown();
   });
@@ -174,7 +174,7 @@ describe('onBun return types', () => {
 
     expectTypeOf(bunApp).toHaveProperty('serve');
     expect('serve' in bunApp).toBe(true);
-    expect(hasFeature(bunApp, HttpFeature)).toBe(true);
+    expect(bunApp.hasFeature(HttpFeature)).toBe(true);
 
     await bunApp.shutdown();
   });

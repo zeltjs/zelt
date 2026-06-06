@@ -1,10 +1,5 @@
-import type {
-  CommandCapabilities,
-  ConfiguredFeature,
-  FeatureApp,
-  RuntimeApp,
-} from '@zeltjs/core';
-import { hasFeature, HttpFeature } from '@zeltjs/core';
+import type { CommandCapabilities, ConfiguredFeature, FeatureApp, RuntimeApp } from '@zeltjs/core';
+import { HttpFeature } from '@zeltjs/core';
 
 import { BunCliConfig } from './bun-cli.config';
 import { BunEnvAdaptor } from './bun-env.adaptor';
@@ -49,10 +44,8 @@ export type FullBunApp = HttpBunApp & CommandBunApp;
 export type BunApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart) &
   Partial<HttpBunAppPart>;
 
-type HasFeatureClass<
-  F extends readonly ConfiguredFeature[],
-  TFeature extends ConfiguredFeature,
-> = Extract<F[number], TFeature> extends never ? false : true;
+type HasFeatureClass<F extends readonly ConfiguredFeature[], TFeature extends ConfiguredFeature> =
+  Extract<F[number], TFeature> extends never ? false : true;
 
 type WithFeatureClass<
   F extends readonly ConfiguredFeature[],
@@ -105,10 +98,11 @@ const createBunApp = (
     shutdown,
   };
 
-  if (!hasFeature(readyApp, HttpFeature)) return base;
+  const httpCaps = readyApp.getFeatureCapabilities(HttpFeature);
+  if (!httpCaps) return base;
   return {
     ...base,
-    serve: createServeForHttp(readyApp.http.fetch, shutdown),
+    serve: createServeForHttp(httpCaps.fetch, shutdown),
   };
 };
 
@@ -118,8 +112,8 @@ export function onBun<const F extends readonly ConfiguredFeature[]>(
 ): Promise<BunAppForFeatures<F>>;
 
 /** @throws {ZeltLifecycleStateError} */
-export async function onBun(
-  app: FeatureApp<readonly ConfiguredFeature[]>,
+export async function onBun<const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
   options: BunAppOptions = {},
 ): Promise<BunApp> {
   const readyApp = await app.createRuntime({
