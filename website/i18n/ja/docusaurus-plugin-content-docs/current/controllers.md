@@ -155,7 +155,7 @@ class ItemController {
 Controllers must be registered in `createApp()`:
 
 ```typescript
-import { createApp, Controller, Get, Post, pathParam, response } from '@zeltjs/core';
+import { createApp, Controller, Get, Post, pathParam, response, http } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 
@@ -169,11 +169,9 @@ const CreateUserBody = v.object({ name: v.string(), email: v.pipe(v.string(), v.
   @Get('/') findAll() { return { posts: [] }; }
 }
 // ---cut---
-export const app = createApp({
-  http: {
+export const app = createApp([http({
     controllers: [UserController, PostController],
-  },
-});
+  })]);
 ```
 
 ## Next Steps

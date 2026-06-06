@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { ZeltLifecycleStateError } from '../errors';
 import { createReadyValue, disposeReadyValue, sealReadyValue } from './ready-value.lib';
 
+const assignClient = (target: { client: unknown }): void => {
+  target.client = 'modified';
+};
+
 describe('ReadyValue', () => {
   describe('createReadyValue', () => {
     it('creates a pending ReadyValue', () => {
@@ -20,7 +24,9 @@ describe('ReadyValue', () => {
 
     it('throws when accessing unknown property before seal', () => {
       const ready = createReadyValue<{ client: string }>();
-      expect(() => (ready as Record<string, unknown>)['unknown']).toThrow(ZeltLifecycleStateError);
+      expect(() => {
+        void Reflect.get(ready, 'unknown');
+      }).toThrow(ZeltLifecycleStateError);
     });
   });
 
@@ -38,7 +44,7 @@ describe('ReadyValue', () => {
       sealReadyValue(ready, { client: 'test' });
 
       expect(() => {
-        (ready as Record<string, unknown>)['client'] = 'modified';
+        assignClient(ready);
       }).toThrow();
     });
 
@@ -53,8 +59,12 @@ describe('ReadyValue', () => {
       const ready = createReadyValue<{ client: string }>();
       sealReadyValue(ready, { client: 'test' });
 
-      expect(() => (ready as Record<string, unknown>)['unknown']).toThrow(ZeltLifecycleStateError);
-      expect(() => (ready as Record<string, unknown>)['unknown']).toThrow(/unknown property/);
+      expect(() => {
+        void Reflect.get(ready, 'unknown');
+      }).toThrow(ZeltLifecycleStateError);
+      expect(() => {
+        void Reflect.get(ready, 'unknown');
+      }).toThrow(/unknown property/);
     });
   });
 

@@ -1,88 +1,119 @@
 import { Container } from '@needle-di/core';
+import {
+  unsafeObjectFromKeyedValues,
+  unsafeObjectFromNonEmptyKeyedValuesSync,
+} from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service/config';
-import type { CommandModule } from '../modules/command/command.module';
-import type { HttpModule } from '../modules/http/http.module';
-import type { Module, ModuleCapsAll, ModuleCapsMap } from '../modules/module.types';
-import type { SchedulerModule } from '../modules/scheduler/scheduler.module';
-import type { ReadyOptions, ReadyResult } from './app-runtime.lib';
+import type {
+  ConfiguredFeature,
+  FeatureRuntime,
+  NamespacedCaps,
+  StaticNamespacedCaps,
+} from '../features/feature.types';
 import { AppRuntime } from './app-runtime.lib';
 import { ConfigRegistry } from './config-registry.lib';
-import type { DefaultModules, DefaultModulesConfig } from './default-modules.lib';
-import { bindDefaultModules, resolveDefaultModuleCaps } from './default-modules.lib';
 import { attachContainer } from './override.lib';
 
-// --- Types ---
-
-export type CreateAppOptions = DefaultModulesConfig & {
+export type CreateAppOptions = {
   readonly configs?: readonly ConfigClass<object>[];
 };
 
-type BaseApp = {
-  readonly ready: (options?: ReadyOptions) => Promise<ReadyResult>;
-  readonly shutdown: () => Promise<void>;
-  readonly addFallbackConfig: (config: ConfigClass<object>) => void;
-  readonly overrideConfig: (config: ConfigClass<object>) => void;
+export type CreateRuntimeOptions = {
+  readonly configs?: readonly ConfigClass<object>[];
+  readonly fallbackConfigs?: readonly ConfigClass<object>[];
+  readonly warmup?: boolean;
 };
 
-export type App<M extends readonly Module[] = []> = BaseApp & ModuleCapsAll<M>;
+export type App<F extends readonly ConfiguredFeature[]> = {
+  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<RuntimeApp<F>>;
+} & StaticNamespacedCaps<F>;
 
-export type HttpApp = App<[HttpModule]>;
+export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
+  readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
+  readonly shutdown: () => Promise<void>;
+} & NamespacedCaps<F>;
 
-export type CommandApp = App<[CommandModule]>;
+// ─── Helpers ───
 
-export type SchedulerApp = App<[SchedulerModule]>;
+const bindFeatures = (container: Container, features: readonly ConfiguredFeature[]): void => {
+  for (const feature of features) {
+    feature.bind(container);
+  }
+};
 
-type AppFromOptions<TOptions extends CreateAppOptions> = BaseApp &
-  ModuleCapsMap<typeof DefaultModules, TOptions>;
+const createNamespacedCapabilities = async <const F extends readonly ConfiguredFeature[]>(
+  runtime: FeatureRuntime,
+  features: F,
+): Promise<NamespacedCaps<F>> => {
+  return unsafeObjectFromKeyedValues(features, 'createCapabilities', runtime);
+};
 
-export type { ReadyOptions, ReadyResult } from './app-runtime.lib';
+const createStaticCapabilities = <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+): StaticNamespacedCaps<F> => {
+  return unsafeObjectFromNonEmptyKeyedValuesSync(features, 'staticCapabilities');
+};
 
-// --- Helpers ---
+const warmupFeatures = async (
+  runtime: FeatureRuntime,
+  features: readonly ConfiguredFeature[],
+): Promise<void> => {
+  for (const feature of features) {
+    await feature.warmup?.(runtime);
+  }
+};
 
-const registerInitialConfigs = (
+const registerConfigs = (
   configRegistry: ConfigRegistry,
   configs: readonly ConfigClass<object>[] | undefined,
+  fallbackConfigs: readonly ConfigClass<object>[] | undefined,
 ): void => {
   for (const config of configs ?? []) {
     configRegistry.overrideConfig(config);
   }
+  for (const config of fallbackConfigs ?? []) {
+    configRegistry.addFallbackConfig(config);
+  }
 };
 
-/** @throws {ZeltLifecycleStateError} */
-const buildBaseApp = (runtime: AppRuntime, configRegistry: ConfigRegistry): BaseApp => ({
-  ready: (opts) => runtime.ready(opts),
-  shutdown: () => runtime.shutdown(),
-  addFallbackConfig: (config) => {
-    runtime.assertCanModifyConfig('addFallbackConfig');
-    configRegistry.addFallbackConfig(config);
-  },
-  overrideConfig: (config) => {
-    runtime.assertCanModifyConfig('overrideConfig');
-    configRegistry.overrideConfig(config);
-  },
-});
+/** @throws {ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
+export const createApp = <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+  options?: CreateAppOptions,
+): App<F> => {
+  const baseConfigs = options?.configs;
+  const staticCaps = createStaticCapabilities(features);
 
-// --- Main ---
+  return {
+    ...staticCaps,
+    createRuntime: async (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> => {
+      const container = new Container();
 
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-export function createApp<TOptions extends CreateAppOptions>(
-  options: TOptions,
-): AppFromOptions<TOptions>;
-/** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-export function createApp(options: CreateAppOptions): AppFromOptions<CreateAppOptions> {
-  const container = new Container();
-  bindDefaultModules(container, options);
+      bindFeatures(container, features);
 
-  const runtime = container.get(AppRuntime);
-  const configRegistry = container.get(ConfigRegistry);
+      const runtime = container.get(AppRuntime);
+      const configRegistry = container.get(ConfigRegistry);
 
-  registerInitialConfigs(configRegistry, options.configs);
+      registerConfigs(configRegistry, baseConfigs, undefined);
+      registerConfigs(configRegistry, runtimeOptions?.configs, runtimeOptions?.fallbackConfigs);
+      runtime.applyRegisteredConfigs();
 
-  const baseApp = {
-    ...buildBaseApp(runtime, configRegistry),
-    ...resolveDefaultModuleCaps(container, options),
+      const readyResult = await runtime.ready();
+
+      const caps = await createNamespacedCapabilities(readyResult, features);
+
+      if (runtimeOptions?.warmup) {
+        await warmupFeatures(readyResult, features);
+      }
+
+      const readyApp: RuntimeApp<F> = {
+        ...caps,
+        get: readyResult.get,
+        shutdown: () => runtime.shutdown(),
+      };
+
+      return attachContainer(readyApp, container);
+    },
   };
-
-  return attachContainer(baseApp, container);
-}
+};

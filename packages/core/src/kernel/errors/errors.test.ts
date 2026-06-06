@@ -7,6 +7,7 @@ import {
   ZeltLifecycleStateError,
   ZeltMiddlewareExecutionError,
   ZeltNotImplementedError,
+  ZeltReadyFailedError,
   ZeltRouteConfigurationError,
 } from './index';
 
@@ -66,7 +67,7 @@ describe('ZeltLifecycleStateError', () => {
       operation: 'addFallbackConfig',
       currentState: 'ready',
     });
-    expect(error.message).toBe('Cannot addFallbackConfig() after ready()');
+    expect(error.message).toBe('Cannot addFallbackConfig() after createRuntime()');
   });
 
   it('formats not_ready state correctly', () => {
@@ -74,7 +75,20 @@ describe('ZeltLifecycleStateError', () => {
       operation: 'fetch',
       currentState: 'not_ready',
     });
-    expect(error.message).toBe('Cannot fetch() before ready()');
+    expect(error.message).toBe('Cannot fetch() before createRuntime()');
+  });
+});
+
+describe('ZeltReadyFailedError', () => {
+  it('formats lifecycle startup failure and preserves cause', () => {
+    const cause = new Error('startup failed');
+    const error = new ZeltReadyFailedError({ lifecycleName: 'HttpService' }, cause);
+
+    expect(error.message).toBe('Lifecycle startup failed: HttpService');
+    expect(error.name).toBe('ZeltReadyFailedError');
+    expect(error.context).toEqual({ lifecycleName: 'HttpService' });
+    expect(error.cause).toBe(cause);
+    expect(error).toBeInstanceOf(ZeltReadyFailedError);
   });
 });
 

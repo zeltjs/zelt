@@ -1,4 +1,4 @@
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 
 import { BodyParserController } from './body-parser.controller';
 import {
@@ -10,8 +10,8 @@ import { ResponseBuilderController } from './response-builder.controller';
 import { RoutingController } from './routing.controller';
 import { SseController } from './sse.controller';
 
-export const app = createApp({
-  http: {
+export const app = createApp([
+  http({
     controllers: [
       HealthController,
       UsersController,
@@ -21,5 +21,5 @@ export const app = createApp({
       RoutingController,
       SseController,
     ],
-  },
-});
+  }),
+]);

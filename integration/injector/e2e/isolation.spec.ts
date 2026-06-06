@@ -1,4 +1,4 @@
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -8,11 +8,11 @@ import { CounterAController } from '../src/counter-a.controller';
 import { LeafService } from '../src/leaf.service';
 
 const makeApp = () =>
-  createApp({
-    http: {
+  createApp([
+    http({
       controllers: [ChainController, CounterAController],
-    },
-  });
+    }),
+  ]);
 
 describe('Injector — per-app isolation', () => {
   afterAll(async () => {

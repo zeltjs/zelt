@@ -63,7 +63,7 @@ export class DatabaseService {
 Register config classes when creating the app:
 
 ```typescript
-import { createApp, Config, Env, inject, Controller, Get } from '@zeltjs/core';
+import { createApp, Config, Env, inject, Controller, Get, http } from '@zeltjs/core';
 
 @Config
 class DatabaseConfig {
@@ -75,12 +75,9 @@ class DatabaseConfig {
 }
 @Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AppController],
-  },
-  configs: [DatabaseConfig],
-});
+  })], { configs: [DatabaseConfig] });
 ```
 
 ## Overriding Configuration
@@ -88,7 +85,7 @@ const app = createApp({
 Override configuration values for testing by extending the config class:
 
 ```typescript
-import { Config, createApp, Env, inject } from '@zeltjs/core';
+import { Config, createApp, Env, inject, http } from '@zeltjs/core';
 declare class AppController {}
 @Config
 class DatabaseConfig {
@@ -111,12 +108,9 @@ export class TestDatabaseConfig extends DatabaseConfig {
 }
 
 // In test setup
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AppController],
-  },
-  configs: [TestDatabaseConfig],
-});
+  })], { configs: [TestDatabaseConfig] });
 ```
 
 The `Token` property is inherited from the parent class, so `inject(DatabaseConfig)` will receive the overridden `TestDatabaseConfig` instance.
@@ -130,7 +124,7 @@ The `Token` property is inherited from the parent class, so `inject(DatabaseConf
 When using `onNode()`, `ProcessEnvAdaptor` is registered automatically, so `inject(Env)` reads from `process.env` without any extra config:
 
 ```typescript
-import { Config, Env, inject, createApp, Controller, Get } from '@zeltjs/core';
+import { Config, Env, inject, createApp, Controller, Get, http } from '@zeltjs/core';
 
 @Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
 // ---cut---
@@ -153,12 +147,9 @@ export class DatabaseConfig {
   }
 }
 
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AppController],
-  },
-  configs: [DatabaseConfig],
-});
+  })], { configs: [DatabaseConfig] });
 ```
 
 ### Loading `.env` Files

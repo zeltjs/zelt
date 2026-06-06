@@ -4,19 +4,14 @@ import { ZeltMultipleBuildHooksError } from './cli.errors';
 import type { ZeltConfig, ZeltPlugin } from './config/config.types';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 
-const createMockApp = () =>
-  ({
-    ready: vi.fn(),
-    shutdown: vi.fn(),
-    getControllers: vi.fn().mockReturnValue([]),
-  }) as never;
+const createLoadStaticApp = () => vi.fn().mockResolvedValue({ http: { getControllers: vi.fn() } });
+
+const createBaseConfig = (): ZeltConfig => ({
+  app: () => ({ http: {} }),
+  build: { entry: './src/index.ts' },
+});
 
 describe('runPreBuildHooks', () => {
-  const baseConfig: ZeltConfig = {
-    entry: './src/app.ts',
-    build: { entry: './src/index.ts' },
-  };
-
   it('calls preBuild hooks in order', async () => {
     const order: string[] = [];
 
@@ -34,8 +29,8 @@ describe('runPreBuildHooks', () => {
       },
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [plugin1, plugin2] };
-    await runPreBuildHooks({ cwd: '/test', config, app: createMockApp() });
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin1, plugin2] };
+    await runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() });
 
     expect(order).toEqual(['plugin1', 'plugin2']);
   });
@@ -52,60 +47,62 @@ describe('runPreBuildHooks', () => {
       name: 'without-hook',
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [pluginWithoutHook, pluginWithHook] };
-    await runPreBuildHooks({ cwd: '/test', config, app: createMockApp() });
+    const config: ZeltConfig = {
+      ...createBaseConfig(),
+      plugins: [pluginWithoutHook, pluginWithHook],
+    };
+    await runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() });
 
     expect(called).toHaveBeenCalledOnce();
   });
 
   it('handles empty plugins array', async () => {
-    const config: ZeltConfig = { ...baseConfig, plugins: [] };
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [] };
     await expect(
-      runPreBuildHooks({ cwd: '/test', config, app: createMockApp() }),
+      runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() }),
     ).resolves.toBeUndefined();
   });
 
   it('handles undefined plugins', async () => {
-    const config: ZeltConfig = { ...baseConfig };
+    const config: ZeltConfig = { ...createBaseConfig() };
     await expect(
-      runPreBuildHooks({ cwd: '/test', config, app: createMockApp() }),
+      runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() }),
     ).resolves.toBeUndefined();
   });
 
   it('passes correct context to plugin', async () => {
     const receivedContext = vi.fn();
-    const mockApp = createMockApp();
+    const loadStaticApp = createLoadStaticApp();
 
     const plugin: ZeltPlugin = {
       name: 'test',
       preBuild: receivedContext,
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [plugin] };
-    await runPreBuildHooks({ cwd: '/my/cwd', config, app: mockApp });
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin] };
+    await runPreBuildHooks({ cwd: '/my/cwd', config, loadStaticApp });
 
     expect(receivedContext).toHaveBeenCalledWith({
       cwd: '/my/cwd',
-      config,
-      app: mockApp,
+      build: config.build,
+      loadStaticApp,
     });
   });
 });
 
 describe('runBuildHook', () => {
-  const baseConfig: ZeltConfig = {
-    entry: './src/app.ts',
-    build: { entry: './src/index.ts' },
-  };
-
   it('returns handled: false when no plugin has build hook', async () => {
     const plugin: ZeltPlugin = {
       name: 'no-build',
       preBuild: vi.fn(),
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [plugin] };
-    const result = await runBuildHook({ cwd: '/test', config, app: createMockApp() });
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin] };
+    const result = await runBuildHook({
+      cwd: '/test',
+      config,
+      loadStaticApp: createLoadStaticApp(),
+    });
 
     expect(result).toEqual({ handled: false });
   });
@@ -118,8 +115,12 @@ describe('runBuildHook', () => {
       build: buildFn,
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [plugin] };
-    const result = await runBuildHook({ cwd: '/test', config, app: createMockApp() });
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin] };
+    const result = await runBuildHook({
+      cwd: '/test',
+      config,
+      loadStaticApp: createLoadStaticApp(),
+    });
 
     expect(buildFn).toHaveBeenCalledOnce();
     expect(result).toEqual({ handled: true });
@@ -136,53 +137,56 @@ describe('runBuildHook', () => {
       build: vi.fn(),
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [plugin1, plugin2] };
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin1, plugin2] };
 
-    await expect(runBuildHook({ cwd: '/test', config, app: createMockApp() })).rejects.toThrow(
-      ZeltMultipleBuildHooksError,
-    );
+    await expect(
+      runBuildHook({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() }),
+    ).rejects.toThrow(ZeltMultipleBuildHooksError);
   });
 
   it('passes correct context to build hook', async () => {
     const buildFn = vi.fn();
-    const mockApp = createMockApp();
+    const loadStaticApp = createLoadStaticApp();
 
     const plugin: ZeltPlugin = {
       name: 'test',
       build: buildFn,
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [plugin] };
-    await runBuildHook({ cwd: '/my/cwd', config, app: mockApp });
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin] };
+    await runBuildHook({ cwd: '/my/cwd', config, loadStaticApp });
 
     expect(buildFn).toHaveBeenCalledWith({
       cwd: '/my/cwd',
-      config,
-      app: mockApp,
+      build: config.build,
+      loadStaticApp,
     });
   });
 
   it('handles empty plugins array', async () => {
-    const config: ZeltConfig = { ...baseConfig, plugins: [] };
-    const result = await runBuildHook({ cwd: '/test', config, app: createMockApp() });
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [] };
+    const result = await runBuildHook({
+      cwd: '/test',
+      config,
+      loadStaticApp: createLoadStaticApp(),
+    });
 
     expect(result).toEqual({ handled: false });
   });
 
   it('handles undefined plugins', async () => {
-    const config: ZeltConfig = { ...baseConfig };
-    const result = await runBuildHook({ cwd: '/test', config, app: createMockApp() });
+    const config: ZeltConfig = { ...createBaseConfig() };
+    const result = await runBuildHook({
+      cwd: '/test',
+      config,
+      loadStaticApp: createLoadStaticApp(),
+    });
 
     expect(result).toEqual({ handled: false });
   });
 });
 
 describe('runPostBuildHooks', () => {
-  const baseConfig: ZeltConfig = {
-    entry: './src/app.ts',
-    build: { entry: './src/index.ts' },
-  };
-
   it('calls postBuild hooks in order', async () => {
     const order: string[] = [];
 
@@ -200,8 +204,11 @@ describe('runPostBuildHooks', () => {
       },
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [plugin1, plugin2] };
-    await runPostBuildHooks({ cwd: '/test', config, app: createMockApp() }, { success: true });
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin1, plugin2] };
+    await runPostBuildHooks(
+      { cwd: '/test', config, loadStaticApp: createLoadStaticApp() },
+      { success: true },
+    );
 
     expect(order).toEqual(['plugin1', 'plugin2']);
   });
@@ -214,27 +221,33 @@ describe('runPostBuildHooks', () => {
       postBuild: postBuildFn,
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [plugin] };
-    const mockApp = createMockApp();
-    await runPostBuildHooks({ cwd: '/test', config, app: mockApp }, { success: false });
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin] };
+    const loadStaticApp = createLoadStaticApp();
+    await runPostBuildHooks({ cwd: '/test', config, loadStaticApp }, { success: false });
 
     expect(postBuildFn).toHaveBeenCalledWith(
-      { cwd: '/test', config, app: mockApp },
+      { cwd: '/test', build: config.build, loadStaticApp },
       { success: false },
     );
   });
 
   it('handles empty plugins array', async () => {
-    const config: ZeltConfig = { ...baseConfig, plugins: [] };
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [] };
     await expect(
-      runPostBuildHooks({ cwd: '/test', config, app: createMockApp() }, { success: true }),
+      runPostBuildHooks(
+        { cwd: '/test', config, loadStaticApp: createLoadStaticApp() },
+        { success: true },
+      ),
     ).resolves.toBeUndefined();
   });
 
   it('handles undefined plugins', async () => {
-    const config: ZeltConfig = { ...baseConfig };
+    const config: ZeltConfig = { ...createBaseConfig() };
     await expect(
-      runPostBuildHooks({ cwd: '/test', config, app: createMockApp() }, { success: true }),
+      runPostBuildHooks(
+        { cwd: '/test', config, loadStaticApp: createLoadStaticApp() },
+        { success: true },
+      ),
     ).resolves.toBeUndefined();
   });
 
@@ -250,8 +263,14 @@ describe('runPostBuildHooks', () => {
       name: 'without-hook',
     };
 
-    const config: ZeltConfig = { ...baseConfig, plugins: [pluginWithoutHook, pluginWithHook] };
-    await runPostBuildHooks({ cwd: '/test', config, app: createMockApp() }, { success: true });
+    const config: ZeltConfig = {
+      ...createBaseConfig(),
+      plugins: [pluginWithoutHook, pluginWithHook],
+    };
+    await runPostBuildHooks(
+      { cwd: '/test', config, loadStaticApp: createLoadStaticApp() },
+      { success: true },
+    );
 
     expect(postBuildFn).toHaveBeenCalledOnce();
   });

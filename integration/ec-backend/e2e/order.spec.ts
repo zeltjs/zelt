@@ -81,11 +81,11 @@ describe('Order API', () => {
     });
 
     it('reduces product stock', async () => {
-      const p1Res = await testApp.request(`/api/products/${productId1}`);
+      const p1Res = await testApp.http.request(`/api/products/${productId1}`);
       const p1 = await p1Res.json();
       expect(p1.stock).toBe(8);
 
-      const p2Res = await testApp.request(`/api/products/${productId2}`);
+      const p2Res = await testApp.http.request(`/api/products/${productId2}`);
       const p2 = await p2Res.json();
       expect(p2.stock).toBe(4);
     });
@@ -97,7 +97,7 @@ describe('Order API', () => {
 
     it('rejects adding out-of-stock product to cart', async () => {
       // productId2 stock was reduced by previous orders, check remaining
-      const pRes = await testApp.request(`/api/products/${productId2}`);
+      const pRes = await testApp.http.request(`/api/products/${productId2}`);
       const product = await pRes.json();
 
       // Try to add more than available stock
@@ -138,7 +138,7 @@ describe('Order API', () => {
     });
 
     it('requires authentication', async () => {
-      const res = await testApp.request('/api/orders');
+      const res = await testApp.http.request('/api/orders');
       expect(res.status).toBe(401);
     });
   });

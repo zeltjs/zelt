@@ -38,7 +38,7 @@ The Electron adapter allows you to handle HTTP requests within your Electron app
 Create `src/api/app.ts`:
 
 ```typescript
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 // ---cut---
 @Controller('/hello')
 class HelloController {
@@ -48,11 +48,9 @@ class HelloController {
   }
 }
 
-export const app = createApp({
-  http: {
+export const app = createApp([http({
     controllers: [HelloController],
-  },
-});
+  })]);
 ```
 
 ### Step 2: Initialize in Main Process
@@ -62,7 +60,7 @@ Create `src/main.ts`:
 ```typescript
 // @noErrors
 import { app as electronApp, BrowserWindow, protocol } from 'electron';
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 import { onElectron } from '@zeltjs/adapter-electron';
 
 @Controller('/hello')
@@ -71,7 +69,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const electronZelt = await onElectron(app);
 
@@ -113,7 +111,7 @@ By default, `onElectron()` uses eager initialization (`warmup: true`) — all co
 For lazy initialization:
 
 ```typescript
-import { createApp, Controller, Get, pathParam } from '@zeltjs/core';
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 import { onElectron } from '@zeltjs/adapter-electron';
 
 @Controller('/hello')
@@ -122,7 +120,7 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp({ http: { controllers: [HelloController] } });
+const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const electronZelt = await onElectron(app, { warmup: false });
 ```

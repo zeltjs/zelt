@@ -167,7 +167,7 @@ class UserController {
 Register your services in the app:
 
 ```typescript
-import { createApp, Config, Env, inject } from '@zeltjs/core';
+import { createApp, Config, Env, inject, http } from '@zeltjs/core';
 type ConnectionOptions = { host?: string; port?: number };
 declare class UserController {}
 @Config
@@ -177,10 +177,7 @@ class BullMQConfig {
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }
 // ---cut---
-const app = createApp({
-  controllers: [UserController],
-  configs: [BullMQConfig],
-});
+const app = createApp([http({ controllers: [UserController] })], { configs: [BullMQConfig] });
 
 export default app;
 ```
@@ -188,7 +185,7 @@ export default app;
 To start workers, ensure they are instantiated at startup:
 
 ```typescript
-import { createApp, inject, Config, Env } from '@zeltjs/core';
+import { createApp, inject, Config, Env, http } from '@zeltjs/core';
 type ConnectionOptions = { host?: string; port?: number };
 declare class UserController {}
 declare class EmailWorker {}
@@ -199,13 +196,10 @@ class BullMQConfig {
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }
 // ---cut---
-const app = createApp({
-  controllers: [UserController],
-  configs: [BullMQConfig],
-});
+const app = createApp([http({ controllers: [UserController] })], { configs: [BullMQConfig] });
 
 // Instantiate worker to start processing
-app.ready().then(() => {
+app.createRuntime().then(() => {
   inject(EmailWorker);
 });
 ```

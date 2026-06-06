@@ -32,6 +32,7 @@ const mergeGlobalDefaults = (configs: readonly AnyConfigClass[]): AnyConfigClass
 /**
  * @throws {ZeltLifecycleStateError}
  * @throws {ZeltInternalError}
+ * @throws {ZeltReadyFailedError}
  */
 export const createTestTarget = async <T extends object>(
   targetClass: new (...args: never[]) => T,
@@ -39,18 +40,18 @@ export const createTestTarget = async <T extends object>(
 ): Promise<TestTargetResult<T>> => {
   const mergedConfigs = mergeGlobalDefaults(options.configs ?? []);
 
-  const app = createApp({ configs: mergedConfigs });
+  const app = createApp([], { configs: mergedConfigs });
+  const readyApp = await app.createRuntime();
 
   if (options.overrides?.length) {
-    override(app, options.overrides);
+    override(readyApp, options.overrides);
   }
 
-  const { get } = await app.ready();
-  registerShutdown(app.shutdown.bind(app));
+  registerShutdown(readyApp.shutdown.bind(readyApp));
 
   return {
-    target: await get(targetClass),
-    get,
-    shutdown: app.shutdown.bind(app),
+    target: await readyApp.get(targetClass),
+    get: readyApp.get,
+    shutdown: readyApp.shutdown.bind(readyApp),
   };
 };

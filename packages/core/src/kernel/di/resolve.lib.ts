@@ -3,7 +3,7 @@ import type { Container } from '@needle-di/core';
 import { getLeaf, isLeafClass } from './leaf.lib';
 import { getTransient, isTransientClass } from './transient.lib';
 
-type AnyClass = new (...args: never[]) => unknown;
+type AnyClass = new (...args: never[]) => object;
 
 export const resolve = <T extends object>(
   container: Container,

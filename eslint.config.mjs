@@ -7,9 +7,19 @@ import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
 const TEST_FILES = ['**/*.test.{ts,tsx}', '**/*.e2e.test.{ts,tsx}'];
-const FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,tsx}'];
+const TEST_FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,tsx}'];
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
 const FORBIDDEN_TEST_PATTERNS = ['**/*.spec.{ts,tsx}', '**/*.e2e-spec.{ts,tsx}'];
+
+const TOOL_CONFIG_FILES = [
+  'eslint.config.mjs',
+  'knip.config.ts',
+  '**/tsdown.config.ts',
+  '**/vitest.config.ts',
+  '**/drizzle.config.ts',
+  '**/zelt.config.ts',
+  'vitest.shared.ts',
+];
 
 export default tseslint.config(
   {
@@ -18,13 +28,7 @@ export default tseslint.config(
       '**/dist',
       '**/.nx',
       '**/*.d.ts',
-      '**/tsdown.config.ts',
-      '**/vitest.config.ts',
-      '**/drizzle.config.ts',
-      '**/zelt.config.ts',
-      'knip.config.ts',
       '**/*.config.{mjs,js}',
-      'eslint.config.mjs',
       '**/generated/**',
       'website/**',
       'vitest.shared.ts',
@@ -32,6 +36,7 @@ export default tseslint.config(
       'packages/unsafe-type-lib/**',
       'scripts/**',
       'integration/**',
+      ...TOOL_CONFIG_FILES,
     ],
   },
   tseslint.configs.recommended,
@@ -58,7 +63,7 @@ export default tseslint.config(
       '**/*.errors.{ts,tsx}',
       '**/*.exceptions.{ts,tsx}',
       '**/*.decorator.{ts,tsx}',
-      '**/*.module.{ts,tsx}',
+      '**/*.feature.{ts,tsx}',
     ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': [
@@ -88,7 +93,7 @@ export default tseslint.config(
   },
   {
     files: ['packages/**/*.{ts,tsx}'],
-    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
+    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...TEST_FIXTURE_FILES],
     rules: {
       'zelt/config-di-scope': 'error',
       'zelt/decorator-file-naming': ['error', { allowedNames: ['Env'] }],
@@ -126,7 +131,7 @@ export default tseslint.config(
   },
   {
     files: ['**/*.{ts,tsx}'],
-    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
+    ignores: [...TEST_FILES, ...EXAMPLE_FILES, ...TEST_FIXTURE_FILES],
     rules: {
       complexity: ['error', { max: 7 }],
       'sonarjs/cognitive-complexity': 'error',
@@ -137,7 +142,6 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
-      'import-x/order': 'off',
     },
   },
   {
@@ -151,20 +155,30 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
-    },
-  },
-  {
-    // Global: allow throw/try-catch everywhere (contract overrides below)
-    files: ['**/*.{ts,tsx}'],
-    rules: {
+      // Global: allow throw/try-catch everywhere (contract overrides below)
       '@9wick/strict-type-rules/no-throw': 'off',
       '@9wick/strict-type-rules/no-try-catch': 'off',
     },
   },
   {
+    files: [...TEST_FILES, ...EXAMPLE_FILES, ...TEST_FIXTURE_FILES],
+    rules: {
+      'no-console': 'off',
+      'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
+      'import-x/no-namespace': 'off',
+      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
+  {
     // Forbid raw Error — use structured Zelt*Error classes instead
     files: ['packages/core/src/**/*.{ts,tsx}'],
-    ignores: [...TEST_FILES, ...FIXTURE_FILES, '**/errors/**'],
+    ignores: [...TEST_FILES, ...TEST_FIXTURE_FILES, '**/errors/**'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -180,7 +194,7 @@ export default tseslint.config(
     files: ['packages/**/*.{ts,tsx}'],
     ignores: [
       ...TEST_FILES,
-      ...FIXTURE_FILES,
+      ...TEST_FIXTURE_FILES,
       '**/errors/**',
       '**/define-http-exception.lib.ts',
       '**/*.exceptions.ts',
@@ -202,49 +216,6 @@ export default tseslint.config(
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
       complexity: ['error', { max: 10 }],
-    },
-  },
-  {
-    // adaptClassContext handler types cls as object for store compatibility;
-    // toConstructor narrows it to constructor type for afterApply callbacks.
-    files: ['packages/decorator-metadata/src/runtime/decorators.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // ReadyValue uses prototype-chain Proxy pattern which requires runtime type coercion
-    files: ['packages/core/src/kernel/internal/ready-value.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    files: [...TEST_FILES, ...EXAMPLE_FILES, ...FIXTURE_FILES],
-    rules: {
-      'no-console': 'off',
-      'max-lines': ['warn', { max: 1000, skipBlankLines: true, skipComments: true }],
-      'import-x/no-namespace': 'off',
-      '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-    },
-  },
-  {
-    // context-key: branded ContextKey<T> construction and generic store retrieval require unsafe casts.
-    files: ['packages/core/src/kernel/internal/context-key.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-    },
-  },
-  {
-    // Leaf: prototype chain traversal, branded types, DI container boundary casts.
-    files: ['packages/core/src/kernel/di/leaf.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
   {
@@ -279,10 +250,6 @@ export default tseslint.config(
   {
     files: EXAMPLE_FILES,
     rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
       'max-lines-per-function': 'off',
     },
   },
@@ -313,15 +280,15 @@ export default tseslint.config(
     },
   },
   {
-    // Decorator factory modules export decorator functions (not DI-injectable classes).
+    // Decorator factory features export decorator functions (not DI-injectable classes).
     files: [
-      'packages/core/src/modules/command/definition/command.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/cron.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/daily.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/every.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/hourly.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/scheduled.decorator.ts',
-      'packages/core/src/modules/scheduler/schedule/weekly.decorator.ts',
+      'packages/core/src/features/command/definition/command.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/cron.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/daily.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/every.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/hourly.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/scheduled.decorator.ts',
+      'packages/core/src/features/scheduler/schedule/weekly.decorator.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',
@@ -330,7 +297,7 @@ export default tseslint.config(
   {
     // metadata.ts casts readonly unknown[] to domain types (MiddlewareInput[], MiddlewareIdentifier[])
     // that have no runtime tag for structural validation.
-    files: ['packages/core/src/modules/http/routing/routing-metadata.lib.ts'],
+    files: ['packages/core/src/features/http/routing/routing-metadata.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -359,7 +326,7 @@ export default tseslint.config(
   {
     // Command module uses AsyncLocalStorage and generic type inference at runtime boundaries.
     // Type assertions are needed for inferred schema types.
-    files: ['packages/core/src/modules/command/input/injection/args.lib.ts'],
+    files: ['packages/core/src/features/command/input/injection/args.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
@@ -428,10 +395,8 @@ export default tseslint.config(
     },
   },
   {
-    // core/src/app layer cannot import from modules (layer violation)
-    // Exception: default-modules.ts which is the bridge between app and modules
+    // core/src/app layer cannot import from features (layer violation)
     files: ['packages/core/src/app/**/*.{ts,tsx}'],
-    ignores: ['packages/core/src/app/default-modules.lib.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -445,10 +410,9 @@ export default tseslint.config(
           ],
           patterns: [
             {
-              group: ['../modules/*', '../modules/**'],
+              group: ['../features/*', '../features/**'],
               allowTypeImports: true,
-              message:
-                'app layer cannot import from modules layer (type imports are allowed). Use default-modules.ts as the bridge.',
+              message: 'app layer cannot import from features layer (type imports are allowed)',
             },
           ],
         },

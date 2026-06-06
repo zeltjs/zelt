@@ -18,7 +18,7 @@ const schemaResolver: SchemaResolver = async (modulePath) =>
 
 const generateDoc = async (): Promise<unknown> => {
   const dist = await mkdtemp(join(tmpdir(), 'zelt-openapi-'));
-  await generateOpenApi(app, {
+  await generateOpenApi(app.http, {
     distDir: dist,
     tsconfig,
     title: 'Hello World API',

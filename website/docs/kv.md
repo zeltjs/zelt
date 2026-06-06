@@ -160,15 +160,12 @@ Error types: `INVALID_TTL`, `EMPTY_NAMESPACE`, `INVALID_VALUE`, `STORE_OPERATION
 `MemoryKV` is an in-memory implementation for development and testing. It serializes values to JSON and runs garbage collection every 60 seconds.
 
 ```typescript
-import { createApp, Controller, Get } from '@zeltjs/core';
+import { createApp, Controller, Get, http } from '@zeltjs/core';
 import { MemoryKV } from '@zeltjs/kv';
 
 @Controller('/') class AppController { @Get('/') index() { return { ok: true }; } }
 // ---cut---
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [AppController],
-  },
-  injectables: [MemoryKV],
-});
+  })]);
 ```

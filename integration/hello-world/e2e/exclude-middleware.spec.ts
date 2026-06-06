@@ -1,14 +1,14 @@
-import type { App, HttpModule, Next, RequestContext } from '@zeltjs/core';
+import type { Next, RequestContext } from '@zeltjs/core';
 import {
   Controller,
   createApp,
   Get,
+  http,
   Middleware,
   Post,
   SkipMiddleware,
   UseMiddleware,
 } from '@zeltjs/core';
-import type { TestableApp } from '@zeltjs/testing';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -67,71 +67,67 @@ class TestController {
 }
 
 describe('Exclude middleware (@SkipMiddleware)', () => {
-  let testApp: TestableApp<App<[HttpModule]>>;
-
   afterEach(async () => {
     await shutdownAll();
   });
 
   const setup = async () => {
-    const app = createApp({
-      http: { controllers: [TestController] },
-    });
-    testApp = await onTest(app);
+    const app = createApp([http({ controllers: [TestController] })]);
+    return onTest(app);
   };
 
   it('should exclude "/test" endpoint', async () => {
-    await setup();
-    const res = await testApp.request('/test');
+    const testApp = await setup();
+    const res = await testApp.http.request('/test');
     expect(res.status).toBe(200);
     expect(await res.json()).toBe(RETURN_VALUE);
   });
 
   it('should not exclude "/test2" endpoint', async () => {
-    await setup();
-    const res = await testApp.request('/test2');
+    const testApp = await setup();
+    const res = await testApp.http.request('/test2');
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(MIDDLEWARE_VALUE);
   });
 
   it('should run middleware for GET "/middleware" endpoint', async () => {
-    await setup();
-    const res = await testApp.request('/middleware');
+    const testApp = await setup();
+    const res = await testApp.http.request('/middleware');
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(MIDDLEWARE_VALUE);
   });
 
   it('should exclude POST "/middleware" endpoint', async () => {
-    await setup();
-    const res = await testApp.request('/middleware', { method: 'POST' });
+    const testApp = await setup();
+    const res = await testApp.http.request('/middleware', { method: 'POST' });
     expect(res.status).toBe(200);
     expect(await res.json()).toBe(RETURN_VALUE);
   });
 
   it('should exclude "/overview/:id" endpoint (by param)', async () => {
-    await setup();
-    const res = await testApp.request('/overview/1');
+    const testApp = await setup();
+    const res = await testApp.http.request('/overview/1');
     expect(res.status).toBe(200);
     expect(await res.json()).toBe(RETURN_VALUE);
   });
 
   it('should exclude wildcard route "/wildcard/*"', async () => {
-    await setup();
-    const res = await testApp.request('/wildcard/anything');
+    const testApp = await setup();
+    const res = await testApp.http.request('/wildcard/anything');
     expect(res.status).toBe(200);
     expect(await res.json()).toBe(RETURN_VALUE);
   });
 
   it('should exclude wildcard route at nested path "/wildcard/deep/path"', async () => {
-    await setup();
-    const res = await testApp.request('/wildcard/deep/path');
+    const testApp = await setup();
+    const res = await testApp.http.request('/wildcard/deep/path');
     expect(res.status).toBe(200);
     expect(await res.json()).toBe(RETURN_VALUE);
   });
 
   it('should exclude "/multiple/exclude" endpoint', async () => {
-    await setup();
-    const res = await testApp.request('/multiple/exclude');
+    const testApp = await setup();
+    const res = await testApp.http.request('/multiple/exclude');
     expect(res.status).toBe(200);
     expect(await res.json()).toBe(RETURN_VALUE);
   });

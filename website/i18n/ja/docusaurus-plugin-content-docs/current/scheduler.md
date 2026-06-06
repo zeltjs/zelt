@@ -39,10 +39,10 @@ class ReportScheduler {
 
 ### Registering Schedulers
 
-Pass scheduler classes to `createApp()`:
+`scheduler([ReportScheduler])` は、`http({ controllers: [...] })` と同じように `createApp()` に渡す feature 配列へ含めます:
 
 ```typescript
-import { createApp, Controller, Get, Scheduled, Daily, Hourly } from '@zeltjs/core';
+import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler } from '@zeltjs/core';
 
 @Controller('/users') class UserController { @Get('/') findAll() { return { users: [] }; } }
 @Scheduled() class ReportScheduler {
@@ -50,18 +50,15 @@ import { createApp, Controller, Get, Scheduled, Daily, Hourly } from '@zeltjs/co
   @Hourly() async checkHealth() { console.log('Health check...'); }
 }
 // ---cut---
-const app = createApp({
-  http: { controllers: [UserController] },
-  schedulers: [ReportScheduler],
-});
+const app = createApp([http({ controllers: [UserController] }), scheduler([ReportScheduler])]);
 ```
 
 ### Starting the Scheduler
 
-The scheduler requires explicit startup. After calling `onNode()` and `ready()`, call `startScheduler()` to begin executing scheduled tasks:
+`scheduler([ReportScheduler])` を `createApp()` の feature 配列に含めた後、`onNode()` と `createRuntime()` が完了したら `schedulers.startScheduler()` を呼び出して scheduled tasks を開始します:
 
 ```typescript
-import { createApp, Controller, Get, Scheduled, Daily, Hourly } from '@zeltjs/core';
+import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Controller('/users') class UserController { @Get('/') findAll() { return { users: [] }; } }
@@ -70,16 +67,16 @@ import { onNode } from '@zeltjs/adapter-node';
   @Hourly() async checkHealth() {}
 }
 
-const app = createApp({ http: { controllers: [UserController] }, schedulers: [ReportScheduler] });
+const app = createApp([http({ controllers: [UserController] }), scheduler([ReportScheduler])]);
 const nodeApp = await onNode(app);
 // ---cut---
-await nodeApp.startScheduler();
+await nodeApp.schedulers.startScheduler();
 ```
 
-To stop the scheduler gracefully:
+`scheduler([ReportScheduler])` を含む app で scheduler を graceful に停止するには:
 
 ```typescript
-import { createApp, Controller, Get, Scheduled, Daily, Hourly } from '@zeltjs/core';
+import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Controller('/users') class UserController { @Get('/') findAll() { return { users: [] }; } }
@@ -88,10 +85,10 @@ import { onNode } from '@zeltjs/adapter-node';
   @Hourly() async checkHealth() {}
 }
 
-const app = createApp({ http: { controllers: [UserController] }, schedulers: [ReportScheduler] });
+const app = createApp([http({ controllers: [UserController] }), scheduler([ReportScheduler])]);
 const nodeApp = await onNode(app);
 // ---cut---
-await nodeApp.stopScheduler();
+await nodeApp.schedulers.stopScheduler();
 ```
 
 The scheduler is **not started automatically** when the app becomes ready. This design allows you to:
@@ -257,31 +254,31 @@ class NotificationScheduler {
 
 ## Node.js Entry Point
 
-For Node.js applications, use `onNode()` and explicitly start the scheduler:
+Node.js applications では、`createApp()` の feature 配列に `http()` と `scheduler()` を含め、`onNode()` の後で明示的に scheduler を開始します:
 
 ```typescript
 import { onNode } from '@zeltjs/adapter-node';
-import { createApp, Scheduled, Daily } from '@zeltjs/core';
+import { createApp, Scheduled, Daily, http, scheduler } from '@zeltjs/core';
 
 @Scheduled() class MyScheduler { @Daily({ hour: 9 }) async task() {} }
-const app = createApp({ http: { controllers: [] }, schedulers: [MyScheduler] });
+const app = createApp([http({ controllers: [] }), scheduler([MyScheduler])]);
 // ---cut---
 const nodeApp = await onNode(app);
 const handle = await nodeApp.listen(3000);
 
 // Start scheduled tasks
-await nodeApp.startScheduler();
+await nodeApp.schedulers.startScheduler();
 
 process.on('SIGTERM', async () => {
-  await nodeApp.stopScheduler();
+  await nodeApp.schedulers.stopScheduler();
   await handle.shutdown();
 });
 ```
 
-You can conditionally enable the scheduler using configuration:
+configuration を使う場合も、`scheduler([MyScheduler])` は `http()` と同じ feature 配列に含め、`createRuntime()` 後に条件付きで開始します:
 
 ```typescript
-import { createApp, Config, Env, inject, Scheduled, Daily } from '@zeltjs/core';
+import { createApp, Config, Env, inject, Scheduled, Daily, http, scheduler } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Config
@@ -293,16 +290,12 @@ class SchedulerConfig {
 
 @Scheduled() class MyScheduler { @Daily({ hour: 9 }) async task() {} }
 
-const app = createApp({
-  http: { controllers: [] },
-  schedulers: [MyScheduler],
-  configs: [SchedulerConfig],
-});
+const app = createApp([http({ controllers: [] }), scheduler([MyScheduler])], { configs: [SchedulerConfig] });
 const nodeApp = await onNode(app);
 // ---cut---
 const config = await nodeApp.get(SchedulerConfig);
 if (config.enabled) {
-  await nodeApp.startScheduler();
+  await nodeApp.schedulers.startScheduler();
 }
 ```
 

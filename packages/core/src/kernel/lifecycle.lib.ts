@@ -1,14 +1,13 @@
 import { injectable } from '@needle-di/core';
+import { ZeltReadyFailedError } from './errors';
 import type { ReadyValue } from './internal';
 import { createReadyValue, disposeReadyValue, sealReadyValue } from './internal';
 
 export interface Lifecycle<TReady = void> {
-  /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError} */
+  /** @throws {Error} */
   startup(): Promise<TReady> | TReady;
   shutdown(): Promise<void> | void;
 }
-
-type WarmupHandler = () => Promise<void>;
 
 type LifecycleEntry = {
   lc: Lifecycle<unknown>;
@@ -19,7 +18,6 @@ type LifecycleEntry = {
 export class LifecycleManager {
   private readonly lifecycles: LifecycleEntry[] = [];
   private startedIndex = 0;
-  private readonly warmupHandlers: WarmupHandler[] = [];
 
   register(lifecycle: Lifecycle<void>): void;
   register<T extends object>(lifecycle: Lifecycle<T>): ReadyValue<T>;
@@ -29,21 +27,17 @@ export class LifecycleManager {
     return readyValue;
   }
 
-  registerWarmup(handler: WarmupHandler): void {
-    this.warmupHandlers.push(handler);
-  }
-
-  /** @throws {ZeltLifecycleStateError} */
+  /** @throws {ZeltReadyFailedError | ZeltLifecycleStateError} */
   async startup(): Promise<void> {
     await this.startupPending();
   }
 
-  /** @throws {ZeltLifecycleStateError} */
+  /** @throws {ZeltReadyFailedError | ZeltLifecycleStateError} */
   async startupPending(): Promise<void> {
     while (this.startedIndex < this.lifecycles.length) {
       const entry = this.lifecycles[this.startedIndex];
       if (entry) {
-        const result = await entry.lc.startup();
+        const result = await this.startLifecycle(entry.lc);
         if (result && typeof result === 'object' && entry.readyValue) {
           sealReadyValue(entry.readyValue, result);
         }
@@ -52,10 +46,20 @@ export class LifecycleManager {
     }
   }
 
-  async warmup(): Promise<void> {
-    for (const handler of this.warmupHandlers) {
-      await handler();
+  /** @throws {ZeltReadyFailedError | ZeltLifecycleStateError} */
+  private async startLifecycle(lifecycle: Lifecycle<unknown>): Promise<unknown> {
+    try {
+      return await lifecycle.startup();
+    } catch (cause) {
+      if (cause instanceof ZeltReadyFailedError) {
+        throw cause;
+      }
+      throw new ZeltReadyFailedError({ lifecycleName: this.getLifecycleName(lifecycle) }, cause);
     }
+  }
+
+  private getLifecycleName(lifecycle: Lifecycle<unknown>): string {
+    return lifecycle.constructor.name || '<anonymous>';
   }
 
   /** @throws {ZeltLifecycleStateError} */

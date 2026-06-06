@@ -1,14 +1,11 @@
-export type { ReadyOptions, ReadyResult } from './app-runtime.lib';
+export type { ReadyResult } from './app-runtime.lib';
 export { AppRuntime } from './app-runtime.lib';
 export { ConfigRegistry } from './config-registry.lib';
 export {
   type App,
-  type CommandApp,
   type CreateAppOptions,
+  type CreateRuntimeOptions,
   createApp,
-  type HttpApp,
-  type SchedulerApp,
+  type RuntimeApp,
 } from './create-app.lib';
-export type { DefaultModulesConfig } from './default-modules.lib';
-export { DefaultModules } from './default-modules.lib';
 export { attachContainer, type Override, override } from './override.lib';

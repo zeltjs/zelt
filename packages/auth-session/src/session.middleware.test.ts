@@ -1,4 +1,4 @@
-import { Controller, createApp, Get, Post, UseMiddleware } from '@zeltjs/core';
+import { Controller, createApp, Get, http, Post, UseMiddleware } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 import { SessionConfig } from './session.config';
 import { destroySession, getSession, isNewSession, setSession } from './session.functions.lib';
@@ -64,12 +64,11 @@ class SessionTestController {
 
 describe('SessionMiddleware', () => {
   const buildApp = async () => {
-    const app = createApp({
-      http: { controllers: [SessionTestController] },
+    const app = createApp([http({ controllers: [SessionTestController] })], {
       configs: [TestSessionConfig],
     });
-    await app.ready();
-    return app;
+    const readyApp = await app.createRuntime();
+    return readyApp;
   };
 
   const extractCookie = (res: Response): string | undefined => {
@@ -81,7 +80,7 @@ describe('SessionMiddleware', () => {
 
   it('should create a new session on first request', async () => {
     const app = await buildApp();
-    const res = await app.request('/session/');
+    const res = await app.http.request('/session/');
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { session: SessionSchema | undefined; isNew: boolean };
@@ -91,13 +90,13 @@ describe('SessionMiddleware', () => {
 
   it('should set session data via setSession', async () => {
     const app = await buildApp();
-    const loginRes = await app.request('/session/login', { method: 'POST' });
+    const loginRes = await app.http.request('/session/login', { method: 'POST' });
 
     expect(loginRes.status).toBe(200);
     const cookie = extractCookie(loginRes);
     expect(cookie).toBeDefined();
 
-    const getRes = await app.request('/session/', {
+    const getRes = await app.http.request('/session/', {
       headers: { Cookie: `sid=${cookie}` },
     });
     const body = (await getRes.json()) as { session: SessionSchema };
@@ -108,20 +107,20 @@ describe('SessionMiddleware', () => {
   it('should persist session across requests', async () => {
     const app = await buildApp();
 
-    const loginRes = await app.request('/session/login', { method: 'POST' });
+    const loginRes = await app.http.request('/session/login', { method: 'POST' });
     const cookie = extractCookie(loginRes);
 
-    await app.request('/session/increment', {
+    await app.http.request('/session/increment', {
       method: 'POST',
       headers: { Cookie: `sid=${cookie}` },
     });
 
-    await app.request('/session/increment', {
+    await app.http.request('/session/increment', {
       method: 'POST',
       headers: { Cookie: `sid=${cookie}` },
     });
 
-    const getRes = await app.request('/session/', {
+    const getRes = await app.http.request('/session/', {
       headers: { Cookie: `sid=${cookie}` },
     });
     const body = (await getRes.json()) as { session: SessionSchema };
@@ -131,16 +130,16 @@ describe('SessionMiddleware', () => {
   it('should destroy session on logout', async () => {
     const app = await buildApp();
 
-    const loginRes = await app.request('/session/login', { method: 'POST' });
+    const loginRes = await app.http.request('/session/login', { method: 'POST' });
     const cookie = extractCookie(loginRes);
 
-    const logoutRes = await app.request('/session/logout', {
+    const logoutRes = await app.http.request('/session/logout', {
       method: 'POST',
       headers: { Cookie: `sid=${cookie}` },
     });
     expect(logoutRes.status).toBe(200);
 
-    const getRes = await app.request('/session/', {
+    const getRes = await app.http.request('/session/', {
       headers: { Cookie: `sid=${cookie}` },
     });
     const body = (await getRes.json()) as { session: SessionSchema | undefined; isNew: boolean };
@@ -151,11 +150,11 @@ describe('SessionMiddleware', () => {
   it('should reject tampered cookies', async () => {
     const app = await buildApp();
 
-    const loginRes = await app.request('/session/login', { method: 'POST' });
+    const loginRes = await app.http.request('/session/login', { method: 'POST' });
     const cookie = extractCookie(loginRes);
     const tamperedCookie = `${cookie?.slice(0, -5)}xxxxx`;
 
-    const getRes = await app.request('/session/', {
+    const getRes = await app.http.request('/session/', {
       headers: { Cookie: `sid=${tamperedCookie}` },
     });
     const body = (await getRes.json()) as { isNew: boolean };
@@ -165,7 +164,7 @@ describe('SessionMiddleware', () => {
   it('should create new session for invalid cookie format', async () => {
     const app = await buildApp();
 
-    const getRes = await app.request('/session/', {
+    const getRes = await app.http.request('/session/', {
       headers: { Cookie: 'sid=invalid-no-signature' },
     });
     const body = (await getRes.json()) as { isNew: boolean };

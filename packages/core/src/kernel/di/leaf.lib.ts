@@ -1,28 +1,20 @@
 import type { Container } from '@needle-di/core';
 import { InjectionToken } from '@needle-di/core';
+import { isClassConstructor, UnsafeInjectionTokenWeakMap } from '@zeltjs/unsafe-type-lib';
 
-type AnyClass = new (...args: never[]) => unknown;
+type AnyClass<T extends object = object> = new (...args: never[]) => T;
 type AnyInstance = object;
 
-declare const rootLeafBrand: unique symbol;
-type RootLeafClass = AnyClass & { [rootLeafBrand]: unknown };
-
-type LeafInjectionToken = InjectionToken<AnyInstance>;
+type LeafInjectionToken<T extends object = object> = InjectionToken<T>;
 
 const leafClasses = new WeakSet<AnyClass>();
 const leafCategoryCache = new WeakMap<AnyClass, 'direct' | 'inherited'>();
-const leafTokenMap = new WeakMap<RootLeafClass, LeafInjectionToken>();
+const leafTokenMap = new UnsafeInjectionTokenWeakMap();
 const boundTokens = new WeakMap<Container, Set<LeafInjectionToken>>();
 
 const toAnyClass = (proto: unknown): AnyClass | null => {
   if (proto === null || proto === Function.prototype) return null;
-  const result: AnyClass = proto as AnyClass;
-  return result;
-};
-
-const toRootLeafClass = (cls: AnyClass): RootLeafClass => {
-  const result: RootLeafClass = cls as RootLeafClass;
-  return result;
+  return isClassConstructor<AnyInstance>(proto) ? proto : null;
 };
 
 export const registerAsLeaf = (cls: AnyClass): void => {
@@ -52,27 +44,27 @@ export const isLeafClass = (cls: AnyClass): boolean => {
   return false;
 };
 
-export const findRootLeafClass = (cls: AnyClass): RootLeafClass => {
-  let current: AnyClass | null = cls;
-  let root: AnyClass = cls;
+const findAncestorLeafClasses = (cls: AnyClass): AnyClass[] => {
+  const ancestors: AnyClass[] = [];
+  let current = toAnyClass(Object.getPrototypeOf(cls));
 
   while (current) {
     if (leafClasses.has(current)) {
-      root = current;
+      ancestors.push(current);
     }
     current = toAnyClass(Object.getPrototypeOf(current));
   }
 
-  return toRootLeafClass(root);
+  return ancestors;
 };
 
 /** @throws {ZeltLifecycleStateError} */
-const getLeafToken = (rootClass: RootLeafClass): LeafInjectionToken => {
-  const existing = leafTokenMap.get(rootClass);
+const getLeafToken = <T extends object = object>(cls: AnyClass<T>): LeafInjectionToken<T> => {
+  const existing = leafTokenMap.get<T>(cls);
   if (existing) return existing;
 
-  const token = new InjectionToken<AnyInstance>(rootClass.name);
-  leafTokenMap.set(rootClass, token);
+  const token = new InjectionToken<T>(cls.name);
+  leafTokenMap.set(cls, token);
   return token;
 };
 
@@ -90,13 +82,21 @@ const markTokenBound = (container: Container, token: LeafInjectionToken): void =
   boundTokens.set(container, new Set([token]));
 };
 
+const bindExistingLeaf = (
+  container: Container,
+  token: LeafInjectionToken,
+  existingToken: LeafInjectionToken,
+): void => {
+  container.bind({ provide: token, useExisting: existingToken });
+  markTokenBound(container, token);
+};
+
 /** @throws {ZeltLifecycleStateError} */
 const bindLeafInternal = (container: Container, token: LeafInjectionToken, cls: AnyClass): void => {
   const singleToken = new InjectionToken<AnyInstance>(`${cls.name}:single`);
-  const factory = cls as new () => AnyInstance;
   container.bind({
     provide: singleToken,
-    useFactory: () => new factory(),
+    useFactory: () => new cls(),
   });
   container.bind({ provide: token, useExisting: singleToken });
   markTokenBound(container, token);
@@ -108,27 +108,24 @@ export const overrideLeaf = (
   cls: AnyClass,
   options?: { readonly fallback?: boolean },
 ): void => {
-  const rootClass = findRootLeafClass(cls);
-  const token = getLeafToken(rootClass);
+  const token = ensureLeafBound(container, cls);
+  const ancestorTokens = findAncestorLeafClasses(cls).map((ancestor) => getLeafToken(ancestor));
 
-  if (options?.fallback && isTokenBound(container, token)) return;
-
-  if (!isTokenBound(container, token)) {
-    bindLeafInternal(container, token, rootClass);
-  }
-
-  if (cls !== (rootClass as AnyClass)) {
-    bindLeafInternal(container, token, cls);
+  for (const ancestorToken of ancestorTokens) {
+    if (options?.fallback && isTokenBound(container, ancestorToken)) continue;
+    bindExistingLeaf(container, ancestorToken, token);
   }
 };
 
 /** @throws {ZeltLifecycleStateError} */
-export const ensureLeafBound = (container: Container, cls: AnyClass): LeafInjectionToken => {
-  const rootClass = findRootLeafClass(cls);
-  const token = getLeafToken(rootClass);
+export const ensureLeafBound = <T extends object = object>(
+  container: Container,
+  cls: AnyClass<T>,
+): LeafInjectionToken<T> => {
+  const token = getLeafToken(cls);
 
   if (!isTokenBound(container, token)) {
-    bindLeafInternal(container, token, rootClass);
+    bindLeafInternal(container, token, cls);
   }
 
   return token;
@@ -138,10 +135,9 @@ export const ensureLeafBound = (container: Container, cls: AnyClass): LeafInject
 export const getLeaf = <T extends object>(
   container: Container,
   cls: new (...args: never[]) => T,
-): T => container.get(ensureLeafBound(container, cls)) as T;
+): T => container.get(ensureLeafBound(container, cls));
 
 export const resolveLeaf = (container: Container, cls: AnyClass): void => {
-  const rootClass = findRootLeafClass(cls);
-  const token = getLeafToken(rootClass);
+  const token = ensureLeafBound(container, cls);
   container.get(token);
 };

@@ -186,14 +186,11 @@ export class OrderService {
 
 ```typescript
 // @noErrors
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 
-const app = createApp({
-  http: {
+const app = createApp([http({
     controllers: [OrderController],
-  },
-  configs: [DrizzleService],
-});
+  })], { configs: [DrizzleService] });
 ```
 
 サービスは：

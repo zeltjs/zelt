@@ -1,5 +1,5 @@
 ```typescript twoslash
-import { Controller, Get, Post, pathParam, createApp } from '@zeltjs/core';
+import { Controller, Get, Post, pathParam, createApp, http } from '@zeltjs/core';
 import { validated } from '@zeltjs/validator-valibot';
 import { onNode } from '@zeltjs/adapter-node';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
@@ -31,9 +31,7 @@ class UserController {
   }
 }
 
-const app = createApp({
-  http: { controllers: [UserController] },
-});
+const app = createApp([http({ controllers: [UserController] })]);
 
 // Node.js
 const node = await onNode(app);

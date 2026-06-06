@@ -6,7 +6,7 @@
   "main": "src/main.ts",
   "scripts": {
     "dev": "tsx src/main.ts",
-    "dev:node": "tsx src/entry/node.ts",
+    "dev:node": "tsx src/node.ts",
     "typecheck": "tsc --noEmit",
     "contract:build": "tsx ../../packages/contract/src/cli.ts build",
     "contract:watch": "tsx ../../packages/contract/src/cli.ts watch"

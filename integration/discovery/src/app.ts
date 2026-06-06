@@ -1,9 +1,5 @@
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 
 import { HelloController } from './hello.controller';
 
-export const app = createApp({
-  http: {
-    controllers: [HelloController],
-  },
-});
+export const app = createApp([http({ controllers: [HelloController] })]);

@@ -1,4 +1,12 @@
-import { Controller, createApp, currentRoles, currentUser, Get, UseMiddleware } from '@zeltjs/core';
+import {
+  Controller,
+  createApp,
+  currentRoles,
+  currentUser,
+  Get,
+  http,
+  UseMiddleware,
+} from '@zeltjs/core';
 import { createTestTarget } from '@zeltjs/testing';
 import { describe, expect, it } from 'vitest';
 import { JwtConfig } from './jwt.config';
@@ -29,12 +37,11 @@ class ProtectedController {
 }
 
 const buildApp = async () => {
-  const app = createApp({
-    http: { controllers: [ProtectedController] },
+  const app = createApp([http({ controllers: [ProtectedController] })], {
     configs: [TestJwtConfig],
   });
-  await app.ready();
-  return app;
+  const readyApp = await app.createRuntime();
+  return readyApp;
 };
 
 class JwtServiceTestConfig extends JwtConfig {
@@ -52,13 +59,15 @@ const buildJwtService = async () => {
 
 describe('JwtMiddleware', () => {
   it('should return 401 when no Authorization header', async () => {
-    const res = await (await buildApp()).request('/protected/');
+    const app = await buildApp();
+    const res = await app.http.request('/protected/');
 
     expect(res.status).toBe(401);
   });
 
   it('should return 401 when Authorization header is not Bearer', async () => {
-    const res = await (await buildApp()).request('/protected/', {
+    const app = await buildApp();
+    const res = await app.http.request('/protected/', {
       headers: { Authorization: 'Basic abc123' },
     });
 
@@ -66,7 +75,8 @@ describe('JwtMiddleware', () => {
   });
 
   it('should return 401 when token is invalid', async () => {
-    const res = await (await buildApp()).request('/protected/', {
+    const app = await buildApp();
+    const res = await app.http.request('/protected/', {
       headers: { Authorization: 'Bearer invalid-token' },
     });
 
@@ -76,7 +86,8 @@ describe('JwtMiddleware', () => {
   it('should allow request with valid token', async () => {
     const { jwtService, shutdown } = await buildJwtService();
     const token = await jwtService.sign({ sub: 'user-123' });
-    const res = await (await buildApp()).request('/protected/', {
+    const app = await buildApp();
+    const res = await app.http.request('/protected/', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -102,7 +113,8 @@ describe('JwtMiddleware', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const res = await (await buildApp()).request('/protected/', {
+    const app = await buildApp();
+    const res = await app.http.request('/protected/', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -127,16 +139,15 @@ describe('JwtMiddleware — setUser integration', () => {
       }
     }
 
-    const httpApp = createApp({
-      http: { controllers: [UserCheckController] },
+    const httpApp = createApp([http({ controllers: [UserCheckController] })], {
       configs: [TestJwtConfig],
     });
-    await httpApp.ready();
+    const readyApp = await httpApp.createRuntime();
 
     const { jwtService, shutdown } = await buildJwtService();
     const token = await jwtService.sign({ sub: 'user-42' });
 
-    const res = await httpApp.request('/user-check/', {
+    const res = await readyApp.http.request('/user-check/', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -179,12 +190,11 @@ describe('JwtMiddleware — cookie driver', () => {
       }
     }
 
-    const app = createApp({
-      http: { controllers: [CookieProtectedController] },
+    const app = createApp([http({ controllers: [CookieProtectedController] })], {
       configs: [CookieDriverConfig],
     });
-    await app.ready();
-    return app;
+    const readyApp = await app.createRuntime();
+    return readyApp;
   };
 
   const buildCookieJwtService = async () => {
@@ -195,7 +205,8 @@ describe('JwtMiddleware — cookie driver', () => {
   };
 
   it('should return 401 when no cookie is present', async () => {
-    const res = await (await buildCookieApp()).request('/cookie-protected/');
+    const app = await buildCookieApp();
+    const res = await app.http.request('/cookie-protected/');
 
     expect(res.status).toBe(401);
   });
@@ -203,7 +214,8 @@ describe('JwtMiddleware — cookie driver', () => {
   it('should return 401 when Authorization header is used instead of cookie', async () => {
     const { jwtService, shutdown } = await buildCookieJwtService();
     const token = await jwtService.sign({ sub: 'user-123' });
-    const res = await (await buildCookieApp()).request('/cookie-protected/', {
+    const app = await buildCookieApp();
+    const res = await app.http.request('/cookie-protected/', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -214,7 +226,8 @@ describe('JwtMiddleware — cookie driver', () => {
   it('should allow request with valid cookie', async () => {
     const { jwtService, shutdown } = await buildCookieJwtService();
     const token = await jwtService.sign({ sub: 'user-123' });
-    const res = await (await buildCookieApp()).request('/cookie-protected/', {
+    const app = await buildCookieApp();
+    const res = await app.http.request('/cookie-protected/', {
       headers: { Cookie: `auth_token=${token}` },
     });
 
@@ -225,7 +238,8 @@ describe('JwtMiddleware — cookie driver', () => {
   });
 
   it('should return 401 for invalid cookie token', async () => {
-    const res = await (await buildCookieApp()).request('/cookie-protected/', {
+    const app = await buildCookieApp();
+    const res = await app.http.request('/cookie-protected/', {
       headers: { Cookie: 'auth_token=invalid-token' },
     });
 
@@ -245,16 +259,15 @@ describe('JwtMiddleware — cookie driver', () => {
       }
     }
 
-    const httpApp = createApp({
-      http: { controllers: [CookieUserCheckController] },
+    const httpApp = createApp([http({ controllers: [CookieUserCheckController] })], {
       configs: [CookieDriverConfig],
     });
-    await httpApp.ready();
+    const readyApp = await httpApp.createRuntime();
 
     const { jwtService, shutdown } = await buildCookieJwtService();
     const token = await jwtService.sign({ sub: 'cookie-user-99' });
 
-    const res = await httpApp.request('/cookie-user-check/', {
+    const res = await readyApp.http.request('/cookie-user-check/', {
       headers: { Cookie: `auth_token=${token}` },
     });
 

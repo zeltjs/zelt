@@ -22,6 +22,9 @@
     "build": "tsdown",
     "typecheck": "tsc -b"
   },
+  "devDependencies": {
+    "@needle-di/core": "catalog:"
+  },
   "volta": {
     "extends": "../../package.json"
   }

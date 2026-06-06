@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { App } from '../../app';
+import type { RuntimeApp } from '../../app';
 import { createApp } from '../../app';
 import { Config } from '../config';
 
@@ -14,12 +14,12 @@ class TestEnvSource extends EnvAdaptor {
 }
 
 let env: Env;
-let app: App;
+let readyApp: RuntimeApp<[]>;
 
 const setupEnv = async () => {
-  app = createApp({ configs: [TestEnvSource] });
-  const { get } = await app.ready();
-  env = await get(Env);
+  const app = createApp([], { configs: [TestEnvSource] });
+  readyApp = await app.createRuntime();
+  env = await readyApp.get(Env);
 };
 
 describe('Env', () => {

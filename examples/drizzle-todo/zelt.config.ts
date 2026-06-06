@@ -1,19 +1,17 @@
-import { defineConfig } from '@zeltjs/openapi';
-import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
+import { defineConfig } from '@zeltjs/cli';
+import { openapiPlugin } from '@zeltjs/openapi';
 
 export default defineConfig({
-  controllers: ['./src/**/*.controller.ts'],
-  dist: './generated',
-  tsconfig: './tsconfig.json',
-  requestValidator: valibotAdapter,
+  app: () => import('./src/app').then((m) => m.app),
+  plugins: [openapiPlugin({ outDir: './generated', tsconfig: './tsconfig.json' })],
 
   build: {
-    entry: './src/entry/node.ts',
+    entry: './src/node.ts',
     outDir: './dist',
   },
 
   dev: {
-    entry: './src/entry/node.ts',
+    entry: './src/node.ts',
     port: 3000,
   },
 });

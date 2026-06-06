@@ -13,6 +13,12 @@ export const ZeltLifecycleStateError = defineError(
 );
 export type ZeltLifecycleStateError = InstanceType<typeof ZeltLifecycleStateError>;
 
+export const ZeltReadyFailedError = defineError(
+  'ZeltReadyFailedError',
+  coreErrorDefinitions.ZeltReadyFailedError,
+);
+export type ZeltReadyFailedError = InstanceType<typeof ZeltReadyFailedError>;
+
 export const ZeltContextNotAvailableError = defineError(
   'ZeltContextNotAvailableError',
   coreErrorDefinitions.ZeltContextNotAvailableError,

@@ -38,7 +38,7 @@
     "hono": "catalog:"
   },
   "devDependencies": {
-    "@needle-di/core": "1.1.2",
+    "@needle-di/core": "catalog:",
     "@zeltjs/unsafe-type-lib": "workspace:*",
     "@types/node": "catalog:",
     "croner": "9.1.0",

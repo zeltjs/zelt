@@ -13,16 +13,12 @@ import {
 import { HTTPException } from 'hono/http-exception';
 
 import { requireUser } from '../auth/current-user.lib';
-import { OrderHandlers } from './order.handlers';
 import { OrderService } from './order.service';
 
 @UseMiddleware(JwtMiddleware)
 @Controller('/api/orders')
 export class OrderController {
-  constructor(
-    private readonly orderService = inject(OrderService),
-    readonly _handlers = inject(OrderHandlers),
-  ) {}
+  constructor(private readonly orderService = inject(OrderService)) {}
 
   @Authorized()
   @Post('/')
