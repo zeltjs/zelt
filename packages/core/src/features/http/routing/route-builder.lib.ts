@@ -1,12 +1,11 @@
 import type { Context, Env, Input } from 'hono';
-import type { LifecycleManager } from '../../../kernel';
-import type { ResolverHandle } from '../../../kernel/di';
+import type { LifecycleManager, ResolverHandle } from '../../../kernel';
 import {
+  runInContext,
   ZeltDecoratorUsageError,
   ZeltMiddlewareExecutionError,
   ZeltRouteConfigurationError,
-} from '../../../kernel/errors';
-import { runInContext } from '../../../kernel/internal';
+} from '../../../kernel';
 import { BadRequestException } from '../http.exceptions';
 import { currentRoles, currentUser } from '../middleware/auth';
 import type {

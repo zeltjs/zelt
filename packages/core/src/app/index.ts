@@ -8,4 +8,14 @@ export {
   createApp,
   type RuntimeApp,
 } from './create-app.lib';
+export type {
+  ConfiguredFeature,
+  FeatureCaps,
+  FeatureClass,
+  FeatureReadyCapabilities,
+  FeatureRuntime,
+  NamespacedCaps,
+  StaticNamespacedCaps,
+} from './feature.types';
+export { Feature } from './feature.types';
 export { attachContainer, type Override, override } from './override.lib';

@@ -397,31 +397,6 @@ export default tseslint.config(
     },
   },
   {
-    // core/src/app layer cannot import from features (layer violation)
-    files: ['packages/core/src/app/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            {
-              name: '@zeltjs/decorator-metadata/inspect',
-              message:
-                'inspect is for build-time tools only. Use @zeltjs/decorator-metadata (runtime) in core.',
-            },
-          ],
-          patterns: [
-            {
-              group: ['../features/*', '../features/**'],
-              allowTypeImports: true,
-              message: 'app layer cannot import from features layer (type imports are allowed)',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
     files: ['packages/**/*.{ts,tsx}'],
     ignores: [
       'packages/core/**/*.{ts,tsx}',

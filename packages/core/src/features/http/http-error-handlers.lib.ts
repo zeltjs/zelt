@@ -1,6 +1,6 @@
 import type { Container } from '@needle-di/core';
 
-import { resolve } from '../../kernel/di';
+import { resolve } from '../../kernel';
 import type {
   ErrorHandlerClass,
   ErrorHandlerInstance,

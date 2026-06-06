@@ -1,8 +1,7 @@
 import { Container, InjectionToken } from '@needle-di/core';
 import type { Hono } from 'hono';
 import type { Lifecycle } from '../../kernel';
-import { LifecycleManager } from '../../kernel';
-import { Injectable, inject, resolve } from '../../kernel/di';
+import { Injectable, inject, LifecycleManager, resolve } from '../../kernel';
 import { DefaultErrorHandler } from './error/default.error-handler';
 import type { ControllerClass, HttpChildOptions, HttpOptions } from './http.types';
 import { collectAllControllerMetadata, collectAllControllers } from './http-children.lib';

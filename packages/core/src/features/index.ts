@@ -1,5 +1,3 @@
-export type { CommandCapabilities } from './command/command.feature';
-export { CommandFeature, command } from './command/command.feature';
 export type {
   ConfiguredFeature,
   FeatureCaps,
@@ -8,8 +6,10 @@ export type {
   FeatureRuntime,
   NamespacedCaps,
   StaticNamespacedCaps,
-} from './feature.types';
-export { Feature } from './feature.types';
+} from '../app';
+export { Feature } from '../app';
+export type { CommandCapabilities } from './command/command.feature';
+export { CommandFeature, command } from './command/command.feature';
 export type { HttpCapabilities, HttpStaticCapabilities } from './http/http.feature';
 export { HTTP_FEATURE_KEY, HttpFeature, http } from './http/http.feature';
 export type { SchedulerCapabilities } from './scheduler/scheduler.feature';

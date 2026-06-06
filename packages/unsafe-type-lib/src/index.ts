@@ -1,4 +1,4 @@
-export { toUnknownCallable, unsafeGetNamespacedCallable } from './callable';
+export { toUnknownCallable } from './callable';
 export { isClassConstructor } from './class-constructor';
 export {
   DEFERRED_VALUE_TYPE,

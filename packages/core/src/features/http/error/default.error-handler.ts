@@ -1,7 +1,7 @@
 import { inject } from '@needle-di/core';
 import { HTTPException } from 'hono/http-exception';
 
-import { Env } from '../../../built-in-service/env';
+import { Env } from '../../../built-in-service';
 import type { RequestContext } from '../middleware/middleware.types';
 import { ErrorHandler } from './error-handler.decorator';
 

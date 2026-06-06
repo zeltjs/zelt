@@ -1,4 +1,4 @@
-import { inject } from '../../kernel/di';
+import { inject } from '../../kernel';
 import { Config } from '../config';
 
 import type { LoggerFormatter } from './formatter';

@@ -1,4 +1,4 @@
-import { ZeltNotImplementedError } from '../../kernel/errors';
+import { ZeltNotImplementedError } from '../../kernel';
 import { Config } from '../config';
 
 export type Signal = 'SIGINT' | 'SIGTERM';

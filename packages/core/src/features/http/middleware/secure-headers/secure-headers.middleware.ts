@@ -1,5 +1,5 @@
 import { secureHeaders } from 'hono/secure-headers';
-import { inject } from '../../../../kernel/di';
+import { inject } from '../../../../kernel';
 import { Middleware } from '../middleware.decorator';
 import type {
   FunctionMiddleware,

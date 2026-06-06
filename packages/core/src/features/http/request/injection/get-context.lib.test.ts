@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { runInContext } from '../../../../kernel/internal';
+import { runInContext } from '../../../../kernel';
 
 import { getContext, setContext } from './get-context.lib';
 

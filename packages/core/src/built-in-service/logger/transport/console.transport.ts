@@ -1,4 +1,4 @@
-import { Injectable } from '../../../kernel/di';
+import { Injectable } from '../../../kernel';
 
 import type { LoggerTransport } from './transport.types';
 

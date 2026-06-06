@@ -1,6 +1,6 @@
 import { createMethodDecorator } from '@zeltjs/decorator-metadata';
 
-import { ZeltDecoratorUsageError } from '../../../kernel/errors';
+import { ZeltDecoratorUsageError } from '../../../kernel';
 import type { HttpMethod } from './routing-metadata.lib';
 
 /** @throws {E} */

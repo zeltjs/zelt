@@ -1,5 +1,4 @@
-import { registerAsLeaf } from '../../kernel/di';
-import { createInjectableClassDecorator } from '../../kernel/internal';
+import { createInjectableClassDecorator, registerAsLeaf } from '../../kernel';
 
 export const Config = createInjectableClassDecorator(
   { decorator: 'Config' } as const,

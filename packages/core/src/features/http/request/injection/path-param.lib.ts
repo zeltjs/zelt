@@ -1,8 +1,10 @@
 import {
+  createContextKey,
+  getInternal,
+  setInternal,
   ZeltContextNotAvailableError,
   ZeltRouteConfigurationError,
-} from '../../../../kernel/errors';
-import { createContextKey, getInternal, setInternal } from '../../../../kernel/internal';
+} from '../../../../kernel';
 
 type PathParams = Readonly<Record<string, string>>;
 

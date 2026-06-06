@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Config } from '../built-in-service/config';
+import { Config } from '../built-in-service';
 import type { Lifecycle } from '../index';
 import { Injectable, inject, LifecycleManager } from '../index';
 

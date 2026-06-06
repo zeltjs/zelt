@@ -3,7 +3,7 @@ import { createClassDecorator, createMethodDecorator } from '@zeltjs/decorator-m
 import { toUnknownCallable } from '@zeltjs/unsafe-type-lib';
 import { match, P } from 'ts-pattern';
 
-import { ZeltDecoratorUsageError } from '../../../kernel/errors';
+import { ZeltDecoratorUsageError } from '../../../kernel';
 import type { MiddlewareInput } from './middleware.types';
 
 const tc39ClassPattern = { kind: 'class' as const, metadata: P.nonNullable };

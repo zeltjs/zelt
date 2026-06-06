@@ -1,9 +1,7 @@
 import { Container, injectable } from '@needle-di/core';
 
-import { overrideConfig, resolveConfig } from '../built-in-service/config';
-import { LifecycleManager } from '../kernel';
-import { inject, resolve } from '../kernel/di';
-import { ZeltLifecycleStateError } from '../kernel/errors';
+import { overrideConfig, resolveConfig } from '../built-in-service';
+import { inject, LifecycleManager, resolve, ZeltLifecycleStateError } from '../kernel';
 import { ConfigRegistry } from './config-registry.lib';
 
 export type ReadyResult = {

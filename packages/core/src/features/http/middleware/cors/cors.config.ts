@@ -1,4 +1,4 @@
-import { Config } from '../../../../built-in-service/config';
+import { Config } from '../../../../built-in-service';
 
 @Config
 export class CorsConfig {
