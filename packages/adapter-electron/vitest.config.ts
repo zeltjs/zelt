@@ -1,3 +1,12 @@
-import { defineProject } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
+import { sharedConfig } from '../../vitest.shared';
 
-export default defineProject({});
+export default mergeConfig(
+  sharedConfig,
+  defineConfig({
+    test: {
+      name: '@zeltjs/adapter-electron',
+      include: ['src/**/*.test.ts'],
+    },
+  }),
+);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { toIpcRequest, toResponse } from './ipc-fetch';
+import { toIpcRequest, toResponse } from './renderer/ipc-fetch';
 
 describe('toIpcRequest', () => {
   it('converts GET request with no body', async () => {
