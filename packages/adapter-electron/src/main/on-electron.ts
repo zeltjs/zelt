@@ -5,10 +5,13 @@ import type {
   RuntimeApp,
 } from '@zeltjs/core';
 
+import { ElectronApp } from './electron-app';
 import { ElectronEnvAdaptor } from './electron-env.adaptor';
+import { setupIpcBridge } from './ipc-bridge';
 
 export type ElectronAppOptions = {
   readonly warmup?: boolean;
+  readonly ipcChannel?: string;
 };
 
 type HttpRuntimeApp = RuntimeApp<readonly ConfiguredFeature[]> & {
@@ -25,6 +28,8 @@ export type OnElectronApp = {
   readonly shutdown: () => Promise<void>;
 };
 
+const DEFAULT_IPC_CHANNEL = 'http://zelt-ipc';
+
 export const onElectron = async (
   app: HttpApp,
   options: ElectronAppOptions = {},
@@ -34,9 +39,17 @@ export const onElectron = async (
     warmup: options.warmup ?? true,
   });
 
+  const electronApp = await readyApp.get(ElectronApp);
+  const channel = options.ipcChannel ?? DEFAULT_IPC_CHANNEL;
+
+  const removeIpcHandler = setupIpcBridge(electronApp.ready.ipcMain, readyApp.http.fetch, channel);
+
   return {
     get: readyApp.get,
     fetch: readyApp.http.fetch,
-    shutdown: readyApp.shutdown,
+    shutdown: async () => {
+      removeIpcHandler();
+      await readyApp.shutdown();
+    },
   };
 };
