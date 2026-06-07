@@ -1,3 +1,5 @@
+import { match } from 'ts-pattern';
+
 import type { IpcBody, IpcFetchRequest, IpcFetchResponse } from '../shared/ipc.types';
 
 const BODY_FORBIDDEN_METHODS = new Set(['GET', 'HEAD']);
@@ -13,23 +15,21 @@ const TEXT_CONTENT_TYPE_PREFIXES = [
 const isTextContentType = (contentType: string): boolean =>
   TEXT_CONTENT_TYPE_PREFIXES.some((prefix) => contentType.startsWith(prefix));
 
-const toBody = (body: IpcBody): BodyInit | null => {
-  switch (body.kind) {
-    case 'none':
-      return null;
-    case 'text':
-      return body.value;
-    case 'arrayBuffer':
-      return body.value;
-  }
-};
+const toBody = (body: IpcBody): BodyInit | null =>
+  match(body)
+    .with({ kind: 'none' }, () => null)
+    .with({ kind: 'text' }, ({ value }) => value)
+    .with({ kind: 'arrayBuffer' }, ({ value }) => value)
+    .exhaustive();
 
-export const toRequest = (payload: IpcFetchRequest, baseUrl: string): Request =>
-  new Request(baseUrl + payload.path, {
+export const toRequest = (payload: IpcFetchRequest, baseUrl: string): Request => {
+  const headers: [string, string][] = payload.headers.map(([k, v]) => [k, v]);
+  return new Request(baseUrl + payload.path, {
     method: payload.method,
-    headers: payload.headers as [string, string][],
+    headers,
     body: BODY_FORBIDDEN_METHODS.has(payload.method) ? null : toBody(payload.body),
   });
+};
 
 export const toIpcResponse = async (
   response: Response,
@@ -61,7 +61,7 @@ export const toIpcResponse = async (
 };
 
 type IpcMainLike = {
-  handle(channel: string, listener: (event: unknown, ...args: unknown[]) => unknown): void;
+  handle(channel: string, listener: (event: unknown, payload: IpcFetchRequest) => unknown): void;
   removeHandler(channel: string): void;
 };
 
@@ -70,8 +70,7 @@ export const setupIpcBridge = (
   fetch: (request: Request) => Promise<Response>,
   channel: string,
 ): (() => void) => {
-  ipcMain.handle(channel, async (_event: unknown, ...args: unknown[]) => {
-    const payload = args[0] as IpcFetchRequest;
+  ipcMain.handle(channel, async (_event: unknown, payload: IpcFetchRequest) => {
     const request = toRequest(payload, channel);
     const response = await fetch(request);
     return toIpcResponse(response, payload.method);

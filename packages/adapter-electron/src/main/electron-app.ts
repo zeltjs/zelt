@@ -5,7 +5,7 @@ import type {
   BrowserWindowConstructorOptions,
   Dialog,
   IpcMain,
-  Menu as MenuType,
+  Menu,
   Protocol,
   Screen,
   Shell,
@@ -25,7 +25,7 @@ export type ElectronReady = {
   readonly shell: Pick<Shell, 'openExternal'>;
   readonly screen: Screen;
   readonly dialog: Dialog;
-  readonly Menu: typeof MenuType;
+  readonly Menu: typeof Menu;
   readonly createBrowserWindow: (options: BrowserWindowConstructorOptions) => BrowserWindow;
   readonly getAllWindows: () => BrowserWindow[];
   readonly fromWebContents: (webContents: WebContents) => BrowserWindow | null;
