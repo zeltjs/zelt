@@ -58,6 +58,16 @@ If you're using `@zeltjs/openapi` to generate OpenAPI specs, you also need `@val
 Check the [@valibot/to-json-schema releases](https://github.com/fabian-hiller/valibot/releases) for compatibility.
 :::
 
+:::info Important
+`validated()` is exported from `@zeltjs/validator-valibot`, **not** from `@zeltjs/core`. Make sure your import is:
+
+```typescript
+import { validated } from '@zeltjs/validator-valibot';
+```
+
+The `valibot` peer dependency must be `^1.0.0`. We test against `1.3.x`; using an older version may cause type inference issues (e.g., `[__zeltValidatedType]: unknown` instead of the inferred type).
+:::
+
 ## Basic Usage
 
 Use `validated()` with a Valibot schema to validate request bodies:
