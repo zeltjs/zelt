@@ -13,19 +13,37 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/main/index.d.ts",
-      "import": "./dist/main/index.js"
+      "import": {
+        "types": "./dist/main/index.d.ts",
+        "default": "./dist/main/index.js"
+      },
+      "require": {
+        "types": "./dist/main/index.d.cts",
+        "default": "./dist/main/index.cjs"
+      }
     },
     "./preload": {
-      "types": "./dist/preload/index.d.ts",
-      "import": "./dist/preload/index.js"
+      "import": {
+        "types": "./dist/preload/index.d.ts",
+        "default": "./dist/preload/index.js"
+      },
+      "require": {
+        "types": "./dist/preload/index.d.cts",
+        "default": "./dist/preload/index.cjs"
+      }
     },
     "./renderer": {
-      "types": "./dist/renderer/index.d.ts",
-      "import": "./dist/renderer/index.js"
+      "import": {
+        "types": "./dist/renderer/index.d.ts",
+        "default": "./dist/renderer/index.js"
+      },
+      "require": {
+        "types": "./dist/renderer/index.d.cts",
+        "default": "./dist/renderer/index.cjs"
+      }
     }
   },
-  "main": "./dist/main/index.js",
+  "main": "./dist/main/index.cjs",
   "files": [
     "dist"
   ],

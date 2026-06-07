@@ -17,7 +17,7 @@ export default defineConfig({
     'src/adapters/bun.ts',
     'src/adapters/node.ts',
   ],
-  format: ['esm'],
+  format: ['esm', 'cjs'],
   dts: true,
   clean: true,
   fixedExtension: false,
