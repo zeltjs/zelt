@@ -18,6 +18,10 @@ export class SchedulerFeature extends Feature<'schedulers', SchedulerCapabilitie
     super();
   }
 
+  readonly featureClasses = (): readonly SchedulerClass[] => {
+    return this.schedulers;
+  };
+
   readonly staticCapabilities = (): Record<never, never> => {
     return {};
   };

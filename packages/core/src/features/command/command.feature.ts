@@ -17,6 +17,10 @@ export class CommandFeature extends Feature<'commands', CommandCapabilities> {
     super();
   }
 
+  readonly featureClasses = (): readonly CommandClass[] => {
+    return this.commands;
+  };
+
   readonly staticCapabilities = (): Record<never, never> => {
     return {};
   };

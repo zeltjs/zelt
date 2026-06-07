@@ -28,6 +28,7 @@ export const eventbus = (
   opts: EventBusOptions,
 ): ConfiguredFeature<'eventbus', EventBusCapabilities> => ({
   key: 'eventbus',
+  featureClasses: () => [opts.adaptor, ...(opts.handlers ?? [])],
   staticCapabilities: () => ({}),
   createCapabilities: async (runtime) => {
     for (const handler of opts.handlers ?? []) {

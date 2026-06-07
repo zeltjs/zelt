@@ -37,6 +37,7 @@ describe('scheduler feature', () => {
   it('returns a ConfiguredFeature with key "schedulers"', () => {
     const feature = scheduler([TestScheduler]);
     expect(feature.key).toBe('schedulers');
+    expect(feature.featureClasses()).toEqual([TestScheduler]);
     expect(typeof feature.createCapabilities).toBe('function');
   });
 

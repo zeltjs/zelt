@@ -72,7 +72,17 @@ describe('eventbus feature', () => {
   it('returns a ConfiguredFeature with key "eventbus"', () => {
     const feature = eventbus({ adaptor: MemoryEventBusAdaptor });
     expect(feature.key).toBe('eventbus');
+    expect(feature.featureClasses()).toEqual([MemoryEventBusAdaptor]);
     expect(typeof feature.createCapabilities).toBe('function');
+  });
+
+  it('returns adaptor and handlers as feature classes', () => {
+    const feature = eventbus({
+      adaptor: MemoryEventBusAdaptor,
+      handlers: [ConfigAwareEventBusHandler],
+    });
+
+    expect(feature.featureClasses()).toEqual([MemoryEventBusAdaptor, ConfigAwareEventBusHandler]);
   });
 
   it('resolves adaptor and handlers after config binding and starts pending lifecycle', async () => {

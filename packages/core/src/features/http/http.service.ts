@@ -3,7 +3,6 @@ import type { Hono } from 'hono';
 import { Injectable, inject, LifecycleManager, resolve } from '../../kernel';
 import { DefaultErrorHandler } from './error/default.error-handler';
 import type { ControllerClass, HttpChildOptions, HttpOptions } from './http.types';
-import { collectAllControllers } from './http-children.lib';
 import { createErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
 import type {
@@ -13,7 +12,7 @@ import type {
 } from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import type { ControllerRouteInfo } from './routing';
-import { buildRoutes, warmupControllers } from './routing';
+import { buildRoutes } from './routing';
 
 export type { HttpChildOptions, HttpOptions } from './http.types';
 
@@ -62,18 +61,6 @@ export class HttpService {
     } catch (cause) {
       throw new Error('HttpService buildRouter failed', { cause });
     }
-  }
-
-  /** @throws {ZeltReadyFailedError | ZeltLifecycleStateError} */
-  async warmupControllers(options: HttpOptions): Promise<void> {
-    await warmupControllers(
-      collectAllControllers(options),
-      {
-        get: <T extends object>(cls: new (...args: never[]) => T): T =>
-          resolve(this.container, cls),
-      },
-      this.lifecycleManager,
-    );
   }
 
   /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */

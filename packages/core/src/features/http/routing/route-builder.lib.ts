@@ -366,15 +366,3 @@ export const buildRoutes = (options: BuildRoutesOptions): void => {
     registerRoute(options.hono, ctx, route, options.globalMiddlewares ?? []);
   }
 };
-
-/** @throws {ZeltReadyFailedError | ZeltLifecycleStateError} */
-export const warmupControllers = async (
-  controllers: readonly ControllerClass[],
-  resolver: ResolverHandle,
-  lifecycle: LifecycleManager,
-): Promise<void> => {
-  for (const cls of controllers) {
-    resolver.get(cls);
-  }
-  await lifecycle.startupPending();
-};
