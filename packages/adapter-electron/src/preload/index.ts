@@ -1,1 +1,2 @@
-// placeholder — will be populated in Task 7
+export type { IpcFetchRequest, IpcFetchResponse, IpcSender } from '../shared/ipc.types';
+export { type ExposeIpcOptions, exposeIpc } from './expose-ipc';
