@@ -43,11 +43,6 @@
   "peerDependencies": {
     "electron": ">=28.0.0"
   },
-  "peerDependenciesMeta": {
-    "electron": {
-      "optional": true
-    }
-  },
   "volta": {
     "extends": "../../package.json"
   }
