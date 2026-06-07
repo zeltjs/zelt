@@ -233,6 +233,34 @@ export default tseslint.config(
     },
   },
   {
+    // Preload script runs in CJS context and must use require() for electron.
+    // process.contextIsolated is a preload-only API exposed by Electron.
+    files: ['packages/adapter-electron/src/preload/expose-ipc.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-process-access': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+    },
+  },
+  {
+    // Electron adapter bridges our string-based interface to Electron's overloaded
+    // event/path APIs. Type assertions are unavoidable at this API boundary.
+    files: [
+      'packages/adapter-electron/src/main/electron-app.ts',
+      'packages/adapter-electron/src/main/window-runtime.ts',
+    ],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
+    // ipcFetch reads the IPC sender from globalThis (set by the preload script).
+    // Reflect.get returns unknown; after a typeof guard the call returns any.
+    files: ['packages/adapter-electron/src/renderer/ipc-fetch.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
+  {
     // NodeCliConfig/BunCliConfig provides process.argv/cwd access for CLI applications
     files: [
       'packages/adapter-node/src/node-cli.config.ts',

@@ -53,7 +53,8 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@zeltjs/core": "workspace:*"
+    "@zeltjs/core": "workspace:*",
+    "ts-pattern": "5.7.1"
   },
   "devDependencies": {
     "@types/node": "catalog:"

@@ -25,8 +25,8 @@ export type WindowHandle = {
 };
 
 export type WindowLoadTarget =
-  | { readonly type: 'file'; readonly path: string }
-  | { readonly type: 'url'; readonly url: string };
+  | { type: 'file'; readonly path: string }
+  | { type: 'url'; readonly url: string };
 
 export type WindowDefinition = {
   readonly id: WindowId;

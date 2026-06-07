@@ -1,4 +1,4 @@
-import type { IpcBody, IpcFetchRequest, IpcFetchResponse, IpcSender } from '../shared/ipc.types';
+import type { IpcBody, IpcFetchRequest, IpcFetchResponse } from '../shared/ipc.types';
 
 const TEXT_CONTENT_TYPE_PREFIXES = [
   'text/',
@@ -51,10 +51,11 @@ export const toResponse = (payload: IpcFetchResponse): Response => {
     body = payload.body.value;
   }
 
+  const headers: [string, string][] = payload.headers.map(([k, v]) => [k, v]);
   return new Response(body, {
     status: payload.status,
     statusText: payload.statusText,
-    headers: payload.headers as [string, string][],
+    headers,
   });
 };
 
@@ -73,15 +74,14 @@ export const ipcFetch = async (
   options?: IpcFetchOptions,
 ): Promise<Response> => {
   const channel = options?.channel ?? DEFAULT_IPC_CHANNEL;
-  const sender = Reflect.get(globalThis, channel) as IpcSender | undefined;
+  const senderCandidate: unknown = Reflect.get(globalThis, channel);
 
-  if (!sender) {
+  if (typeof senderCandidate !== 'function') {
     throw new Error(
       `IPC sender not found for channel "${channel}". Did you call exposeIpc() in the preload script?`,
     );
   }
 
   const ipcRequest = await toIpcRequest(input, init);
-  const ipcResponse = await sender(ipcRequest);
-  return toResponse(ipcResponse);
+  return toResponse(await senderCandidate.call(null, ipcRequest));
 };

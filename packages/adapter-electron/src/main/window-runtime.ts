@@ -13,7 +13,7 @@ export const createWindowHandle = (win: BrowserWindow): WindowHandle => ({
   isDestroyed: () => win.isDestroyed(),
   getTitle: () => win.getTitle(),
   getBounds: () => win.getBounds(),
-  setBounds: (bounds) => win.setBounds(bounds as Electron.Rectangle),
+  setBounds: (bounds) => win.setBounds(bounds),
   loadFile: (path) => {
     void win.loadFile(path);
   },

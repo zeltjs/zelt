@@ -243,6 +243,9 @@ importers:
       electron:
         specifier: '>=28.0.0'
         version: 42.0.1
+      ts-pattern:
+        specifier: 5.7.1
+        version: 5.7.1
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -16740,7 +16743,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@types/node@24.12.4)(@vitest/coverage-v8@4.1.5)(vite@8.0.10(@types/node@24.12.4)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.9.0))
+      vitest: 4.1.5(@types/node@22.19.17)(@vitest/coverage-v8@4.1.5)(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.9.0))
 
   '@vitest/expect@4.1.5':
     dependencies:
