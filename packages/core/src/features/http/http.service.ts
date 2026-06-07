@@ -1,10 +1,9 @@
-import { Container, InjectionToken } from '@needle-di/core';
+import { Container } from '@needle-di/core';
 import type { Hono } from 'hono';
-import type { Lifecycle } from '../../kernel';
 import { Injectable, inject, LifecycleManager, resolve } from '../../kernel';
 import { DefaultErrorHandler } from './error/default.error-handler';
 import type { ControllerClass, HttpChildOptions, HttpOptions } from './http.types';
-import { collectAllControllerMetadata, collectAllControllers } from './http-children.lib';
+import { collectAllControllers } from './http-children.lib';
 import { createErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
 import type {
@@ -22,7 +21,7 @@ export type HttpMetadata = {
   readonly controllers: readonly ControllerRouteInfo[];
 };
 
-export const HTTP_OPTIONS = new InjectionToken<HttpOptions>('HTTP_OPTIONS');
+export type HttpRouter = Hono;
 
 type RouteHandler = (c: RequestContext) => Promise<Response>;
 
@@ -50,22 +49,25 @@ type _HonoInstanceCheck = HonoInstance extends {
   : never;
 
 @Injectable()
-export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
-  private readonly ready;
-
-  /** @throws {ZeltNotImplementedError | ZeltLifecycleStateError} */
+export class HttpService {
   constructor(
-    private readonly options: HttpOptions = inject(HTTP_OPTIONS),
     private readonly container: Container = inject(Container),
     private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
-  ) {
-    this.ready = this.lifecycleManager.register(this);
+  ) {}
+
+  /** @throws {Error} */
+  async buildRouter(options: HttpOptions): Promise<HttpRouter> {
+    try {
+      return await this.initializeHono(options);
+    } catch (cause) {
+      throw new Error('HttpService buildRouter failed', { cause });
+    }
   }
 
   /** @throws {ZeltReadyFailedError | ZeltLifecycleStateError} */
-  async warmupControllers(): Promise<void> {
+  async warmupControllers(options: HttpOptions): Promise<void> {
     await warmupControllers(
-      collectAllControllers(this.options),
+      collectAllControllers(options),
       {
         get: <T extends object>(cls: new (...args: never[]) => T): T =>
           resolve(this.container, cls),
@@ -74,17 +76,8 @@ export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
     );
   }
 
-  /** @throws {Error} */
-  async startup(): Promise<{ hono: HonoInstance }> {
-    try {
-      return { hono: await this.initializeHono() };
-    } catch (cause) {
-      throw new Error('HttpService startup failed', { cause });
-    }
-  }
-
   /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-  private async initializeHono(): Promise<HonoInstance> {
+  private async initializeHono(options: HttpOptions): Promise<HonoInstance> {
     const Hono = await this.loadHonoConstructor();
     const fallbackHandler = resolve(this.container, DefaultErrorHandler);
     const resolver = {
@@ -95,13 +88,13 @@ export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
       CorsMiddleware,
       SecureHeadersMiddleware,
     ];
-    const rootMiddlewares = [...securityMiddlewares, ...(this.options.middlewares ?? [])];
+    const rootMiddlewares = [...securityMiddlewares, ...(options.middlewares ?? [])];
 
     const hono = this.buildHonoInstance(
-      this.options.controllers,
+      options.controllers,
       rootMiddlewares,
-      this.options.errorHandlers ?? [],
-      this.options.children ?? [],
+      options.errorHandlers ?? [],
+      options.children ?? [],
       fallbackHandler,
       resolver,
       Hono,
@@ -153,28 +146,5 @@ export class HttpService implements Lifecycle<{ hono: HonoInstance }> {
     }
 
     return hono;
-  }
-
-  async shutdown(): Promise<void> {}
-
-  /** @throws {ZeltLifecycleStateError} */
-  async fetch(req: Request): Promise<Response> {
-    return this.ready.hono.fetch(req);
-  }
-
-  request(input: string | Request, init?: RequestInit): Promise<Response> {
-    const req =
-      typeof input === 'string' ? new Request(new URL(input, 'http://localhost'), init) : input;
-    return this.fetch(req);
-  }
-
-  getControllers(): readonly ControllerClass[] {
-    return collectAllControllers(this.options);
-  }
-
-  getMetadata(): HttpMetadata {
-    return {
-      controllers: collectAllControllerMetadata(this.options),
-    };
   }
 }

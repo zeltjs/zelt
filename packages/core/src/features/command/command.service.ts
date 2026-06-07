@@ -1,9 +1,7 @@
-import { Container, InjectionToken } from '@needle-di/core';
-import type { Lifecycle } from '../../kernel';
+import { Container } from '@needle-di/core';
 import {
   Injectable,
   inject,
-  LifecycleManager,
   resolve,
   ZeltAppConfigurationError,
   ZeltCommandExecutionError,
@@ -15,31 +13,16 @@ import type { ExecResult } from './exec-result.types';
 import { parseArgv, runInCommandContext } from './input';
 import type { SchemaDefinition } from './input/command-schema.types';
 
-export const COMMAND_OPTIONS = new InjectionToken<readonly CommandClass[]>('COMMAND_OPTIONS');
+export type CommandRegistry = ReadonlyMap<string, CommandClass>;
 
 @Injectable()
-export class CommandService implements Lifecycle {
-  private readonly commandMap = new Map<string, CommandClass>();
-
-  /** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError} */
-  constructor(
-    private readonly commands: readonly CommandClass[] = inject(COMMAND_OPTIONS),
-    private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
-    private readonly container: Container = inject(Container),
-  ) {
-    this.lifecycleManager.register(this);
-    this.validateAndRegisterCommands();
-  }
-
-  async startup(): Promise<void> {}
-
-  async shutdown(): Promise<void> {
-    this.commandMap.clear();
-  }
+export class CommandService {
+  constructor(private readonly container: Container = inject(Container)) {}
 
   /** @throws {ZeltDecoratorUsageError | ZeltAppConfigurationError} */
-  private validateAndRegisterCommands(): void {
-    for (const cls of this.commands) {
+  buildRegistry(commands: readonly CommandClass[]): CommandRegistry {
+    const registry = new Map<string, CommandClass>();
+    for (const cls of commands) {
       const meta = getCommandMetadata(cls);
       if (!meta) {
         throw new ZeltDecoratorUsageError({
@@ -48,19 +31,33 @@ export class CommandService implements Lifecycle {
           targetName: cls.name,
         });
       }
-      if (this.commandMap.has(meta.name)) {
+      if (registry.has(meta.name)) {
         throw new ZeltAppConfigurationError({ reason: 'duplicate_command', details: meta.name });
       }
-      this.commandMap.set(meta.name, cls);
+      registry.set(meta.name, cls);
     }
+    return registry;
   }
 
-  hasCommand(name: string): boolean {
-    return this.commandMap.has(name);
-  }
+  async exec(registry: CommandRegistry, argv: readonly string[]): Promise<ExecResult> {
+    const commandName = argv[0];
 
-  getCommands(): ReadonlyMap<string, CommandClass> {
-    return this.commandMap;
+    if (!commandName) {
+      return {
+        exitCode: 1,
+        reason: new ZeltCommandExecutionError({ reason: 'no_command_specified' }),
+      };
+    }
+
+    const CommandClass = registry.get(commandName);
+    if (!CommandClass) {
+      return {
+        exitCode: 1,
+        reason: new ZeltCommandExecutionError({ reason: 'command_not_found', commandName }),
+      };
+    }
+
+    return this.runCommand(CommandClass, commandName, argv.slice(1));
   }
 
   private async runCommand(
@@ -95,26 +92,5 @@ export class CommandService implements Lifecycle {
         reason: new ZeltCommandExecutionError({ reason: 'run_error', commandName, details }, cause),
       };
     }
-  }
-
-  async exec(argv: readonly string[]): Promise<ExecResult> {
-    const commandName = argv[0];
-
-    if (!commandName) {
-      return {
-        exitCode: 1,
-        reason: new ZeltCommandExecutionError({ reason: 'no_command_specified' }),
-      };
-    }
-
-    const CommandClass = this.commandMap.get(commandName);
-    if (!CommandClass) {
-      return {
-        exitCode: 1,
-        reason: new ZeltCommandExecutionError({ reason: 'command_not_found', commandName }),
-      };
-    }
-
-    return this.runCommand(CommandClass, commandName, argv.slice(1));
   }
 }

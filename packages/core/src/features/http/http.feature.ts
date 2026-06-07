@@ -1,8 +1,7 @@
-import type { Container } from '@needle-di/core';
 import type { FeatureRuntime } from '../../app';
 import { Feature } from '../../app';
 import type { HttpMetadata, HttpOptions } from './http.service';
-import { HTTP_OPTIONS, HttpService } from './http.service';
+import { HttpService } from './http.service';
 import type { ControllerClass } from './http.types';
 import { collectAllControllerMetadata, collectAllControllers } from './http-children.lib';
 import { collectRoutes } from './routing';
@@ -33,10 +32,6 @@ export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCap
     this.metadata = { controllers: collectAllControllerMetadata(opts) };
   }
 
-  readonly bind = (container: Container): void => {
-    container.bind({ provide: HTTP_OPTIONS, useValue: this.opts });
-  };
-
   readonly staticCapabilities = (): HttpStaticCapabilities => {
     return {
       getControllers: () => this.controllers,
@@ -46,15 +41,20 @@ export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCap
 
   readonly createCapabilities = async (runtime: FeatureRuntime): Promise<HttpCapabilities> => {
     const service = await runtime.get(HttpService);
+    const router = await service.buildRouter(this.opts);
     return {
-      fetch: (req) => service.fetch(req),
-      request: (input, init) => service.request(input, init),
+      fetch: async (req) => router.fetch(req),
+      request: async (input, init) => {
+        const req =
+          typeof input === 'string' ? new Request(new URL(input, 'http://localhost'), init) : input;
+        return router.fetch(req);
+      },
     };
   };
 
   override readonly warmup = async (runtime: FeatureRuntime): Promise<void> => {
     const service = await runtime.get(HttpService);
-    await service.warmupControllers();
+    await service.warmupControllers(this.opts);
   };
 }
 

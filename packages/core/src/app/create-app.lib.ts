@@ -51,12 +51,6 @@ export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
 
 // ─── Helpers ───
 
-const bindFeatures = (container: Container, features: readonly ConfiguredFeature[]): void => {
-  for (const feature of features) {
-    feature.bind(container);
-  }
-};
-
 const reservedFeatureKeys = new Set([
   '__proto__',
   'createRuntime',
@@ -145,8 +139,6 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
     ...staticCaps,
     createRuntime: async (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> => {
       const container = new Container();
-
-      bindFeatures(container, features);
 
       const runtime = container.get(AppRuntime);
       const configRegistry = container.get(ConfigRegistry);
