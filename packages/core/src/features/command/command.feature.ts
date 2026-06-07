@@ -1,7 +1,6 @@
-import type { Container } from '@needle-di/core';
 import type { FeatureRuntime } from '../../app';
 import { Feature } from '../../app';
-import { COMMAND_OPTIONS, CommandService } from './command.service';
+import { CommandService } from './command.service';
 import type { CommandClass } from './command.types';
 import type { ExecResult } from './exec-result.types';
 
@@ -18,20 +17,17 @@ export class CommandFeature extends Feature<'commands', CommandCapabilities> {
     super();
   }
 
-  readonly bind = (container: Container): void => {
-    container.bind({ provide: COMMAND_OPTIONS, useValue: this.commands });
-  };
-
   readonly staticCapabilities = (): Record<never, never> => {
     return {};
   };
 
   readonly createCapabilities = async (runtime: FeatureRuntime): Promise<CommandCapabilities> => {
     const service = await runtime.get(CommandService);
+    const registry = service.buildRegistry(this.commands);
     return {
-      hasCommand: (name) => service.hasCommand(name),
-      getCommands: () => service.getCommands(),
-      execCommand: (argv) => service.exec(argv),
+      hasCommand: (name) => registry.has(name),
+      getCommands: () => registry,
+      execCommand: (argv) => service.exec(registry, argv),
     };
   };
 }

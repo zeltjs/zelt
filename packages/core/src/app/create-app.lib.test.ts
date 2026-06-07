@@ -10,14 +10,12 @@ const createStubFeature = <TKey extends string, TCaps extends object>(
   caps: TCaps,
 ): ConfiguredFeature<TKey, TCaps> => ({
   key,
-  bind: vi.fn(),
   staticCapabilities: () => ({}),
   createCapabilities: () => caps,
 });
 
 const createEmptyFeature = (key: string): ConfiguredFeature<string, object> => ({
   key,
-  bind: vi.fn(),
   staticCapabilities: () => ({}),
   createCapabilities: () => ({}),
 });
@@ -25,7 +23,6 @@ const createEmptyFeature = (key: string): ConfiguredFeature<string, object> => (
 class TypedFeature extends Feature<'typed', { readonly value: () => string }> {
   readonly key = 'typed' as const;
 
-  bind = vi.fn();
   staticCapabilities = () => ({});
   createCapabilities = () => ({ value: () => 'ok' });
 }
@@ -33,7 +30,6 @@ class TypedFeature extends Feature<'typed', { readonly value: () => string }> {
 class UserFeature extends Feature<'userFeature', { readonly run: () => number }> {
   readonly key = 'userFeature' as const;
 
-  bind = vi.fn();
   staticCapabilities = () => ({});
   createCapabilities = () => ({ run: () => 123 });
 }
@@ -41,7 +37,6 @@ class UserFeature extends Feature<'userFeature', { readonly run: () => number }>
 class OtherFeature extends Feature<'otherFeature', { readonly other: () => string }> {
   readonly key = 'otherFeature' as const;
 
-  bind = vi.fn();
   staticCapabilities = () => ({});
   createCapabilities = () => ({ other: () => 'no' });
 }
@@ -50,14 +45,12 @@ const duplicateStaticCapabilities = vi.fn(() => ({}));
 
 class DuplicateA extends Feature<'dup', { readonly a: () => string }> {
   readonly key = 'dup' as const;
-  bind = vi.fn();
   staticCapabilities = duplicateStaticCapabilities;
   createCapabilities = () => ({ a: () => 'a' });
 }
 
 class DuplicateB extends Feature<'dup', { readonly b: () => string }> {
   readonly key = 'dup' as const;
-  bind = vi.fn();
   staticCapabilities = () => ({});
   createCapabilities = () => ({ b: () => 'b' });
 }
@@ -66,7 +59,6 @@ const reservedStaticCapabilities = vi.fn(() => ({}));
 
 class ReservedCreateRuntimeFeature extends Feature<'createRuntime', { readonly run: () => void }> {
   readonly key = 'createRuntime' as const;
-  bind = vi.fn();
   staticCapabilities = reservedStaticCapabilities;
   createCapabilities = () => ({ run: () => {} });
 }

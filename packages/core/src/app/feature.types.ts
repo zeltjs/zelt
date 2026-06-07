@@ -1,4 +1,3 @@
-import type { Container } from '@needle-di/core';
 import type {
   KeyedMethodValue,
   ObjectFromKeyedValues,
@@ -17,7 +16,6 @@ export abstract class Feature<
   TStaticCaps extends object = EmptyCapabilities,
 > {
   abstract readonly key: TKey;
-  abstract bind(container: Container): void;
   abstract staticCapabilities(): TStaticCaps;
   abstract createCapabilities(runtime: FeatureRuntime): TReadyCaps | Promise<TReadyCaps>;
   warmup?(runtime: FeatureRuntime): Promise<void> | void;
