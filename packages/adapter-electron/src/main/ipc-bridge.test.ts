@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { toIpcResponse, toRequest } from '../ipc-bridge';
+import { toIpcResponse, toRequest } from './ipc-bridge';
 
 describe('toRequest', () => {
   it('converts IpcFetchRequest to Request with correct URL', () => {
