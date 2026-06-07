@@ -10,7 +10,6 @@ type NoCapabilities = Record<never, never>;
 
 const warmupProbe = (): ConfiguredFeature<'warmupProbe', NoCapabilities> => ({
   key: 'warmupProbe',
-  bind: () => undefined,
   staticCapabilities: () => ({}),
   createCapabilities: () => ({}),
   warmup: async (runtime) => {
