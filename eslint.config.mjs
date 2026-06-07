@@ -225,7 +225,7 @@ export default tseslint.config(
     files: [
       // EnvAdaptor implementations in adapters read process.env directly
       'packages/adapter-node/src/process-env.adaptor.ts',
-      'packages/adapter-electron/src/electron-env.adaptor.ts',
+      'packages/adapter-electron/src/main/electron-env.adaptor.ts',
       'packages/adapter-lambda/src/lambda-env.adaptor.ts',
     ],
     rules: {

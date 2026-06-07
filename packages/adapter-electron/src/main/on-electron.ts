@@ -19,7 +19,7 @@ type HttpApp = {
   readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<HttpRuntimeApp>;
 };
 
-export type ElectronApp = {
+export type OnElectronApp = {
   readonly get: HttpRuntimeApp['get'];
   readonly fetch: (request: Request) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
@@ -28,7 +28,7 @@ export type ElectronApp = {
 export const onElectron = async (
   app: HttpApp,
   options: ElectronAppOptions = {},
-): Promise<ElectronApp> => {
+): Promise<OnElectronApp> => {
   const readyApp = await app.createRuntime({
     fallbackConfigs: [ElectronEnvAdaptor],
     warmup: options.warmup ?? true,
