@@ -16,7 +16,10 @@ type ContextStore = Record<symbol, unknown>;
 
 const storage = new AsyncLocalStorage<ContextStore>();
 
-export const runInContext = <T>(fn: () => T): T => storage.run({}, fn);
+export const runInContext = <T>(fn: () => T): T => {
+  const parent = storage.getStore();
+  return storage.run({ ...parent }, fn);
+};
 
 /** @throws {ZeltContextNotAvailableError} */
 export const getInternal = <T>(key: ContextKey<T>): T | undefined => {

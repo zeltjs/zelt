@@ -31,6 +31,7 @@ export type OnElectronApp = {
 
 const DEFAULT_IPC_CHANNEL = 'http://zelt-ipc';
 
+/** @throws {ZeltContextNotAvailableError} */
 export const onElectron = async (
   app: HttpApp,
   options: ElectronAppOptions = {},

@@ -50,6 +50,33 @@ describe('context-key', () => {
       expect(b).toBe('B');
     });
 
+    it('inherits parent context in nested runInContext', () => {
+      const OUTER = createContextKey<string>('test:outer');
+      const INNER = createContextKey<string>('test:inner');
+      runInContext(() => {
+        setInternal(OUTER, 'from-parent');
+        runInContext(() => {
+          expect(getInternal(OUTER)).toBe('from-parent');
+          setInternal(INNER, 'from-child');
+          expect(getInternal(INNER)).toBe('from-child');
+        });
+        expect(getInternal(OUTER)).toBe('from-parent');
+        expect(getInternal(INNER)).toBeUndefined();
+      });
+    });
+
+    it('does not leak inner setInternal to outer context', () => {
+      const KEY = createContextKey<string>('test:leak');
+      runInContext(() => {
+        setInternal(KEY, 'outer');
+        runInContext(() => {
+          setInternal(KEY, 'inner');
+          expect(getInternal(KEY)).toBe('inner');
+        });
+        expect(getInternal(KEY)).toBe('outer');
+      });
+    });
+
     it('isolates different keys', () => {
       const KEY1 = createContextKey<string>('test:key1');
       const KEY2 = createContextKey<number>('test:key2');

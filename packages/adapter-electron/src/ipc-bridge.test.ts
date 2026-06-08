@@ -1,6 +1,7 @@
+import type { IpcMainInvokeEvent } from 'electron';
 import { describe, expect, it } from 'vitest';
-
-import { toIpcResponse, toRequest } from './main/ipc-bridge';
+import { ipcEvent, setupIpcBridge, toIpcResponse, toRequest } from './main/ipc-bridge';
+import type { IpcFetchRequest } from './shared/ipc.types';
 
 describe('toRequest', () => {
   it('converts IpcFetchRequest to Request with correct URL', () => {
@@ -154,5 +155,89 @@ describe('toIpcResponse', () => {
     const ipcResponse = await toIpcResponse(response, 'GET');
 
     expect(ipcResponse.body.kind).toBe('arrayBuffer');
+  });
+});
+
+describe('setupIpcBridge', () => {
+  const createFakeIpcMain = () => {
+    let registeredHandler: (event: IpcMainInvokeEvent, payload: IpcFetchRequest) => unknown = () =>
+      undefined;
+    return {
+      ipcMain: {
+        handle: (
+          _channel: string,
+          listener: (event: IpcMainInvokeEvent, payload: IpcFetchRequest) => unknown,
+        ) => {
+          registeredHandler = listener;
+        },
+        removeHandler: () => {},
+      },
+      invoke: (event: IpcMainInvokeEvent, payload: IpcFetchRequest) =>
+        registeredHandler(event, payload),
+    };
+  };
+
+  it('makes IpcMainInvokeEvent accessible via ipcEvent() during fetch', async () => {
+    const fakeEvent = { sender: { id: 42 } } as unknown as IpcMainInvokeEvent;
+    let capturedEvent: IpcMainInvokeEvent | undefined;
+
+    const fakeFetch = async (_request: Request): Promise<Response> => {
+      capturedEvent = ipcEvent();
+      return new Response('ok');
+    };
+
+    const { ipcMain, invoke } = createFakeIpcMain();
+    setupIpcBridge(ipcMain, fakeFetch, 'http://test');
+
+    await invoke(fakeEvent, {
+      method: 'GET',
+      path: '/api/test',
+      headers: [],
+      body: { kind: 'none' },
+    });
+
+    expect(capturedEvent).toBe(fakeEvent);
+  });
+
+  it('isolates ipcEvent across concurrent requests', async () => {
+    const events: unknown[] = [];
+
+    const fakeFetch = async (_request: Request): Promise<Response> => {
+      await new Promise((r) => setTimeout(r, 5));
+      events.push(ipcEvent());
+      return new Response('ok');
+    };
+
+    const { ipcMain, invoke } = createFakeIpcMain();
+    setupIpcBridge(ipcMain, fakeFetch, 'http://test');
+
+    const payload: IpcFetchRequest = {
+      method: 'GET',
+      path: '/test',
+      headers: [],
+      body: { kind: 'none' },
+    };
+
+    await Promise.all([
+      invoke({ id: 'event-a' } as unknown as IpcMainInvokeEvent, payload),
+      invoke({ id: 'event-b' } as unknown as IpcMainInvokeEvent, payload),
+    ]);
+
+    expect(events).toEqual([{ id: 'event-a' }, { id: 'event-b' }]);
+  });
+
+  it('returns cleanup function that removes handler', () => {
+    let removedChannel: string | undefined;
+    const fakeIpcMain = {
+      handle: () => {},
+      removeHandler: (channel: string) => {
+        removedChannel = channel;
+      },
+    } as unknown as Parameters<typeof setupIpcBridge>[0];
+
+    const cleanup = setupIpcBridge(fakeIpcMain, async () => new Response('ok'), 'http://test');
+    cleanup();
+
+    expect(removedChannel).toBe('http://test');
   });
 });
