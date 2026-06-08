@@ -102,7 +102,7 @@ export default tseslint.config(
       'zelt/double-dot-naming': [
         'error',
         {
-          allowedFiles: ['main.ts', 'cli.ts','ipc-bridge.ts','ipc-fetch.ts','expose-ipc.ts'],
+          allowedFiles: ['main.ts', 'cli.ts', 'ipc-bridge.ts', 'ipc-fetch.ts', 'expose-ipc.ts'],
           allowedPatterns: ['on-*.ts'],
         },
       ],

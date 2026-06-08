@@ -1,6 +1,7 @@
 import type { Lifecycle, ReadyValue } from '@zeltjs/core';
 import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
 import type {
+  App,
   BrowserWindow,
   BrowserWindowConstructorOptions,
   Dialog,
@@ -13,16 +14,10 @@ import type {
 } from 'electron';
 
 export type ElectronReady = {
-  readonly app: {
-    readonly getPath: (name: string) => string;
-    readonly getVersion: () => string;
-    readonly isPackaged: boolean;
-    readonly quit: () => void;
-    readonly on: (event: string, handler: (...args: unknown[]) => void) => void;
-  };
+  readonly app: App;
   readonly ipcMain: IpcMain;
   readonly protocol: Protocol;
-  readonly shell: Pick<Shell, 'openExternal'>;
+  readonly shell: Shell;
   readonly screen: Screen;
   readonly dialog: Dialog;
   readonly Menu: typeof Menu;
@@ -56,18 +51,10 @@ export class ElectronAdaptor implements Lifecycle<ElectronReady> {
     await app.whenReady();
 
     return {
-      app: {
-        getPath: (name: string) => app.getPath(name as Parameters<typeof app.getPath>[0]),
-        getVersion: () => app.getVersion(),
-        isPackaged: app.isPackaged,
-        quit: () => app.quit(),
-        on: (event: string, handler: (...args: unknown[]) => void) => {
-          app.on(event as 'ready', handler);
-        },
-      },
+      app,
       ipcMain,
       protocol,
-      shell: { openExternal: (url: string) => shell.openExternal(url) },
+      shell,
       screen,
       dialog,
       Menu,

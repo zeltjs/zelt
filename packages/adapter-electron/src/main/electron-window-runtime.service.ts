@@ -1,14 +1,12 @@
-import {inject, Injectable} from '@zeltjs/core';
-import type {BrowserWindow} from 'electron';
-
-import type {WindowDefinition, WindowHandle, WindowRuntime} from './window.types';
-import {match} from "ts-pattern";
-import {ElectronAdaptor} from "./electron.adaptor";
+import { Injectable, inject } from '@zeltjs/core';
+import type { BrowserWindow } from 'electron';
+import { match } from 'ts-pattern';
+import { ElectronAdaptor } from './electron.adaptor';
+import type { WindowDefinition, WindowHandle, WindowRuntime } from './window.types';
 
 @Injectable()
 export class ElectronWindowRuntimeService implements WindowRuntime {
-  constructor(private readonly electronApp: ElectronAdaptor = inject(ElectronAdaptor)) {
-  }
+  constructor(private readonly electronApp: ElectronAdaptor = inject(ElectronAdaptor)) {}
 
   open(definition: WindowDefinition): WindowHandle {
     const handle = this.createWindowHandle(
@@ -43,20 +41,20 @@ export class ElectronWindowRuntimeService implements WindowRuntime {
       },
       on: (event, handler) => {
         match(event)
-          .with('closed', e => win.on(e, handler))
-          .with('ready-to-show', e => win.on(e, handler))
+          .with('closed', (e) => win.on(e, handler))
+          .with('ready-to-show', (e) => win.on(e, handler))
           .exhaustive();
       },
       removeListener: (event, handler) => {
         match(event)
-          .with('closed', e => win.removeListener(e, handler))
-          .with('ready-to-show', e => win.removeListener(e, handler))
+          .with('closed', (e) => win.removeListener(e, handler))
+          .with('ready-to-show', (e) => win.removeListener(e, handler))
           .exhaustive();
       },
       webContents: {
         send: (channel, ...args) => win.webContents.send(channel, ...args),
         setWindowOpenHandler: (handler) => win.webContents.setWindowOpenHandler(handler),
       },
-    }
-  };
+    };
+  }
 }

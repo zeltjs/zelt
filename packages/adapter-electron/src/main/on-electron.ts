@@ -4,10 +4,9 @@ import type {
   HttpCapabilities,
   RuntimeApp,
 } from '@zeltjs/core';
-
+import { ElectronAdaptor } from './electron.adaptor';
 import { ElectronEnvAdaptor } from './electron-env.adaptor';
 import { setupIpcBridge } from './ipc-bridge';
-import {ElectronAdaptor} from "./electron.adaptor";
 
 export type ElectronAppOptions = {
   readonly warmup?: boolean;

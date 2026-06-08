@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@zeltjs/core';
-import type { WindowDefinition, WindowHandle, WindowId } from './window.types';
 import { ElectronWindowRuntimeService } from './electron-window-runtime.service';
+import type { WindowDefinition, WindowHandle, WindowId } from './window.types';
 
 @Injectable()
 export class ElectronWindowRegistryService {
