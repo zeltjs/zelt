@@ -8,9 +8,11 @@ import { ElectronAdaptor } from './electron.adaptor';
 import { ElectronEnvAdaptor } from './electron-env.adaptor';
 import { setupIpcBridge } from './ipc-bridge';
 
+type IpcChannel = `http://${string}` | `https://${string}`;
+
 export type ElectronAppOptions = {
   readonly warmup?: boolean;
-  readonly ipcChannel?: string;
+  readonly ipcChannel?: IpcChannel;
 };
 
 type HttpRuntimeApp = RuntimeApp<readonly ConfiguredFeature[]> & {
