@@ -7,50 +7,19 @@ Zelt uses [Valibot](https://valibot.dev/) for request validation, providing a ty
 
 ## Installation
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
-<Tabs groupId="pkg-manager">
-  <TabItem value="npm" label="npm" default>
-    ```bash
-    npm install @zeltjs/validator-valibot valibot
-    ```
-  </TabItem>
-  <TabItem value="pnpm" label="pnpm">
-    ```bash
-    pnpm add @zeltjs/validator-valibot valibot
-    ```
-  </TabItem>
-  <TabItem value="bun" label="bun">
-    ```bash
-    bun add @zeltjs/validator-valibot valibot
-    ```
-  </TabItem>
-</Tabs>
+```bash
+pnpm add @zeltjs/validator-valibot valibot
+```
 
 ### With OpenAPI Generation
 
 If you're using `@zeltjs/openapi` to generate OpenAPI specs, you also need `@valibot/to-json-schema`:
 
-<Tabs groupId="pkg-manager">
-  <TabItem value="npm" label="npm" default>
-    ```bash
-    npm install @zeltjs/validator-valibot valibot @valibot/to-json-schema
-    ```
-  </TabItem>
-  <TabItem value="pnpm" label="pnpm">
-    ```bash
-    pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
-    ```
-  </TabItem>
-  <TabItem value="bun" label="bun">
-    ```bash
-    bun add @zeltjs/validator-valibot valibot @valibot/to-json-schema
-    ```
-  </TabItem>
-</Tabs>
+```bash
+pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
+```
 
-:::tip Version Compatibility
+:::tip[Version Compatibility]
 `@valibot/to-json-schema` must match your `valibot` version. For example:
 - `valibot@1.4.x` → `@valibot/to-json-schema@1.7.x`
 - `valibot@1.3.x` → `@valibot/to-json-schema@1.6.x`
@@ -58,14 +27,10 @@ If you're using `@zeltjs/openapi` to generate OpenAPI specs, you also need `@val
 Check the [@valibot/to-json-schema releases](https://github.com/fabian-hiller/valibot/releases) for compatibility.
 :::
 
-:::info Important
-`validated()` is exported from `@zeltjs/validator-valibot`, **not** from `@zeltjs/core`. Make sure your import is:
-
-```typescript
-import { validated } from '@zeltjs/validator-valibot';
-```
-
-The `valibot` peer dependency must be `^1.0.0`. We test against `1.3.x`; using an older version may cause type inference issues (e.g., `[__zeltValidatedType]: unknown` instead of the inferred type).
+:::info[Important]
+`validated()` is exported from `@zeltjs/validator-valibot`, **not** from `@zeltjs/core`.
+Import it as `import { validated } from '@zeltjs/validator-valibot'`.
+The `valibot` peer dependency must be `^1.0.0`. We test against `1.3.x`; using an older version may cause type inference issues.
 :::
 
 ## Basic Usage
