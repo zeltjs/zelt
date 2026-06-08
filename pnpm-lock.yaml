@@ -243,6 +243,9 @@ importers:
       electron:
         specifier: '>=28.0.0'
         version: 42.0.1
+      ts-pattern:
+        specifier: 5.7.1
+        version: 5.7.1
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
