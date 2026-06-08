@@ -51,12 +51,6 @@ export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
 
 // ─── Helpers ───
 
-const bindFeatures = (container: Container, features: readonly ConfiguredFeature[]): void => {
-  for (const feature of features) {
-    feature.bind(container);
-  }
-};
-
 const reservedFeatureKeys = new Set([
   '__proto__',
   'createRuntime',
@@ -102,12 +96,14 @@ const createStaticCapabilities = <const F extends readonly ConfiguredFeature[]>(
   return unsafeObjectFromNonEmptyKeyedValuesSync(features, 'staticCapabilities');
 };
 
-const warmupFeatures = async (
+const warmupFeatureClasses = async (
   runtime: FeatureRuntime,
   features: readonly ConfiguredFeature[],
 ): Promise<void> => {
   for (const feature of features) {
-    await feature.warmup?.(runtime);
+    for (const cls of feature.featureClasses()) {
+      await runtime.get(cls);
+    }
   }
 };
 
@@ -146,8 +142,6 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
     createRuntime: async (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> => {
       const container = new Container();
 
-      bindFeatures(container, features);
-
       const runtime = container.get(AppRuntime);
       const configRegistry = container.get(ConfigRegistry);
 
@@ -160,7 +154,7 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
       const caps = await createNamespacedCapabilities(readyResult, features);
 
       if (runtimeOptions?.warmup) {
-        await warmupFeatures(readyResult, features);
+        await warmupFeatureClasses(readyResult, features);
       }
 
       const readyApp: RuntimeApp<F> = {

@@ -13,24 +13,54 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./vitest": {
-      "types": "./dist/adapters/vitest.d.ts",
-      "import": "./dist/adapters/vitest.js"
+      "import": {
+        "types": "./dist/adapters/vitest.d.ts",
+        "default": "./dist/adapters/vitest.js"
+      },
+      "require": {
+        "types": "./dist/adapters/vitest.d.cts",
+        "default": "./dist/adapters/vitest.cjs"
+      }
     },
     "./jest": {
-      "types": "./dist/adapters/jest.d.ts",
-      "import": "./dist/adapters/jest.js"
+      "import": {
+        "types": "./dist/adapters/jest.d.ts",
+        "default": "./dist/adapters/jest.js"
+      },
+      "require": {
+        "types": "./dist/adapters/jest.d.cts",
+        "default": "./dist/adapters/jest.cjs"
+      }
     },
     "./bun": {
-      "types": "./dist/adapters/bun.d.ts",
-      "import": "./dist/adapters/bun.js"
+      "import": {
+        "types": "./dist/adapters/bun.d.ts",
+        "default": "./dist/adapters/bun.js"
+      },
+      "require": {
+        "types": "./dist/adapters/bun.d.cts",
+        "default": "./dist/adapters/bun.cjs"
+      }
     },
     "./node": {
-      "types": "./dist/adapters/node.d.ts",
-      "import": "./dist/adapters/node.js"
+      "import": {
+        "types": "./dist/adapters/node.d.ts",
+        "default": "./dist/adapters/node.js"
+      },
+      "require": {
+        "types": "./dist/adapters/node.d.cts",
+        "default": "./dist/adapters/node.cjs"
+      }
     }
   },
   "files": [
@@ -69,5 +99,6 @@
   },
   "volta": {
     "extends": "../../package.json"
-  }
+  },
+  "main": "./dist/index.cjs"
 }

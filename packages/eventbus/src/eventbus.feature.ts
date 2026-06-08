@@ -28,12 +28,7 @@ export const eventbus = (
   opts: EventBusOptions,
 ): ConfiguredFeature<'eventbus', EventBusCapabilities> => ({
   key: 'eventbus',
-  bind: (container) => {
-    container.bind({ provide: opts.adaptor, useClass: opts.adaptor });
-    for (const handler of opts.handlers ?? []) {
-      container.bind({ provide: handler, useClass: handler });
-    }
-  },
+  featureClasses: () => [opts.adaptor, ...(opts.handlers ?? [])],
   staticCapabilities: () => ({}),
   createCapabilities: async (runtime) => {
     for (const handler of opts.handlers ?? []) {

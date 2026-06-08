@@ -18,7 +18,7 @@ describe('Lifecycle warmup', () => {
     activeLog.current = undefined;
   });
 
-  it('runs registered warmup handlers when createRuntime({ warmup: true })', async () => {
+  it('eagerly resolves feature classes when createRuntime({ warmup: true })', async () => {
     readyApp = await buildApp().createRuntime({ warmup: true });
     const instance = await readyApp.get(WarmupSpy);
 
@@ -26,7 +26,7 @@ describe('Lifecycle warmup', () => {
     expect(log.events.some((e) => e.phase === 'warmup')).toBe(true);
   });
 
-  it('runs all warmup handlers before completing createRuntime()', async () => {
+  it('resolves all warmup targets before completing createRuntime()', async () => {
     readyApp = await buildApp().createRuntime({ warmup: true });
 
     const phases = log.events.map((e) => e.phase);

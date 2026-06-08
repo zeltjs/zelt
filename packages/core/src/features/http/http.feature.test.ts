@@ -2,7 +2,6 @@ import { Container } from '@needle-di/core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { createApp } from '../../app';
-import { LifecycleManager } from '../../kernel';
 import { HttpFeature, http } from './http.feature';
 import { Controller } from './routing/controller.decorator';
 import { Get } from './routing/http-method.decorator';
@@ -64,7 +63,7 @@ describe('http feature', () => {
   it('returns a ConfiguredFeature with key "http"', () => {
     const feature = http({ controllers: [TestController] });
     expect(feature.key).toBe('http');
-    expect(typeof feature.bind).toBe('function');
+    expect(feature.featureClasses()).toEqual([TestController]);
     expect(typeof feature.createCapabilities).toBe('function');
     expect(typeof feature.staticCapabilities).toBe('function');
   });
@@ -80,7 +79,6 @@ describe('http feature', () => {
   it('createCapabilities returns fetch and request', async () => {
     const feature = http({ controllers: [TestController] });
     const container = new Container();
-    feature.bind(container);
     const caps = await feature.createCapabilities(createRuntime(container));
     expect(typeof caps.fetch).toBe('function');
     expect(typeof caps.request).toBe('function');
@@ -89,16 +87,10 @@ describe('http feature', () => {
   it('caps.request handles HTTP requests', async () => {
     const feature = http({ controllers: [TestController] });
     const container = new Container();
-    feature.bind(container);
     const caps = await feature.createCapabilities(createRuntime(container));
-
-    const lifecycle = container.get(LifecycleManager);
-    await lifecycle.startup();
 
     const res = await caps.request('/');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
-
-    await lifecycle.shutdown();
   });
 });

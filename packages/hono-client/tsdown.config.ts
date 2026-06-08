@@ -8,14 +8,26 @@ const swcDecoratorPlugin = swc({
   },
 });
 
-export default defineConfig({
-  plugins: [swcDecoratorPlugin],
-  entry: ['src/index.ts', 'src/cli.ts'],
-  format: ['esm'],
-  dts: true,
-  clean: true,
-  fixedExtension: false,
-  deps: {
-    neverBundle: ['hono', /^hono\//, /^@hono\//, '@zeltjs/core', '@zeltjs/adapter-node'],
+export default defineConfig([
+  {
+    plugins: [swcDecoratorPlugin],
+    entry: ['src/index.ts'],
+    format: ['esm', 'cjs'],
+    dts: true,
+    clean: true,
+    fixedExtension: false,
+    deps: {
+      neverBundle: ['hono', /^hono\//, /^@hono\//, '@zeltjs/core', '@zeltjs/adapter-node'],
+    },
   },
-});
+  {
+    plugins: [swcDecoratorPlugin],
+    entry: ['src/cli.ts'],
+    format: ['esm'],
+    dts: true,
+    fixedExtension: false,
+    deps: {
+      neverBundle: ['hono', /^hono\//, /^@hono\//, '@zeltjs/core', '@zeltjs/adapter-node'],
+    },
+  },
+]);

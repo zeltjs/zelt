@@ -1,7 +1,6 @@
-import type { Container } from '@needle-di/core';
 import type { FeatureRuntime } from '../../app';
 import { Feature } from '../../app';
-import { SCHEDULER_OPTIONS, SchedulerService } from './scheduler.service';
+import { SchedulerService } from './scheduler.service';
 import type { SchedulerClass } from './scheduler.types';
 import type { JobInfo } from './scheduler-runner.lib';
 
@@ -19,8 +18,8 @@ export class SchedulerFeature extends Feature<'schedulers', SchedulerCapabilitie
     super();
   }
 
-  readonly bind = (container: Container): void => {
-    container.bind({ provide: SCHEDULER_OPTIONS, useValue: this.schedulers });
+  readonly featureClasses = (): readonly SchedulerClass[] => {
+    return this.schedulers;
   };
 
   readonly staticCapabilities = (): Record<never, never> => {
@@ -29,11 +28,16 @@ export class SchedulerFeature extends Feature<'schedulers', SchedulerCapabilitie
 
   readonly createCapabilities = async (runtime: FeatureRuntime): Promise<SchedulerCapabilities> => {
     const service = await runtime.get(SchedulerService);
+    const runner = service.createRunner(this.schedulers);
     return {
-      startScheduler: () => service.startScheduler(),
-      stopScheduler: () => service.stopScheduler(),
-      isSchedulerRunning: () => service.isSchedulerRunning(),
-      getSchedulerJobs: () => service.getSchedulerJobs(),
+      startScheduler: async () => {
+        if (!runner.isRunning()) await runner.startup();
+      },
+      stopScheduler: async () => {
+        if (runner.isRunning()) await runner.shutdown();
+      },
+      isSchedulerRunning: () => runner.isRunning(),
+      getSchedulerJobs: () => runner.getJobs(),
     };
   };
 }

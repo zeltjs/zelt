@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { Feature } from '../features';
+import { Injectable } from '../kernel';
 import type { RuntimeApp } from './create-app.lib';
 import { createApp } from './create-app.lib';
 import type { ConfiguredFeature } from './feature.types';
@@ -10,14 +11,14 @@ const createStubFeature = <TKey extends string, TCaps extends object>(
   caps: TCaps,
 ): ConfiguredFeature<TKey, TCaps> => ({
   key,
-  bind: vi.fn(),
+  featureClasses: () => [],
   staticCapabilities: () => ({}),
   createCapabilities: () => caps,
 });
 
 const createEmptyFeature = (key: string): ConfiguredFeature<string, object> => ({
   key,
-  bind: vi.fn(),
+  featureClasses: () => [],
   staticCapabilities: () => ({}),
   createCapabilities: () => ({}),
 });
@@ -25,7 +26,7 @@ const createEmptyFeature = (key: string): ConfiguredFeature<string, object> => (
 class TypedFeature extends Feature<'typed', { readonly value: () => string }> {
   readonly key = 'typed' as const;
 
-  bind = vi.fn();
+  featureClasses = () => [];
   staticCapabilities = () => ({});
   createCapabilities = () => ({ value: () => 'ok' });
 }
@@ -33,7 +34,7 @@ class TypedFeature extends Feature<'typed', { readonly value: () => string }> {
 class UserFeature extends Feature<'userFeature', { readonly run: () => number }> {
   readonly key = 'userFeature' as const;
 
-  bind = vi.fn();
+  featureClasses = () => [];
   staticCapabilities = () => ({});
   createCapabilities = () => ({ run: () => 123 });
 }
@@ -41,7 +42,7 @@ class UserFeature extends Feature<'userFeature', { readonly run: () => number }>
 class OtherFeature extends Feature<'otherFeature', { readonly other: () => string }> {
   readonly key = 'otherFeature' as const;
 
-  bind = vi.fn();
+  featureClasses = () => [];
   staticCapabilities = () => ({});
   createCapabilities = () => ({ other: () => 'no' });
 }
@@ -50,14 +51,14 @@ const duplicateStaticCapabilities = vi.fn(() => ({}));
 
 class DuplicateA extends Feature<'dup', { readonly a: () => string }> {
   readonly key = 'dup' as const;
-  bind = vi.fn();
+  featureClasses = () => [];
   staticCapabilities = duplicateStaticCapabilities;
   createCapabilities = () => ({ a: () => 'a' });
 }
 
 class DuplicateB extends Feature<'dup', { readonly b: () => string }> {
   readonly key = 'dup' as const;
-  bind = vi.fn();
+  featureClasses = () => [];
   staticCapabilities = () => ({});
   createCapabilities = () => ({ b: () => 'b' });
 }
@@ -66,9 +67,18 @@ const reservedStaticCapabilities = vi.fn(() => ({}));
 
 class ReservedCreateRuntimeFeature extends Feature<'createRuntime', { readonly run: () => void }> {
   readonly key = 'createRuntime' as const;
-  bind = vi.fn();
+  featureClasses = () => [];
   staticCapabilities = reservedStaticCapabilities;
   createCapabilities = () => ({ run: () => {} });
+}
+
+@Injectable()
+class WarmupTarget {
+  static instances = 0;
+
+  constructor() {
+    WarmupTarget.instances++;
+  }
 }
 
 describe('createApp', () => {
@@ -117,6 +127,23 @@ describe('createApp', () => {
     const app = createApp([createEmptyFeature('stub')]);
     const readyApp = await app.createRuntime({ configs: [] });
     expect(typeof readyApp.get).toBe('function');
+    await readyApp.shutdown();
+  });
+
+  it('createRuntime({ warmup: true }) resolves featureClasses eagerly', async () => {
+    WarmupTarget.instances = 0;
+    const app = createApp([
+      {
+        key: 'warmupTarget',
+        featureClasses: () => [WarmupTarget],
+        staticCapabilities: () => ({}),
+        createCapabilities: () => ({}),
+      },
+    ]);
+
+    const readyApp = await app.createRuntime({ warmup: true });
+
+    expect(WarmupTarget.instances).toBe(1);
     await readyApp.shutdown();
   });
 

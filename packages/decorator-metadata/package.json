@@ -14,12 +14,24 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./inspect": {
-      "types": "./dist/inspect/index.d.ts",
-      "import": "./dist/inspect/index.js"
+      "import": {
+        "types": "./dist/inspect/index.d.ts",
+        "default": "./dist/inspect/index.js"
+      },
+      "require": {
+        "types": "./dist/inspect/index.d.cts",
+        "default": "./dist/inspect/index.cjs"
+      }
     }
   },
   "files": [
@@ -52,5 +64,6 @@
   },
   "volta": {
     "extends": "../../package.json"
-  }
+  },
+  "main": "./dist/index.cjs"
 }

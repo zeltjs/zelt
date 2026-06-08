@@ -13,16 +13,34 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./adaptor-memory": {
-      "types": "./dist/adaptor-memory/index.d.ts",
-      "import": "./dist/adaptor-memory/index.js"
+      "import": {
+        "types": "./dist/adaptor-memory/index.d.ts",
+        "default": "./dist/adaptor-memory/index.js"
+      },
+      "require": {
+        "types": "./dist/adaptor-memory/index.d.cts",
+        "default": "./dist/adaptor-memory/index.cjs"
+      }
     },
     "./adaptor-redis": {
-      "types": "./dist/adaptor-redis/index.d.ts",
-      "import": "./dist/adaptor-redis/index.js"
+      "import": {
+        "types": "./dist/adaptor-redis/index.d.ts",
+        "default": "./dist/adaptor-redis/index.js"
+      },
+      "require": {
+        "types": "./dist/adaptor-redis/index.d.cts",
+        "default": "./dist/adaptor-redis/index.cjs"
+      }
     }
   },
   "files": [
@@ -43,7 +61,6 @@
     }
   },
   "devDependencies": {
-    "@needle-di/core": "catalog:",
     "@types/node": "catalog:",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/redis": "workspace:*",
@@ -52,5 +69,6 @@
   },
   "volta": {
     "extends": "../../package.json"
-  }
+  },
+  "main": "./dist/index.cjs"
 }

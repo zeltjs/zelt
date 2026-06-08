@@ -11,7 +11,7 @@ const swcDecoratorPlugin = swc({
 export default defineConfig({
   plugins: [swcDecoratorPlugin],
   entry: ['src/index.ts', 'src/adaptor-memory/index.ts', 'src/adaptor-redis/index.ts'],
-  format: ['esm'],
+  format: ['esm', 'cjs'],
   dts: true,
   clean: true,
   fixedExtension: false,

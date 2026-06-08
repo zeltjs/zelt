@@ -49,6 +49,7 @@ export const twoslasher = createTwoslasher({
     // node_modules structure doesn't work with Twoslash VFS.
     // Corresponding devDependencies in package.json ensure nx builds them first.
     paths: {
+      '@zeltjs/adapter-electron': ['./packages/adapter-electron/dist/main/index.d.ts'],
       '@zeltjs/validator-valibot': ['./packages/validator-valibot/dist/index.d.ts'],
       '@zeltjs/kv/adaptor-redis': ['./packages/kv/dist/adaptor-redis/index.d.ts'],
       '@zeltjs/redis/testing': ['./packages/redis/dist/testing/index.d.ts'],

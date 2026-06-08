@@ -1,7 +1,6 @@
 import { Container } from '@needle-di/core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { LifecycleManager } from '../../kernel';
 import { CommandFeature, command } from './command.feature';
 import { Command } from './definition/command.decorator';
 import { cliSchema } from './input/command-schema.types';
@@ -30,23 +29,21 @@ describe('command feature', () => {
 
   it('keeps feature methods callable when destructured', () => {
     const feature = command([GreetCommand]);
-    const { bind } = feature;
-    const container = new Container();
+    const { staticCapabilities } = feature;
 
-    expect(() => bind(container)).not.toThrow();
+    expect(() => staticCapabilities()).not.toThrow();
   });
 
   it('returns a ConfiguredFeature with key "commands"', () => {
     const feature = command([GreetCommand]);
     expect(feature.key).toBe('commands');
-    expect(typeof feature.bind).toBe('function');
+    expect(feature.featureClasses()).toEqual([GreetCommand]);
     expect(typeof feature.createCapabilities).toBe('function');
   });
 
   it('createCapabilities returns CommandCapabilities', async () => {
     const feature = command([GreetCommand]);
     const container = new Container();
-    feature.bind(container);
     const caps = await feature.createCapabilities(createRuntime(container));
     expect(typeof caps.hasCommand).toBe('function');
     expect(typeof caps.getCommands).toBe('function');
@@ -56,7 +53,6 @@ describe('command feature', () => {
   it('caps.hasCommand detects registered commands', async () => {
     const feature = command([GreetCommand]);
     const container = new Container();
-    feature.bind(container);
     const caps = await feature.createCapabilities(createRuntime(container));
 
     expect(caps.hasCommand('greet')).toBe(true);
@@ -66,15 +62,9 @@ describe('command feature', () => {
   it('caps.execCommand runs a registered command', async () => {
     const feature = command([GreetCommand]);
     const container = new Container();
-    feature.bind(container);
     const caps = await feature.createCapabilities(createRuntime(container));
-
-    const lifecycle = container.get(LifecycleManager);
-    await lifecycle.startup();
 
     const result = await caps.execCommand(['greet']);
     expect(result.exitCode).toBe(0);
-
-    await lifecycle.shutdown();
   });
 });

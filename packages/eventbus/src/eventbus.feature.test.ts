@@ -1,4 +1,3 @@
-import { Container } from '@needle-di/core';
 import type { Lifecycle } from '@zeltjs/core';
 import { Config, createApp, Injectable, inject, LifecycleManager } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
@@ -6,10 +5,6 @@ import { describe, expect, it } from 'vitest';
 import { MemoryEventBusAdaptor } from './adaptor-memory';
 import { eventbus } from './eventbus.feature';
 import type { EventBusAdaptor, EventBusSchema } from './eventbus.types';
-
-const createRuntime = (container: Container) => ({
-  get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => container.get(cls),
-});
 
 @Config
 class BaseEventBusConfig {
@@ -77,18 +72,17 @@ describe('eventbus feature', () => {
   it('returns a ConfiguredFeature with key "eventbus"', () => {
     const feature = eventbus({ adaptor: MemoryEventBusAdaptor });
     expect(feature.key).toBe('eventbus');
-    expect(typeof feature.bind).toBe('function');
+    expect(feature.featureClasses()).toEqual([MemoryEventBusAdaptor]);
     expect(typeof feature.createCapabilities).toBe('function');
   });
 
-  it('createCapabilities returns EventBus capabilities', async () => {
-    const feature = eventbus({ adaptor: MemoryEventBusAdaptor });
-    const container = new Container();
-    feature.bind(container);
-    const caps = await feature.createCapabilities(createRuntime(container));
-    expect(typeof caps.emit).toBe('function');
-    expect(typeof caps.on).toBe('function');
-    expect(typeof caps.once).toBe('function');
+  it('returns adaptor and handlers as feature classes', () => {
+    const feature = eventbus({
+      adaptor: MemoryEventBusAdaptor,
+      handlers: [ConfigAwareEventBusHandler],
+    });
+
+    expect(feature.featureClasses()).toEqual([MemoryEventBusAdaptor, ConfigAwareEventBusHandler]);
   });
 
   it('resolves adaptor and handlers after config binding and starts pending lifecycle', async () => {

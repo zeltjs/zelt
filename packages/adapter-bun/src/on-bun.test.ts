@@ -59,7 +59,7 @@ class FakeHttpLikeFeature extends Feature<
 > {
   readonly key = 'http' as const;
 
-  bind = vi.fn();
+  featureClasses = () => [];
   staticCapabilities = () => ({});
   createCapabilities = () => ({
     fetch: async () => new Response('fake'),

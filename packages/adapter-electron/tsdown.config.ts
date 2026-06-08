@@ -10,8 +10,8 @@ const swcDecoratorPlugin = swc({
 
 export default defineConfig({
   plugins: [swcDecoratorPlugin],
-  entry: ['src/index.ts'],
-  format: ['esm'],
+  entry: ['src/main/index.ts', 'src/preload/index.ts', 'src/renderer/index.ts'],
+  format: ['esm', 'cjs'],
   dts: true,
   clean: true,
   fixedExtension: false,

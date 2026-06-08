@@ -10,13 +10,9 @@ type NoCapabilities = Record<never, never>;
 
 const warmupProbe = (): ConfiguredFeature<'warmupProbe', NoCapabilities> => ({
   key: 'warmupProbe',
-  bind: () => undefined,
+  featureClasses: () => [WarmupSpy],
   staticCapabilities: () => ({}),
   createCapabilities: () => ({}),
-  warmup: async (runtime) => {
-    const spy = await runtime.get(WarmupSpy);
-    spy.recordWarmup();
-  },
 });
 
 // Factory because each spec needs an isolated app instance for clean lifecycle counting.

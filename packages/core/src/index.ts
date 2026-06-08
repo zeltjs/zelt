@@ -37,6 +37,7 @@ export type {
   ConfiguredFeature,
   FeatureCaps,
   FeatureClass,
+  FeatureManagedClass,
   FeatureReadyCapabilities,
   FeatureRuntime,
   HttpCapabilities,
