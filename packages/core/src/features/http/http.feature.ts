@@ -32,6 +32,10 @@ export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCap
     this.metadata = { controllers: collectAllControllerMetadata(opts) };
   }
 
+  readonly featureClasses = (): readonly ControllerClass[] => {
+    return this.controllers;
+  };
+
   readonly staticCapabilities = (): HttpStaticCapabilities => {
     return {
       getControllers: () => this.controllers,
@@ -50,11 +54,6 @@ export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCap
         return router.fetch(req);
       },
     };
-  };
-
-  override readonly warmup = async (runtime: FeatureRuntime): Promise<void> => {
-    const service = await runtime.get(HttpService);
-    await service.warmupControllers(this.opts);
   };
 }
 

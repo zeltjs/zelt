@@ -59,6 +59,7 @@ class FakeHttpLikeFeature extends Feature<
 > {
   readonly key = 'http' as const;
 
+  featureClasses = () => [];
   staticCapabilities = () => ({});
   createCapabilities = () => ({
     fetch: async () => new Response('fake'),

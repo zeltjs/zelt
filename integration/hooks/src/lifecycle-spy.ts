@@ -85,7 +85,7 @@ export class DisposableSpy implements Lifecycle {
 export class WarmupSpy {
   warmupCalls = 0;
 
-  recordWarmup(): void {
+  constructor() {
     this.warmupCalls++;
     activeLog.current?.push({ source: 'warmup', phase: 'warmup' });
   }

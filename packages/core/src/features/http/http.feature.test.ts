@@ -63,6 +63,7 @@ describe('http feature', () => {
   it('returns a ConfiguredFeature with key "http"', () => {
     const feature = http({ controllers: [TestController] });
     expect(feature.key).toBe('http');
+    expect(feature.featureClasses()).toEqual([TestController]);
     expect(typeof feature.createCapabilities).toBe('function');
     expect(typeof feature.staticCapabilities).toBe('function');
   });

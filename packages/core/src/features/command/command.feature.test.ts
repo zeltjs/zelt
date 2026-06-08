@@ -37,6 +37,7 @@ describe('command feature', () => {
   it('returns a ConfiguredFeature with key "commands"', () => {
     const feature = command([GreetCommand]);
     expect(feature.key).toBe('commands');
+    expect(feature.featureClasses()).toEqual([GreetCommand]);
     expect(typeof feature.createCapabilities).toBe('function');
   });
 
