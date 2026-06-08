@@ -16,8 +16,8 @@ export type WindowHandle = {
   setBounds(bounds: Partial<Rectangle>): void;
   loadFile(path: string): void;
   loadURL(url: string): void;
-  on(event: 'closed' | 'ready-to-show', handler: () => void): WindowHandle;
-  removeListener(event: string, handler: (...args: unknown[]) => void): void;
+  on(event: 'closed' | 'ready-to-show', handler: () => void): void;
+  removeListener(event: 'closed' | 'ready-to-show', handler: (...args: unknown[]) => void): void;
   webContents: {
     send(channel: string, ...args: unknown[]): void;
     setWindowOpenHandler(handler: (details: { url: string }) => WindowOpenHandlerResult): void;

@@ -5,9 +5,9 @@ import type {
   RuntimeApp,
 } from '@zeltjs/core';
 
-import { ElectronApp } from './electron-app';
 import { ElectronEnvAdaptor } from './electron-env.adaptor';
 import { setupIpcBridge } from './ipc-bridge';
+import {ElectronAdaptor} from "./electron.adaptor";
 
 export type ElectronAppOptions = {
   readonly warmup?: boolean;
@@ -39,7 +39,7 @@ export const onElectron = async (
     warmup: options.warmup ?? true,
   });
 
-  const electronApp = await readyApp.get(ElectronApp);
+  const electronApp = await readyApp.get(ElectronAdaptor);
   const channel = options.ipcChannel ?? DEFAULT_IPC_CHANNEL;
 
   const removeIpcHandler = setupIpcBridge(electronApp.ready.ipcMain, readyApp.http.fetch, channel);

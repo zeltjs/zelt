@@ -1,12 +1,12 @@
 import { Injectable, inject } from '@zeltjs/core';
 import type { WindowDefinition, WindowHandle, WindowId } from './window.types';
-import { ElectronWindowRuntime } from './window-runtime';
+import { ElectronWindowRuntimeService } from './electron-window-runtime.service';
 
 @Injectable()
-export class WindowRegistry {
+export class ElectronWindowRegistryService {
   private readonly windows = new Map<WindowId, WindowHandle>();
 
-  constructor(private readonly runtime: ElectronWindowRuntime = inject(ElectronWindowRuntime)) {}
+  constructor(private readonly runtime = inject(ElectronWindowRuntimeService)) {}
 
   open(definition: WindowDefinition): WindowHandle {
     const existing = this.windows.get(definition.id);

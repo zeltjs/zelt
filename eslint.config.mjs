@@ -102,7 +102,7 @@ export default tseslint.config(
       'zelt/double-dot-naming': [
         'error',
         {
-          allowedFiles: ['main.ts', 'cli.ts'],
+          allowedFiles: ['main.ts', 'cli.ts','ipc-bridge.ts','ipc-fetch.ts','expose-ipc.ts'],
           allowedPatterns: ['on-*.ts'],
         },
       ],
@@ -239,17 +239,6 @@ export default tseslint.config(
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
-    },
-  },
-  {
-    // Electron adapter bridges our string-based interface to Electron's overloaded
-    // event/path APIs. Type assertions are unavoidable at this API boundary.
-    files: [
-      'packages/adapter-electron/src/main/electron-app.ts',
-      'packages/adapter-electron/src/main/window-runtime.ts',
-    ],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {

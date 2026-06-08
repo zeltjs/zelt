@@ -34,7 +34,7 @@ export type ElectronReady = {
 };
 
 @Injectable()
-export class ElectronApp implements Lifecycle<ElectronReady> {
+export class ElectronAdaptor implements Lifecycle<ElectronReady> {
   readonly ready: ReadyValue<ElectronReady>;
 
   constructor(lifecycleManager = inject(LifecycleManager)) {
