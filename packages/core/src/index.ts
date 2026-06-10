@@ -89,7 +89,12 @@ export type {
 } from './features/http/error/error.types';
 export { ErrorHandler } from './features/http/error/error-handler.decorator';
 export type { HttpMetadata } from './features/http/http.service';
-export type { ControllerClass } from './features/http/http.types';
+export type {
+  ControllerClass,
+  HttpChildOptions,
+  HttpChildRuntimeInitializer,
+  HttpChildRuntimeInitializerContext,
+} from './features/http/http.types';
 // HTTP primitives
 export { currentRoles, currentUser, setUser } from './features/http/middleware/auth';
 // HTTP decorators

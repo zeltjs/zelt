@@ -45,7 +45,7 @@ export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCap
 
   readonly createCapabilities = async (runtime: FeatureRuntime): Promise<HttpCapabilities> => {
     const service = await runtime.get(HttpService);
-    const router = await service.buildRouter(this.opts);
+    const router = await service.buildRouter(this.opts, runtime.get);
     return {
       fetch: async (req) => router.fetch(req),
       request: async (input, init) => {

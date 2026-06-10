@@ -2,7 +2,12 @@ import { Container } from '@needle-di/core';
 import type { Hono } from 'hono';
 import { Injectable, inject, LifecycleManager, resolve } from '../../kernel';
 import { DefaultErrorHandler } from './error/default.error-handler';
-import type { ControllerClass, HttpChildOptions, HttpOptions } from './http.types';
+import type {
+  ControllerClass,
+  HttpChildOptions,
+  HttpChildRuntimeInitializer,
+  HttpOptions,
+} from './http.types';
 import { createErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
 import type {
@@ -12,7 +17,7 @@ import type {
 } from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import type { ControllerRouteInfo } from './routing';
-import { buildRoutes } from './routing';
+import { buildRoutes, joinPath } from './routing';
 
 export type { HttpChildOptions, HttpOptions } from './http.types';
 
@@ -25,6 +30,8 @@ export type HttpRouter = Hono;
 type RouteHandler = (c: RequestContext) => Promise<Response>;
 
 type HonoInstance = Hono;
+
+type RuntimeGet = <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
 
 type HonoConstructor = typeof import('hono').Hono;
 
@@ -55,16 +62,16 @@ export class HttpService {
   ) {}
 
   /** @throws {Error} */
-  async buildRouter(options: HttpOptions): Promise<HttpRouter> {
+  async buildRouter(options: HttpOptions, get: RuntimeGet): Promise<HttpRouter> {
     try {
-      return await this.initializeHono(options);
+      return await this.initializeHono(options, get);
     } catch (cause) {
       throw new Error('HttpService buildRouter failed', { cause });
     }
   }
 
   /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-  private async initializeHono(options: HttpOptions): Promise<HonoInstance> {
+  private async initializeHono(options: HttpOptions, get: RuntimeGet): Promise<HonoInstance> {
     const Hono = await this.loadHonoConstructor();
     const fallbackHandler = resolve(this.container, DefaultErrorHandler);
     const resolver = {
@@ -77,14 +84,17 @@ export class HttpService {
     ];
     const rootMiddlewares = [...securityMiddlewares, ...(options.middlewares ?? [])];
 
-    const hono = this.buildHonoInstance(
+    const hono = await this.buildHonoInstance(
+      '/',
       options.controllers,
       rootMiddlewares,
       options.errorHandlers ?? [],
       options.children ?? [],
+      options.runtimeInitializers ?? [],
       fallbackHandler,
       resolver,
       Hono,
+      get,
     );
     return hono;
   }
@@ -95,15 +105,35 @@ export class HttpService {
   }
 
   /** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError} */
-  private buildHonoInstance(
+  private async runRuntimeInitializers(
+    path: string,
+    controllers: readonly ControllerClass[],
+    router: HonoInstance,
+    initializers: readonly HttpChildRuntimeInitializer[],
+    get: RuntimeGet,
+  ): Promise<void> {
+    for (const initializer of initializers) {
+      await initializer.initialize({
+        path,
+        controllers,
+        router,
+        get,
+      });
+    }
+  }
+
+  private async buildHonoInstance(
+    path: string,
     controllers: readonly ControllerClass[],
     middlewares: readonly MiddlewareInput[],
     errorHandlerClasses: readonly ErrorHandlerClass[],
     children: readonly HttpChildOptions[],
+    runtimeInitializers: readonly HttpChildRuntimeInitializer[],
     fallbackHandler: InstanceType<typeof DefaultErrorHandler>,
     resolver: { get: <T extends object>(cls: new (...args: never[]) => T) => T },
     Hono: HonoConstructor,
-  ): HonoInstance {
+    get: RuntimeGet,
+  ): Promise<HonoInstance> {
     const hono = new Hono({ strict: false });
 
     const errorHandlers = resolveErrorHandlers(errorHandlerClasses, this.container);
@@ -117,17 +147,23 @@ export class HttpService {
       globalMiddlewares: middlewares,
     });
 
+    await this.runRuntimeInitializers(path, controllers, hono, runtimeInitializers, get);
+
     for (const child of children) {
       const childMiddlewares = [...middlewares, ...(child.middlewares ?? [])];
       const childErrorHandlers = [...(child.errorHandlers ?? []), ...errorHandlerClasses];
-      const childHono = this.buildHonoInstance(
+      const childPath = joinPath(path, child.path);
+      const childHono = await this.buildHonoInstance(
+        childPath,
         child.controllers ?? [],
         childMiddlewares,
         childErrorHandlers,
         child.children ?? [],
+        child.runtimeInitializers ?? [],
         fallbackHandler,
         resolver,
         Hono,
+        get,
       );
       hono.route(child.path, childHono);
     }
