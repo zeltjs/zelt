@@ -38,10 +38,10 @@ describe('GraphQL dogfooding app', () => {
     const app = createGraphqlDogfoodingApp();
     const runtime = await app.createRuntime();
 
-    const health = await runtime.http.request('/health');
+    const health = await runtime.http.request('/api/health');
     await expect(health.json()).resolves.toEqual({
       app: 'graphql-dogfooding-storefront',
-      graphql: '/graphql',
+      graphql: '/api/v1/graphql',
       status: 'ok',
     });
 
@@ -228,7 +228,7 @@ const postGraphql = (
   runtime: Awaited<ReturnType<ReturnType<typeof createGraphqlDogfoodingApp>['createRuntime']>>,
   query: string,
 ): Promise<Response> =>
-  runtime.http.request('/graphql', {
+  runtime.http.request('/api/v1/graphql', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ query }),

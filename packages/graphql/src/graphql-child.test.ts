@@ -35,13 +35,13 @@ class UserResolver {
 }
 
 describe('graphql HTTP child helper', () => {
-  it('returns a core HttpChildOptions-compatible object with a GraphQL controller', () => {
-    const child = graphql('/graphql', { resolvers: [UserResolver] });
+  it('returns an HTTP-mountable feature module with a GraphQL controller', () => {
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
 
     expect(child.path).toBe('/graphql');
-    expect(child.controllers).toHaveLength(1);
+    expect(child.staticCapabilities().getControllers()).toHaveLength(1);
 
-    const controller = child.controllers?.[0];
+    const controller = child.staticCapabilities().getControllers()[0];
     expect(controller).toBeDefined();
     if (!controller) throw new Error('missing controller');
 

@@ -6,7 +6,7 @@ export class HealthController {
   get() {
     return {
       app: 'graphql-dogfooding-storefront',
-      graphql: '/graphql',
+      graphql: '/api/v1/graphql',
       status: 'ok',
     };
   }

@@ -76,6 +76,32 @@ describe('http feature', () => {
     expect(caps.getControllers()).toEqual([TestController]);
   });
 
+  it('composes static controller metadata from nested http modules', () => {
+    @Controller('/')
+    class ApiController {
+      @Get('/health')
+      health(): Response {
+        return Response.json({ ok: true });
+      }
+    }
+
+    const app = createApp([
+      http({
+        path: '/api',
+        children: [
+          http({
+            path: '/v1',
+            controllers: [ApiController],
+          }),
+        ],
+      }),
+    ]);
+
+    expect(
+      app.http.getMetadata().controllers.map((controller) => controller.routes[0]?.fullPath),
+    ).toEqual(['/api/v1/health']);
+  });
+
   it('createCapabilities returns fetch and request', async () => {
     const feature = http({ controllers: [TestController] });
     const container = new Container();
@@ -92,5 +118,33 @@ describe('http feature', () => {
     const res = await caps.request('/');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it('mounts nested http feature modules through the same lifecycle', async () => {
+    @Controller('/')
+    class ApiController {
+      @Get('/health')
+      health(): Response {
+        return Response.json({ ok: true });
+      }
+    }
+
+    const app = createApp([
+      http({
+        path: '/api',
+        children: [
+          http({
+            path: '/v1',
+            controllers: [ApiController],
+          }),
+        ],
+      }),
+    ]);
+
+    const runtime = await app.createRuntime();
+    const response = await runtime.http.request('/api/v1/health');
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
   });
 });

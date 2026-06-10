@@ -12,16 +12,23 @@ export const graphqlRuntimeModule = 'src/generated/graphql-runtime.js';
 export const createGraphqlDogfoodingApp = () =>
   createApp([
     http({
+      path: '/api',
       controllers: [HealthController],
       children: [
-        graphql('/graphql', {
-          resolvers: [
-            StorefrontResolver,
-            StorefrontFieldsResolver,
-            OrderFieldsResolver,
-            StorefrontMutationResolver,
+        http({
+          path: '/v1',
+          children: [
+            graphql({
+              path: '/graphql',
+              resolvers: [
+                StorefrontResolver,
+                StorefrontFieldsResolver,
+                OrderFieldsResolver,
+                StorefrontMutationResolver,
+              ],
+              runtimeModule: graphqlRuntimeModule,
+            }),
           ],
-          runtimeModule: graphqlRuntimeModule,
         }),
       ],
     }),

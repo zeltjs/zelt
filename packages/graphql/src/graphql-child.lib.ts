@@ -1,5 +1,12 @@
-import type { HttpChildOptions } from '@zeltjs/core';
-import { body, Controller, Post } from '@zeltjs/core';
+import type {
+  ControllerClass,
+  FeatureRuntime,
+  HttpMountableCapabilities,
+  HttpMountableFeatureModule,
+  HttpMountContext,
+  HttpStaticCapabilities,
+} from '@zeltjs/core';
+import { body, Controller, http, Post } from '@zeltjs/core';
 
 import type { GraphqlResolverClass } from './graphql.metadata';
 import { setGraphqlControllerMetadata } from './graphql.metadata';
@@ -12,11 +19,12 @@ import {
 } from './graphql-runtime.lib';
 
 export type GraphqlOptions = {
+  readonly path: string;
   readonly resolvers: readonly GraphqlResolverClass[];
   readonly runtimeModule?: string;
 };
 
-export type GraphqlChildOptions = HttpChildOptions;
+export type GraphqlChildOptions = HttpMountableFeatureModule;
 
 const createResolverLookup = (instances: ReadonlyMap<string, object>) => {
   return (resolver: GraphqlResolverClass): object => {
@@ -40,65 +48,93 @@ const applyLegacyMethodDecorator = (
   decorator(target, propertyKey, descriptor);
 };
 
-export const graphql = (path: string, options: GraphqlOptions): GraphqlChildOptions => {
-  class GraphqlEndpointController {
-    async handle(): Promise<Response> {
-      const state = getGraphqlRuntimeState(GraphqlEndpointController);
-      if (!state) {
-        return Response.json(
-          { errors: [{ message: 'GraphQL generated runtime is not configured.' }] },
-          { status: 501 },
-        );
-      }
+export class GraphqlHttpFeature implements HttpMountableFeatureModule {
+  readonly path: string;
+  private readonly controller: ControllerClass;
 
-      const payload = body();
-      if (!isGraphqlRequestPayload(payload)) {
-        return Response.json(
-          { errors: [{ message: 'GraphQL request body must include a query string.' }] },
-          { status: 400 },
-        );
-      }
-
-      const result = await executeGraphqlRequest({
-        runtime: state.runtime,
-        resolvers: options.resolvers,
-        resolveResolver: state.resolveResolver,
-        request: payload,
-      });
-
-      return Response.json(result);
-    }
+  constructor(private readonly options: GraphqlOptions) {
+    this.path = options.path;
+    const GraphqlEndpointController = this.createController();
+    this.controller = GraphqlEndpointController;
+    setGraphqlControllerMetadata(GraphqlEndpointController, {
+      resolvers: options.resolvers,
+      ...(options.runtimeModule ? { runtimeModule: options.runtimeModule } : {}),
+    });
   }
 
-  applyLegacyMethodDecorator(Post('/'), GraphqlEndpointController.prototype, 'handle');
-  Controller('/')(GraphqlEndpointController);
-  setGraphqlControllerMetadata(GraphqlEndpointController, {
-    resolvers: options.resolvers,
-    ...(options.runtimeModule ? { runtimeModule: options.runtimeModule } : {}),
-  });
+  readonly featureClasses = (): readonly ControllerClass[] => [
+    this.controller,
+    ...this.options.resolvers,
+  ];
 
-  return {
-    path,
-    controllers: [GraphqlEndpointController],
-    ...(options.runtimeModule
-      ? {
-          runtimeInitializers: [
-            {
-              name: 'graphql',
-              initialize: async (context) => {
-                const runtime = await loadGeneratedGraphqlRuntime(options.runtimeModule ?? '');
-                const resolverInstances = new Map<string, object>();
-                for (const resolver of options.resolvers) {
-                  resolverInstances.set(resolver.name, await context.get(resolver));
-                }
-                setGraphqlRuntimeState(GraphqlEndpointController, {
-                  runtime,
-                  resolveResolver: createResolverLookup(resolverInstances),
-                });
-              },
-            },
-          ],
-        }
-      : {}),
+  readonly staticCapabilities = (): HttpStaticCapabilities => {
+    return http({ path: this.path, controllers: [this.controller] }).staticCapabilities();
   };
-};
+
+  readonly createCapabilities = async (
+    runtimeContext: FeatureRuntime,
+  ): Promise<HttpMountableCapabilities> => {
+    return this.createHttpCapabilities(runtimeContext, {
+      middlewares: [],
+      errorHandlers: [],
+    });
+  };
+
+  readonly createHttpCapabilities = async (
+    runtimeContext: FeatureRuntime,
+    context: HttpMountContext,
+  ): Promise<HttpMountableCapabilities> => {
+    if (this.options.runtimeModule) {
+      const generatedRuntime = await loadGeneratedGraphqlRuntime(this.options.runtimeModule);
+      const resolverInstances = new Map<string, object>();
+      for (const resolver of this.options.resolvers) {
+        resolverInstances.set(resolver.name, await runtimeContext.get(resolver));
+      }
+      setGraphqlRuntimeState(this.controller, {
+        runtime: generatedRuntime,
+        resolveResolver: createResolverLookup(resolverInstances),
+      });
+    }
+
+    return http({ controllers: [this.controller] }).createHttpCapabilities(runtimeContext, context);
+  };
+
+  private createController(): ControllerClass {
+    const options = this.options;
+    class GraphqlEndpointController {
+      async handle(): Promise<Response> {
+        const state = getGraphqlRuntimeState(GraphqlEndpointController);
+        if (!state) {
+          return Response.json(
+            { errors: [{ message: 'GraphQL generated runtime is not configured.' }] },
+            { status: 501 },
+          );
+        }
+
+        const payload = body();
+        if (!isGraphqlRequestPayload(payload)) {
+          return Response.json(
+            { errors: [{ message: 'GraphQL request body must include a query string.' }] },
+            { status: 400 },
+          );
+        }
+
+        const result = await executeGraphqlRequest({
+          runtime: state.runtime,
+          resolvers: options.resolvers,
+          resolveResolver: state.resolveResolver,
+          request: payload,
+        });
+
+        return Response.json(result);
+      }
+    }
+
+    applyLegacyMethodDecorator(Post('/'), GraphqlEndpointController.prototype, 'handle');
+    Controller('/')(GraphqlEndpointController);
+    return GraphqlEndpointController;
+  }
+}
+
+export const graphql = (options: GraphqlOptions): GraphqlChildOptions =>
+  new GraphqlHttpFeature(options);

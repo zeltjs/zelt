@@ -20,11 +20,11 @@ class ViewerResolver {
 
 describe('generateGraphqlSdl', () => {
   it('discovers GraphQL controller markers from app.http.getControllers()', async () => {
-    const child = graphql('/graphql', { resolvers: [ViewerResolver] });
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
     const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-'));
 
     const result = await generateGraphqlSdl(
-      { getControllers: () => child.controllers ?? [] },
+      { getControllers: () => child.staticCapabilities().getControllers() },
       { distDir: outDir, tsconfig: resolve(__dirname, '../tsconfig.json') },
     );
 
@@ -38,7 +38,7 @@ describe('generateGraphqlSdl', () => {
 
 describe('graphqlPlugin', () => {
   it('generates schema.graphql during preBuild', async () => {
-    const child = graphql('/graphql', { resolvers: [ViewerResolver] });
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
     const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-plugin-'));
     const plugin = graphqlPlugin({ outDir, tsconfig: resolve(__dirname, '../tsconfig.json') });
 
@@ -46,7 +46,7 @@ describe('graphqlPlugin', () => {
       cwd: process.cwd(),
       build: {},
       loadStaticApp: async () => ({
-        http: { getControllers: () => child.controllers ?? [] },
+        http: { getControllers: () => child.staticCapabilities().getControllers() },
       }),
     });
 
@@ -58,10 +58,10 @@ describe('graphqlPlugin', () => {
   it('generates a runtime helper with schema SDL and resolver bindings', async () => {
     const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-runtime-'));
     const runtimeModule = join(outDir, 'viewer-runtime.js');
-    const child = graphql('/graphql', { resolvers: [ViewerResolver], runtimeModule });
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver], runtimeModule });
 
     await generateGraphqlSdl(
-      { getControllers: () => child.controllers ?? [] },
+      { getControllers: () => child.staticCapabilities().getControllers() },
       { distDir: outDir, tsconfig: resolve(__dirname, '../tsconfig.json') },
     );
 

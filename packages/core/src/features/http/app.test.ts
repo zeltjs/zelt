@@ -717,10 +717,10 @@ describe('nested children', () => {
       http({
         controllers: [],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [UserController],
-          },
+          }),
         ],
       }),
     ]);
@@ -756,11 +756,11 @@ describe('nested children', () => {
         controllers: [],
         middlewares: [parentMiddleware],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [ChildController],
             middlewares: [childMiddleware],
-          },
+          }),
         ],
       }),
     ]);
@@ -790,11 +790,11 @@ describe('nested children', () => {
       http({
         controllers: [],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [ChildController],
             errorHandlers: [ChildErrorHandler],
-          },
+          }),
         ],
       }),
     ]);
@@ -826,10 +826,10 @@ describe('nested children', () => {
         controllers: [],
         errorHandlers: [ParentErrorHandler],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [ChildController],
-          },
+          }),
         ],
       }),
     ]);
@@ -884,11 +884,11 @@ describe('nested children', () => {
         controllers: [],
         errorHandlers: [ParentHandler],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [BubbleController],
             errorHandlers: [ChildHandler],
-          },
+          }),
         ],
       }),
     ]);
@@ -919,15 +919,15 @@ describe('nested children', () => {
       http({
         controllers: [],
         children: [
-          {
+          http({
             path: '/api',
             children: [
-              {
+              http({
                 path: '/v1',
                 controllers: [ItemController],
-              },
+              }),
             ],
-          },
+          }),
         ],
       }),
     ]);
@@ -959,10 +959,10 @@ describe('nested children', () => {
       http({
         controllers: [ControllerA],
         children: [
-          {
+          http({
             path: '/child',
             controllers: [ControllerB],
-          },
+          }),
         ],
       }),
     ]);
@@ -986,10 +986,10 @@ describe('nested children', () => {
       http({
         controllers: [],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [MetaController],
-          },
+          }),
         ],
       }),
     ]);
@@ -998,54 +998,6 @@ describe('nested children', () => {
     expect(meta.controllers).toHaveLength(1);
     expect(meta.controllers[0]?.basePath).toBe('/api/items');
     expect(meta.controllers[0]?.routes[0]?.fullPath).toBe('/api/items/:id');
-  });
-
-  it('runs child runtime initializers while building the HTTP runtime', async () => {
-    const events: string[] = [];
-
-    @injectable()
-    class InitializerProbe {
-      value() {
-        return 'ready-probe';
-      }
-    }
-
-    @Controller('/items')
-    class InitializerController {
-      @Get('/')
-      list() {
-        events.push('handler');
-        return { ok: true };
-      }
-    }
-
-    const app = createApp([
-      http({
-        controllers: [],
-        children: [
-          {
-            path: '/api',
-            controllers: [InitializerController],
-            runtimeInitializers: [
-              {
-                name: 'test-initializer',
-                initialize: async ({ path, controllers, get }) => {
-                  const probe = await get(InitializerProbe);
-                  events.push(`${path}:${controllers[0]?.name ?? '<none>'}:${probe.value()}`);
-                },
-              },
-            ],
-          },
-        ],
-      }),
-    ]);
-
-    const readyApp = await app.createRuntime();
-    expect(events).toEqual(['/api:InitializerController:ready-probe']);
-
-    const res = await readyApp.http.request('/api/items/');
-    expect(res.status).toBe(200);
-    expect(events).toEqual(['/api:InitializerController:ready-probe', 'handler']);
   });
 });
 

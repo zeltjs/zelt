@@ -41,6 +41,8 @@ export type {
   FeatureReadyCapabilities,
   FeatureRuntime,
   HttpCapabilities,
+  HttpMountableCapabilities,
+  HttpMountableFeatureModule,
   HttpStaticCapabilities,
   NamespacedCaps,
   SchedulerCapabilities,
@@ -92,8 +94,8 @@ export type { HttpMetadata } from './features/http/http.service';
 export type {
   ControllerClass,
   HttpChildOptions,
-  HttpChildRuntimeInitializer,
-  HttpChildRuntimeInitializerContext,
+  HttpModuleOptions,
+  HttpMountContext,
 } from './features/http/http.types';
 // HTTP primitives
 export { currentRoles, currentUser, setUser } from './features/http/middleware/auth';

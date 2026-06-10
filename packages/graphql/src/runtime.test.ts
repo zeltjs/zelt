@@ -88,7 +88,8 @@ describe('graphql HTTP runtime', () => {
       http({
         controllers: [],
         children: [
-          graphql('/graphql', {
+          graphql({
+            path: '/graphql',
             resolvers: [RuntimeViewerResolver],
             runtimeModule: pathToFileURL(runtimeModulePath).href,
           }),
