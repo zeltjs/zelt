@@ -4,8 +4,12 @@ import type { ClassMetadata, MethodInfo, TypeInfo } from '@zeltjs/decorator-meta
 import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
 import * as v from 'valibot';
 
+import type { GqlSchemaResolver, GqlValidatedSchemaRef } from './analyze-gql-args.lib';
+import { extractGqlValidatedRef, resolveGqlValidatedArgs } from './analyze-gql-args.lib';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
+import type { GraphqlSchemaAdapter } from './json-schema-to-graphql-args.lib';
+import { renderGraphqlArgs } from './json-schema-to-graphql-args.lib';
 import {
   addGraphqlField,
   convertTypeInfoToGraphqlRef,
@@ -22,6 +26,8 @@ type TSTypeReference = import('typescript').TypeReference;
 
 export type GenerateSdlOptions = {
   readonly tsconfig?: string;
+  readonly schemaAdapter?: GraphqlSchemaAdapter;
+  readonly schemaResolver?: GqlSchemaResolver;
 };
 
 const operationKindSchema = v.picklist(['query', 'mutation', 'resolveField']);
@@ -48,6 +54,7 @@ type AnalyzeResolversResult = {
 type MethodTypeNames = {
   readonly returnTypeName: string | undefined;
   readonly parentTypeName: string | undefined;
+  readonly argsSchemaRef: GqlValidatedSchemaRef | undefined;
 };
 
 function toInspectableClass(cls: GraphqlResolverClass): new (...args: unknown[]) => object;
@@ -167,15 +174,18 @@ const getMethodTypeNames = (
 ): MethodTypeNames => {
   const methodNode = findMethodDeclaration(classNode, methodName, ts);
   const signature = methodNode ? checker.getSignatureFromDeclaration(methodNode) : undefined;
-  if (!signature) return { returnTypeName: undefined, parentTypeName: undefined };
+  if (!methodNode || !signature) {
+    return { returnTypeName: undefined, parentTypeName: undefined, argsSchemaRef: undefined };
+  }
 
   const returnTypeName = getNamedTypeFromTsType(signature.getReturnType(), checker, ts);
   const firstParam = signature.getParameters()[0];
   const parentTypeName = firstParam
     ? getNamedTypeFromTsType(checker.getTypeOfSymbol(firstParam), checker, ts)
     : undefined;
+  const argsSchemaRef = extractGqlValidatedRef(methodNode, classNode.getSourceFile(), ts);
 
-  return { returnTypeName, parentTypeName };
+  return { returnTypeName, parentTypeName, argsSchemaRef };
 };
 
 type ResolverClassNode = {
@@ -234,10 +244,11 @@ const addRootField = (
   fieldName: string,
   type: TypeInfo,
   typeNameHint: string | undefined,
+  argsRendered: string,
   ctx: ReturnType<typeof createGraphqlTypeContext>,
 ): void => {
   const ref = convertTypeInfoToGraphqlRef(type, ctx, typeNameHint ?? fallbackTypeName(fieldName));
-  const rendered = renderType(ref);
+  const rendered = `${argsRendered}: ${renderType(ref)}`;
   const existing = fields.get(fieldName);
   if (existing && existing !== rendered) {
     throw new Error(`Duplicate GraphQL root field with incompatible type: ${fieldName}`);
@@ -264,7 +275,7 @@ const addRuntimeBinding = (
 
 const printRoot = (name: 'Query' | 'Mutation', fields: Map<string, string>): string | undefined => {
   if (fields.size === 0) return undefined;
-  const lines = [...fields.entries()].map(([fieldName, type]) => `  ${fieldName}: ${type}`);
+  const lines = [...fields.entries()].map(([fieldName, suffix]) => `  ${fieldName}${suffix}`);
   return `type ${name} {\n${lines.join('\n')}\n}`;
 };
 
@@ -302,10 +313,11 @@ const registerRootMethod = (
   returnType: TypeInfo,
   kind: 'query' | 'mutation',
   names: MethodTypeNames | undefined,
+  argsRendered: string,
 ): void => {
   const fields = kind === 'query' ? state.roots.query : state.roots.mutation;
   const rootTypeName = kind === 'query' ? 'Query' : 'Mutation';
-  addRootField(fields, methodName, returnType, names?.returnTypeName, state.typeCtx);
+  addRootField(fields, methodName, returnType, names?.returnTypeName, argsRendered, state.typeCtx);
   addRuntimeBinding(state.bindings, rootTypeName, methodName, resolverName, methodName);
 };
 
@@ -338,12 +350,36 @@ const registerResolverMethod = (
   returnType: TypeInfo,
   kind: OperationKind,
   names: MethodTypeNames | undefined,
+  argsRendered: string,
 ): void => {
   if (kind === 'resolveField') {
+    if (argsRendered !== '') {
+      throw new Error(
+        `gqlValidated args on @ResolveField() are not supported yet: ${resolverName}.${methodName}`,
+      );
+    }
     registerFieldMethod(state, resolverName, methodName, returnType, names);
     return;
   }
-  registerRootMethod(state, resolverName, methodName, returnType, kind, names);
+  registerRootMethod(state, resolverName, methodName, returnType, kind, names, argsRendered);
+};
+
+/** @throws {Error} */
+const renderMethodArgs = async (
+  names: MethodTypeNames | undefined,
+  resolverName: string,
+  methodName: string,
+  options: GenerateSdlOptions,
+): Promise<string> => {
+  const ref = names?.argsSchemaRef;
+  if (!ref) return '';
+  if (!options.schemaAdapter) {
+    throw new Error(
+      `gqlValidated args require the schemaAdapter option: ${resolverName}.${methodName}`,
+    );
+  }
+  const args = await resolveGqlValidatedArgs(ref, options.schemaAdapter, options.schemaResolver);
+  return renderGraphqlArgs(args);
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -369,13 +405,16 @@ const analyzeResolver = async (
     const operationKind = getOperationKind(method);
     if (!operationKind) continue;
 
+    const names = methodTypeNames.get(method.name);
+    const argsRendered = await renderMethodArgs(names, resolver.name, method.name, options);
     registerResolverMethod(
       state,
       resolver.name,
       method.name,
       method.returnType,
       operationKind,
-      methodTypeNames.get(method.name),
+      names,
+      argsRendered,
     );
   }
 };

@@ -5,6 +5,7 @@ import type { ExecutionResult, GraphQLSchema } from 'graphql';
 import { buildSchema, GraphQLObjectType, graphql } from 'graphql';
 import * as v from 'valibot';
 
+import { runWithGraphqlArgs } from './gql-validated.lib';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 
 const generatedGraphqlBindingSchema = v.object({
@@ -104,6 +105,7 @@ const callResolverMethod = (
 type ResolveBinding = (
   binding: GeneratedGraphqlBinding,
   parent: unknown,
+  args: Readonly<Record<string, unknown>>,
   isRootField: boolean,
 ) => Promise<unknown>;
 
@@ -111,13 +113,15 @@ type ResolveBinding = (
 const createBindingResolver = (options: ExecuteGraphqlRequestOptions): ResolveBinding => {
   const resolverCache = new Map<GraphqlResolverClass, object>();
 
-  return async (binding, parent, isRootField) => {
+  return async (binding, parent, args, isRootField) => {
     const resolverClass = findResolverClass(options.resolvers, binding);
     const cached = resolverCache.get(resolverClass);
     const instance = cached ?? (await options.resolveResolver(resolverClass));
     if (!cached) resolverCache.set(resolverClass, instance);
 
-    return callResolverMethod(instance, binding.method, isRootField ? [] : [parent]);
+    return runWithGraphqlArgs(args, () =>
+      callResolverMethod(instance, binding.method, isRootField ? [] : [parent]),
+    );
   };
 };
 
@@ -134,8 +138,8 @@ const attachBindingResolvers = (
     for (const [fieldName, binding] of Object.entries(fields)) {
       const field = graphqlFields[fieldName];
       if (!field) continue;
-      field.resolve = (parent) =>
-        resolveBinding(binding, parent, typeName === 'Query' || typeName === 'Mutation');
+      field.resolve = (parent, args: Readonly<Record<string, unknown>>) =>
+        resolveBinding(binding, parent, args, typeName === 'Query' || typeName === 'Mutation');
     }
   }
 };

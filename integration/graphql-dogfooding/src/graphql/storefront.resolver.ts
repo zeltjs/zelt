@@ -1,14 +1,14 @@
 import { inject } from '@zeltjs/core';
-import { Query, ResolveField, Resolver } from '@zeltjs/graphql';
-
+import { gqlValidated, Query, Resolver } from '@zeltjs/graphql';
 import { CartService } from '../cart/cart.service';
-import type { CartPublic, CartPublicItems } from '../cart/cart.types';
+import type { CartPublic } from '../cart/cart.types';
 import { CatalogService } from '../catalog/catalog.service';
 import type { CategoryPublic, ProductPublic } from '../catalog/catalog.types';
 import { CustomerService } from '../customer/customer.service';
 import type { CustomerPublic } from '../customer/customer.types';
 import { OrderService } from '../order/order.service';
 import type { OrderPublic } from '../order/order.types';
+import { GetProductInput } from './storefront.inputs';
 
 @Resolver()
 export class StorefrontResolver {
@@ -35,6 +35,11 @@ export class StorefrontResolver {
   }
 
   @Query()
+  product(input = gqlValidated(GetProductInput)): ProductPublic | null {
+    return this.catalogService.findProduct(input.id) ?? null;
+  }
+
+  @Query()
   featuredProducts(): readonly ProductPublic[] {
     return this.catalogService.featuredProducts();
   }
@@ -47,10 +52,5 @@ export class StorefrontResolver {
   @Query()
   orderHistory(): readonly OrderPublic[] {
     return this.orderService.history(this.customerService.currentViewer().id);
-  }
-
-  @ResolveField()
-  product(parent: CartPublicItems): ProductPublic {
-    return this.catalogService.requireProduct(parent.productId);
   }
 }

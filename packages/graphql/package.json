@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@valibot/to-json-schema": "catalog:",
     "@zeltjs/cli": "workspace:*",
     "vitest": "catalog:"
   },

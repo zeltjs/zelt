@@ -25,4 +25,9 @@ export class StorefrontFieldsResolver {
   lineTotalCents(parent: CartPublicItems): number {
     return parent.unitPriceCents * parent.quantity;
   }
+
+  @ResolveField()
+  product(parent: CartPublicItems): ProductPublic {
+    return this.catalogService.requireProduct(parent.productId);
+  }
 }

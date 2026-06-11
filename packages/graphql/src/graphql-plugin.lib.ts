@@ -15,6 +15,8 @@ type HttpStaticApp = {
 export type GraphqlPluginOptions = {
   readonly outDir?: string;
   readonly tsconfig?: string;
+  readonly schemaAdapter?: GenerateSdlOptions['schemaAdapter'];
+  readonly schemaResolver?: GenerateSdlOptions['schemaResolver'];
 };
 
 export type GenerateGraphqlSdlOptions = GenerateSdlOptions & {
@@ -74,8 +76,11 @@ const toRuntimeSchemaPath = (runtimeModule: string): string => {
   return runtimePath.replace(/\.(?:cjs|mjs|js|ts)$/, '.graphql');
 };
 
-const toSdlOptions = (options: GenerateGraphqlSdlOptions): GenerateSdlOptions =>
-  options.tsconfig ? { tsconfig: options.tsconfig } : {};
+const toSdlOptions = (options: GenerateGraphqlSdlOptions): GenerateSdlOptions => ({
+  ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
+  ...(options.schemaAdapter !== undefined && { schemaAdapter: options.schemaAdapter }),
+  ...(options.schemaResolver !== undefined && { schemaResolver: options.schemaResolver }),
+});
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
 const generateStandaloneSchema = async (
@@ -132,6 +137,8 @@ export const generateGraphqlSdl = async (
 const buildGenerateOptions = (options: GraphqlPluginOptions): GenerateGraphqlSdlOptions => ({
   distDir: options.outDir ?? './dist',
   ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
+  ...(options.schemaAdapter !== undefined && { schemaAdapter: options.schemaAdapter }),
+  ...(options.schemaResolver !== undefined && { schemaResolver: options.schemaResolver }),
 });
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */

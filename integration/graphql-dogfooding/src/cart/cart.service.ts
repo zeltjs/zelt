@@ -33,6 +33,20 @@ export class CartService {
     return this.toCart(customerId, items);
   }
 
+  addItem(customerId: string, productId: string, quantity: number): CartPublic {
+    const product = this.catalog.requireProduct(productId);
+    const items = [...(this.itemsByCustomer.get(customerId) ?? [])];
+    const index = items.findIndex((item) => item.productId === productId);
+    const existing = items[index];
+    if (existing) {
+      items[index] = { ...existing, quantity: existing.quantity + quantity };
+    } else {
+      items.push({ productId, quantity, unitPriceCents: product.priceCents });
+    }
+    this.itemsByCustomer.set(customerId, items);
+    return this.toCart(customerId, items);
+  }
+
   clear(customerId: string): void {
     this.itemsByCustomer.delete(customerId);
   }

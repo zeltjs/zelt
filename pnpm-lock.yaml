@@ -474,6 +474,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.17
+      '@valibot/to-json-schema':
+        specifier: 'catalog:'
+        version: 1.6.0(valibot@1.3.1(typescript@6.0.2))
       '@zeltjs/cli':
         specifier: workspace:*
         version: link:../cli
