@@ -8,7 +8,6 @@ import type {
   HttpModuleOptions,
   HttpMountableCapabilities,
   HttpMountableFeatureModule,
-  HttpMountContext,
   HttpStaticCapabilities,
 } from './http.types';
 import { collectOwnControllerMetadata, prefixHttpMetadata } from './http-children.lib';
@@ -51,39 +50,21 @@ export class HttpFeature
   readonly createCapabilities = async (
     runtime: FeatureRuntime,
   ): Promise<HttpMountableCapabilities> => {
-    const local = await this.createHttpCapabilities(runtime, {
-      middlewares: [],
-      errorHandlers: [],
-    });
-    if (this.path === '/') return local;
-
     const service = await runtime.get(HttpService);
-    const rootRouter = await service.createLocalRouter({
-      controllers: [],
-    });
-    rootRouter.route(this.path, local.router);
-    return this.toCapabilities(rootRouter);
-  };
+    const local = await service.createLocalRouter(this.opts);
 
-  readonly createHttpCapabilities = async (
-    runtime: FeatureRuntime,
-    context: HttpMountContext,
-  ): Promise<HttpMountableCapabilities> => {
-    const service = await runtime.get(HttpService);
-    const router = await service.createLocalRouter(this.opts, context);
-    const childContext: HttpMountContext = {
-      middlewares: [...context.middlewares, ...(this.opts.middlewares ?? [])],
-      errorHandlers: [...(this.opts.errorHandlers ?? []), ...context.errorHandlers],
-    };
-
+    // Children arrive self-prefixed (they apply their own path below), so
+    // they merge at '/' — mirroring how staticCapabilities composes metadata.
     for (const child of this.children) {
-      const childCaps = child.createHttpCapabilities
-        ? await child.createHttpCapabilities(runtime, childContext)
-        : await child.createCapabilities(runtime);
-      router.route(child.path, childCaps.router);
+      const childCaps = await child.createCapabilities(runtime);
+      local.route('/', childCaps.router);
     }
 
-    return this.toCapabilities(router);
+    if (this.path === '/') return this.toCapabilities(local);
+
+    const rootRouter = await service.createLocalRouter({ controllers: [] });
+    rootRouter.route(this.path, local);
+    return this.toCapabilities(rootRouter);
   };
 
   private collectMetadata(): HttpMetadata {

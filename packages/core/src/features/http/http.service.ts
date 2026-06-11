@@ -2,10 +2,21 @@ import { Container } from '@needle-di/core';
 import type { Hono } from 'hono';
 import { Injectable, inject, LifecycleManager, resolve } from '../../kernel';
 import { DefaultErrorHandler } from './error/default.error-handler';
-import type { HttpMountContext, HttpOptions } from './http.types';
-import { createErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
+import type { HttpOptions } from './http.types';
+import { createBootstrapMiddleware, createRequestRootChecker } from './http-bootstrap.lib';
+import { createRouterErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
+import {
+  guardMiddleware,
+  middlewareIdentity,
+  oncePerRequest,
+  resolveMiddleware,
+} from './middleware';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
-import type { MiddlewareInput, RequestContext } from './middleware/middleware.types';
+import type {
+  FunctionMiddleware,
+  MiddlewareInput,
+  RequestContext,
+} from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import { buildRoutes } from './routing';
 
@@ -31,6 +42,7 @@ type _HonoInstanceCheck = HonoInstance extends {
   readonly put: (path: string, handler: RouteHandler) => unknown;
   readonly patch: (path: string, handler: RouteHandler) => unknown;
   readonly delete: (path: string, handler: RouteHandler) => unknown;
+  readonly use: (handler: FunctionMiddleware) => unknown;
   readonly onError: (handler: (err: Error, c: RequestContext) => Promise<Response>) => unknown;
   readonly route: (path: string, app: Hono) => unknown;
   readonly fetch: (request: Request) => Response | Promise<Response>;
@@ -46,49 +58,56 @@ export class HttpService {
   ) {}
 
   /** @throws {Error} */
-  async createLocalRouter(
-    options: HttpOptions,
-    context: HttpMountContext = { middlewares: [], errorHandlers: [] },
-  ): Promise<HttpRouter> {
+  async createLocalRouter(options: HttpOptions): Promise<HttpRouter> {
     try {
-      return await this.initializeHono(options, context);
+      return await this.initializeHono(options);
     } catch (cause) {
       throw new Error('HttpService createLocalRouter failed', { cause });
     }
   }
 
-  /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
-  private async initializeHono(
-    options: HttpOptions,
-    context: HttpMountContext,
-  ): Promise<HonoInstance> {
+  /** @throws {Error | ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError | ZeltReadyFailedError | BadRequestException}
+   * @throws {unknown} from http-error-handlers.lib.ts:createRouterErrorHandler
+   */
+  private async initializeHono(options: HttpOptions): Promise<HonoInstance> {
     const Hono = await this.loadHonoConstructor();
     const fallbackHandler = resolve(this.container, DefaultErrorHandler);
     const resolver = {
       get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
     };
 
+    const routerToken = Symbol('zelt:http-router');
+    const hono = new Hono({ strict: false });
+    hono.use(createBootstrapMiddleware(this.lifecycleManager, routerToken));
+
+    const errorHandlers = resolveErrorHandlers(options.errorHandlers ?? [], this.container);
+    hono.onError(
+      createRouterErrorHandler(
+        errorHandlers,
+        fallbackHandler,
+        createRequestRootChecker(routerToken),
+      ),
+    );
+
     const securityMiddlewares: readonly MiddlewareInput[] = [
       CorsMiddleware,
       SecureHeadersMiddleware,
     ];
-    const middlewares = [
-      ...securityMiddlewares,
-      ...context.middlewares,
-      ...(options.middlewares ?? []),
-    ];
-    const errorHandlerClasses = [...(options.errorHandlers ?? []), ...context.errorHandlers];
-    const hono = new Hono({ strict: false });
-
-    const errorHandlers = resolveErrorHandlers(errorHandlerClasses, this.container);
-    hono.onError(createErrorHandler(errorHandlers, fallbackHandler));
+    for (const input of securityMiddlewares) {
+      const identity = middlewareIdentity(input);
+      hono.use(
+        guardMiddleware(identity, oncePerRequest(identity, resolveMiddleware(input, resolver))),
+      );
+    }
+    for (const input of options.middlewares ?? []) {
+      hono.use(guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver)));
+    }
 
     buildRoutes({
       hono,
       controllers: options.controllers ?? [],
       resolver,
       lifecycle: this.lifecycleManager,
-      globalMiddlewares: middlewares,
     });
 
     return hono;

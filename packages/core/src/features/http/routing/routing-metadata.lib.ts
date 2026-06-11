@@ -6,6 +6,8 @@ import { joinPath } from './path-utils.lib';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+export type ControllerClass = new (...args: never[]) => object;
+
 type ControllerMetadata = {
   readonly basePath: string;
 };
@@ -203,9 +205,7 @@ export const getAuthorizedMetadata = (
   return undefined;
 };
 
-export const collectControllerRouteInfo = (
-  cls: new (...args: never[]) => object,
-): ControllerRouteInfo => {
+export const collectControllerRouteInfo = (cls: ControllerClass): ControllerRouteInfo => {
   const controllerMeta = getControllerMetadata(cls);
   const basePath = controllerMeta?.basePath ?? '/';
   const routeMeta = getRouteMetadata(cls);

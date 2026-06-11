@@ -1,4 +1,5 @@
 import type { TypeInfo } from '@zeltjs/decorator-metadata/inspect';
+import { match } from 'ts-pattern';
 
 type GraphqlTypeRef = {
   readonly type: string;
@@ -81,6 +82,7 @@ const getStringLiteralUnionValues = (type: TypeInfo): readonly string[] | undefi
   return getStringLiteralValues(type.types.filter((t) => !isNullishType(t)));
 };
 
+/** @throws {Error} */
 const ensureEnum = (
   ctx: GraphqlTypeContext,
   nameHint: string | undefined,
@@ -105,6 +107,7 @@ const ensureObject = (ctx: GraphqlTypeContext, name: string): GraphqlObjectDefin
   return created;
 };
 
+/** @throws {Error} */
 const addFieldDefinition = (
   object: GraphqlObjectDefinition,
   fieldName: string,
@@ -123,7 +126,8 @@ const addEnumFieldMapping = (
   fieldName: string,
   values: readonly string[],
 ): void => {
-  const objectFields = ctx.enumFields.get(objectName) ?? new Map();
+  const objectFields =
+    ctx.enumFields.get(objectName) ?? new Map<string, Readonly<Record<string, string>>>();
   objectFields.set(
     fieldName,
     Object.fromEntries(values.map((value) => [value, toEnumValue(value)])),
@@ -131,8 +135,9 @@ const addEnumFieldMapping = (
   ctx.enumFields.set(objectName, objectFields);
 };
 
+/** @throws {Error} */
 const convertObject = (
-  type: TypeInfo & { readonly kind: 'object' },
+  type: TypeInfo & { kind: 'object' },
   ctx: GraphqlTypeContext,
   nameHint: string | undefined,
 ): GraphqlTypeRef => {
@@ -157,8 +162,9 @@ const convertObject = (
   return { type: object.name, nullable: false };
 };
 
+/** @throws {Error} */
 const convertUnion = (
-  type: TypeInfo & { readonly kind: 'union' },
+  type: TypeInfo & { kind: 'union' },
   ctx: GraphqlTypeContext,
   nameHint: string | undefined,
 ): GraphqlTypeRef => {
@@ -182,43 +188,46 @@ const convertUnion = (
   throw new Error('GraphQL output union support is limited to nullable values and string enums');
 };
 
+/** @throws {Error} */
+const convertPrimitive = (type: TypeInfo & { kind: 'primitive' }): GraphqlTypeRef => {
+  if (type.type === 'null' || type.type === 'undefined') {
+    return { type: 'String', nullable: true };
+  }
+  const mapped = primitiveMap[type.type];
+  if (!mapped) throw new Error(`Unsupported GraphQL primitive output type: ${type.type}`);
+  return { type: mapped, nullable: false };
+};
+
+const convertLiteral = (type: TypeInfo & { kind: 'literal' }): GraphqlTypeRef => {
+  if (typeof type.value === 'string') return { type: 'String', nullable: false };
+  if (typeof type.value === 'number') return { type: 'Float', nullable: false };
+  return { type: 'Boolean', nullable: false };
+};
+
+/** @throws {Error} */
 export const convertTypeInfoToGraphqlRef = (
   type: TypeInfo,
   ctx: GraphqlTypeContext,
   nameHint?: string,
-): GraphqlTypeRef => {
-  switch (type.kind) {
-    case 'primitive': {
-      if (type.type === 'null' || type.type === 'undefined') {
-        return { type: 'String', nullable: true };
-      }
-      const mapped = primitiveMap[type.type];
-      if (!mapped) throw new Error(`Unsupported GraphQL primitive output type: ${type.type}`);
-      return { type: mapped, nullable: false };
-    }
-    case 'literal': {
-      if (typeof type.value === 'string') return { type: 'String', nullable: false };
-      if (typeof type.value === 'number') return { type: 'Float', nullable: false };
-      return { type: 'Boolean', nullable: false };
-    }
-    case 'array': {
-      const inner = convertTypeInfoToGraphqlRef(type.items, ctx, nameHint);
+): GraphqlTypeRef =>
+  match(type)
+    .with({ kind: 'primitive' }, convertPrimitive)
+    .with({ kind: 'literal' }, convertLiteral)
+    .with({ kind: 'array' }, (t) => {
+      const inner = convertTypeInfoToGraphqlRef(t.items, ctx, nameHint);
       return { type: `[${renderType(inner)}]`, nullable: false };
-    }
-    case 'object':
-      return convertObject(type, ctx, nameHint);
-    case 'union':
-      return convertUnion(type, ctx, nameHint);
-    case 'promise':
-      return convertTypeInfoToGraphqlRef(type.inner, ctx, nameHint);
-    case 'named':
-    case 'ref':
-      return { type: toGraphqlTypeName(type.name), nullable: false };
-    case 'unknown':
+    })
+    .with({ kind: 'object' }, (t) => convertObject(t, ctx, nameHint))
+    .with({ kind: 'union' }, (t) => convertUnion(t, ctx, nameHint))
+    .with({ kind: 'promise' }, (t) => convertTypeInfoToGraphqlRef(t.inner, ctx, nameHint))
+    .with({ kind: 'named' }, (t) => ({ type: toGraphqlTypeName(t.name), nullable: false }))
+    .with({ kind: 'ref' }, (t) => ({ type: toGraphqlTypeName(t.name), nullable: false }))
+    .with({ kind: 'unknown' }, () => {
       throw new Error('Unsupported GraphQL unknown output type');
-  }
-};
+    })
+    .exhaustive();
 
+/** @throws {Error} */
 export const addGraphqlField = (
   ctx: GraphqlTypeContext,
   objectName: string,
@@ -254,6 +263,7 @@ export const renderGraphqlDefinitions = (ctx: GraphqlTypeContext): readonly stri
   ...[...ctx.enums.values()].map(printEnum),
 ];
 
+/** @throws {Error} */
 export const typeInfoToGraphqlType = (type: TypeInfo, nameHint?: string): GraphqlTypeResult => {
   const ctx = createGraphqlTypeContext();
   const ref = convertTypeInfoToGraphqlRef(type, ctx, nameHint);

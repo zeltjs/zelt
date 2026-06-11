@@ -1,30 +1,30 @@
 export { Mutation, Query, ResolveField, Resolver } from './graphql.decorator';
+export type { GraphqlChildOptions, GraphqlOptions } from './graphql-child.lib';
+export { graphql } from './graphql-child.lib';
 export type {
   GraphqlControllerMetadata,
   GraphqlOperationKind,
   GraphqlOperationMetadata,
   GraphqlResolverClass,
   GraphqlResolverMetadata,
-} from './graphql.metadata';
+} from './graphql-metadata.lib';
 export {
   getGraphqlControllerMetadata,
   getResolverMetadata,
-} from './graphql.metadata';
+} from './graphql-metadata.lib';
 export type {
   GenerateGraphqlSdlOptions,
   GenerateGraphqlSdlResult,
   GraphqlPluginOptions,
-} from './graphql.plugin';
-export { generateGraphqlSdl, graphqlPlugin } from './graphql.plugin';
-export type { GraphqlChildOptions, GraphqlOptions } from './graphql-child.lib';
-export { graphql } from './graphql-child.lib';
+} from './graphql-plugin.lib';
+export { generateGraphqlSdl, graphqlPlugin } from './graphql-plugin.lib';
 export type {
   ExecuteGraphqlRequestOptions,
   GeneratedGraphqlBinding,
   GeneratedGraphqlRuntime,
   GraphqlRequestPayload,
 } from './graphql-runtime.lib';
-export { executeGraphqlRequest, isGraphqlRequestPayload } from './graphql-runtime.lib';
+export { executeGraphqlRequest, graphqlRequestPayloadSchema } from './graphql-runtime.lib';
 export type { GenerateSdlOptions } from './graphql-sdl-generator.lib';
 export {
   generateGraphqlRuntimeForResolvers,

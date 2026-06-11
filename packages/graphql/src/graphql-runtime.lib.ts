@@ -1,29 +1,36 @@
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import type { ExecutionResult } from 'graphql';
-import { buildSchema, graphql as executeGraphql, GraphQLObjectType } from 'graphql';
+import type { ExecutionResult, GraphQLSchema } from 'graphql';
+import { buildSchema, GraphQLObjectType, graphql } from 'graphql';
+import * as v from 'valibot';
 
-import type { GraphqlResolverClass } from './graphql.metadata';
+import type { GraphqlResolverClass } from './graphql-metadata.lib';
 
-export type GeneratedGraphqlBinding = {
-  readonly resolver: string;
-  readonly method: string;
-};
+const generatedGraphqlBindingSchema = v.object({
+  resolver: v.string(),
+  method: v.string(),
+});
 
-export type GeneratedGraphqlRuntime = {
-  readonly schemaSdl: string;
-  readonly bindings: Readonly<Record<string, Readonly<Record<string, GeneratedGraphqlBinding>>>>;
-  readonly enumFields?: Readonly<
-    Record<string, Readonly<Record<string, Readonly<Record<string, string>>>>>
-  >;
-};
+const generatedGraphqlRuntimeSchema = v.object({
+  schemaSdl: v.string(),
+  bindings: v.record(v.string(), v.record(v.string(), generatedGraphqlBindingSchema)),
+  enumFields: v.optional(
+    v.record(v.string(), v.record(v.string(), v.record(v.string(), v.string()))),
+  ),
+});
 
-export type GraphqlRequestPayload = {
-  readonly query: string;
-  readonly variables?: Readonly<Record<string, unknown>>;
-  readonly operationName?: string;
-};
+export const graphqlRequestPayloadSchema = v.object({
+  query: v.string(),
+  variables: v.optional(v.record(v.string(), v.unknown())),
+  operationName: v.optional(v.string()),
+});
+
+export type GeneratedGraphqlBinding = v.InferOutput<typeof generatedGraphqlBindingSchema>;
+
+export type GeneratedGraphqlRuntime = v.InferOutput<typeof generatedGraphqlRuntimeSchema>;
+
+export type GraphqlRequestPayload = v.InferOutput<typeof graphqlRequestPayloadSchema>;
 
 export type ExecuteGraphqlRequestOptions = {
   readonly runtime: GeneratedGraphqlRuntime;
@@ -39,27 +46,12 @@ export type GraphqlRuntimeState = {
 
 const runtimeRegistry = new WeakMap<object, GraphqlRuntimeState>();
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-export const isGraphqlRequestPayload = (value: unknown): value is GraphqlRequestPayload => {
-  if (!isObject(value)) return false;
-  if (typeof value['query'] !== 'string') return false;
-  const variables = value['variables'];
-  return variables === undefined || isObject(variables);
-};
-
 export const setGraphqlRuntimeState = (controller: object, state: GraphqlRuntimeState): void => {
   runtimeRegistry.set(controller, state);
 };
 
 export const getGraphqlRuntimeState = (controller: object): GraphqlRuntimeState | undefined =>
   runtimeRegistry.get(controller);
-
-const isGeneratedGraphqlRuntime = (value: unknown): value is GeneratedGraphqlRuntime => {
-  if (!isObject(value)) return false;
-  return typeof value['schemaSdl'] === 'string' && isObject(value['bindings']);
-};
 
 const toImportSpecifier = (runtimeModule: string): string => {
   if (
@@ -72,16 +64,19 @@ const toImportSpecifier = (runtimeModule: string): string => {
   return pathToFileURL(resolve(runtimeModule)).href;
 };
 
+/** @throws {Error} */
 export const loadGeneratedGraphqlRuntime = async (
   runtimeModule: string,
 ): Promise<GeneratedGraphqlRuntime> => {
   const mod: unknown = await import(toImportSpecifier(runtimeModule));
-  if (!isObject(mod) || !isGeneratedGraphqlRuntime(mod['graphqlRuntime'])) {
+  const parsed = v.safeParse(v.object({ graphqlRuntime: generatedGraphqlRuntimeSchema }), mod);
+  if (!parsed.success) {
     throw new Error(`GraphQL runtime module must export graphqlRuntime: ${runtimeModule}`);
   }
-  return mod['graphqlRuntime'];
+  return parsed.output.graphqlRuntime;
 };
 
+/** @throws {Error} */
 const findResolverClass = (
   resolvers: readonly GraphqlResolverClass[],
   binding: GeneratedGraphqlBinding,
@@ -93,38 +88,45 @@ const findResolverClass = (
   return resolver;
 };
 
-const getCallableMethod = (
+/** @throws {Error} */
+const callResolverMethod = (
   instance: object,
   methodName: string,
-): ((...args: unknown[]) => unknown) => {
-  const method = Reflect.get(instance, methodName);
+  args: readonly unknown[],
+): unknown => {
+  const method: unknown = Reflect.get(instance, methodName);
   if (typeof method !== 'function') {
     throw new Error(`GraphQL resolver method not found: ${methodName}`);
   }
-  return method.bind(instance) as (...args: unknown[]) => unknown;
+  return Reflect.apply(method, instance, [...args]);
 };
 
-export const executeGraphqlRequest = async (
-  options: ExecuteGraphqlRequestOptions,
-): Promise<ExecutionResult> => {
-  const schema = buildSchema(options.runtime.schemaSdl);
+type ResolveBinding = (
+  binding: GeneratedGraphqlBinding,
+  parent: unknown,
+  isRootField: boolean,
+) => Promise<unknown>;
+
+/** @throws {Error} */
+const createBindingResolver = (options: ExecuteGraphqlRequestOptions): ResolveBinding => {
   const resolverCache = new Map<GraphqlResolverClass, object>();
 
-  const resolveBinding = async (
-    binding: GeneratedGraphqlBinding,
-    parent: unknown,
-    isRootField: boolean,
-  ): Promise<unknown> => {
+  return async (binding, parent, isRootField) => {
     const resolverClass = findResolverClass(options.resolvers, binding);
     const cached = resolverCache.get(resolverClass);
     const instance = cached ?? (await options.resolveResolver(resolverClass));
     if (!cached) resolverCache.set(resolverClass, instance);
 
-    const method = getCallableMethod(instance, binding.method);
-    return isRootField ? method() : method(parent);
+    return callResolverMethod(instance, binding.method, isRootField ? [] : [parent]);
   };
+};
 
-  for (const [typeName, fields] of Object.entries(options.runtime.bindings)) {
+const attachBindingResolvers = (
+  schema: GraphQLSchema,
+  runtime: GeneratedGraphqlRuntime,
+  resolveBinding: ResolveBinding,
+): void => {
+  for (const [typeName, fields] of Object.entries(runtime.bindings)) {
     const type = schema.getType(typeName);
     if (!(type instanceof GraphQLObjectType)) continue;
 
@@ -136,8 +138,25 @@ export const executeGraphqlRequest = async (
         resolveBinding(binding, parent, typeName === 'Query' || typeName === 'Mutation');
     }
   }
+};
 
-  for (const [typeName, fields] of Object.entries(options.runtime.enumFields ?? {})) {
+const recordSchema = v.record(v.string(), v.unknown());
+
+const resolveEnumFieldValue = (
+  parent: unknown,
+  fieldName: string,
+  mapping: Readonly<Record<string, string>>,
+): unknown => {
+  if (!v.is(recordSchema, parent)) return undefined;
+  const value = parent[fieldName];
+  return typeof value === 'string' ? mapping[value] : value;
+};
+
+const attachEnumFieldResolvers = (
+  schema: GraphQLSchema,
+  runtime: GeneratedGraphqlRuntime,
+): void => {
+  for (const [typeName, fields] of Object.entries(runtime.enumFields ?? {})) {
     const type = schema.getType(typeName);
     if (!(type instanceof GraphQLObjectType)) continue;
 
@@ -145,15 +164,20 @@ export const executeGraphqlRequest = async (
     for (const [fieldName, mapping] of Object.entries(fields)) {
       const field = graphqlFields[fieldName];
       if (!field || field.resolve) continue;
-      field.resolve = (parent: unknown) => {
-        if (!isObject(parent)) return undefined;
-        const value = parent[fieldName];
-        return typeof value === 'string' ? mapping[value] : value;
-      };
+      field.resolve = (parent: unknown) => resolveEnumFieldValue(parent, fieldName, mapping);
     }
   }
+};
 
-  return executeGraphql({
+/** @throws {Error} */
+export const executeGraphqlRequest = async (
+  options: ExecuteGraphqlRequestOptions,
+): Promise<ExecutionResult> => {
+  const schema = buildSchema(options.runtime.schemaSdl);
+  attachBindingResolvers(schema, options.runtime, createBindingResolver(options));
+  attachEnumFieldResolvers(schema, options.runtime);
+
+  return graphql({
     schema,
     source: options.request.query,
     variableValues: options.request.variables,

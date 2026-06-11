@@ -6,17 +6,26 @@ import type {
   GraphqlOperationKind,
   GraphqlOperationMetadata,
   GraphqlResolverClass,
-} from './graphql.metadata';
-import { setResolverMetadata } from './graphql.metadata';
+} from './graphql-metadata.lib';
+import { setResolverMetadata } from './graphql-metadata.lib';
 
+// Decorated classes always construct objects; the afterApply hook only
+// widens the instance type to unknown, so this narrowing is safe.
+function narrowToResolverClass(cls: new (...args: never[]) => unknown): GraphqlResolverClass;
+function narrowToResolverClass(cls: new (...args: never[]) => unknown): unknown {
+  return cls;
+}
+
+/** @throws {E} */
 export const Resolver = (): ClassDecoratorFn =>
   createClassDecorator({ kind: 'resolver' } as const, {
     afterApply: (cls) => {
-      setResolverMetadata(cls as GraphqlResolverClass, { kind: 'resolver' });
+      setResolverMetadata(narrowToResolverClass(cls), { kind: 'resolver' });
       Injectable()(cls);
     },
   });
 
+/** @throws {E} */
 const createGraphqlOperationDecorator = (kind: GraphqlOperationKind) => (): MethodDecoratorFn =>
   createMethodDecorator<GraphqlOperationMetadata>({ kind });
 

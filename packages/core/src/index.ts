@@ -95,7 +95,6 @@ export type {
   ControllerClass,
   HttpChildOptions,
   HttpModuleOptions,
-  HttpMountContext,
 } from './features/http/http.types';
 // HTTP primitives
 export { currentRoles, currentUser, setUser } from './features/http/middleware/auth';

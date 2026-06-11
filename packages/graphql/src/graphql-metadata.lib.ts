@@ -1,7 +1,7 @@
 export type GraphqlResolverClass = new (...args: never[]) => object;
 
 export type GraphqlResolverMetadata = {
-  readonly kind: 'resolver';
+  kind: 'resolver';
 };
 
 export type GraphqlOperationKind = 'query' | 'mutation' | 'resolveField';

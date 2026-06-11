@@ -2,8 +2,9 @@ import { resolve } from 'node:path';
 
 import type { ClassMetadata, MethodInfo, TypeInfo } from '@zeltjs/decorator-metadata/inspect';
 import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
+import * as v from 'valibot';
 
-import type { GraphqlResolverClass } from './graphql.metadata';
+import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import {
   addGraphqlField,
@@ -17,12 +18,15 @@ type TSClassDeclaration = import('typescript').ClassDeclaration;
 type TSMethodDeclaration = import('typescript').MethodDeclaration;
 type TSType = import('typescript').Type;
 type TSTypeChecker = import('typescript').TypeChecker;
+type TSTypeReference = import('typescript').TypeReference;
 
 export type GenerateSdlOptions = {
   readonly tsconfig?: string;
 };
 
-type OperationKind = 'query' | 'mutation' | 'resolveField';
+const operationKindSchema = v.picklist(['query', 'mutation', 'resolveField']);
+
+type OperationKind = v.InferOutput<typeof operationKindSchema>;
 
 type RootFields = {
   readonly query: Map<string, string>;
@@ -51,14 +55,18 @@ function toInspectableClass(cls: GraphqlResolverClass): unknown {
   return cls;
 }
 
-const isOperationKind = (kind: unknown): kind is OperationKind =>
-  kind === 'query' || kind === 'mutation' || kind === 'resolveField';
+// ts.Type does not expose typeArguments structurally; the TypeReference shape
+// is only known after the array/reference checks performed by the callers.
+function narrowToTypeReference(type: TSType): TSTypeReference;
+function narrowToTypeReference(type: TSType): TSType {
+  return type;
+}
 
 const getOperationKind = (method: MethodInfo): OperationKind | undefined => {
   for (const prop of method.props) {
-    if (typeof prop !== 'object' || prop === null) continue;
-    const kind = Reflect.get(prop, 'kind');
-    if (isOperationKind(kind)) return kind;
+    const kind: unknown = Reflect.get(prop, 'kind');
+    const parsed = v.safeParse(operationKindSchema, kind);
+    if (parsed.success) return parsed.output;
   }
   return undefined;
 };
@@ -103,11 +111,32 @@ const isNullishTsType = (type: TSType, ts: TS): boolean => {
 };
 
 const getTypeArguments = (type: TSType): readonly TSType[] =>
-  (type as import('typescript').TypeReference).typeArguments ?? [];
+  narrowToTypeReference(type).typeArguments ?? [];
 
 const unwrapPromiseType = (type: TSType, checker: TSTypeChecker): TSType => {
   if (!checker.typeToString(type).startsWith('Promise<')) return type;
   return getTypeArguments(type)[0] ?? type;
+};
+
+const getNamedTypeFromUnion = (
+  members: readonly TSType[],
+  checker: TSTypeChecker,
+  ts: TS,
+): string | undefined => {
+  for (const member of members) {
+    if (isNullishTsType(member, ts)) continue;
+    const name = getNamedTypeFromTsType(member, checker, ts);
+    if (name) return name;
+  }
+  return undefined;
+};
+
+const getOwnTypeName = (type: TSType): string | undefined => {
+  const aliasName = type.aliasSymbol?.getName();
+  if (aliasName) return aliasName;
+
+  const symbolName = type.getSymbol()?.getName();
+  return symbolName && symbolName !== '__type' ? symbolName : undefined;
 };
 
 const getNamedTypeFromTsType = (
@@ -118,11 +147,8 @@ const getNamedTypeFromTsType = (
   const unwrapped = unwrapPromiseType(type, checker);
 
   if (unwrapped.isUnion()) {
-    for (const member of unwrapped.types) {
-      if (isNullishTsType(member, ts)) continue;
-      const name = getNamedTypeFromTsType(member, checker, ts);
-      if (name) return name;
-    }
+    const fromMembers = getNamedTypeFromUnion(unwrapped.types, checker, ts);
+    if (fromMembers) return fromMembers;
   }
 
   if (checker.isArrayType(unwrapped)) {
@@ -130,13 +156,7 @@ const getNamedTypeFromTsType = (
     return itemType ? getNamedTypeFromTsType(itemType, checker, ts) : undefined;
   }
 
-  const aliasName = unwrapped.aliasSymbol?.getName();
-  if (aliasName) return aliasName;
-
-  const symbolName = unwrapped.getSymbol()?.getName();
-  if (symbolName && symbolName !== '__type') return symbolName;
-
-  return undefined;
+  return getOwnTypeName(unwrapped);
 };
 
 const getMethodTypeNames = (
@@ -158,12 +178,19 @@ const getMethodTypeNames = (
   return { returnTypeName, parentTypeName };
 };
 
-const getResolverTypeNames = async (
+type ResolverClassNode = {
+  readonly classNode: TSClassDeclaration;
+  readonly checker: TSTypeChecker;
+  readonly ts: TS;
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const findResolverClassNode = async (
   resolver: GraphqlResolverClass,
   metadata: ClassMetadata,
   options: GenerateSdlOptions,
-): Promise<Map<string, MethodTypeNames>> => {
-  if (!metadata.pos) return new Map();
+): Promise<ResolverClassNode | undefined> => {
+  if (!metadata.pos) return undefined;
 
   const programResult = await getOrCreateProgram(resolve(options.tsconfig ?? 'tsconfig.json'));
   if (programResult.isErr()) {
@@ -172,15 +199,28 @@ const getResolverTypeNames = async (
 
   const { checker, program, ts } = programResult.value;
   const sourceFile = program.getSourceFile(metadata.pos.sourceFile);
-  if (!sourceFile) return new Map();
+  if (!sourceFile) return undefined;
 
   const classNode = findClassDeclaration(sourceFile, resolver.name, ts);
-  if (!classNode) return new Map();
+  return classNode ? { classNode, checker, ts } : undefined;
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const getResolverTypeNames = async (
+  resolver: GraphqlResolverClass,
+  metadata: ClassMetadata,
+  options: GenerateSdlOptions,
+): Promise<Map<string, MethodTypeNames>> => {
+  const found = await findResolverClassNode(resolver, metadata, options);
+  if (!found) return new Map();
 
   const result = new Map<string, MethodTypeNames>();
   for (const method of metadata.methods) {
     if (typeof method.name !== 'string') continue;
-    result.set(method.name, getMethodTypeNames(classNode, method.name, checker, ts));
+    result.set(
+      method.name,
+      getMethodTypeNames(found.classNode, method.name, found.checker, found.ts),
+    );
   }
   return result;
 };
@@ -188,6 +228,7 @@ const getResolverTypeNames = async (
 const fallbackTypeName = (fieldName: string): string =>
   `${fieldName.slice(0, 1).toUpperCase()}${fieldName.slice(1)}Payload`;
 
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
 const addRootField = (
   fields: Map<string, string>,
   fieldName: string,
@@ -204,6 +245,7 @@ const addRootField = (
   fields.set(fieldName, rendered);
 };
 
+/** @throws {Error} */
 const addRuntimeBinding = (
   bindings: RuntimeBindings,
   typeName: string,
@@ -231,7 +273,7 @@ const buildSdl = (roots: RootFields, definitions: readonly string[]): string => 
     printRoot('Query', roots.query),
     printRoot('Mutation', roots.mutation),
     ...definitions,
-  ].filter((part): part is string => part !== undefined);
+  ].flatMap((part) => (part === undefined ? [] : [part]));
 
   return parts.length > 0 ? `${parts.join('\n\n')}\n` : '';
 };
@@ -246,56 +288,125 @@ const buildRuntimeEnumFields = (
   return enumFields;
 };
 
+type AnalysisState = {
+  readonly typeCtx: ReturnType<typeof createGraphqlTypeContext>;
+  readonly roots: RootFields;
+  readonly bindings: RuntimeBindings;
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const registerRootMethod = (
+  state: AnalysisState,
+  resolverName: string,
+  methodName: string,
+  returnType: TypeInfo,
+  kind: 'query' | 'mutation',
+  names: MethodTypeNames | undefined,
+): void => {
+  const fields = kind === 'query' ? state.roots.query : state.roots.mutation;
+  const rootTypeName = kind === 'query' ? 'Query' : 'Mutation';
+  addRootField(fields, methodName, returnType, names?.returnTypeName, state.typeCtx);
+  addRuntimeBinding(state.bindings, rootTypeName, methodName, resolverName, methodName);
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const registerFieldMethod = (
+  state: AnalysisState,
+  resolverName: string,
+  methodName: string,
+  returnType: TypeInfo,
+  names: MethodTypeNames | undefined,
+): void => {
+  if (!names?.parentTypeName) {
+    throw new Error(`@ResolveField() ${resolverName}.${methodName} requires named parent type`);
+  }
+  addGraphqlField(
+    state.typeCtx,
+    names.parentTypeName,
+    methodName,
+    returnType,
+    names.returnTypeName,
+  );
+  addRuntimeBinding(state.bindings, names.parentTypeName, methodName, resolverName, methodName);
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const registerResolverMethod = (
+  state: AnalysisState,
+  resolverName: string,
+  methodName: string,
+  returnType: TypeInfo,
+  kind: OperationKind,
+  names: MethodTypeNames | undefined,
+): void => {
+  if (kind === 'resolveField') {
+    registerFieldMethod(state, resolverName, methodName, returnType, names);
+    return;
+  }
+  registerRootMethod(state, resolverName, methodName, returnType, kind, names);
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const analyzeResolver = async (
+  resolver: GraphqlResolverClass,
+  state: AnalysisState,
+  options: GenerateSdlOptions,
+): Promise<void> => {
+  const metadataResult = await getTypeMetadata(toInspectableClass(resolver), {
+    ...(options.tsconfig ? { tsconfig: options.tsconfig } : {}),
+    expandStrategy: 'always',
+  });
+  if (metadataResult.isErr()) {
+    const err = metadataResult.error;
+    throw new Error(`Failed to inspect GraphQL resolver ${resolver.name}: ${err.message}`);
+  }
+
+  const metadata = metadataResult.value;
+  const methodTypeNames = await getResolverTypeNames(resolver, metadata, options);
+
+  for (const method of metadata.methods) {
+    if (typeof method.name !== 'string') continue;
+    const operationKind = getOperationKind(method);
+    if (!operationKind) continue;
+
+    registerResolverMethod(
+      state,
+      resolver.name,
+      method.name,
+      method.returnType,
+      operationKind,
+      methodTypeNames.get(method.name),
+    );
+  }
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
 const analyzeResolvers = async (
   resolvers: readonly GraphqlResolverClass[],
   options: GenerateSdlOptions = {},
 ): Promise<AnalyzeResolversResult> => {
-  const ctx = createGraphqlTypeContext();
-  const roots: RootFields = { query: new Map(), mutation: new Map() };
-  const bindings: RuntimeBindings = {};
+  const state: AnalysisState = {
+    typeCtx: createGraphqlTypeContext(),
+    roots: { query: new Map(), mutation: new Map() },
+    bindings: {},
+  };
 
   for (const resolver of resolvers) {
-    const metadataResult = await getTypeMetadata(toInspectableClass(resolver), {
-      ...(options.tsconfig ? { tsconfig: options.tsconfig } : {}),
-      expandStrategy: 'always',
-    });
-    if (metadataResult.isErr()) {
-      const err = metadataResult.error;
-      throw new Error(`Failed to inspect GraphQL resolver ${resolver.name}: ${err.message}`);
-    }
-
-    const metadata = metadataResult.value;
-    const methodTypeNames = await getResolverTypeNames(resolver, metadata, options);
-
-    for (const method of metadata.methods) {
-      if (typeof method.name !== 'string') continue;
-      const operationKind = getOperationKind(method);
-      if (!operationKind) continue;
-
-      const names = methodTypeNames.get(method.name);
-      if (operationKind === 'query') {
-        addRootField(roots.query, method.name, method.returnType, names?.returnTypeName, ctx);
-        addRuntimeBinding(bindings, 'Query', method.name, resolver.name, method.name);
-      } else if (operationKind === 'mutation') {
-        addRootField(roots.mutation, method.name, method.returnType, names?.returnTypeName, ctx);
-        addRuntimeBinding(bindings, 'Mutation', method.name, resolver.name, method.name);
-      } else {
-        const parentTypeName = names?.parentTypeName;
-        if (!parentTypeName) {
-          throw new Error(
-            `@ResolveField() ${resolver.name}.${method.name} requires named parent type`,
-          );
-        }
-        addGraphqlField(ctx, parentTypeName, method.name, method.returnType, names?.returnTypeName);
-        addRuntimeBinding(bindings, parentTypeName, method.name, resolver.name, method.name);
-      }
-    }
+    await analyzeResolver(resolver, state, options);
   }
 
-  const schemaSdl = buildSdl(roots, renderGraphqlDefinitions(ctx));
-  return { schemaSdl, runtime: { schemaSdl, bindings, enumFields: buildRuntimeEnumFields(ctx) } };
+  const schemaSdl = buildSdl(state.roots, renderGraphqlDefinitions(state.typeCtx));
+  return {
+    schemaSdl,
+    runtime: {
+      schemaSdl,
+      bindings: state.bindings,
+      enumFields: buildRuntimeEnumFields(state.typeCtx),
+    },
+  };
 };
 
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
 export const generateSdlForResolvers = async (
   resolvers: readonly GraphqlResolverClass[],
   options: GenerateSdlOptions = {},
@@ -304,6 +415,7 @@ export const generateSdlForResolvers = async (
   return result.schemaSdl;
 };
 
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
 export const generateGraphqlRuntimeForResolvers = async (
   resolvers: readonly GraphqlResolverClass[],
   options: GenerateSdlOptions = {},

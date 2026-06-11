@@ -2,9 +2,9 @@ import type { Hono } from 'hono';
 
 import type { FeatureRuntime } from '../../app';
 import type { ErrorHandlerClass, MiddlewareInput } from './middleware/middleware.types';
-import type { ControllerRouteInfo } from './routing';
+import type { ControllerClass, ControllerRouteInfo } from './routing';
 
-export type ControllerClass = new (...args: never[]) => object;
+export type { ControllerClass } from './routing';
 
 export type HttpMetadata = {
   readonly controllers: readonly ControllerRouteInfo[];
@@ -15,26 +15,20 @@ export type HttpStaticCapabilities = {
   readonly getMetadata: () => HttpMetadata;
 };
 
-export type HttpMountContext = {
-  readonly middlewares: readonly MiddlewareInput[];
-  readonly errorHandlers: readonly ErrorHandlerClass[];
-};
-
 export type HttpMountableCapabilities = {
   readonly router: Hono;
   readonly fetch: (request: Request) => Promise<Response>;
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
 };
 
+// Same shape as the generic Feature contract: a module returns a
+// self-contained router (own path already applied) and parents merge it
+// without passing anything down.
 export type HttpMountableFeatureModule = {
   readonly path: string;
   readonly featureClasses: () => readonly ControllerClass[];
   readonly staticCapabilities: () => HttpStaticCapabilities;
   readonly createCapabilities: (runtime: FeatureRuntime) => Promise<HttpMountableCapabilities>;
-  readonly createHttpCapabilities?: (
-    runtime: FeatureRuntime,
-    context: HttpMountContext,
-  ) => Promise<HttpMountableCapabilities>;
 };
 
 export type HttpModuleOptions = {

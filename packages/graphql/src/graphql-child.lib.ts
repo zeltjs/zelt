@@ -3,17 +3,17 @@ import type {
   FeatureRuntime,
   HttpMountableCapabilities,
   HttpMountableFeatureModule,
-  HttpMountContext,
   HttpStaticCapabilities,
 } from '@zeltjs/core';
 import { body, Controller, http, Post } from '@zeltjs/core';
+import * as v from 'valibot';
 
-import type { GraphqlResolverClass } from './graphql.metadata';
-import { setGraphqlControllerMetadata } from './graphql.metadata';
+import type { GraphqlResolverClass } from './graphql-metadata.lib';
+import { setGraphqlControllerMetadata } from './graphql-metadata.lib';
 import {
   executeGraphqlRequest,
   getGraphqlRuntimeState,
-  isGraphqlRequestPayload,
+  graphqlRequestPayloadSchema,
   loadGeneratedGraphqlRuntime,
   setGraphqlRuntimeState,
 } from './graphql-runtime.lib';
@@ -26,6 +26,7 @@ export type GraphqlOptions = {
 
 export type GraphqlChildOptions = HttpMountableFeatureModule;
 
+/** @throws {Error} */
 const createResolverLookup = (instances: ReadonlyMap<string, object>) => {
   return (resolver: GraphqlResolverClass): object => {
     const instance = instances.get(resolver.name);
@@ -36,6 +37,7 @@ const createResolverLookup = (instances: ReadonlyMap<string, object>) => {
   };
 };
 
+/** @throws {Error} */
 const applyLegacyMethodDecorator = (
   decorator: MethodDecorator,
   target: object,
@@ -52,6 +54,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
   readonly path: string;
   private readonly controller: ControllerClass;
 
+  /** @throws {E | Error} */
   constructor(private readonly options: GraphqlOptions) {
     this.path = options.path;
     const GraphqlEndpointController = this.createController();
@@ -74,16 +77,6 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
   readonly createCapabilities = async (
     runtimeContext: FeatureRuntime,
   ): Promise<HttpMountableCapabilities> => {
-    return this.createHttpCapabilities(runtimeContext, {
-      middlewares: [],
-      errorHandlers: [],
-    });
-  };
-
-  readonly createHttpCapabilities = async (
-    runtimeContext: FeatureRuntime,
-    context: HttpMountContext,
-  ): Promise<HttpMountableCapabilities> => {
     if (this.options.runtimeModule) {
       const generatedRuntime = await loadGeneratedGraphqlRuntime(this.options.runtimeModule);
       const resolverInstances = new Map<string, object>();
@@ -96,12 +89,16 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
       });
     }
 
-    return http({ controllers: [this.controller] }).createHttpCapabilities(runtimeContext, context);
+    return http({ path: this.path, controllers: [this.controller] }).createCapabilities(
+      runtimeContext,
+    );
   };
 
+  /** @throws {E | Error} */
   private createController(): ControllerClass {
     const options = this.options;
     class GraphqlEndpointController {
+      /** @throws {Error} */
       async handle(): Promise<Response> {
         const state = getGraphqlRuntimeState(GraphqlEndpointController);
         if (!state) {
@@ -111,8 +108,8 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
           );
         }
 
-        const payload = body();
-        if (!isGraphqlRequestPayload(payload)) {
+        const payload = v.safeParse(graphqlRequestPayloadSchema, body());
+        if (!payload.success) {
           return Response.json(
             { errors: [{ message: 'GraphQL request body must include a query string.' }] },
             { status: 400 },
@@ -123,7 +120,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
           runtime: state.runtime,
           resolvers: options.resolvers,
           resolveResolver: state.resolveResolver,
-          request: payload,
+          request: payload.output,
         });
 
         return Response.json(result);

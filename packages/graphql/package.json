@@ -37,7 +37,9 @@
   },
   "dependencies": {
     "@zeltjs/decorator-metadata": "workspace:*",
-    "graphql": "^16.14.2"
+    "graphql": "^16.14.2",
+    "ts-pattern": "5.6.2",
+    "valibot": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
