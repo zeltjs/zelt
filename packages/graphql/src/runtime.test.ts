@@ -70,6 +70,74 @@ describe('executeGraphqlRequest', () => {
   });
 });
 
+type StockStatus = 'in_stock' | 'low_stock';
+
+@Resolver()
+class EnumRuntimeResolver {
+  @Query()
+  stockStatus(): StockStatus {
+    return 'low_stock';
+  }
+
+  @ResolveField()
+  status(_parent: ViewerPublic): StockStatus {
+    return 'in_stock';
+  }
+}
+
+const enumRuntime = {
+  schemaSdl: `type Query {
+  stockStatus: StockStatus!
+  viewer: ViewerPublic!
+}
+
+type ViewerPublic {
+  id: String!
+  status: StockStatus!
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+}
+`,
+  bindings: {
+    Query: {
+      stockStatus: { resolver: 'EnumRuntimeResolver', method: 'stockStatus' },
+      viewer: { resolver: 'RuntimeViewerResolver', method: 'viewer' },
+    },
+    ViewerPublic: {
+      status: { resolver: 'EnumRuntimeResolver', method: 'status' },
+    },
+  },
+  enumFields: {
+    Query: {
+      stockStatus: { in_stock: 'IN_STOCK', low_stock: 'LOW_STOCK' },
+    },
+    ViewerPublic: {
+      status: { in_stock: 'IN_STOCK', low_stock: 'LOW_STOCK' },
+    },
+  },
+} satisfies GeneratedGraphqlRuntime;
+
+describe('executeGraphqlRequest enum conversion', () => {
+  it('converts enum values on root fields and bound field resolvers', async () => {
+    const result = await executeGraphqlRequest({
+      runtime: enumRuntime,
+      resolvers: [EnumRuntimeResolver, RuntimeViewerResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ stockStatus viewer { status } }' },
+    });
+
+    expect(result).toEqual({
+      data: {
+        stockStatus: 'LOW_STOCK',
+        viewer: { status: 'IN_STOCK' },
+      },
+    });
+  });
+});
+
 describe('graphql HTTP runtime', () => {
   it('loads generated runtime module during HTTP runtime creation, then handles requests', async () => {
     const runtimeModulePath = join(

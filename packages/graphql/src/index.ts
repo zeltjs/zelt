@@ -22,12 +22,18 @@ export type {
 } from './graphql-plugin.lib';
 export { generateGraphqlSdl, graphqlPlugin } from './graphql-plugin.lib';
 export type {
+  CreateGraphqlExecutorOptions,
   ExecuteGraphqlRequestOptions,
   GeneratedGraphqlBinding,
   GeneratedGraphqlRuntime,
+  GraphqlExecutor,
   GraphqlRequestPayload,
 } from './graphql-runtime.lib';
-export { executeGraphqlRequest, graphqlRequestPayloadSchema } from './graphql-runtime.lib';
+export {
+  createGraphqlExecutor,
+  executeGraphqlRequest,
+  graphqlRequestPayloadSchema,
+} from './graphql-runtime.lib';
 export type { GenerateSdlOptions } from './graphql-sdl-generator.lib';
 export {
   generateGraphqlRuntimeForResolvers,

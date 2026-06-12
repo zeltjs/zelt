@@ -1,13 +1,15 @@
 import { Injectable, inject } from '@zeltjs/core';
 
 import { CartService } from '../cart/cart.service';
+import { OrderStore } from './order.store';
 import type { OrderPublic } from './order.types';
 
 @Injectable()
 export class OrderService {
-  private readonly ordersByCustomer = new Map<string, OrderPublic[]>();
-
-  constructor(private readonly cartService = inject(CartService) as CartService) {}
+  constructor(
+    private readonly cartService = inject(CartService) as CartService,
+    private readonly store = inject(OrderStore) as OrderStore,
+  ) {}
 
   checkout(customerId: string): OrderPublic {
     const cart = this.cartService.currentCart(customerId);
@@ -15,21 +17,20 @@ export class OrderService {
       throw new Error('Cart is empty');
     }
 
-    const existingOrders = this.ordersByCustomer.get(customerId) ?? [];
     const order: OrderPublic = {
-      id: `order_${existingOrders.length + 1}`,
+      id: this.store.nextOrderId(),
       status: 'confirmed',
       itemCount: cart.totalQuantity,
       totalCents: cart.grandTotalCents,
       items: cart.items,
     };
 
-    this.ordersByCustomer.set(customerId, [...existingOrders, order]);
+    this.store.append(customerId, order);
     this.cartService.clear(customerId);
     return order;
   }
 
   history(customerId: string): readonly OrderPublic[] {
-    return this.ordersByCustomer.get(customerId) ?? [];
+    return this.store.listByCustomer(customerId);
   }
 }

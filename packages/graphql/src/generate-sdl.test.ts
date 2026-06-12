@@ -5,7 +5,10 @@ import type { GenericSchema } from 'valibot';
 import { describe, expect, it } from 'vitest';
 
 import { GetUserInput, RenameUserInput } from './gql-args-sample.lib';
-import { generateSdlForResolvers } from './graphql-sdl-generator.lib';
+import {
+  generateGraphqlRuntimeForResolvers,
+  generateSdlForResolvers,
+} from './graphql-sdl-generator.lib';
 import { gqlValidated, Mutation, Query, ResolveField, Resolver } from './index';
 
 function narrowToValibotSchema(value: unknown): GenericSchema;
@@ -62,6 +65,24 @@ class ArgsUserResolver {
   }
 }
 
+@Resolver()
+class BareNullResolver {
+  @Query()
+  nothing(): null {
+    return null;
+  }
+}
+
+type AccountState = 'active' | 'disabled';
+
+@Resolver()
+class EnumRootResolver {
+  @Query()
+  accountState(): AccountState {
+    return 'active';
+  }
+}
+
 describe('generateSdlForResolvers', () => {
   it('emits SDL from resolver return types and merges field resolvers', async () => {
     const sdl = await generateSdlForResolvers([UserResolver], {
@@ -100,6 +121,27 @@ describe('generateSdlForResolvers', () => {
     expect(sdl).toContain(`type Mutation {
   renameUser(id: String!, name: String!, priority: Int): UserPublic!
 }`);
+  });
+
+  it('records runtime enum mappings for root fields returning string literal unions', async () => {
+    const runtime = await generateGraphqlRuntimeForResolvers([EnumRootResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+    });
+
+    expect(runtime.schemaSdl).toContain(`type Query {
+  accountState: AccountState!
+}`);
+    expect(runtime.enumFields?.['Query']).toEqual({
+      accountState: { active: 'ACTIVE', disabled: 'DISABLED' },
+    });
+  });
+
+  it('fails the build for bare null return types instead of guessing String', async () => {
+    await expect(
+      generateSdlForResolvers([BareNullResolver], {
+        tsconfig: resolve(__dirname, '../tsconfig.json'),
+      }),
+    ).rejects.toThrow(/null/i);
   });
 
   it('fails the build when gqlValidated is used without a schemaAdapter', async () => {

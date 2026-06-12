@@ -11,7 +11,7 @@ import * as v from 'valibot';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { setGraphqlControllerMetadata } from './graphql-metadata.lib';
 import {
-  executeGraphqlRequest,
+  createGraphqlExecutor,
   getGraphqlRuntimeState,
   graphqlRequestPayloadSchema,
   loadGeneratedGraphqlRuntime,
@@ -84,8 +84,11 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
         resolverInstances.set(resolver.name, await runtimeContext.get(resolver));
       }
       setGraphqlRuntimeState(this.controller, {
-        runtime: generatedRuntime,
-        resolveResolver: createResolverLookup(resolverInstances),
+        execute: createGraphqlExecutor({
+          runtime: generatedRuntime,
+          resolvers: this.options.resolvers,
+          resolveResolver: createResolverLookup(resolverInstances),
+        }),
       });
     }
 
@@ -96,7 +99,6 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
 
   /** @throws {E | Error} */
   private createController(): ControllerClass {
-    const options = this.options;
     class GraphqlEndpointController {
       /** @throws {Error} */
       async handle(): Promise<Response> {
@@ -116,12 +118,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
           );
         }
 
-        const result = await executeGraphqlRequest({
-          runtime: state.runtime,
-          resolvers: options.resolvers,
-          resolveResolver: state.resolveResolver,
-          request: payload.output,
-        });
+        const result = await state.execute(payload.output);
 
         return Response.json(result);
       }

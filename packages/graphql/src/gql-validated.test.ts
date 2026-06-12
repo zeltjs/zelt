@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { gqlValidated, runWithGraphqlArgs } from './gql-validated.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
-import { executeGraphqlRequest } from './graphql-runtime.lib';
+import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
 import { Query, Resolver } from './index';
 
 const GetUserInput = v.object({
@@ -84,5 +84,21 @@ describe('executeGraphqlRequest with field args', () => {
 
     expect(result.data).toBeNull();
     expect(result.errors?.[0]?.message).toMatch(/validation failed/i);
+  });
+
+  it('exposes validation issues through GraphQL error extensions', async () => {
+    const execute = createGraphqlExecutor({
+      runtime,
+      resolvers: [ArgsUserResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+    });
+
+    const ok = await execute({ query: '{ user(id: "user-1") { id } }' });
+    expect(ok).toEqual({ data: { user: { id: 'user-1' } } });
+
+    const failed = await execute({ query: '{ user(id: "") { id } }' });
+    const extensions = failed.errors?.[0]?.extensions;
+    expect(extensions?.['code']).toBe('GRAPHQL_ARGS_VALIDATION_FAILED');
+    expect(Array.isArray(extensions?.['issues'])).toBe(true);
   });
 });

@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 
 import { generateGraphqlSdl } from '@zeltjs/graphql';
 import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { createGraphqlDogfoodingApp, graphqlRuntimeModule } from '../src/app';
 
@@ -25,9 +25,9 @@ const prepareGeneratedRuntime = async (): Promise<void> => {
 };
 
 describe('GraphQL dogfooding app', () => {
-  it('runs a storefront workflow through generated GraphQL runtime over HTTP', async () => {
-    await prepareGeneratedRuntime();
+  beforeAll(prepareGeneratedRuntime);
 
+  it('runs a storefront workflow through generated GraphQL runtime over HTTP', async () => {
     await expect(readFile(runtimeModulePath, 'utf8')).resolves.toContain(
       'export const graphqlRuntime',
     );
@@ -240,6 +240,12 @@ describe('GraphQL dogfooding app', () => {
 
     const missing = await postGraphql(runtime, `{ product(id: "p_unknown") { id } }`);
     await expect(missing.json()).resolves.toEqual({ data: { product: null } });
+
+    const emptyCheckout = await postGraphql(runtime, `mutation { checkoutCart { id } }`);
+    const emptyCheckoutBody: { data: unknown; errors?: readonly { message: string }[] } =
+      await emptyCheckout.json();
+    expect(emptyCheckoutBody.data).toBeNull();
+    expect(emptyCheckoutBody.errors?.[0]?.message).toMatch(/cart is empty/i);
 
     const added = await postGraphql(
       runtime,

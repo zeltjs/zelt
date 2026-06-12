@@ -120,6 +120,22 @@ const addFieldDefinition = (
   object.fields.set(fieldName, renderedType);
 };
 
+// Records the TS literal -> GraphQL enum value mapping so the generated
+// runtime can convert resolver return values (e.g. 'low_stock' -> LOW_STOCK).
+// Used for both object fields and Query/Mutation root fields.
+export const addEnumFieldMappingForType = (
+  ctx: GraphqlTypeContext,
+  objectName: string,
+  fieldName: string,
+  type: TypeInfo,
+): void => {
+  const unwrapped = type.kind === 'promise' ? type.inner : type;
+  const values = getStringLiteralUnionValues(unwrapped);
+  if (values) {
+    addEnumFieldMapping(ctx, objectName, fieldName, values);
+  }
+};
+
 const addEnumFieldMapping = (
   ctx: GraphqlTypeContext,
   objectName: string,
@@ -191,7 +207,7 @@ const convertUnion = (
 /** @throws {Error} */
 const convertPrimitive = (type: TypeInfo & { kind: 'primitive' }): GraphqlTypeRef => {
   if (type.type === 'null' || type.type === 'undefined') {
-    return { type: 'String', nullable: true };
+    throw new Error(`Bare ${type.type} GraphQL output type is not supported`);
   }
   const mapped = primitiveMap[type.type];
   if (!mapped) throw new Error(`Unsupported GraphQL primitive output type: ${type.type}`);

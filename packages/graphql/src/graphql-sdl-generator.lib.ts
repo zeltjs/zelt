@@ -11,6 +11,7 @@ import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import type { GraphqlSchemaAdapter } from './json-schema-to-graphql-args.lib';
 import { renderGraphqlArgs } from './json-schema-to-graphql-args.lib';
 import {
+  addEnumFieldMappingForType,
   addGraphqlField,
   convertTypeInfoToGraphqlRef,
   createGraphqlTypeContext,
@@ -318,6 +319,7 @@ const registerRootMethod = (
   const fields = kind === 'query' ? state.roots.query : state.roots.mutation;
   const rootTypeName = kind === 'query' ? 'Query' : 'Mutation';
   addRootField(fields, methodName, returnType, names?.returnTypeName, argsRendered, state.typeCtx);
+  addEnumFieldMappingForType(state.typeCtx, rootTypeName, methodName, returnType);
   addRuntimeBinding(state.bindings, rootTypeName, methodName, resolverName, methodName);
 };
 
