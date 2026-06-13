@@ -21,11 +21,11 @@ To achieve this, we build with these five policies:
 ## Installation
 
 ```bash
-pnpm add @zeltjs/core@0.8.1 @zeltjs/adapter-node@0.8.1
+pnpm add @zeltjs/core @zeltjs/adapter-node
 ```
 
 :::note
-This documentation covers **v0.8.x**. Zelt is in **pre-alpha** — APIs may change between minor versions.
+Zelt is in **pre-alpha** — APIs may change between minor versions.
 :::
 
 ## Quick Example
