@@ -158,4 +158,20 @@ describe('generateSdlForResolvers', () => {
       }),
     ).rejects.toThrow(/schemaAdapter/);
   });
+
+  it('fails the build when @ResolveField method has no parent parameter', async () => {
+    @Resolver()
+    class OrphanFieldResolver {
+      @ResolveField()
+      orphan(): string {
+        return '';
+      }
+    }
+
+    await expect(
+      generateSdlForResolvers([OrphanFieldResolver], {
+        tsconfig: resolve(__dirname, '../tsconfig.json'),
+      }),
+    ).rejects.toThrow(/parent type/i);
+  });
 });

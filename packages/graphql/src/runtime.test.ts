@@ -2,12 +2,12 @@ import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-
 import { createApp, http } from '@zeltjs/core';
+import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
-import { graphql, Query, ResolveField, Resolver } from './index';
+import { gqlValidated, graphql, Query, ResolveField, Resolver } from './index';
 
 type ViewerPublic = {
   readonly id: string;
@@ -257,6 +257,52 @@ describe('createGraphqlExecutor validation rules', () => {
     const result = await execute({ query: '{ viewer { id } }' });
     expect(result.errors?.[0]?.message).toBe('blocked by custom rule');
     expect(result.data).toBeUndefined();
+  });
+});
+
+describe('executeGraphqlRequest enum input args', () => {
+  it('passes GraphQL enum arg value through gqlValidated to the resolver', async () => {
+    const StatusInput = v.object({ status: v.string() });
+
+    @Resolver()
+    class EnumInputResolver {
+      @Query()
+      itemByStatus(input = gqlValidated(StatusInput)): { status: string } {
+        return { status: input.status };
+      }
+    }
+
+    const enumInputRuntime = {
+      schemaSdl: `type Query {
+  itemByStatus(status: StockStatus!): ItemResult!
+}
+
+type ItemResult {
+  status: String!
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+}
+`,
+      bindings: {
+        Query: {
+          itemByStatus: { resolver: 'EnumInputResolver', method: 'itemByStatus' },
+        },
+      },
+    } satisfies GeneratedGraphqlRuntime;
+
+    const result = await executeGraphqlRequest({
+      runtime: enumInputRuntime,
+      resolvers: [EnumInputResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ itemByStatus(status: IN_STOCK) { status } }' },
+    });
+
+    expect(result).toEqual({
+      data: { itemByStatus: { status: 'IN_STOCK' } },
+    });
   });
 });
 
