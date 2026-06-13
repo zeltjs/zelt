@@ -94,10 +94,13 @@ export const guardMiddleware = (
   identifier: MiddlewareIdentifier,
   middleware: FunctionMiddleware,
 ): FunctionMiddleware => {
-  return (c, next) => {
+  return async (c, next) => {
     const skipped = findSkippedMiddlewares(c);
     if (skipped?.has(identifier)) return next();
-    return middleware(c, next);
+    const result = await middleware(c, next);
+    if (result instanceof Response) {
+      c.res = result;
+    }
   };
 };
 
