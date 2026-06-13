@@ -2,23 +2,26 @@ import { Container } from '@needle-di/core';
 import type { Hono } from 'hono';
 import { Injectable, inject, LifecycleManager, resolve } from '../../kernel';
 import { DefaultErrorHandler } from './error/default.error-handler';
-import type { ControllerClass, HttpChildOptions, HttpOptions } from './http.types';
-import { createErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
+import type { HttpOptions } from './http.types';
+import { createBootstrapMiddleware, createRequestRootChecker } from './http-bootstrap.lib';
+import { createRouterErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
+import {
+  guardMiddleware,
+  middlewareIdentity,
+  oncePerRequest,
+  resolveMiddleware,
+} from './middleware';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
 import type {
-  ErrorHandlerClass,
+  FunctionMiddleware,
   MiddlewareInput,
   RequestContext,
 } from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
-import type { ControllerRouteInfo } from './routing';
+import { createRequestInjectionMiddleware } from './request-injection.lib';
 import { buildRoutes } from './routing';
 
-export type { HttpChildOptions, HttpOptions } from './http.types';
-
-export type HttpMetadata = {
-  readonly controllers: readonly ControllerRouteInfo[];
-};
+export type { HttpChildOptions, HttpMetadata, HttpModuleOptions, HttpOptions } from './http.types';
 
 export type HttpRouter = Hono;
 
@@ -40,6 +43,7 @@ type _HonoInstanceCheck = HonoInstance extends {
   readonly put: (path: string, handler: RouteHandler) => unknown;
   readonly patch: (path: string, handler: RouteHandler) => unknown;
   readonly delete: (path: string, handler: RouteHandler) => unknown;
+  readonly use: (handler: FunctionMiddleware) => unknown;
   readonly onError: (handler: (err: Error, c: RequestContext) => Promise<Response>) => unknown;
   readonly route: (path: string, app: Hono) => unknown;
   readonly fetch: (request: Request) => Response | Promise<Response>;
@@ -55,15 +59,17 @@ export class HttpService {
   ) {}
 
   /** @throws {Error} */
-  async buildRouter(options: HttpOptions): Promise<HttpRouter> {
+  async createLocalRouter(options: HttpOptions): Promise<HttpRouter> {
     try {
       return await this.initializeHono(options);
     } catch (cause) {
-      throw new Error('HttpService buildRouter failed', { cause });
+      throw new Error('HttpService createLocalRouter failed', { cause });
     }
   }
 
-  /** @throws {ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError} */
+  /** @throws {Error | ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError | ZeltReadyFailedError | BadRequestException}
+   * @throws {unknown} from http-error-handlers.lib.ts:createRouterErrorHandler
+   */
   private async initializeHono(options: HttpOptions): Promise<HonoInstance> {
     const Hono = await this.loadHonoConstructor();
     const fallbackHandler = resolve(this.container, DefaultErrorHandler);
@@ -71,67 +77,48 @@ export class HttpService {
       get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
     };
 
+    const routerToken = Symbol('zelt:http-router');
+    const hono = new Hono({ strict: false });
+    hono.use(createBootstrapMiddleware(this.lifecycleManager, routerToken));
+    // Request helpers (body() etc.) must work inside the security and user
+    // middlewares below, so injection happens before they run.
+    hono.use(createRequestInjectionMiddleware());
+
+    const errorHandlers = resolveErrorHandlers(options.errorHandlers ?? [], this.container);
+    hono.onError(
+      createRouterErrorHandler(
+        errorHandlers,
+        fallbackHandler,
+        createRequestRootChecker(routerToken),
+      ),
+    );
+
     const securityMiddlewares: readonly MiddlewareInput[] = [
       CorsMiddleware,
       SecureHeadersMiddleware,
     ];
-    const rootMiddlewares = [...securityMiddlewares, ...(options.middlewares ?? [])];
+    for (const input of securityMiddlewares) {
+      const identity = middlewareIdentity(input);
+      hono.use(
+        guardMiddleware(identity, oncePerRequest(identity, resolveMiddleware(input, resolver))),
+      );
+    }
+    for (const input of options.middlewares ?? []) {
+      hono.use(guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver)));
+    }
 
-    const hono = this.buildHonoInstance(
-      options.controllers,
-      rootMiddlewares,
-      options.errorHandlers ?? [],
-      options.children ?? [],
-      fallbackHandler,
+    buildRoutes({
+      hono,
+      controllers: options.controllers ?? [],
       resolver,
-      Hono,
-    );
+      lifecycle: this.lifecycleManager,
+    });
+
     return hono;
   }
 
   private async loadHonoConstructor(): Promise<HonoConstructor> {
     const honoModule = await import('hono');
     return honoModule.Hono;
-  }
-
-  /** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError} */
-  private buildHonoInstance(
-    controllers: readonly ControllerClass[],
-    middlewares: readonly MiddlewareInput[],
-    errorHandlerClasses: readonly ErrorHandlerClass[],
-    children: readonly HttpChildOptions[],
-    fallbackHandler: InstanceType<typeof DefaultErrorHandler>,
-    resolver: { get: <T extends object>(cls: new (...args: never[]) => T) => T },
-    Hono: HonoConstructor,
-  ): HonoInstance {
-    const hono = new Hono({ strict: false });
-
-    const errorHandlers = resolveErrorHandlers(errorHandlerClasses, this.container);
-    hono.onError(createErrorHandler(errorHandlers, fallbackHandler));
-
-    buildRoutes({
-      hono,
-      controllers,
-      resolver,
-      lifecycle: this.lifecycleManager,
-      globalMiddlewares: middlewares,
-    });
-
-    for (const child of children) {
-      const childMiddlewares = [...middlewares, ...(child.middlewares ?? [])];
-      const childErrorHandlers = [...(child.errorHandlers ?? []), ...errorHandlerClasses];
-      const childHono = this.buildHonoInstance(
-        child.controllers ?? [],
-        childMiddlewares,
-        childErrorHandlers,
-        child.children ?? [],
-        fallbackHandler,
-        resolver,
-        Hono,
-      );
-      hono.route(child.path, childHono);
-    }
-
-    return hono;
   }
 }

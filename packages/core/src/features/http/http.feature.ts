@@ -1,52 +1,87 @@
 import type { ServiceResolver } from '../../app';
 import { Feature } from '../../app';
-import type { HttpMetadata, HttpOptions } from './http.service';
 import { HttpService } from './http.service';
-import type { ControllerClass } from './http.types';
-import { collectAllControllerMetadata, collectAllControllers } from './http-children.lib';
+import type {
+  ControllerClass,
+  HttpCapabilities,
+  HttpMetadata,
+  HttpModuleOptions,
+  HttpMountableCapabilities,
+  HttpMountableFeatureModule,
+  HttpStaticCapabilities,
+} from './http.types';
+import { collectOwnControllerMetadata, prefixHttpMetadata } from './http-children.lib';
 import { collectRoutes } from './routing';
 
 export const HTTP_FEATURE_KEY = 'http' as const;
 
-export type HttpStaticCapabilities = {
-  readonly getControllers: () => readonly ControllerClass[];
-  readonly getMetadata: () => HttpMetadata;
-};
-
-export type HttpCapabilities = {
-  readonly fetch: (request: Request) => Promise<Response>;
-  readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
-};
-
 /** @throws {ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
-export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCapabilities> {
+export class HttpFeature
+  extends Feature<'http', HttpMountableCapabilities, HttpStaticCapabilities>
+  implements HttpMountableFeatureModule
+{
   readonly key = HTTP_FEATURE_KEY;
+  readonly path: string;
   private readonly controllers: readonly ControllerClass[];
-  private readonly metadata: HttpMetadata;
+  private readonly children: readonly HttpMountableFeatureModule[];
 
   /** @throws {ZeltDecoratorUsageError} */
-  constructor(private readonly opts: HttpOptions) {
+  constructor(private readonly opts: HttpModuleOptions) {
     super();
-    this.controllers = collectAllControllers(opts);
-    collectRoutes(this.controllers);
-    this.metadata = { controllers: collectAllControllerMetadata(opts) };
+    this.path = opts.path ?? '/';
+    this.controllers = opts.controllers ?? [];
+    this.children = opts.children ?? [];
+    collectRoutes(this.collectControllers());
   }
 
   readonly featureClasses = (): readonly ControllerClass[] => {
-    return this.controllers;
+    return [...this.controllers, ...this.children.flatMap((child) => child.featureClasses())];
   };
 
   readonly blueprint = (): HttpStaticCapabilities => {
+    const controllers = this.collectControllers();
+    const metadata = this.collectMetadata();
     return {
-      getControllers: () => this.controllers,
-      getMetadata: () => this.metadata,
+      getControllers: () => controllers,
+      getMetadata: () => metadata,
     };
   };
 
-  readonly realize = async (resolver: ServiceResolver): Promise<HttpCapabilities> => {
+  readonly realize = async (resolver: ServiceResolver): Promise<HttpMountableCapabilities> => {
     const service = await resolver.get(HttpService);
-    const router = await service.buildRouter(this.opts);
+    const local = await service.createLocalRouter(this.opts);
+
+    for (const child of this.children) {
+      const childCaps = await child.realize(resolver);
+      local.route('/', childCaps.router);
+    }
+
+    if (this.path === '/') return this.toCapabilities(local);
+
+    const rootRouter = await service.createLocalRouter({ controllers: [] });
+    rootRouter.route(this.path, local);
+    return this.toCapabilities(rootRouter);
+  };
+
+  private collectMetadata(): HttpMetadata {
+    const ownControllers = collectOwnControllerMetadata(this.controllers, this.path);
+    const childControllers = this.children.flatMap((child) => {
+      const metadata = child.blueprint().getMetadata();
+      return prefixHttpMetadata(metadata, this.path).controllers;
+    });
+    return { controllers: [...ownControllers, ...childControllers] };
+  }
+
+  private collectControllers(): readonly ControllerClass[] {
+    return [
+      ...this.controllers,
+      ...this.children.flatMap((child) => child.blueprint().getControllers()),
+    ];
+  }
+
+  private toCapabilities(router: HttpMountableCapabilities['router']): HttpMountableCapabilities {
     return {
+      router,
       fetch: async (req) => router.fetch(req),
       request: async (input, init) => {
         const req =
@@ -54,7 +89,13 @@ export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCap
         return router.fetch(req);
       },
     };
-  };
+  }
 }
 
-export const http = (opts: HttpOptions): HttpFeature => new HttpFeature(opts);
+export const http = (opts: HttpModuleOptions): HttpFeature => new HttpFeature(opts);
+export type {
+  HttpCapabilities,
+  HttpMountableCapabilities,
+  HttpMountableFeatureModule,
+  HttpStaticCapabilities,
+};

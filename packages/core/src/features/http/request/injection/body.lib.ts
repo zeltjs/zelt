@@ -1,14 +1,16 @@
+import type { Context } from 'hono';
+
 import {
   createContextKey,
   getInternal,
   setInternal,
   ZeltContextNotAvailableError,
 } from '../../../../kernel';
-import { UnsupportedMediaTypeException } from '../../http.exceptions';
+import { BadRequestException, UnsupportedMediaTypeException } from '../../http.exceptions';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
 
-type ParsedBody =
+export type ParsedBody =
   | { type: 'json'; val: unknown }
   | { type: 'form'; val: FormBody }
   | { type: 'text'; val: string }
@@ -19,6 +21,42 @@ const BODY_CONTEXT = createContextKey<ParsedBody>('zelt:body');
 /** @throws {ZeltContextNotAvailableError} */
 export const setBody = (body: ParsedBody): void => {
   setInternal(BODY_CONTEXT, body);
+};
+
+// Lets injection middlewares at different router levels avoid re-reading the
+// request stream: only the first injection per request parses the body.
+/** @throws {ZeltContextNotAvailableError} */
+export const hasParsedBody = (): boolean => getInternal(BODY_CONTEXT) !== undefined;
+
+/** @throws {BadRequestException} */
+export const parseRequestBody = async (c: Pick<Context, 'req'>): Promise<ParsedBody> => {
+  const contentType = c.req.header('content-type') ?? '';
+
+  if (contentType.includes('application/json')) {
+    const val = await c.req.json<unknown>().catch((e: Error) => {
+      throw new BadRequestException({ reason: `Invalid JSON: ${e.message}` });
+    });
+    return { type: 'json', val };
+  }
+
+  if (
+    contentType.includes('multipart/form-data') ||
+    contentType.includes('application/x-www-form-urlencoded')
+  ) {
+    const val: FormBody = await c.req.parseBody({ all: true }).catch((e: Error) => {
+      throw new BadRequestException({ reason: `Invalid form data: ${e.message}` });
+    });
+    return { type: 'form', val };
+  }
+
+  if (contentType.startsWith('text/')) {
+    const val = await c.req.text().catch((e: Error) => {
+      throw new BadRequestException({ reason: `Invalid text body: ${e.message}` });
+    });
+    return { type: 'text', val };
+  }
+
+  return { type: 'none', val: undefined };
 };
 
 /** @throws {ZeltContextNotAvailableError} */

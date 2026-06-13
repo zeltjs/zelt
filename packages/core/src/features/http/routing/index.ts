@@ -1,6 +1,11 @@
 export { joinPath } from './path-utils.lib';
 export { buildRoutes, collectRoutes } from './route-builder.lib';
-export type { ControllerRouteInfo, HttpMethod, RouteInfo } from './routing-metadata.lib';
+export type {
+  ControllerClass,
+  ControllerRouteInfo,
+  HttpMethod,
+  RouteInfo,
+} from './routing-metadata.lib';
 export {
   collectControllerRouteInfo,
   getAuthorizedMetadata,

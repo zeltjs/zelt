@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../../app';
 import { Config } from '../../built-in-service';
 import type { Lifecycle } from '../../kernel';
-import { inject, LifecycleManager } from '../../kernel';
+import { inject, LifecycleManager, runInContext } from '../../kernel';
 import { ErrorHandler } from './error/error-handler.decorator';
 import { http } from './http.feature';
 import { Middleware } from './middleware/middleware.decorator';
@@ -68,6 +68,30 @@ describe('createApp() — fetch', () => {
     const res = await readyApp.http.fetch(new Request('https://example.com/hello/zelt'));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ message: 'hello, zelt' });
+  });
+
+  it('isolates request context when called inside an existing Zelt context', async () => {
+    const readyApp = await buildApp();
+
+    const results = await runInContext(async () => {
+      const res1 = await readyApp.http.fetch(
+        new Request('https://example.com/echo/', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ seq: 1 }),
+        }),
+      );
+      const res2 = await readyApp.http.fetch(
+        new Request('https://example.com/echo/', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ seq: 2 }),
+        }),
+      );
+      return [await res1.json(), await res2.json()];
+    });
+
+    expect(results).toEqual([{ seq: 1 }, { seq: 2 }]);
   });
 
   it('parses JSON body', async () => {
@@ -202,6 +226,59 @@ describe('middleware', () => {
 
     await readyApp.http.request('/test/');
     expect(executed).toContain('global');
+  });
+
+  it('lets global middlewares read the request body before the handler', async () => {
+    const seen: unknown[] = [];
+    const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
+      seen.push(body('json'));
+      await next();
+    };
+
+    const app = createApp([
+      http({ controllers: [EchoController], middlewares: [captureBodyMiddleware] }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.fetch(
+      new Request('https://example.com/echo/', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ msg: 'from-middleware' }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ msg: 'from-middleware' });
+    expect(seen).toEqual([{ msg: 'from-middleware' }]);
+  });
+
+  it('lets parent middlewares read the body for nested child routes', async () => {
+    const seen: unknown[] = [];
+    const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
+      seen.push(body('json'));
+      await next();
+    };
+
+    const app = createApp([
+      http({
+        middlewares: [captureBodyMiddleware],
+        children: [http({ path: '/v1', controllers: [EchoController] })],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.fetch(
+      new Request('https://example.com/v1/echo/', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ msg: 'nested' }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ msg: 'nested' });
+    expect(seen).toEqual([{ msg: 'nested' }]);
   });
 
   it('executes middlewares in order: global -> controller -> method', async () => {
@@ -717,10 +794,10 @@ describe('nested children', () => {
       http({
         controllers: [],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [UserController],
-          },
+          }),
         ],
       }),
     ]);
@@ -756,11 +833,11 @@ describe('nested children', () => {
         controllers: [],
         middlewares: [parentMiddleware],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [ChildController],
             middlewares: [childMiddleware],
-          },
+          }),
         ],
       }),
     ]);
@@ -790,11 +867,11 @@ describe('nested children', () => {
       http({
         controllers: [],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [ChildController],
             errorHandlers: [ChildErrorHandler],
-          },
+          }),
         ],
       }),
     ]);
@@ -826,10 +903,10 @@ describe('nested children', () => {
         controllers: [],
         errorHandlers: [ParentErrorHandler],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [ChildController],
-          },
+          }),
         ],
       }),
     ]);
@@ -884,11 +961,11 @@ describe('nested children', () => {
         controllers: [],
         errorHandlers: [ParentHandler],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [BubbleController],
             errorHandlers: [ChildHandler],
-          },
+          }),
         ],
       }),
     ]);
@@ -919,15 +996,15 @@ describe('nested children', () => {
       http({
         controllers: [],
         children: [
-          {
+          http({
             path: '/api',
             children: [
-              {
+              http({
                 path: '/v1',
                 controllers: [ItemController],
-              },
+              }),
             ],
-          },
+          }),
         ],
       }),
     ]);
@@ -959,10 +1036,10 @@ describe('nested children', () => {
       http({
         controllers: [ControllerA],
         children: [
-          {
+          http({
             path: '/child',
             controllers: [ControllerB],
-          },
+          }),
         ],
       }),
     ]);
@@ -986,10 +1063,10 @@ describe('nested children', () => {
       http({
         controllers: [],
         children: [
-          {
+          http({
             path: '/api',
             controllers: [MetaController],
-          },
+          }),
         ],
       }),
     ]);
