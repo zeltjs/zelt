@@ -101,13 +101,13 @@ describe('createApp with schedulers', () => {
     }
 
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
-    const localRuntimeApp = await app.createRuntime();
-    await localRuntimeApp.schedulers.startScheduler();
-    expect(localRuntimeApp.schedulers.isSchedulerRunning()).toBe(true);
+    readyApp = await app.createRuntime();
+    await readyApp.schedulers.startScheduler();
+    expect(readyApp.schedulers.isSchedulerRunning()).toBe(true);
 
-    await localRuntimeApp.shutdown();
+    await readyApp.shutdown();
 
-    expect(localRuntimeApp.schedulers.isSchedulerRunning()).toBe(false);
+    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
   });
 
   it('works without schedulers option', async () => {
