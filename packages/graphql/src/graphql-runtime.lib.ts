@@ -21,10 +21,12 @@ const generatedGraphqlRuntimeSchema = v.object({
   ),
 });
 
+// GraphQL over HTTP clients (Apollo, GraphiQL, ...) commonly send explicit
+// nulls for variables/operationName; both mean "not specified".
 export const graphqlRequestPayloadSchema = v.object({
   query: v.string(),
-  variables: v.optional(v.record(v.string(), v.unknown())),
-  operationName: v.optional(v.string()),
+  variables: v.nullish(v.record(v.string(), v.unknown())),
+  operationName: v.nullish(v.string()),
 });
 
 export type GeneratedGraphqlBinding = v.InferOutput<typeof generatedGraphqlBindingSchema>;
@@ -131,8 +133,13 @@ const createBindingResolver = (options: CreateGraphqlExecutorOptions): ResolveBi
 
 // Unknown strings fall through unchanged so GraphQL reports the actual
 // unrepresentable value instead of an opaque null/undefined error.
-const normalizeEnumValue = (value: unknown, mapping: Readonly<Record<string, string>>): unknown =>
+const normalizeEnumScalar = (value: unknown, mapping: Readonly<Record<string, string>>): unknown =>
   typeof value === 'string' ? (mapping[value] ?? value) : value;
+
+const normalizeEnumValue = (value: unknown, mapping: Readonly<Record<string, string>>): unknown =>
+  Array.isArray(value)
+    ? value.map((element: unknown) => normalizeEnumScalar(element, mapping))
+    : normalizeEnumScalar(value, mapping);
 
 type BoundFieldResolver = (
   parent: unknown,
@@ -250,12 +257,14 @@ export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): Gr
       await graphql({
         schema,
         source: request.query,
-        variableValues: request.variables,
-        operationName: request.operationName,
+        variableValues: request.variables ?? undefined,
+        operationName: request.operationName ?? undefined,
       }),
     );
 };
 
+// Single-shot convenience API: builds the schema on every call. Use
+// createGraphqlExecutor() and reuse the executor for repeated execution.
 /** @throws {Error} */
 export const executeGraphqlRequest = async (
   options: ExecuteGraphqlRequestOptions,

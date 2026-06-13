@@ -6,7 +6,6 @@ import {
   ZeltDecoratorUsageError,
   ZeltRouteConfigurationError,
 } from '../../../kernel';
-import { BadRequestException } from '../http.exceptions';
 import {
   attachSkippedMiddlewares,
   guardMiddleware,
@@ -20,7 +19,7 @@ import type {
   MiddlewareInput,
 } from '../middleware/middleware.types';
 import { setHonoContext } from '../request';
-import { setBody, setPathParams } from '../request/injection';
+import { hasParsedBody, parseRequestBody, setBody, setPathParams } from '../request/injection';
 import { joinPath } from './path-utils.lib';
 import type { ControllerClass, HttpMethod } from './routing-metadata.lib';
 import {
@@ -89,45 +88,6 @@ const resolveHandler = (instance: object, methodName: string | symbol): (() => u
   };
 };
 
-type FormBody = Record<string, string | File | (string | File)[]>;
-
-type ParsedBody =
-  | { type: 'json'; val: unknown }
-  | { type: 'form'; val: FormBody }
-  | { type: 'text'; val: string }
-  | { type: 'none'; val: undefined };
-
-/** @throws {BadRequestException} */
-const parseRequestBody = async (c: MiddlewareContext): Promise<ParsedBody> => {
-  const contentType = c.req.header('content-type') ?? '';
-
-  if (contentType.includes('application/json')) {
-    const val = await c.req.json<unknown>().catch((e: Error) => {
-      throw new BadRequestException({ reason: `Invalid JSON: ${e.message}` });
-    });
-    return { type: 'json', val };
-  }
-
-  if (
-    contentType.includes('multipart/form-data') ||
-    contentType.includes('application/x-www-form-urlencoded')
-  ) {
-    const val: FormBody = await c.req.parseBody({ all: true }).catch((e: Error) => {
-      throw new BadRequestException({ reason: `Invalid form data: ${e.message}` });
-    });
-    return { type: 'form', val };
-  }
-
-  if (contentType.startsWith('text/')) {
-    const val = await c.req.text().catch((e: Error) => {
-      throw new BadRequestException({ reason: `Invalid text body: ${e.message}` });
-    });
-    return { type: 'text', val };
-  }
-
-  return { type: 'none', val: undefined };
-};
-
 /** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
 const createAuthorizationMiddleware = (requiredRoles: readonly string[]): FunctionMiddleware => {
   return async (_c, next) => {
@@ -194,18 +154,20 @@ const collectSkippedMiddlewares = (
   );
 
 // Populates the request context store before route-chained middlewares and
-// the controller run. The store itself normally comes from the router-level
-// bootstrap; creating one here keeps bare buildRoutes() usage working.
+// the controller run. The router-level request injection normally ran
+// earlier; this re-applies path params for the matched route (parent routers
+// only see their mount-level params) and keeps bare buildRoutes() usage
+// working by parsing the body when nothing parsed it yet.
 /** @throws {ZeltContextNotAvailableError | BadRequestException} */
 const createInjectionMiddleware = (): FunctionMiddleware => {
   return async (c, next) => {
-    const body = await parseRequestBody(c);
-    const pathParams: Readonly<Record<string, string>> = c.req.param();
-    /** @throws {ZeltContextNotAvailableError} */
+    /** @throws {ZeltContextNotAvailableError | BadRequestException} */
     const run = async (): Promise<void> => {
       setHonoContext(c);
-      setBody(body);
-      setPathParams(pathParams);
+      if (!hasParsedBody()) {
+        setBody(await parseRequestBody(c));
+      }
+      setPathParams(c.req.param());
       await next();
     };
     if (hasContext()) {

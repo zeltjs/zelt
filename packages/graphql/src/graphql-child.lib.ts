@@ -83,7 +83,10 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
       for (const resolver of this.options.resolvers) {
         resolverInstances.set(resolver.name, await runtimeContext.get(resolver));
       }
-      setGraphqlRuntimeState(this.controller, {
+      // State is keyed by the per-runtime controller instance (not the
+      // controller class) so multiple runtimes created from the same app
+      // definition keep their own resolver instances.
+      setGraphqlRuntimeState(await runtimeContext.get(this.controller), {
         execute: createGraphqlExecutor({
           runtime: generatedRuntime,
           resolvers: this.options.resolvers,
@@ -102,7 +105,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
     class GraphqlEndpointController {
       /** @throws {Error} */
       async handle(): Promise<Response> {
-        const state = getGraphqlRuntimeState(GraphqlEndpointController);
+        const state = getGraphqlRuntimeState(this);
         if (!state) {
           return Response.json(
             { errors: [{ message: 'GraphQL generated runtime is not configured.' }] },

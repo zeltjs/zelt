@@ -129,7 +129,8 @@ export const addEnumFieldMappingForType = (
   fieldName: string,
   type: TypeInfo,
 ): void => {
-  const unwrapped = type.kind === 'promise' ? type.inner : type;
+  const awaited = type.kind === 'promise' ? type.inner : type;
+  const unwrapped = awaited.kind === 'array' ? awaited.items : awaited;
   const values = getStringLiteralUnionValues(unwrapped);
   if (values) {
     addEnumFieldMapping(ctx, objectName, fieldName, values);
@@ -243,6 +244,8 @@ export const convertTypeInfoToGraphqlRef = (
     })
     .exhaustive();
 
+const GRAPHQL_NAME_PATTERN = /^[_A-Za-z][_0-9A-Za-z]*$/;
+
 /** @throws {Error} */
 export const addGraphqlField = (
   ctx: GraphqlTypeContext,
@@ -253,6 +256,9 @@ export const addGraphqlField = (
   options: { readonly nullable?: boolean } = {},
 ): void => {
   if (isInternalBrandProperty(fieldName)) return;
+  if (!GRAPHQL_NAME_PATTERN.test(fieldName)) {
+    throw new Error(`Invalid GraphQL field name: ${objectName}.${fieldName}`);
+  }
   const object = ensureObject(ctx, objectName);
   const ref = convertTypeInfoToGraphqlRef(type, ctx, typeNameHint);
   const fieldRef = { ...ref, nullable: ref.nullable || options.nullable === true };

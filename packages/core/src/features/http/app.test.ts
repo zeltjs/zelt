@@ -204,6 +204,59 @@ describe('middleware', () => {
     expect(executed).toContain('global');
   });
 
+  it('lets global middlewares read the request body before the handler', async () => {
+    const seen: unknown[] = [];
+    const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
+      seen.push(body('json'));
+      await next();
+    };
+
+    const app = createApp([
+      http({ controllers: [EchoController], middlewares: [captureBodyMiddleware] }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.fetch(
+      new Request('https://example.com/echo/', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ msg: 'from-middleware' }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ msg: 'from-middleware' });
+    expect(seen).toEqual([{ msg: 'from-middleware' }]);
+  });
+
+  it('lets parent middlewares read the body for nested child routes', async () => {
+    const seen: unknown[] = [];
+    const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
+      seen.push(body('json'));
+      await next();
+    };
+
+    const app = createApp([
+      http({
+        middlewares: [captureBodyMiddleware],
+        children: [http({ path: '/v1', controllers: [EchoController] })],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.fetch(
+      new Request('https://example.com/v1/echo/', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ msg: 'nested' }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ msg: 'nested' });
+    expect(seen).toEqual([{ msg: 'nested' }]);
+  });
+
   it('executes middlewares in order: global -> controller -> method', async () => {
     const order: string[] = [];
     const globalMiddleware: MiddlewareHandler = async (_c, next) => {

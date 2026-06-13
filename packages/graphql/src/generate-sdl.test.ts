@@ -81,6 +81,11 @@ class EnumRootResolver {
   accountState(): AccountState {
     return 'active';
   }
+
+  @Query()
+  accountStates(): readonly AccountState[] {
+    return ['active'];
+  }
 }
 
 describe('generateSdlForResolvers', () => {
@@ -130,9 +135,11 @@ describe('generateSdlForResolvers', () => {
 
     expect(runtime.schemaSdl).toContain(`type Query {
   accountState: AccountState!
+  accountStates: [AccountState!]!
 }`);
     expect(runtime.enumFields?.['Query']).toEqual({
       accountState: { active: 'ACTIVE', disabled: 'DISABLED' },
+      accountStates: { active: 'ACTIVE', disabled: 'DISABLED' },
     });
   });
 

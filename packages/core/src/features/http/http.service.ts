@@ -18,6 +18,7 @@ import type {
   RequestContext,
 } from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
+import { createRequestInjectionMiddleware } from './request-injection.lib';
 import { buildRoutes } from './routing';
 
 export type { HttpChildOptions, HttpMetadata, HttpModuleOptions, HttpOptions } from './http.types';
@@ -79,6 +80,9 @@ export class HttpService {
     const routerToken = Symbol('zelt:http-router');
     const hono = new Hono({ strict: false });
     hono.use(createBootstrapMiddleware(this.lifecycleManager, routerToken));
+    // Request helpers (body() etc.) must work inside the security and user
+    // middlewares below, so injection happens before they run.
+    hono.use(createRequestInjectionMiddleware());
 
     const errorHandlers = resolveErrorHandlers(options.errorHandlers ?? [], this.container);
     hono.onError(

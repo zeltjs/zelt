@@ -48,4 +48,19 @@ describe('typeInfoToGraphqlType', () => {
   PUBLISHED
 }`);
   });
+
+  it('rejects property names that are not valid GraphQL identifiers', () => {
+    const typeInfo = {
+      kind: 'object',
+      properties: [
+        {
+          name: 'foo bar',
+          optional: false,
+          type: { kind: 'primitive', type: 'string' },
+        },
+      ],
+    } satisfies TypeInfo;
+
+    expect(() => typeInfoToGraphqlType(typeInfo, 'Weird')).toThrow(/field name/i);
+  });
 });

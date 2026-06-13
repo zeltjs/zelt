@@ -136,6 +136,106 @@ describe('executeGraphqlRequest enum conversion', () => {
       },
     });
   });
+
+  it('converts enum values inside array returns', async () => {
+    const arrayEnumRuntime = {
+      schemaSdl: `type Query {
+  allStatuses: [StockStatus!]!
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+}
+`,
+      bindings: {
+        Query: {
+          allStatuses: { resolver: 'ArrayEnumResolver', method: 'allStatuses' },
+        },
+      },
+      enumFields: {
+        Query: {
+          allStatuses: { in_stock: 'IN_STOCK', low_stock: 'LOW_STOCK' },
+        },
+      },
+    } satisfies GeneratedGraphqlRuntime;
+
+    @Resolver()
+    class ArrayEnumResolver {
+      @Query()
+      allStatuses(): readonly StockStatus[] {
+        return ['in_stock', 'low_stock'];
+      }
+    }
+
+    const result = await executeGraphqlRequest({
+      runtime: arrayEnumRuntime,
+      resolvers: [ArrayEnumResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ allStatuses }' },
+    });
+
+    expect(result).toEqual({ data: { allStatuses: ['IN_STOCK', 'LOW_STOCK'] } });
+  });
+
+  it('converts enum values on plain object properties without bindings', async () => {
+    const plainEnumRuntime = {
+      schemaSdl: `type Query {
+  viewer: ViewerPublic!
+}
+
+type ViewerPublic {
+  id: String!
+  status: StockStatus!
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+}
+`,
+      bindings: {
+        Query: {
+          viewer: { resolver: 'PlainEnumResolver', method: 'viewer' },
+        },
+      },
+      enumFields: {
+        ViewerPublic: {
+          status: { in_stock: 'IN_STOCK', low_stock: 'LOW_STOCK' },
+        },
+      },
+    } satisfies GeneratedGraphqlRuntime;
+
+    @Resolver()
+    class PlainEnumResolver {
+      @Query()
+      viewer(): ViewerPublic & { status: StockStatus } {
+        return { id: 'viewer', status: 'low_stock' };
+      }
+    }
+
+    const result = await executeGraphqlRequest({
+      runtime: plainEnumRuntime,
+      resolvers: [PlainEnumResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ viewer { id status } }' },
+    });
+
+    expect(result).toEqual({ data: { viewer: { id: 'viewer', status: 'LOW_STOCK' } } });
+  });
+});
+
+describe('GraphQL request payload', () => {
+  it('treats null variables and operationName as absent', async () => {
+    const result = await executeGraphqlRequest({
+      runtime,
+      resolvers: [RuntimeViewerResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ viewer { id } }', variables: null, operationName: null },
+    });
+
+    expect(result).toEqual({ data: { viewer: { id: 'viewer' } } });
+  });
 });
 
 describe('graphql HTTP runtime', () => {
@@ -182,5 +282,73 @@ describe('graphql HTTP runtime', () => {
         },
       },
     });
+
+    const nullFieldsResponse = await running.http.request('/graphql', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: '{ viewer { id } }', variables: null, operationName: null }),
+    });
+    expect(nullFieldsResponse.status).toBe(200);
+    await expect(nullFieldsResponse.json()).resolves.toEqual({
+      data: { viewer: { id: 'viewer' } },
+    });
+  });
+
+  it('keeps GraphQL execution state isolated between runtimes of the same app', async () => {
+    const runtimeModulePath = join(
+      tmpdir(),
+      `zelt-graphql-runtime-iso-${Date.now()}-${Math.random()}.mjs`,
+    );
+    const isolationRuntime = {
+      schemaSdl: `type Query {\n  seq: Float!\n}\n`,
+      bindings: { Query: { seq: { resolver: 'SeqResolver', method: 'seq' } } },
+    } satisfies GeneratedGraphqlRuntime;
+    await writeFile(
+      runtimeModulePath,
+      `export const graphqlRuntime = ${JSON.stringify(isolationRuntime)};\n`,
+      'utf8',
+    );
+
+    let instanceSeq = 0;
+    @Resolver()
+    class SeqResolver {
+      private readonly instanceNumber = ++instanceSeq;
+
+      @Query()
+      seq(): number {
+        return this.instanceNumber;
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [],
+        children: [
+          graphql({
+            path: '/graphql',
+            resolvers: [SeqResolver],
+            runtimeModule: pathToFileURL(runtimeModulePath).href,
+          }),
+        ],
+      }),
+    ]);
+
+    const first = await app.createRuntime();
+    const second = await app.createRuntime();
+
+    const querySeq = async (runtime: typeof first): Promise<unknown> => {
+      const response = await runtime.http.request('/graphql', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ query: '{ seq }' }),
+      });
+      const payload: { data?: { seq?: unknown } } = await response.json();
+      return payload.data?.seq;
+    };
+
+    // Each runtime must keep executing with its own resolver instances even
+    // after another runtime was created from the same app definition.
+    await expect(querySeq(second)).resolves.toBe(2);
+    await expect(querySeq(first)).resolves.toBe(1);
   });
 });

@@ -34,6 +34,9 @@ const graphqlArgsStorage = new AsyncLocalStorage<Readonly<Record<string, unknown
 export const runWithGraphqlArgs = <T>(args: Readonly<Record<string, unknown>>, fn: () => T): T =>
   graphqlArgsStorage.run(args, fn);
 
+// Async validation schemas (e.g. zod async refinements) are not supported:
+// default parameter initializers must produce the value synchronously, so an
+// async schema fails at runtime with an explicit error.
 /** @throws {GraphqlArgsValidationError | Error} */
 export const gqlValidated = <Output>(schema: StandardSchemaV1<Output>): Output => {
   const args = graphqlArgsStorage.getStore();

@@ -121,8 +121,10 @@ const isNullishTsType = (type: TSType, ts: TS): boolean => {
 const getTypeArguments = (type: TSType): readonly TSType[] =>
   narrowToTypeReference(type).typeArguments ?? [];
 
-const unwrapPromiseType = (type: TSType, checker: TSTypeChecker): TSType => {
-  if (!checker.typeToString(type).startsWith('Promise<')) return type;
+// Checks the target symbol instead of the rendered type text so aliased
+// promises (type AliasedPromise = Promise<T>) unwrap too.
+const unwrapPromiseType = (type: TSType, _checker: TSTypeChecker): TSType => {
+  if (type.getSymbol()?.getName() !== 'Promise') return type;
   return getTypeArguments(type)[0] ?? type;
 };
 
