@@ -11,7 +11,7 @@ This guide walks you through embedding a Zelt application in an Electron app.
 <Prerequisites />
 
 Additional requirements for Electron:
-- [Electron](https://www.electronjs.org/) v28 or higher
+- [Electron](https://www.electronjs.org/) — see `@zeltjs/adapter-electron` peer dependency for the minimum version
 - [electron-vite](https://electron-vite.org/) (recommended)
 
 ## Installation
@@ -104,11 +104,24 @@ class HelloController {
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
 const app = createApp([http({ controllers: [HelloController] })]);
+declare const BrowserWindow: any;
+declare const join: (...args: string[]) => string;
 // ---cut---
 const bootstrap = async () => {
   const electronZelt = await onElectron(app, {
     ipcChannel: 'http://zelt-app',
   });
+
+  const win = new BrowserWindow({
+    width: 900,
+    height: 670,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+  win.loadFile(join(__dirname, '../renderer/index.html'));
 };
 
 void bootstrap();
@@ -119,6 +132,10 @@ void bootstrap();
 - `fetch(request)` — Handles a `Request` and returns a `Response`
 - `shutdown()` — Gracefully shuts down the application
 - `get<T>(Class)` — Resolves a service from the DI container
+
+:::important
+The `webPreferences.preload` path must point to the compiled preload script. Without it, `exposeIpc()` never runs and the renderer cannot reach the Zelt app.
+:::
 
 ### Step 4: Set Up the Preload Script
 
