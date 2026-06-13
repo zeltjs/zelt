@@ -1,5 +1,5 @@
-export type { ReadyResult } from './app-runtime.lib';
-export { AppRuntime } from './app-runtime.lib';
+export type { ReadyResult } from './app-bootstrap.lib';
+export { AppBootstrap } from './app-bootstrap.lib';
 export { ConfigRegistry } from './config-registry.lib';
 export {
   type App,
@@ -14,8 +14,8 @@ export type {
   FeatureClass,
   FeatureManagedClass,
   FeatureReadyCapabilities,
-  FeatureRuntime,
   NamespacedCaps,
+  ServiceResolver,
   StaticNamespacedCaps,
 } from './feature.types';
 export { Feature } from './feature.types';

@@ -8,11 +8,11 @@ export type ReadyResult = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
 };
 
-type AppRuntimeState = 'idle' | 'starting' | 'ready' | 'disposed';
+type AppBootstrapState = 'idle' | 'starting' | 'ready' | 'disposed';
 
 @injectable()
-export class AppRuntime {
-  private state: AppRuntimeState = 'idle';
+export class AppBootstrap {
+  private state: AppBootstrapState = 'idle';
   private readyPromise: Promise<ReadyResult> | undefined;
   private cachedResult: ReadyResult | undefined;
 

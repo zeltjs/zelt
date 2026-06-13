@@ -29,13 +29,13 @@ export const eventbus = (
 ): ConfiguredFeature<'eventbus', EventBusCapabilities> => ({
   key: 'eventbus',
   featureClasses: () => [opts.adaptor, ...(opts.handlers ?? [])],
-  staticCapabilities: () => ({}),
-  createCapabilities: async (runtime) => {
+  blueprint: () => ({}),
+  realize: async (resolver) => {
     for (const handler of opts.handlers ?? []) {
-      await runtime.get(handler);
+      await resolver.get(handler);
     }
 
-    const adaptor = await runtime.get(opts.adaptor);
+    const adaptor = await resolver.get(opts.adaptor);
     return {
       emit: (event, data) => adaptor.emit(event, data),
       on: (event, handler) => adaptor.on(event, handler),

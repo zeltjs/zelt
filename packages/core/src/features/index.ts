@@ -4,8 +4,8 @@ export type {
   FeatureClass,
   FeatureManagedClass,
   FeatureReadyCapabilities,
-  FeatureRuntime,
   NamespacedCaps,
+  ServiceResolver,
   StaticNamespacedCaps,
 } from '../app';
 export { Feature } from '../app';

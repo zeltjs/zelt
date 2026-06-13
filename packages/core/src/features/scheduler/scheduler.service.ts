@@ -10,7 +10,7 @@ export type { SchedulerRunner } from './scheduler-runner.lib';
 export class SchedulerService {
   // Ledger of runners this service must release on shutdown; registering the
   // lifecycle in the constructor keeps it inside the resolve→startupPending
-  // contract of AppRuntime.get, so no manual startupPending call is needed.
+  // contract of AppBootstrap.get, so no manual startupPending call is needed.
   private readonly runners: SchedulerRunner[] = [];
 
   constructor(

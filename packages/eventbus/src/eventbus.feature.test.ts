@@ -73,7 +73,7 @@ describe('eventbus feature', () => {
     const feature = eventbus({ adaptor: MemoryEventBusAdaptor });
     expect(feature.key).toBe('eventbus');
     expect(feature.featureClasses()).toEqual([MemoryEventBusAdaptor]);
-    expect(typeof feature.createCapabilities).toBe('function');
+    expect(typeof feature.realize).toBe('function');
   });
 
   it('returns adaptor and handlers as feature classes', () => {

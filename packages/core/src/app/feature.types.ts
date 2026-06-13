@@ -4,7 +4,7 @@ import type {
   ObjectFromNonEmptyKeyedValues,
 } from '@zeltjs/unsafe-type-lib';
 
-export type FeatureRuntime = {
+export type ServiceResolver = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
 };
 
@@ -19,8 +19,8 @@ export abstract class Feature<
 > {
   abstract readonly key: TKey;
   abstract featureClasses(): readonly FeatureManagedClass[];
-  abstract staticCapabilities(): TStaticCaps;
-  abstract createCapabilities(runtime: FeatureRuntime): TReadyCaps | Promise<TReadyCaps>;
+  abstract blueprint(): TStaticCaps;
+  abstract realize(resolver: ServiceResolver): TReadyCaps | Promise<TReadyCaps>;
 }
 
 export type ConfiguredFeature<
@@ -35,7 +35,7 @@ export type FeatureClass<TFeature extends ConfiguredFeature = ConfiguredFeature>
 
 export type FeatureReadyCapabilities<TFeature extends ConfiguredFeature> = KeyedMethodValue<
   TFeature,
-  'createCapabilities'
+  'realize'
 >;
 
 export type FeatureCaps<TFeature extends ConfiguredFeature> = {
@@ -50,8 +50,8 @@ export type FeatureCaps<TFeature extends ConfiguredFeature> = {
 
 export type NamespacedCaps<F extends readonly ConfiguredFeature[]> = ObjectFromKeyedValues<
   F,
-  'createCapabilities'
+  'realize'
 >;
 
 export type StaticNamespacedCaps<F extends readonly ConfiguredFeature[]> =
-  ObjectFromNonEmptyKeyedValues<F, 'staticCapabilities'>;
+  ObjectFromNonEmptyKeyedValues<F, 'blueprint'>;
