@@ -3,134 +3,182 @@ sidebar_label: Electron
 ---
 
 import Prerequisites from './_partials/prerequisites.mdx';
-import FolderStructure from './_partials/folder-structure.mdx';
 
 # Getting Started with Electron
 
-This guide walks you through embedding a Zelt application in an Electron app for local API handling.
+This guide walks you through embedding a Zelt application in an Electron app.
 
 <Prerequisites />
 
 Additional requirements for Electron:
-- [Electron](https://www.electronjs.org/) v28 or higher
+- [Electron](https://www.electronjs.org/) — see `@zeltjs/adapter-electron` peer dependency for the minimum version
+- [electron-vite](https://electron-vite.org/) (recommended)
 
 ## Installation
 
 ```bash
 pnpm add @zeltjs/core @zeltjs/adapter-electron
-pnpm add -D electron
+pnpm add -D electron electron-vite
 ```
 
-## Use Case
+## Architecture Overview
 
-The Electron adapter allows you to handle HTTP requests within your Electron app without running a separate server. This is useful for:
+Unlike server-based adapters (Node.js, Bun), the Electron adapter communicates via IPC instead of HTTP sockets. Your Zelt app runs in the **main process**, and the renderer calls it through an IPC bridge:
 
-- Local API endpoints for the renderer process
-- Offline-capable applications
-- Desktop apps with embedded backends
+```
+Renderer  ──ipcFetch()──▶  Preload  ──IPC──▶  Main (Zelt app)
+              ◀── Response ──   ◀── Response ──
+```
 
-<FolderStructure />
+Three pieces are needed:
+1. **Main process** — `onElectron(app)` starts Zelt and registers the IPC handler
+2. **Preload script** — `exposeIpc()` bridges IPC to the renderer
+3. **Renderer process** — `ipcFetch()` sends requests through the bridge
+
+## Project Structure
+
+```
+my-electron-app/
+├── src/
+│   ├── main/
+│   │   ├── entry/
+│   │   │   └── hello.controller.ts
+│   │   ├── app.ts           # Zelt app definition
+│   │   └── index.ts         # Electron main entry
+│   ├── preload/
+│   │   └── index.ts         # IPC bridge setup
+│   └── renderer/
+│       └── src/
+│           └── api/
+│               └── zeltFetch.ts  # IPC fetch wrapper
+├── electron.vite.config.ts
+├── package.json
+└── tsconfig.json
+```
 
 ## Hello World
 
-### Step 1: Create the Application
+### Step 1: Create the Controller
 
-Create `src/api/app.ts`:
+Create `src/main/entry/hello.controller.ts`:
 
 ```typescript
-import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
+import { Controller, Get, pathParam } from '@zeltjs/core';
 // ---cut---
 @Controller('/hello')
-class HelloController {
+export class HelloController {
   @Get('/:name')
   greet(name = pathParam('name')) {
     return { message: `Hello, ${name}!` };
   }
 }
+```
 
+### Step 2: Create the Application
+
+Create `src/main/app.ts`:
+
+```typescript
+import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+}
+// ---cut---
 export const app = createApp([http({
     controllers: [HelloController],
   })]);
 ```
 
-### Step 2: Initialize in Main Process
+### Step 3: Initialize in Main Process
 
-Create `src/main.ts`:
+Create `src/main/index.ts`:
 
 ```typescript
-// @noErrors
-import { app as electronApp, BrowserWindow, protocol } from 'electron';
 import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
 import { onElectron } from '@zeltjs/adapter-electron';
-
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
 }
-
 const app = createApp([http({ controllers: [HelloController] })]);
+declare const BrowserWindow: any;
+declare const join: (...args: string[]) => string;
 // ---cut---
-const electronZelt = await onElectron(app);
-
-electronApp.whenReady().then(() => {
-  protocol.handle('api', async (request) => {
-    return electronZelt.fetch(request);
+const bootstrap = async () => {
+  const electronZelt = await onElectron(app, {
+    ipcChannel: 'http://zelt-app',
   });
 
-  const win = new BrowserWindow({ width: 800, height: 600 });
-  win.loadFile('index.html');
-});
+  const win = new BrowserWindow({
+    width: 900,
+    height: 670,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+  win.loadFile(join(__dirname, '../renderer/index.html'));
+};
 
-electronApp.on('window-all-closed', async () => {
-  await electronZelt.shutdown();
-  electronApp.quit();
-});
+void bootstrap();
 ```
 
-The `onElectron()` function prepares your app for the Electron runtime. It returns:
+`onElectron()` starts the Zelt runtime and automatically registers the IPC handler for the specified channel. It returns:
 
-- `fetch(request)` — Handles a Request and returns a Response
+- `fetch(request)` — Handles a `Request` and returns a `Response`
 - `shutdown()` — Gracefully shuts down the application
 - `get<T>(Class)` — Resolves a service from the DI container
 
-### Step 3: Call API from Renderer
+:::important
+The `webPreferences.preload` path must point to the compiled preload script. Without it, `exposeIpc()` never runs and the renderer cannot reach the Zelt app.
+:::
 
-In your renderer process or preload script:
+### Step 4: Set Up the Preload Script
+
+Create `src/preload/index.ts`:
 
 ```typescript
-const response = await fetch('api://localhost/hello/world');
+import { exposeIpc } from '@zeltjs/adapter-electron/preload';
+// ---cut---
+exposeIpc({ channel: 'http://zelt-app' });
+```
+
+`exposeIpc()` uses Electron's `contextBridge` to safely expose the IPC sender to the renderer.
+
+### Step 5: Call API from Renderer
+
+Create `src/renderer/src/api/zeltFetch.ts`:
+
+```typescript
+import { ipcFetch } from '@zeltjs/adapter-electron/renderer';
+// ---cut---
+export const zeltFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> =>
+  ipcFetch(input, init, { channel: 'http://zelt-app' });
+```
+
+Use it like the standard `fetch()`:
+
+```typescript
+import { ipcFetch } from '@zeltjs/adapter-electron/renderer';
+const zeltFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> =>
+  ipcFetch(input, init, { channel: 'http://zelt-app' });
+// ---cut---
+const response = await zeltFetch('http://zelt-app/hello/world');
 const data = await response.json();
 console.log(data.message); // "Hello, world!"
 ```
 
-## Warmup Option
-
-By default, `onElectron()` uses eager initialization (`warmup: true`) — all controllers are resolved at startup.
-
-For lazy initialization:
-
-```typescript
-import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
-import { onElectron } from '@zeltjs/adapter-electron';
-
-@Controller('/hello')
-class HelloController {
-  @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
-}
-
-const app = createApp([http({ controllers: [HelloController] })]);
-// ---cut---
-const electronZelt = await onElectron(app, { warmup: false });
-```
-
-| Option | Behavior | Use Case |
-|--------|----------|----------|
-| `warmup: true` (default) | All controllers resolved at startup | Desktop apps |
-| `warmup: false` | Controllers resolved on first request | Faster startup |
+:::important
+The channel string (e.g. `'http://zelt-app'`) must match across all three layers: main, preload, and renderer.
+:::
 
 ## What's Next?
 
+- [Electron — IPC Bridge](../electron/ipc-bridge) — How the IPC bridge works in detail
+- [Electron — Window Management](../electron/window-management) — Managing BrowserWindows through Zelt DI
 - [Controllers](../controllers) — Route handling and HTTP methods
 - [Services](../services) — Business logic and dependency injection
