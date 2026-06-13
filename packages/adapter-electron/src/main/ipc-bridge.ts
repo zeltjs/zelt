@@ -26,7 +26,7 @@ const toBody = (body: IpcBody): BodyInit | null =>
 
 export const toRequest = (payload: IpcFetchRequest, baseUrl: string): Request => {
   const headers: [string, string][] = payload.headers.map(([k, v]) => [k, v]);
-  return new Request(baseUrl + payload.path, {
+  return new Request(baseUrl.replace(/\/+$/, '') + payload.path, {
     method: payload.method,
     headers,
     body: BODY_FORBIDDEN_METHODS.has(payload.method) ? null : toBody(payload.body),

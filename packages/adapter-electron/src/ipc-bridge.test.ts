@@ -66,6 +66,20 @@ describe('toRequest', () => {
     expect(request.body).toBeNull();
   });
 
+  it('normalizes trailing slash in baseUrl', () => {
+    const request = toRequest(
+      {
+        method: 'GET',
+        path: '/api/status',
+        headers: [],
+        body: { kind: 'none' },
+      },
+      'http://app/',
+    );
+
+    expect(request.url).toBe('http://app/api/status');
+  });
+
   it('preserves query string in path', () => {
     const request = toRequest(
       {
