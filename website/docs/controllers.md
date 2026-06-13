@@ -46,6 +46,22 @@ test('UserController.findAll returns users array', () => {
 });
 ```
 
+## Route Path Rules
+
+The `@Controller` prefix and method decorator path are joined to form the final route. Trailing slashes are stripped; leading slashes on the method path are optional.
+
+| Controller Prefix | Method Path | Final Route |
+|-------------------|-------------|-------------|
+| `'/users'` | `'/'` | `/users` |
+| `'/users'` | `'/:id'` | `/users/:id` |
+| `'/api'` | `'/users'` | `/api/users` |
+| `'/'` | `'/hello'` | `/hello` |
+| `'/api/v1'` | `'/users/:id'` | `/api/v1/users/:id` |
+
+:::tip
+Both `@Get('/items')` and `@Get('items')` produce the same result — a leading slash is added automatically if missing.
+:::
+
 ## HTTP Method Decorators
 
 Zelt provides decorators for all standard HTTP methods:
@@ -152,6 +168,68 @@ class WebhookController {
 ```
 
 See [Request & Response Primitives](./primitives.md) for more details on `body()` and other request helpers.
+
+## Returning Responses
+
+Controller methods support two return styles:
+
+### Plain Return (Recommended for 200 OK)
+
+Simply return a value — Zelt automatically serializes it as JSON with status 200:
+
+```typescript
+import { Controller, Get } from '@zeltjs/core';
+// ---cut---
+@Controller('/users')
+class UserController {
+  @Get('/')
+  findAll() {
+    return { users: [] }; // → 200 OK, Content-Type: application/json
+  }
+
+  @Get('/health')
+  health() {
+    return 'OK'; // → 200 OK, Content-Type: text/plain
+  }
+}
+```
+
+### response() (For Custom Status Codes or Headers)
+
+Use `response()` when you need a status code other than 200, custom headers, or redirects:
+
+```typescript
+import { Controller, Post, Delete, pathParam, response } from '@zeltjs/core';
+import { validated } from '@zeltjs/validator-valibot';
+import * as v from 'valibot';
+const schema = v.object({ name: v.string() });
+// ---cut---
+@Controller('/users')
+class UserController {
+  @Post('/')
+  create(body = validated(schema), res = response()) {
+    return res.json({ id: '1', ...body }, 201); // 201 Created
+  }
+
+  @Delete('/:id')
+  remove(id = pathParam('id')) {
+    return new Response(null, { status: 204 }); // 204 No Content
+  }
+}
+```
+
+### When to Use Which
+
+| Scenario | Approach |
+|----------|----------|
+| Return JSON with 200 | `return { data }` |
+| Return with custom status (201, 204, etc.) | `response().json(data, status)` |
+| Set custom headers | `response().header(name, value).json(data)` |
+| Redirect | `response().redirect(url)` |
+| Set cookies | `response().setCookie(name, value).json(data)` |
+| Stream response | `response().stream(cb)` / `response().sse(cb)` |
+
+See [Request & Response Primitives](./primitives.md) for the full `response()` API.
 
 ## Custom Response Status
 

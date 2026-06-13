@@ -18,10 +18,21 @@ To achieve this, we build with these five policies:
 - Cold-Start Friendly — Runs on serverless/Worker/Edge. No startup cost penalty
 - Least Astonishment — Follow ecosystem standards. No extra learning cost
 
+## Installation
+
+```bash
+pnpm add @zeltjs/core@0.8.1 @zeltjs/adapter-node@0.8.1
+```
+
+:::note
+This documentation covers **v0.8.x**. Zelt is in **pre-alpha** — APIs may change between minor versions.
+:::
+
 ## Quick Example
 
 ```typescript
-import { Controller, Get } from '@zeltjs/core';
+import { createApp, Controller, Get, http } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
 
 @Controller('/hello')
 class HelloController {
@@ -30,7 +41,13 @@ class HelloController {
     return { message: 'Hello, World!' };
   }
 }
+
+const app = createApp([http({ controllers: [HelloController] })]);
+const nodeApp = await onNode(app);
+await nodeApp.listen({ port: 3000 });
 ```
+
+See the [Getting Started](./getting-started) guide for a step-by-step walkthrough.
 
 ## Benchmark
 

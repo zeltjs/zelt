@@ -182,6 +182,30 @@ const config: Config = {
       },
     ],
     'docusaurus-markdown-source-plugin',
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        redirects: [
+          { from: '/docs/quickstart', to: '/docs/getting-started' },
+          { from: '/docs/quick-start', to: '/docs/getting-started' },
+          { from: '/docs/introduction', to: '/docs/' },
+          { from: '/docs/overview', to: '/docs/' },
+          { from: '/docs/installation', to: '/docs/getting-started' },
+          { from: '/docs/adapters', to: '/docs/getting-started' },
+          { from: '/docs/adapter', to: '/docs/getting-started' },
+          { from: '/docs/controller', to: '/docs/controllers' },
+          { from: '/docs/getting-started/nodejs', to: '/docs/getting-started/node' },
+          { from: '/docs/request-response', to: '/docs/primitives' },
+          { from: '/docs/http', to: '/docs/controllers' },
+          { from: '/docs/http/controllers', to: '/docs/controllers' },
+          { from: '/docs/http/request', to: '/docs/primitives' },
+          { from: '/docs/http/response', to: '/docs/primitives' },
+          { from: '/docs/application', to: '/docs/getting-started' },
+          { from: '/docs/runtime', to: '/docs/getting-started' },
+          { from: '/docs/node', to: '/docs/getting-started/node' },
+        ],
+      },
+    ],
   ],
 
   themes: [

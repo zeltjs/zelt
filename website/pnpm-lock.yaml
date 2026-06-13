@@ -668,9 +668,6 @@ importers:
       '@docusaurus/module-type-aliases':
         specifier: 3.10.1
         version: 3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@docusaurus/plugin-client-redirects':
-        specifier: 3.10.1
-        version: 3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2)
       '@docusaurus/tsconfig':
         specifier: 3.10.1
         version: 3.10.1
@@ -2186,13 +2183,6 @@ packages:
     peerDependencies:
       react: '*'
       react-dom: '*'
-
-  '@docusaurus/plugin-client-redirects@3.10.1':
-    resolution: {integrity: sha512-LHgd+YDvkhfOHMAE6XtUng3DQNzVM765RqVRrMJgHtzAvfopQhY6ieprqjxDVBdv21cLma6I0jHr+YCZH8fL9A==}
-    engines: {node: '>=20.0'}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0
-      react-dom: ^18.0.0 || ^19.0.0
 
   '@docusaurus/plugin-content-blog@3.10.1':
     resolution: {integrity: sha512-mmkgE6Q2+K74tnkou7tXlpDLvoCU/qkSa2GSQ3XUiHWvcebCoDQzS670RR3tO8PmaWlIyWWISYWzZLuMfxunRA==}
@@ -13491,37 +13481,6 @@ snapshots:
       - uglify-js
       - webpack-cli
 
-  '@docusaurus/plugin-client-redirects@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2)':
-    dependencies:
-      '@docusaurus/core': 3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(debug@4.4.3)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2)
-      '@docusaurus/logger': 3.10.1
-      '@docusaurus/utils': 3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@docusaurus/utils-common': 3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@docusaurus/utils-validation': 3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      eta: 2.2.0
-      fs-extra: 11.3.4
-      lodash: 4.18.1
-      react: 19.2.5
-      react-dom: 19.2.5(react@19.2.5)
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - '@docusaurus/faster'
-      - '@mdx-js/react'
-      - '@parcel/css'
-      - '@rspack/core'
-      - '@swc/core'
-      - '@swc/css'
-      - bufferutil
-      - csso
-      - debug
-      - esbuild
-      - lightningcss
-      - supports-color
-      - typescript
-      - uglify-js
-      - utf-8-validate
-      - webpack-cli
-
   '@docusaurus/plugin-content-blog@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@docusaurus/plugin-content-docs@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2)':
     dependencies:
       '@docusaurus/core': 3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.33)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(esbuild@0.17.19))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.33)(debug@4.4.3)(esbuild@0.17.19)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2)
@@ -14132,7 +14091,7 @@ snapshots:
       env-paths: 3.0.0
       graceful-fs: 4.2.11
       progress: 2.0.3
-      semver: 7.8.1
+      semver: 7.8.0
       sumchecker: 3.0.1
     optionalDependencies:
       undici: 7.24.8
@@ -16659,7 +16618,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.59.1
       debug: 4.4.3
       minimatch: 10.2.5
-      semver: 7.8.1
+      semver: 7.8.0
       tinyglobby: 0.2.16
       ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -16674,7 +16633,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.59.1
       debug: 4.4.3
       minimatch: 10.2.5
-      semver: 7.8.1
+      semver: 7.8.0
       tinyglobby: 0.2.16
       ts-api-utils: 2.5.0(typescript@6.0.2)
       typescript: 6.0.2
@@ -17924,7 +17883,7 @@ snapshots:
       postcss-modules-scope: 3.2.1(postcss@8.5.14)
       postcss-modules-values: 4.0.0(postcss@8.5.14)
       postcss-value-parser: 4.2.0
-      semver: 7.8.1
+      semver: 7.8.0
     optionalDependencies:
       '@rspack/core': 1.7.11
       webpack: 5.106.2(@swc/core@1.15.33)(esbuild@0.17.19)
@@ -20002,7 +19961,7 @@ snapshots:
       jest-util: 29.7.0
       natural-compare: 1.4.0
       pretty-format: 29.7.0
-      semver: 7.8.1
+      semver: 7.8.0
     transitivePeerDependencies:
       - supports-color
 
@@ -20371,7 +20330,7 @@ snapshots:
 
   make-dir@4.0.0:
     dependencies:
-      semver: 7.8.1
+      semver: 7.8.0
 
   makeerror@1.0.12:
     dependencies:
@@ -21074,7 +21033,7 @@ snapshots:
 
   node-abi@3.91.0:
     dependencies:
-      semver: 7.8.1
+      semver: 7.8.0
 
   node-abort-controller@3.1.1: {}
 
@@ -21415,7 +21374,7 @@ snapshots:
       got: 12.6.1
       registry-auth-token: 5.1.1
       registry-url: 6.0.1
-      semver: 7.8.1
+      semver: 7.8.0
 
   param-case@3.0.4:
     dependencies:
@@ -21720,7 +21679,7 @@ snapshots:
       cosmiconfig: 8.3.6(typescript@6.0.2)
       jiti: 1.21.7
       postcss: 8.5.13
-      semver: 7.8.1
+      semver: 7.8.0
       webpack: 5.106.2(@swc/core@1.15.33)(esbuild@0.17.19)
     transitivePeerDependencies:
       - typescript
@@ -22863,7 +22822,7 @@ snapshots:
 
   semver-diff@4.0.0:
     dependencies:
-      semver: 7.8.1
+      semver: 7.8.0
 
   semver@6.3.1: {}
 
@@ -22999,7 +22958,7 @@ snapshots:
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
-      semver: 7.8.1
+      semver: 7.8.0
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.34.5
       '@img/sharp-darwin-x64': 0.34.5
@@ -23597,7 +23556,7 @@ snapshots:
       picomatch: 4.0.4
       rolldown: 1.0.0-rc.17
       rolldown-plugin-dts: 0.23.2(oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0))(rolldown@1.0.0-rc.17)(typescript@6.0.2)
-      semver: 7.8.1
+      semver: 7.8.0
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
       tree-kill: 1.2.2
