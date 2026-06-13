@@ -63,4 +63,30 @@ describe('typeInfoToGraphqlType', () => {
 
     expect(() => typeInfoToGraphqlType(typeInfo, 'Weird')).toThrow(/field name/i);
   });
+
+  it('rejects named types that have no registered definition', () => {
+    const typeInfo = {
+      kind: 'object',
+      properties: [
+        {
+          name: 'author',
+          optional: false,
+          type: { kind: 'named', name: 'AuthorPublic', module: '', isExported: true },
+        },
+      ],
+    } satisfies TypeInfo;
+
+    expect(() => typeInfoToGraphqlType(typeInfo, 'PostPublic')).toThrow(
+      /unregistered.*AuthorPublic/i,
+    );
+  });
+
+  it('rejects ref types that have no registered definition', () => {
+    const typeInfo = {
+      kind: 'ref',
+      name: 'UnknownRef',
+    } satisfies TypeInfo;
+
+    expect(() => typeInfoToGraphqlType(typeInfo, 'Hint')).toThrow(/unregistered.*UnknownRef/i);
+  });
 });

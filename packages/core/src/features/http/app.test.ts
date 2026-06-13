@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../../app';
 import { Config } from '../../built-in-service';
 import type { Lifecycle } from '../../kernel';
-import { inject, LifecycleManager } from '../../kernel';
+import { inject, LifecycleManager, runInContext } from '../../kernel';
 import { ErrorHandler } from './error/error-handler.decorator';
 import { http } from './http.feature';
 import { Middleware } from './middleware/middleware.decorator';
@@ -68,6 +68,30 @@ describe('createApp() — fetch', () => {
     const res = await readyApp.http.fetch(new Request('https://example.com/hello/zelt'));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ message: 'hello, zelt' });
+  });
+
+  it('isolates request context when called inside an existing Zelt context', async () => {
+    const readyApp = await buildApp();
+
+    const results = await runInContext(async () => {
+      const res1 = await readyApp.http.fetch(
+        new Request('https://example.com/echo/', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ seq: 1 }),
+        }),
+      );
+      const res2 = await readyApp.http.fetch(
+        new Request('https://example.com/echo/', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ seq: 2 }),
+        }),
+      );
+      return [await res1.json(), await res2.json()];
+    });
+
+    expect(results).toEqual([{ seq: 1 }, { seq: 2 }]);
   });
 
   it('parses JSON body', async () => {

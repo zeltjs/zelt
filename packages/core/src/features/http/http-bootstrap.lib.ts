@@ -16,7 +16,10 @@ export const createBootstrapMiddleware = (
   routerToken: symbol,
 ): FunctionMiddleware => {
   return async (_c, next) => {
-    if (hasContext()) {
+    // A Zelt context may exist (e.g. event handler, test harness) without
+    // being a request-scoped store. Only skip when STORE_CREATOR is set,
+    // meaning a parent HTTP router already bootstrapped the request.
+    if (hasContext() && getInternal(STORE_CREATOR) !== undefined) {
       await next();
       return;
     }

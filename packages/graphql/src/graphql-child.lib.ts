@@ -57,12 +57,24 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
   /** @throws {E | Error} */
   constructor(private readonly options: GraphqlOptions) {
     this.path = options.path;
+    this.validateUniqueResolverNames(options.resolvers);
     const GraphqlEndpointController = this.createController();
     this.controller = GraphqlEndpointController;
     setGraphqlControllerMetadata(GraphqlEndpointController, {
       resolvers: options.resolvers,
       ...(options.runtimeModule ? { runtimeModule: options.runtimeModule } : {}),
     });
+  }
+
+  /** @throws {Error} */
+  private validateUniqueResolverNames(resolvers: readonly GraphqlResolverClass[]): void {
+    const seen = new Set<string>();
+    for (const resolver of resolvers) {
+      if (seen.has(resolver.name)) {
+        throw new Error(`Duplicate GraphQL resolver class name: ${resolver.name}`);
+      }
+      seen.add(resolver.name);
+    }
   }
 
   readonly featureClasses = (): readonly ControllerClass[] => [

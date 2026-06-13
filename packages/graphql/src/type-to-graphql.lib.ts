@@ -20,6 +20,7 @@ export type GraphqlTypeContext = {
   readonly objects: Map<string, GraphqlObjectDefinition>;
   readonly enums: Map<string, GraphqlEnumDefinition>;
   readonly enumFields: Map<string, Map<string, Readonly<Record<string, string>>>>;
+  readonly referencedTypes: Set<string>;
 };
 
 export type GraphqlTypeResult = {
@@ -32,6 +33,7 @@ export const createGraphqlTypeContext = (): GraphqlTypeContext => ({
   objects: new Map(),
   enums: new Map(),
   enumFields: new Map(),
+  referencedTypes: new Set(),
 });
 
 const primitiveMap: Record<string, string | undefined> = {
@@ -237,8 +239,16 @@ export const convertTypeInfoToGraphqlRef = (
     .with({ kind: 'object' }, (t) => convertObject(t, ctx, nameHint))
     .with({ kind: 'union' }, (t) => convertUnion(t, ctx, nameHint))
     .with({ kind: 'promise' }, (t) => convertTypeInfoToGraphqlRef(t.inner, ctx, nameHint))
-    .with({ kind: 'named' }, (t) => ({ type: toGraphqlTypeName(t.name), nullable: false }))
-    .with({ kind: 'ref' }, (t) => ({ type: toGraphqlTypeName(t.name), nullable: false }))
+    .with({ kind: 'named' }, (t) => {
+      const name = toGraphqlTypeName(t.name);
+      ctx.referencedTypes.add(name);
+      return { type: name, nullable: false };
+    })
+    .with({ kind: 'ref' }, (t) => {
+      const name = toGraphqlTypeName(t.name);
+      ctx.referencedTypes.add(name);
+      return { type: name, nullable: false };
+    })
     .with({ kind: 'unknown' }, () => {
       throw new Error('Unsupported GraphQL unknown output type');
     })
@@ -280,10 +290,15 @@ const printEnum = (definition: GraphqlEnumDefinition): string => {
   return `enum ${definition.name} {\n${values.join('\n')}\n}`;
 };
 
-export const renderGraphqlDefinitions = (ctx: GraphqlTypeContext): readonly string[] => [
-  ...[...ctx.objects.values()].map(printObject),
-  ...[...ctx.enums.values()].map(printEnum),
-];
+/** @throws {Error} */
+export const renderGraphqlDefinitions = (ctx: GraphqlTypeContext): readonly string[] => {
+  for (const name of ctx.referencedTypes) {
+    if (!ctx.objects.has(name) && !ctx.enums.has(name)) {
+      throw new Error(`Unregistered GraphQL type referenced: ${name}`);
+    }
+  }
+  return [...[...ctx.objects.values()].map(printObject), ...[...ctx.enums.values()].map(printEnum)];
+};
 
 /** @throws {Error} */
 export const typeInfoToGraphqlType = (type: TypeInfo, nameHint?: string): GraphqlTypeResult => {

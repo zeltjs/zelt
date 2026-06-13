@@ -1,8 +1,8 @@
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import type { ExecutionResult, GraphQLSchema } from 'graphql';
-import { buildSchema, GraphQLError, GraphQLObjectType, graphql } from 'graphql';
+import type { ExecutionResult, GraphQLSchema, ValidationRule } from 'graphql';
+import { buildSchema, GraphQLError, GraphQLObjectType, graphql, parse, validate } from 'graphql';
 import * as v from 'valibot';
 
 import { GraphqlArgsValidationError, runWithGraphqlArgs } from './gql-validated.lib';
@@ -39,6 +39,7 @@ export type CreateGraphqlExecutorOptions = {
   readonly runtime: GeneratedGraphqlRuntime;
   readonly resolvers: readonly GraphqlResolverClass[];
   readonly resolveResolver: (resolver: GraphqlResolverClass) => object | Promise<object>;
+  readonly validationRules?: readonly import('graphql').ValidationRule[];
 };
 
 export type ExecuteGraphqlRequestOptions = CreateGraphqlExecutorOptions & {
@@ -252,8 +253,15 @@ export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): Gr
   attachBindingResolvers(schema, options.runtime, createBindingResolver(options));
   attachEnumFieldResolvers(schema, options.runtime);
 
-  return async (request) =>
-    enrichValidationErrors(
+  const extraRules: readonly ValidationRule[] = options.validationRules ?? [];
+
+  return async (request) => {
+    if (extraRules.length > 0) {
+      const document = parse(request.query);
+      const errors = validate(schema, document, [...extraRules]);
+      if (errors.length > 0) return { errors };
+    }
+    return enrichValidationErrors(
       await graphql({
         schema,
         source: request.query,
@@ -261,6 +269,7 @@ export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): Gr
         operationName: request.operationName ?? undefined,
       }),
     );
+  };
 };
 
 // Single-shot convenience API: builds the schema on every call. Use

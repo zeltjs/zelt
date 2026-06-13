@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { createApp, http } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
-import { executeGraphqlRequest } from './graphql-runtime.lib';
+import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
 import { graphql, Query, ResolveField, Resolver } from './index';
 
 type ViewerPublic = {
@@ -235,6 +235,28 @@ describe('GraphQL request payload', () => {
     });
 
     expect(result).toEqual({ data: { viewer: { id: 'viewer' } } });
+  });
+});
+
+describe('createGraphqlExecutor validation rules', () => {
+  it('applies custom validation rules to reject queries', async () => {
+    const { GraphQLError: GQLError } = await import('graphql');
+    const rejectAll: import('graphql').ValidationRule = (ctx) => ({
+      OperationDefinition: () => {
+        ctx.reportError(new GQLError('blocked by custom rule'));
+      },
+    });
+
+    const execute = createGraphqlExecutor({
+      runtime,
+      resolvers: [RuntimeViewerResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      validationRules: [rejectAll],
+    });
+
+    const result = await execute({ query: '{ viewer { id } }' });
+    expect(result.errors?.[0]?.message).toBe('blocked by custom rule');
+    expect(result.data).toBeUndefined();
   });
 });
 

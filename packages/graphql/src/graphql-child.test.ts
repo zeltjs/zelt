@@ -1,6 +1,7 @@
 import { getClassMetadata } from '@zeltjs/decorator-metadata';
 import { describe, expect, it } from 'vitest';
 
+import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import {
   getGraphqlControllerMetadata,
   getResolverMetadata,
@@ -54,6 +55,29 @@ describe('graphql HTTP child helper', () => {
     expect(getGraphqlControllerMetadata(controller)).toEqual({
       resolvers: [UserResolver],
     });
+  });
+});
+
+describe('resolver name collision detection', () => {
+  it('throws when two resolver classes share the same name', () => {
+    const makeResolver = (name: string): GraphqlResolverClass => {
+      @Resolver()
+      class DynamicResolver {
+        @Query()
+        dummy(): string {
+          return '';
+        }
+      }
+      Object.defineProperty(DynamicResolver, 'name', { value: name });
+      return DynamicResolver;
+    };
+
+    const resolverA = makeResolver('DuplicateName');
+    const resolverB = makeResolver('DuplicateName');
+
+    expect(() => graphql({ path: '/graphql', resolvers: [resolverA, resolverB] })).toThrow(
+      /duplicate.*resolver.*DuplicateName/i,
+    );
   });
 });
 

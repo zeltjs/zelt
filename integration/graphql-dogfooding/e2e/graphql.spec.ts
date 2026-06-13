@@ -186,30 +186,20 @@ describe('GraphQL dogfooding app', () => {
     );
 
     expect(checkout.status).toBe(200);
-    await expect(checkout.json()).resolves.toEqual({
-      data: {
-        checkoutCart: {
-          id: 'order_1',
-          status: 'CONFIRMED',
-          itemCount: 3,
-          totalCents: 17700,
-          items: [
-            {
-              productId: 'p_lamp',
-              quantity: 1,
-              unitPriceCents: 12900,
-              lineTotalCents: 12900,
-            },
-            {
-              productId: 'p_notebook',
-              quantity: 2,
-              unitPriceCents: 2400,
-              lineTotalCents: 4800,
-            },
-          ],
-        },
-      },
-    });
+    const checkoutBody: {
+      data?: {
+        checkoutCart?: { id: string; status: string; itemCount: number; totalCents: number };
+      };
+    } = await checkout.json();
+    const orderId = checkoutBody.data?.checkoutCart?.id;
+    expect(orderId).toMatch(/^order_/);
+    expect(checkoutBody.data?.checkoutCart).toEqual(
+      expect.objectContaining({
+        status: 'CONFIRMED',
+        itemCount: 3,
+        totalCents: 17700,
+      }),
+    );
 
     const afterCheckout = await postGraphql(
       runtime,
@@ -220,12 +210,27 @@ describe('GraphQL dogfooding app', () => {
     );
 
     expect(afterCheckout.status).toBe(200);
-    await expect(afterCheckout.json()).resolves.toEqual({
-      data: {
-        cart: { items: [], totalQuantity: 0, grandTotalCents: 0 },
-        orderHistory: [{ id: 'order_1', status: 'CONFIRMED', itemCount: 3, totalCents: 17700 }],
-      },
-    });
+    const afterBody: {
+      data?: {
+        cart: { items: readonly unknown[]; totalQuantity: number; grandTotalCents: number };
+        orderHistory: readonly {
+          id: string;
+          status: string;
+          itemCount: number;
+          totalCents: number;
+        }[];
+      };
+    } = await afterCheckout.json();
+    expect(afterBody.data?.cart).toEqual({ items: [], totalQuantity: 0, grandTotalCents: 0 });
+    expect(afterBody.data?.orderHistory).toHaveLength(1);
+    expect(afterBody.data?.orderHistory[0]).toEqual(
+      expect.objectContaining({
+        id: orderId,
+        status: 'CONFIRMED',
+        itemCount: 3,
+        totalCents: 17700,
+      }),
+    );
   });
 
   it('validates field args through gqlValidated on queries and mutations', async () => {

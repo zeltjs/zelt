@@ -86,13 +86,17 @@ const findIdentifierImport = (
   return undefined;
 };
 
-const hasLocalIdentifierDeclaration = (
+const hasExportedLocalDeclaration = (
   sourceFile: TSSourceFile,
   identifierName: string,
   ts: TS,
 ): boolean => {
   for (const stmt of sourceFile.statements) {
     if (!ts.isVariableStatement(stmt)) continue;
+    const hasExportModifier = stmt.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+    );
+    if (!hasExportModifier) continue;
     for (const decl of stmt.declarationList.declarations) {
       if (ts.isIdentifier(decl.name) && decl.name.text === identifierName) return true;
     }
@@ -111,7 +115,7 @@ const buildSchemaRef = (
 
   const imported = findIdentifierImport(sourceFile, localName, ts);
   if (imported) return imported;
-  if (hasLocalIdentifierDeclaration(sourceFile, localName, ts)) {
+  if (hasExportedLocalDeclaration(sourceFile, localName, ts)) {
     return { modulePath: sourceFile.fileName, exportName: localName };
   }
   return undefined;
