@@ -86,20 +86,29 @@ const findIdentifierImport = (
   return undefined;
 };
 
+const getExportedVariableDeclarations = (
+  stmt: import('typescript').Statement,
+  ts: TS,
+): readonly import('typescript').VariableDeclaration[] | undefined => {
+  if (!ts.isVariableStatement(stmt)) return undefined;
+  const isExported = stmt.modifiers?.some(
+    (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+  );
+  return isExported ? stmt.declarationList.declarations : undefined;
+};
+
 const hasExportedLocalDeclaration = (
   sourceFile: TSSourceFile,
   identifierName: string,
   ts: TS,
 ): boolean => {
   for (const stmt of sourceFile.statements) {
-    if (!ts.isVariableStatement(stmt)) continue;
-    const hasExportModifier = stmt.modifiers?.some(
-      (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
-    );
-    if (!hasExportModifier) continue;
-    for (const decl of stmt.declarationList.declarations) {
-      if (ts.isIdentifier(decl.name) && decl.name.text === identifierName) return true;
-    }
+    const declarations = getExportedVariableDeclarations(stmt, ts);
+    if (!declarations) continue;
+    if (
+      declarations.some((decl) => ts.isIdentifier(decl.name) && decl.name.text === identifierName)
+    )
+      return true;
   }
   return false;
 };
