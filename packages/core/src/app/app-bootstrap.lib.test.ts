@@ -1,12 +1,12 @@
 import { Container } from '@needle-di/core';
 import { describe, expect, it, vi } from 'vitest';
 import { LifecycleManager, ZeltLifecycleStateError } from '../kernel';
-import { AppRuntime } from './app-runtime.lib';
+import { AppBootstrap } from './app-bootstrap.lib';
 
-describe('AppRuntime', () => {
+describe('AppBootstrap', () => {
   it('should call lifecycle startup on ready', async () => {
     const container = new Container();
-    const runtime = container.get(AppRuntime);
+    const runtime = container.get(AppBootstrap);
 
     const result = await runtime.ready();
 
@@ -16,7 +16,7 @@ describe('AppRuntime', () => {
 
   it('should return cached result on second ready call', async () => {
     const container = new Container();
-    const runtime = container.get(AppRuntime);
+    const runtime = container.get(AppBootstrap);
 
     const result1 = await runtime.ready();
     const result2 = await runtime.ready();
@@ -26,7 +26,7 @@ describe('AppRuntime', () => {
 
   it('should throw on ready after disposed', async () => {
     const container = new Container();
-    const runtime = container.get(AppRuntime);
+    const runtime = container.get(AppBootstrap);
 
     await runtime.shutdown();
 
@@ -35,7 +35,7 @@ describe('AppRuntime', () => {
 
   it('should be idempotent on shutdown', async () => {
     const container = new Container();
-    const runtime = container.get(AppRuntime);
+    const runtime = container.get(AppBootstrap);
 
     await runtime.ready();
     await runtime.shutdown();
@@ -46,7 +46,7 @@ describe('AppRuntime', () => {
     const container = new Container();
     const lifecycle = container.get(LifecycleManager);
     const shutdownSpy = vi.spyOn(lifecycle, 'shutdown');
-    const runtime = container.get(AppRuntime);
+    const runtime = container.get(AppBootstrap);
 
     await runtime.ready();
     await runtime.shutdown();

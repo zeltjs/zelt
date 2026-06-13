@@ -8,7 +8,7 @@ import {
 
 import type { ConfigClass } from '../built-in-service';
 import { ZeltAppConfigurationError } from '../kernel';
-import { AppRuntime } from './app-runtime.lib';
+import { AppBootstrap } from './app-bootstrap.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import type {
   ConfiguredFeature,
@@ -142,7 +142,7 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
     createRuntime: async (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> => {
       const container = new Container();
 
-      const runtime = container.get(AppRuntime);
+      const runtime = container.get(AppBootstrap);
       const configRegistry = container.get(ConfigRegistry);
 
       registerConfigs(configRegistry, baseConfigs, undefined);
