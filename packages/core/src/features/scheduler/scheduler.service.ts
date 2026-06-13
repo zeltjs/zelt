@@ -8,27 +8,31 @@ export type { SchedulerRunner } from './scheduler-runner.lib';
 
 @Injectable()
 export class SchedulerService {
+  // Ledger of runners this service must release on shutdown; registering the
+  // lifecycle in the constructor keeps it inside the resolve→startupPending
+  // contract of AppRuntime.get, so no manual startupPending call is needed.
+  private readonly runners: SchedulerRunner[] = [];
+
   constructor(
     private readonly container: Container = inject(Container),
-    private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
-  ) {}
+    lifecycleManager: LifecycleManager = inject(LifecycleManager),
+  ) {
+    lifecycleManager.register({
+      startup: (): void => {},
+      shutdown: async (): Promise<void> => {
+        for (const runner of this.runners) {
+          if (runner.isRunning()) await runner.shutdown();
+        }
+      },
+    });
+  }
 
-  /** @throws {ZeltReadyFailedError | ZeltLifecycleStateError} */
-  async createRunner(schedulers: readonly SchedulerClass[]): Promise<SchedulerRunner> {
+  createRunner(schedulers: readonly SchedulerClass[]): SchedulerRunner {
     const resolver = {
       get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
     };
     const runner = createSchedulerRunner(schedulers, resolver);
-    this.lifecycleManager.register({
-      startup: (): void => {},
-      shutdown: async (): Promise<void> => {
-        if (runner.isRunning()) await runner.shutdown();
-      },
-    });
-    // Registration happens after LifecycleManager.startup() has already run during
-    // runtime.ready(); without startupPending() the entry stays pending and
-    // LifecycleManager.shutdown() would skip it, leaving cron timers alive.
-    await this.lifecycleManager.startupPending();
+    this.runners.push(runner);
     return runner;
   }
 }
