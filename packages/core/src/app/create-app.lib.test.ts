@@ -12,39 +12,39 @@ const createStubFeature = <TKey extends string, TCaps extends object>(
 ): ConfiguredFeature<TKey, TCaps> => ({
   key,
   featureClasses: () => [],
-  staticCapabilities: () => ({}),
-  createCapabilities: () => caps,
+  blueprint: () => ({}),
+  realize: () => caps,
 });
 
 const createEmptyFeature = (key: string): ConfiguredFeature<string, object> => ({
   key,
   featureClasses: () => [],
-  staticCapabilities: () => ({}),
-  createCapabilities: () => ({}),
+  blueprint: () => ({}),
+  realize: () => ({}),
 });
 
 class TypedFeature extends Feature<'typed', { readonly value: () => string }> {
   readonly key = 'typed' as const;
 
   featureClasses = () => [];
-  staticCapabilities = () => ({});
-  createCapabilities = () => ({ value: () => 'ok' });
+  blueprint = () => ({});
+  realize = () => ({ value: () => 'ok' });
 }
 
 class UserFeature extends Feature<'userFeature', { readonly run: () => number }> {
   readonly key = 'userFeature' as const;
 
   featureClasses = () => [];
-  staticCapabilities = () => ({});
-  createCapabilities = () => ({ run: () => 123 });
+  blueprint = () => ({});
+  realize = () => ({ run: () => 123 });
 }
 
 class OtherFeature extends Feature<'otherFeature', { readonly other: () => string }> {
   readonly key = 'otherFeature' as const;
 
   featureClasses = () => [];
-  staticCapabilities = () => ({});
-  createCapabilities = () => ({ other: () => 'no' });
+  blueprint = () => ({});
+  realize = () => ({ other: () => 'no' });
 }
 
 const duplicateStaticCapabilities = vi.fn(() => ({}));
@@ -52,15 +52,15 @@ const duplicateStaticCapabilities = vi.fn(() => ({}));
 class DuplicateA extends Feature<'dup', { readonly a: () => string }> {
   readonly key = 'dup' as const;
   featureClasses = () => [];
-  staticCapabilities = duplicateStaticCapabilities;
-  createCapabilities = () => ({ a: () => 'a' });
+  blueprint = duplicateStaticCapabilities;
+  realize = () => ({ a: () => 'a' });
 }
 
 class DuplicateB extends Feature<'dup', { readonly b: () => string }> {
   readonly key = 'dup' as const;
   featureClasses = () => [];
-  staticCapabilities = () => ({});
-  createCapabilities = () => ({ b: () => 'b' });
+  blueprint = () => ({});
+  realize = () => ({ b: () => 'b' });
 }
 
 const reservedStaticCapabilities = vi.fn(() => ({}));
@@ -68,8 +68,8 @@ const reservedStaticCapabilities = vi.fn(() => ({}));
 class ReservedCreateRuntimeFeature extends Feature<'createRuntime', { readonly run: () => void }> {
   readonly key = 'createRuntime' as const;
   featureClasses = () => [];
-  staticCapabilities = reservedStaticCapabilities;
-  createCapabilities = () => ({ run: () => {} });
+  blueprint = reservedStaticCapabilities;
+  realize = () => ({ run: () => {} });
 }
 
 @Injectable()
@@ -136,8 +136,8 @@ describe('createApp', () => {
       {
         key: 'warmupTarget',
         featureClasses: () => [WarmupTarget],
-        staticCapabilities: () => ({}),
-        createCapabilities: () => ({}),
+        blueprint: () => ({}),
+        realize: () => ({}),
       },
     ]);
 

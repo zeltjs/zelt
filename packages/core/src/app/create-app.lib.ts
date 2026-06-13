@@ -14,8 +14,8 @@ import type {
   ConfiguredFeature,
   FeatureClass,
   FeatureReadyCapabilities,
-  FeatureRuntime,
   NamespacedCaps,
+  ServiceResolver,
   StaticNamespacedCaps,
 } from './feature.types';
 import { attachContainer } from './override.lib';
@@ -83,26 +83,26 @@ const assertUniqueFeatureKeys = (features: readonly ConfiguredFeature[]): void =
   }
 };
 
-const createNamespacedCapabilities = async <const F extends readonly ConfiguredFeature[]>(
-  runtime: FeatureRuntime,
+const realizeNamespacedCapabilities = async <const F extends readonly ConfiguredFeature[]>(
+  resolver: ServiceResolver,
   features: F,
-): Promise<KeyedValues<F, 'createCapabilities'>> => {
-  return unsafeKeyedValues(features, 'createCapabilities', runtime);
+): Promise<KeyedValues<F, 'realize'>> => {
+  return unsafeKeyedValues(features, 'realize', resolver);
 };
 
-const createStaticCapabilities = <const F extends readonly ConfiguredFeature[]>(
+const collectBlueprints = <const F extends readonly ConfiguredFeature[]>(
   features: F,
 ): StaticNamespacedCaps<F> => {
-  return unsafeObjectFromNonEmptyKeyedValuesSync(features, 'staticCapabilities');
+  return unsafeObjectFromNonEmptyKeyedValuesSync(features, 'blueprint');
 };
 
 const warmupFeatureClasses = async (
-  runtime: FeatureRuntime,
+  resolver: ServiceResolver,
   features: readonly ConfiguredFeature[],
 ): Promise<void> => {
   for (const feature of features) {
     for (const cls of feature.featureClasses()) {
-      await runtime.get(cls);
+      await resolver.get(cls);
     }
   }
 };
@@ -135,7 +135,7 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
   assertUniqueFeatureKeys(features);
 
   const baseConfigs = options?.configs;
-  const staticCaps = createStaticCapabilities(features);
+  const staticCaps = collectBlueprints(features);
 
   const app = {
     ...staticCaps,
@@ -151,7 +151,7 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
 
       const readyResult = await runtime.ready();
 
-      const caps = await createNamespacedCapabilities(readyResult, features);
+      const caps = await realizeNamespacedCapabilities(readyResult, features);
 
       if (runtimeOptions?.warmup) {
         await warmupFeatureClasses(readyResult, features);

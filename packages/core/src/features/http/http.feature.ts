@@ -1,4 +1,4 @@
-import type { FeatureRuntime } from '../../app';
+import type { ServiceResolver } from '../../app';
 import { Feature } from '../../app';
 import type { HttpMetadata, HttpOptions } from './http.service';
 import { HttpService } from './http.service';
@@ -36,15 +36,15 @@ export class HttpFeature extends Feature<'http', HttpCapabilities, HttpStaticCap
     return this.controllers;
   };
 
-  readonly staticCapabilities = (): HttpStaticCapabilities => {
+  readonly blueprint = (): HttpStaticCapabilities => {
     return {
       getControllers: () => this.controllers,
       getMetadata: () => this.metadata,
     };
   };
 
-  readonly createCapabilities = async (runtime: FeatureRuntime): Promise<HttpCapabilities> => {
-    const service = await runtime.get(HttpService);
+  readonly realize = async (resolver: ServiceResolver): Promise<HttpCapabilities> => {
+    const service = await resolver.get(HttpService);
     const router = await service.buildRouter(this.opts);
     return {
       fetch: async (req) => router.fetch(req),

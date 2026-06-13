@@ -29,22 +29,22 @@ describe('command feature', () => {
 
   it('keeps feature methods callable when destructured', () => {
     const feature = command([GreetCommand]);
-    const { staticCapabilities } = feature;
+    const { blueprint } = feature;
 
-    expect(() => staticCapabilities()).not.toThrow();
+    expect(() => blueprint()).not.toThrow();
   });
 
   it('returns a ConfiguredFeature with key "commands"', () => {
     const feature = command([GreetCommand]);
     expect(feature.key).toBe('commands');
     expect(feature.featureClasses()).toEqual([GreetCommand]);
-    expect(typeof feature.createCapabilities).toBe('function');
+    expect(typeof feature.realize).toBe('function');
   });
 
-  it('createCapabilities returns CommandCapabilities', async () => {
+  it('realize returns CommandCapabilities', async () => {
     const feature = command([GreetCommand]);
     const container = new Container();
-    const caps = await feature.createCapabilities(createRuntime(container));
+    const caps = await feature.realize(createRuntime(container));
     expect(typeof caps.hasCommand).toBe('function');
     expect(typeof caps.getCommands).toBe('function');
     expect(typeof caps.execCommand).toBe('function');
@@ -53,7 +53,7 @@ describe('command feature', () => {
   it('caps.hasCommand detects registered commands', async () => {
     const feature = command([GreetCommand]);
     const container = new Container();
-    const caps = await feature.createCapabilities(createRuntime(container));
+    const caps = await feature.realize(createRuntime(container));
 
     expect(caps.hasCommand('greet')).toBe(true);
     expect(caps.hasCommand('unknown')).toBe(false);
@@ -62,7 +62,7 @@ describe('command feature', () => {
   it('caps.execCommand runs a registered command', async () => {
     const feature = command([GreetCommand]);
     const container = new Container();
-    const caps = await feature.createCapabilities(createRuntime(container));
+    const caps = await feature.realize(createRuntime(container));
 
     const result = await caps.execCommand(['greet']);
     expect(result.exitCode).toBe(0);

@@ -38,7 +38,7 @@ describe('Feature type utilities', () => {
     expectTypeOf<Result>().toEqualTypeOf<{ readonly http: MockHttpStaticCaps }>();
   });
 
-  it('StaticNamespacedCaps omits features without staticCapabilities', () => {
+  it('StaticNamespacedCaps omits features without blueprint', () => {
     type MockSchedulerCaps = { readonly start: () => void };
     type MockSchedulerFeature = ConfiguredFeature<'scheduler', MockSchedulerCaps>;
     type Result = StaticNamespacedCaps<readonly [MockHttpFeature, MockSchedulerFeature]>;

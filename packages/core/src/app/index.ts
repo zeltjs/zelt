@@ -14,8 +14,8 @@ export type {
   FeatureClass,
   FeatureManagedClass,
   FeatureReadyCapabilities,
-  FeatureRuntime,
   NamespacedCaps,
+  ServiceResolver,
   StaticNamespacedCaps,
 } from './feature.types';
 export { Feature } from './feature.types';

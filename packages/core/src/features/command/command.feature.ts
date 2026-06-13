@@ -1,4 +1,4 @@
-import type { FeatureRuntime } from '../../app';
+import type { ServiceResolver } from '../../app';
 import { Feature } from '../../app';
 import { CommandService } from './command.service';
 import type { CommandClass } from './command.types';
@@ -21,12 +21,12 @@ export class CommandFeature extends Feature<'commands', CommandCapabilities> {
     return this.commands;
   };
 
-  readonly staticCapabilities = (): Record<never, never> => {
+  readonly blueprint = (): Record<never, never> => {
     return {};
   };
 
-  readonly createCapabilities = async (runtime: FeatureRuntime): Promise<CommandCapabilities> => {
-    const service = await runtime.get(CommandService);
+  readonly realize = async (resolver: ServiceResolver): Promise<CommandCapabilities> => {
+    const service = await resolver.get(CommandService);
     const registry = service.buildRegistry(this.commands);
     return {
       hasCommand: (name) => registry.has(name),

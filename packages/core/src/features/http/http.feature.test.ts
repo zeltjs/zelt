@@ -32,9 +32,9 @@ describe('http feature', () => {
 
   it('keeps feature methods callable when destructured', () => {
     const feature = http({ controllers: [TestController] });
-    const { staticCapabilities } = feature;
+    const { blueprint } = feature;
 
-    expect(staticCapabilities().getControllers()).toEqual([TestController]);
+    expect(blueprint().getControllers()).toEqual([TestController]);
   });
 
   it('createApp([http(...)]) exposes http capabilities in types', async () => {
@@ -64,22 +64,22 @@ describe('http feature', () => {
     const feature = http({ controllers: [TestController] });
     expect(feature.key).toBe('http');
     expect(feature.featureClasses()).toEqual([TestController]);
-    expect(typeof feature.createCapabilities).toBe('function');
-    expect(typeof feature.staticCapabilities).toBe('function');
+    expect(typeof feature.realize).toBe('function');
+    expect(typeof feature.blueprint).toBe('function');
   });
 
-  it('staticCapabilities returns getControllers and getMetadata', () => {
+  it('blueprint returns getControllers and getMetadata', () => {
     const feature = http({ controllers: [TestController] });
-    const caps = feature.staticCapabilities();
+    const caps = feature.blueprint();
     expect(typeof caps.getControllers).toBe('function');
     expect(typeof caps.getMetadata).toBe('function');
     expect(caps.getControllers()).toEqual([TestController]);
   });
 
-  it('createCapabilities returns fetch and request', async () => {
+  it('realize returns fetch and request', async () => {
     const feature = http({ controllers: [TestController] });
     const container = new Container();
-    const caps = await feature.createCapabilities(createRuntime(container));
+    const caps = await feature.realize(createRuntime(container));
     expect(typeof caps.fetch).toBe('function');
     expect(typeof caps.request).toBe('function');
   });
@@ -87,7 +87,7 @@ describe('http feature', () => {
   it('caps.request handles HTTP requests', async () => {
     const feature = http({ controllers: [TestController] });
     const container = new Container();
-    const caps = await feature.createCapabilities(createRuntime(container));
+    const caps = await feature.realize(createRuntime(container));
 
     const res = await caps.request('/');
     expect(res.status).toBe(200);
