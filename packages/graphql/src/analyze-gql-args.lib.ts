@@ -140,6 +140,7 @@ const matchGqlValidatedCall = (
   return init;
 };
 
+/** @throws {Error} */
 export const extractGqlValidatedRef = (
   methodNode: TSMethodDeclaration,
   sourceFile: TSSourceFile,
@@ -147,7 +148,15 @@ export const extractGqlValidatedRef = (
 ): GqlValidatedSchemaRef | undefined => {
   for (const param of methodNode.parameters) {
     const call = matchGqlValidatedCall(param.initializer, ts);
-    if (call) return buildSchemaRef(call, sourceFile, ts);
+    if (!call) continue;
+    const ref = buildSchemaRef(call, sourceFile, ts);
+    if (!ref) {
+      const paramName = ts.isIdentifier(param.name) ? param.name.text : '<unknown>';
+      throw new Error(
+        `gqlValidated() detected on parameter '${paramName}' but schema reference could not be resolved`,
+      );
+    }
+    return ref;
   }
   return undefined;
 };

@@ -73,7 +73,8 @@ const writeRuntimeModule = async (
 
 const toRuntimeSchemaPath = (runtimeModule: string): string => {
   const runtimePath = resolve(runtimeModule);
-  return runtimePath.replace(/\.(?:cjs|mjs|js|ts)$/, '.graphql');
+  const replaced = runtimePath.replace(/\.(?:cjs|mjs|js|ts)$/, '.graphql');
+  return replaced === runtimePath ? `${runtimePath}.graphql` : replaced;
 };
 
 const toSdlOptions = (options: GenerateGraphqlSdlOptions): GenerateSdlOptions => ({

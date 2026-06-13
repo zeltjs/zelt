@@ -6,7 +6,7 @@ import type { ProductPublic } from '../catalog/catalog.types';
 
 @Resolver()
 export class StorefrontFieldsResolver {
-  constructor(private readonly catalogService = inject(CatalogService) as CatalogService) {}
+  constructor(private readonly catalogService = inject(CatalogService)) {}
 
   @ResolveField()
   displayName(parent: ProductPublic): string {

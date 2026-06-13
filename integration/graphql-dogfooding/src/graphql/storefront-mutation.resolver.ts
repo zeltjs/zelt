@@ -10,9 +10,9 @@ import { AddCartItemInput } from './storefront.inputs';
 @Resolver()
 export class StorefrontMutationResolver {
   constructor(
-    private readonly customerService = inject(CustomerService) as CustomerService,
-    private readonly cartService = inject(CartService) as CartService,
-    private readonly orderService = inject(OrderService) as OrderService,
+    private readonly customerService = inject(CustomerService),
+    private readonly cartService = inject(CartService),
+    private readonly orderService = inject(OrderService),
   ) {}
 
   @Mutation()

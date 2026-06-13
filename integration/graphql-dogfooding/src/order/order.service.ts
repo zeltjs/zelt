@@ -7,8 +7,8 @@ import type { OrderPublic } from './order.types';
 @Injectable()
 export class OrderService {
   constructor(
-    private readonly cartService = inject(CartService) as CartService,
-    private readonly store = inject(OrderStore) as OrderStore,
+    private readonly cartService = inject(CartService),
+    private readonly store = inject(OrderStore),
   ) {}
 
   checkout(customerId: string): OrderPublic {

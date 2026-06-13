@@ -93,8 +93,13 @@ const ensureEnum = (
   const enumName = toGraphqlTypeName(nameHint ?? 'GraphqlEnum');
   const enumValues = values.map(toEnumValue);
   const existing = ctx.enums.get(enumName);
-  if (existing && existing.values.join('\0') !== enumValues.join('\0')) {
-    throw new Error(`Duplicate GraphQL enum with incompatible values: ${enumName}`);
+  if (existing) {
+    const existingSet = new Set(existing.values);
+    const sameSet =
+      existingSet.size === enumValues.length && enumValues.every((v) => existingSet.has(v));
+    if (!sameSet) {
+      throw new Error(`Duplicate GraphQL enum with incompatible values: ${enumName}`);
+    }
   }
   ctx.enums.set(enumName, { name: enumName, values: enumValues });
   return { type: enumName, nullable: false };

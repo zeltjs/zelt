@@ -114,9 +114,13 @@ export const oncePerRequest = (
   middleware: FunctionMiddleware,
 ): FunctionMiddleware => {
   return (c, next) => {
-    const applied = getInternal(APPLIED_MIDDLEWARES) ?? new Set<MiddlewareIdentifier>();
-    if (applied.has(identifier)) return next();
-    setInternal(APPLIED_MIDDLEWARES, new Set([...applied, identifier]));
+    const existing = getInternal(APPLIED_MIDDLEWARES);
+    if (existing) {
+      if (existing.has(identifier)) return next();
+      existing.add(identifier);
+    } else {
+      setInternal(APPLIED_MIDDLEWARES, new Set([identifier]));
+    }
     return middleware(c, next);
   };
 };

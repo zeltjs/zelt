@@ -13,10 +13,10 @@ import { GetProductInput } from './storefront.inputs';
 @Resolver()
 export class StorefrontResolver {
   constructor(
-    private readonly catalogService = inject(CatalogService) as CatalogService,
-    private readonly customerService = inject(CustomerService) as CustomerService,
-    private readonly cartService = inject(CartService) as CartService,
-    private readonly orderService = inject(OrderService) as OrderService,
+    private readonly catalogService = inject(CatalogService),
+    private readonly customerService = inject(CustomerService),
+    private readonly cartService = inject(CartService),
+    private readonly orderService = inject(OrderService),
   ) {}
 
   @Query()

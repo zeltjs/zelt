@@ -169,6 +169,7 @@ const getNamedTypeFromTsType = (
   return getOwnTypeName(unwrapped);
 };
 
+/** @throws {Error} */
 const getMethodTypeNames = (
   classNode: TSClassDeclaration,
   methodName: string,

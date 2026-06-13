@@ -257,7 +257,14 @@ export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): Gr
 
   return async (request) => {
     if (extraRules.length > 0) {
-      const document = parse(request.query);
+      let document: import('graphql').DocumentNode;
+      try {
+        document = parse(request.query);
+      } catch (error) {
+        return {
+          errors: [error instanceof GraphQLError ? error : new GraphQLError(String(error))],
+        };
+      }
       const errors = validate(schema, document, [...extraRules]);
       if (errors.length > 0) return { errors };
     }
