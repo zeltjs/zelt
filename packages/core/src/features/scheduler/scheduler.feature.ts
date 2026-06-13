@@ -28,7 +28,7 @@ export class SchedulerFeature extends Feature<'schedulers', SchedulerCapabilitie
 
   readonly createCapabilities = async (runtime: FeatureRuntime): Promise<SchedulerCapabilities> => {
     const service = await runtime.get(SchedulerService);
-    const runner = service.createRunner(this.schedulers);
+    const runner = await service.createRunner(this.schedulers);
     return {
       startScheduler: async () => {
         if (!runner.isRunning()) await runner.startup();

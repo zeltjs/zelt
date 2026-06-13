@@ -93,6 +93,23 @@ describe('createApp with schedulers', () => {
     expect(taskFn.mock.calls.length).toBe(callCountBefore);
   });
 
+  it('shutdown() stops a running scheduler without explicit stopScheduler()', async () => {
+    @Scheduled()
+    class TestScheduler {
+      @Cron('* * * * * *')
+      everySecond() {}
+    }
+
+    const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
+    const localRuntimeApp = await app.createRuntime();
+    await localRuntimeApp.schedulers.startScheduler();
+    expect(localRuntimeApp.schedulers.isSchedulerRunning()).toBe(true);
+
+    await localRuntimeApp.shutdown();
+
+    expect(localRuntimeApp.schedulers.isSchedulerRunning()).toBe(false);
+  });
+
   it('works without schedulers option', async () => {
     const app = createApp([http({ controllers: [] })]);
     const localRuntimeApp = await app.createRuntime();
