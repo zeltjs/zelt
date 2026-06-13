@@ -39,13 +39,13 @@ export type {
   FeatureClass,
   FeatureManagedClass,
   FeatureReadyCapabilities,
-  FeatureRuntime,
   HttpCapabilities,
   HttpMountableCapabilities,
   HttpMountableFeatureModule,
   HttpStaticCapabilities,
   NamespacedCaps,
   SchedulerCapabilities,
+  ServiceResolver,
   StaticNamespacedCaps,
 } from './features';
 // Feature factories

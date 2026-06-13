@@ -29,22 +29,22 @@ describe('scheduler feature', () => {
 
   it('keeps feature methods callable when destructured', () => {
     const feature = scheduler([TestScheduler]);
-    const { staticCapabilities } = feature;
+    const { blueprint } = feature;
 
-    expect(() => staticCapabilities()).not.toThrow();
+    expect(() => blueprint()).not.toThrow();
   });
 
   it('returns a ConfiguredFeature with key "schedulers"', () => {
     const feature = scheduler([TestScheduler]);
     expect(feature.key).toBe('schedulers');
     expect(feature.featureClasses()).toEqual([TestScheduler]);
-    expect(typeof feature.createCapabilities).toBe('function');
+    expect(typeof feature.realize).toBe('function');
   });
 
-  it('createCapabilities returns SchedulerCapabilities', async () => {
+  it('realize returns SchedulerCapabilities', async () => {
     const feature = scheduler([TestScheduler]);
     const container = new Container();
-    const caps = await feature.createCapabilities(createRuntime(container));
+    const caps = await feature.realize(createRuntime(container));
 
     expect(typeof caps.startScheduler).toBe('function');
     expect(typeof caps.stopScheduler).toBe('function');
@@ -55,7 +55,7 @@ describe('scheduler feature', () => {
   it('scheduler is not running by default', async () => {
     const feature = scheduler([TestScheduler]);
     const container = new Container();
-    const caps = await feature.createCapabilities(createRuntime(container));
+    const caps = await feature.realize(createRuntime(container));
 
     expect(caps.isSchedulerRunning()).toBe(false);
   });

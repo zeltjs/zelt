@@ -24,7 +24,7 @@ describe('generateGraphqlSdl', () => {
     const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-'));
 
     const result = await generateGraphqlSdl(
-      { getControllers: () => child.staticCapabilities().getControllers() },
+      { getControllers: () => child.blueprint().getControllers() },
       { distDir: outDir, tsconfig: resolve(__dirname, '../tsconfig.json') },
     );
 
@@ -46,7 +46,7 @@ describe('graphqlPlugin', () => {
       cwd: process.cwd(),
       build: {},
       loadStaticApp: async () => ({
-        http: { getControllers: () => child.staticCapabilities().getControllers() },
+        http: { getControllers: () => child.blueprint().getControllers() },
       }),
     });
 
@@ -61,7 +61,7 @@ describe('graphqlPlugin', () => {
     const child = graphql({ path: '/graphql', resolvers: [ViewerResolver], runtimeModule });
 
     await generateGraphqlSdl(
-      { getControllers: () => child.staticCapabilities().getControllers() },
+      { getControllers: () => child.blueprint().getControllers() },
       { distDir: outDir, tsconfig: resolve(__dirname, '../tsconfig.json') },
     );
 

@@ -1,6 +1,6 @@
 import type { Hono } from 'hono';
 
-import type { FeatureRuntime } from '../../app';
+import type { ServiceResolver } from '../../app';
 import type { ErrorHandlerClass, MiddlewareInput } from './middleware/middleware.types';
 import type { ControllerClass, ControllerRouteInfo } from './routing';
 
@@ -27,8 +27,8 @@ export type HttpMountableCapabilities = {
 export type HttpMountableFeatureModule = {
   readonly path: string;
   readonly featureClasses: () => readonly ControllerClass[];
-  readonly staticCapabilities: () => HttpStaticCapabilities;
-  readonly createCapabilities: (runtime: FeatureRuntime) => Promise<HttpMountableCapabilities>;
+  readonly blueprint: () => HttpStaticCapabilities;
+  readonly realize: (resolver: ServiceResolver) => Promise<HttpMountableCapabilities>;
 };
 
 export type HttpModuleOptions = {

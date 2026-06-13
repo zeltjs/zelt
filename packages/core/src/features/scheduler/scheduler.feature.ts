@@ -1,4 +1,4 @@
-import type { FeatureRuntime } from '../../app';
+import type { ServiceResolver } from '../../app';
 import { Feature } from '../../app';
 import { SchedulerService } from './scheduler.service';
 import type { SchedulerClass } from './scheduler.types';
@@ -22,12 +22,12 @@ export class SchedulerFeature extends Feature<'schedulers', SchedulerCapabilitie
     return this.schedulers;
   };
 
-  readonly staticCapabilities = (): Record<never, never> => {
+  readonly blueprint = (): Record<never, never> => {
     return {};
   };
 
-  readonly createCapabilities = async (runtime: FeatureRuntime): Promise<SchedulerCapabilities> => {
-    const service = await runtime.get(SchedulerService);
+  readonly realize = async (resolver: ServiceResolver): Promise<SchedulerCapabilities> => {
+    const service = await resolver.get(SchedulerService);
     const runner = service.createRunner(this.schedulers);
     return {
       startScheduler: async () => {

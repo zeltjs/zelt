@@ -1,4 +1,4 @@
-import type { FeatureRuntime } from '../../app';
+import type { ServiceResolver } from '../../app';
 import { Feature } from '../../app';
 import { HttpService } from './http.service';
 import type {
@@ -38,7 +38,7 @@ export class HttpFeature
     return [...this.controllers, ...this.children.flatMap((child) => child.featureClasses())];
   };
 
-  readonly staticCapabilities = (): HttpStaticCapabilities => {
+  readonly blueprint = (): HttpStaticCapabilities => {
     const controllers = this.collectControllers();
     const metadata = this.collectMetadata();
     return {
@@ -47,16 +47,12 @@ export class HttpFeature
     };
   };
 
-  readonly createCapabilities = async (
-    runtime: FeatureRuntime,
-  ): Promise<HttpMountableCapabilities> => {
-    const service = await runtime.get(HttpService);
+  readonly realize = async (resolver: ServiceResolver): Promise<HttpMountableCapabilities> => {
+    const service = await resolver.get(HttpService);
     const local = await service.createLocalRouter(this.opts);
 
-    // Children arrive self-prefixed (they apply their own path below), so
-    // they merge at '/' — mirroring how staticCapabilities composes metadata.
     for (const child of this.children) {
-      const childCaps = await child.createCapabilities(runtime);
+      const childCaps = await child.realize(resolver);
       local.route('/', childCaps.router);
     }
 
@@ -70,7 +66,7 @@ export class HttpFeature
   private collectMetadata(): HttpMetadata {
     const ownControllers = collectOwnControllerMetadata(this.controllers, this.path);
     const childControllers = this.children.flatMap((child) => {
-      const metadata = child.staticCapabilities().getMetadata();
+      const metadata = child.blueprint().getMetadata();
       return prefixHttpMetadata(metadata, this.path).controllers;
     });
     return { controllers: [...ownControllers, ...childControllers] };
@@ -79,7 +75,7 @@ export class HttpFeature
   private collectControllers(): readonly ControllerClass[] {
     return [
       ...this.controllers,
-      ...this.children.flatMap((child) => child.staticCapabilities().getControllers()),
+      ...this.children.flatMap((child) => child.blueprint().getControllers()),
     ];
   }
 

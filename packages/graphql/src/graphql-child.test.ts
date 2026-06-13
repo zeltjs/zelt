@@ -40,9 +40,9 @@ describe('graphql HTTP child helper', () => {
     const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
 
     expect(child.path).toBe('/graphql');
-    expect(child.staticCapabilities().getControllers()).toHaveLength(1);
+    expect(child.blueprint().getControllers()).toHaveLength(1);
 
-    const controller = child.staticCapabilities().getControllers()[0];
+    const controller = child.blueprint().getControllers()[0];
     expect(controller).toBeDefined();
     if (!controller) throw new Error('missing controller');
 

@@ -1,9 +1,9 @@
 import type {
   ControllerClass,
-  FeatureRuntime,
   HttpMountableCapabilities,
   HttpMountableFeatureModule,
   HttpStaticCapabilities,
+  ServiceResolver,
 } from '@zeltjs/core';
 import { body, Controller, http, Post } from '@zeltjs/core';
 import * as v from 'valibot';
@@ -82,12 +82,12 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
     ...this.options.resolvers,
   ];
 
-  readonly staticCapabilities = (): HttpStaticCapabilities => {
-    return http({ path: this.path, controllers: [this.controller] }).staticCapabilities();
+  readonly blueprint = (): HttpStaticCapabilities => {
+    return http({ path: this.path, controllers: [this.controller] }).blueprint();
   };
 
-  readonly createCapabilities = async (
-    runtimeContext: FeatureRuntime,
+  readonly realize = async (
+    runtimeContext: ServiceResolver,
   ): Promise<HttpMountableCapabilities> => {
     if (this.options.runtimeModule) {
       const generatedRuntime = await loadGeneratedGraphqlRuntime(this.options.runtimeModule);
@@ -107,9 +107,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
       });
     }
 
-    return http({ path: this.path, controllers: [this.controller] }).createCapabilities(
-      runtimeContext,
-    );
+    return http({ path: this.path, controllers: [this.controller] }).realize(runtimeContext);
   };
 
   /** @throws {E | Error} */
