@@ -69,6 +69,11 @@ const config: KnipConfig = {
       // barrel files used by test files via '..' import path (required by no-cross-directory-lib-import rule)
       ignore: ['src/app/index.ts', 'src/features/scheduler/index.ts'],
     },
+    'packages/graphql': {
+      // gql-args-sample.lib.ts is a test fixture imported by generate-sdl.test.ts
+      // for AST-based import resolution testing (must be a separate file)
+      ignore: ['src/gql-args-sample.lib.ts'],
+    },
     'packages/adapter-node': {
       ignoreDependencies: ['@zeltjs/core'],
     },
