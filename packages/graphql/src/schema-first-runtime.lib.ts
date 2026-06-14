@@ -128,6 +128,19 @@ const registerOperation = (
   addRuntimeBinding(bindings, findResolveFieldOwner(index, fieldName), fieldName, binding);
 };
 
+/** @throws {Error} */
+const requireRootBindings = (
+  fields: ReadonlySet<string>,
+  bindings: RuntimeBindings,
+  typeName: 'Query' | 'Mutation',
+): void => {
+  const typeBindings = bindings[typeName] ?? {};
+  for (const fieldName of fields) {
+    if (typeBindings[fieldName] !== undefined) continue;
+    throw new Error(`Schema-first resolver binding missing for ${typeName}.${fieldName}`);
+  }
+};
+
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
 const registerResolver = async (
   bindings: RuntimeBindings,
@@ -164,6 +177,8 @@ export const generateSchemaFirstGraphqlRuntimeForResolvers = async (
   for (const resolver of resolvers) {
     await registerResolver(bindings, index, resolver, options);
   }
+  requireRootBindings(index.queryFields, bindings, 'Query');
+  requireRootBindings(index.mutationFields, bindings, 'Mutation');
   return {
     schemaSdl: options.schemaSdl,
     bindings,
