@@ -2,9 +2,20 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { ExecutionResult, GraphQLSchema, ValidationRule } from 'graphql';
-import { buildSchema, GraphQLError, GraphQLObjectType, graphql, parse, validate } from 'graphql';
+import {
+  buildSchema,
+  GraphQLError,
+  GraphQLObjectType,
+  GraphQLScalarType,
+  GraphQLUnionType,
+  graphql,
+  parse,
+  validate,
+} from 'graphql';
 import * as v from 'valibot';
 
+import type { AnyGqlScalar } from './gql-scalar.lib';
+import { isGqlScalar } from './gql-scalar.lib';
 import { GraphqlArgsValidationError, runWithGraphqlArgs } from './gql-validated.lib';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 
@@ -19,6 +30,16 @@ const generatedGraphqlRuntimeSchema = v.object({
   enumFields: v.optional(
     v.record(v.string(), v.record(v.string(), v.record(v.string(), v.string()))),
   ),
+  scalarRefs: v.optional(
+    v.record(v.string(), v.object({ modulePath: v.string(), exportName: v.string() })),
+  ),
+  scalars: v.optional(
+    v.record(
+      v.string(),
+      v.custom<AnyGqlScalar>((value) => isGqlScalar(value)),
+    ),
+  ),
+  unions: v.optional(v.record(v.string(), v.record(v.string(), v.array(v.string())))),
 });
 
 // GraphQL over HTTP clients (Apollo, GraphiQL, ...) commonly send explicit
@@ -220,6 +241,46 @@ const attachEnumFieldResolvers = (
   }
 };
 
+const attachScalarSerializers = (schema: GraphQLSchema, runtime: GeneratedGraphqlRuntime): void => {
+  for (const [typeName, scalar] of Object.entries(runtime.scalars ?? {})) {
+    const type = schema.getType(typeName);
+    if (!(type instanceof GraphQLScalarType)) continue;
+    const serialize = scalar.codec.serialize;
+    if (typeof serialize !== 'function') continue;
+    type.serialize = (value: unknown) => Reflect.apply(serialize, scalar.codec, [value]);
+  }
+};
+
+const hasAllFields = (
+  value: Readonly<Record<string, unknown>>,
+  fields: readonly string[],
+): boolean => {
+  const keys = new Set(Object.keys(value));
+  return fields.every((field) => keys.has(field));
+};
+
+/** @throws {Error} */
+const attachUnionResolvers = (schema: GraphQLSchema, runtime: GeneratedGraphqlRuntime): void => {
+  for (const [typeName, members] of Object.entries(runtime.unions ?? {})) {
+    const type = schema.getType(typeName);
+    if (!(type instanceof GraphQLUnionType)) continue;
+    type.resolveType = (value) => {
+      if (!v.is(recordSchema, value)) {
+        throw new Error(`GraphQL union ${typeName} value must be an object`);
+      }
+      const matches = Object.entries(members).filter(([, fields]) => hasAllFields(value, fields));
+      if (matches.length !== 1) {
+        throw new Error(
+          `GraphQL union ${typeName} could not resolve exactly one member for value fields: ${Object.keys(
+            value,
+          ).join(', ')}`,
+        );
+      }
+      return matches[0]?.[0];
+    };
+  }
+};
+
 const toValidationGraphqlError = (
   error: GraphQLError,
   original: GraphqlArgsValidationError,
@@ -250,6 +311,8 @@ const enrichValidationErrors = (result: ExecutionResult): ExecutionResult => {
 /** @throws {Error} */
 export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): GraphqlExecutor => {
   const schema = buildSchema(options.runtime.schemaSdl);
+  attachScalarSerializers(schema, options.runtime);
+  attachUnionResolvers(schema, options.runtime);
   attachBindingResolvers(schema, options.runtime, createBindingResolver(options));
   attachEnumFieldResolvers(schema, options.runtime);
 

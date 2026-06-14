@@ -1,5 +1,6 @@
-import type { TypeInfo } from '@zeltjs/decorator-metadata/inspect';
+import type { TypedPropertyInfo, TypeInfo } from '@zeltjs/decorator-metadata/inspect';
 import { match } from 'ts-pattern';
+import type { AnyGqlScalar } from './gql-scalar.lib';
 
 type GraphqlTypeRef = {
   readonly type: string;
@@ -16,9 +17,85 @@ type GraphqlEnumDefinition = {
   readonly values: readonly string[];
 };
 
+export type GraphqlScalarRef = {
+  readonly modulePath: string;
+  readonly exportName: string;
+};
+
+type GraphqlScalarDefinition = {
+  readonly name: string;
+  readonly ref: GraphqlScalarRef;
+  readonly scalar: AnyGqlScalar;
+};
+
+export type GraphqlScalarTypeInfo = {
+  kind: 'graphqlScalar';
+  readonly name: string;
+  readonly ref: GraphqlScalarRef;
+  readonly scalar: AnyGqlScalar;
+};
+
+type GraphqlArrayTypeInfo = {
+  kind: 'array';
+  readonly items: GraphqlOutputTypeInfo;
+};
+
+type GraphqlPromiseTypeInfo = {
+  kind: 'promise';
+  readonly inner: GraphqlOutputTypeInfo;
+};
+
+type GraphqlUnionTypeInfo = {
+  kind: 'union';
+  readonly types: readonly GraphqlOutputTypeInfo[];
+};
+
+type GraphqlTypedPropertyInfo = Omit<TypedPropertyInfo, 'type'> & {
+  readonly type: GraphqlOutputTypeInfo;
+};
+
+type GraphqlObjectTypeInfo = {
+  kind: 'object';
+  readonly properties: readonly GraphqlTypedPropertyInfo[];
+};
+
+export type GraphqlNamedUnionMember = {
+  readonly name: string;
+  readonly type: GraphqlOutputTypeInfo;
+};
+
+export type GraphqlNamedUnionTypeInfo = {
+  kind: 'graphqlNamedUnion';
+  readonly name: string;
+  readonly nullable: boolean;
+  readonly members: readonly GraphqlNamedUnionMember[];
+};
+
+type GraphqlPrimitiveTypeInfo = Exclude<
+  TypeInfo,
+  { kind: 'array' } | { kind: 'promise' } | { kind: 'union' } | { kind: 'object' }
+>;
+
+export type GraphqlOutputTypeInfo =
+  | GraphqlPrimitiveTypeInfo
+  | GraphqlArrayTypeInfo
+  | GraphqlPromiseTypeInfo
+  | GraphqlUnionTypeInfo
+  | GraphqlObjectTypeInfo
+  | GraphqlScalarTypeInfo
+  | GraphqlNamedUnionTypeInfo;
+
+type GraphqlUnionDefinition = {
+  readonly name: string;
+  readonly members: readonly string[];
+};
+
 export type GraphqlTypeContext = {
   readonly objects: Map<string, GraphqlObjectDefinition>;
   readonly enums: Map<string, GraphqlEnumDefinition>;
+  readonly scalars: Map<string, GraphqlScalarDefinition>;
+  readonly unions: Map<string, GraphqlUnionDefinition>;
+  readonly unionFields: Map<string, Map<string, readonly string[]>>;
   readonly enumFields: Map<string, Map<string, Readonly<Record<string, string>>>>;
   readonly referencedTypes: Set<string>;
 };
@@ -32,6 +109,9 @@ export type GraphqlTypeResult = {
 export const createGraphqlTypeContext = (): GraphqlTypeContext => ({
   objects: new Map(),
   enums: new Map(),
+  scalars: new Map(),
+  unions: new Map(),
+  unionFields: new Map(),
   enumFields: new Map(),
   referencedTypes: new Set(),
 });
@@ -67,10 +147,12 @@ const toEnumValue = (value: string): string => {
 
 const renderType = (ref: GraphqlTypeRef): string => (ref.nullable ? ref.type : `${ref.type}!`);
 
-const isNullishType = (type: TypeInfo): boolean =>
+const isNullishType = (type: GraphqlOutputTypeInfo): boolean =>
   type.kind === 'primitive' && (type.type === 'null' || type.type === 'undefined');
 
-const getStringLiteralValues = (types: readonly TypeInfo[]): readonly string[] | undefined => {
+const getStringLiteralValues = (
+  types: readonly GraphqlOutputTypeInfo[],
+): readonly string[] | undefined => {
   const values: string[] = [];
   for (const type of types) {
     if (type.kind !== 'literal' || typeof type.value !== 'string') return undefined;
@@ -79,7 +161,9 @@ const getStringLiteralValues = (types: readonly TypeInfo[]): readonly string[] |
   return values;
 };
 
-const getStringLiteralUnionValues = (type: TypeInfo): readonly string[] | undefined => {
+const getStringLiteralUnionValues = (
+  type: GraphqlOutputTypeInfo,
+): readonly string[] | undefined => {
   if (type.kind !== 'union') return undefined;
   return getStringLiteralValues(type.types.filter((t) => !isNullishType(t)));
 };
@@ -115,6 +199,25 @@ const ensureObject = (ctx: GraphqlTypeContext, name: string): GraphqlObjectDefin
 };
 
 /** @throws {Error} */
+const ensureScalar = (ctx: GraphqlTypeContext, type: GraphqlScalarTypeInfo): GraphqlTypeRef => {
+  const scalarName = toGraphqlTypeName(type.name);
+  const existing = ctx.scalars.get(scalarName);
+  if (
+    existing &&
+    (existing.ref.modulePath !== type.ref.modulePath ||
+      existing.ref.exportName !== type.ref.exportName)
+  ) {
+    throw new Error(`Duplicate GraphQL scalar with incompatible refs: ${scalarName}`);
+  }
+  ctx.scalars.set(scalarName, {
+    name: scalarName,
+    ref: type.ref,
+    scalar: type.scalar,
+  });
+  return { type: scalarName, nullable: false };
+};
+
+/** @throws {Error} */
 const addFieldDefinition = (
   object: GraphqlObjectDefinition,
   fieldName: string,
@@ -134,8 +237,9 @@ export const addEnumFieldMappingForType = (
   ctx: GraphqlTypeContext,
   objectName: string,
   fieldName: string,
-  type: TypeInfo,
+  type: GraphqlOutputTypeInfo,
 ): void => {
+  if (type.kind === 'graphqlScalar' || type.kind === 'graphqlNamedUnion') return;
   const awaited = type.kind === 'promise' ? type.inner : type;
   const unwrapped = awaited.kind === 'array' ? awaited.items : awaited;
   const values = getStringLiteralUnionValues(unwrapped);
@@ -161,7 +265,7 @@ const addEnumFieldMapping = (
 
 /** @throws {Error} */
 const convertObject = (
-  type: TypeInfo & { kind: 'object' },
+  type: GraphqlObjectTypeInfo,
   ctx: GraphqlTypeContext,
   nameHint: string | undefined,
 ): GraphqlTypeRef => {
@@ -188,7 +292,7 @@ const convertObject = (
 
 /** @throws {Error} */
 const convertUnion = (
-  type: TypeInfo & { kind: 'union' },
+  type: GraphqlUnionTypeInfo,
   ctx: GraphqlTypeContext,
   nameHint: string | undefined,
 ): GraphqlTypeRef => {
@@ -213,6 +317,42 @@ const convertUnion = (
 };
 
 /** @throws {Error} */
+const ensureNamedUnion = (
+  type: GraphqlNamedUnionTypeInfo,
+  ctx: GraphqlTypeContext,
+): GraphqlTypeRef => {
+  const unionName = toGraphqlTypeName(type.name);
+  const members = type.members.map((member) => {
+    const objectName = toGraphqlTypeName(member.name);
+    const ref = convertTypeInfoToGraphqlRef(member.type, ctx, objectName);
+    if (ref.type !== objectName || ref.nullable) {
+      throw new Error(
+        `GraphQL union member must be a named object type: ${unionName}.${objectName}`,
+      );
+    }
+    const object = ctx.objects.get(objectName);
+    if (!object) {
+      throw new Error(`GraphQL union member object was not registered: ${objectName}`);
+    }
+    return { name: objectName, fields: [...object.fields.keys()] };
+  });
+
+  const memberNames = members.map((member) => member.name);
+  const existing = ctx.unions.get(unionName);
+  if (existing) {
+    const existingSet = new Set(existing.members);
+    const sameSet =
+      existingSet.size === memberNames.length && memberNames.every((name) => existingSet.has(name));
+    if (!sameSet) {
+      throw new Error(`Duplicate GraphQL union with incompatible members: ${unionName}`);
+    }
+  }
+  ctx.unions.set(unionName, { name: unionName, members: memberNames });
+  ctx.unionFields.set(unionName, new Map(members.map((member) => [member.name, member.fields])));
+  return { type: unionName, nullable: type.nullable };
+};
+
+/** @throws {Error} */
 const convertPrimitive = (type: TypeInfo & { kind: 'primitive' }): GraphqlTypeRef => {
   if (type.type === 'null' || type.type === 'undefined') {
     throw new Error(`Bare ${type.type} GraphQL output type is not supported`);
@@ -230,11 +370,14 @@ const convertLiteral = (type: TypeInfo & { kind: 'literal' }): GraphqlTypeRef =>
 
 /** @throws {Error} */
 export const convertTypeInfoToGraphqlRef = (
-  type: TypeInfo,
+  type: GraphqlOutputTypeInfo,
   ctx: GraphqlTypeContext,
   nameHint?: string,
-): GraphqlTypeRef =>
-  match(type)
+): GraphqlTypeRef => {
+  if (type.kind === 'graphqlScalar') return ensureScalar(ctx, type);
+  if (type.kind === 'graphqlNamedUnion') return ensureNamedUnion(type, ctx);
+
+  return match(type)
     .with({ kind: 'primitive' }, convertPrimitive)
     .with({ kind: 'literal' }, convertLiteral)
     .with({ kind: 'array' }, (t) => {
@@ -258,6 +401,7 @@ export const convertTypeInfoToGraphqlRef = (
       throw new Error('Unsupported GraphQL unknown output type');
     })
     .exhaustive();
+};
 
 const GRAPHQL_NAME_PATTERN = /^[_A-Za-z][_0-9A-Za-z]*$/;
 
@@ -266,7 +410,7 @@ export const addGraphqlField = (
   ctx: GraphqlTypeContext,
   objectName: string,
   fieldName: string,
-  type: TypeInfo,
+  type: GraphqlOutputTypeInfo,
   typeNameHint?: string,
   options: { readonly nullable?: boolean } = {},
 ): void => {
@@ -295,18 +439,31 @@ const printEnum = (definition: GraphqlEnumDefinition): string => {
   return `enum ${definition.name} {\n${values.join('\n')}\n}`;
 };
 
+const printScalar = (definition: GraphqlScalarDefinition): string => `scalar ${definition.name}`;
+
+const printUnion = (definition: GraphqlUnionDefinition): string =>
+  `union ${definition.name} = ${definition.members.join(' | ')}`;
+
 /** @throws {Error} */
 export const renderGraphqlDefinitions = (ctx: GraphqlTypeContext): readonly string[] => {
   for (const name of ctx.referencedTypes) {
-    if (!ctx.objects.has(name) && !ctx.enums.has(name)) {
+    if (!ctx.objects.has(name) && !ctx.enums.has(name) && !ctx.scalars.has(name)) {
       throw new Error(`Unregistered GraphQL type referenced: ${name}`);
     }
   }
-  return [...[...ctx.objects.values()].map(printObject), ...[...ctx.enums.values()].map(printEnum)];
+  return [
+    ...[...ctx.scalars.values()].map(printScalar),
+    ...[...ctx.objects.values()].map(printObject),
+    ...[...ctx.enums.values()].map(printEnum),
+    ...[...ctx.unions.values()].map(printUnion),
+  ];
 };
 
 /** @throws {Error} */
-export const typeInfoToGraphqlType = (type: TypeInfo, nameHint?: string): GraphqlTypeResult => {
+export const typeInfoToGraphqlType = (
+  type: GraphqlOutputTypeInfo,
+  nameHint?: string,
+): GraphqlTypeResult => {
   const ctx = createGraphqlTypeContext();
   const ref = convertTypeInfoToGraphqlRef(type, ctx, nameHint);
   return {

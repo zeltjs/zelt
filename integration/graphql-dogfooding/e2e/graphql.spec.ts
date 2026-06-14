@@ -39,6 +39,8 @@ describe('GraphQL dogfooding app', () => {
     expect(schema).toContain('enum ProductPublicStatus');
     expect(schema).toContain('enum CustomerPublicTier');
     expect(schema).toContain('enum OrderPublicStatus');
+    expect(schema).toContain('scalar ProductId');
+    expect(schema).toContain('union CatalogSearchResult = ProductPublic | CategoryPublic');
 
     const app = createGraphqlDogfoodingApp();
     const runtime = await app.createRuntime();
@@ -57,6 +59,10 @@ describe('GraphQL dogfooding app', () => {
       categories { slug title }
       catalog { id name category priceCents stock status displayName availabilityLabel }
       featuredProducts { id name status availabilityLabel }
+      searchCatalog {
+        ... on ProductPublic { id name priceCents }
+        ... on CategoryPublic { slug title }
+      }
       cart { id items { productId quantity unitPriceCents product { id name } lineTotalCents } totalQuantity subtotalCents shippingEstimateCents grandTotalCents }
       orderHistory { id status itemCount totalCents }
     }`,
@@ -116,6 +122,10 @@ describe('GraphQL dogfooding app', () => {
             status: 'LOW_STOCK',
             availabilityLabel: 'Only 3 left',
           },
+        ],
+        searchCatalog: [
+          { id: 'p_lamp', name: 'Desk Lamp', priceCents: 12900 },
+          { slug: 'LIGHTING', title: 'Lighting' },
         ],
         cart: {
           id: 'cart_customer_1',

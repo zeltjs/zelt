@@ -3,7 +3,7 @@ import { gqlValidated, Query, Resolver } from '@zeltjs/graphql';
 import { CartService } from '../cart/cart.service';
 import type { CartPublic } from '../cart/cart.types';
 import { CatalogService } from '../catalog/catalog.service';
-import type { CategoryPublic, ProductPublic } from '../catalog/catalog.types';
+import type { CatalogSearchResult, CategoryPublic, ProductPublic } from '../catalog/catalog.types';
 import { CustomerService } from '../customer/customer.service';
 import type { CustomerPublic } from '../customer/customer.types';
 import { OrderService } from '../order/order.service';
@@ -42,6 +42,11 @@ export class StorefrontResolver {
   @Query()
   featuredProducts(): readonly ProductPublic[] {
     return this.catalogService.featuredProducts();
+  }
+
+  @Query()
+  searchCatalog(): readonly CatalogSearchResult[] {
+    return this.catalogService.searchCatalog();
   }
 
   @Query()

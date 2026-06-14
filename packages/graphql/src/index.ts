@@ -1,4 +1,6 @@
 export type { GqlSchemaResolver, GqlValidatedSchemaRef } from './analyze-gql-args.lib';
+export type { AnyGqlScalar, GqlOutput, GqlScalar, GqlScalarCodec } from './gql-scalar.lib';
+export { gqlScalar, isGqlScalar } from './gql-scalar.lib';
 export type { StandardSchemaIssue, StandardSchemaV1 } from './gql-validated.lib';
 export { GraphqlArgsValidationError, gqlValidated, runWithGraphqlArgs } from './gql-validated.lib';
 export { Mutation, Query, ResolveField, Resolver } from './graphql.decorator';

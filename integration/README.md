@@ -37,6 +37,17 @@ integration/
 ./integration/scripts/run-tests.sh dist hello-world
 ```
 
+Always use `run-tests.sh` as the integration test entry point. The script builds the
+local packages, regenerates each integration package.json, removes stale
+`node_modules` / lockfiles, installs dependencies for the selected mode, then runs
+`tsc --noEmit` and `pnpm test`.
+
+Do not use `pnpm --dir integration/<name> test` as the primary verification
+command unless that directory has just been prepared by `run-tests.sh` or
+`switch-mode.sh`. Integration apps depend on `file:../../packages/*`, so direct
+test runs can read stale installed package artifacts and fail in ways that do not
+represent the current workspace.
+
 ## Modes
 
 | Mode | Description | Use Case |
