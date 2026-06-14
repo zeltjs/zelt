@@ -14,6 +14,10 @@ type Product = {
   readonly name: string;
 };
 
+type Viewer = {
+  readonly id: string;
+};
+
 @Resolver()
 class SchemaFirstCheckStorefrontResolver {
   @Query()
@@ -30,6 +34,14 @@ class SchemaFirstCheckNamedStorefrontResolver {
   }
 }
 
+@Resolver()
+class SchemaFirstCheckViewerResolver {
+  @Query()
+  viewer(): Viewer {
+    return { id: 'viewer_1' };
+  }
+}
+
 describe('schema-first resolver checks generation', () => {
   const tsconfig = resolve(__dirname, '../tsconfig.json');
   const schemaSdl = `type Query {
@@ -39,6 +51,14 @@ describe('schema-first resolver checks generation', () => {
 type Product {
   id: ID!
   name: String!
+}
+`;
+  const viewerSchemaSdl = `type Query {
+  viewer: Viewer!
+}
+
+type Viewer {
+  id: ID!
 }
 `;
 
@@ -58,6 +78,7 @@ type Product {
     expect(generated).toContain('Gql.Query.product.Result');
     expect(generated).toContain('AssertTrue<IsOptionalArg<');
     expect(generated).toContain('AwaitedValue<ReturnType<');
+    expect(generated).not.toContain('AllowsNoArgsField<SchemaFirstCheckStorefrontResolver');
   });
 
   it('uses explicit decorator field names while checking the implementation method', async () => {
@@ -72,6 +93,27 @@ type Product {
     expect(generated).toContain("FirstArg<SchemaFirstCheckNamedStorefrontResolver['findProduct']>");
     expect(generated).toContain('Gql.Query.product.Args');
     expect(generated).toContain('Gql.Query.product.Result');
+  });
+
+  it('allows no-parameter root operation methods for fields without SDL args', async () => {
+    const generated = await renderSchemaFirstResolverChecks({
+      schemaSdl: viewerSchemaSdl,
+      resolvers: [SchemaFirstCheckViewerResolver],
+      tsconfig,
+      out: resolve(__dirname, 'generated/graphql-resolver-checks.ts'),
+      gqlTypesImport: './graphql',
+    });
+
+    expect(generated).toContain("ReturnType<SchemaFirstCheckViewerResolver['viewer']>");
+    expect(generated).toContain(
+      "AssertTrue<AllowsNoArgsField<SchemaFirstCheckViewerResolver['viewer'], Gql.Query.viewer.Args>>",
+    );
+    expect(generated).not.toContain(
+      "IsOptionalArg<FirstArg<SchemaFirstCheckViewerResolver['viewer']>>",
+    );
+    expect(generated).not.toContain(
+      "Exclude<FirstArg<SchemaFirstCheckViewerResolver['viewer']>, undefined>",
+    );
   });
 
   it('writes the generated check file', async () => {

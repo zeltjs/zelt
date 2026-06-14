@@ -23,9 +23,13 @@ export type GenerateSchemaFirstResolverChecksResult = {
 
 type RootOperationKind = 'Query' | 'Mutation';
 
+type SchemaFirstFieldInfo = {
+  readonly hasArgs: boolean;
+};
+
 type SchemaFirstCheckIndex = {
-  readonly queryFields: ReadonlySet<string>;
-  readonly mutationFields: ReadonlySet<string>;
+  readonly queryFields: ReadonlyMap<string, SchemaFirstFieldInfo>;
+  readonly mutationFields: ReadonlyMap<string, SchemaFirstFieldInfo>;
 };
 
 type ResolverCheck = {
@@ -34,6 +38,7 @@ type ResolverCheck = {
   readonly methodName: string;
   readonly rootTypeName: RootOperationKind;
   readonly fieldName: string;
+  readonly hasArgs: boolean;
 };
 
 function toInspectableClass(cls: GraphqlResolverClass): new (...args: unknown[]) => object;
@@ -41,8 +46,15 @@ function toInspectableClass(cls: GraphqlResolverClass): unknown {
   return cls;
 }
 
-const collectFieldNames = (type: ObjectTypeDefinitionNode | undefined): ReadonlySet<string> =>
-  new Set((type?.fields ?? []).map((field) => field.name.value));
+const collectFields = (
+  type: ObjectTypeDefinitionNode | undefined,
+): ReadonlyMap<string, SchemaFirstFieldInfo> =>
+  new Map(
+    (type?.fields ?? []).map((field) => [
+      field.name.value,
+      { hasArgs: (field.arguments ?? []).length > 0 },
+    ]),
+  );
 
 const buildSchemaIndex = (schemaSdl: string): SchemaFirstCheckIndex => {
   const objectTypes = new Map<string, ObjectTypeDefinitionNode>();
@@ -52,8 +64,8 @@ const buildSchemaIndex = (schemaSdl: string): SchemaFirstCheckIndex => {
     }
   }
   return {
-    queryFields: collectFieldNames(objectTypes.get('Query')),
-    mutationFields: collectFieldNames(objectTypes.get('Mutation')),
+    queryFields: collectFields(objectTypes.get('Query')),
+    mutationFields: collectFields(objectTypes.get('Mutation')),
   };
 };
 
@@ -79,11 +91,12 @@ const requireIdentifier = (name: string, usage: string): void => {
 
 /** @throws {Error} */
 const requireRootField = (
-  fields: ReadonlySet<string>,
+  fields: ReadonlyMap<string, SchemaFirstFieldInfo>,
   typeName: RootOperationKind,
   fieldName: string,
-): void => {
-  if (fields.has(fieldName)) return;
+): SchemaFirstFieldInfo => {
+  const field = fields.get(fieldName);
+  if (field) return field;
   throw new Error(`Schema-first resolver checks could not find ${typeName}.${fieldName}.`);
 };
 
@@ -125,12 +138,19 @@ const addRootCheck = (
   const rootTypeName = operation.kind === 'query' ? 'Query' : 'Mutation';
   const fieldName = operation.fieldName ?? methodName;
   requireIdentifier(fieldName, `${rootTypeName}.${fieldName}`);
-  requireRootField(
+  const field = requireRootField(
     operation.kind === 'query' ? index.queryFields : index.mutationFields,
     rootTypeName,
     fieldName,
   );
-  checks.push({ resolverName, sourceFile, methodName, rootTypeName, fieldName });
+  checks.push({
+    resolverName,
+    sourceFile,
+    methodName,
+    rootTypeName,
+    fieldName,
+    hasArgs: field.hasArgs,
+  });
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -192,6 +212,7 @@ const renderImports = (
 
 const renderPreamble = (): readonly string[] => [
   'type AwaitedValue<T> = T extends PromiseLike<infer U> ? AwaitedValue<U> : T;',
+  'type Params<Fn> = Fn extends (...args: infer Params) => unknown ? Params : never;',
   'type FirstArg<Fn> = Fn extends (...args: infer Params) => unknown',
   '  ? Params extends readonly []',
   '    ? never',
@@ -200,12 +221,28 @@ const renderPreamble = (): readonly string[] => [
   'type AssertTrue<T extends true> = T;',
   'type IsAssignable<Actual, Expected> = [Actual] extends [Expected] ? true : false;',
   'type IsOptionalArg<Arg> = undefined extends Arg ? true : false;',
+  'type HasNoParams<Fn> = Params<Fn> extends readonly unknown[]',
+  "  ? Params<Fn>['length'] extends 0",
+  '    ? true',
+  '    : false',
+  '  : false;',
+  'type AllowsNoArgsField<Fn, Args> = HasNoParams<Fn> extends true',
+  '  ? true',
+  '  : IsAssignable<Exclude<FirstArg<Fn>, undefined>, Args> extends true',
+  '    ? IsOptionalArg<FirstArg<Fn>>',
+  '    : false;',
 ];
 
 const renderCheck = (check: ResolverCheck): readonly string[] => {
   const aliasBase = `_Check_${toAliasPart(check.resolverName)}_${toAliasPart(check.methodName)}`;
   const methodType = `${check.resolverName}[${quoteTsString(check.methodName)}]`;
   const fieldTypes = `Gql.${check.rootTypeName}.${check.fieldName}`;
+  if (!check.hasArgs) {
+    return [
+      `type ${aliasBase}_args = AssertTrue<AllowsNoArgsField<${methodType}, ${fieldTypes}.Args>>;`,
+      `type ${aliasBase}_return = AssertTrue<IsAssignable<AwaitedValue<ReturnType<${methodType}>>, ${fieldTypes}.Result>>;`,
+    ];
+  }
   return [
     `type ${aliasBase}_args = AssertTrue<IsAssignable<Exclude<FirstArg<${methodType}>, undefined>, ${fieldTypes}.Args>>;`,
     `type ${aliasBase}_args_optional = AssertTrue<IsOptionalArg<FirstArg<${methodType}>>>;`,
