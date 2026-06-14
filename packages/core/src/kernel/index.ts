@@ -22,6 +22,7 @@ export {
   createReadyValue,
   disposeReadyValue,
   getInternal,
+  hasContext,
   type InjectableClassDecoratorHooks,
   type ReadyValue,
   runInContext,

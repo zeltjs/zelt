@@ -2,6 +2,7 @@ export type { ContextKey } from './context-key.lib';
 export {
   createContextKey,
   getInternal,
+  hasContext,
   runInContext,
   setInternal,
 } from './context-key.lib';

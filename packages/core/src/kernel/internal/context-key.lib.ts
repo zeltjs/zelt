@@ -21,6 +21,8 @@ export const runInContext = <T>(fn: () => T): T => {
   return storage.run({ ...parent }, fn);
 };
 
+export const hasContext = (): boolean => storage.getStore() !== undefined;
+
 /** @throws {ZeltContextNotAvailableError} */
 export const getInternal = <T>(key: ContextKey<T>): T | undefined => {
   const store = storage.getStore();
