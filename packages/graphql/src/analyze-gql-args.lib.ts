@@ -10,10 +10,12 @@ type TSMethodDeclaration = import('typescript').MethodDeclaration;
 type TSCallExpression = import('typescript').CallExpression;
 type TSImportDeclaration = import('typescript').ImportDeclaration;
 
-export type GqlValidatedSchemaRef = {
+export type GraphqlArgsSchemaRef = {
   readonly modulePath: string;
   readonly exportName: string;
 };
+
+export type GqlValidatedSchemaRef = GraphqlArgsSchemaRef;
 
 // Caller-supplied module loader, same contract as @zeltjs/openapi's
 // SchemaResolver: required when the schema module is a `.ts` file that the
@@ -45,7 +47,28 @@ const resolveRelativeModuleSpecifier = (sourceFile: TSSourceFile, specifier: str
   return resolved.endsWith('.ts') || resolved.endsWith('.js') ? resolved : `${resolved}.ts`;
 };
 
-// `import { Foo as Bar } from './x'; gqlValidated(Bar)` must dynamic-import
+const isGraphqlHelperModule = (specifier: string): boolean =>
+  specifier === '@zeltjs/graphql' ||
+  specifier === './index' ||
+  specifier === './args.lib' ||
+  specifier === './gql-validated.lib';
+
+const getNamedImportsFromGraphqlHelper = (
+  stmt: import('typescript').Statement,
+  ts: TS,
+): readonly import('typescript').ImportSpecifier[] | undefined => {
+  if (!ts.isImportDeclaration(stmt)) return undefined;
+  if (!ts.isStringLiteral(stmt.moduleSpecifier)) return undefined;
+  if (!isGraphqlHelperModule(stmt.moduleSpecifier.text)) return undefined;
+  const namedBindings = stmt.importClause?.namedBindings;
+  if (!namedBindings || !ts.isNamedImports(namedBindings)) return undefined;
+  return namedBindings.elements;
+};
+
+const isGraphqlArgsHelperExport = (exportedName: string): boolean =>
+  exportedName === 'args' || exportedName === 'gqlValidated';
+
+// `import { Foo as Bar } from './x'; args(Bar)` must dynamic-import
 // `Foo` from `./x`, not `Bar`.
 const findExportNameInElements = (
   elements: readonly import('typescript').ImportSpecifier[],
@@ -72,7 +95,7 @@ const findIdentifierImport = (
   sourceFile: TSSourceFile,
   localName: string,
   ts: TS,
-): GqlValidatedSchemaRef | undefined => {
+): GraphqlArgsSchemaRef | undefined => {
   for (const stmt of sourceFile.statements) {
     if (!ts.isImportDeclaration(stmt)) continue;
     if (!ts.isStringLiteral(stmt.moduleSpecifier)) continue;
@@ -117,7 +140,7 @@ const buildSchemaRef = (
   call: TSCallExpression,
   sourceFile: TSSourceFile,
   ts: TS,
-): GqlValidatedSchemaRef | undefined => {
+): GraphqlArgsSchemaRef | undefined => {
   const arg = call.arguments[0];
   if (!arg || !ts.isIdentifier(arg)) return undefined;
   const localName = arg.text;
@@ -130,30 +153,45 @@ const buildSchemaRef = (
   return undefined;
 };
 
-const matchGqlValidatedCall = (
+const findImportedHelperLocalNames = (sourceFile: TSSourceFile, ts: TS): ReadonlySet<string> => {
+  const names = new Set<string>();
+  for (const stmt of sourceFile.statements) {
+    const elements = getNamedImportsFromGraphqlHelper(stmt, ts);
+    if (!elements) continue;
+    for (const elem of elements) {
+      const exportedName = elem.propertyName?.text ?? elem.name.text;
+      if (isGraphqlArgsHelperExport(exportedName)) names.add(elem.name.text);
+    }
+  }
+  return names;
+};
+
+const matchArgsCall = (
   init: import('typescript').Expression | undefined,
+  helperNames: ReadonlySet<string>,
   ts: TS,
 ): TSCallExpression | undefined => {
   if (!init || !ts.isCallExpression(init)) return undefined;
   if (!ts.isIdentifier(init.expression)) return undefined;
-  if (init.expression.text !== 'gqlValidated') return undefined;
+  if (!helperNames.has(init.expression.text)) return undefined;
   return init;
 };
 
 /** @throws {Error} */
-export const extractGqlValidatedRef = (
+export const extractGraphqlArgsRef = (
   methodNode: TSMethodDeclaration,
   sourceFile: TSSourceFile,
   ts: TS,
-): GqlValidatedSchemaRef | undefined => {
+): GraphqlArgsSchemaRef | undefined => {
+  const helperNames = findImportedHelperLocalNames(sourceFile, ts);
   for (const param of methodNode.parameters) {
-    const call = matchGqlValidatedCall(param.initializer, ts);
+    const call = matchArgsCall(param.initializer, helperNames, ts);
     if (!call) continue;
     const ref = buildSchemaRef(call, sourceFile, ts);
     if (!ref) {
       const paramName = ts.isIdentifier(param.name) ? param.name.text : '<unknown>';
       throw new Error(
-        `gqlValidated() detected on parameter '${paramName}' but schema reference could not be resolved`,
+        `args() detected on parameter '${paramName}' but schema reference could not be resolved`,
       );
     }
     return ref;
@@ -161,9 +199,11 @@ export const extractGqlValidatedRef = (
   return undefined;
 };
 
+export const extractGqlValidatedRef = extractGraphqlArgsRef;
+
 /** @throws {Error} when the module cannot be imported, the export is missing, or the schema is unsupported */
-export const resolveGqlValidatedArgs = async (
-  ref: GqlValidatedSchemaRef,
+export const resolveGraphqlArgs = async (
+  ref: GraphqlArgsSchemaRef,
   adapter: GraphqlSchemaAdapter,
   resolver: GqlSchemaResolver = defaultSchemaResolver,
 ): Promise<readonly GraphqlArg[]> => {
@@ -174,3 +214,5 @@ export const resolveGqlValidatedArgs = async (
   }
   return jsonSchemaToGraphqlArgs(adapter.toJsonSchema(value));
 };
+
+export const resolveGqlValidatedArgs = resolveGraphqlArgs;

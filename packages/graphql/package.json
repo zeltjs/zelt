@@ -36,15 +36,16 @@
     "@zeltjs/core": "workspace:*"
   },
   "dependencies": {
+    "@standard-schema/spec": "1.1.0",
     "@zeltjs/decorator-metadata": "workspace:*",
     "graphql": "16.14.2",
-    "ts-pattern": "5.6.2",
-    "valibot": "catalog:"
+    "ts-pattern": "5.6.2"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "@valibot/to-json-schema": "catalog:",
     "@zeltjs/cli": "workspace:*",
+    "valibot": "catalog:",
     "vitest": "catalog:"
   },
   "volta": {

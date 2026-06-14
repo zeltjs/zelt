@@ -50,7 +50,7 @@ export const jsonSchemaToGraphqlArgs = (schema: unknown): readonly GraphqlArg[] 
   const node = asRecord(schema);
   const properties = node ? asRecord(node['properties']) : undefined;
   if (!node || node['type'] !== 'object' || properties === undefined) {
-    throw new Error('gqlValidated schema must be a top-level object schema.');
+    throw new Error('args() schema must be a top-level object schema.');
   }
 
   const required = readRequired(node['required']);
