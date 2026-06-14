@@ -245,10 +245,20 @@ type WritableGenerateGraphqlSdlOptions = {
   -readonly [Key in keyof GenerateGraphqlSdlOptions]: GenerateGraphqlSdlOptions[Key];
 };
 
-const addGenerateSdlOptions = (
+const addSchemaFirstOptions = (
   generateOptions: WritableGenerateGraphqlSdlOptions,
   options: GraphqlPluginOptions,
 ): void => {
+  if (options.mode !== undefined) generateOptions.mode = options.mode;
+  if (options.schema !== undefined) generateOptions.schema = options.schema;
+  if (options.runtimeModule !== undefined) generateOptions.runtimeModule = options.runtimeModule;
+};
+
+const addCodeFirstOptions = (
+  generateOptions: WritableGenerateGraphqlSdlOptions,
+  options: GraphqlPluginOptions,
+): void => {
+  if (options.tsconfig !== undefined) generateOptions.tsconfig = options.tsconfig;
   if (options.schemaAdapter !== undefined) generateOptions.schemaAdapter = options.schemaAdapter;
   if (options.schemaResolver !== undefined) generateOptions.schemaResolver = options.schemaResolver;
   if (options.scalarResolver !== undefined) generateOptions.scalarResolver = options.scalarResolver;
@@ -258,11 +268,8 @@ const addGenerateOptions = (
   generateOptions: WritableGenerateGraphqlSdlOptions,
   options: GraphqlPluginOptions,
 ): void => {
-  if (options.mode !== undefined) generateOptions.mode = options.mode;
-  if (options.schema !== undefined) generateOptions.schema = options.schema;
-  if (options.runtimeModule !== undefined) generateOptions.runtimeModule = options.runtimeModule;
-  if (options.tsconfig !== undefined) generateOptions.tsconfig = options.tsconfig;
-  addGenerateSdlOptions(generateOptions, options);
+  addSchemaFirstOptions(generateOptions, options);
+  addCodeFirstOptions(generateOptions, options);
 };
 
 const buildGenerateOptions = (options: GraphqlPluginOptions): GenerateGraphqlSdlOptions => {

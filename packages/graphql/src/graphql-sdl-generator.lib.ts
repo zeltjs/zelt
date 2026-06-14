@@ -968,6 +968,7 @@ const registerAnalyzedMethod = async (
   if (typeof method.name !== 'string') return;
   const operation = getOperationMetadata(method);
   if (!operation) return;
+
   const names = methodTypeNames.get(method.name);
   const argsRendered = await renderMethodArgs(names, resolverName, method.name, options);
   registerResolverMethod(

@@ -16,7 +16,7 @@ Users keep writing resolver classes and public DTO types. They do not write Grap
 Scalar example:
 
 ```ts
-export const UnixMillis = gqlScalar<Date, number>('UnixMillis', {
+export const UnixMillis = gqlScalar<Date>('UnixMillis', {
   serialize: (value) => value.getTime(),
   parseValue: (value) => new Date(value),
 });
