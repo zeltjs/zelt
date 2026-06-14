@@ -9,7 +9,8 @@ import {
   generateGraphqlRuntimeForResolvers,
   generateSdlForResolvers,
 } from './graphql-sdl-generator.lib';
-import { args, args as gqlArgs, Mutation, Query, ResolveField, Resolver } from './index';
+import type { GqlOutput } from './index';
+import { args, args as gqlArgs, gqlScalar, Mutation, Query, ResolveField, Resolver } from './index';
 
 function narrowToValibotSchema(value: unknown): GenericSchema;
 function narrowToValibotSchema(value: unknown): unknown {
@@ -96,6 +97,47 @@ class EnumRootResolver {
   }
 }
 
+type MoneyValue = {
+  readonly cents: number;
+};
+
+export const MoneyScalar = gqlScalar<MoneyValue>('Money', {
+  serialize: (value) => value.cents,
+});
+
+type PricePublic = {
+  readonly label: string;
+  readonly amount: GqlOutput<typeof MoneyScalar>;
+};
+
+@Resolver()
+class ScalarResolver {
+  @Query()
+  price(): PricePublic {
+    return { label: 'subtotal', amount: { cents: 1299 } };
+  }
+}
+
+type ProductSearchResult = {
+  readonly productId: string;
+  readonly name: string;
+};
+
+type CategorySearchResult = {
+  readonly categoryId: string;
+  readonly label: string;
+};
+
+type SearchResult = ProductSearchResult | CategorySearchResult;
+
+@Resolver()
+class SearchResolver {
+  @Query()
+  search(): readonly SearchResult[] {
+    return [];
+  }
+}
+
 describe('generateSdlForResolvers', () => {
   it('emits SDL from resolver return types and merges field resolvers', async () => {
     const sdl = await generateSdlForResolvers([UserResolver], {
@@ -160,6 +202,52 @@ describe('generateSdlForResolvers', () => {
     expect(runtime.enumFields?.['Query']).toEqual({
       accountState: { active: 'ACTIVE', disabled: 'DISABLED' },
       accountStates: { active: 'ACTIVE', disabled: 'DISABLED' },
+    });
+  });
+
+  it('emits custom scalar SDL and runtime refs from GqlOutput scalar fields', async () => {
+    const runtime = await generateGraphqlRuntimeForResolvers([ScalarResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+    });
+
+    expect(runtime.schemaSdl).toContain('scalar Money');
+    expect(runtime.schemaSdl).toContain(`type Query {
+  price: PricePublic!
+}`);
+    expect(runtime.schemaSdl).toContain(`type PricePublic {
+  label: String!
+  amount: Money!
+}`);
+    expect(runtime.scalarRefs).toEqual({
+      Money: { modulePath: __filename, exportName: 'MoneyScalar' },
+    });
+    expect(runtime.scalars?.['Money']?.codec.serialize).toBe(MoneyScalar.codec.serialize);
+  });
+
+  it('emits named object union SDL and runtime member fields', async () => {
+    const runtime = await generateGraphqlRuntimeForResolvers([SearchResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+    });
+
+    expect(runtime.schemaSdl).toContain(`type Query {
+  search: [SearchResult!]!
+}`);
+    expect(runtime.schemaSdl).toContain(
+      'union SearchResult = ProductSearchResult | CategorySearchResult',
+    );
+    expect(runtime.schemaSdl).toContain(`type ProductSearchResult {
+  productId: String!
+  name: String!
+}`);
+    expect(runtime.schemaSdl).toContain(`type CategorySearchResult {
+  categoryId: String!
+  label: String!
+}`);
+    expect(runtime.unions).toEqual({
+      SearchResult: {
+        ProductSearchResult: ['productId', 'name'],
+        CategorySearchResult: ['categoryId', 'label'],
+      },
     });
   });
 

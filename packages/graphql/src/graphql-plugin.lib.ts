@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import type { ZeltPlugin } from '@zeltjs/cli';
 import type { ControllerClass, HttpStaticCapabilities } from '@zeltjs/core';
@@ -22,6 +23,7 @@ export type GraphqlPluginOptions = {
   readonly tsconfig?: string;
   readonly schemaAdapter?: GenerateSdlOptions['schemaAdapter'];
   readonly schemaResolver?: GenerateSdlOptions['schemaResolver'];
+  readonly scalarResolver?: GenerateSdlOptions['scalarResolver'];
 };
 
 export type GenerateGraphqlSdlOptions = GenerateSdlOptions & {
@@ -66,8 +68,56 @@ const collectGraphqlEndpoints = (
   return endpoints;
 };
 
-const buildRuntimeModule = (runtime: GraphqlRuntimeManifest): string =>
-  `export const graphqlRuntime = ${JSON.stringify(runtime, null, 2)};\n`;
+const toImportSpecifier = (modulePath: string): string => {
+  if (
+    modulePath.startsWith('file:') ||
+    modulePath.startsWith('node:') ||
+    /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(modulePath)
+  ) {
+    return modulePath;
+  }
+  if (isAbsolute(modulePath) || modulePath.startsWith('./') || modulePath.startsWith('../')) {
+    return pathToFileURL(resolve(modulePath)).href;
+  }
+  return modulePath;
+};
+
+const toSerializableRuntime = (runtime: GraphqlRuntimeManifest): GraphqlRuntimeManifest => ({
+  schemaSdl: runtime.schemaSdl,
+  bindings: runtime.bindings,
+  ...(runtime.enumFields !== undefined && { enumFields: runtime.enumFields }),
+  ...(runtime.scalarRefs !== undefined && { scalarRefs: runtime.scalarRefs }),
+  ...(runtime.unions !== undefined && { unions: runtime.unions }),
+});
+
+const buildScalarImports = (runtime: GraphqlRuntimeManifest): string => {
+  const refs = Object.entries(runtime.scalarRefs ?? {});
+  if (refs.length === 0) return '';
+  const lines = refs.map(
+    ([, ref], index) =>
+      `import * as graphqlScalarModule${index} from ${JSON.stringify(toImportSpecifier(ref.modulePath))};`,
+  );
+  return `${lines.join('\n')}\n\n`;
+};
+
+const buildScalarObjectLiteral = (runtime: GraphqlRuntimeManifest): string | undefined => {
+  const refs = Object.entries(runtime.scalarRefs ?? {});
+  if (refs.length === 0) return undefined;
+  const entries = refs.map(
+    ([typeName, ref], index) =>
+      `    ${JSON.stringify(typeName)}: graphqlScalarModule${index}[${JSON.stringify(ref.exportName)}]`,
+  );
+  return `  "scalars": {\n${entries.join(',\n')}\n  }`;
+};
+
+const buildRuntimeModule = (runtime: GraphqlRuntimeManifest): string => {
+  const imports = buildScalarImports(runtime);
+  const runtimeJson = JSON.stringify(toSerializableRuntime(runtime), null, 2);
+  const scalarLiteral = buildScalarObjectLiteral(runtime);
+  if (!scalarLiteral) return `${imports}export const graphqlRuntime = ${runtimeJson};\n`;
+  const trimmed = runtimeJson.replace(/\n}$/, '');
+  return `${imports}export const graphqlRuntime = ${trimmed},\n${scalarLiteral}\n};\n`;
+};
 
 const writeRuntimeModule = async (
   runtimeModule: string,
@@ -88,6 +138,7 @@ const toSdlOptions = (options: GenerateGraphqlSdlOptions): GenerateSdlOptions =>
   ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
   ...(options.schemaAdapter !== undefined && { schemaAdapter: options.schemaAdapter }),
   ...(options.schemaResolver !== undefined && { schemaResolver: options.schemaResolver }),
+  ...(options.scalarResolver !== undefined && { scalarResolver: options.scalarResolver }),
 });
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -192,16 +243,31 @@ type WritableGenerateGraphqlSdlOptions = {
   -readonly [Key in keyof GenerateGraphqlSdlOptions]: GenerateGraphqlSdlOptions[Key];
 };
 
-const addGenerateOptions = (
+const addSchemaFirstOptions = (
   generateOptions: WritableGenerateGraphqlSdlOptions,
   options: GraphqlPluginOptions,
 ): void => {
   if (options.mode !== undefined) generateOptions.mode = options.mode;
   if (options.schema !== undefined) generateOptions.schema = options.schema;
   if (options.runtimeModule !== undefined) generateOptions.runtimeModule = options.runtimeModule;
+};
+
+const addCodeFirstOptions = (
+  generateOptions: WritableGenerateGraphqlSdlOptions,
+  options: GraphqlPluginOptions,
+): void => {
   if (options.tsconfig !== undefined) generateOptions.tsconfig = options.tsconfig;
   if (options.schemaAdapter !== undefined) generateOptions.schemaAdapter = options.schemaAdapter;
   if (options.schemaResolver !== undefined) generateOptions.schemaResolver = options.schemaResolver;
+  if (options.scalarResolver !== undefined) generateOptions.scalarResolver = options.scalarResolver;
+};
+
+const addGenerateOptions = (
+  generateOptions: WritableGenerateGraphqlSdlOptions,
+  options: GraphqlPluginOptions,
+): void => {
+  addSchemaFirstOptions(generateOptions, options);
+  addCodeFirstOptions(generateOptions, options);
 };
 
 const buildGenerateOptions = (options: GraphqlPluginOptions): GenerateGraphqlSdlOptions => {

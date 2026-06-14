@@ -2,9 +2,19 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { ExecutionResult, GraphQLSchema, ValidationRule } from 'graphql';
-import { buildSchema, GraphQLError, GraphQLObjectType, graphql, parse, validate } from 'graphql';
-
+import {
+  buildSchema,
+  GraphQLError,
+  GraphQLObjectType,
+  GraphQLScalarType,
+  GraphQLUnionType,
+  graphql,
+  parse,
+  validate,
+} from 'graphql';
 import { GraphqlArgsValidationError, runWithGraphqlArgs } from './args.lib';
+import type { AnyGqlScalar } from './gql-scalar.lib';
+import { parseGqlScalar } from './gql-scalar.lib';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 
 // GraphQL over HTTP clients (Apollo, GraphiQL, ...) commonly send explicit
@@ -27,6 +37,12 @@ export type GeneratedGraphqlRuntime = {
   readonly schemaSdl: string;
   readonly bindings: Record<string, Record<string, GeneratedGraphqlBinding>>;
   readonly enumFields?: Record<string, Record<string, Readonly<Record<string, string>>>>;
+  readonly scalarRefs?: Record<
+    string,
+    { readonly modulePath: string; readonly exportName: string }
+  >;
+  readonly scalars?: Record<string, AnyGqlScalar>;
+  readonly unions?: Record<string, Record<string, readonly string[]>>;
 };
 
 export type GraphqlRuntimeManifest = GeneratedGraphqlRuntime;
@@ -142,17 +158,123 @@ const parseRuntimeEnumFields = (
   return output;
 };
 
-const parseGeneratedGraphqlRuntime = (value: unknown): GeneratedGraphqlRuntime | undefined => {
+const parseRuntimeScalarRefs = (
+  value: unknown,
+): NonNullable<GeneratedGraphqlRuntime['scalarRefs']> | undefined => {
   const record = toObject(value);
   if (!record) return undefined;
+  const output: NonNullable<GeneratedGraphqlRuntime['scalarRefs']> = {};
+  for (const [typeName, refValue] of Object.entries(record)) {
+    const ref = toObject(refValue);
+    if (!ref) return undefined;
+    const modulePath = readProperty(ref, 'modulePath');
+    const exportName = readProperty(ref, 'exportName');
+    if (typeof modulePath !== 'string' || typeof exportName !== 'string') return undefined;
+    output[typeName] = { modulePath, exportName };
+  }
+  return output;
+};
+
+const parseRuntimeScalars = (
+  value: unknown,
+): NonNullable<GeneratedGraphqlRuntime['scalars']> | undefined => {
+  const record = toObject(value);
+  if (!record) return undefined;
+  const output: NonNullable<GeneratedGraphqlRuntime['scalars']> = {};
+  for (const [typeName, scalarValue] of Object.entries(record)) {
+    const scalar = parseGqlScalar(scalarValue);
+    if (!scalar) return undefined;
+    output[typeName] = scalar;
+  }
+  return output;
+};
+
+const parseStringArray = (value: unknown): readonly string[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  return value.every((entry) => typeof entry === 'string') ? value : undefined;
+};
+
+const parseRuntimeUnions = (
+  value: unknown,
+): NonNullable<GeneratedGraphqlRuntime['unions']> | undefined => {
+  const record = toObject(value);
+  if (!record) return undefined;
+  const output: NonNullable<GeneratedGraphqlRuntime['unions']> = {};
+  for (const [typeName, membersValue] of Object.entries(record)) {
+    const members = toObject(membersValue);
+    if (!members) return undefined;
+    output[typeName] = {};
+    for (const [memberName, fieldsValue] of Object.entries(members)) {
+      const fields = parseStringArray(fieldsValue);
+      if (!fields) return undefined;
+      output[typeName][memberName] = fields;
+    }
+  }
+  return output;
+};
+
+const parseGeneratedGraphqlRuntimeBase = (
+  record: object,
+): Pick<GeneratedGraphqlRuntime, 'bindings' | 'schemaSdl'> | undefined => {
   const schemaSdl = readProperty(record, 'schemaSdl');
   if (typeof schemaSdl !== 'string') return undefined;
   const bindings = parseGeneratedGraphqlBindings(readProperty(record, 'bindings'));
   if (!bindings) return undefined;
+  return { schemaSdl, bindings };
+};
+
+const addOptionalRuntimeEnumFields = (
+  runtime: GeneratedGraphqlRuntime,
+  record: object,
+): GeneratedGraphqlRuntime | undefined => {
   const enumFieldsValue = readProperty(record, 'enumFields');
-  if (enumFieldsValue === undefined) return { schemaSdl, bindings };
+  if (enumFieldsValue === undefined) return runtime;
   const enumFields = parseRuntimeEnumFields(enumFieldsValue);
-  return enumFields ? { schemaSdl, bindings, enumFields } : undefined;
+  return enumFields ? { ...runtime, enumFields } : undefined;
+};
+
+const addOptionalRuntimeScalarRefs = (
+  runtime: GeneratedGraphqlRuntime,
+  record: object,
+): GeneratedGraphqlRuntime | undefined => {
+  const scalarRefsValue = readProperty(record, 'scalarRefs');
+  if (scalarRefsValue === undefined) return runtime;
+  const scalarRefs = parseRuntimeScalarRefs(scalarRefsValue);
+  return scalarRefs ? { ...runtime, scalarRefs } : undefined;
+};
+
+const addOptionalRuntimeScalars = (
+  runtime: GeneratedGraphqlRuntime,
+  record: object,
+): GeneratedGraphqlRuntime | undefined => {
+  const scalarsValue = readProperty(record, 'scalars');
+  if (scalarsValue === undefined) return runtime;
+  const scalars = parseRuntimeScalars(scalarsValue);
+  return scalars ? { ...runtime, scalars } : undefined;
+};
+
+const addOptionalRuntimeUnions = (
+  runtime: GeneratedGraphqlRuntime,
+  record: object,
+): GeneratedGraphqlRuntime | undefined => {
+  const unionsValue = readProperty(record, 'unions');
+  if (unionsValue === undefined) return runtime;
+  const unions = parseRuntimeUnions(unionsValue);
+  return unions ? { ...runtime, unions } : undefined;
+};
+
+const parseGeneratedGraphqlRuntime = (value: unknown): GeneratedGraphqlRuntime | undefined => {
+  const record = toObject(value);
+  if (!record) return undefined;
+  const base = parseGeneratedGraphqlRuntimeBase(record);
+  if (!base) return undefined;
+  const withEnumFields = addOptionalRuntimeEnumFields(base, record);
+  if (!withEnumFields) return undefined;
+  const withScalarRefs = addOptionalRuntimeScalarRefs(withEnumFields, record);
+  if (!withScalarRefs) return undefined;
+  const withScalars = addOptionalRuntimeScalars(withScalarRefs, record);
+  if (!withScalars) return undefined;
+  return addOptionalRuntimeUnions(withScalars, record);
 };
 
 const parseVariables = (value: unknown): Readonly<Record<string, unknown>> | null | undefined => {
@@ -338,6 +460,44 @@ const attachEnumFieldResolvers = (
   }
 };
 
+const attachScalarSerializers = (schema: GraphQLSchema, runtime: GeneratedGraphqlRuntime): void => {
+  for (const [typeName, scalar] of Object.entries(runtime.scalars ?? {})) {
+    const type = schema.getType(typeName);
+    if (!(type instanceof GraphQLScalarType)) continue;
+    const serialize = scalar.codec.serialize;
+    if (typeof serialize !== 'function') continue;
+    type.serialize = (value: unknown) => Reflect.apply(serialize, scalar.codec, [value]);
+  }
+};
+
+const hasAllFields = (value: object, fields: readonly string[]): boolean => {
+  const keys = new Set(Object.keys(value));
+  return fields.every((field) => keys.has(field));
+};
+
+/** @throws {Error} */
+const attachUnionResolvers = (schema: GraphQLSchema, runtime: GeneratedGraphqlRuntime): void => {
+  for (const [typeName, members] of Object.entries(runtime.unions ?? {})) {
+    const type = schema.getType(typeName);
+    if (!(type instanceof GraphQLUnionType)) continue;
+    type.resolveType = (value) => {
+      const record = toObject(value);
+      if (!record) {
+        throw new Error(`GraphQL union ${typeName} value must be an object`);
+      }
+      const matches = Object.entries(members).filter(([, fields]) => hasAllFields(record, fields));
+      if (matches.length !== 1) {
+        throw new Error(
+          `GraphQL union ${typeName} could not resolve exactly one member for value fields: ${Object.keys(
+            record,
+          ).join(', ')}`,
+        );
+      }
+      return matches[0]?.[0];
+    };
+  }
+};
+
 const toValidationGraphqlError = (
   error: GraphQLError,
   original: GraphqlArgsValidationError,
@@ -368,6 +528,8 @@ const enrichValidationErrors = (result: ExecutionResult): ExecutionResult => {
 /** @throws {Error} */
 export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): GraphqlExecutor => {
   const schema = buildSchema(options.runtime.schemaSdl);
+  attachScalarSerializers(schema, options.runtime);
+  attachUnionResolvers(schema, options.runtime);
   attachBindingResolvers(schema, options.runtime, createBindingResolver(options));
   attachEnumFieldResolvers(schema, options.runtime);
 

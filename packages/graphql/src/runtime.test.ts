@@ -7,7 +7,7 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
-import { args, graphql, Query, ResolveField, Resolver } from './index';
+import { args, gqlScalar, graphql, Query, ResolveField, Resolver } from './index';
 
 type ViewerPublic = {
   readonly id: string;
@@ -222,6 +222,122 @@ enum StockStatus {
     });
 
     expect(result).toEqual({ data: { viewer: { id: 'viewer', status: 'LOW_STOCK' } } });
+  });
+});
+
+const RuntimeMoneyScalar = gqlScalar<{ readonly cents: number }>('Money', {
+  serialize: (value) => value.cents,
+});
+
+type RuntimeSearchResult =
+  | { readonly productId: string; readonly name: string }
+  | { readonly categoryId: string; readonly label: string };
+
+describe('executeGraphqlRequest scalar and union output', () => {
+  it('serializes custom scalar values through the registered scalar codec', async () => {
+    const scalarRuntime = {
+      schemaSdl: `scalar Money
+
+type Query {
+  price: PricePublic!
+}
+
+type PricePublic {
+  amount: Money!
+}
+`,
+      bindings: {
+        Query: {
+          price: { resolver: 'ScalarRuntimeResolver', method: 'price' },
+        },
+      },
+      scalars: {
+        Money: RuntimeMoneyScalar,
+      },
+    } satisfies GeneratedGraphqlRuntime;
+
+    @Resolver()
+    class ScalarRuntimeResolver {
+      @Query()
+      price(): { readonly amount: { readonly cents: number } } {
+        return { amount: { cents: 1299 } };
+      }
+    }
+
+    const result = await executeGraphqlRequest({
+      runtime: scalarRuntime,
+      resolvers: [ScalarRuntimeResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ price { amount } }' },
+    });
+
+    expect(result).toEqual({ data: { price: { amount: 1299 } } });
+  });
+
+  it('resolves named object unions from object field sets without requiring __typename', async () => {
+    const unionRuntime = {
+      schemaSdl: `type Query {
+  search: [SearchResult!]!
+}
+
+union SearchResult = ProductSearchResult | CategorySearchResult
+
+type ProductSearchResult {
+  productId: String!
+  name: String!
+}
+
+type CategorySearchResult {
+  categoryId: String!
+  label: String!
+}
+`,
+      bindings: {
+        Query: {
+          search: { resolver: 'UnionRuntimeResolver', method: 'search' },
+        },
+      },
+      unions: {
+        SearchResult: {
+          ProductSearchResult: ['productId', 'name'],
+          CategorySearchResult: ['categoryId', 'label'],
+        },
+      },
+    } satisfies GeneratedGraphqlRuntime;
+
+    @Resolver()
+    class UnionRuntimeResolver {
+      @Query()
+      search(): readonly RuntimeSearchResult[] {
+        return [
+          { productId: 'p1', name: 'Keyboard' },
+          { categoryId: 'c1', label: 'Accessories' },
+        ];
+      }
+    }
+
+    const result = await executeGraphqlRequest({
+      runtime: unionRuntime,
+      resolvers: [UnionRuntimeResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: {
+        query: `{
+          search {
+            ... on ProductSearchResult { productId name }
+            ... on CategorySearchResult { categoryId label }
+          }
+        }`,
+      },
+    });
+
+    expect(result).toEqual({
+      data: {
+        search: [
+          { productId: 'p1', name: 'Keyboard' },
+          { categoryId: 'c1', label: 'Accessories' },
+        ],
+      },
+    });
   });
 });
 
