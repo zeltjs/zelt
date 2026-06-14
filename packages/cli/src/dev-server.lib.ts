@@ -19,6 +19,7 @@ export type DevServerOptions = {
 type DevServerState = {
   childProcess: ChildProcess | undefined;
   watcher: WatcherHandle | undefined;
+  unregisterSignals: (() => void) | undefined;
   isShuttingDown: boolean;
 };
 
@@ -104,6 +105,9 @@ const createShutdownHandler = (state: DevServerState) => {
     state.isShuttingDown = true;
     consola.info('Shutting down dev server...');
 
+    state.unregisterSignals?.();
+    state.unregisterSignals = undefined;
+
     if (state.watcher !== undefined) {
       await state.watcher.close();
     }
@@ -166,6 +170,7 @@ export const startDevServer = async (options: DevServerOptions): Promise<void> =
   const state: DevServerState = {
     childProcess: undefined,
     watcher: undefined,
+    unregisterSignals: undefined,
     isShuttingDown: false,
   };
 
@@ -176,7 +181,7 @@ export const startDevServer = async (options: DevServerOptions): Promise<void> =
   const shutdown = createShutdownHandler(state);
   const restart = createRestartHandler(state, cwd, devConfig.entry, config);
 
-  registerSignalHandlers(cliRuntime, shutdown);
+  state.unregisterSignals = registerSignalHandlers(cliRuntime, shutdown);
 
   state.watcher = createWatcher({
     cwd,
