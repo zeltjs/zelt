@@ -5,7 +5,7 @@ type HttpExceptionOptions<TCtx> = {
   buildResponse?: (ctx: TCtx, status: ContentfulStatusCode, message: string) => Response;
 };
 
-type HttpExceptionClass<TCtx> = {
+export type HttpExceptionClass<TCtx> = {
   new (
     context: TCtx,
     options?: { status?: ContentfulStatusCode; cause?: unknown },
