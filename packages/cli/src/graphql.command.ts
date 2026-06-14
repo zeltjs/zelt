@@ -4,6 +4,9 @@ import { pathToFileURL } from 'node:url';
 
 import { defineCommand } from 'citty';
 import consola from 'consola';
+import { match, P } from 'ts-pattern';
+
+import { nodeCliRuntime } from './cli-runtime.lib';
 
 type GraphqlCodegenArgs = {
   readonly schema?: string;
@@ -21,21 +24,50 @@ type GraphqlCodegenResult = {
 
 type GraphqlCodegenRunner = (options: GraphqlCodegenOptions) => Promise<GraphqlCodegenResult>;
 
-const toRecord = (value: unknown): Readonly<Record<string, unknown>> | undefined =>
-  typeof value === 'object' && value !== null
-    ? (value as Readonly<Record<string, unknown>>)
-    : undefined;
+type GraphqlCodegenModule = {
+  readonly generateSchemaFirstCodegen: unknown;
+};
+
+const isCodegenResult = (result: unknown): result is GraphqlCodegenResult =>
+  match(result)
+    .with({ changed: P.boolean }, () => true)
+    .otherwise(() => false);
+
+/** @throws {Error} */
+const readCodegenResult = (result: unknown): GraphqlCodegenResult => {
+  if (!isCodegenResult(result)) {
+    throw new Error('generateSchemaFirstCodegen result must include changed.');
+  }
+  return result;
+};
+
+/** @throws {Error} */
+const toCodegenRunner = (runner: unknown): GraphqlCodegenRunner => {
+  if (typeof runner !== 'function') {
+    throw new Error('@zeltjs/graphql/codegen must export generateSchemaFirstCodegen.');
+  }
+  return async (options) => readCodegenResult(await Reflect.apply(runner, undefined, [options]));
+};
+
+const isCodegenModule = (mod: unknown): mod is GraphqlCodegenModule =>
+  match(mod)
+    .with({ generateSchemaFirstCodegen: P._ }, () => true)
+    .otherwise(() => false);
+
+/** @throws {Error} */
+const readCodegenRunner = (mod: unknown): GraphqlCodegenRunner => {
+  if (!isCodegenModule(mod)) {
+    throw new Error('@zeltjs/graphql/codegen must export a module object.');
+  }
+  return toCodegenRunner(mod.generateSchemaFirstCodegen);
+};
 
 /** @throws {Error} */
 const loadGraphqlCodegen = async (cwd: string): Promise<GraphqlCodegenRunner> => {
   const requireFromCwd = createRequire(resolve(cwd, 'package.json'));
   const codegenModule = requireFromCwd.resolve('@zeltjs/graphql/codegen');
-  const mod = toRecord(await import(pathToFileURL(codegenModule).href));
-  const runner = mod?.['generateSchemaFirstCodegen'];
-  if (typeof runner !== 'function') {
-    throw new Error('@zeltjs/graphql/codegen must export generateSchemaFirstCodegen.');
-  }
-  return (options) => runner(options) as Promise<GraphqlCodegenResult>;
+  const mod: unknown = await import(pathToFileURL(codegenModule).href);
+  return readCodegenRunner(mod);
 };
 
 /** @throws {Error} */
@@ -73,7 +105,7 @@ const codegenCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const result = await runGraphqlCodegen(process.cwd(), args);
+    const result = await runGraphqlCodegen(nodeCliRuntime.cwd(), args);
     consola.success(result.changed ? 'GraphQL codegen completed' : 'GraphQL codegen unchanged');
   },
 });

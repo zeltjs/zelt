@@ -14,6 +14,7 @@ import {
   isZeltNoEntryError,
   ZeltNoEntryError,
 } from './cli.errors';
+import { nodeCliRuntime } from './cli-runtime.lib';
 import type { BuildConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
@@ -114,7 +115,7 @@ export const buildCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const cwd = process.cwd();
+    const cwd = nodeCliRuntime.cwd();
     const typedArgs: BuildArgs = args;
 
     try {

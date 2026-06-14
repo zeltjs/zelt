@@ -6,7 +6,7 @@ import { Gql } from '../generated/graphql';
 
 @Resolver()
 export class StorefrontResolver {
-  constructor(private readonly catalog = inject(CatalogService) as CatalogService) {}
+  constructor(private readonly catalog = inject(CatalogService)) {}
 
   @Query()
   product(input = Gql.Query.product.args()) {

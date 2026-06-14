@@ -105,7 +105,14 @@ export default tseslint.config(
       'zelt/double-dot-naming': [
         'error',
         {
-          allowedFiles: ['main.ts', 'cli.ts', 'ipc-bridge.ts', 'ipc-fetch.ts', 'expose-ipc.ts'],
+          allowedFiles: [
+            'main.ts',
+            'cli.ts',
+            'codegen.ts',
+            'ipc-bridge.ts',
+            'ipc-fetch.ts',
+            'expose-ipc.ts',
+          ],
           allowedPatterns: ['on-*.ts'],
         },
       ],
@@ -226,6 +233,7 @@ export default tseslint.config(
   {
     // Env module needs process.env access
     files: [
+      'packages/cli/src/cli-runtime.lib.ts',
       // EnvAdaptor implementations in adapters read process.env directly
       'packages/adapter-node/src/process-env.adaptor.ts',
       'packages/adapter-electron/src/main/electron-env.adaptor.ts',
@@ -312,6 +320,7 @@ export default tseslint.config(
       'packages/cli/src/run.command.ts',
       'packages/cli/src/dev.command.ts',
       'packages/cli/src/build.command.ts',
+      'packages/cli/src/graphql.command.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-type-predicate': 'off',
@@ -324,6 +333,7 @@ export default tseslint.config(
       'packages/cli/src/build.command.ts',
       'packages/cli/src/dev.command.ts',
       'packages/cli/src/run.command.ts',
+      'packages/cli/src/graphql.command.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',

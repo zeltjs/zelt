@@ -2,11 +2,14 @@ const defineError = <Context extends object>(
   name: string,
   createMessage: (ctx: Context) => string,
 ) => {
+  const toErrorOptions = (cause: unknown): ErrorOptions | undefined =>
+    cause === undefined ? undefined : { cause };
+
   return class ZeltCliError extends Error {
     readonly context: Context;
 
     constructor(context: Context, cause?: unknown) {
-      super(createMessage(context), cause === undefined ? undefined : { cause });
+      super(createMessage(context), toErrorOptions(cause));
       this.name = name;
       this.context = context;
     }

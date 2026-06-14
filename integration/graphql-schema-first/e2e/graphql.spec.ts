@@ -12,6 +12,10 @@ const schema = resolve(__dirname, '../src/graphql/schema.graphql');
 const runtimeModulePath = resolve(__dirname, '..', graphqlRuntimeModule);
 const generatedDir = dirname(runtimeModulePath);
 
+type AppRuntime = Awaited<
+  ReturnType<ReturnType<typeof createGraphqlSchemaFirstApp>['createRuntime']>
+>;
+
 const prepareGeneratedRuntime = async (): Promise<void> => {
   await rm(runtimeModulePath, { force: true });
   await mkdir(generatedDir, { recursive: true });
@@ -26,10 +30,7 @@ const prepareGeneratedRuntime = async (): Promise<void> => {
   });
 };
 
-const postGraphql = (
-  runtime: Awaited<ReturnType<ReturnType<typeof createGraphqlSchemaFirstApp>['createRuntime']>>,
-  query: string,
-): Promise<Response> =>
+const postGraphql = (runtime: AppRuntime, query: string): Promise<Response> =>
   runtime.http.request('/graphql', {
     method: 'POST',
     body: JSON.stringify({ query }),
@@ -37,7 +38,7 @@ const postGraphql = (
   });
 
 describe('GraphQL schema-first app', () => {
-  let runtime: Awaited<ReturnType<ReturnType<typeof createGraphqlSchemaFirstApp>['createRuntime']>>;
+  let runtime: AppRuntime;
 
   beforeAll(async () => {
     await prepareGeneratedRuntime();

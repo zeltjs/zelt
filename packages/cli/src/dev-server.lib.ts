@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 
 import consola from 'consola';
 
+import type { CliRuntime } from './cli-runtime.lib';
 import type { DevConfig, ZeltConfig } from './config/config.types';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 import type { WatcherHandle } from './watcher.lib';
@@ -12,6 +13,7 @@ export type DevServerOptions = {
   readonly cwd: string;
   readonly config: ZeltConfig;
   readonly devConfig: DevConfig & { entry: string };
+  readonly cliRuntime: Pick<CliRuntime, 'onSignal' | 'offSignal'>;
 };
 
 type DevServerState = {
@@ -140,23 +142,26 @@ const createRestartHandler = (
   };
 };
 
-const registerSignalHandlers = (onSignal: () => Promise<void>): (() => void) => {
+const registerSignalHandlers = (
+  runtime: Pick<CliRuntime, 'onSignal' | 'offSignal'>,
+  onSignal: () => Promise<void>,
+): (() => void) => {
   const handler = (): void => {
     void onSignal();
   };
 
-  process.on('SIGINT', handler);
-  process.on('SIGTERM', handler);
+  runtime.onSignal('SIGINT', handler);
+  runtime.onSignal('SIGTERM', handler);
 
   return () => {
-    process.off('SIGINT', handler);
-    process.off('SIGTERM', handler);
+    runtime.offSignal('SIGINT', handler);
+    runtime.offSignal('SIGTERM', handler);
   };
 };
 
 /** @throws {ZeltMultipleBuildHooksError} */
 export const startDevServer = async (options: DevServerOptions): Promise<void> => {
-  const { cwd, config, devConfig } = options;
+  const { cwd, config, devConfig, cliRuntime } = options;
 
   const state: DevServerState = {
     childProcess: undefined,
@@ -171,7 +176,7 @@ export const startDevServer = async (options: DevServerOptions): Promise<void> =
   const shutdown = createShutdownHandler(state);
   const restart = createRestartHandler(state, cwd, devConfig.entry, config);
 
-  registerSignalHandlers(shutdown);
+  registerSignalHandlers(cliRuntime, shutdown);
 
   state.watcher = createWatcher({
     cwd,

@@ -4,6 +4,7 @@ import { match } from 'ts-pattern';
 
 import type { ZeltConfigLoadError } from './cli.errors';
 import { isZeltConfigLoadError, isZeltNoEntryError, ZeltNoEntryError } from './cli.errors';
+import { nodeCliRuntime } from './cli-runtime.lib';
 import type { DevConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
 
@@ -35,12 +36,14 @@ const runDev = async (cwd: string, typedArgs: DevArgs): Promise<void> => {
   if (devConfig.entry === undefined) {
     throw new ZeltNoEntryError({});
   }
+  const entry = devConfig.entry;
 
   const devServer = await import('./dev-server.lib');
   await devServer.startDevServer({
     cwd,
     config,
-    devConfig: { ...devConfig, entry: devConfig.entry },
+    devConfig: { ...devConfig, entry },
+    cliRuntime: nodeCliRuntime,
   });
 };
 
@@ -78,7 +81,7 @@ export const devCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const cwd = process.cwd();
+    const cwd = nodeCliRuntime.cwd();
     const typedArgs: DevArgs = args;
 
     try {

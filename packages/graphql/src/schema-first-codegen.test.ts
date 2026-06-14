@@ -60,7 +60,7 @@ type Product {
 
     expect(generated).toContain('readonly ids: readonly string[];');
     expect(generated).toContain('export type Result = readonly Gql.Product[];');
-    expect(generated).toContain('readonly tags?: readonly (string | null)[] | null;');
+    expect(generated).toContain('readonly tags: readonly (string | null)[] | null;');
   });
 
   it('fails clearly for unsupported custom scalars', () => {

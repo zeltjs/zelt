@@ -27,14 +27,13 @@ export type SchemaFirstCodegenResult = {
 };
 
 type SchemaIndex = {
-  readonly objectTypes: ReadonlyMap<string, ObjectTypeDefinitionNode>;
-  readonly customScalars: ReadonlySet<string>;
-  readonly unsupportedTypes: ReadonlyMap<string, string>;
+  readonly objectTypes: Map<string, ObjectTypeDefinitionNode>;
+  readonly customScalars: Set<string>;
+  readonly unsupportedTypes: Map<string, string>;
 };
 
 type TypeRenderOptions = {
   readonly nullable: boolean;
-  readonly optional: boolean;
 };
 
 const writeIfChanged = async (path: string, content: string): Promise<boolean> => {
@@ -46,32 +45,38 @@ const writeIfChanged = async (path: string, content: string): Promise<boolean> =
   return true;
 };
 
-const buildSchemaIndex = (schemaSdl: string): SchemaIndex => {
-  const document = parse(schemaSdl);
-  const objectTypes = new Map<string, ObjectTypeDefinitionNode>();
-  const customScalars = new Set<string>();
-  const unsupportedTypes = new Map<string, string>();
-
-  for (const definition of document.definitions) {
-    if (definition.kind === Kind.OBJECT_TYPE_DEFINITION) {
-      objectTypes.set(definition.name.value, definition);
-      continue;
-    }
-    if (definition.kind === Kind.SCALAR_TYPE_DEFINITION) {
-      customScalars.add(definition.name.value);
-      continue;
-    }
-    if (
-      definition.kind === Kind.UNION_TYPE_DEFINITION ||
-      definition.kind === Kind.INTERFACE_TYPE_DEFINITION ||
-      definition.kind === Kind.ENUM_TYPE_DEFINITION ||
-      definition.kind === Kind.INPUT_OBJECT_TYPE_DEFINITION
-    ) {
-      unsupportedTypes.set(definition.name.value, definition.kind);
-    }
+const registerSchemaDefinition = (
+  index: SchemaIndex,
+  definition: ReturnType<typeof parse>['definitions'][number],
+): void => {
+  if (definition.kind === Kind.OBJECT_TYPE_DEFINITION) {
+    index.objectTypes.set(definition.name.value, definition);
+    return;
   }
+  if (definition.kind === Kind.SCALAR_TYPE_DEFINITION) {
+    index.customScalars.add(definition.name.value);
+    return;
+  }
+  if (
+    definition.kind === Kind.UNION_TYPE_DEFINITION ||
+    definition.kind === Kind.INTERFACE_TYPE_DEFINITION ||
+    definition.kind === Kind.ENUM_TYPE_DEFINITION ||
+    definition.kind === Kind.INPUT_OBJECT_TYPE_DEFINITION
+  ) {
+    index.unsupportedTypes.set(definition.name.value, definition.kind);
+  }
+};
 
-  return { objectTypes, customScalars, unsupportedTypes };
+const buildSchemaIndex = (schemaSdl: string): SchemaIndex => {
+  const index = {
+    objectTypes: new Map<string, ObjectTypeDefinitionNode>(),
+    customScalars: new Set<string>(),
+    unsupportedTypes: new Map<string, string>(),
+  };
+  for (const definition of parse(schemaSdl).definitions) {
+    registerSchemaDefinition(index, definition);
+  }
+  return index;
 };
 
 /** @throws {Error} */
@@ -94,15 +99,13 @@ const parenthesizeArrayElement = (type: string): string =>
 /** @throws {Error} */
 const renderType = (type: TypeNode, index: SchemaIndex, options: TypeRenderOptions): string => {
   if (type.kind === Kind.NON_NULL_TYPE) {
-    return renderType(type.type, index, { ...options, nullable: false, optional: false });
+    return renderType(type.type, index, { nullable: false });
   }
 
   const nullable = options.nullable;
   const rendered =
     type.kind === Kind.LIST_TYPE
-      ? `readonly ${parenthesizeArrayElement(
-          renderType(type.type, index, { nullable: true, optional: false }),
-        )}[]`
+      ? `readonly ${parenthesizeArrayElement(renderType(type.type, index, { nullable: true }))}[]`
       : renderNamedType(type.name.value, index);
 
   return nullable ? `${rendered} | null` : rendered;
@@ -114,7 +117,6 @@ const renderInputField = (field: InputValueDefinitionNode, index: SchemaIndex): 
   const optional = isOptional ? '?' : '';
   return `    readonly ${field.name.value}${optional}: ${renderType(field.type, index, {
     nullable: true,
-    optional: isOptional,
   })};`;
 };
 
@@ -127,11 +129,8 @@ const renderArgsType = (field: FieldDefinitionNode, index: SchemaIndex): string 
 
 /** @throws {Error} */
 const renderObjectField = (field: FieldDefinitionNode, index: SchemaIndex): string => {
-  const isOptional = field.type.kind !== Kind.NON_NULL_TYPE;
-  const optional = isOptional ? '?' : '';
-  return `    readonly ${field.name.value}${optional}: ${renderType(field.type, index, {
+  return `    readonly ${field.name.value}: ${renderType(field.type, index, {
     nullable: true,
-    optional: isOptional,
   })};`;
 };
 
@@ -150,7 +149,7 @@ const renderOperationField = (field: FieldDefinitionNode, index: SchemaIndex): s
   [
     `    export namespace ${field.name.value} {`,
     `      export type Args = ${renderArgsType(field, index)};`,
-    `      export type Result = ${renderType(field.type, index, { nullable: true, optional: false })};`,
+    `      export type Result = ${renderType(field.type, index, { nullable: true })};`,
     '      export function args(): Args;',
     '      export function args<Schema extends StandardSchemaV1<unknown, Args>>(',
     '        schema: Schema,',

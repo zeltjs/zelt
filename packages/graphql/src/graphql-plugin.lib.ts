@@ -188,15 +188,29 @@ export const generateGraphqlSdl = async (
   return { changed: standaloneChanged || runtimeChanged };
 };
 
-const buildGenerateOptions = (options: GraphqlPluginOptions): GenerateGraphqlSdlOptions => ({
-  distDir: options.outDir ?? './dist',
-  ...(options.mode !== undefined && { mode: options.mode }),
-  ...(options.schema !== undefined && { schema: options.schema }),
-  ...(options.runtimeModule !== undefined && { runtimeModule: options.runtimeModule }),
-  ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
-  ...(options.schemaAdapter !== undefined && { schemaAdapter: options.schemaAdapter }),
-  ...(options.schemaResolver !== undefined && { schemaResolver: options.schemaResolver }),
-});
+type WritableGenerateGraphqlSdlOptions = {
+  -readonly [Key in keyof GenerateGraphqlSdlOptions]: GenerateGraphqlSdlOptions[Key];
+};
+
+const addGenerateOptions = (
+  generateOptions: WritableGenerateGraphqlSdlOptions,
+  options: GraphqlPluginOptions,
+): void => {
+  if (options.mode !== undefined) generateOptions.mode = options.mode;
+  if (options.schema !== undefined) generateOptions.schema = options.schema;
+  if (options.runtimeModule !== undefined) generateOptions.runtimeModule = options.runtimeModule;
+  if (options.tsconfig !== undefined) generateOptions.tsconfig = options.tsconfig;
+  if (options.schemaAdapter !== undefined) generateOptions.schemaAdapter = options.schemaAdapter;
+  if (options.schemaResolver !== undefined) generateOptions.schemaResolver = options.schemaResolver;
+};
+
+const buildGenerateOptions = (options: GraphqlPluginOptions): GenerateGraphqlSdlOptions => {
+  const generateOptions: WritableGenerateGraphqlSdlOptions = {
+    distDir: options.outDir ?? './dist',
+  };
+  addGenerateOptions(generateOptions, options);
+  return generateOptions;
+};
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
 export const graphqlPlugin = (options: GraphqlPluginOptions = {}): ZeltPlugin<HttpStaticApp> => ({

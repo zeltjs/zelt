@@ -39,7 +39,12 @@ const getGraphqlArgsContext = (): Readonly<Record<string, unknown>> => {
  * @throws {Error}
  */
 export const readGraphqlArgs = <Output extends Readonly<Record<string, unknown>>>(): Output =>
-  getGraphqlArgsContext() as Output;
+  narrowGraphqlArgs<Output>(getGraphqlArgsContext());
+
+function narrowGraphqlArgs<Output>(args: Readonly<Record<string, unknown>>): Output;
+function narrowGraphqlArgs(args: Readonly<Record<string, unknown>>): unknown {
+  return args;
+}
 
 /** @throws {GraphqlArgsValidationError | Error} */
 export const validateGraphqlArgs = <Schema extends StandardSchemaV1>(
