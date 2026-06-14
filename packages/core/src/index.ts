@@ -172,7 +172,7 @@ export { LifecycleManager, runInContext } from './kernel';
 // DI primitives
 // DI
 export { Injectable, inject } from './kernel/di';
-export type { CoreErrorContextMap } from './kernel/errors';
+export type { CoreErrorContextMap, HttpExceptionClass } from './kernel/errors';
 // Errors
 export {
   defineHttpException,
