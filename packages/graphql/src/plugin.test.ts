@@ -1,10 +1,12 @@
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 import { generateGraphqlSdl, graphqlPlugin } from './graphql-plugin.lib';
-import { graphql, Query, Resolver } from './index';
+import type { GqlOutput } from './index';
+import { gqlScalar, graphql, Query, Resolver } from './index';
 
 type ViewerPublic = {
   readonly id: string;
@@ -15,6 +17,22 @@ class ViewerResolver {
   @Query()
   viewer(): ViewerPublic {
     return { id: 'viewer' };
+  }
+}
+
+export const PluginMoneyScalar = gqlScalar<{ readonly cents: number }>('Money', {
+  serialize: (value) => value.cents,
+});
+
+type PluginPricePublic = {
+  readonly amount: GqlOutput<typeof PluginMoneyScalar>;
+};
+
+@Resolver()
+class PluginScalarResolver {
+  @Query()
+  pluginPrice(): PluginPricePublic {
+    return { amount: { cents: 500 } };
   }
 }
 
@@ -70,6 +88,32 @@ describe('graphqlPlugin', () => {
     expect(generated).toContain('"schemaSdl"');
     expect(generated).toContain('"ViewerResolver"');
     expect(generated).toContain('"viewer"');
+  });
+
+  it('generates runtime helper imports for scalar codecs', async () => {
+    const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-runtime-scalar-'));
+    const runtimeModule = join(outDir, 'scalar-runtime.js');
+    const child = graphql({
+      path: '/graphql',
+      resolvers: [PluginScalarResolver],
+      runtimeModule,
+    });
+
+    await generateGraphqlSdl(
+      { getControllers: () => child.blueprint().getControllers() },
+      { distDir: outDir, tsconfig: resolve(__dirname, '../tsconfig.json') },
+    );
+
+    const generated = await readFile(runtimeModule, 'utf8');
+    expect(generated).toContain('PluginMoneyScalar');
+    expect(generated).toContain('scalars');
+
+    const imported: { readonly graphqlRuntime?: unknown } = await import(
+      /* @vite-ignore */ `${pathToFileURL(runtimeModule).href}?t=${Date.now()}`
+    );
+    expect(imported.graphqlRuntime).toMatchObject({
+      scalars: { Money: PluginMoneyScalar },
+    });
   });
 
   it('generates a schema-first runtime helper from SDL and resolver bindings', async () => {

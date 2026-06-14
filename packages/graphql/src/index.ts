@@ -8,6 +8,8 @@ export {
   runWithGraphqlArgs,
   validateGraphqlArgs,
 } from './args.lib';
+export type { AnyGqlScalar, GqlOutput, GqlScalar, GqlScalarCodec } from './gql-scalar.lib';
+export { gqlScalar, isGqlScalar } from './gql-scalar.lib';
 export { Mutation, Query, ResolveField, Resolver } from './graphql.decorator';
 export type { GraphqlChildOptions, GraphqlOptions } from './graphql-child.lib';
 export { graphql } from './graphql-child.lib';

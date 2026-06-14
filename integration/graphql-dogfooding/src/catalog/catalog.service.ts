@@ -1,7 +1,7 @@
 import { Injectable } from '@zeltjs/core';
 
 import { catalogCategories, catalogProducts } from './catalog.seed';
-import type { CategoryPublic, ProductPublic } from './catalog.types';
+import type { CatalogSearchResult, CategoryPublic, ProductPublic } from './catalog.types';
 
 @Injectable()
 export class CatalogService {
@@ -15,6 +15,12 @@ export class CatalogService {
 
   featuredProducts(): readonly ProductPublic[] {
     return catalogProducts.filter((product) => product.status !== 'sold_out');
+  }
+
+  searchCatalog(): readonly CatalogSearchResult[] {
+    const [featured] = this.featuredProducts();
+    const [category] = catalogCategories;
+    return [featured, category].filter((item): item is CatalogSearchResult => item !== undefined);
   }
 
   findProduct(productId: string): ProductPublic | undefined {
