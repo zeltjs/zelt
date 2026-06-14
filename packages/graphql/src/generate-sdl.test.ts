@@ -10,7 +10,7 @@ import {
   generateSdlForResolvers,
 } from './graphql-sdl-generator.lib';
 import type { GqlOutput } from './index';
-import { gqlScalar, gqlValidated, Mutation, Query, ResolveField, Resolver } from './index';
+import { args, args as gqlArgs, gqlScalar, Mutation, Query, ResolveField, Resolver } from './index';
 
 function narrowToValibotSchema(value: unknown): GenericSchema;
 function narrowToValibotSchema(value: unknown): unknown {
@@ -56,13 +56,21 @@ class UserResolver {
 @Resolver()
 class ArgsUserResolver {
   @Query()
-  userById(input = gqlValidated(GetUserInput)): Promise<UserPublic | null> {
+  userById(input = args(GetUserInput)): Promise<UserPublic | null> {
     return Promise.resolve({ id: input.id, name: 'Ada', status: 'active' });
   }
 
   @Mutation()
-  renameUser(input = gqlValidated(RenameUserInput)): UserPublic {
+  renameUser(input = args(RenameUserInput)): UserPublic {
     return { id: input.id, name: input.name, status: 'active' };
+  }
+}
+
+@Resolver()
+class AliasedArgsUserResolver {
+  @Query()
+  userById(input = gqlArgs(GetUserInput)): Promise<UserPublic | null> {
+    return Promise.resolve({ id: input.id, name: 'Ada', status: 'active' });
   }
 }
 
@@ -155,7 +163,7 @@ describe('generateSdlForResolvers', () => {
 }`);
   });
 
-  it('emits field args from gqlValidated schema top-level properties', async () => {
+  it('emits field args from args schema top-level properties', async () => {
     const sdl = await generateSdlForResolvers([ArgsUserResolver], {
       tsconfig: resolve(__dirname, '../tsconfig.json'),
       schemaAdapter: testSchemaAdapter,
@@ -167,6 +175,18 @@ describe('generateSdlForResolvers', () => {
 }`);
     expect(sdl).toContain(`type Mutation {
   renameUser(id: String!, name: String!, priority: Int): UserPublic!
+}`);
+  });
+
+  it('emits field args when args is imported with an alias', async () => {
+    const sdl = await generateSdlForResolvers([AliasedArgsUserResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+      schemaAdapter: testSchemaAdapter,
+      schemaResolver: testSchemaResolver,
+    });
+
+    expect(sdl).toContain(`type Query {
+  userById(id: String!): UserPublic
 }`);
   });
 
@@ -239,12 +259,12 @@ describe('generateSdlForResolvers', () => {
     ).rejects.toThrow(/null/i);
   });
 
-  it('fails the build when gqlValidated is used without a schemaAdapter', async () => {
+  it('fails the build when args is used without a schemaAdapter', async () => {
     await expect(
       generateSdlForResolvers([ArgsUserResolver], {
         tsconfig: resolve(__dirname, '../tsconfig.json'),
       }),
-    ).rejects.toThrow(/schemaAdapter/);
+    ).rejects.toThrow('args() requires the schemaAdapter option: ArgsUserResolver.userById');
   });
 
   it('fails the build when @ResolveField method has no parent parameter', async () => {

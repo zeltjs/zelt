@@ -7,7 +7,7 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
-import { gqlScalar, gqlValidated, graphql, Query, ResolveField, Resolver } from './index';
+import { args, gqlScalar, graphql, Query, ResolveField, Resolver } from './index';
 
 type ViewerPublic = {
   readonly id: string;
@@ -377,13 +377,13 @@ describe('createGraphqlExecutor validation rules', () => {
 });
 
 describe('executeGraphqlRequest enum input args', () => {
-  it('passes GraphQL enum arg value through gqlValidated to the resolver', async () => {
+  it('passes GraphQL enum arg value through args to the resolver', async () => {
     const StatusInput = v.object({ status: v.string() });
 
     @Resolver()
     class EnumInputResolver {
       @Query()
-      itemByStatus(input = gqlValidated(StatusInput)): { status: string } {
+      itemByStatus(input = args(StatusInput)): { status: string } {
         return { status: input.status };
       }
     }

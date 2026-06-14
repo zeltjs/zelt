@@ -6,15 +6,14 @@ import type {
   ServiceResolver,
 } from '@zeltjs/core';
 import { body, Controller, http, Post } from '@zeltjs/core';
-import * as v from 'valibot';
 
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { setGraphqlControllerMetadata } from './graphql-metadata.lib';
 import {
   createGraphqlExecutor,
   getGraphqlRuntimeState,
-  graphqlRequestPayloadSchema,
   loadGeneratedGraphqlRuntime,
+  parseGraphqlRequestPayload,
   setGraphqlRuntimeState,
 } from './graphql-runtime.lib';
 
@@ -123,15 +122,15 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
           );
         }
 
-        const payload = v.safeParse(graphqlRequestPayloadSchema, body());
-        if (!payload.success) {
+        const payload = parseGraphqlRequestPayload(body());
+        if (!payload) {
           return Response.json(
             { errors: [{ message: 'GraphQL request body must include a query string.' }] },
             { status: 400 },
           );
         }
 
-        const result = await state.execute(payload.output);
+        const result = await state.execute(payload);
 
         return Response.json(result);
       }

@@ -3,17 +3,19 @@
 
 # Validation
 
-Zelt uses [Valibot](https://valibot.dev/) for request validation, providing a type-safe and lightweight validation solution.
+Zelt validates request bodies with synchronous Standard Schema compatible schemas. You can use any validator that exposes `schema["~standard"].validate(value)`, including [Valibot](https://valibot.dev/), Zod, and ArkType.
 
 ## Installation
 
+`validated()` is included in `@zeltjs/core`. Install the schema library you want to use:
+
 ```bash
-pnpm add @zeltjs/validator-valibot valibot
+pnpm add @zeltjs/core valibot
 ```
 
 ### With OpenAPI Generation
 
-If you're using `@zeltjs/openapi` to generate OpenAPI specs, you also need `@valibot/to-json-schema`:
+Runtime validation only requires Standard Schema. OpenAPI generation still needs a schema adapter when the schema does not expose Standard JSON Schema. For Valibot, use `@zeltjs/validator-valibot/openapi` and install `@valibot/to-json-schema`:
 
 ```bash
 pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
@@ -24,12 +26,12 @@ pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
 - `valibot@1.4.x` → `@valibot/to-json-schema@1.7.x`
 - `valibot@1.3.x` → `@valibot/to-json-schema@1.6.x`
 
-Check the [@valibot/to-json-schema releases](https://github.com/fabian-hiller/valibot/releases) for compatibility.
+Check the [Valibot releases](https://github.com/fabian-hiller/valibot/releases) for compatibility.
 :::
 
 :::info[Important]
-`validated()` is exported from `@zeltjs/validator-valibot`, **not** from `@zeltjs/core`.
-Import it as `import { validated } from '@zeltjs/validator-valibot'`.
+New code should import `validated()` from `@zeltjs/core`.
+For compatibility, `@zeltjs/validator-valibot` continues to re-export `validated()`.
 The `valibot` peer dependency must be `^1.0.0`. We test against `1.3.x`; using an older version may cause type inference issues.
 :::
 
@@ -38,8 +40,7 @@ The `valibot` peer dependency must be `^1.0.0`. We test against `1.3.x`; using a
 Use `validated()` with a Valibot schema to validate request bodies:
 
 ```typescript
-import { Controller, Post, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Post, response, validated } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserSchema = v.object({
@@ -63,8 +64,7 @@ export class UserController {
 Use `validated(schema, 'form')` to validate `multipart/form-data` requests, including file uploads:
 
 ```typescript
-import { Controller, Post, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Post, response, validated } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const UploadSchema = v.object({
@@ -95,8 +95,7 @@ The second argument to `validated()` specifies the request body format:
 ### Multiple Files
 
 ```typescript
-import { Controller, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Post, validated } from '@zeltjs/core';
 import * as v from 'valibot';
 // ---cut---
 const MultiUploadSchema = v.object({

@@ -1,7 +1,7 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
-import { gqlValidated, runWithGraphqlArgs } from './gql-validated.lib';
+import { args, runWithGraphqlArgs } from './args.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
 import { Query, Resolver } from './index';
@@ -10,21 +10,37 @@ const GetUserInput = v.object({
   id: v.pipe(v.string(), v.minLength(1)),
 });
 
-describe('gqlValidated', () => {
+describe('args', () => {
   it('returns validated args inside a GraphQL args context', () => {
-    const output = runWithGraphqlArgs({ id: 'user-1' }, () => gqlValidated(GetUserInput));
+    const output = runWithGraphqlArgs({ id: 'user-1' }, () => args(GetUserInput));
 
     expect(output).toEqual({ id: 'user-1' });
   });
 
   it('throws a validation error when args do not match the schema', () => {
-    expect(() => runWithGraphqlArgs({ id: '' }, () => gqlValidated(GetUserInput))).toThrow(
+    expect(() => runWithGraphqlArgs({ id: '' }, () => args(GetUserInput))).toThrow(
       /validation failed/i,
     );
   });
 
   it('throws when called outside a GraphQL args context', () => {
-    expect(() => gqlValidated(GetUserInput)).toThrow(/args context/i);
+    expect(() => args(GetUserInput)).toThrow(
+      'args() requires a GraphQL args context; call it only as a resolver method default parameter.',
+    );
+  });
+
+  it('throws a clear error for async validation schemas', () => {
+    const AsyncInput = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: async () => ({ value: { id: 'user-1' } }),
+      },
+    } as const;
+
+    expect(() => runWithGraphqlArgs({ id: 'user-1' }, () => args(AsyncInput))).toThrow(
+      'args() does not support async validation schemas.',
+    );
   });
 });
 
@@ -36,7 +52,7 @@ type UserPublic = {
 @Resolver()
 class ArgsUserResolver {
   @Query()
-  user(input = gqlValidated(GetUserInput)): UserPublic {
+  user(input = args(GetUserInput)): UserPublic {
     return { id: input.id, name: `name-${input.id}` };
   }
 }
@@ -59,7 +75,7 @@ type UserPublic {
 } satisfies GeneratedGraphqlRuntime;
 
 describe('executeGraphqlRequest with field args', () => {
-  it('passes GraphQL field args to gqlValidated in the resolver', async () => {
+  it('passes GraphQL field args to args in the resolver', async () => {
     const result = await executeGraphqlRequest({
       runtime,
       resolvers: [ArgsUserResolver],

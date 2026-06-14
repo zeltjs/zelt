@@ -119,7 +119,11 @@ export { SecureHeadersConfig } from './features/http/middleware/secure-headers/s
 export { SecureHeadersMiddleware } from './features/http/middleware/secure-headers/secure-headers.middleware';
 export { SkipMiddleware } from './features/http/middleware/skip-middleware.decorator';
 export { UseMiddleware } from './features/http/middleware/use-middleware.decorator';
-export { requestContext } from './features/http/request';
+export {
+  AsyncValidationUnsupportedException,
+  requestContext,
+  ValidationFailedException,
+} from './features/http/request';
 export type { RequestContextSchema } from './features/http/request/injection';
 export {
   body,
@@ -134,6 +138,7 @@ export {
   queryParams,
   setContext,
   url,
+  validated,
 } from './features/http/request/injection';
 export type {
   ExtractValidated,

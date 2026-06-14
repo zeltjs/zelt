@@ -119,6 +119,7 @@ const config: KnipConfig = {
         '@shikijs/rehype',
         '@shikijs/twoslash',
         '@zeltjs/adapter-cloudflare-workers',
+        '@zeltjs/adapter-electron',
         '@zeltjs/adapter-node',
         '@zeltjs/auth-jwt',
         '@zeltjs/auth-session',

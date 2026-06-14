@@ -49,6 +49,7 @@
     "@docusaurus/types": "3.10.1",
     "@types/react": "^19.0.0",
     "@zeltjs/adapter-cloudflare-workers": "workspace:*",
+    "@zeltjs/adapter-electron": "workspace:*",
     "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/auth-jwt": "workspace:*",
     "@zeltjs/auth-session": "workspace:*",

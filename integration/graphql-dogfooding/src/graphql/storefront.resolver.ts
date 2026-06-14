@@ -1,5 +1,5 @@
 import { inject } from '@zeltjs/core';
-import { gqlValidated, Query, Resolver } from '@zeltjs/graphql';
+import { args, Query, Resolver } from '@zeltjs/graphql';
 import { CartService } from '../cart/cart.service';
 import type { CartPublic } from '../cart/cart.types';
 import { CatalogService } from '../catalog/catalog.service';
@@ -35,7 +35,7 @@ export class StorefrontResolver {
   }
 
   @Query()
-  product(input = gqlValidated(GetProductInput)): ProductPublic | null {
+  product(input = args(GetProductInput)): ProductPublic | null {
     return this.catalogService.findProduct(input.id) ?? null;
   }
 

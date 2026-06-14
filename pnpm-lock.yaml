@@ -352,6 +352,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@standard-schema/spec':
+        specifier: 1.1.0
+        version: 1.1.0
       '@zeltjs/decorator-metadata':
         specifier: workspace:*
         version: link:../decorator-metadata
@@ -455,6 +458,9 @@ importers:
 
   packages/graphql:
     dependencies:
+      '@standard-schema/spec':
+        specifier: 1.1.0
+        version: 1.1.0
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
@@ -467,9 +473,6 @@ importers:
       ts-pattern:
         specifier: 5.6.2
         version: 5.6.2
-      valibot:
-        specifier: 'catalog:'
-        version: 1.3.1(typescript@6.0.2)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -480,6 +483,9 @@ importers:
       '@zeltjs/cli':
         specifier: workspace:*
         version: link:../cli
+      valibot:
+        specifier: 'catalog:'
+        version: 1.3.1(typescript@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 4.1.5(@types/node@22.19.17)(@vitest/coverage-v8@4.1.5)(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.9.0))
@@ -714,6 +720,9 @@ importers:
       '@zeltjs/adapter-cloudflare-workers':
         specifier: workspace:*
         version: link:../packages/adapter-cloudflare-workers
+      '@zeltjs/adapter-electron':
+        specifier: workspace:*
+        version: link:../packages/adapter-electron
       '@zeltjs/adapter-node':
         specifier: workspace:*
         version: link:../packages/adapter-node

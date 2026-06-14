@@ -35,5 +35,9 @@ export const createBootstrapMiddleware = (
 // root: every nested router runs inside its parent's store.
 /** @throws {ZeltContextNotAvailableError} */
 export const createRequestRootChecker = (routerToken: symbol): (() => boolean) => {
-  return () => !hasContext() || getInternal(STORE_CREATOR) === routerToken;
+  return () => {
+    if (!hasContext()) return true;
+    const storeCreator = getInternal(STORE_CREATOR);
+    return storeCreator === undefined || storeCreator === routerToken;
+  };
 };

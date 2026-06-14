@@ -8,10 +8,9 @@ import type {
   TypeInfo,
 } from '@zeltjs/decorator-metadata/inspect';
 import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
-import * as v from 'valibot';
 
-import type { GqlSchemaResolver, GqlValidatedSchemaRef } from './analyze-gql-args.lib';
-import { extractGqlValidatedRef, resolveGqlValidatedArgs } from './analyze-gql-args.lib';
+import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
+import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
@@ -43,9 +42,7 @@ export type GenerateSdlOptions = {
   readonly scalarResolver?: GqlSchemaResolver;
 };
 
-const operationKindSchema = v.picklist(['query', 'mutation', 'resolveField']);
-
-type OperationKind = v.InferOutput<typeof operationKindSchema>;
+type OperationKind = 'query' | 'mutation' | 'resolveField';
 
 type RootFields = {
   readonly query: Map<string, string>;
@@ -69,7 +66,7 @@ type AnalyzeResolversResult = {
 type MethodTypeNames = {
   readonly returnTypeName: string | undefined;
   readonly parentTypeName: string | undefined;
-  readonly argsSchemaRef: GqlValidatedSchemaRef | undefined;
+  readonly argsSchemaRef: GraphqlArgsSchemaRef | undefined;
   readonly returnType: GraphqlOutputTypeInfo | undefined;
 };
 
@@ -88,8 +85,7 @@ function narrowToTypeReference(type: TSType): TSType {
 const getOperationKind = (method: MethodInfo): OperationKind | undefined => {
   for (const prop of method.props) {
     const kind: unknown = Reflect.get(prop, 'kind');
-    const parsed = v.safeParse(operationKindSchema, kind);
-    if (parsed.success) return parsed.output;
+    if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') return kind;
   }
   return undefined;
 };
@@ -699,7 +695,7 @@ const getMethodTypeNames = async (
   const parentTypeName = firstParam
     ? getNamedTypeFromTsType(checker.getTypeOfSymbol(firstParam), checker, ts)
     : undefined;
-  const argsSchemaRef = extractGqlValidatedRef(methodNode, classNode.getSourceFile(), ts);
+  const argsSchemaRef = extractGraphqlArgsRef(methodNode, classNode.getSourceFile(), ts);
   const returnType = await enrichGraphqlTypeInfo(baseReturnType, tsReturnType, methodNode.type, {
     sourceFile: classNode.getSourceFile(),
     checker,
@@ -917,7 +913,7 @@ const registerResolverMethod = (
   if (kind === 'resolveField') {
     if (argsRendered !== '') {
       throw new Error(
-        `gqlValidated args on @ResolveField() are not supported yet: ${resolverName}.${methodName}`,
+        `args() on @ResolveField() is not supported yet: ${resolverName}.${methodName}`,
       );
     }
     registerFieldMethod(state, resolverName, methodName, returnType, names);
@@ -936,11 +932,9 @@ const renderMethodArgs = async (
   const ref = names?.argsSchemaRef;
   if (!ref) return '';
   if (!options.schemaAdapter) {
-    throw new Error(
-      `gqlValidated args require the schemaAdapter option: ${resolverName}.${methodName}`,
-    );
+    throw new Error(`args() requires the schemaAdapter option: ${resolverName}.${methodName}`);
   }
-  const args = await resolveGqlValidatedArgs(ref, options.schemaAdapter, options.schemaResolver);
+  const args = await resolveGraphqlArgs(ref, options.schemaAdapter, options.schemaResolver);
   return renderGraphqlArgs(args);
 };
 

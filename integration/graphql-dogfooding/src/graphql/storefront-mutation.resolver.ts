@@ -1,5 +1,5 @@
 import { inject } from '@zeltjs/core';
-import { gqlValidated, Mutation, Resolver } from '@zeltjs/graphql';
+import { args, Mutation, Resolver } from '@zeltjs/graphql';
 import { CartService } from '../cart/cart.service';
 import type { CartPublic } from '../cart/cart.types';
 import { CustomerService } from '../customer/customer.service';
@@ -21,7 +21,7 @@ export class StorefrontMutationResolver {
   }
 
   @Mutation()
-  addCartItem(input = gqlValidated(AddCartItemInput)): CartPublic {
+  addCartItem(input = args(AddCartItemInput)): CartPublic {
     return this.cartService.addItem(
       this.customerService.currentViewer().id,
       input.productId,

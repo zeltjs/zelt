@@ -243,7 +243,7 @@ describe('GraphQL dogfooding app', () => {
     );
   });
 
-  it('validates field args through gqlValidated on queries and mutations', async () => {
+  it('validates field args through args on queries and mutations', async () => {
     const app = createGraphqlDogfoodingApp();
     const runtime = await app.createRuntime();
 
