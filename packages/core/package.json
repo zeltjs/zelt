@@ -52,6 +52,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@standard-schema/spec": "1.1.0",
     "@zeltjs/decorator-metadata": "workspace:*",
     "hono": "catalog:"
   },
