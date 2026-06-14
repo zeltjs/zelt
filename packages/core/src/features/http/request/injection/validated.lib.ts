@@ -6,6 +6,19 @@ import {
 import type { ValidatedMarker, ValidationTarget } from '../validated.types';
 import { body } from './body.lib';
 
+const isThenable = (value: unknown): boolean => {
+  if (value === null) {
+    return false;
+  }
+
+  const valueType = typeof value;
+  if (valueType !== 'object' && valueType !== 'function') {
+    return false;
+  }
+
+  return typeof Reflect.get(Object(value), 'then') === 'function';
+};
+
 /** @throws {ValidationFailedException | AsyncValidationUnsupportedException | ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
 export function validated<Schema extends StandardSchemaV1>(
   schema: Schema,
@@ -24,7 +37,7 @@ export function validated<Schema extends StandardSchemaV1>(
   const raw = target === 'form' ? body('form') : body('json');
   const result = schema['~standard'].validate(raw);
 
-  if (result instanceof Promise) {
+  if (result instanceof Promise || isThenable(result)) {
     throw new AsyncValidationUnsupportedException({});
   }
 
