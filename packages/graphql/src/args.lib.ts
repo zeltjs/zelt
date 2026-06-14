@@ -23,16 +23,29 @@ const isThenable = (value: unknown): boolean => {
 export const runWithGraphqlArgs = <T>(args: Readonly<Record<string, unknown>>, fn: () => T): T =>
   graphqlArgsStorage.run(args, fn);
 
-/** @throws {GraphqlArgsValidationError | Error} */
-export const args = <Schema extends StandardSchemaV1>(
-  schema: Schema,
-): StandardSchemaV1.InferOutput<Schema> => {
+/** @throws {Error} */
+const getGraphqlArgsContext = (): Readonly<Record<string, unknown>> => {
   const rawArgs = graphqlArgsStorage.getStore();
   if (rawArgs === undefined) {
     throw new Error(
       'args() requires a GraphQL args context; call it only as a resolver method default parameter.',
     );
   }
+  return rawArgs;
+};
+
+/**
+ * @internal Used by generated schema-first field helpers.
+ * @throws {Error}
+ */
+export const readGraphqlArgs = <Output extends Readonly<Record<string, unknown>>>(): Output =>
+  getGraphqlArgsContext() as Output;
+
+/** @throws {GraphqlArgsValidationError | Error} */
+export const validateGraphqlArgs = <Schema extends StandardSchemaV1>(
+  schema: Schema,
+): StandardSchemaV1.InferOutput<Schema> => {
+  const rawArgs = getGraphqlArgsContext();
 
   const result = schema['~standard'].validate(rawArgs);
   if (result instanceof Promise || isThenable(result)) {
@@ -43,3 +56,8 @@ export const args = <Schema extends StandardSchemaV1>(
   }
   return result.value;
 };
+
+/** @throws {GraphqlArgsValidationError | Error} */
+export const args = <Schema extends StandardSchemaV1>(
+  schema: Schema,
+): StandardSchemaV1.InferOutput<Schema> => validateGraphqlArgs(schema);

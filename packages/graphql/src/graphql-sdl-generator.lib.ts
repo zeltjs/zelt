@@ -5,7 +5,7 @@ import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/
 
 import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
-import type { GraphqlResolverClass } from './graphql-metadata.lib';
+import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import type { GraphqlSchemaAdapter } from './json-schema-to-graphql-args.lib';
 import { renderGraphqlArgs } from './json-schema-to-graphql-args.lib';
@@ -67,10 +67,16 @@ function narrowToTypeReference(type: TSType): TSType {
   return type;
 }
 
-const getOperationKind = (method: MethodInfo): OperationKind | undefined => {
+const getOperationMetadata = (method: MethodInfo): GraphqlOperationMetadata | undefined => {
   for (const prop of method.props) {
     const kind: unknown = Reflect.get(prop, 'kind');
-    if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') return kind;
+    if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') {
+      const fieldName: unknown = Reflect.get(prop, 'fieldName');
+      return {
+        kind,
+        ...(typeof fieldName === 'string' ? { fieldName } : {}),
+      };
+    }
   }
   return undefined;
 };
@@ -310,6 +316,7 @@ const registerRootMethod = (
   state: AnalysisState,
   resolverName: string,
   methodName: string,
+  fieldName: string,
   returnType: TypeInfo,
   kind: 'query' | 'mutation',
   names: MethodTypeNames | undefined,
@@ -317,9 +324,9 @@ const registerRootMethod = (
 ): void => {
   const fields = kind === 'query' ? state.roots.query : state.roots.mutation;
   const rootTypeName = kind === 'query' ? 'Query' : 'Mutation';
-  addRootField(fields, methodName, returnType, names?.returnTypeName, argsRendered, state.typeCtx);
-  addEnumFieldMappingForType(state.typeCtx, rootTypeName, methodName, returnType);
-  addRuntimeBinding(state.bindings, rootTypeName, methodName, resolverName, methodName);
+  addRootField(fields, fieldName, returnType, names?.returnTypeName, argsRendered, state.typeCtx);
+  addEnumFieldMappingForType(state.typeCtx, rootTypeName, fieldName, returnType);
+  addRuntimeBinding(state.bindings, rootTypeName, fieldName, resolverName, methodName);
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -327,20 +334,15 @@ const registerFieldMethod = (
   state: AnalysisState,
   resolverName: string,
   methodName: string,
+  fieldName: string,
   returnType: TypeInfo,
   names: MethodTypeNames | undefined,
 ): void => {
   if (!names?.parentTypeName) {
     throw new Error(`@ResolveField() ${resolverName}.${methodName} requires named parent type`);
   }
-  addGraphqlField(
-    state.typeCtx,
-    names.parentTypeName,
-    methodName,
-    returnType,
-    names.returnTypeName,
-  );
-  addRuntimeBinding(state.bindings, names.parentTypeName, methodName, resolverName, methodName);
+  addGraphqlField(state.typeCtx, names.parentTypeName, fieldName, returnType, names.returnTypeName);
+  addRuntimeBinding(state.bindings, names.parentTypeName, fieldName, resolverName, methodName);
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -348,6 +350,7 @@ const registerResolverMethod = (
   state: AnalysisState,
   resolverName: string,
   methodName: string,
+  fieldName: string,
   returnType: TypeInfo,
   kind: OperationKind,
   names: MethodTypeNames | undefined,
@@ -359,10 +362,19 @@ const registerResolverMethod = (
         `args() on @ResolveField() is not supported yet: ${resolverName}.${methodName}`,
       );
     }
-    registerFieldMethod(state, resolverName, methodName, returnType, names);
+    registerFieldMethod(state, resolverName, methodName, fieldName, returnType, names);
     return;
   }
-  registerRootMethod(state, resolverName, methodName, returnType, kind, names, argsRendered);
+  registerRootMethod(
+    state,
+    resolverName,
+    methodName,
+    fieldName,
+    returnType,
+    kind,
+    names,
+    argsRendered,
+  );
 };
 
 /** @throws {Error} */
@@ -401,8 +413,8 @@ const analyzeResolver = async (
 
   for (const method of metadata.methods) {
     if (typeof method.name !== 'string') continue;
-    const operationKind = getOperationKind(method);
-    if (!operationKind) continue;
+    const operation = getOperationMetadata(method);
+    if (!operation) continue;
 
     const names = methodTypeNames.get(method.name);
     const argsRendered = await renderMethodArgs(names, resolver.name, method.name, options);
@@ -410,8 +422,9 @@ const analyzeResolver = async (
       state,
       resolver.name,
       method.name,
+      operation.fieldName ?? method.name,
       method.returnType,
-      operationKind,
+      operation.kind,
       names,
       argsRendered,
     );

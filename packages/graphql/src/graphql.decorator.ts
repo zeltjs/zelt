@@ -26,8 +26,13 @@ export const Resolver = (): ClassDecoratorFn =>
   });
 
 /** @throws {E} */
-const createGraphqlOperationDecorator = (kind: GraphqlOperationKind) => (): MethodDecoratorFn =>
-  createMethodDecorator<GraphqlOperationMetadata>({ kind });
+const createGraphqlOperationDecorator =
+  (kind: GraphqlOperationKind) =>
+  (fieldName?: string): MethodDecoratorFn =>
+    createMethodDecorator<GraphqlOperationMetadata>({
+      kind,
+      ...(fieldName !== undefined ? { fieldName } : {}),
+    });
 
 export const Query = createGraphqlOperationDecorator('query');
 export const Mutation = createGraphqlOperationDecorator('mutation');

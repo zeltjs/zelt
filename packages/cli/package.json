@@ -46,8 +46,6 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@zeltjs/adapter-node": "workspace:*",
-    "@zeltjs/core": "workspace:*",
     "chokidar": "5.0.0",
     "jiti": "2.6.1"
   },

@@ -1,4 +1,3 @@
-import { NodeCliConfig } from '@zeltjs/adapter-node';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
@@ -7,9 +6,6 @@ import type { ZeltConfigLoadError } from './cli.errors';
 import { isZeltConfigLoadError, isZeltNoEntryError, ZeltNoEntryError } from './cli.errors';
 import type { DevConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
-import { startDevServer } from './dev-server.lib';
-
-const cliConfig = new NodeCliConfig();
 
 type DevArgs = {
   readonly config?: string;
@@ -40,7 +36,12 @@ const runDev = async (cwd: string, typedArgs: DevArgs): Promise<void> => {
     throw new ZeltNoEntryError({});
   }
 
-  await startDevServer({ cwd, config, devConfig: { ...devConfig, entry: devConfig.entry } });
+  const devServer = await import('./dev-server.lib');
+  await devServer.startDevServer({
+    cwd,
+    config,
+    devConfig: { ...devConfig, entry: devConfig.entry },
+  });
 };
 
 const handleError = (error: DevError): void => {
@@ -77,7 +78,7 @@ export const devCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const cwd = cliConfig.cwd();
+    const cwd = process.cwd();
     const typedArgs: DevArgs = args;
 
     try {

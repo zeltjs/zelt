@@ -22,6 +22,8 @@ export default mergeConfig(
           '../core/src/internal-bridge/errors.ts',
         ),
         '@zeltjs/core': path.resolve(__dirname, '../core/src/index.ts'),
+        '@zeltjs/adapter-node': path.resolve(__dirname, '../adapter-node/src/index.ts'),
+        '@zeltjs/unsafe-type-lib': path.resolve(__dirname, '../unsafe-type-lib/src/index.ts'),
       },
     },
   }),

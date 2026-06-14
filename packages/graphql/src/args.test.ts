@@ -1,7 +1,7 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
-import { args, runWithGraphqlArgs } from './args.lib';
+import { args, readGraphqlArgs, runWithGraphqlArgs, validateGraphqlArgs } from './args.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
 import { Query, Resolver } from './index';
@@ -41,6 +41,20 @@ describe('args', () => {
     expect(() => runWithGraphqlArgs({ id: 'user-1' }, () => args(AsyncInput))).toThrow(
       'args() does not support async validation schemas.',
     );
+  });
+
+  it('lets generated helpers read raw GraphQL args from the current context', () => {
+    const output = runWithGraphqlArgs({ id: 'product-1' }, () =>
+      readGraphqlArgs<{ readonly id: string }>(),
+    );
+
+    expect(output.id).toBe('product-1');
+  });
+
+  it('lets generated helpers validate GraphQL args with Standard Schema', () => {
+    const output = runWithGraphqlArgs({ id: 'product-1' }, () => validateGraphqlArgs(GetUserInput));
+
+    expect(output).toEqual({ id: 'product-1' });
   });
 });
 

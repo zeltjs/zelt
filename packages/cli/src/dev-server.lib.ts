@@ -1,16 +1,12 @@
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 
-import { NodeCliConfig } from '@zeltjs/adapter-node';
-import type { SignalHandler } from '@zeltjs/core';
 import consola from 'consola';
 
 import type { DevConfig, ZeltConfig } from './config/config.types';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 import type { WatcherHandle } from './watcher.lib';
 import { createWatcher } from './watcher.lib';
-
-const cliConfig = new NodeCliConfig();
 
 export type DevServerOptions = {
   readonly cwd: string;
@@ -144,17 +140,17 @@ const createRestartHandler = (
   };
 };
 
-const registerSignalHandlers = (onSignal: () => Promise<void>): SignalHandler => {
+const registerSignalHandlers = (onSignal: () => Promise<void>): (() => void) => {
   const handler = (): void => {
     void onSignal();
   };
 
-  cliConfig.onSignal('SIGINT', handler);
-  cliConfig.onSignal('SIGTERM', handler);
+  process.on('SIGINT', handler);
+  process.on('SIGTERM', handler);
 
   return () => {
-    cliConfig.offSignal('SIGINT', handler);
-    cliConfig.offSignal('SIGTERM', handler);
+    process.off('SIGINT', handler);
+    process.off('SIGTERM', handler);
   };
 };
 
