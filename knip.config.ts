@@ -74,11 +74,6 @@ const config: KnipConfig = {
       // for AST-based import resolution testing (must be a separate file)
       ignore: ['src/gql-args-sample.lib.ts'],
     },
-    'packages/validator-valibot': {
-      // OpenAPI regression fixtures are imported only from tests.
-      // knip --production excludes tests, so the fixtures become intentionally unreachable.
-      ignore: ['src/openapi/fixtures/**'],
-    },
     'packages/adapter-node': {
       ignoreDependencies: ['@zeltjs/core'],
     },
