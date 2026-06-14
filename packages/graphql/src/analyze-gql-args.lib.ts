@@ -15,8 +15,6 @@ export type GraphqlArgsSchemaRef = {
   readonly exportName: string;
 };
 
-export type GqlValidatedSchemaRef = GraphqlArgsSchemaRef;
-
 // Caller-supplied module loader, same contract as @zeltjs/openapi's
 // SchemaResolver: required when the schema module is a `.ts` file that the
 // calling runtime (vitest, tsx) can resolve through its loader but Node.js's
@@ -48,10 +46,7 @@ const resolveRelativeModuleSpecifier = (sourceFile: TSSourceFile, specifier: str
 };
 
 const isGraphqlHelperModule = (specifier: string): boolean =>
-  specifier === '@zeltjs/graphql' ||
-  specifier === './index' ||
-  specifier === './args.lib' ||
-  specifier === './gql-validated.lib';
+  specifier === '@zeltjs/graphql' || specifier === './index' || specifier === './args.lib';
 
 const getNamedImportsFromGraphqlHelper = (
   stmt: import('typescript').Statement,
@@ -65,8 +60,7 @@ const getNamedImportsFromGraphqlHelper = (
   return namedBindings.elements;
 };
 
-const isGraphqlArgsHelperExport = (exportedName: string): boolean =>
-  exportedName === 'args' || exportedName === 'gqlValidated';
+const isGraphqlArgsHelperExport = (exportedName: string): boolean => exportedName === 'args';
 
 // `import { Foo as Bar } from './x'; args(Bar)` must dynamic-import
 // `Foo` from `./x`, not `Bar`.
@@ -199,8 +193,6 @@ export const extractGraphqlArgsRef = (
   return undefined;
 };
 
-export const extractGqlValidatedRef = extractGraphqlArgsRef;
-
 /** @throws {Error} when the module cannot be imported, the export is missing, or the schema is unsupported */
 export const resolveGraphqlArgs = async (
   ref: GraphqlArgsSchemaRef,
@@ -214,5 +206,3 @@ export const resolveGraphqlArgs = async (
   }
   return jsonSchemaToGraphqlArgs(adapter.toJsonSchema(value));
 };
-
-export const resolveGqlValidatedArgs = resolveGraphqlArgs;

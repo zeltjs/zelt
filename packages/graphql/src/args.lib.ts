@@ -43,6 +43,3 @@ export const args = <Schema extends StandardSchemaV1>(
   }
   return result.value;
 };
-
-/** @deprecated Use args(schema) instead. */
-export const gqlValidated = args;

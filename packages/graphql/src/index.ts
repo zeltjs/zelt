@@ -1,7 +1,7 @@
 export type { StandardSchemaV1 } from '@standard-schema/spec';
-export type { GqlSchemaResolver, GqlValidatedSchemaRef } from './analyze-gql-args.lib';
+export type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 export type { StandardSchemaIssue } from './args.lib';
-export { args, GraphqlArgsValidationError, gqlValidated, runWithGraphqlArgs } from './args.lib';
+export { args, GraphqlArgsValidationError, runWithGraphqlArgs } from './args.lib';
 export { Mutation, Query, ResolveField, Resolver } from './graphql.decorator';
 export type { GraphqlChildOptions, GraphqlOptions } from './graphql-child.lib';
 export { graphql } from './graphql-child.lib';
