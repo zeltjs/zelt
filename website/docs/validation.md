@@ -3,7 +3,7 @@
 
 # Validation
 
-Zelt validates request bodies with Standard Schema compatible schemas. You can use any validator that exposes `schema["~standard"].validate(value)`, including [Valibot](https://valibot.dev/), Zod, and ArkType.
+Zelt validates request bodies with synchronous Standard Schema compatible schemas. You can use any validator that exposes `schema["~standard"].validate(value)`, including [Valibot](https://valibot.dev/), Zod, and ArkType.
 
 ## Installation
 
@@ -26,7 +26,7 @@ pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
 - `valibot@1.4.x` → `@valibot/to-json-schema@1.7.x`
 - `valibot@1.3.x` → `@valibot/to-json-schema@1.6.x`
 
-Check the [@valibot/to-json-schema releases](https://github.com/fabian-hiller/valibot/releases) for compatibility.
+Check the [Valibot releases](https://github.com/fabian-hiller/valibot/releases) for compatibility.
 :::
 
 :::info[Important]
