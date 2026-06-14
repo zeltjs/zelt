@@ -352,6 +352,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@standard-schema/spec':
+        specifier: 1.1.0
+        version: 1.1.0
       '@zeltjs/decorator-metadata':
         specifier: workspace:*
         version: link:../decorator-metadata
