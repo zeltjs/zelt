@@ -99,6 +99,9 @@ export default tseslint.config(
     rules: {
       'zelt/config-di-scope': 'error',
       'zelt/decorator-file-naming': ['error', { allowedNames: ['Env'] }],
+      // 段階的廃止に向けた棚卸し用。オーバーロードによる無検証キャスト
+      // (narrowTo パターン) は as と同等に unsafe なので新規追加を抑止する
+      'zelt/no-overload-cast': 'warn',
       'zelt/double-dot-naming': [
         'error',
         {

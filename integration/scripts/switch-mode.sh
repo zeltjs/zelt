@@ -36,6 +36,7 @@ PACKAGES=(
   "decorator-metadata"
   "redis"
   "openapi"
+  "graphql"
   "validator-valibot"
   "eventbus"
   "rate-limit"
@@ -307,7 +308,15 @@ setup_integration_dir() {
   merge_extra_deps "$integration_dir"
 
   echo "  Installing dependencies..."
-  (cd "$integration_dir" && rm -rf node_modules pnpm-lock.yaml && VOLTA_FEATURE_PNPM=1 pnpm install --ignore-workspace 2>/dev/null)
+  (
+    cd "$integration_dir"
+    rm -rf node_modules pnpm-lock.yaml
+    if VOLTA_FEATURE_PNPM=1 pnpm --version >/dev/null 2>&1; then
+      VOLTA_FEATURE_PNPM=1 pnpm install --ignore-workspace 2>/dev/null
+    else
+      pnpm install --ignore-workspace 2>/dev/null
+    fi
+  )
 
   echo "  ✓ $name ready"
 }

@@ -7,3 +7,6 @@
 
 # Installed dependencies per integration test
 */node_modules/
+
+# Generated integration build artifacts
+*/src/generated/
