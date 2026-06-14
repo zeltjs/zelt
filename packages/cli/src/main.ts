@@ -2,6 +2,7 @@ import { defineCommand } from 'citty';
 
 import { buildCommand } from './build.command';
 import { devCommand } from './dev.command';
+import { graphqlCommand } from './graphql.command';
 import { runCommandDef } from './run.command';
 
 export const mainCommand = defineCommand({
@@ -13,6 +14,7 @@ export const mainCommand = defineCommand({
   subCommands: {
     build: buildCommand,
     dev: devCommand,
+    graphql: graphqlCommand,
     run: runCommandDef,
   },
 });

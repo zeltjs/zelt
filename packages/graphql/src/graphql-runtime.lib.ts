@@ -20,11 +20,16 @@ export type GeneratedGraphqlBinding = {
   readonly method: string;
 };
 
+// GeneratedGraphqlRuntime is the runtime manifest consumed by the executor.
+// Code-first generation is one producer. Schema-first generation can produce
+// the same shape from SDL + resolver bindings.
 export type GeneratedGraphqlRuntime = {
   readonly schemaSdl: string;
   readonly bindings: Record<string, Record<string, GeneratedGraphqlBinding>>;
   readonly enumFields?: Record<string, Record<string, Readonly<Record<string, string>>>>;
 };
+
+export type GraphqlRuntimeManifest = GeneratedGraphqlRuntime;
 
 export type GraphqlRequestPayload = {
   readonly query: string;
