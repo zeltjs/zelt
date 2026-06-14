@@ -1,5 +1,5 @@
 {
   "scripts": {
-    "prepare:integration": "zelt graphql codegen --schema src/graphql/schema.graphql --out src/generated/graphql.ts"
+    "prepare:integration": "zelt graphql codegen --schema src/graphql/schema.graphql --out src/generated/graphql.ts && vitest run e2e/generated.spec.ts"
   }
 }

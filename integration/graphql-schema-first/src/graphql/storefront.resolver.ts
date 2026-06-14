@@ -9,7 +9,7 @@ export class StorefrontResolver {
   constructor(private readonly catalog = inject(CatalogService)) {}
 
   @Query()
-  product(input = Gql.Query.product.args()): Gql.Query.product.Result {
+  product(input = Gql.Query.product.args()) {
     return this.catalog.findProduct(input.id) ?? null;
   }
 }

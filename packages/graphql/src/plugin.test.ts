@@ -76,6 +76,7 @@ describe('graphqlPlugin', () => {
     const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-schema-first-'));
     const schema = join(outDir, 'schema.graphql');
     const runtimeModule = join(outDir, 'schema-first-runtime.js');
+    const resolverChecks = join(outDir, 'graphql-resolver-checks.ts');
     await writeFile(
       schema,
       `type Query {
@@ -93,6 +94,10 @@ type ViewerPublic {
       mode: 'schema-first',
       schema,
       runtimeModule,
+      resolverChecks: {
+        out: resolverChecks,
+        gqlTypesImport: './graphql',
+      },
       tsconfig: resolve(__dirname, '../tsconfig.json'),
     });
 
@@ -113,5 +118,6 @@ type ViewerPublic {
     await expect(readFile(runtimeModule.replace(/\.js$/, '.graphql'), 'utf8')).resolves.toContain(
       'type Query',
     );
+    await expect(readFile(resolverChecks, 'utf8')).resolves.toContain('Gql.Query.viewer.Result');
   });
 });

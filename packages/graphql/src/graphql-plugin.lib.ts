@@ -8,6 +8,8 @@ import { getGraphqlControllerMetadata } from './graphql-metadata.lib';
 import type { GraphqlRuntimeManifest } from './graphql-runtime.lib';
 import type { GenerateSdlOptions } from './graphql-sdl-generator.lib';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
+import type { GenerateSchemaFirstResolverChecksOptions } from './schema-first-resolver-checks.lib';
+import { generateSchemaFirstResolverChecks } from './schema-first-resolver-checks.lib';
 import { generateSchemaFirstGraphqlRuntimeForResolvers } from './schema-first-runtime.lib';
 
 type HttpStaticApp = {
@@ -19,6 +21,10 @@ export type GraphqlPluginOptions = {
   readonly outDir?: string;
   readonly schema?: string;
   readonly runtimeModule?: string;
+  readonly resolverChecks?: Pick<
+    GenerateSchemaFirstResolverChecksOptions,
+    'out' | 'gqlTypesImport'
+  >;
   readonly tsconfig?: string;
   readonly schemaAdapter?: GenerateSdlOptions['schemaAdapter'];
   readonly schemaResolver?: GenerateSdlOptions['schemaResolver'];
@@ -29,6 +35,10 @@ export type GenerateGraphqlSdlOptions = GenerateSdlOptions & {
   readonly mode?: 'code-first' | 'schema-first';
   readonly schema?: string;
   readonly runtimeModule?: string;
+  readonly resolverChecks?: Pick<
+    GenerateSchemaFirstResolverChecksOptions,
+    'out' | 'gqlTypesImport'
+  >;
 };
 
 export type GenerateGraphqlSdlResult = {
@@ -168,7 +178,18 @@ const generateSchemaFirstRuntimeModule = async (
   );
   const runtimeChanged = await writeRuntimeModule(runtimeModule, runtime);
   const schemaChanged = await writeIfChanged(toRuntimeSchemaPath(runtimeModule), schemaSdl);
-  return runtimeChanged || schemaChanged;
+  const resolverChecksChanged = options.resolverChecks
+    ? (
+        await generateSchemaFirstResolverChecks({
+          schemaSdl,
+          resolvers: endpoints.flatMap((endpoint) => endpoint.resolvers),
+          out: options.resolverChecks.out,
+          gqlTypesImport: options.resolverChecks.gqlTypesImport,
+          ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
+        })
+      ).changed
+    : false;
+  return runtimeChanged || schemaChanged || resolverChecksChanged;
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -199,6 +220,7 @@ const addGenerateOptions = (
   if (options.mode !== undefined) generateOptions.mode = options.mode;
   if (options.schema !== undefined) generateOptions.schema = options.schema;
   if (options.runtimeModule !== undefined) generateOptions.runtimeModule = options.runtimeModule;
+  if (options.resolverChecks !== undefined) generateOptions.resolverChecks = options.resolverChecks;
   if (options.tsconfig !== undefined) generateOptions.tsconfig = options.tsconfig;
   if (options.schemaAdapter !== undefined) generateOptions.schemaAdapter = options.schemaAdapter;
   if (options.schemaResolver !== undefined) generateOptions.schemaResolver = options.schemaResolver;
