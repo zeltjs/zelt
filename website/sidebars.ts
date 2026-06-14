@@ -57,6 +57,12 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Electron',
+      collapsed: false,
+      items: ['electron/ipc-bridge', 'electron/window-management'],
+    },
+    {
+      type: 'category',
       label: 'CLI',
       collapsed: false,
       items: ['command', 'scheduler'],

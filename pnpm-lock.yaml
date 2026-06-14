@@ -714,6 +714,9 @@ importers:
       '@zeltjs/adapter-cloudflare-workers':
         specifier: workspace:*
         version: link:../packages/adapter-cloudflare-workers
+      '@zeltjs/adapter-electron':
+        specifier: workspace:*
+        version: link:../packages/adapter-electron
       '@zeltjs/adapter-node':
         specifier: workspace:*
         version: link:../packages/adapter-node

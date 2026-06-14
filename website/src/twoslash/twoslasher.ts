@@ -50,6 +50,8 @@ export const twoslasher = createTwoslasher({
     // Corresponding devDependencies in package.json ensure nx builds them first.
     paths: {
       '@zeltjs/adapter-electron': ['./packages/adapter-electron/dist/main/index.d.ts'],
+      '@zeltjs/adapter-electron/preload': ['./packages/adapter-electron/dist/preload/index.d.ts'],
+      '@zeltjs/adapter-electron/renderer': ['./packages/adapter-electron/dist/renderer/index.d.ts'],
       '@zeltjs/validator-valibot': ['./packages/validator-valibot/dist/index.d.ts'],
       '@zeltjs/kv/adaptor-redis': ['./packages/kv/dist/adaptor-redis/index.d.ts'],
       '@zeltjs/redis/testing': ['./packages/redis/dist/testing/index.d.ts'],

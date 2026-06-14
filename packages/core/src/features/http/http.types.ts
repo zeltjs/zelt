@@ -1,5 +1,3 @@
-import type { Hono } from 'hono';
-
 import type { ServiceResolver } from '../../app';
 import type { ErrorHandlerClass, MiddlewareInput } from './middleware/middleware.types';
 import type { ControllerClass, ControllerRouteInfo } from './routing';
@@ -15,8 +13,12 @@ export type HttpStaticCapabilities = {
   readonly getMetadata: () => HttpMetadata;
 };
 
+export type HttpMountableRouter = {
+  readonly fetch: (request: Request) => Response | Promise<Response>;
+};
+
 export type HttpMountableCapabilities = {
-  readonly router: Hono;
+  readonly router: HttpMountableRouter;
   readonly fetch: (request: Request) => Promise<Response>;
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
 };
