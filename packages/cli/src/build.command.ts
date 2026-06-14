@@ -1,4 +1,3 @@
-import { NodeCliConfig } from '@zeltjs/adapter-node';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
@@ -15,12 +14,11 @@ import {
   isZeltNoEntryError,
   ZeltNoEntryError,
 } from './cli.errors';
+import { nodeCliRuntime } from './cli-runtime.lib';
 import type { BuildConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 import { runTsdownBuild } from './tsdown.lib';
-
-const cliConfig = new NodeCliConfig();
 
 type BuildArgs = {
   readonly config?: string;
@@ -117,7 +115,7 @@ export const buildCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const cwd = cliConfig.cwd();
+    const cwd = nodeCliRuntime.cwd();
     const typedArgs: BuildArgs = args;
 
     try {

@@ -1,6 +1,5 @@
 import { spawn } from 'node:child_process';
 
-import { NodeCliConfig } from '@zeltjs/adapter-node';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
@@ -13,10 +12,9 @@ import {
   ZeltCliExecutionError,
   ZeltNoCliEntryError,
 } from './cli.errors';
+import { nodeCliRuntime } from './cli-runtime.lib';
 import type { CliConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
-
-const cliConfig = new NodeCliConfig();
 
 type RunError =
   | InstanceType<typeof ZeltConfigLoadError>
@@ -94,7 +92,7 @@ export const runCommandDef = defineCommand({
     },
   },
   async run({ args, rawArgs }) {
-    const cwd = cliConfig.cwd();
+    const cwd = nodeCliRuntime.cwd();
     // citty types config as `string` but it's actually `string | undefined` at runtime when omitted
     const configFile = args.config || undefined;
     const cliArgs = rawArgs.filter(
@@ -105,7 +103,9 @@ export const runCommandDef = defineCommand({
       await runCli(cwd, configFile, cliArgs);
     } catch (error) {
       if (isRunError(error)) {
-        handleError(error, (code) => cliConfig.setExitCode(code));
+        handleError(error, (code) => {
+          nodeCliRuntime.setExitCode(code);
+        });
       } else {
         throw error;
       }

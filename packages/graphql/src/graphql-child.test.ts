@@ -37,7 +37,8 @@ class UserResolver {
 
 describe('graphql HTTP child helper', () => {
   it('returns an HTTP-mountable feature module with a GraphQL controller', () => {
-    const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
+    const runtimeModule = './dist/graphql-runtime.js';
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver], runtimeModule });
 
     expect(child.path).toBe('/graphql');
     expect(child.blueprint().getControllers()).toHaveLength(1);
@@ -54,8 +55,15 @@ describe('graphql HTTP child helper', () => {
 
     expect(getGraphqlControllerMetadata(controller)).toEqual({
       resolvers: [UserResolver],
+      runtimeModule,
     });
   });
+
+  const _assertRuntimeModuleRequired = (): void => {
+    // @ts-expect-error runtimeModule is required for GraphQL HTTP endpoints.
+    graphql({ path: '/graphql', resolvers: [UserResolver] });
+  };
+  void _assertRuntimeModuleRequired;
 });
 
 describe('resolver name collision detection', () => {
@@ -75,9 +83,13 @@ describe('resolver name collision detection', () => {
     const resolverA = makeResolver('DuplicateName');
     const resolverB = makeResolver('DuplicateName');
 
-    expect(() => graphql({ path: '/graphql', resolvers: [resolverA, resolverB] })).toThrow(
-      /duplicate.*resolver.*DuplicateName/i,
-    );
+    expect(() =>
+      graphql({
+        path: '/graphql',
+        resolvers: [resolverA, resolverB],
+        runtimeModule: './dist/graphql-runtime.js',
+      }),
+    ).toThrow(/duplicate.*resolver.*DuplicateName/i);
   });
 });
 
