@@ -53,13 +53,13 @@ export class HttpFeature
 
     for (const child of this.children) {
       const childCaps = await child.realize(resolver);
-      local.route('/', childCaps.router);
+      Reflect.apply(local.route, local, ['/', childCaps.router]);
     }
 
     if (this.path === '/') return this.toCapabilities(local);
 
     const rootRouter = await service.createLocalRouter({ controllers: [] });
-    rootRouter.route(this.path, local);
+    Reflect.apply(rootRouter.route, rootRouter, [this.path, local]);
     return this.toCapabilities(rootRouter);
   };
 
