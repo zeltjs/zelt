@@ -47,6 +47,13 @@ run_tests() {
     echo "Running tests: $name"
     echo "=========================================="
 
+    if (cd "$dir" && pnpm --if-present run prepare:integration); then
+      echo "✓ $name: prepare:integration passed"
+    else
+      echo "✗ $name: prepare:integration FAILED"
+      exit_code=1
+    fi
+
     if (cd "$dir" && npx tsc --noEmit); then
       echo "✓ $name: tsc --noEmit passed"
     else
