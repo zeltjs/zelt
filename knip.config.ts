@@ -80,6 +80,10 @@ const config: KnipConfig = {
     'packages/adapter-cloudflare-workers': {
       ignoreDependencies: ['@zeltjs/core', 'cloudflare'],
     },
+    'packages/validator-valibot': {
+      // OpenAPI fixtures are imported by tests and are not production entry points.
+      ignore: ['src/openapi/fixtures/**'],
+    },
     'packages/cli': {
       // c12 is bundled into the CLI dist, but it imports jiti at runtime.
       // jiti must stay external because its package assets are not bundle-safe.
