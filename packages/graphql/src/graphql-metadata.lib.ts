@@ -8,6 +8,7 @@ export type GraphqlOperationKind = 'query' | 'mutation' | 'resolveField';
 
 export type GraphqlOperationMetadata = {
   readonly kind: GraphqlOperationKind;
+  readonly fieldName?: string;
 };
 
 export type GraphqlControllerMetadata = {

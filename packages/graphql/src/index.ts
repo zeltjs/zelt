@@ -1,7 +1,13 @@
 export type { StandardSchemaV1 } from '@standard-schema/spec';
 export type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 export type { StandardSchemaIssue } from './args.lib';
-export { args, GraphqlArgsValidationError, runWithGraphqlArgs } from './args.lib';
+export {
+  args,
+  GraphqlArgsValidationError,
+  readGraphqlArgs,
+  runWithGraphqlArgs,
+  validateGraphqlArgs,
+} from './args.lib';
 export type { AnyGqlScalar, GqlOutput, GqlScalar, GqlScalarCodec } from './gql-scalar.lib';
 export { gqlScalar, isGqlScalar } from './gql-scalar.lib';
 export { Mutation, Query, ResolveField, Resolver } from './graphql.decorator';
@@ -31,6 +37,7 @@ export type {
   GeneratedGraphqlRuntime,
   GraphqlExecutor,
   GraphqlRequestPayload,
+  GraphqlRuntimeManifest,
 } from './graphql-runtime.lib';
 export {
   createGraphqlExecutor,
@@ -43,5 +50,11 @@ export {
   generateSdlForResolvers,
 } from './graphql-sdl-generator.lib';
 export type { GraphqlArg, GraphqlSchemaAdapter } from './json-schema-to-graphql-args.lib';
+export type {
+  SchemaFirstCodegenOptions,
+  SchemaFirstCodegenResult,
+} from './schema-first-codegen.lib';
+export { generateSchemaFirstCodegen, renderSchemaFirstCodegen } from './schema-first-codegen.lib';
+export { generateSchemaFirstGraphqlRuntimeForResolvers } from './schema-first-runtime.lib';
 export type { GraphqlTypeContext, GraphqlTypeResult } from './type-to-graphql.lib';
 export { typeInfoToGraphqlType } from './type-to-graphql.lib';

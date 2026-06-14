@@ -1,26 +1,25 @@
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 
-import { NodeCliConfig } from '@zeltjs/adapter-node';
-import type { SignalHandler } from '@zeltjs/core';
 import consola from 'consola';
 
+import type { CliRuntime } from './cli-runtime.lib';
 import type { DevConfig, ZeltConfig } from './config/config.types';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 import type { WatcherHandle } from './watcher.lib';
 import { createWatcher } from './watcher.lib';
 
-const cliConfig = new NodeCliConfig();
-
 export type DevServerOptions = {
   readonly cwd: string;
   readonly config: ZeltConfig;
   readonly devConfig: DevConfig & { entry: string };
+  readonly cliRuntime: Pick<CliRuntime, 'onSignal' | 'offSignal'>;
 };
 
 type DevServerState = {
   childProcess: ChildProcess | undefined;
   watcher: WatcherHandle | undefined;
+  unregisterSignals: (() => void) | undefined;
   isShuttingDown: boolean;
 };
 
@@ -106,6 +105,9 @@ const createShutdownHandler = (state: DevServerState) => {
     state.isShuttingDown = true;
     consola.info('Shutting down dev server...');
 
+    state.unregisterSignals?.();
+    state.unregisterSignals = undefined;
+
     if (state.watcher !== undefined) {
       await state.watcher.close();
     }
@@ -144,27 +146,31 @@ const createRestartHandler = (
   };
 };
 
-const registerSignalHandlers = (onSignal: () => Promise<void>): SignalHandler => {
+const registerSignalHandlers = (
+  runtime: Pick<CliRuntime, 'onSignal' | 'offSignal'>,
+  onSignal: () => Promise<void>,
+): (() => void) => {
   const handler = (): void => {
     void onSignal();
   };
 
-  cliConfig.onSignal('SIGINT', handler);
-  cliConfig.onSignal('SIGTERM', handler);
+  runtime.onSignal('SIGINT', handler);
+  runtime.onSignal('SIGTERM', handler);
 
   return () => {
-    cliConfig.offSignal('SIGINT', handler);
-    cliConfig.offSignal('SIGTERM', handler);
+    runtime.offSignal('SIGINT', handler);
+    runtime.offSignal('SIGTERM', handler);
   };
 };
 
 /** @throws {ZeltMultipleBuildHooksError} */
 export const startDevServer = async (options: DevServerOptions): Promise<void> => {
-  const { cwd, config, devConfig } = options;
+  const { cwd, config, devConfig, cliRuntime } = options;
 
   const state: DevServerState = {
     childProcess: undefined,
     watcher: undefined,
+    unregisterSignals: undefined,
     isShuttingDown: false,
   };
 
@@ -175,7 +181,7 @@ export const startDevServer = async (options: DevServerOptions): Promise<void> =
   const shutdown = createShutdownHandler(state);
   const restart = createRestartHandler(state, cwd, devConfig.entry, config);
 
-  registerSignalHandlers(shutdown);
+  state.unregisterSignals = registerSignalHandlers(cliRuntime, shutdown);
 
   state.watcher = createWatcher({
     cwd,

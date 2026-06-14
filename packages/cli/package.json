@@ -46,10 +46,11 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@zeltjs/adapter-node": "workspace:*",
-    "@zeltjs/core": "workspace:*",
     "chokidar": "5.0.0",
-    "jiti": "2.6.1"
+    "citty": "0.1.6",
+    "consola": "3.4.2",
+    "jiti": "2.6.1",
+    "ts-pattern": "5.7.1"
   },
   "peerDependencies": {
     "typescript": "catalog:peer"
@@ -57,9 +58,6 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "c12": "3.0.4",
-    "citty": "0.1.6",
-    "consola": "3.4.2",
-    "ts-pattern": "5.7.1",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "valibot": "catalog:"
