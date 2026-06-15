@@ -1,34 +1,13 @@
-import { mkdir, readFile, rm } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-
-import { generateGraphqlSdl } from '@zeltjs/graphql';
+import { readFile } from 'node:fs/promises';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createGraphqlSchemaFirstApp, graphqlRuntimeModule } from '../src/app';
-
-const tsconfig = resolve(__dirname, '../tsconfig.json');
-const schema = resolve(__dirname, '../src/graphql/schema.graphql');
-const runtimeModulePath = resolve(__dirname, '..', graphqlRuntimeModule);
-const generatedDir = dirname(runtimeModulePath);
+import { createGraphqlSchemaFirstApp } from '../src/app';
+import { prepareGeneratedRuntime, resolverChecksPath, runtimeModulePath } from './generated';
 
 type AppRuntime = Awaited<
   ReturnType<ReturnType<typeof createGraphqlSchemaFirstApp>['createRuntime']>
 >;
-
-const prepareGeneratedRuntime = async (): Promise<void> => {
-  await rm(runtimeModulePath, { force: true });
-  await mkdir(generatedDir, { recursive: true });
-
-  const app = createGraphqlSchemaFirstApp();
-  await generateGraphqlSdl(app.http, {
-    mode: 'schema-first',
-    schema,
-    runtimeModule: runtimeModulePath,
-    distDir: generatedDir,
-    tsconfig,
-  });
-};
 
 const postGraphql = (runtime: AppRuntime, query: string): Promise<Response> =>
   runtime.http.request('/graphql', {
@@ -52,6 +31,9 @@ describe('GraphQL schema-first app', () => {
   it('runs a schema-first resolver through the generated GraphQL runtime over HTTP', async () => {
     await expect(readFile(runtimeModulePath, 'utf8')).resolves.toContain(
       'export const graphqlRuntime',
+    );
+    await expect(readFile(resolverChecksPath, 'utf8')).resolves.toContain(
+      'Gql.Query.product.Result',
     );
 
     const response = await postGraphql(runtime, '{ product(id: "p_lamp") { id name } }');
