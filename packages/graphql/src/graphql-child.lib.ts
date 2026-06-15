@@ -20,7 +20,7 @@ import {
 export type GraphqlOptions = {
   readonly path: string;
   readonly resolvers: readonly GraphqlResolverClass[];
-  readonly runtimeModule?: string;
+  readonly runtimeModule: string;
 };
 
 export type GraphqlChildOptions = HttpMountableFeatureModule;
@@ -61,7 +61,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
     this.controller = GraphqlEndpointController;
     setGraphqlControllerMetadata(GraphqlEndpointController, {
       resolvers: options.resolvers,
-      ...(options.runtimeModule ? { runtimeModule: options.runtimeModule } : {}),
+      runtimeModule: options.runtimeModule,
     });
   }
 
@@ -88,23 +88,21 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
   readonly realize = async (
     runtimeContext: ServiceResolver,
   ): Promise<HttpMountableCapabilities> => {
-    if (this.options.runtimeModule) {
-      const generatedRuntime = await loadGeneratedGraphqlRuntime(this.options.runtimeModule);
-      const resolverInstances = new Map<string, object>();
-      for (const resolver of this.options.resolvers) {
-        resolverInstances.set(resolver.name, await runtimeContext.get(resolver));
-      }
-      // State is keyed by the per-runtime controller instance (not the
-      // controller class) so multiple runtimes created from the same app
-      // definition keep their own resolver instances.
-      setGraphqlRuntimeState(await runtimeContext.get(this.controller), {
-        execute: createGraphqlExecutor({
-          runtime: generatedRuntime,
-          resolvers: this.options.resolvers,
-          resolveResolver: createResolverLookup(resolverInstances),
-        }),
-      });
+    const generatedRuntime = await loadGeneratedGraphqlRuntime(this.options.runtimeModule);
+    const resolverInstances = new Map<string, object>();
+    for (const resolver of this.options.resolvers) {
+      resolverInstances.set(resolver.name, await runtimeContext.get(resolver));
     }
+    // State is keyed by the per-runtime controller instance (not the
+    // controller class) so multiple runtimes created from the same app
+    // definition keep their own resolver instances.
+    setGraphqlRuntimeState(await runtimeContext.get(this.controller), {
+      execute: createGraphqlExecutor({
+        runtime: generatedRuntime,
+        resolvers: this.options.resolvers,
+        resolveResolver: createResolverLookup(resolverInstances),
+      }),
+    });
 
     return http({ path: this.path, controllers: [this.controller] }).realize(runtimeContext);
   };

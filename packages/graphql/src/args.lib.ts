@@ -35,7 +35,9 @@ const getGraphqlArgsContext = (): Readonly<Record<string, unknown>> => {
 };
 
 /**
- * @internal Used by generated schema-first field helpers.
+ * @internal Used by generated schema-first helpers.
+ * Application code should use args(schema) in code-first mode or
+ * Gql.Query.<field>.args() in schema-first mode.
  * @throws {Error}
  */
 export const readGraphqlArgs = <Output extends Readonly<Record<string, unknown>>>(): Output =>
@@ -46,7 +48,12 @@ function narrowGraphqlArgs(args: Readonly<Record<string, unknown>>): unknown {
   return args;
 }
 
-/** @throws {GraphqlArgsValidationError | Error} */
+/**
+ * @internal Used by generated schema-first helpers.
+ * Application code should use args(schema) in code-first mode or
+ * Gql.Query.<field>.args(schema) in schema-first mode.
+ * @throws {GraphqlArgsValidationError | Error}
+ */
 export const validateGraphqlArgs = <Schema extends StandardSchemaV1>(
   schema: Schema,
 ): StandardSchemaV1.InferOutput<Schema> => {

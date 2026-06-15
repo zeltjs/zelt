@@ -82,7 +82,9 @@ const toImportSpecifier = (modulePath: string): string => {
   return modulePath;
 };
 
-const toSerializableRuntime = (runtime: GraphqlRuntimeManifest): GraphqlRuntimeManifest => ({
+const toSerializableRuntime = (
+  runtime: GraphqlRuntimeManifest,
+): Omit<GraphqlRuntimeManifest, 'scalars'> => ({
   schemaSdl: runtime.schemaSdl,
   bindings: runtime.bindings,
   ...(runtime.enumFields !== undefined && { enumFields: runtime.enumFields }),

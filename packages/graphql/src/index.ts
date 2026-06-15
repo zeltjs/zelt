@@ -1,3 +1,10 @@
+/**
+ * Experimental GraphQL support for Zelt.
+ *
+ * The runtime manifest shape and generated helper APIs may change before a
+ * stable release. Prefer the app-authoring APIs documented in the package
+ * README for application code.
+ */
 export type { StandardSchemaV1 } from '@standard-schema/spec';
 export type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 export type { StandardSchemaIssue } from './args.lib';
