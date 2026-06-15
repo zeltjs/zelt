@@ -226,10 +226,17 @@ const renderPreamble = (): readonly string[] => [
   '    ? true',
   '    : false',
   '  : false;',
-  'type AllowsNoArgsField<Fn, Args> = HasNoParams<Fn> extends true',
+  'type HasCompatibleTailParams<Fn> = Params<Fn> extends readonly []',
   '  ? true',
+  '  : Fn extends (arg: FirstArg<Fn>) => unknown',
+  '    ? true',
+  '    : false;',
+  'type AllowsNoArgsField<Fn, Args> = HasNoParams<Fn> extends true',
+  '  ? HasCompatibleTailParams<Fn>',
   '  : IsAssignable<Exclude<FirstArg<Fn>, undefined>, Args> extends true',
-  '    ? IsOptionalArg<FirstArg<Fn>>',
+  '    ? IsOptionalArg<FirstArg<Fn>> extends true',
+  '      ? HasCompatibleTailParams<Fn>',
+  '      : false',
   '    : false;',
 ];
 
@@ -246,6 +253,7 @@ const renderCheck = (check: ResolverCheck): readonly string[] => {
   return [
     `type ${aliasBase}_args = AssertTrue<IsAssignable<Exclude<FirstArg<${methodType}>, undefined>, ${fieldTypes}.Args>>;`,
     `type ${aliasBase}_args_optional = AssertTrue<IsOptionalArg<FirstArg<${methodType}>>>;`,
+    `type ${aliasBase}_args_tail = AssertTrue<HasCompatibleTailParams<${methodType}>>;`,
     `type ${aliasBase}_return = AssertTrue<IsAssignable<AwaitedValue<ReturnType<${methodType}>>, ${fieldTypes}.Result>>;`,
   ];
 };

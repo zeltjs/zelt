@@ -77,6 +77,9 @@ type Viewer {
     expect(generated).toContain('Gql.Query.product.Args');
     expect(generated).toContain('Gql.Query.product.Result');
     expect(generated).toContain('AssertTrue<IsOptionalArg<');
+    expect(generated).toContain(
+      "AssertTrue<HasCompatibleTailParams<SchemaFirstCheckStorefrontResolver['product']>>",
+    );
     expect(generated).toContain('AwaitedValue<ReturnType<');
     expect(generated).not.toContain('AllowsNoArgsField<SchemaFirstCheckStorefrontResolver');
   });
@@ -108,6 +111,8 @@ type Viewer {
     expect(generated).toContain(
       "AssertTrue<AllowsNoArgsField<SchemaFirstCheckViewerResolver['viewer'], Gql.Query.viewer.Args>>",
     );
+    expect(generated).toContain('type HasCompatibleTailParams<Fn>');
+    expect(generated).toContain('? HasCompatibleTailParams<Fn>');
     expect(generated).not.toContain(
       "IsOptionalArg<FirstArg<SchemaFirstCheckViewerResolver['viewer']>>",
     );
