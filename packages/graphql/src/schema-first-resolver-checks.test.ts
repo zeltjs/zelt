@@ -76,6 +76,9 @@ type Viewer {
     expect(generated).toContain("FirstArg<SchemaFirstCheckStorefrontResolver['product']>");
     expect(generated).toContain('Gql.Query.product.Args');
     expect(generated).toContain('Gql.Query.product.Result');
+    expect(generated).toContain(
+      "AssertTrue<IsMutuallyAssignable<Exclude<FirstArg<SchemaFirstCheckStorefrontResolver['product']>, undefined>, Gql.Query.product.Args>>",
+    );
     expect(generated).toContain('AssertTrue<IsOptionalArg<');
     expect(generated).toContain(
       "AssertTrue<HasCompatibleTailParams<SchemaFirstCheckStorefrontResolver['product']>>",
@@ -111,6 +114,9 @@ type Viewer {
     expect(generated).toContain(
       "AssertTrue<AllowsNoArgsField<SchemaFirstCheckViewerResolver['viewer'], Gql.Query.viewer.Args>>",
     );
+    expect(generated).toContain(
+      ': IsMutuallyAssignable<Exclude<FirstArg<Fn>, undefined>, Args> extends true',
+    );
     expect(generated).toContain('type HasCompatibleTailParams<Fn>');
     expect(generated).toContain('? HasCompatibleTailParams<Fn>');
     expect(generated).not.toContain(
@@ -118,6 +124,20 @@ type Viewer {
     );
     expect(generated).not.toContain(
       "Exclude<FirstArg<SchemaFirstCheckViewerResolver['viewer']>, undefined>",
+    );
+  });
+
+  it('deduplicates repeated resolver classes', async () => {
+    const generated = await renderSchemaFirstResolverChecks({
+      schemaSdl,
+      resolvers: [SchemaFirstCheckStorefrontResolver, SchemaFirstCheckStorefrontResolver],
+      tsconfig,
+      out: resolve(__dirname, 'generated/graphql-resolver-checks.ts'),
+      gqlTypesImport: './graphql',
+    });
+
+    expect(generated.match(/_Check_SchemaFirstCheckStorefrontResolver_product_args/g)).toHaveLength(
+      3,
     );
   });
 

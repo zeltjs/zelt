@@ -160,7 +160,7 @@ const collectResolverChecks = async (
   const index = buildSchemaIndex(options.schemaSdl);
   const checks: ResolverCheck[] = [];
 
-  for (const resolver of options.resolvers) {
+  for (const resolver of new Set(options.resolvers)) {
     const metadataResult = await getTypeMetadata(toInspectableClass(resolver), {
       expandStrategy: 'always',
       ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
@@ -220,6 +220,9 @@ const renderPreamble = (): readonly string[] => [
   '  : never;',
   'type AssertTrue<T extends true> = T;',
   'type IsAssignable<Actual, Expected> = [Actual] extends [Expected] ? true : false;',
+  'type IsMutuallyAssignable<Actual, Expected> = IsAssignable<Actual, Expected> extends true',
+  '  ? IsAssignable<Expected, Actual>',
+  '  : false;',
   'type IsOptionalArg<Arg> = undefined extends Arg ? true : false;',
   'type HasNoParams<Fn> = Params<Fn> extends readonly unknown[]',
   "  ? Params<Fn>['length'] extends 0",
@@ -233,7 +236,7 @@ const renderPreamble = (): readonly string[] => [
   '    : false;',
   'type AllowsNoArgsField<Fn, Args> = HasNoParams<Fn> extends true',
   '  ? HasCompatibleTailParams<Fn>',
-  '  : IsAssignable<Exclude<FirstArg<Fn>, undefined>, Args> extends true',
+  '  : IsMutuallyAssignable<Exclude<FirstArg<Fn>, undefined>, Args> extends true',
   '    ? IsOptionalArg<FirstArg<Fn>> extends true',
   '      ? HasCompatibleTailParams<Fn>',
   '      : false',
@@ -251,7 +254,7 @@ const renderCheck = (check: ResolverCheck): readonly string[] => {
     ];
   }
   return [
-    `type ${aliasBase}_args = AssertTrue<IsAssignable<Exclude<FirstArg<${methodType}>, undefined>, ${fieldTypes}.Args>>;`,
+    `type ${aliasBase}_args = AssertTrue<IsMutuallyAssignable<Exclude<FirstArg<${methodType}>, undefined>, ${fieldTypes}.Args>>;`,
     `type ${aliasBase}_args_optional = AssertTrue<IsOptionalArg<FirstArg<${methodType}>>>;`,
     `type ${aliasBase}_args_tail = AssertTrue<HasCompatibleTailParams<${methodType}>>;`,
     `type ${aliasBase}_return = AssertTrue<IsAssignable<AwaitedValue<ReturnType<${methodType}>>, ${fieldTypes}.Result>>;`,
