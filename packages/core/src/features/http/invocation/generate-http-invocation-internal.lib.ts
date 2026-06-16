@@ -320,6 +320,7 @@ const buildClassMetadata = (
     .map((member) => methodInfoFromNode(member, sourceFile, ts)),
 });
 
+/** @throws {Error} */
 const resolveControllerMetadata = (
   controller: ControllerClass,
   ctx: RenderContext,
@@ -605,6 +606,7 @@ const unsupportedParameterError = (
     `Unsupported HTTP invocation parameter ${controllerName}.${String(methodName)}(${param.name}): ${reason}`,
   );
 
+/** @throws {unsupportedParameterError} */
 const renderBodyExpression = (
   call: TSCallExpression,
   controllerName: string,
@@ -624,6 +626,7 @@ const renderBodyExpression = (
   return { expression: `ctx.body('${target}')`, usesCtx: true, usesValidation: false };
 };
 
+/** @throws {unsupportedParameterError} */
 const resolveBodyTarget = (
   call: TSCallExpression,
   controllerName: string,
@@ -650,6 +653,7 @@ const resolveBodyTarget = (
   );
 };
 
+/** @throws {unsupportedParameterError} */
 const validateValidatedArity = (
   call: TSCallExpression,
   controllerName: string,
@@ -665,6 +669,7 @@ const validateValidatedArity = (
   );
 };
 
+/** @throws {unsupportedParameterError} */
 const resolveValidatedSchemaName = (
   call: TSCallExpression,
   sourceFile: TSSourceFile,
@@ -696,6 +701,7 @@ const resolveValidatedSchemaName = (
   return schemaName;
 };
 
+/** @throws {unsupportedParameterError} */
 const resolveValidatedTarget = (
   call: TSCallExpression,
   controllerName: string,
@@ -722,6 +728,7 @@ const resolveValidatedTarget = (
   );
 };
 
+/** @throws {unsupportedParameterError} */
 const renderValidatedExpression = (
   call: TSCallExpression,
   sourceFile: TSSourceFile,
@@ -765,6 +772,7 @@ const findAnalyzableCall = (param: ParamInfo, ctx: RenderContext): AnalyzableCal
   return { sourceFile: found.sourceFile, call: expression };
 };
 
+/** @throws {unsupportedParameterError} */
 const analyzeParameter = (
   controllerName: string,
   methodName: string | symbol,
@@ -790,6 +798,7 @@ const analyzeParameter = (
   );
 };
 
+/** @throws {Error | unsupportedParameterError} */
 const buildHookSpec = (
   controller: ControllerClass,
   methodInfo: MethodInfo | undefined,
@@ -828,6 +837,7 @@ const buildHookSpec = (
   return { key: routeKey, params };
 };
 
+/** @throws {UnsupportedTypeScriptVersionError} */
 const loadInspectModule = async (): Promise<InspectModule> => {
   const inspectModule = await import('@zeltjs/decorator-metadata/inspect');
   return {
@@ -836,6 +846,7 @@ const loadInspectModule = async (): Promise<InspectModule> => {
   };
 };
 
+/** @throws {Error} */
 const unwrapInspectResult = <T>(result: InspectResult<T>, label: string): T => {
   if (result.isErr()) {
     const error = result.error ?? { code: 'UNKNOWN', message: 'Unknown inspect error' };
@@ -891,7 +902,7 @@ const renderModule = (
   return parts.join('\n');
 };
 
-/** @throws {Error} */
+/** @throws {Error | unsupportedParameterError | ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
 export const renderHttpInvocationModule = async (
   options: RenderHttpInvocationModuleOptions,
 ): Promise<string> => {
@@ -928,7 +939,7 @@ export const renderHttpInvocationModule = async (
   return renderModule(hooks, ctx.imports, ctx.coreImport, options.moduleSyntax ?? 'typescript');
 };
 
-/** @throws {Error} */
+/** @throws {Error | unsupportedParameterError | ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
 export const generateHttpInvocationModule = async (
   options: GenerateHttpInvocationModuleOptions,
 ): Promise<GenerateHttpInvocationModuleResult> => {

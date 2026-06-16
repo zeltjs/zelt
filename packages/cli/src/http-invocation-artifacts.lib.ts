@@ -132,6 +132,7 @@ const resolveTsdownBin = (cwd: string): string => {
     : resolve(import.meta.dirname, '../../..', 'node_modules/.bin/tsdown');
 };
 
+/** @throws {Error} */
 const bundleHookArtifact = async (input: {
   readonly cwd: string;
   readonly entry: string;
@@ -242,6 +243,7 @@ export const invalidateHttpInvocationArtifacts = async (
   await rm(resolve(options.cwd, '.zelt/registry.mjs'), { force: true });
 };
 
+/** @throws {Error | unsupportedParameterError | ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
 const generateHookArtifact = async (input: {
   readonly cwd: string;
   readonly controllers: readonly ControllerClass[];
@@ -295,7 +297,7 @@ const writeRegistry = async (input: {
     }),
   );
 
-/** @throws {Error} from HTTP invocation generation or filesystem writes. */
+/** @throws {Error | unsupportedParameterError | ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} from HTTP invocation generation or filesystem writes. */
 export const generateHttpInvocationArtifacts = async (
   options: GenerateHttpInvocationArtifactsOptions,
 ): Promise<GenerateHttpInvocationArtifactsResult> => {

@@ -213,6 +213,7 @@ export const createGeneratedGraphqlArgsInvocationHook = (
   ref: GraphqlArgsSchemaRef,
   resolver?: GqlSchemaResolver,
 ): GraphqlInvocationHook => {
+  /** @throws {GraphqlArgsValidationError | Error} */
   const hook: GraphqlInvocationHook = async (ctx) => {
     const schema = await resolveArgsSchemaValue(ref, resolver);
     const result = await schema['~standard'].validate(ctx.args);

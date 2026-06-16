@@ -148,6 +148,7 @@ const toRelativeImportSpecifier = (fromPath: string, toPath: string): string => 
   return raw.startsWith('.') ? raw : `./${raw}`;
 };
 
+/** @throws {Error} */
 const getBindingHookKeys = (runtime: GraphqlRuntimeManifest): ReadonlySet<string> => {
   const keys = new Set<string>();
   for (const typeBindings of Object.values(runtime.bindings)) {
@@ -245,6 +246,7 @@ export const createGraphqlArgsValidationError = async (issues) => {
 };
 `;
 
+/** @throws {Error} */
 const buildRuntimeModule = (
   runtime: GraphqlRuntimeManifest,
   runtimePath: string,
@@ -269,6 +271,7 @@ const buildRuntimeModule = (
   return `${imports}export const graphqlRuntime = ${trimmed},\n${objectLiterals.join(',\n')}\n};\n`;
 };
 
+/** @throws {Error} */
 const writeRuntimeModule = async (
   runtimeModule: string,
   runtime: GraphqlRuntimeManifest,

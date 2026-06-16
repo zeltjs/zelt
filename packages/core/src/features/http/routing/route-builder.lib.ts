@@ -236,6 +236,7 @@ const getOrCreateInstance = (
   return instance;
 };
 
+/** @throws {Error} */
 const assertDefinedHookParams = (hookKey: string, params: readonly unknown[]): void => {
   const undefinedIndex = params.indexOf(undefined);
   if (undefinedIndex !== -1) {
@@ -266,7 +267,7 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
     ctx.resolver,
   );
 
-  /** @throws {ZeltContextNotAvailableError | ZeltReadyFailedError | ZeltLifecycleStateError | ZeltRouteConfigurationError} */
+  /** @throws {ZeltContextNotAvailableError | ZeltReadyFailedError | ZeltLifecycleStateError | ZeltRouteConfigurationError | Error} */
   const handler = async (c: MiddlewareContext): Promise<Response> => {
     const instance = getOrCreateInstance(ctx, route.controllerClass);
     await ctx.lifecycle.startupPending();
@@ -296,6 +297,7 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
   methods[route.method]();
 };
 
+/** @throws {Error} */
 const invokeHook = async (
   route: Route,
   hook: HttpInvocationHook,
@@ -321,7 +323,7 @@ export type BuildRoutesOptions = {
   readonly invocationHooks?: Readonly<Record<string, HttpInvocationHook>>;
 };
 
-/** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError | BadRequestException} */
+/** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError | BadRequestException | Error} */
 export const buildRoutes = (options: BuildRoutesOptions): void => {
   const routes = collectRoutes(options.controllers);
   if (options.invocationHooks !== undefined) {

@@ -56,6 +56,7 @@ const runPreBuildHooksWithArtifactInvalidation = async (
   }
 };
 
+/** @throws {ZeltBuildError | ZeltMultipleBuildHooksError | Error | unsupportedParameterError | ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError} */
 const runBuildSteps = async (
   cwd: string,
   hookOptions: BuildHookOptions,

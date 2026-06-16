@@ -82,7 +82,7 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
   return child;
 };
 
-/** @throws {ZeltMultipleBuildHooksError} */
+/** @throws {ZeltMultipleBuildHooksError | {} | null} */
 const runHooks = async (cwd: string, config: ZeltConfig): Promise<void> => {
   const hookOptions = { cwd, config, loadStaticApp: async () => config.app() };
 

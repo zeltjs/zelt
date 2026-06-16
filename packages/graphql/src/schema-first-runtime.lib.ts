@@ -361,6 +361,7 @@ const findResolveFieldOwner = (index: SchemaFirstSdlIndex, fieldName: string): s
   throw new Error(`Schema-first binding is ambiguous for @ResolveField(): ${fieldName}`);
 };
 
+/** @throws {Error} */
 const registerRootOperation = (
   bindings: RuntimeBindings,
   invocationHooks: RuntimeInvocationHooks,

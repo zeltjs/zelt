@@ -44,12 +44,14 @@ const readFunctionProperty = (value: unknown, key: string): UnknownFunction | un
   return typeof property === 'function' ? (property as UnknownFunction) : undefined;
 };
 
+/** @throws {Error} */
 const readRequiredObject = (value: unknown, message: string): object => {
   const object = readObject(value);
   if (object === undefined) throw new Error(message);
   return object;
 };
 
+/** @throws {Error} */
 const readRequiredStringProperty = (value: object, key: string, message: string): string => {
   const property: unknown = Reflect.get(value, key);
   if (typeof property !== 'string') throw new Error(message);
@@ -73,6 +75,7 @@ const getNodeProcess = (): NodeProcess | undefined => {
   };
 };
 
+/** @throws {Error} */
 const readHttpInvocationEntry = (value: unknown): HttpInvocationRegistryEntry => {
   const entry = readRequiredObject(value, '.zelt registry httpInvocation must be an object.');
   const version: unknown = Reflect.get(entry, 'version');
@@ -94,6 +97,7 @@ const readHttpInvocationEntry = (value: unknown): HttpInvocationRegistryEntry =>
   };
 };
 
+/** @throws {Error} */
 const readRegistry = (value: unknown): ZeltRegistry => {
   const registry = readRequiredObject(
     value,
@@ -110,6 +114,7 @@ const readRegistry = (value: unknown): ZeltRegistry => {
     : { version: 1, httpInvocation: readHttpInvocationEntry(httpInvocation) };
 };
 
+/** @throws {Error} */
 const toHttpInvocationHook = (
   hook: UnknownFunction,
   moduleUrl: string,
@@ -124,6 +129,7 @@ const toHttpInvocationHook = (
   };
 };
 
+/** @throws {Error} */
 const readHooks = (
   value: unknown,
   moduleUrl: string,
@@ -148,6 +154,7 @@ const readHooks = (
   return hooks;
 };
 
+/** @throws {Error} */
 const toFilePath = (moduleUrl: string, fileURLToPath: (url: string | URL) => string): string => {
   let parsed: URL;
   try {
@@ -190,6 +197,7 @@ const loadNodeModules = async (): Promise<NodeModules> => {
   };
 };
 
+/** @throws {Error} */
 const loadRegistry = async (registryPath: string, modules: NodeModules): Promise<ZeltRegistry> => {
   const registryUrl = modules.pathToFileURL(registryPath).href;
   let registryModule: unknown;
@@ -201,6 +209,7 @@ const loadRegistry = async (registryPath: string, modules: NodeModules): Promise
   return readRegistry(readProperty(registryModule, 'zeltRegistry'));
 };
 
+/** @throws {Error} */
 const verifyArtifact = async (
   entry: HttpInvocationRegistryEntry,
   modules: NodeModules,
@@ -215,6 +224,7 @@ const verifyArtifact = async (
   }
 };
 
+/** @throws {Error} */
 const loadHooks = async (
   entry: HttpInvocationRegistryEntry,
 ): Promise<Readonly<Record<string, HttpInvocationHook>>> => {
