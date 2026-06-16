@@ -17,6 +17,7 @@ import { Get, Post } from './routing/http-method.decorator';
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
     configValue: string;
+    nestedRequestMarker: string;
   }
 }
 
@@ -92,6 +93,39 @@ describe('createApp() — fetch', () => {
     });
 
     expect(results).toEqual([{ seq: 1 }, { seq: 2 }]);
+  });
+
+  it('isolates request context when another request is processed inside a request', async () => {
+    let fetchInner: () => Promise<Response>;
+
+    @Controller('/inner-context')
+    class InnerContextController {
+      @Get('/')
+      get() {
+        return { marker: getContext('nestedRequestMarker') ?? null };
+      }
+    }
+
+    @Controller('/outer-context')
+    class OuterContextController {
+      @Get('/')
+      async get() {
+        setContext('nestedRequestMarker', 'outer');
+        const res = await fetchInner();
+        return { inner: await res.json(), outer: getContext('nestedRequestMarker') };
+      }
+    }
+
+    const app = createApp([
+      http({ controllers: [OuterContextController, InnerContextController] }),
+    ]);
+    const readyApp = await app.createRuntime();
+    fetchInner = () => readyApp.http.fetch(new Request('https://example.com/inner-context/'));
+
+    const res = await readyApp.http.fetch(new Request('https://example.com/outer-context/'));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ inner: { marker: null }, outer: 'outer' });
   });
 
   it('parses JSON body', async () => {

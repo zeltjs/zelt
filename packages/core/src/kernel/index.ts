@@ -26,6 +26,7 @@ export {
   type InjectableClassDecoratorHooks,
   type ReadyValue,
   runInContext,
+  runInRootContext,
   sealReadyValue,
   setInternal,
 } from './internal';
