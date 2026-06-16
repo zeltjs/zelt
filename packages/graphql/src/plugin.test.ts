@@ -9,8 +9,8 @@ import { toJsonSchema } from '@valibot/to-json-schema';
 import type { GenericSchema } from 'valibot';
 import { describe, expect, it } from 'vitest';
 import { GraphqlArgsValidationError } from './args.lib';
-import { GetUserInput } from './gql-args-sample.lib';
 import { NodeGetUserInput } from './gql-args-node-sample.js';
+import { GetUserInput } from './gql-args-sample.lib';
 import { generateGraphqlSdl, graphqlPlugin } from './graphql-plugin.lib';
 import type { GqlOutput } from './index';
 import { args, gqlScalar, graphql, Query, Resolver } from './index';
@@ -183,22 +183,26 @@ describe('graphqlPlugin', () => {
 
     expect(typeof hook).toBe('function');
     await expect(
-      (hook as (ctx: {
-        readonly parent: unknown;
-        readonly args: Readonly<Record<string, unknown>>;
-        readonly isRootField: boolean;
-      }) => Promise<readonly unknown[]>)({
+      (
+        hook as (ctx: {
+          readonly parent: unknown;
+          readonly args: Readonly<Record<string, unknown>>;
+          readonly isRootField: boolean;
+        }) => Promise<readonly unknown[]>
+      )({
         parent: undefined,
         args: { id: 'user-1' },
         isRootField: true,
       }),
     ).resolves.toEqual([{ id: 'user-1' }]);
     await expect(
-      (hook as (ctx: {
-        readonly parent: unknown;
-        readonly args: Readonly<Record<string, unknown>>;
-        readonly isRootField: boolean;
-      }) => Promise<readonly unknown[]>)({
+      (
+        hook as (ctx: {
+          readonly parent: unknown;
+          readonly args: Readonly<Record<string, unknown>>;
+          readonly isRootField: boolean;
+        }) => Promise<readonly unknown[]>
+      )({
         parent: undefined,
         args: { id: '' },
         isRootField: true,

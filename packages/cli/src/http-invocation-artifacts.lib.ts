@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -49,6 +49,8 @@ type ResolvedArtifactRuntime = {
   readonly bundle: boolean;
 };
 
+type UnknownFunction = (...args: unknown[]) => unknown;
+
 const resolveArtifactRuntime = (
   runtime: HttpInvocationArtifactRuntime | undefined,
 ): ResolvedArtifactRuntime => {
@@ -79,7 +81,7 @@ const readProperty = (value: unknown, key: string): unknown => {
   return property;
 };
 
-const readFunctionProperty = (value: unknown, key: string): Function | undefined => {
+const readFunctionProperty = (value: unknown, key: string): UnknownFunction | undefined => {
   const property = readProperty(value, key);
   return typeof property === 'function' ? property : undefined;
 };
@@ -227,9 +229,7 @@ const renderRegistry = (input: {
           '  },',
         ];
 
-  return ['export const zeltRegistry = {', '  version: 1,', ...httpInvocation, '};', ''].join(
-    '\n',
-  );
+  return ['export const zeltRegistry = {', '  version: 1,', ...httpInvocation, '};', ''].join('\n');
 };
 
 export type InvalidateHttpInvocationArtifactsOptions = {

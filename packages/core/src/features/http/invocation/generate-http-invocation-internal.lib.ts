@@ -1,9 +1,8 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
-
-import { collectRoutes } from '../routing';
 import type { ControllerClass } from '../routing';
+import { collectRoutes } from '../routing';
 
 type TSProgram = import('typescript').Program;
 type TypeScriptModule = typeof import('typescript');
@@ -191,8 +190,7 @@ class ImportRegistry {
   }
 }
 
-const stripKnownExtension = (path: string): string =>
-  path.replace(/\.(?:[cm]?[tj]sx?)$/, '');
+const stripKnownExtension = (path: string): string => path.replace(/\.(?:[cm]?[tj]sx?)$/, '');
 
 const normalizePath = (path: string): string => path.replaceAll('\\', '/');
 
@@ -358,15 +356,15 @@ const findParameterAtPosition = (
   return visit(sourceFile);
 };
 
-const getSourceFileForPosition = (
-  program: TSProgram,
-  pos: Position,
-): TSSourceFile | undefined => program.getSourceFile(pos.sourceFile);
+const getSourceFileForPosition = (program: TSProgram, pos: Position): TSSourceFile | undefined =>
+  program.getSourceFile(pos.sourceFile);
 
 const findParameterNode = (
   param: ParamInfo,
   ctx: RenderContext,
-): { readonly sourceFile: TSSourceFile; readonly parameter: TSParameterDeclaration } | undefined => {
+):
+  | { readonly sourceFile: TSSourceFile; readonly parameter: TSParameterDeclaration }
+  | undefined => {
   if (!param.pos) return undefined;
   const sourceFile = getSourceFileForPosition(ctx.program, param.pos);
   if (!sourceFile) return undefined;
@@ -467,10 +465,7 @@ const hasExportModifier = (node: TSNode, ts: TypeScriptModule): boolean =>
   (ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ??
     false);
 
-const exportDeclarationNames = (
-  stmt: TSStatement,
-  ts: TypeScriptModule,
-): readonly string[] => {
+const exportDeclarationNames = (stmt: TSStatement, ts: TypeScriptModule): readonly string[] => {
   if (!ts.isExportDeclaration(stmt)) return [];
   const clause = stmt.exportClause;
   if (!clause || !ts.isNamedExports(clause)) return [];
@@ -529,10 +524,7 @@ const resolveSchemaIdentifier = (
   return undefined;
 };
 
-const isLocalCoreInjectionModule = (
-  sourceFile: TSSourceFile,
-  moduleSpecifier: string,
-): boolean => {
+const isLocalCoreInjectionModule = (sourceFile: TSSourceFile, moduleSpecifier: string): boolean => {
   if (!moduleSpecifier.startsWith('.')) return false;
   const resolved = normalizePath(resolve(dirname(sourceFile.fileName), moduleSpecifier));
   return (
@@ -543,10 +535,7 @@ const isLocalCoreInjectionModule = (
   );
 };
 
-const isAllowedHelperModule = (
-  sourceFile: TSSourceFile,
-  moduleSpecifier: string,
-): boolean =>
+const isAllowedHelperModule = (sourceFile: TSSourceFile, moduleSpecifier: string): boolean =>
   moduleSpecifier === '@zeltjs/core' || isLocalCoreInjectionModule(sourceFile, moduleSpecifier);
 
 const helperKindFromExportName = (exportedName: string): HelperKind | undefined => {
@@ -764,10 +753,7 @@ type AnalyzableCall = {
   readonly call: TSCallExpression;
 };
 
-const findAnalyzableCall = (
-  param: ParamInfo,
-  ctx: RenderContext,
-): AnalyzableCall | undefined => {
+const findAnalyzableCall = (param: ParamInfo, ctx: RenderContext): AnalyzableCall | undefined => {
   const found = findParameterNode(param, ctx);
   const initializer = found?.parameter.initializer;
   if (!found || !initializer) return undefined;
@@ -870,9 +856,9 @@ const renderHook = (hook: HookSpec): string => {
 
 const renderTypePrelude = (): string =>
   [
-    "type HttpInvocationHookContext = {",
+    'type HttpInvocationHookContext = {',
     "  readonly body: (type?: 'json' | 'form' | 'text') => unknown;",
-    "};",
+    '};',
     '',
     'type HttpInvocationHook = (',
     '  ctx: HttpInvocationHookContext,',
@@ -892,9 +878,7 @@ const renderModule = (
   ];
   const typePrelude = syntax === 'typescript' ? [renderTypePrelude(), ''] : [];
   const exportEnd =
-    syntax === 'typescript'
-      ? '} satisfies Readonly<Record<string, HttpInvocationHook>>;'
-      : '};';
+    syntax === 'typescript' ? '} satisfies Readonly<Record<string, HttpInvocationHook>>;' : '};';
   const parts = [
     ...importLines,
     ...(importLines.length > 0 ? [''] : []),
@@ -921,7 +905,10 @@ export const renderHttpInvocationModule = async (
     ts: cachedProgram.ts,
     out: options.out,
     coreImport: options.coreImport ?? '@zeltjs/core/http-invocation-runtime',
-    imports: new ImportRegistry(options.moduleSpecifierMode ?? 'typescript', options.runtimeImportMap),
+    imports: new ImportRegistry(
+      options.moduleSpecifierMode ?? 'typescript',
+      options.runtimeImportMap,
+    ),
     inspect,
   };
 

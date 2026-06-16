@@ -560,7 +560,10 @@ const attachUnionResolvers = (schema: GraphQLSchema, runtime: GeneratedGraphqlRu
 
 const readGraphqlArgsValidationIssues = (value: unknown): readonly unknown[] | undefined => {
   if (!(value instanceof Error)) return undefined;
-  if (!(value instanceof GraphqlArgsValidationError) && value.name !== 'GraphqlArgsValidationError') {
+  if (
+    !(value instanceof GraphqlArgsValidationError) &&
+    value.name !== 'GraphqlArgsValidationError'
+  ) {
     return undefined;
   }
   const issues = readProperty(value, 'issues');

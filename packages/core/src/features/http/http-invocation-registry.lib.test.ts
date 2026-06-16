@@ -1,5 +1,5 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -34,10 +34,7 @@ describe('loadHttpInvocationHooksFromRegistry', () => {
         '};',
         '',
       ].join('\n');
-      await writeFile(
-        join(artifactDir, 'http-invocation.mjs'),
-        hookModuleSource,
-      );
+      await writeFile(join(artifactDir, 'http-invocation.mjs'), hookModuleSource);
       await writeFile(
         join(artifactDir, 'registry.mjs'),
         [
@@ -81,12 +78,7 @@ describe('loadHttpInvocationHooksFromRegistry', () => {
       await mkdir(artifactDir, { recursive: true });
       await writeFile(
         join(artifactDir, 'registry.mjs'),
-        [
-          'export const zeltRegistry = {',
-          '  version: 2,',
-          '};',
-          '',
-        ].join('\n'),
+        ['export const zeltRegistry = {', '  version: 2,', '};', ''].join('\n'),
       );
 
       await expect(loadHttpInvocationHooksFromRegistry({ cwd })).rejects.toThrow(
@@ -103,7 +95,10 @@ describe('loadHttpInvocationHooksFromRegistry', () => {
 
     try {
       await mkdir(artifactDir, { recursive: true });
-      await writeFile(join(artifactDir, 'http-invocation.mjs'), 'export const httpInvocationHooks = {};\n');
+      await writeFile(
+        join(artifactDir, 'http-invocation.mjs'),
+        'export const httpInvocationHooks = {};\n',
+      );
       await writeFile(
         join(artifactDir, 'registry.mjs'),
         [
@@ -162,7 +157,10 @@ describe('loadHttpInvocationHooksFromRegistry', () => {
 
     try {
       await mkdir(artifactDir, { recursive: true });
-      await writeFile(join(artifactDir, 'http-invocation.mjs'), 'export const httpInvocationHooks = {};\n');
+      await writeFile(
+        join(artifactDir, 'http-invocation.mjs'),
+        'export const httpInvocationHooks = {};\n',
+      );
       await writeFile(
         join(artifactDir, 'registry.mjs'),
         [
@@ -199,10 +197,7 @@ describe('loadHttpInvocationHooksFromRegistry', () => {
         '};',
         '',
       ].join('\n');
-      await writeFile(
-        join(artifactDir, 'http-invocation.mjs'),
-        hookModuleSource,
-      );
+      await writeFile(join(artifactDir, 'http-invocation.mjs'), hookModuleSource);
       await writeFile(
         join(artifactDir, 'registry.mjs'),
         [

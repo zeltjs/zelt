@@ -215,7 +215,8 @@ const buildInvocationHooksObjectLiteral = (
   return `  "invocationHooks": {\n${entries.join(',\n')}\n  }`;
 };
 
-const buildRuntimeHelperModule = (): string => `const fallbackGraphqlArgsValidationError = class GraphqlArgsValidationError extends Error {
+const buildRuntimeHelperModule =
+  (): string => `const fallbackGraphqlArgsValidationError = class GraphqlArgsValidationError extends Error {
   constructor(issues) {
     super(\`GraphQL args validation failed: \${issues.map((issue) => issue.message).join('; ')}\`);
     this.name = 'GraphqlArgsValidationError';
@@ -265,9 +266,7 @@ const buildRuntimeModule = (
     return `${imports}export const graphqlRuntime = ${runtimeJson};\n`;
   }
   const trimmed = runtimeJson.replace(/\n}$/, '');
-  return `${imports}export const graphqlRuntime = ${trimmed},\n${objectLiterals.join(
-    ',\n',
-  )}\n};\n`;
+  return `${imports}export const graphqlRuntime = ${trimmed},\n${objectLiterals.join(',\n')}\n};\n`;
 };
 
 const writeRuntimeModule = async (

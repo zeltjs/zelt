@@ -11,8 +11,8 @@ import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/
 
 import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
-import { GraphqlArgsValidationError } from './args.lib';
 import type { StandardSchemaIssue } from './args.lib';
+import { GraphqlArgsValidationError } from './args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
 import type { GeneratedGraphqlRuntime, GraphqlInvocationHook } from './graphql-runtime.lib';

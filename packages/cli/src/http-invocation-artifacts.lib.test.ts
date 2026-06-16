@@ -5,13 +5,12 @@ import { join, resolve } from 'node:path';
 
 import { body, Controller, Post } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
-
+import { LocalArtifactController } from './_fixtures/http-local-schema-controller';
 import type { ZeltConfig } from './config/config.types';
 import {
   generateHttpInvocationArtifacts,
   invalidateHttpInvocationArtifacts,
 } from './http-invocation-artifacts.lib';
-import { LocalArtifactController } from './_fixtures/http-local-schema-controller';
 
 @Controller('/artifact')
 class ArtifactController {
@@ -97,9 +96,7 @@ describe('generateHttpInvocationArtifacts', () => {
       });
 
       const hookModule = await readFile(join(cwd, '.zelt/http-invocation.ts'), 'utf8');
-      expect(hookModule).toContain(
-        "'POST /artifact ArtifactController.create': async (ctx) => [",
-      );
+      expect(hookModule).toContain("'POST /artifact ArtifactController.create': async (ctx) => [");
 
       const registry = await readFile(join(cwd, '.zelt/registry.mjs'), 'utf8');
       expect(registry).toContain('export const zeltRegistry = {');

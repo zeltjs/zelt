@@ -1,10 +1,10 @@
-export {
-  generateHttpInvocationModule,
-  renderHttpInvocationModule,
-} from './generate-http-invocation-internal.lib';
 export type {
   GenerateHttpInvocationModuleOptions,
   GenerateHttpInvocationModuleResult,
   RenderHttpInvocationModuleOptions,
   RuntimeImportMap,
+} from './generate-http-invocation-internal.lib';
+export {
+  generateHttpInvocationModule,
+  renderHttpInvocationModule,
 } from './generate-http-invocation-internal.lib';

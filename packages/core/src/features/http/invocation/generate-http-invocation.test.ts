@@ -5,16 +5,15 @@ import { pathToFileURL } from 'node:url';
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { describe, expect, it } from 'vitest';
-
+import { body, validated } from '../request/injection';
 import { Controller } from '../routing/controller.decorator';
 import { Post } from '../routing/http-method.decorator';
-import { body, validated } from '../request/injection';
 import { body as customBody } from './_fixtures/custom-core';
 import {
-  HttpInvocationHook,
-  ImportedUserSchema,
   ImportedUserSchema as AliasedUserSchema,
+  HttpInvocationHook,
   httpInvocationHooks,
+  ImportedUserSchema,
 } from './_fixtures/schemas';
 import {
   generateHttpInvocationModule,
@@ -89,9 +88,7 @@ describe('renderHttpInvocationModule', () => {
     expect(source).toContain(
       "import { validateBodyAsync } from '@zeltjs/core/http-invocation-runtime';",
     );
-    expect(source).toContain(
-      "import { ImportedUserSchema } from './_fixtures/schemas';",
-    );
+    expect(source).toContain("import { ImportedUserSchema } from './_fixtures/schemas';");
     expect(source).toContain(
       "'POST /users ImportedSchemaController.create': async () => [\n    await validateBodyAsync(ImportedUserSchema, 'json'),\n  ],",
     );
@@ -114,9 +111,7 @@ describe('renderHttpInvocationModule', () => {
       }),
     );
 
-    expect(source).toContain(
-      "import { LocalUserSchema } from './generate-http-invocation.test';",
-    );
+    expect(source).toContain("import { LocalUserSchema } from './generate-http-invocation.test';");
     expect(source).toContain("await validateBodyAsync(LocalUserSchema, 'form')");
   });
 
@@ -239,7 +234,7 @@ describe('renderHttpInvocationModule', () => {
         [
           'export const LocalUserSchema = {',
           "  '~standard': {",
-          "    validate: (value) => ({ value: { id: String(value.id) } }),",
+          '    validate: (value) => ({ value: { id: String(value.id) } }),',
           '  },',
           '};',
           '',
@@ -249,9 +244,8 @@ describe('renderHttpInvocationModule', () => {
       const module = (await import(`${pathToFileURL(out).href}?t=${Date.now()}`)) as {
         readonly httpInvocationHooks: Record<string, () => Promise<unknown[]>>;
       };
-      const hook = module.httpInvocationHooks[
-        'POST /node-local-users NodeLocalSchemaController.create'
-      ];
+      const hook =
+        module.httpInvocationHooks['POST /node-local-users NodeLocalSchemaController.create'];
       if (!hook) {
         throw new Error('Generated node executable hook was not found');
       }

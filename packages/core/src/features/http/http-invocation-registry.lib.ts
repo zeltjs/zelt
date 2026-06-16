@@ -28,6 +28,8 @@ type NodeModules = {
   readonly fileURLToPath: (url: string | URL) => string;
 };
 
+type UnknownFunction = (...args: unknown[]) => unknown;
+
 const readObject = (value: unknown): object | undefined =>
   typeof value === 'object' && value !== null ? value : undefined;
 
@@ -37,7 +39,7 @@ const readProperty = (value: unknown, key: string): unknown => {
   return property;
 };
 
-const readFunctionProperty = (value: unknown, key: string): Function | undefined => {
+const readFunctionProperty = (value: unknown, key: string): UnknownFunction | undefined => {
   const property = readProperty(value, key);
   return typeof property === 'function' ? property : undefined;
 };
@@ -75,9 +77,7 @@ const readHttpInvocationEntry = (value: unknown): HttpInvocationRegistryEntry =>
   const entry = readRequiredObject(value, '.zelt registry httpInvocation must be an object.');
   const version: unknown = Reflect.get(entry, 'version');
   if (version !== 1) {
-    throw new Error(
-      `Unsupported HTTP invocation artifact version ${String(version)}; expected 1.`,
-    );
+    throw new Error(`Unsupported HTTP invocation artifact version ${String(version)}; expected 1.`);
   }
   return {
     version: 1,
@@ -95,7 +95,10 @@ const readHttpInvocationEntry = (value: unknown): HttpInvocationRegistryEntry =>
 };
 
 const readRegistry = (value: unknown): ZeltRegistry => {
-  const registry = readRequiredObject(value, '.zelt registry must export zeltRegistry as an object.');
+  const registry = readRequiredObject(
+    value,
+    '.zelt registry must export zeltRegistry as an object.',
+  );
   const version: unknown = Reflect.get(registry, 'version');
   if (version !== 1) {
     throw new Error(`Unsupported .zelt registry version ${String(version)}; expected 1.`);
@@ -107,7 +110,11 @@ const readRegistry = (value: unknown): ZeltRegistry => {
     : { version: 1, httpInvocation: readHttpInvocationEntry(httpInvocation) };
 };
 
-const toHttpInvocationHook = (hook: Function, moduleUrl: string, key: string): HttpInvocationHook => {
+const toHttpInvocationHook = (
+  hook: UnknownFunction,
+  moduleUrl: string,
+  key: string,
+): HttpInvocationHook => {
   return async (ctx) => {
     const result: unknown = await Reflect.apply(hook, undefined, [ctx]);
     if (!Array.isArray(result)) {
@@ -159,14 +166,19 @@ const toFilePath = (moduleUrl: string, fileURLToPath: (url: string | URL) => str
 };
 
 const loadNodeModules = async (): Promise<NodeModules> => {
-  const [{ existsSync }, { readFile }, { createHash }, { resolve }, { pathToFileURL, fileURLToPath }] =
-    await Promise.all([
-      import('node:fs'),
-      import('node:fs/promises'),
-      import('node:crypto'),
-      import('node:path'),
-      import('node:url'),
-    ]);
+  const [
+    { existsSync },
+    { readFile },
+    { createHash },
+    { resolve },
+    { pathToFileURL, fileURLToPath },
+  ] = await Promise.all([
+    import('node:fs'),
+    import('node:fs/promises'),
+    import('node:crypto'),
+    import('node:path'),
+    import('node:url'),
+  ]);
 
   return {
     existsSync,

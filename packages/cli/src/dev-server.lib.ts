@@ -94,21 +94,30 @@ const runHooks = async (cwd: string, config: ZeltConfig): Promise<void> => {
   }
 
   let success = true;
+  let hookError: unknown;
+  let postBuildError: unknown;
 
   try {
     await generateHttpInvocationArtifacts(hookOptions);
     await runBuildHook(hookOptions);
   } catch (error) {
     success = false;
+    hookError = error;
     await invalidateHttpInvocationArtifacts({ cwd });
-    throw error;
   } finally {
     try {
       await runPostBuildHooks(hookOptions, { success });
     } catch (error) {
+      postBuildError = error;
       await invalidateHttpInvocationArtifacts({ cwd });
-      throw error;
     }
+  }
+
+  if (hookError !== undefined) {
+    throw hookError;
+  }
+  if (postBuildError !== undefined) {
+    throw postBuildError;
   }
 };
 
