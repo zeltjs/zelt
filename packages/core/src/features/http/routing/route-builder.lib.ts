@@ -60,7 +60,7 @@ export type Route = {
 export type HttpInvocationHookContext = {
   readonly controllerClass: ControllerClass;
   readonly methodName: string | symbol;
-  readonly c: Context<Env, string, Input>;
+  readonly c: unknown;
   readonly route: Route;
   readonly body: typeof body;
 };

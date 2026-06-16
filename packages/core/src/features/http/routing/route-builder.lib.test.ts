@@ -135,7 +135,6 @@ describe('buildRoutes invocation hooks', () => {
             controllerClass: ctx.controllerClass,
             methodName: ctx.methodName,
             fullPath: ctx.route.fullPath,
-            requestMethod: ctx.c.req.method,
           });
           return [{ name: 'from-hook' }];
         },
@@ -157,7 +156,6 @@ describe('buildRoutes invocation hooks', () => {
         controllerClass: HookedController,
         methodName: 'create',
         fullPath: '/hooked/create',
-        requestMethod: 'POST',
       },
     ]);
   });
