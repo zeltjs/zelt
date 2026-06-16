@@ -77,7 +77,12 @@ const config: KnipConfig = {
     'packages/graphql': {
       // gql-args-sample.lib.ts is a test fixture imported by generate-sdl.test.ts
       // for AST-based import resolution testing (must be a separate file)
-      ignore: ['src/gql-args-sample.lib.ts'],
+      // gql-args-node-sample.* is a fixture for generated Node runtime imports.
+      ignore: [
+        'src/gql-args-sample.lib.ts',
+        'src/gql-args-node-sample.d.ts',
+        'src/gql-args-node-sample.js',
+      ],
     },
     'packages/adapter-node': {
       ignoreDependencies: ['@zeltjs/core'],
@@ -93,6 +98,8 @@ const config: KnipConfig = {
       // c12 is bundled into the CLI dist, but it imports jiti at runtime.
       // jiti must stay external because its package assets are not bundle-safe.
       // SWC is referenced from generated hook-artifact tsdown config, not a static import.
+      // HTTP invocation fixtures are loaded by tests, not production entry points.
+      ignore: ['src/_fixtures/http-local-schema-controller.ts'],
       ignoreDependencies: ['jiti', '@rollup/plugin-swc', '@swc/core'],
     },
     'packages/testing': {
