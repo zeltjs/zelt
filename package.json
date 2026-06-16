@@ -46,7 +46,6 @@
     "lefthook": "2.1.6",
     "lint-staged": "17.0.5",
     "madge": "8.0.0",
-    "node-pty": "1.0.0",
     "nx": "21.6.10",
     "oxlint": "1.62.0",
     "precommit-verify": "0.1.8",
@@ -59,7 +58,7 @@
   },
   "volta": {
     "node": "26.1.0",
-    "npm": "11.14.1",
+    "npm": "11.16.0",
     "pnpm": "10.33.0"
   },
   "lint-staged": {
@@ -70,8 +69,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "node-pty"
+      "better-sqlite3"
     ]
   }
 }
