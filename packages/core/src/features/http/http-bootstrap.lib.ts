@@ -1,12 +1,6 @@
 import type { LifecycleManager } from '../../kernel';
-import {
-  createContextKey,
-  getInternal,
-  hasContext,
-  runInContext,
-  runInRootContext,
-  setInternal,
-} from '../../kernel';
+import { createContextKey, getInternal, hasContext, runInContext, setInternal } from '../../kernel';
+import { runInRootContext } from '../../kernel/internal';
 import type { FunctionMiddleware } from './middleware/middleware.types';
 
 // Identifies which router's bootstrap created the request context store.
