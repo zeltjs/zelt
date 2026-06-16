@@ -246,8 +246,11 @@ type ViewerPublic {
     });
 
     expect(result.data).toBeNull();
-    expect(result.errors?.[0]?.extensions?.['code']).toBe('GRAPHQL_ARGS_VALIDATION_FAILED');
-    expect(result.errors?.[0]?.extensions?.['issues']).toEqual([{ message: 'id is invalid' }]);
+    if (result.errors === undefined || result.errors[0] === undefined) {
+      throw new Error('Expected GraphQL args validation error');
+    }
+    expect(result.errors[0].extensions['code']).toBe('GRAPHQL_ARGS_VALIDATION_FAILED');
+    expect(result.errors[0].extensions['issues']).toEqual([{ message: 'id is invalid' }]);
   });
 
   it('enriches structurally compatible args validation errors thrown from an invocation hook', async () => {
@@ -301,8 +304,11 @@ type ViewerPublic {
     });
 
     expect(result.data).toBeNull();
-    expect(result.errors?.[0]?.extensions?.['code']).toBe('GRAPHQL_ARGS_VALIDATION_FAILED');
-    expect(result.errors?.[0]?.extensions?.['issues']).toEqual([
+    if (result.errors === undefined || result.errors[0] === undefined) {
+      throw new Error('Expected GraphQL args validation error');
+    }
+    expect(result.errors[0].extensions['code']).toBe('GRAPHQL_ARGS_VALIDATION_FAILED');
+    expect(result.errors[0].extensions['issues']).toEqual([
       { message: 'id is invalid from generated helper' },
     ]);
   });

@@ -51,6 +51,11 @@ type ResolvedArtifactRuntime = {
 
 type UnknownFunction = (...args: unknown[]) => unknown;
 
+function narrowToUnknownFunction(value: unknown): UnknownFunction;
+function narrowToUnknownFunction(value: unknown): unknown {
+  return value;
+}
+
 const resolveArtifactRuntime = (
   runtime: HttpInvocationArtifactRuntime | undefined,
 ): ResolvedArtifactRuntime => {
@@ -83,7 +88,7 @@ const readProperty = (value: unknown, key: string): unknown => {
 
 const readFunctionProperty = (value: unknown, key: string): UnknownFunction | undefined => {
   const property = readProperty(value, key);
-  return typeof property === 'function' ? (property as UnknownFunction) : undefined;
+  return typeof property === 'function' ? narrowToUnknownFunction(property) : undefined;
 };
 
 const readControllers = (http: object | undefined): readonly ControllerClass[] => {

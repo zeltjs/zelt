@@ -30,6 +30,11 @@ type NodeModules = {
 
 type UnknownFunction = (...args: unknown[]) => unknown;
 
+function narrowToUnknownFunction(value: unknown): UnknownFunction;
+function narrowToUnknownFunction(value: unknown): unknown {
+  return value;
+}
+
 const readObject = (value: unknown): object | undefined =>
   typeof value === 'object' && value !== null ? value : undefined;
 
@@ -41,7 +46,7 @@ const readProperty = (value: unknown, key: string): unknown => {
 
 const readFunctionProperty = (value: unknown, key: string): UnknownFunction | undefined => {
   const property = readProperty(value, key);
-  return typeof property === 'function' ? (property as UnknownFunction) : undefined;
+  return typeof property === 'function' ? narrowToUnknownFunction(property) : undefined;
 };
 
 /** @throws {Error} */
@@ -149,7 +154,7 @@ const readHooks = (
     if (typeof hook !== 'function') {
       throw new Error(`HTTP invocation hook "${key}" from ${moduleUrl} must be a function.`);
     }
-    hooks[key] = toHttpInvocationHook(hook as UnknownFunction, moduleUrl, key);
+    hooks[key] = toHttpInvocationHook(narrowToUnknownFunction(hook), moduleUrl, key);
   }
   return hooks;
 };
