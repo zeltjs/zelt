@@ -9,7 +9,6 @@ const config: KnipConfig = {
     'scripts/**',
     'integration/**',
   ],
-  ignoreDependencies: ['node-pty'],
   ignoreExportsUsedInFile: true,
   // GreetBody/GreetResponse: used via ts-morph AST resolution and AppType inference, invisible to static analysis
   // CreateUserBody/User: used by fixture file consumed via ts-morph at runtime, not traceable by static analysis
