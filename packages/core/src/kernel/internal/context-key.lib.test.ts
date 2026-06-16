@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { createContextKey, getInternal, runInContext, setInternal } from './context-key.lib';
+import {
+  createContextKey,
+  getInternal,
+  runInContext,
+  runInRootContext,
+  setInternal,
+} from './context-key.lib';
 
 describe('context-key', () => {
   describe('createContextKey', () => {
@@ -62,6 +68,19 @@ describe('context-key', () => {
         });
         expect(getInternal(OUTER)).toBe('from-parent');
         expect(getInternal(INNER)).toBeUndefined();
+      });
+    });
+
+    it('does not inherit parent context in nested runInRootContext', () => {
+      const KEY = createContextKey<string>('test:root');
+      runInContext(() => {
+        setInternal(KEY, 'outer');
+        runInRootContext(() => {
+          expect(getInternal(KEY)).toBeUndefined();
+          setInternal(KEY, 'inner');
+          expect(getInternal(KEY)).toBe('inner');
+        });
+        expect(getInternal(KEY)).toBe('outer');
       });
     });
 

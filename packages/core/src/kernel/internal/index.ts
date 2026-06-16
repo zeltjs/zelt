@@ -4,6 +4,7 @@ export {
   getInternal,
   hasContext,
   runInContext,
+  runInRootContext,
   setInternal,
 } from './context-key.lib';
 export type { InjectableClassDecoratorHooks } from './decorator-helpers.lib';

@@ -1,11 +1,19 @@
 import type { LifecycleManager } from '../../kernel';
-import { createContextKey, getInternal, hasContext, runInContext, setInternal } from '../../kernel';
+import {
+  createContextKey,
+  getInternal,
+  hasContext,
+  runInContext,
+  runInRootContext,
+  setInternal,
+} from '../../kernel';
 import type { FunctionMiddleware } from './middleware/middleware.types';
 
 // Identifies which router's bootstrap created the request context store.
 // The creator is the request root: the only error-handling level that must
 // not rethrow, since no parent router exists above it.
 const STORE_CREATOR = createContextKey<symbol>('zelt:request-store-creator');
+const ROOT_REQUEST = createContextKey<Request>('zelt:request-root');
 
 // The request context store must exist before any middleware runs (setUser
 // etc. write into it). Only the outermost router actually creates the store;
@@ -15,19 +23,33 @@ export const createBootstrapMiddleware = (
   lifecycle: LifecycleManager,
   routerToken: symbol,
 ): FunctionMiddleware => {
-  return async (_c, next) => {
+  return async (c, next) => {
     // A Zelt context may exist (e.g. event handler, test harness) without
     // being a request-scoped store. Only skip when STORE_CREATOR is set,
-    // meaning a parent HTTP router already bootstrapped the request.
-    if (hasContext() && getInternal(STORE_CREATOR) !== undefined) {
+    // meaning a parent HTTP router already bootstrapped this same request.
+    if (
+      hasContext() &&
+      getInternal(STORE_CREATOR) !== undefined &&
+      getInternal(ROOT_REQUEST) === c.req.raw
+    ) {
       await next();
       return;
     }
     await lifecycle.startupPending();
-    await runInContext(async () => {
+
+    /** @throws {ZeltContextNotAvailableError} */
+    async function run(): Promise<void> {
       setInternal(STORE_CREATOR, routerToken);
+      setInternal(ROOT_REQUEST, c.req.raw);
       await next();
-    });
+    }
+
+    if (hasContext() && getInternal(STORE_CREATOR) !== undefined) {
+      await runInRootContext(run);
+      return;
+    }
+
+    await runInContext(run);
   };
 };
 

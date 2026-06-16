@@ -10,13 +10,14 @@ import { http } from './http.feature';
 import { Middleware } from './middleware/middleware.decorator';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
-import { body, getContext, pathParam, setContext } from './request/injection';
+import { body, getContext, pathParam, setContext, url } from './request/injection';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
 
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
     configValue: string;
+    requestId: string;
   }
 }
 
@@ -92,6 +93,74 @@ describe('createApp() — fetch', () => {
     });
 
     expect(results).toEqual([{ seq: 1 }, { seq: 2 }]);
+  });
+
+  it('isolates request helpers when another request is processed inside a request', async () => {
+    let fetchInner: () => Promise<Response>;
+
+    @Controller('/inner-context')
+    class InnerContextController {
+      @Post('/')
+      get() {
+        return {
+          body: body('json'),
+          requestId: getContext('requestId') ?? null,
+          url: url(),
+        };
+      }
+    }
+
+    @Controller('/outer-context')
+    class OuterContextController {
+      @Post('/')
+      async get() {
+        setContext('requestId', 'outer');
+        const outerBefore = { body: body('json'), requestId: getContext('requestId'), url: url() };
+        const res = await fetchInner();
+        const outerAfter = { body: body('json'), requestId: getContext('requestId'), url: url() };
+        return { inner: await res.json(), outerAfter, outerBefore };
+      }
+    }
+
+    const app = createApp([
+      http({ controllers: [OuterContextController, InnerContextController] }),
+    ]);
+    const readyApp = await app.createRuntime();
+    fetchInner = () =>
+      readyApp.http.fetch(
+        new Request('https://example.com/inner-context/', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ scope: 'inner' }),
+        }),
+      );
+
+    const res = await readyApp.http.fetch(
+      new Request('https://example.com/outer-context/', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ scope: 'outer' }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      inner: {
+        body: { scope: 'inner' },
+        requestId: null,
+        url: 'https://example.com/inner-context/',
+      },
+      outerAfter: {
+        body: { scope: 'outer' },
+        requestId: 'outer',
+        url: 'https://example.com/outer-context/',
+      },
+      outerBefore: {
+        body: { scope: 'outer' },
+        requestId: 'outer',
+        url: 'https://example.com/outer-context/',
+      },
+    });
   });
 
   it('parses JSON body', async () => {
