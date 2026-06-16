@@ -190,6 +190,25 @@ describe('generateSdlForResolvers', () => {
 }`);
   });
 
+  it('records invocation hook keys for root fields with args schemas', async () => {
+    const runtime = await generateGraphqlRuntimeForResolvers([ArgsUserResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+      schemaAdapter: testSchemaAdapter,
+      schemaResolver: testSchemaResolver,
+    });
+
+    expect(runtime.bindings['Query']?.['userById']).toEqual({
+      resolver: 'ArgsUserResolver',
+      method: 'userById',
+      hook: 'Query.userById',
+    });
+    expect(runtime.bindings['Mutation']?.['renameUser']).toEqual({
+      resolver: 'ArgsUserResolver',
+      method: 'renameUser',
+      hook: 'Mutation.renameUser',
+    });
+  });
+
   it('records runtime enum mappings for root fields returning string literal unions', async () => {
     const runtime = await generateGraphqlRuntimeForResolvers([EnumRootResolver], {
       tsconfig: resolve(__dirname, '../tsconfig.json'),

@@ -8,4 +8,4 @@ export { ip } from './ip.lib';
 export { pathParam, setPathParams } from './path-param.lib';
 export { queryParam, queryParams } from './query-param.lib';
 export { method, path, url } from './url.lib';
-export { validated } from './validated.lib';
+export { validateBodyAsync, validated } from './validated.lib';

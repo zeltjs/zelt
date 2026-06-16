@@ -124,6 +124,8 @@ export default tseslint.config(
     files: [
       'packages/core/src/internal-bridge/testing.ts',
       'packages/core/src/internal-bridge/errors.ts',
+      'packages/core/src/http-invocation.ts',
+      'packages/core/src/http-invocation-runtime.ts',
       'packages/testing/src/adapters/vitest.ts',
       'packages/testing/src/adapters/jest.ts',
       'packages/testing/src/adapters/bun.ts',

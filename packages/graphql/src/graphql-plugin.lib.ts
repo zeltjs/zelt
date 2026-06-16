@@ -1,14 +1,18 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import type { ZeltPlugin } from '@zeltjs/cli';
 import type { ControllerClass, HttpStaticCapabilities } from '@zeltjs/core';
+import type { GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 import { getGraphqlControllerMetadata } from './graphql-metadata.lib';
 import type { GraphqlRuntimeManifest } from './graphql-runtime.lib';
 import type { GenerateSdlOptions } from './graphql-sdl-generator.lib';
-import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
+import {
+  generateGraphqlRuntimeForResolvers,
+  getGraphqlInvocationHookSchemaRef,
+} from './graphql-sdl-generator.lib';
 import type { GenerateSchemaFirstResolverChecksOptions } from './schema-first-resolver-checks.lib';
 import { generateSchemaFirstResolverChecks } from './schema-first-resolver-checks.lib';
 import { generateSchemaFirstGraphqlRuntimeForResolvers } from './schema-first-runtime.lib';
@@ -94,7 +98,7 @@ const toImportSpecifier = (modulePath: string): string => {
 
 const toSerializableRuntime = (
   runtime: GraphqlRuntimeManifest,
-): Omit<GraphqlRuntimeManifest, 'scalars'> => ({
+): Omit<GraphqlRuntimeManifest, 'invocationHooks' | 'scalars'> => ({
   schemaSdl: runtime.schemaSdl,
   bindings: runtime.bindings,
   ...(runtime.enumFields !== undefined && { enumFields: runtime.enumFields }),
@@ -122,13 +126,148 @@ const buildScalarObjectLiteral = (runtime: GraphqlRuntimeManifest): string | und
   return `  "scalars": {\n${entries.join(',\n')}\n  }`;
 };
 
-const buildRuntimeModule = (runtime: GraphqlRuntimeManifest): string => {
-  const imports = buildScalarImports(runtime);
+type InvocationHookLiteral = {
+  readonly key: string;
+  readonly ref: GraphqlArgsSchemaRef;
+  readonly moduleIndex: number;
+};
+
+const getLocalGraphqlArgsLibImportSpecifier = (): string => {
+  const currentPath = fileURLToPath(import.meta.url);
+  const ext = currentPath.endsWith('.ts') ? '.ts' : '.js';
+  return pathToFileURL(resolve(dirname(currentPath), `args.lib${ext}`)).href;
+};
+
+const toRuntimeHelperPath = (runtimePath: string): string => {
+  const replaced = runtimePath.replace(/\.(?:cjs|mjs|js|ts)$/, '.helper.mjs');
+  return replaced === runtimePath ? `${runtimePath}.helper.mjs` : replaced;
+};
+
+const toRelativeImportSpecifier = (fromPath: string, toPath: string): string => {
+  const raw = relative(dirname(fromPath), toPath).replaceAll('\\', '/');
+  return raw.startsWith('.') ? raw : `./${raw}`;
+};
+
+const getBindingHookKeys = (runtime: GraphqlRuntimeManifest): ReadonlySet<string> => {
+  const keys = new Set<string>();
+  for (const typeBindings of Object.values(runtime.bindings)) {
+    for (const binding of Object.values(typeBindings)) {
+      if (binding.hook === '') throw new Error('GraphQL invocation hook key must not be empty.');
+      if (binding.hook !== undefined) keys.add(binding.hook);
+    }
+  }
+  return keys;
+};
+
+/** @throws {Error} */
+const buildInvocationHookLiterals = (
+  runtime: GraphqlRuntimeManifest,
+): readonly InvocationHookLiteral[] => {
+  const hooks = runtime.invocationHooks ?? {};
+  const bindingHookKeys = getBindingHookKeys(runtime);
+  const moduleIndexes = new Map<string, number>();
+  const literals: InvocationHookLiteral[] = [];
+
+  for (const key of bindingHookKeys) {
+    const hook = hooks[key];
+    if (hook === undefined) throw new Error(`GraphQL invocation hook missing: ${key}`);
+    const ref = getGraphqlInvocationHookSchemaRef(hook);
+    if (!ref) throw new Error(`GraphQL invocation hook is not serializable: ${key}`);
+    const moduleIndex = moduleIndexes.get(ref.modulePath) ?? moduleIndexes.size;
+    moduleIndexes.set(ref.modulePath, moduleIndex);
+    literals.push({ key, ref, moduleIndex });
+  }
+
+  return literals;
+};
+
+const buildInvocationHookImports = (
+  literals: readonly InvocationHookLiteral[],
+  helperImportSpecifier: string,
+): string => {
+  if (literals.length === 0) return '';
+  const modulePaths = [...new Set(literals.map((literal) => literal.ref.modulePath))];
+  const schemaImports = modulePaths.map(
+    (modulePath, index) =>
+      `import * as graphqlArgsModule${index} from ${JSON.stringify(toImportSpecifier(modulePath))};`,
+  );
+  return [
+    `import { createGraphqlArgsValidationError } from ${JSON.stringify(helperImportSpecifier)};`,
+    ...schemaImports,
+    '',
+    '',
+  ].join('\n');
+};
+
+const buildInvocationHooksObjectLiteral = (
+  literals: readonly InvocationHookLiteral[],
+): string | undefined => {
+  if (literals.length === 0) return undefined;
+  const entries = literals.map(
+    (literal) => `    ${JSON.stringify(literal.key)}: async (ctx) => {
+      const result = await graphqlArgsModule${literal.moduleIndex}[${JSON.stringify(
+        literal.ref.exportName,
+      )}]['~standard'].validate(ctx.args);
+      if (result.issues) throw await createGraphqlArgsValidationError(result.issues);
+      return [result.value];
+    }`,
+  );
+  return `  "invocationHooks": {\n${entries.join(',\n')}\n  }`;
+};
+
+const buildRuntimeHelperModule = (): string => `const fallbackGraphqlArgsValidationError = class GraphqlArgsValidationError extends Error {
+  constructor(issues) {
+    super(\`GraphQL args validation failed: \${issues.map((issue) => issue.message).join('; ')}\`);
+    this.name = 'GraphqlArgsValidationError';
+    this.issues = issues;
+  }
+};
+
+let graphqlArgsValidationErrorConstructor;
+
+const loadGraphqlArgsValidationErrorConstructor = async () => {
+  if (graphqlArgsValidationErrorConstructor !== undefined) {
+    return graphqlArgsValidationErrorConstructor;
+  }
+  try {
+    const mod = await import(${JSON.stringify(getLocalGraphqlArgsLibImportSpecifier())});
+    graphqlArgsValidationErrorConstructor = mod.GraphqlArgsValidationError;
+  } catch {
+    graphqlArgsValidationErrorConstructor = fallbackGraphqlArgsValidationError;
+  }
+  return graphqlArgsValidationErrorConstructor;
+};
+
+export const createGraphqlArgsValidationError = async (issues) => {
+  const GraphqlArgsValidationError = await loadGraphqlArgsValidationErrorConstructor();
+  return new GraphqlArgsValidationError(issues);
+};
+`;
+
+const buildRuntimeModule = (
+  runtime: GraphqlRuntimeManifest,
+  runtimePath: string,
+  helperPath: string,
+): string => {
+  const invocationHookLiterals = buildInvocationHookLiterals(runtime);
+  const helperImportSpecifier = toRelativeImportSpecifier(runtimePath, helperPath);
+  const imports = `${buildScalarImports(runtime)}${buildInvocationHookImports(
+    invocationHookLiterals,
+    helperImportSpecifier,
+  )}`;
   const runtimeJson = JSON.stringify(toSerializableRuntime(runtime), null, 2);
+  const invocationHooksLiteral = buildInvocationHooksObjectLiteral(invocationHookLiterals);
   const scalarLiteral = buildScalarObjectLiteral(runtime);
-  if (!scalarLiteral) return `${imports}export const graphqlRuntime = ${runtimeJson};\n`;
+  const objectLiterals = [invocationHooksLiteral, scalarLiteral].flatMap((literal) =>
+    literal === undefined ? [] : [literal],
+  );
+  if (objectLiterals.length === 0) {
+    return `${imports}export const graphqlRuntime = ${runtimeJson};\n`;
+  }
   const trimmed = runtimeJson.replace(/\n}$/, '');
-  return `${imports}export const graphqlRuntime = ${trimmed},\n${scalarLiteral}\n};\n`;
+  return `${imports}export const graphqlRuntime = ${trimmed},\n${objectLiterals.join(
+    ',\n',
+  )}\n};\n`;
 };
 
 const writeRuntimeModule = async (
@@ -136,8 +275,17 @@ const writeRuntimeModule = async (
   runtime: GraphqlRuntimeManifest,
 ): Promise<boolean> => {
   const runtimePath = resolve(runtimeModule);
+  const helperPath = toRuntimeHelperPath(runtimePath);
   await mkdir(dirname(runtimePath), { recursive: true });
-  return writeIfChanged(runtimePath, buildRuntimeModule(runtime));
+  const runtimeChanged = await writeIfChanged(
+    runtimePath,
+    buildRuntimeModule(runtime, runtimePath, helperPath),
+  );
+  const helperChanged =
+    Object.keys(runtime.invocationHooks ?? {}).length > 0
+      ? await writeIfChanged(helperPath, buildRuntimeHelperModule())
+      : false;
+  return runtimeChanged || helperChanged;
 };
 
 const toRuntimeSchemaPath = (runtimeModule: string): string => {

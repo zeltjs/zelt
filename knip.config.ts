@@ -67,7 +67,12 @@ const config: KnipConfig = {
       // neverthrow は今後 Result wrapper に使う想定で keep。
       ignoreDependencies: ['neverthrow'],
       // barrel files used by test files via '..' import path (required by no-cross-directory-lib-import rule)
-      ignore: ['src/app/index.ts', 'src/features/scheduler/index.ts'],
+      // HTTP invocation fixtures are loaded through AST/runtime generation tests.
+      ignore: [
+        'src/app/index.ts',
+        'src/features/scheduler/index.ts',
+        'src/features/http/invocation/_fixtures/**',
+      ],
     },
     'packages/graphql': {
       // gql-args-sample.lib.ts is a test fixture imported by generate-sdl.test.ts
@@ -87,7 +92,8 @@ const config: KnipConfig = {
     'packages/cli': {
       // c12 is bundled into the CLI dist, but it imports jiti at runtime.
       // jiti must stay external because its package assets are not bundle-safe.
-      ignoreDependencies: ['jiti'],
+      // SWC is referenced from generated hook-artifact tsdown config, not a static import.
+      ignoreDependencies: ['jiti', '@rollup/plugin-swc', '@swc/core'],
     },
     'packages/testing': {
       // node:test requires @types/node for types - referenced via optional peer dependency

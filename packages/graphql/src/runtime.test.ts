@@ -5,8 +5,13 @@ import { pathToFileURL } from 'node:url';
 import { createApp, http } from '@zeltjs/core';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
+import { GraphqlArgsValidationError } from './args.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
-import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
+import {
+  createGraphqlExecutor,
+  executeGraphqlRequest,
+  loadGeneratedGraphqlRuntime,
+} from './graphql-runtime.lib';
 import { args, gqlScalar, graphql, Query, ResolveField, Resolver } from './index';
 
 type ViewerPublic = {
@@ -67,6 +72,239 @@ describe('executeGraphqlRequest', () => {
         },
       },
     });
+  });
+
+  it('uses invocation hook params before calling a root resolver', async () => {
+    type HookedUserInput = {
+      readonly id: string;
+    };
+
+    @Resolver()
+    class HookedUserResolver {
+      @Query()
+      user(input: HookedUserInput): ViewerPublic {
+        return { id: input.id };
+      }
+    }
+
+    const hookContexts: unknown[] = [];
+    const hookRuntime = {
+      schemaSdl: `type Query {
+  user(id: String!): ViewerPublic!
+}
+
+type ViewerPublic {
+  id: String!
+}
+`,
+      bindings: {
+        Query: {
+          user: { resolver: 'HookedUserResolver', method: 'user', hook: 'Query.user' },
+        },
+      },
+      invocationHooks: {
+        'Query.user': async (ctx: {
+          readonly parent: unknown;
+          readonly args: Readonly<Record<string, unknown>>;
+          readonly isRootField: boolean;
+        }): Promise<readonly unknown[]> => {
+          hookContexts.push(ctx);
+          return [{ id: `${String(ctx.args['id'])}-validated` }];
+        },
+      },
+    } satisfies GeneratedGraphqlRuntime;
+
+    const result = await executeGraphqlRequest({
+      runtime: hookRuntime,
+      resolvers: [HookedUserResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ user(id: "user-1") { id } }' },
+    });
+
+    expect(result).toEqual({
+      data: {
+        user: { id: 'user-1-validated' },
+      },
+    });
+    expect(hookContexts).toEqual([
+      {
+        parent: undefined,
+        args: { id: 'user-1' },
+        isRootField: true,
+      },
+    ]);
+  });
+
+  it('keeps args default parameter fallback when binding has no invocation hook', async () => {
+    const FallbackInput = v.object({
+      id: v.pipe(v.string(), v.minLength(1)),
+    });
+
+    @Resolver()
+    class FallbackArgsResolver {
+      @Query()
+      user(input = args(FallbackInput)): ViewerPublic {
+        return { id: input.id };
+      }
+    }
+
+    const fallbackRuntime = {
+      schemaSdl: `type Query {
+  user(id: String!): ViewerPublic!
+}
+
+type ViewerPublic {
+  id: String!
+}
+`,
+      bindings: {
+        Query: {
+          user: { resolver: 'FallbackArgsResolver', method: 'user' },
+        },
+      },
+    } satisfies GeneratedGraphqlRuntime;
+
+    const result = await executeGraphqlRequest({
+      runtime: fallbackRuntime,
+      resolvers: [FallbackArgsResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ user(id: "fallback-user") { id } }' },
+    });
+
+    expect(result).toEqual({
+      data: {
+        user: { id: 'fallback-user' },
+      },
+    });
+  });
+
+  it('rejects generated runtime bindings with an empty invocation hook name', async () => {
+    const runtimeModulePath = join(
+      tmpdir(),
+      `zelt-graphql-empty-hook-${Date.now()}-${Math.random()}.mjs`,
+    );
+    await writeFile(
+      runtimeModulePath,
+      `export const graphqlRuntime = ${JSON.stringify({
+        schemaSdl: `type Query {
+  viewer: ViewerPublic!
+}
+
+type ViewerPublic {
+  id: String!
+}
+`,
+        bindings: {
+          Query: {
+            viewer: { resolver: 'RuntimeViewerResolver', method: 'viewer', hook: '' },
+          },
+        },
+      })};\n`,
+      'utf8',
+    );
+
+    await expect(loadGeneratedGraphqlRuntime(runtimeModulePath)).rejects.toThrow(
+      /GraphQL runtime module must export graphqlRuntime/,
+    );
+  });
+
+  it('enriches GraphqlArgsValidationError thrown from an invocation hook', async () => {
+    @Resolver()
+    class HookValidationResolver {
+      @Query()
+      user(input: ViewerPublic): ViewerPublic {
+        return input;
+      }
+    }
+
+    const validationRuntime = {
+      schemaSdl: `type Query {
+  user(id: String!): ViewerPublic!
+}
+
+type ViewerPublic {
+  id: String!
+}
+`,
+      bindings: {
+        Query: {
+          user: { resolver: 'HookValidationResolver', method: 'user', hook: 'Query.user' },
+        },
+      },
+      invocationHooks: {
+        'Query.user': (): readonly unknown[] => {
+          throw new GraphqlArgsValidationError([{ message: 'id is invalid' }]);
+        },
+      },
+    } satisfies GeneratedGraphqlRuntime;
+
+    const result = await executeGraphqlRequest({
+      runtime: validationRuntime,
+      resolvers: [HookValidationResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ user(id: "") { id } }' },
+    });
+
+    expect(result.data).toBeNull();
+    expect(result.errors?.[0]?.extensions?.['code']).toBe('GRAPHQL_ARGS_VALIDATION_FAILED');
+    expect(result.errors?.[0]?.extensions?.['issues']).toEqual([{ message: 'id is invalid' }]);
+  });
+
+  it('enriches structurally compatible args validation errors thrown from an invocation hook', async () => {
+    class GeneratedHelperGraphqlArgsValidationError extends Error {
+      readonly issues = [{ message: 'id is invalid from generated helper' }];
+
+      constructor() {
+        super('GraphQL args validation failed: id is invalid from generated helper');
+        this.name = 'GraphqlArgsValidationError';
+      }
+    }
+
+    @Resolver()
+    class StructuralHookValidationResolver {
+      @Query()
+      user(input: ViewerPublic): ViewerPublic {
+        return input;
+      }
+    }
+
+    const validationRuntime = {
+      schemaSdl: `type Query {
+  user(id: String!): ViewerPublic!
+}
+
+type ViewerPublic {
+  id: String!
+}
+`,
+      bindings: {
+        Query: {
+          user: {
+            resolver: 'StructuralHookValidationResolver',
+            method: 'user',
+            hook: 'Query.user',
+          },
+        },
+      },
+      invocationHooks: {
+        'Query.user': (): readonly unknown[] => {
+          throw new GeneratedHelperGraphqlArgsValidationError();
+        },
+      },
+    } satisfies GeneratedGraphqlRuntime;
+
+    const result = await executeGraphqlRequest({
+      runtime: validationRuntime,
+      resolvers: [StructuralHookValidationResolver],
+      resolveResolver: (resolver) => new resolver() as object,
+      request: { query: '{ user(id: "") { id } }' },
+    });
+
+    expect(result.data).toBeNull();
+    expect(result.errors?.[0]?.extensions?.['code']).toBe('GRAPHQL_ARGS_VALIDATION_FAILED');
+    expect(result.errors?.[0]?.extensions?.['issues']).toEqual([
+      { message: 'id is invalid from generated helper' },
+    ]);
   });
 });
 

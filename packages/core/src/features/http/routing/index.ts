@@ -1,5 +1,6 @@
 export { joinPath } from './path-utils.lib';
 export { buildRoutes, collectRoutes } from './route-builder.lib';
+export type { BuildRoutesOptions, HttpInvocationHook } from './route-builder.lib';
 export type {
   ControllerClass,
   ControllerRouteInfo,

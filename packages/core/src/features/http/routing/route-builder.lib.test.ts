@@ -1,12 +1,46 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../app';
+import type { ResolverHandle } from '../../../kernel';
+import { LifecycleManager } from '../../../kernel';
 import { http } from '../http.feature';
-import { body } from '../request/injection';
+import { body, validateBodyAsync } from '../request/injection';
 import { Controller } from './controller.decorator';
 import { Get, Post } from './http-method.decorator';
 
-import { collectRoutes, joinPath } from './route-builder.lib';
+import { buildRoutes, collectRoutes, joinPath } from './route-builder.lib';
+
+type SchemaConfig<Output> = {
+  readonly validate: (
+    value: unknown,
+  ) => StandardSchemaV1.Result<Output> | Promise<StandardSchemaV1.Result<Output>>;
+};
+
+const createStandardSchema = <Output>({
+  validate,
+}: SchemaConfig<Output>): StandardSchemaV1<unknown, Output> => ({
+  '~standard': {
+    version: 1,
+    vendor: 'zelt-test',
+    validate,
+    types: undefined as StandardSchemaV1.Types<unknown, Output> | undefined,
+  },
+});
+
+const createResolver = (): ResolverHandle => {
+  const instances = new Map<object, object>();
+  return {
+    get: <T extends object>(cls: new (...args: never[]) => T): T => {
+      const cached = instances.get(cls);
+      if (cached) return cached as T;
+      const instance = Reflect.construct(cls, []) as T;
+      instances.set(cls, instance);
+      return instance;
+    },
+  };
+};
 
 describe('joinPath', () => {
   it.each([
@@ -71,6 +105,252 @@ describe('buildRoutes (instanceof Response branch)', () => {
     expect(res.status).toBe(418);
     expect(res.headers.get('X-Custom')).toBe('yes');
     expect(await res.text()).toBe('I am a teapot');
+  });
+});
+
+describe('buildRoutes invocation hooks', () => {
+  it('passes hook params to the controller without evaluating body default parameters', async () => {
+    const defaultBody = (): unknown => {
+      throw new Error('body() default parameter should not run when an invocation hook is present');
+    };
+
+    @Controller('/hooked')
+    class HookedController {
+      @Post('/create')
+      create(data = defaultBody()) {
+        return data;
+      }
+    }
+
+    const hono = new Hono({ strict: false });
+    const contexts: unknown[] = [];
+    buildRoutes({
+      hono,
+      controllers: [HookedController],
+      resolver: createResolver(),
+      lifecycle: new LifecycleManager(),
+      invocationHooks: {
+        'POST /hooked/create HookedController.create': async (ctx) => {
+          contexts.push({
+            controllerClass: ctx.controllerClass,
+            methodName: ctx.methodName,
+            fullPath: ctx.route.fullPath,
+            requestMethod: ctx.c.req.method,
+          });
+          return [{ name: 'from-hook' }];
+        },
+      },
+    });
+
+    const res = await hono.fetch(
+      new Request('http://localhost/hooked/create', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'from-body' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ name: 'from-hook' });
+    expect(contexts).toEqual([
+      {
+        controllerClass: HookedController,
+        methodName: 'create',
+        fullPath: '/hooked/create',
+        requestMethod: 'POST',
+      },
+    ]);
+  });
+
+  it('uses the default parameter path when no hook exists for the route', async () => {
+    @Controller('/fallback')
+    class FallbackController {
+      @Post('/create')
+      create(data = body() as { name: string }) {
+        return { name: data.name };
+      }
+    }
+
+    const hono = new Hono({ strict: false });
+    buildRoutes({
+      hono,
+      controllers: [FallbackController],
+      resolver: createResolver(),
+      lifecycle: new LifecycleManager(),
+      invocationHooks: {},
+    });
+
+    const res = await hono.fetch(
+      new Request('http://localhost/fallback/create', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'from-default' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ name: 'from-default' });
+  });
+
+  it('awaits async Standard Schema validation through the hook helper', async () => {
+    const asyncSchema = createStandardSchema<{ name: string }>({
+      validate: async (value) => {
+        if (typeof value === 'object' && value !== null && 'name' in value) {
+          return { value: { name: String(value.name) } };
+        }
+        return { issues: [{ message: 'Invalid payload' }] };
+      },
+    });
+
+    @Controller('/validated-hook')
+    class ValidatedHookController {
+      @Post('/create')
+      create(data: { name: string }) {
+        return { receivedName: data.name };
+      }
+    }
+
+    const hono = new Hono({ strict: false });
+    buildRoutes({
+      hono,
+      controllers: [ValidatedHookController],
+      resolver: createResolver(),
+      lifecycle: new LifecycleManager(),
+      invocationHooks: {
+        'POST /validated-hook/create ValidatedHookController.create': async () => [
+          await validateBodyAsync(asyncSchema),
+        ],
+      },
+    });
+
+    const res = await hono.fetch(
+      new Request('http://localhost/validated-hook/create', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Ada' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ receivedName: 'Ada' });
+  });
+
+  it('uses route identity so same named controller methods on different paths can be hooked independently', async () => {
+    const FirstController = (() => {
+      @Controller('/first')
+      class DuplicateController {
+        @Post('/create')
+        create(data = body() as { name: string }) {
+          return { route: 'first', name: data.name };
+        }
+      }
+      return DuplicateController;
+    })();
+    const SecondController = (() => {
+      @Controller('/second')
+      class DuplicateController {
+        @Post('/create')
+        create(data = body() as { name: string }) {
+          return { route: 'second', name: data.name };
+        }
+      }
+      return DuplicateController;
+    })();
+
+    const hono = new Hono({ strict: false });
+    buildRoutes({
+      hono,
+      controllers: [FirstController, SecondController],
+      resolver: createResolver(),
+      lifecycle: new LifecycleManager(),
+      invocationHooks: {
+        'POST /second/create DuplicateController.create': async () => [{ name: 'from-hook' }],
+      },
+    });
+
+    const first = await hono.fetch(
+      new Request('http://localhost/first/create', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'from-body' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const second = await hono.fetch(
+      new Request('http://localhost/second/create', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'from-body' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    expect(await first.json()).toEqual({ route: 'first', name: 'from-body' });
+    expect(await second.json()).toEqual({ route: 'second', name: 'from-hook' });
+  });
+
+  it('throws during build when invocation hook keys collide across routes', () => {
+    @Controller('/duplicate')
+    class DuplicateRouteController {
+      @Post('/create')
+      create() {
+        return {};
+      }
+    }
+
+    const hono = new Hono({ strict: false });
+    expect(() =>
+      buildRoutes({
+        hono,
+        controllers: [DuplicateRouteController, DuplicateRouteController],
+        resolver: createResolver(),
+        lifecycle: new LifecycleManager(),
+        invocationHooks: {},
+      }),
+    ).toThrow(
+      'Duplicate HTTP invocation hook key "POST /duplicate/create DuplicateRouteController.create"',
+    );
+  });
+
+  it('rejects undefined hook params before controller default parameters run', async () => {
+    let defaultRan = false;
+    const defaultBody = (): unknown => {
+      defaultRan = true;
+      throw new Error('default parameter should not run');
+    };
+
+    @Controller('/undefined-param')
+    class UndefinedParamController {
+      @Post('/create')
+      create(data = defaultBody()) {
+        return data;
+      }
+    }
+
+    const hono = new Hono({ strict: false });
+    hono.onError((err) => Response.json({ message: err.message }, { status: 500 }));
+    buildRoutes({
+      hono,
+      controllers: [UndefinedParamController],
+      resolver: createResolver(),
+      lifecycle: new LifecycleManager(),
+      invocationHooks: {
+        'POST /undefined-param/create UndefinedParamController.create': async () => [undefined],
+      },
+    });
+
+    const res = await hono.fetch(
+      new Request('http://localhost/undefined-param/create', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'from-body' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    expect(res.status).toBe(500);
+    expect(defaultRan).toBe(false);
+    expect(await res.json()).toEqual({
+      message:
+        'HTTP invocation hook "POST /undefined-param/create UndefinedParamController.create" returned undefined parameter at index 0; generated hooks must omit unsupported params or return a defined value.',
+    });
   });
 });
 

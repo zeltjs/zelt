@@ -1,7 +1,9 @@
 import { resolve } from 'node:path';
 
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { describe, expect, it } from 'vitest';
-import { readGraphqlArgs } from './args.lib';
+import { readGraphqlArgs, validateGraphqlArgs } from './args.lib';
+import { GetUserInput } from './gql-args-sample.lib';
 import { executeGraphqlRequest } from './graphql-runtime.lib';
 import { Query, Resolver } from './index';
 import { generateSchemaFirstGraphqlRuntimeForResolvers } from './schema-first-runtime.lib';
@@ -23,6 +25,26 @@ class SchemaFirstStorefrontResolver {
 class SchemaFirstNamedStorefrontResolver {
   @Query('product')
   findProduct(input = readGraphqlArgs<{ readonly id: string }>()): Product {
+    return { id: input.id, name: 'Desk Lamp' };
+  }
+}
+
+namespace Gql {
+  export namespace Query {
+    export namespace product {
+      export function args<Schema extends StandardSchemaV1>(
+        schema: Schema,
+      ): StandardSchemaV1.InferOutput<Schema> {
+        return validateGraphqlArgs(schema);
+      }
+    }
+  }
+}
+
+@Resolver()
+class SchemaFirstArgsStorefrontResolver {
+  @Query()
+  product(input = Gql.Query.product.args(GetUserInput)): Product {
     return { id: input.id, name: 'Desk Lamp' };
   }
 }
@@ -78,6 +100,20 @@ type Product {
       resolver: 'SchemaFirstNamedStorefrontResolver',
       method: 'findProduct',
     });
+  });
+
+  it('records invocation hook keys for root bindings with args schemas', async () => {
+    const runtime = await generateSchemaFirstGraphqlRuntimeForResolvers(
+      [SchemaFirstArgsStorefrontResolver],
+      { schemaSdl, tsconfig },
+    );
+
+    expect(runtime.bindings['Query']?.['product']).toEqual({
+      resolver: 'SchemaFirstArgsStorefrontResolver',
+      method: 'product',
+      hook: 'Query.product',
+    });
+    expect(typeof runtime.invocationHooks?.['Query.product']).toBe('function');
   });
 
   it('fails clearly when a root method does not match the schema field', async () => {

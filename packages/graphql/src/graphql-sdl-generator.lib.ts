@@ -11,9 +11,11 @@ import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/
 
 import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
+import { GraphqlArgsValidationError } from './args.lib';
+import type { StandardSchemaIssue } from './args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
-import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
+import type { GeneratedGraphqlRuntime, GraphqlInvocationHook } from './graphql-runtime.lib';
 import type { GraphqlSchemaAdapter } from './json-schema-to-graphql-args.lib';
 import { renderGraphqlArgs } from './json-schema-to-graphql-args.lib';
 import type { GraphqlOutputTypeInfo, GraphqlScalarRef } from './type-to-graphql.lib';
@@ -51,7 +53,7 @@ type RootFields = {
 
 type RuntimeBindings = Record<
   string,
-  Record<string, { readonly resolver: string; readonly method: string }>
+  Record<string, { readonly resolver: string; readonly method: string; readonly hook?: string }>
 >;
 
 type RuntimeEnumFields = Record<string, Record<string, Readonly<Record<string, string>>>>;
@@ -157,6 +159,73 @@ const defaultScalarResolver: GqlSchemaResolver = async (modulePath) => {
   }
   return { ...imported };
 };
+
+type StandardSchemaValidationResult = {
+  readonly issues?: readonly StandardSchemaIssue[];
+  readonly value: unknown;
+};
+
+type StandardSchemaValue = {
+  readonly '~standard': {
+    readonly validate: (
+      args: Readonly<Record<string, unknown>>,
+    ) => StandardSchemaValidationResult | Promise<StandardSchemaValidationResult>;
+  };
+};
+
+const argsInvocationHookSchemaRefs = new WeakMap<GraphqlInvocationHook, GraphqlArgsSchemaRef>();
+
+const readObject = (value: unknown): object | undefined =>
+  typeof value === 'object' && value !== null ? value : undefined;
+
+const readProperty = (value: object, key: string): unknown => Reflect.get(value, key);
+
+function toStandardSchemaValue(value: unknown): StandardSchemaValue;
+function toStandardSchemaValue(value: unknown): unknown {
+  return value;
+}
+
+const parseStandardSchemaValue = (value: unknown): StandardSchemaValue | undefined => {
+  const record = readObject(value);
+  if (record === undefined) return undefined;
+  const standard = readObject(readProperty(record, '~standard'));
+  if (standard === undefined) return undefined;
+  return typeof readProperty(standard, 'validate') === 'function'
+    ? toStandardSchemaValue(value)
+    : undefined;
+};
+
+/** @throws {Error} */
+const resolveArgsSchemaValue = async (
+  ref: GraphqlArgsSchemaRef,
+  resolver: GqlSchemaResolver = defaultScalarResolver,
+): Promise<StandardSchemaValue> => {
+  const mod = await resolver(ref.modulePath);
+  const schema = mod[ref.exportName];
+  const parsed = parseStandardSchemaValue(schema);
+  if (parsed === undefined) {
+    throw new Error(`Export '${ref.exportName}' is not a Standard Schema`);
+  }
+  return parsed;
+};
+
+export const createGeneratedGraphqlArgsInvocationHook = (
+  ref: GraphqlArgsSchemaRef,
+  resolver?: GqlSchemaResolver,
+): GraphqlInvocationHook => {
+  const hook: GraphqlInvocationHook = async (ctx) => {
+    const schema = await resolveArgsSchemaValue(ref, resolver);
+    const result = await schema['~standard'].validate(ctx.args);
+    if (result.issues) throw new GraphqlArgsValidationError(result.issues);
+    return [result.value];
+  };
+  argsInvocationHookSchemaRefs.set(hook, ref);
+  return hook;
+};
+
+export const getGraphqlInvocationHookSchemaRef = (
+  hook: GraphqlInvocationHook,
+): GraphqlArgsSchemaRef | undefined => argsInvocationHookSchemaRefs.get(hook);
 
 const resolveRelativeModuleSpecifier = (
   sourceFile: import('typescript').SourceFile,
@@ -794,11 +863,17 @@ const addRuntimeBinding = (
   fieldName: string,
   resolverName: string,
   methodName: string,
+  hook: string | undefined,
 ): void => {
   const typeBindings = bindings[typeName] ?? {};
   const existing = typeBindings[fieldName];
-  const next = { resolver: resolverName, method: methodName };
-  if (existing && (existing.resolver !== next.resolver || existing.method !== next.method)) {
+  const next = { resolver: resolverName, method: methodName, ...(hook !== undefined && { hook }) };
+  if (
+    existing &&
+    (existing.resolver !== next.resolver ||
+      existing.method !== next.method ||
+      existing.hook !== next.hook)
+  ) {
     throw new Error(`Duplicate GraphQL runtime binding: ${typeName}.${fieldName}`);
   }
   bindings[typeName] = { ...typeBindings, [fieldName]: next };
@@ -866,6 +941,24 @@ type AnalysisState = {
   readonly typeCtx: ReturnType<typeof createGraphqlTypeContext>;
   readonly roots: RootFields;
   readonly bindings: RuntimeBindings;
+  readonly invocationHooks: Record<string, GraphqlInvocationHook>;
+};
+
+const createRootHookKey = (
+  rootTypeName: 'Query' | 'Mutation',
+  fieldName: string,
+  names: MethodTypeNames | undefined,
+): string | undefined =>
+  names?.argsSchemaRef === undefined ? undefined : `${rootTypeName}.${fieldName}`;
+
+const registerRootInvocationHook = (
+  hooks: Record<string, GraphqlInvocationHook>,
+  hookKey: string | undefined,
+  argsSchemaRef: GraphqlArgsSchemaRef | undefined,
+  options: GenerateSdlOptions,
+): void => {
+  if (hookKey === undefined || argsSchemaRef === undefined) return;
+  hooks[hookKey] = createGeneratedGraphqlArgsInvocationHook(argsSchemaRef, options.schemaResolver);
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -878,12 +971,15 @@ const registerRootMethod = (
   kind: 'query' | 'mutation',
   names: MethodTypeNames | undefined,
   argsRendered: string,
+  options: GenerateSdlOptions,
 ): void => {
   const fields = kind === 'query' ? state.roots.query : state.roots.mutation;
   const rootTypeName = kind === 'query' ? 'Query' : 'Mutation';
+  const hookKey = createRootHookKey(rootTypeName, fieldName, names);
   addRootField(fields, fieldName, returnType, names?.returnTypeName, argsRendered, state.typeCtx);
   addEnumFieldMappingForType(state.typeCtx, rootTypeName, fieldName, returnType);
-  addRuntimeBinding(state.bindings, rootTypeName, fieldName, resolverName, methodName);
+  addRuntimeBinding(state.bindings, rootTypeName, fieldName, resolverName, methodName, hookKey);
+  registerRootInvocationHook(state.invocationHooks, hookKey, names?.argsSchemaRef, options);
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -899,7 +995,14 @@ const registerFieldMethod = (
     throw new Error(`@ResolveField() ${resolverName}.${methodName} requires named parent type`);
   }
   addGraphqlField(state.typeCtx, names.parentTypeName, fieldName, returnType, names.returnTypeName);
-  addRuntimeBinding(state.bindings, names.parentTypeName, fieldName, resolverName, methodName);
+  addRuntimeBinding(
+    state.bindings,
+    names.parentTypeName,
+    fieldName,
+    resolverName,
+    methodName,
+    undefined,
+  );
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -912,6 +1015,7 @@ const registerResolverMethod = (
   kind: OperationKind,
   names: MethodTypeNames | undefined,
   argsRendered: string,
+  options: GenerateSdlOptions,
 ): void => {
   if (kind === 'resolveField') {
     if (argsRendered !== '') {
@@ -931,6 +1035,7 @@ const registerResolverMethod = (
     kind,
     names,
     argsRendered,
+    options,
   );
 };
 
@@ -980,6 +1085,7 @@ const registerAnalyzedMethod = async (
     operation.kind,
     names,
     argsRendered,
+    options,
   );
 };
 
@@ -1015,6 +1121,7 @@ const analyzeResolvers = async (
     typeCtx: createGraphqlTypeContext(),
     roots: { query: new Map(), mutation: new Map() },
     bindings: {},
+    invocationHooks: {},
   };
 
   for (const resolver of resolvers) {
@@ -1027,6 +1134,9 @@ const analyzeResolvers = async (
     runtime: {
       schemaSdl,
       bindings: state.bindings,
+      ...(Object.keys(state.invocationHooks).length > 0 && {
+        invocationHooks: state.invocationHooks,
+      }),
       enumFields: buildRuntimeEnumFields(state.typeCtx),
       scalarRefs: buildRuntimeScalarRefs(state.typeCtx),
       scalars: buildRuntimeScalars(state.typeCtx),

@@ -41,6 +41,26 @@
         "types": "./dist/internal-bridge/errors.d.cts",
         "default": "./dist/internal-bridge/errors.cjs"
       }
+    },
+    "./http-invocation": {
+      "import": {
+        "types": "./dist/http-invocation.d.ts",
+        "default": "./dist/http-invocation.js"
+      },
+      "require": {
+        "types": "./dist/http-invocation.d.cts",
+        "default": "./dist/http-invocation.cjs"
+      }
+    },
+    "./http-invocation-runtime": {
+      "import": {
+        "types": "./dist/http-invocation-runtime.d.ts",
+        "default": "./dist/http-invocation-runtime.js"
+      },
+      "require": {
+        "types": "./dist/http-invocation-runtime.d.cts",
+        "default": "./dist/http-invocation-runtime.cjs"
+      }
     }
   },
   "files": [

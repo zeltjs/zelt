@@ -13,6 +13,7 @@ export default mergeConfig(
     },
     resolve: {
       alias: {
+        '@zeltjs/core/http-invocation': path.resolve(__dirname, '../core/src/http-invocation.ts'),
         '@zeltjs/core/internal-bridge/testing': path.resolve(
           __dirname,
           '../core/src/internal-bridge/testing.ts',

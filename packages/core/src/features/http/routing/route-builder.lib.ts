@@ -19,7 +19,13 @@ import type {
   MiddlewareInput,
 } from '../middleware/middleware.types';
 import { setHonoContext } from '../request';
-import { hasParsedBody, parseRequestBody, setBody, setPathParams } from '../request/injection';
+import {
+  body,
+  hasParsedBody,
+  parseRequestBody,
+  setBody,
+  setPathParams,
+} from '../request/injection';
 import { joinPath } from './path-utils.lib';
 import type { ControllerClass, HttpMethod } from './routing-metadata.lib';
 import {
@@ -43,12 +49,32 @@ type HonoRouter = {
   readonly delete: (path: string, ...handlers: (FunctionMiddleware | RouteHandler)[]) => unknown;
 };
 
-type Route = {
+export type Route = {
   readonly method: HttpMethod;
   readonly fullPath: string;
   readonly methodName: string | symbol;
   readonly controllerClass: ControllerClass;
+  readonly hook: string;
 };
+
+export type HttpInvocationHookContext = {
+  readonly controllerClass: ControllerClass;
+  readonly methodName: string | symbol;
+  readonly c: Context<Env, string, Input>;
+  readonly route: Route;
+  readonly body: typeof body;
+};
+
+export type HttpInvocationHook = (
+  ctx: HttpInvocationHookContext,
+) => readonly unknown[] | Promise<readonly unknown[]>;
+
+const getHttpInvocationHookKey = (
+  method: HttpMethod,
+  fullPath: string,
+  controllerClass: ControllerClass,
+  methodName: string | symbol,
+): string => `${method} ${fullPath} ${controllerClass.name}.${String(methodName)}`;
 
 /** @throws {ZeltDecoratorUsageError | ZeltLifecycleStateError} */
 export const collectRoutes = (controllers: readonly ControllerClass[]): readonly Route[] => {
@@ -63,28 +89,41 @@ export const collectRoutes = (controllers: readonly ControllerClass[]): readonly
       });
     }
     for (const r of getRouteMetadata(cls)) {
+      const fullPath = joinPath(meta.basePath, r.path);
       routes.push({
         method: r.method,
-        fullPath: joinPath(meta.basePath, r.path),
+        fullPath,
         methodName: r.methodName,
         controllerClass: cls,
+        hook: getHttpInvocationHookKey(r.method, fullPath, cls, r.methodName),
       });
     }
   }
   return routes;
 };
 
+type ResolvedHandler = {
+  readonly callDefault: () => unknown;
+  readonly callWithParams: (params: readonly unknown[]) => unknown;
+};
+
 /** @throws {ZeltLifecycleStateError | ZeltRouteConfigurationError} */
-const resolveHandler = (instance: object, methodName: string | symbol): (() => unknown) => {
+const resolveHandler = (instance: object, methodName: string | symbol): ResolvedHandler => {
   // Reflect.get returns `any` for dynamic keys; pinning the local to `unknown`
   // forces narrowing before any call, keeping the handler invocation typesafe.
   const value: unknown = Reflect.get(instance, methodName);
   if (typeof value !== 'function') {
     throw new ZeltRouteConfigurationError({ reason: 'invalid_route' });
   }
-  return () => {
-    const result: unknown = value.call(instance);
-    return result;
+  return {
+    callDefault: () => {
+      const result: unknown = value.call(instance);
+      return result;
+    },
+    callWithParams: (params) => {
+      const result: unknown = Reflect.apply(value, instance, params);
+      return result;
+    },
   };
 };
 
@@ -182,6 +221,7 @@ type RouteBuilderContext = {
   readonly resolver: ResolverHandle;
   readonly lifecycle: LifecycleManager;
   readonly instanceCache: Map<ControllerClass, object>;
+  readonly invocationHooks?: Readonly<Record<string, HttpInvocationHook>>;
 };
 
 /** @throws {ZeltLifecycleStateError} */
@@ -194,6 +234,28 @@ const getOrCreateInstance = (
   const instance = ctx.resolver.get(controllerClass);
   ctx.instanceCache.set(controllerClass, instance);
   return instance;
+};
+
+const assertDefinedHookParams = (hookKey: string, params: readonly unknown[]): void => {
+  const undefinedIndex = params.indexOf(undefined);
+  if (undefinedIndex !== -1) {
+    throw new Error(
+      `HTTP invocation hook "${hookKey}" returned undefined parameter at index ${undefinedIndex}; generated hooks must omit unsupported params or return a defined value.`,
+    );
+  }
+};
+
+const collectDuplicateHookKeys = (routes: readonly Route[]): readonly string[] => {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const route of routes) {
+    if (seen.has(route.hook)) {
+      duplicates.add(route.hook);
+      continue;
+    }
+    seen.add(route.hook);
+  }
+  return [...duplicates];
 };
 
 /** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError | BadRequestException} */
@@ -210,7 +272,9 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
     await ctx.lifecycle.startupPending();
 
     const invoke = resolveHandler(instance, route.methodName);
-    const result = await invoke();
+    const hook = ctx.invocationHooks?.[route.hook];
+    const result =
+      hook === undefined ? await invoke.callDefault() : await invokeHook(route, hook, c, invoke);
     if (result instanceof Response) return result;
     return c.json(result);
   };
@@ -232,22 +296,49 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
   methods[route.method]();
 };
 
+const invokeHook = async (
+  route: Route,
+  hook: HttpInvocationHook,
+  c: MiddlewareContext,
+  invoke: ResolvedHandler,
+): Promise<unknown> => {
+  const params = await hook({
+    controllerClass: route.controllerClass,
+    methodName: route.methodName,
+    c,
+    route,
+    body,
+  });
+  assertDefinedHookParams(route.hook, params);
+  return invoke.callWithParams(params);
+};
+
 export type BuildRoutesOptions = {
   readonly hono: HonoRouter;
   readonly controllers: readonly ControllerClass[];
   readonly resolver: ResolverHandle;
   readonly lifecycle: LifecycleManager;
+  readonly invocationHooks?: Readonly<Record<string, HttpInvocationHook>>;
 };
 
 /** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError | BadRequestException} */
 export const buildRoutes = (options: BuildRoutesOptions): void => {
+  const routes = collectRoutes(options.controllers);
+  if (options.invocationHooks !== undefined) {
+    const duplicateHookKeys = collectDuplicateHookKeys(routes);
+    if (duplicateHookKeys.length > 0) {
+      throw new Error(`Duplicate HTTP invocation hook key "${duplicateHookKeys[0]}"`);
+    }
+  }
+
   const ctx: RouteBuilderContext = {
     resolver: options.resolver,
     lifecycle: options.lifecycle,
     instanceCache: new Map(),
+    ...(options.invocationHooks !== undefined && { invocationHooks: options.invocationHooks }),
   };
 
-  for (const route of collectRoutes(options.controllers)) {
+  for (const route of routes) {
     registerRoute(options.hono, ctx, route);
   }
 };

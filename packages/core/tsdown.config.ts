@@ -10,7 +10,13 @@ const swcDecoratorPlugin = swc({
 
 export default defineConfig({
   plugins: [swcDecoratorPlugin],
-  entry: ['src/index.ts', 'src/internal-bridge/testing.ts', 'src/internal-bridge/errors.ts'],
+  entry: [
+    'src/index.ts',
+    'src/internal-bridge/testing.ts',
+    'src/internal-bridge/errors.ts',
+    'src/http-invocation.ts',
+    'src/http-invocation-runtime.ts',
+  ],
   format: ['esm', 'cjs'],
   dts: true,
   clean: true,

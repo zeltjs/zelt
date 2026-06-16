@@ -28,7 +28,18 @@ export const graphqlRequestPayloadSchema = {
 export type GeneratedGraphqlBinding = {
   readonly resolver: string;
   readonly method: string;
+  readonly hook?: string;
 };
+
+export type GraphqlInvocationHookContext = {
+  readonly parent: unknown;
+  readonly args: Readonly<Record<string, unknown>>;
+  readonly isRootField: boolean;
+};
+
+export type GraphqlInvocationHook = (
+  ctx: GraphqlInvocationHookContext,
+) => readonly unknown[] | Promise<readonly unknown[]>;
 
 // GeneratedGraphqlRuntime is the runtime manifest consumed by the executor.
 // Code-first generation is one producer. Schema-first generation can produce
@@ -36,6 +47,7 @@ export type GeneratedGraphqlBinding = {
 export type GeneratedGraphqlRuntime = {
   readonly schemaSdl: string;
   readonly bindings: Record<string, Record<string, GeneratedGraphqlBinding>>;
+  readonly invocationHooks?: Readonly<Record<string, GraphqlInvocationHook>>;
   readonly enumFields?: Record<string, Record<string, Readonly<Record<string, string>>>>;
   readonly scalarRefs?: Record<
     string,
@@ -100,6 +112,13 @@ const toObject = (value: unknown): object | undefined => {
 
 const readProperty = (value: object, key: string): unknown => Reflect.get(value, key);
 
+const parseGeneratedGraphqlBindingHook = (record: object): string | undefined | false => {
+  const hook = readProperty(record, 'hook');
+  if (hook === undefined) return undefined;
+  if (typeof hook !== 'string') return false;
+  return hook.length > 0 ? hook : false;
+};
+
 const parseStringRecord = (value: unknown): Record<string, string> | undefined => {
   const record = toObject(value);
   if (!record) return undefined;
@@ -117,7 +136,9 @@ const parseGeneratedGraphqlBinding = (value: unknown): GeneratedGraphqlBinding |
   const resolver = readProperty(record, 'resolver');
   const method = readProperty(record, 'method');
   if (typeof resolver !== 'string' || typeof method !== 'string') return undefined;
-  return { resolver, method };
+  const hook = parseGeneratedGraphqlBindingHook(record);
+  if (hook === false) return undefined;
+  return { resolver, method, ...(hook !== undefined && { hook }) };
 };
 
 const parseGeneratedGraphqlBindings = (
@@ -233,6 +254,34 @@ const addOptionalRuntimeEnumFields = (
   return enumFields ? { ...runtime, enumFields } : undefined;
 };
 
+function toGraphqlInvocationHook(value: unknown): GraphqlInvocationHook;
+function toGraphqlInvocationHook(value: unknown): unknown {
+  return value;
+}
+
+const parseRuntimeInvocationHooks = (
+  value: unknown,
+): NonNullable<GeneratedGraphqlRuntime['invocationHooks']> | undefined => {
+  const record = toObject(value);
+  if (!record) return undefined;
+  const output: Record<string, GraphqlInvocationHook> = {};
+  for (const [key, hook] of Object.entries(record)) {
+    if (typeof hook !== 'function') return undefined;
+    output[key] = toGraphqlInvocationHook(hook);
+  }
+  return output;
+};
+
+const addOptionalRuntimeInvocationHooks = (
+  runtime: GeneratedGraphqlRuntime,
+  record: object,
+): GeneratedGraphqlRuntime | undefined => {
+  const invocationHooksValue = readProperty(record, 'invocationHooks');
+  if (invocationHooksValue === undefined) return runtime;
+  const invocationHooks = parseRuntimeInvocationHooks(invocationHooksValue);
+  return invocationHooks ? { ...runtime, invocationHooks } : undefined;
+};
+
 const addOptionalRuntimeScalarRefs = (
   runtime: GeneratedGraphqlRuntime,
   record: object,
@@ -270,7 +319,9 @@ const parseGeneratedGraphqlRuntime = (value: unknown): GeneratedGraphqlRuntime |
   if (!base) return undefined;
   const withEnumFields = addOptionalRuntimeEnumFields(base, record);
   if (!withEnumFields) return undefined;
-  const withScalarRefs = addOptionalRuntimeScalarRefs(withEnumFields, record);
+  const withInvocationHooks = addOptionalRuntimeInvocationHooks(withEnumFields, record);
+  if (!withInvocationHooks) return undefined;
+  const withScalarRefs = addOptionalRuntimeScalarRefs(withInvocationHooks, record);
   if (!withScalarRefs) return undefined;
   const withScalars = addOptionalRuntimeScalars(withScalarRefs, record);
   if (!withScalars) return undefined;
@@ -366,6 +417,15 @@ const createBindingResolver = (options: CreateGraphqlExecutorOptions): ResolveBi
     const cached = resolverCache.get(resolverClass);
     const instance = cached ?? (await options.resolveResolver(resolverClass));
     if (!cached) resolverCache.set(resolverClass, instance);
+
+    if (binding.hook !== undefined) {
+      const hook = options.runtime.invocationHooks?.[binding.hook];
+      if (hook === undefined) {
+        throw new Error(`GraphQL invocation hook not found: ${binding.hook}`);
+      }
+      const params = await hook({ parent, args, isRootField });
+      return callResolverMethod(instance, binding.method, params);
+    }
 
     return runWithGraphqlArgs(args, () =>
       callResolverMethod(instance, binding.method, isRootField ? [] : [parent]),
@@ -498,9 +558,19 @@ const attachUnionResolvers = (schema: GraphQLSchema, runtime: GeneratedGraphqlRu
   }
 };
 
+const readGraphqlArgsValidationIssues = (value: unknown): readonly unknown[] | undefined => {
+  if (!(value instanceof Error)) return undefined;
+  if (!(value instanceof GraphqlArgsValidationError) && value.name !== 'GraphqlArgsValidationError') {
+    return undefined;
+  }
+  const issues = readProperty(value, 'issues');
+  return Array.isArray(issues) ? issues : undefined;
+};
+
 const toValidationGraphqlError = (
   error: GraphQLError,
-  original: GraphqlArgsValidationError,
+  original: Error,
+  issues: readonly unknown[],
 ): GraphQLError =>
   new GraphQLError(error.message, {
     nodes: error.nodes ?? null,
@@ -508,13 +578,14 @@ const toValidationGraphqlError = (
     positions: error.positions ?? null,
     path: error.path ?? null,
     originalError: original,
-    extensions: { code: 'GRAPHQL_ARGS_VALIDATION_FAILED', issues: original.issues },
+    extensions: { code: 'GRAPHQL_ARGS_VALIDATION_FAILED', issues },
   });
 
 const enrichValidationError = (error: GraphQLError): GraphQLError => {
   const original = error.originalError;
-  return original instanceof GraphqlArgsValidationError
-    ? toValidationGraphqlError(error, original)
+  const issues = readGraphqlArgsValidationIssues(original);
+  return original instanceof Error && issues !== undefined
+    ? toValidationGraphqlError(error, original, issues)
     : error;
 };
 

@@ -5,6 +5,10 @@ import consola from 'consola';
 
 import type { CliRuntime } from './cli-runtime.lib';
 import type { DevConfig, ZeltConfig } from './config/config.types';
+import {
+  generateHttpInvocationArtifacts,
+  invalidateHttpInvocationArtifacts,
+} from './http-invocation-artifacts.lib';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 import type { WatcherHandle } from './watcher.lib';
 import { createWatcher } from './watcher.lib';
@@ -82,17 +86,29 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
 const runHooks = async (cwd: string, config: ZeltConfig): Promise<void> => {
   const hookOptions = { cwd, config, loadStaticApp: async () => config.app() };
 
-  await runPreBuildHooks(hookOptions);
+  try {
+    await runPreBuildHooks(hookOptions);
+  } catch (error) {
+    await invalidateHttpInvocationArtifacts({ cwd });
+    throw error;
+  }
 
   let success = true;
 
   try {
+    await generateHttpInvocationArtifacts(hookOptions);
     await runBuildHook(hookOptions);
   } catch (error) {
     success = false;
+    await invalidateHttpInvocationArtifacts({ cwd });
     throw error;
   } finally {
-    await runPostBuildHooks(hookOptions, { success });
+    try {
+      await runPostBuildHooks(hookOptions, { success });
+    } catch (error) {
+      await invalidateHttpInvocationArtifacts({ cwd });
+      throw error;
+    }
   }
 };
 

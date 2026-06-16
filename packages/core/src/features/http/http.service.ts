@@ -5,6 +5,7 @@ import { DefaultErrorHandler } from './error/default.error-handler';
 import type { HttpOptions } from './http.types';
 import { createBootstrapMiddleware, createRequestRootChecker } from './http-bootstrap.lib';
 import { createRouterErrorHandler, resolveErrorHandlers } from './http-error-handlers.lib';
+import { loadHttpInvocationHooksFromRegistry } from './http-invocation-registry.lib';
 import {
   guardMiddleware,
   middlewareIdentity,
@@ -107,11 +108,14 @@ export class HttpService {
       hono.use(guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver)));
     }
 
+    const invocationHooks = await loadHttpInvocationHooksFromRegistry();
+
     buildRoutes({
       hono,
       controllers: options.controllers ?? [],
       resolver,
       lifecycle: this.lifecycleManager,
+      ...(invocationHooks !== undefined && { invocationHooks }),
     });
 
     return hono;

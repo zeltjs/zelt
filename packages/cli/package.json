@@ -46,6 +46,9 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@rollup/plugin-swc": "0.4.0",
+    "@swc/core": "1.15.33",
+    "@zeltjs/core": "workspace:*",
     "chokidar": "5.0.0",
     "citty": "0.1.6",
     "consola": "3.4.2",
