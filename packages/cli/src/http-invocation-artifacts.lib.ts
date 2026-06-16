@@ -83,7 +83,7 @@ const readProperty = (value: unknown, key: string): unknown => {
 
 const readFunctionProperty = (value: unknown, key: string): UnknownFunction | undefined => {
   const property = readProperty(value, key);
-  return typeof property === 'function' ? property : undefined;
+  return typeof property === 'function' ? (property as UnknownFunction) : undefined;
 };
 
 const readControllers = (http: object | undefined): readonly ControllerClass[] => {

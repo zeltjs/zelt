@@ -41,7 +41,7 @@ const readProperty = (value: unknown, key: string): unknown => {
 
 const readFunctionProperty = (value: unknown, key: string): UnknownFunction | undefined => {
   const property = readProperty(value, key);
-  return typeof property === 'function' ? property : undefined;
+  return typeof property === 'function' ? (property as UnknownFunction) : undefined;
 };
 
 const readRequiredObject = (value: unknown, message: string): object => {
@@ -143,7 +143,7 @@ const readHooks = (
     if (typeof hook !== 'function') {
       throw new Error(`HTTP invocation hook "${key}" from ${moduleUrl} must be a function.`);
     }
-    hooks[key] = toHttpInvocationHook(hook, moduleUrl, key);
+    hooks[key] = toHttpInvocationHook(hook as UnknownFunction, moduleUrl, key);
   }
   return hooks;
 };
