@@ -31,11 +31,12 @@ export const createBootstrapMiddleware = (
     }
     await lifecycle.startupPending();
 
-    const run = async (): Promise<void> => {
+    /** @throws {ZeltContextNotAvailableError} */
+    async function run(): Promise<void> {
       setInternal(STORE_CREATOR, routerToken);
       setInternal(ROOT_REQUEST, c.req.raw);
       await next();
-    };
+    }
 
     if (hasContext() && getInternal(STORE_CREATOR) !== undefined) {
       await runInRootContext(run);
