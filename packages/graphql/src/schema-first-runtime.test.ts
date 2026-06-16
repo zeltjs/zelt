@@ -32,12 +32,22 @@ class SchemaFirstNamedStorefrontResolver {
 namespace Gql {
   export namespace Query {
     export namespace product {
+      export function args(): { readonly id: string };
       export function args<Schema extends StandardSchemaV1>(
         schema: Schema,
-      ): StandardSchemaV1.InferOutput<Schema> {
-        return validateGraphqlArgs(schema);
+      ): StandardSchemaV1.InferOutput<Schema>;
+      export function args(schema?: StandardSchemaV1): { readonly id: string } | unknown {
+        return schema ? validateGraphqlArgs(schema) : readGraphqlArgs<{ readonly id: string }>();
       }
     }
+  }
+}
+
+@Resolver()
+class SchemaFirstGeneratedArgsStorefrontResolver {
+  @Query()
+  product(input = Gql.Query.product.args()): Product {
+    return { id: input.id, name: 'Desk Lamp' };
   }
 }
 
@@ -100,6 +110,19 @@ type Product {
       resolver: 'SchemaFirstNamedStorefrontResolver',
       method: 'findProduct',
     });
+  });
+
+  it('does not require invocation hooks for generated schema-first args helpers without schemas', async () => {
+    const runtime = await generateSchemaFirstGraphqlRuntimeForResolvers(
+      [SchemaFirstGeneratedArgsStorefrontResolver],
+      { schemaSdl, tsconfig },
+    );
+
+    expect(runtime.bindings['Query']?.['product']).toEqual({
+      resolver: 'SchemaFirstGeneratedArgsStorefrontResolver',
+      method: 'product',
+    });
+    expect(runtime.invocationHooks).toBeUndefined();
   });
 
   it('records invocation hook keys for root bindings with args schemas', async () => {

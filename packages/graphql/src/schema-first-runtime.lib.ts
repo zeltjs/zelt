@@ -246,6 +246,7 @@ const extractSchemaFirstGraphqlArgsRef = (
   for (const param of methodNode.parameters) {
     const call = matchSchemaFirstArgsCall(param.initializer, rootTypeName, fieldName, ts);
     if (!call) continue;
+    if (call.arguments.length === 0) return undefined;
     const ref = buildSchemaRef(call, sourceFile, ts);
     if (!ref) {
       const paramName = ts.isIdentifier(param.name) ? param.name.text : '<unknown>';
