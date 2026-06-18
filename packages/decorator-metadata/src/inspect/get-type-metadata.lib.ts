@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, okAsync } from 'neverthrow';
 
-import type { Position, StackTrace } from '../runtime/index';
-import { getInternalClassMetadata, resolvePosition } from '../runtime/index';
+import type { StackTrace } from '../runtime/index';
+import { getInternalClassMetadata } from '../runtime/index';
 import { findClassAtPosition } from './ast.lib';
 import type {
   ClassMetadata,
@@ -15,6 +15,8 @@ import type {
   PropertyInfo,
   TypeInfo,
 } from './inspect.types';
+import type { Position } from './position.lib';
+import { resolvePosition } from './position.lib';
 import type { ProgramCacheError } from './program-cache.lib';
 import { getOrCreateProgram } from './program-cache.lib';
 import { createTypeExtractor } from './type-extractor.lib';

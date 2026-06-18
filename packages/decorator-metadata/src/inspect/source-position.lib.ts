@@ -1,5 +1,6 @@
-import type { Position, ResolvePositionOptions } from '../runtime/index';
-import { getInternalClassMetadata, resolvePosition } from '../runtime/index';
+import { getInternalClassMetadata } from '../runtime/index';
+import type { Position, ResolvePositionOptions } from './position.lib';
+import { resolvePosition } from './position.lib';
 
 export type GetSourcePositionOptions = ResolvePositionOptions;
 

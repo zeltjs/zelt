@@ -3,9 +3,10 @@ import { resolve } from 'node:path';
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, okAsync } from 'neverthrow';
 
-import { getInternalClassMetadata, resolvePosition } from '../runtime/index';
+import { getInternalClassMetadata } from '../runtime/index';
 import { findClassAtPosition, findClassByName } from './ast.lib';
 import type { DependencyInfo, GetDependenciesOptions, InspectError } from './inspect.types';
+import { resolvePosition } from './position.lib';
 import type { ProgramCacheError } from './program-cache.lib';
 import { getOrCreateProgram } from './program-cache.lib';
 

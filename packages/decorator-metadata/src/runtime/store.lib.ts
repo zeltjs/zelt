@@ -1,4 +1,4 @@
-import type { StackTrace } from './position.lib';
+import type { StackTrace } from './trace.lib';
 
 // =============================================================================
 // Public Types (no trace exposure)

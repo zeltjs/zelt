@@ -1,4 +1,4 @@
-import type { Position } from '../runtime/index';
+import type { Position } from './position.lib';
 
 export type { Position };
 
