@@ -1,7 +1,6 @@
 import { isClassConstructor, toUnknownCallable } from '@zeltjs/unsafe-type-lib';
 import { match, P } from 'ts-pattern';
 
-import { captureStackTrace, withCallStackTrace } from './trace.lib';
 import {
   aggregateMembers,
   ensureClassMeta,
@@ -10,6 +9,7 @@ import {
   recordMethod,
   recordProperty,
 } from './store.lib';
+import { captureStackTrace, withCallStackTrace } from './trace.lib';
 
 // =============================================================================
 // Types
