@@ -1,26 +1,14 @@
-import type { ParseArgsConfig } from 'node:util';
-import { parseArgs } from 'node:util';
-
 import type { ArgDef, OptionDef, SchemaDefinition } from './command-schema.types';
 
-export type ParsedArgs = Record<string, unknown>;
+export type BoundCommandArgs = Record<string, unknown>;
 
-export type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string };
+export type BindCommandInputResult =
+  | { ok: true; parsed: BoundCommandArgs }
+  | { ok: false; error: string };
 
-const buildOptionsConfig = (
-  options: readonly OptionDef[],
-): NonNullable<ParseArgsConfig['options']> => {
-  const config: NonNullable<ParseArgsConfig['options']> = {};
-  for (const opt of options) {
-    const entry: { type: 'boolean' | 'string'; short?: string } = {
-      type: opt.type === 'boolean' ? 'boolean' : 'string',
-    };
-    if (opt.alias) {
-      entry.short = opt.alias;
-    }
-    config[opt.name] = entry;
-  }
-  return config;
+type ParsedTokens = {
+  readonly values: Record<string, unknown>;
+  readonly positionals: string[];
 };
 
 const applyDefaults = (
@@ -57,6 +45,70 @@ const convertNumberOptions = (
   return { ok: true, result };
 };
 
+const findOptionByAlias = (options: readonly OptionDef[], alias: string): OptionDef | undefined =>
+  options.find((opt) => opt.alias === alias);
+
+const findOptionByName = (options: readonly OptionDef[], name: string): OptionDef | undefined =>
+  options.find((opt) => opt.name === name);
+
+const readOptionValue = (
+  argv: readonly string[],
+  index: number,
+  option: OptionDef | undefined,
+  inlineValue: string | undefined,
+): { value: unknown; nextIndex: number } => {
+  if (!option || option.type === 'boolean') {
+    return { value: inlineValue ?? true, nextIndex: index };
+  }
+  if (inlineValue !== undefined) {
+    return { value: inlineValue, nextIndex: index };
+  }
+  const value = argv[index + 1];
+  if (value === undefined) {
+    return { value: true, nextIndex: index };
+  }
+  return { value, nextIndex: index + 1 };
+};
+
+const parseCommandTokens = (
+  argv: readonly string[],
+  options: readonly OptionDef[],
+): ParsedTokens => {
+  const values: Record<string, unknown> = {};
+  const positionals: string[] = [];
+
+  for (let i = 0; i < argv.length; i++) {
+    const token = argv[i];
+    if (token === undefined) continue;
+    if (token === '--') {
+      positionals.push(...argv.slice(i + 1));
+      break;
+    }
+    if (token.startsWith('--') && token.length > 2) {
+      const optionToken = token.slice(2);
+      const eqIndex = optionToken.indexOf('=');
+      const name = eqIndex >= 0 ? optionToken.slice(0, eqIndex) : optionToken;
+      const inlineValue = eqIndex >= 0 ? optionToken.slice(eqIndex + 1) : undefined;
+      const option = findOptionByName(options, name);
+      const { value, nextIndex } = readOptionValue(argv, i, option, inlineValue);
+      values[option?.name ?? name] = value;
+      i = nextIndex;
+      continue;
+    }
+    if (token.startsWith('-') && token.length === 2) {
+      const alias = token.slice(1);
+      const option = findOptionByAlias(options, alias);
+      const { value, nextIndex } = readOptionValue(argv, i, option, undefined);
+      values[option?.name ?? alias] = value;
+      i = nextIndex;
+      continue;
+    }
+    positionals.push(token);
+  }
+
+  return { values, positionals };
+};
+
 const parsePositionalArgs = (
   positionals: string[],
   argDefs: readonly ArgDef[],
@@ -86,19 +138,15 @@ const parsePositionalArgs = (
   return { ok: true, result };
 };
 
-export const parseArgv = (argv: readonly string[], schema: SchemaDefinition): ParseResult => {
+export const bindCommandInput = (
+  tokens: readonly string[],
+  schema: SchemaDefinition,
+): BindCommandInputResult => {
   try {
     const optionsDef = schema.options ?? [];
     const argsDef = schema.args ?? [];
 
-    const config: ParseArgsConfig = {
-      args: [...argv],
-      options: buildOptionsConfig(optionsDef),
-      allowPositionals: true,
-      strict: false,
-    };
-
-    const { values, positionals } = parseArgs(config);
+    const { values, positionals } = parseCommandTokens(tokens, optionsDef);
 
     const valuesWithDefaults = applyDefaults(values, optionsDef);
 

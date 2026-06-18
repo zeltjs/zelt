@@ -10,7 +10,7 @@ import {
 import type { CommandClass } from './command.types';
 import { getCommandMetadata } from './definition';
 import type { ExecResult } from './exec-result.types';
-import { parseArgv, runInCommandContext } from './input';
+import { bindCommandInput, runInCommandContext } from './input';
 import type { SchemaDefinition } from './input/command-schema.types';
 
 export type CommandRegistry = ReadonlyMap<string, CommandClass>;
@@ -67,7 +67,7 @@ export class CommandService {
   ): Promise<ExecResult> {
     const commandWithOptionalSchema: { schema?: SchemaDefinition } = CommandClass;
     const schema = commandWithOptionalSchema.schema ?? { args: [], options: [] };
-    const parseResult = parseArgv(argv, schema);
+    const parseResult = bindCommandInput(argv, schema);
     if (!parseResult.ok) {
       return {
         exitCode: 1 as const,

@@ -1,4 +1,4 @@
+export type { BindCommandInputResult, BoundCommandArgs } from './bind-command-input.lib';
+export { bindCommandInput } from './bind-command-input.lib';
 export type { CommandContextStore } from './command-context.lib';
 export { getCommandContext, runInCommandContext } from './command-context.lib';
-export type { ParsedArgs, ParseResult } from './parse-argv.lib';
-export { parseArgv } from './parse-argv.lib';
