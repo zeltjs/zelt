@@ -166,6 +166,7 @@ const allDistFiles = await Array.fromAsync(glob('packages/*/dist/**/*.{js,mjs,cj
 const fileSet = new Set(allDistFiles.map((file) => path.resolve(file)));
 const packageFiles = await Array.fromAsync(glob('packages/*/package.json'));
 const allViolations = [];
+const missingExportTargets = [];
 let checkedEntrypoints = 0;
 
 if (allDistFiles.length === 0) {
@@ -185,7 +186,15 @@ for (const packageFile of packageFiles.sort()) {
     const targets = collectExportTargets(exportValue);
     for (const { condition, target } of targets) {
       const entryFile = path.resolve(packageDir, target);
-      if (!fileSet.has(entryFile)) continue;
+      if (!fileSet.has(entryFile)) {
+        missingExportTargets.push({
+          entrypoint,
+          condition,
+          file: entryFile,
+          value: target,
+        });
+        continue;
+      }
       checkedEntrypoints++;
       const reachableFiles = await traceReachableFiles(entryFile);
       for (const file of reachableFiles) {
@@ -198,15 +207,30 @@ for (const packageFile of packageFiles.sort()) {
   }
 }
 
-if (allViolations.length > 0) {
-  console.error('Dist runtime contract violations found:\n');
-  for (const violation of allViolations) {
-    console.error(`- ${violation.entrypoint} (${violation.condition})`);
-    console.error(`  ${toPosix(path.relative(process.cwd(), violation.file))}`);
-    console.error(`  ${violation.kind}: ${violation.value}`);
-    console.error(`  ${violation.message}\n`);
+if (missingExportTargets.length > 0 || allViolations.length > 0) {
+  if (missingExportTargets.length > 0) {
+    console.error('Missing dist export targets found:\n');
+    for (const violation of missingExportTargets) {
+      console.error(`- ${violation.entrypoint} (${violation.condition})`);
+      console.error(`  ${toPosix(path.relative(process.cwd(), violation.file))}`);
+      console.error(`  missing-dist-export-target: ${violation.value}`);
+      console.error('  Build packages before running runtime contract verification.\n');
+    }
   }
-  console.error(`${allViolations.length} violation(s) across ${checkedEntrypoints} export target(s).`);
+
+  if (allViolations.length > 0) {
+    console.error('Dist runtime contract violations found:\n');
+    for (const violation of allViolations) {
+      console.error(`- ${violation.entrypoint} (${violation.condition})`);
+      console.error(`  ${toPosix(path.relative(process.cwd(), violation.file))}`);
+      console.error(`  ${violation.kind}: ${violation.value}`);
+      console.error(`  ${violation.message}\n`);
+    }
+  }
+
+  console.error(
+    `${missingExportTargets.length} missing dist export target(s), ${allViolations.length} runtime violation(s) across ${checkedEntrypoints} checked export target(s).`,
+  );
   process.exit(1);
 }
 
