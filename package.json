@@ -26,7 +26,8 @@
     "prepare": "pnpx lefthook install",
     "codepolicy:diff": "time codepolicy --filter=diff 2>&1 | tee codepolicy.diff.log",
     "throw-trace": "throw-trace check --exclude '**/*.test.ts' --exclude '**/dist/**' packages",
-    "verify-dist": "node scripts/verify-dist-imports.mjs"
+    "verify-dist": "node scripts/verify-dist-imports.mjs",
+    "verify-dist:runtime-contracts": "node scripts/verify-dist-runtime-contracts.mjs"
   },
   "devDependencies": {
     "@9wick/eslint-plugin-strict-type-rules": "^1.5.0",
