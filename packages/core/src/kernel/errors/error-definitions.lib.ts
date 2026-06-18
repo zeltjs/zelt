@@ -101,9 +101,10 @@ export const coreErrorDefinitions = {
   ZeltBodyTypeMismatchError: (ctx: { expected: string; actual: string }) =>
     `Expected body type '${ctx.expected}' but received '${ctx.actual}'`,
 
-  ZeltInternalError: (ctx: { reason: 'container_not_attached' }) =>
+  ZeltInternalError: (ctx: { reason: 'container_not_attached' | 'http_router_init_failed' }) =>
     match(ctx.reason)
       .with('container_not_attached', () => 'No DI container attached to this app')
+      .with('http_router_init_failed', () => 'HttpService createLocalRouter failed')
       .exhaustive(),
 } as const;
 

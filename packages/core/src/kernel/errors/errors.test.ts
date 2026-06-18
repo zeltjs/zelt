@@ -4,6 +4,7 @@ import {
   ZeltAppConfigurationError,
   ZeltContextNotAvailableError,
   ZeltDecoratorUsageError,
+  ZeltInternalError,
   ZeltLifecycleStateError,
   ZeltMiddlewareExecutionError,
   ZeltNotImplementedError,
@@ -189,5 +190,18 @@ describe('ZeltNotImplementedError', () => {
     expect(error.message).toBe('CliConfig.cwd() not implemented');
     expect(error.name).toBe('ZeltNotImplementedError');
     expect(error).toBeInstanceOf(ZeltNotImplementedError);
+  });
+});
+
+describe('ZeltInternalError', () => {
+  it('formats http router initialization failure and preserves cause', () => {
+    const cause = new Error('router failed');
+    const error = new ZeltInternalError({ reason: 'http_router_init_failed' }, cause);
+
+    expect(error.message).toBe('HttpService createLocalRouter failed');
+    expect(error.name).toBe('ZeltInternalError');
+    expect(error.context).toEqual({ reason: 'http_router_init_failed' });
+    expect(error.cause).toBe(cause);
+    expect(error).toBeInstanceOf(ZeltInternalError);
   });
 });

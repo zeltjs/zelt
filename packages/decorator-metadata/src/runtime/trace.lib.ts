@@ -1,11 +1,19 @@
+export class CaptureStackError extends Error {
+  override readonly name = 'CaptureStackError';
+  constructor() {
+    super('Capture stack trace');
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
 export type StackTrace = {
   _brand: 'StackTrace';
-  readonly error: Error;
-  readonly callError?: Error;
+  readonly error: CaptureStackError;
+  readonly callError?: CaptureStackError;
 };
 
 export const captureStackTrace = (): StackTrace | undefined => {
-  const error = new Error();
+  const error = new CaptureStackError();
   if (typeof error.stack !== 'string' || error.stack.length === 0) return undefined;
   return { _brand: 'StackTrace', error };
 };

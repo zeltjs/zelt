@@ -25,4 +25,4 @@ export {
   recordProperty,
 } from './store.lib';
 export type { StackTrace } from './trace.lib';
-export { captureStackTrace, withCallStackTrace } from './trace.lib';
+export { CaptureStackError, captureStackTrace, withCallStackTrace } from './trace.lib';
