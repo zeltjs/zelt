@@ -61,21 +61,30 @@ const findOptionByAlias = (options: readonly OptionDef[], alias: string): Option
 const findOptionByName = (options: readonly OptionDef[], name: string): OptionDef | undefined =>
   options.find((opt) => opt.name === name);
 
+const parseBooleanOptionValue = (optionName: string, inlineValue: string | undefined): boolean => {
+  if (inlineValue === undefined || inlineValue === 'true') return true;
+  if (inlineValue === 'false') return false;
+  throw new Error(`Invalid boolean value for option --${optionName}: ${inlineValue}`);
+};
+
 const readOptionValue = (
   argv: readonly string[],
   index: number,
   option: OptionDef | undefined,
   inlineValue: string | undefined,
 ): { value: unknown; nextIndex: number } => {
-  if (!option || option.type === 'boolean') {
+  if (!option) {
     return { value: inlineValue ?? true, nextIndex: index };
+  }
+  if (option.type === 'boolean') {
+    return { value: parseBooleanOptionValue(option.name, inlineValue), nextIndex: index };
   }
   if (inlineValue !== undefined) {
     return { value: inlineValue, nextIndex: index };
   }
   const value = argv[index + 1];
   if (value === undefined) {
-    return { value: true, nextIndex: index };
+    throw new Error(`Missing value for option --${option.name}`);
   }
   return { value, nextIndex: index + 1 };
 };

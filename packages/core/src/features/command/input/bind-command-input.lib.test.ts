@@ -74,6 +74,18 @@ describe('bindCommandInput', () => {
       if (result.ok) expect(result.parsed['verbose']).toBe(true);
     });
 
+    it('parses inline boolean option values', () => {
+      const schema = cliSchema({ options: [{ name: 'verbose', type: 'boolean' }] });
+
+      const enabled = bindCommandInput(['--verbose=true'], schema);
+      const disabled = bindCommandInput(['--verbose=false'], schema);
+
+      expect(enabled.ok).toBe(true);
+      if (enabled.ok) expect(enabled.parsed['verbose']).toBe(true);
+      expect(disabled.ok).toBe(true);
+      if (disabled.ok) expect(disabled.parsed['verbose']).toBe(false);
+    });
+
     it('defaults boolean to false when not specified', () => {
       const schema = cliSchema({ options: [{ name: 'verbose', type: 'boolean' }] });
       const result = bindCommandInput([], schema);
@@ -86,6 +98,13 @@ describe('bindCommandInput', () => {
       const result = bindCommandInput(['--name', 'alice'], schema);
       expect(result.ok).toBe(true);
       if (result.ok) expect(result.parsed['name']).toBe('alice');
+    });
+
+    it('returns error when a string option value is missing', () => {
+      const schema = cliSchema({ options: [{ name: 'name', type: 'string' }] });
+      const result = bindCommandInput(['--name'], schema);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toContain('Missing value for option --name');
     });
 
     it('parses number options', () => {
