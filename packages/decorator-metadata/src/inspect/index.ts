@@ -11,11 +11,12 @@ export type {
   InspectOptions,
   MethodInfo,
   ParamInfo,
-  Position,
   PropertyInfo,
   TypedPropertyInfo,
   TypeInfo,
 } from './inspect.types';
+export type { Position, ResolvePositionOptions } from './position.lib';
+export { resolvePosition } from './position.lib';
 export type { ProgramCacheError } from './program-cache.lib';
 export { clearProgramCache, getOrCreateProgram } from './program-cache.lib';
 export type { GetSourcePositionOptions } from './source-position.lib';

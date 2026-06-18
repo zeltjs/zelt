@@ -1,7 +1,7 @@
 /* biome-ignore-all lint/complexity/noStaticOnlyClass: test fixtures */
 import { describe, expect, it } from 'vitest';
 
-import { getSourcePosition } from '../inspect/index';
+import { getSourcePosition, resolvePosition } from '../inspect/index';
 import type { StackTrace } from '../runtime/index';
 import {
   aggregateMembers,
@@ -16,7 +16,6 @@ import {
   recordClass,
   recordMethod,
   recordProperty,
-  resolvePosition,
 } from '../runtime/index';
 
 describe('captureStackTrace and resolvePosition', () => {
@@ -38,21 +37,18 @@ describe('captureStackTrace and resolvePosition', () => {
     expect(pos?.column).toBeGreaterThan(0);
   });
 
-  it('captureStackTrace returns undefined when Error.prototype.stack is overridden', () => {
-    const originalDescriptor = Object.getOwnPropertyDescriptor(Error.prototype, 'stack');
-    Object.defineProperty(Error.prototype, 'stack', {
-      value: undefined,
-      writable: true,
-      configurable: true,
-    });
+  it('captureStackTrace returns undefined when Error instances do not expose stack strings', () => {
+    const OriginalError = Error;
+    globalThis.Error = class StacklessError extends OriginalError {
+      constructor(...args: ConstructorParameters<ErrorConstructor>) {
+        super(...args);
+        Object.defineProperty(this, 'stack', { value: undefined });
+      }
+    } as unknown as ErrorConstructor;
     try {
       expect(captureStackTrace()).toBeUndefined();
     } finally {
-      if (originalDescriptor) {
-        Object.defineProperty(Error.prototype, 'stack', originalDescriptor);
-      } else {
-        delete (Error.prototype as { stack?: unknown }).stack;
-      }
+      globalThis.Error = OriginalError;
     }
   });
 
@@ -72,18 +68,25 @@ describe('captureStackTrace and resolvePosition', () => {
     // Simulate what createClassDecorator does internally: a wrapper (e.g.
     // @zeltjs/core's Controller) calls into the decorator factory, so its file
     // appears in the define-time stack but not in the call-time stack. The
-    // diff is recorded as wrapperFiles and skipped during resolution.
+    // inspect compares the stored define-time stack with the call-time stack
+    // and skips wrapper files that only exist at define time.
     const wrapperFile = '/tmp/app/wrappers/controller.ts';
     const userFile = '/tmp/app/user.controller.ts';
+    const callError = new Error('mock call stack');
     const trace: StackTrace = {
       _brand: 'StackTrace',
       error: new Error('mock stack'),
-      wrapperFiles: [wrapperFile],
+      callError,
     };
     trace.error.stack = [
       'Error: mock stack',
       `    at someInternal (/some/framework/internal.ts:10:1)`,
       `    at Controller (${wrapperFile}:5:3)`,
+      `    at ${userFile}:6:1`,
+    ].join('\n');
+    callError.stack = [
+      'Error: mock call stack',
+      `    at someInternal (/some/framework/internal.ts:10:1)`,
       `    at ${userFile}:6:1`,
     ].join('\n');
 

@@ -14,8 +14,6 @@ export {
   createMethodDecorator,
   createPropertyDecorator,
 } from './decorators.lib';
-export type { Position, ResolvePositionOptions, StackTrace } from './position.lib';
-export { captureStackTrace, resolvePosition, withWrapperFiles } from './position.lib';
 export type { ClassMeta, MethodMeta, PropertyMeta } from './store.lib';
 export {
   aggregateMembers,
@@ -26,3 +24,5 @@ export {
   recordMethod,
   recordProperty,
 } from './store.lib';
+export type { StackTrace } from './trace.lib';
+export { captureStackTrace, withCallStackTrace } from './trace.lib';
