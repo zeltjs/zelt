@@ -5,8 +5,9 @@ export type StackTrace = {
 };
 
 export const captureStackTrace = (): StackTrace | undefined => {
-  if (Object.getOwnPropertyDescriptor(Error.prototype, 'stack') !== undefined) return undefined;
-  return { _brand: 'StackTrace', error: new Error() };
+  const error = new Error();
+  if (typeof error.stack !== 'string' || error.stack.length === 0) return undefined;
+  return { _brand: 'StackTrace', error };
 };
 
 export const withCallStackTrace = (

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { glob, readFile } from 'node:fs/promises';
+import { builtinModules } from 'node:module';
 import path from 'node:path';
 
 const ALL_NODE_BUILTINS = 'all';
@@ -11,7 +12,10 @@ const ENTRYPOINT_POLICIES = {
   '@zeltjs/core': { nodeBuiltins: ['async_hooks'] },
   '@zeltjs/core/internal-bridge/testing': { nodeBuiltins: ['async_hooks'] },
   '@zeltjs/core/internal-bridge/errors': { nodeBuiltins: [] },
-  '@zeltjs/decorator-metadata/inspect': { nodeBuiltins: ALL_NODE_BUILTINS },
+  '@zeltjs/decorator-metadata/inspect': {
+    nodeBuiltins: ALL_NODE_BUILTINS,
+    globals: ['__filename'],
+  },
   '@zeltjs/eslint-plugin': { nodeBuiltins: ALL_NODE_BUILTINS },
   '@zeltjs/graphql/codegen': { nodeBuiltins: ALL_NODE_BUILTINS },
   '@zeltjs/hono-client': { nodeBuiltins: ALL_NODE_BUILTINS },
@@ -19,43 +23,9 @@ const ENTRYPOINT_POLICIES = {
   '@zeltjs/testing/node': { nodeBuiltins: ALL_NODE_BUILTINS },
 };
 
-const NODE_BUILTINS = new Set([
-  'assert',
-  'async_hooks',
-  'buffer',
-  'child_process',
-  'cluster',
-  'console',
-  'crypto',
-  'diagnostics_channel',
-  'dns',
-  'events',
-  'fs',
-  'http',
-  'http2',
-  'https',
-  'module',
-  'net',
-  'os',
-  'path',
-  'perf_hooks',
-  'process',
-  'punycode',
-  'querystring',
-  'readline',
-  'repl',
-  'stream',
-  'string_decoder',
-  'timers',
-  'tls',
-  'tty',
-  'url',
-  'util',
-  'v8',
-  'vm',
-  'worker_threads',
-  'zlib',
-]);
+const NODE_BUILTINS = new Set(
+  builtinModules.map((moduleName) => moduleName.replace(/^node:/, '').split('/')[0]),
+);
 
 const IMPORT_EXPORT_RE = /\b(?:import|export)\s+(?:[^'"()]*?\s+from\s+)?['"]([^'"]+)['"]/g;
 const DYNAMIC_IMPORT_RE = /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
@@ -83,10 +53,21 @@ const collectExportTargets = (exportValue) => {
       if (/\.(?:js|mjs|cjs)$/.test(value)) targets.push({ condition, target: value });
       return;
     }
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => visit(item, `${condition}[${index}]`));
+      return;
+    }
     if (!value || typeof value !== 'object') return;
-    if (typeof value.default === 'string') visit(value.default, condition);
-    if (value.import) visit(value.import, 'import');
-    if (value.require) visit(value.require, 'require');
+    for (const [nextCondition, nextValue] of Object.entries(value)) {
+      if (nextCondition === 'types') continue;
+      const nestedCondition =
+        nextCondition === 'default'
+          ? condition
+          : condition === 'default'
+            ? nextCondition
+            : `${condition}.${nextCondition}`;
+      visit(nextValue, nestedCondition);
+    }
   };
   visit(exportValue, 'default');
   return targets;
@@ -122,7 +103,7 @@ const findViolations = (entrypoint, file, source) => {
   const policy = ENTRYPOINT_POLICIES[entrypoint] ?? { nodeBuiltins: [] };
   const allowedNodeBuiltins = policy.nodeBuiltins;
   const allowedGlobals =
-    allowedNodeBuiltins === ALL_NODE_BUILTINS
+    policy.globals === ALL_NODE_BUILTINS
       ? ALL_NODE_BUILTINS
       : new Set(policy.globals ?? []);
   const violations = [];
@@ -187,10 +168,19 @@ const packageFiles = await Array.fromAsync(glob('packages/*/package.json'));
 const allViolations = [];
 let checkedEntrypoints = 0;
 
+if (allDistFiles.length === 0) {
+  console.error('No dist files found. Build packages before running runtime contract verification.');
+  process.exit(1);
+}
+
 for (const packageFile of packageFiles.sort()) {
   const packageJson = await readJson(packageFile);
   const packageDir = path.dirname(packageFile);
-  for (const [exportKey, exportValue] of Object.entries(packageJson.exports ?? {})) {
+  const exportsMap =
+    typeof packageJson.exports === 'string' || Array.isArray(packageJson.exports)
+      ? { '.': packageJson.exports }
+      : (packageJson.exports ?? {});
+  for (const [exportKey, exportValue] of Object.entries(exportsMap)) {
     const entrypoint = publicSpecifier(packageJson.name, exportKey);
     const targets = collectExportTargets(exportValue);
     for (const { condition, target } of targets) {
@@ -217,6 +207,11 @@ if (allViolations.length > 0) {
     console.error(`  ${violation.message}\n`);
   }
   console.error(`${allViolations.length} violation(s) across ${checkedEntrypoints} export target(s).`);
+  process.exit(1);
+}
+
+if (checkedEntrypoints === 0) {
+  console.error('No package export targets were checked. Verify package.json exports point to dist files.');
   process.exit(1);
 }
 

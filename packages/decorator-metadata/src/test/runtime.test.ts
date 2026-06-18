@@ -37,21 +37,18 @@ describe('captureStackTrace and resolvePosition', () => {
     expect(pos?.column).toBeGreaterThan(0);
   });
 
-  it('captureStackTrace returns undefined when Error.prototype.stack is overridden', () => {
-    const originalDescriptor = Object.getOwnPropertyDescriptor(Error.prototype, 'stack');
-    Object.defineProperty(Error.prototype, 'stack', {
-      value: undefined,
-      writable: true,
-      configurable: true,
-    });
+  it('captureStackTrace returns undefined when Error instances do not expose stack strings', () => {
+    const OriginalError = Error;
+    globalThis.Error = class StacklessError extends OriginalError {
+      constructor(...args: ConstructorParameters<ErrorConstructor>) {
+        super(...args);
+        Object.defineProperty(this, 'stack', { value: undefined });
+      }
+    } as unknown as ErrorConstructor;
     try {
       expect(captureStackTrace()).toBeUndefined();
     } finally {
-      if (originalDescriptor) {
-        Object.defineProperty(Error.prototype, 'stack', originalDescriptor);
-      } else {
-        delete (Error.prototype as { stack?: unknown }).stack;
-      }
+      globalThis.Error = OriginalError;
     }
   });
 
