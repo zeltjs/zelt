@@ -11,6 +11,16 @@ type ParsedTokens = {
   readonly positionals: string[];
 };
 
+type MutableParsedTokens = {
+  readonly values: Record<string, unknown>;
+  readonly positionals: string[];
+};
+
+type TokenParseStep = {
+  readonly nextIndex: number;
+  readonly done: boolean;
+};
+
 const applyDefaults = (
   values: Record<string, unknown>,
   options: readonly OptionDef[],
@@ -70,43 +80,72 @@ const readOptionValue = (
   return { value, nextIndex: index + 1 };
 };
 
+const readLongOption = (
+  token: string,
+  argv: readonly string[],
+  index: number,
+  options: readonly OptionDef[],
+  result: MutableParsedTokens,
+): number => {
+  const optionToken = token.slice(2);
+  const eqIndex = optionToken.indexOf('=');
+  const name = eqIndex >= 0 ? optionToken.slice(0, eqIndex) : optionToken;
+  const inlineValue = eqIndex >= 0 ? optionToken.slice(eqIndex + 1) : undefined;
+  const option = findOptionByName(options, name);
+  const { value, nextIndex } = readOptionValue(argv, index, option, inlineValue);
+  result.values[option?.name ?? name] = value;
+  return nextIndex;
+};
+
+const readShortOption = (
+  token: string,
+  argv: readonly string[],
+  index: number,
+  options: readonly OptionDef[],
+  result: MutableParsedTokens,
+): number => {
+  const alias = token.slice(1);
+  const option = findOptionByAlias(options, alias);
+  const { value, nextIndex } = readOptionValue(argv, index, option, undefined);
+  result.values[option?.name ?? alias] = value;
+  return nextIndex;
+};
+
+const parseCommandToken = (
+  token: string | undefined,
+  argv: readonly string[],
+  index: number,
+  options: readonly OptionDef[],
+  result: MutableParsedTokens,
+): TokenParseStep => {
+  if (token === undefined) return { nextIndex: index, done: false };
+  if (token === '--') {
+    result.positionals.push(...argv.slice(index + 1));
+    return { nextIndex: index, done: true };
+  }
+  if (token.startsWith('--') && token.length > 2) {
+    return { nextIndex: readLongOption(token, argv, index, options, result), done: false };
+  }
+  if (token.startsWith('-') && token.length === 2) {
+    return { nextIndex: readShortOption(token, argv, index, options, result), done: false };
+  }
+  result.positionals.push(token);
+  return { nextIndex: index, done: false };
+};
+
 const parseCommandTokens = (
   argv: readonly string[],
   options: readonly OptionDef[],
 ): ParsedTokens => {
-  const values: Record<string, unknown> = {};
-  const positionals: string[] = [];
+  const result: MutableParsedTokens = { values: {}, positionals: [] };
 
   for (let i = 0; i < argv.length; i++) {
-    const token = argv[i];
-    if (token === undefined) continue;
-    if (token === '--') {
-      positionals.push(...argv.slice(i + 1));
-      break;
-    }
-    if (token.startsWith('--') && token.length > 2) {
-      const optionToken = token.slice(2);
-      const eqIndex = optionToken.indexOf('=');
-      const name = eqIndex >= 0 ? optionToken.slice(0, eqIndex) : optionToken;
-      const inlineValue = eqIndex >= 0 ? optionToken.slice(eqIndex + 1) : undefined;
-      const option = findOptionByName(options, name);
-      const { value, nextIndex } = readOptionValue(argv, i, option, inlineValue);
-      values[option?.name ?? name] = value;
-      i = nextIndex;
-      continue;
-    }
-    if (token.startsWith('-') && token.length === 2) {
-      const alias = token.slice(1);
-      const option = findOptionByAlias(options, alias);
-      const { value, nextIndex } = readOptionValue(argv, i, option, undefined);
-      values[option?.name ?? alias] = value;
-      i = nextIndex;
-      continue;
-    }
-    positionals.push(token);
+    const step = parseCommandToken(argv[i], argv, i, options, result);
+    i = step.nextIndex;
+    if (step.done) break;
   }
 
-  return { values, positionals };
+  return result;
 };
 
 const parsePositionalArgs = (
