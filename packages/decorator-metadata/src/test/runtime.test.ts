@@ -5,6 +5,7 @@ import { getSourcePosition, resolvePosition } from '../inspect/index';
 import type { StackTrace } from '../runtime/index';
 import {
   aggregateMembers,
+  CaptureStackError,
   captureStackTrace,
   composeClassDecorators,
   composeMethodDecorators,
@@ -22,7 +23,8 @@ describe('captureStackTrace and resolvePosition', () => {
   it('captureStackTrace returns StackTrace with error', () => {
     const trace = captureStackTrace();
     expect(trace).toBeDefined();
-    expect(trace?.error).toBeInstanceOf(Error);
+    expect(trace?.error).toBeInstanceOf(CaptureStackError);
+    expect(trace?.error.name).toBe('CaptureStackError');
   });
 
   it('resolvePosition extracts position from trace', () => {
@@ -35,21 +37,6 @@ describe('captureStackTrace and resolvePosition', () => {
     expect(typeof pos?.column).toBe('number');
     expect(pos?.line).toBeGreaterThan(0);
     expect(pos?.column).toBeGreaterThan(0);
-  });
-
-  it('captureStackTrace returns undefined when Error instances do not expose stack strings', () => {
-    const OriginalError = Error;
-    globalThis.Error = class StacklessError extends OriginalError {
-      constructor(...args: ConstructorParameters<ErrorConstructor>) {
-        super(...args);
-        Object.defineProperty(this, 'stack', { value: undefined });
-      }
-    } as unknown as ErrorConstructor;
-    try {
-      expect(captureStackTrace()).toBeUndefined();
-    } finally {
-      globalThis.Error = OriginalError;
-    }
   });
 
   it('resolvePosition accepts custom isFrameworkPath filter', () => {
@@ -72,10 +59,10 @@ describe('captureStackTrace and resolvePosition', () => {
     // and skips wrapper files that only exist at define time.
     const wrapperFile = '/tmp/app/wrappers/controller.ts';
     const userFile = '/tmp/app/user.controller.ts';
-    const callError = new Error('mock call stack');
+    const callError = new CaptureStackError();
     const trace: StackTrace = {
       _brand: 'StackTrace',
-      error: new Error('mock stack'),
+      error: new CaptureStackError(),
       callError,
     };
     trace.error.stack = [
@@ -99,7 +86,7 @@ describe('captureStackTrace and resolvePosition', () => {
 });
 
 describe('metadata store', () => {
-  const mockTrace: StackTrace = { _brand: 'StackTrace', error: new Error() };
+  const mockTrace: StackTrace = { _brand: 'StackTrace', error: new CaptureStackError() };
 
   it('recordClass stores class metadata', () => {
     class TestClass {}

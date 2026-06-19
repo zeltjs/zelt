@@ -188,17 +188,15 @@ export default tseslint.config(
     },
   },
   {
-    // Forbid raw Error — use structured Zelt*Error classes instead
-    files: ['packages/core/src/**/*.{ts,tsx}'],
+    // Forbid raw Error construction in runtime packages. Use named domain
+    // errors such as ZeltInternalError or CaptureStackError instead.
+    files: [
+      'packages/core/src/**/*.{ts,tsx}',
+      'packages/decorator-metadata/src/runtime/**/*.{ts,tsx}',
+    ],
     ignores: [...TEST_FILES, ...TEST_FIXTURE_FILES, '**/errors/**'],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'ThrowStatement > NewExpression[callee.name="Error"]',
-          message: 'Use structured Zelt*Error classes instead of raw Error',
-        },
-      ],
+      'zelt/no-generic-error-constructor': 'error',
     },
   },
   {

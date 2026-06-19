@@ -1,6 +1,6 @@
 import { Container } from '@needle-di/core';
 import type { Hono } from 'hono';
-import { Injectable, inject, LifecycleManager, resolve } from '../../kernel';
+import { Injectable, inject, LifecycleManager, resolve, ZeltInternalError } from '../../kernel';
 import { DefaultErrorHandler } from './error/default.error-handler';
 import type { HttpOptions } from './http.types';
 import { createBootstrapMiddleware, createRequestRootChecker } from './http-bootstrap.lib';
@@ -58,12 +58,12 @@ export class HttpService {
     private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
   ) {}
 
-  /** @throws {Error} */
+  /** @throws {ZeltInternalError} */
   async createLocalRouter(options: HttpOptions): Promise<HttpRouter> {
     try {
       return await this.initializeHono(options);
     } catch (cause) {
-      throw new Error('HttpService createLocalRouter failed', { cause });
+      throw new ZeltInternalError({ reason: 'http_router_init_failed' }, cause);
     }
   }
 
