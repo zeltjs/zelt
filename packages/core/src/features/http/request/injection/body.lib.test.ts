@@ -54,7 +54,7 @@ describe('body', () => {
     class TestController {
       @Post('/json')
       json() {
-        return { parsed: body(), raw: bodyRaw() };
+        return { raw: bodyRaw(), parsed: body() };
       }
     }
 

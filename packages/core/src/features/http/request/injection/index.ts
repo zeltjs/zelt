@@ -1,5 +1,13 @@
 export type { ParsedBody } from './body.lib';
-export { body, bodyRaw, hasParsedBody, parseRequestBody, setBody } from './body.lib';
+export {
+  body,
+  bodyRaw,
+  hasParsedBody,
+  parseRequestBody,
+  readRequestBody,
+  setBody,
+  setBodyRaw,
+} from './body.lib';
 export { cookie } from './cookie.lib';
 export type { RequestContextSchema } from './get-context.lib';
 export { getContext, setContext } from './get-context.lib';
