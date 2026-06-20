@@ -1,3 +1,4 @@
+import type { HttpModuleOptions } from '@zeltjs/core';
 import {
   Command,
   Controller,
@@ -6,23 +7,22 @@ import {
   createApp,
   Feature,
   Get,
+  HTTP_FEATURE_KEY,
   HttpFeature,
   http,
 } from '@zeltjs/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-
-import type { ServerHandle } from './on-bun';
 import { onBun } from './on-bun';
 
 const originalBun = globalThis.Bun;
-let servedFetch: ((request: Request) => Promise<Response>) | undefined;
+const servedFetches: ((request: Request) => Promise<Response>)[] = [];
 const serveMock = vi.fn(
   (options: {
     readonly fetch: (request: Request) => Promise<Response>;
     readonly port?: number;
     readonly hostname?: string;
   }) => {
-    servedFetch = options.fetch;
+    servedFetches.push(options.fetch);
     return {
       hostname: options.hostname,
       port: options.port,
@@ -39,7 +39,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  servedFetch = undefined;
+  servedFetches.length = 0;
   serveMock.mockClear();
 });
 
@@ -67,7 +67,11 @@ class FakeHttpLikeFeature extends Feature<
   });
 }
 
-class CustomHttpFeature extends HttpFeature {}
+class CustomHttpFeature extends HttpFeature<typeof HTTP_FEATURE_KEY> {
+  constructor(opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>) {
+    super(opts, HTTP_FEATURE_KEY);
+  }
+}
 
 describe('onBun return types', () => {
   it('narrows adapter methods from configured features and keeps feature capabilities working', async () => {
@@ -82,18 +86,20 @@ describe('onBun return types', () => {
     const httpFeature = http({ controllers: [TestController] });
     const httpOnly = await onBun(createApp([httpFeature]));
 
-    expectTypeOf(httpOnly).toHaveProperty('serve');
+    expectTypeOf(httpOnly).not.toHaveProperty('serve');
+    expectTypeOf(httpOnly.http).toHaveProperty('serve');
     expectTypeOf(httpOnly).not.toHaveProperty('execCommand');
     expect(httpOnly.hasFeature(HttpFeature)).toBe(true);
 
     const directResponse = await httpOnly.http.fetch(new Request('http://localhost/'));
     await expect(directResponse.json()).resolves.toEqual({ ok: true });
 
-    const handle = httpOnly.serve({ hostname: '127.0.0.1', port: 4321 });
+    const handle = httpOnly.http.serve({ hostname: '127.0.0.1', port: 4321 });
     expect(serveMock).toHaveBeenCalledWith(
       expect.objectContaining({ hostname: '127.0.0.1', port: 4321 }),
     );
     expect(handle.address).toEqual({ hostname: '127.0.0.1', port: 4321 });
+    const servedFetch = servedFetches[0];
     if (!servedFetch) throw new Error('expected Bun.serve fetch');
     const servedResponse = await servedFetch(new Request('http://localhost/'));
     await expect(servedResponse.json()).resolves.toEqual({ ok: true });
@@ -124,7 +130,8 @@ describe('onBun return types', () => {
 
     const full = await onBun(createApp([httpFeature, commandFeature]));
 
-    expectTypeOf(full).toHaveProperty('serve');
+    expectTypeOf(full).not.toHaveProperty('serve');
+    expectTypeOf(full.http).toHaveProperty('serve');
     expectTypeOf(full).toHaveProperty('commands');
 
     const fullResult = await full.commands.execCommand(['test']);
@@ -133,16 +140,11 @@ describe('onBun return types', () => {
     await full.shutdown();
   });
 
-  it('keeps serve optional for widened HttpFeature arrays', async () => {
+  it('does not expose root serve for widened HttpFeature arrays', async () => {
     const maybeHttpFeatures: readonly HttpFeature[] = [];
     const maybeHttpApp = await onBun(createApp(maybeHttpFeatures));
 
-    expectTypeOf(maybeHttpApp)
-      .toHaveProperty('serve')
-      .toEqualTypeOf<
-        | ((options?: { readonly port?: number; readonly hostname?: string }) => ServerHandle)
-        | undefined
-      >();
+    expectTypeOf(maybeHttpApp).not.toHaveProperty('serve');
     expect('serve' in maybeHttpApp).toBe(false);
 
     await maybeHttpApp.shutdown();
@@ -154,6 +156,7 @@ describe('onBun return types', () => {
     expectTypeOf(bunApp).not.toHaveProperty('serve');
     expect('http' in bunApp).toBe(true);
     expect('serve' in bunApp).toBe(false);
+    expect('serve' in bunApp.http).toBe(false);
     expect(bunApp.hasFeature(HttpFeature)).toBe(false);
 
     await bunApp.shutdown();
@@ -172,10 +175,57 @@ describe('onBun return types', () => {
       createApp([new CustomHttpFeature({ controllers: [SubclassController] })]),
     );
 
-    expectTypeOf(bunApp).toHaveProperty('serve');
-    expect('serve' in bunApp).toBe(true);
+    expectTypeOf(bunApp).not.toHaveProperty('serve');
+    expectTypeOf(bunApp.http).toHaveProperty('serve');
+    expect('serve' in bunApp).toBe(false);
+    expect('serve' in bunApp.http).toBe(true);
     expect(bunApp.hasFeature(HttpFeature)).toBe(true);
 
+    await bunApp.shutdown();
+  });
+
+  it('adds serve for each named HTTP namespace', async () => {
+    @Controller('/')
+    class PublicController {
+      @Get('/public')
+      getPublic() {
+        return { scope: 'public' };
+      }
+    }
+
+    @Controller('/')
+    class PrivateController {
+      @Get('/private')
+      getPrivate() {
+        return { scope: 'private' };
+      }
+    }
+
+    const bunApp = await onBun(
+      createApp([
+        http({ controllers: [PublicController] }),
+        http({ name: 'private' as const, controllers: [PrivateController] }),
+      ]),
+    );
+
+    const publicHandle = bunApp.http.serve({ port: 3000 });
+    const privateHandle = bunApp.private.serve({ port: 3001 });
+
+    expect('serve' in bunApp).toBe(false);
+    expect(publicHandle.address.port).toBe(3000);
+    expect(privateHandle.address.port).toBe(3001);
+
+    const publicFetch = servedFetches[0];
+    const privateFetch = servedFetches[1];
+    if (!publicFetch || !privateFetch) throw new Error('expected Bun.serve fetches');
+
+    expect((await publicFetch(new Request('http://localhost/public'))).status).toBe(200);
+    expect((await publicFetch(new Request('http://localhost/private'))).status).toBe(404);
+    expect((await privateFetch(new Request('http://localhost/private'))).status).toBe(200);
+    expect((await privateFetch(new Request('http://localhost/public'))).status).toBe(404);
+
+    await publicHandle.shutdown();
+    await privateHandle.shutdown();
     await bunApp.shutdown();
   });
 });

@@ -1,6 +1,11 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
-import type { ConfiguredFeature, NamespacedCaps, StaticNamespacedCaps } from './index';
+import type {
+  ConfiguredFeature,
+  FeatureEntry,
+  NamespacedCaps,
+  StaticNamespacedCaps,
+} from './index';
 
 type MockHttpReadyCaps = { readonly fetch: (req: Request) => Promise<Response> };
 type MockHttpStaticCaps = { readonly getMetadata: () => object };
@@ -43,5 +48,14 @@ describe('Feature type utilities', () => {
     type MockSchedulerFeature = ConfiguredFeature<'scheduler', MockSchedulerCaps>;
     type Result = StaticNamespacedCaps<readonly [MockHttpFeature, MockSchedulerFeature]>;
     expectTypeOf<Result>().toEqualTypeOf<{ readonly http: MockHttpStaticCaps }>();
+  });
+
+  it('FeatureEntry preserves feature key and ready capabilities', () => {
+    type Result = FeatureEntry<MockHttpFeature>;
+    expectTypeOf<Result>().toEqualTypeOf<{
+      readonly key: MockHttpFeature['key'];
+      readonly feature: MockHttpFeature;
+      readonly capabilities: MockHttpReadyCaps;
+    }>();
   });
 });

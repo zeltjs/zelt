@@ -12,6 +12,7 @@ export type {
   ConfiguredFeature,
   FeatureCaps,
   FeatureClass,
+  FeatureEntry,
   FeatureManagedClass,
   FeatureReadyCapabilities,
   NamespacedCaps,

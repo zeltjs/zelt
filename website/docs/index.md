@@ -44,7 +44,7 @@ class HelloController {
 
 const app = createApp([http({ controllers: [HelloController] })]);
 const nodeApp = await onNode(app);
-await nodeApp.listen({ port: 3000 });
+await nodeApp.http.listen({ port: 3000 });
 ```
 
 See the [Getting Started](./getting-started) guide for a step-by-step walkthrough.

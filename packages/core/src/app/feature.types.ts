@@ -38,6 +38,12 @@ export type FeatureReadyCapabilities<TFeature extends ConfiguredFeature> = Keyed
   'realize'
 >;
 
+export type FeatureEntry<TFeature extends ConfiguredFeature> = {
+  readonly key: TFeature['key'];
+  readonly feature: TFeature;
+  readonly capabilities: FeatureReadyCapabilities<TFeature>;
+};
+
 export type FeatureCaps<TFeature extends ConfiguredFeature> = {
   readonly [TKey in TFeature['key']]: TFeature extends ConfiguredFeature<
     TFeature['key'],

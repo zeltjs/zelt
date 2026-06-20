@@ -35,7 +35,7 @@ const app = createApp([http({ controllers: [UserController] })]);
 
 // Node.js
 const node = await onNode(app);
-node.listen(3000);
+node.http.listen(3000);
 
 // Cloudflare Workers
 const workers = await onCloudflareWorkers(app);

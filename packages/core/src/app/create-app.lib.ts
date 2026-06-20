@@ -1,7 +1,7 @@
 import { Container } from '@needle-di/core';
 import type { KeyedValues } from '@zeltjs/unsafe-type-lib';
 import {
-  unsafeGetKeyedValueForClass,
+  unsafeGetKeyedValueEntriesForClass,
   unsafeKeyedValues,
   unsafeObjectFromNonEmptyKeyedValuesSync,
 } from '@zeltjs/unsafe-type-lib';
@@ -13,7 +13,7 @@ import { ConfigRegistry } from './config-registry.lib';
 import type {
   ConfiguredFeature,
   FeatureClass,
-  FeatureReadyCapabilities,
+  FeatureEntry,
   NamespacedCaps,
   ServiceResolver,
   StaticNamespacedCaps,
@@ -33,18 +33,15 @@ export type CreateRuntimeOptions = {
 export type App<F extends readonly ConfiguredFeature[]> = {
   readonly features: Readonly<F>;
   readonly hasFeature: (featureClass: FeatureClass) => boolean;
-  readonly getFeatureCapabilities: <TFeatureClass extends FeatureClass>(
-    featureClass: TFeatureClass,
-  ) => undefined;
   readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<RuntimeApp<F>>;
 } & StaticNamespacedCaps<F>;
 
 export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
   readonly features: Readonly<F>;
   readonly hasFeature: (featureClass: FeatureClass) => boolean;
-  readonly getFeatureCapabilities: <TFeatureClass extends FeatureClass>(
+  readonly getFeatureEntries: <TFeatureClass extends FeatureClass>(
     featureClass: TFeatureClass,
-  ) => FeatureReadyCapabilities<InstanceType<TFeatureClass>> | undefined;
+  ) => readonly FeatureEntry<InstanceType<TFeatureClass>>[];
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly shutdown: () => Promise<void>;
 } & NamespacedCaps<F>;
@@ -57,7 +54,7 @@ const reservedFeatureKeys = new Set([
   'constructor',
   'features',
   'get',
-  'getFeatureCapabilities',
+  'getFeatureEntries',
   'hasFeature',
   'prototype',
   'shutdown',
@@ -161,8 +158,12 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
         ...caps.object,
         features,
         hasFeature: (featureClass) => hasFeature(features, featureClass),
-        getFeatureCapabilities: (featureClass) =>
-          unsafeGetKeyedValueForClass(features, caps.map, featureClass),
+        getFeatureEntries: (featureClass) =>
+          unsafeGetKeyedValueEntriesForClass(features, caps.map, featureClass).map((entry) => ({
+            key: entry.key,
+            feature: entry.item,
+            capabilities: entry.value,
+          })),
         get: readyResult.get,
         shutdown: () => runtime.shutdown(),
       };
@@ -175,6 +176,5 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
     ...app,
     features,
     hasFeature: (featureClass) => hasFeature(features, featureClass),
-    getFeatureCapabilities: () => undefined,
   };
 };

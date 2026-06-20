@@ -1,4 +1,9 @@
-import type { CommandCapabilities, HttpCapabilities, SchedulerCapabilities } from '@zeltjs/core';
+import type {
+  CommandCapabilities,
+  HttpCapabilities,
+  HttpModuleOptions,
+  SchedulerCapabilities,
+} from '@zeltjs/core';
 import {
   args,
   Command,
@@ -10,6 +15,7 @@ import {
   EnvAdaptor,
   Feature,
   Get,
+  HTTP_FEATURE_KEY,
   HttpFeature,
   http,
   Scheduled,
@@ -32,15 +38,19 @@ import type { NodeApp, ServerHandle } from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
 
-type HttpNodeApp = NodeApp & { readonly http: HttpCapabilities } & {
+type HttpNodeCapabilities = HttpCapabilities & {
   readonly listen: (
     portOrOptions?: number | { readonly port?: number; readonly hostname?: string },
   ) => Promise<ServerHandle>;
 };
+type HttpNodeApp = NodeApp & { readonly http: HttpNodeCapabilities };
 type CommandNodeApp = NodeApp & { readonly commands: CommandCapabilities };
 type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
 
-const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp => 'listen' in app;
+const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp => {
+  const httpPart = app['http'];
+  return httpPart !== undefined && 'listen' in httpPart;
+};
 const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'commands' in app;
 const hasScheduler = (app: NodeApp): app is NodeApp & SchedulerNodeAppPart => 'schedulers' in app;
 
@@ -61,7 +71,11 @@ class FakeHttpLikeFeature extends Feature<
   });
 }
 
-class CustomHttpFeature extends HttpFeature {}
+class CustomHttpFeature extends HttpFeature<typeof HTTP_FEATURE_KEY> {
+  constructor(opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>) {
+    super(opts, HTTP_FEATURE_KEY);
+  }
+}
 
 describe('onNode return types', () => {
   it('narrows adapter methods from configured features and keeps feature capabilities working', async () => {
@@ -76,7 +90,8 @@ describe('onNode return types', () => {
     const httpFeature = http({ controllers: [ReturnTypeController] });
     const httpOnly = await onNode(createApp([httpFeature]));
 
-    expectTypeOf(httpOnly).toHaveProperty('listen');
+    expectTypeOf(httpOnly).not.toHaveProperty('listen');
+    expectTypeOf(httpOnly.http).toHaveProperty('listen');
     expectTypeOf(httpOnly).not.toHaveProperty('execCommand');
     expectTypeOf(httpOnly).not.toHaveProperty('startScheduler');
     expect(httpOnly.hasFeature(HttpFeature)).toBe(true);
@@ -132,7 +147,8 @@ describe('onNode return types', () => {
 
     const full = await onNode(createApp([httpFeature, commandFeature, schedulerFeature]));
 
-    expectTypeOf(full).toHaveProperty('listen');
+    expectTypeOf(full).not.toHaveProperty('listen');
+    expectTypeOf(full.http).toHaveProperty('listen');
     expectTypeOf(full).toHaveProperty('commands');
     expectTypeOf(full).toHaveProperty('schedulers');
 
@@ -145,18 +161,10 @@ describe('onNode return types', () => {
     await full.shutdown();
   });
 
-  it('keeps listen optional for widened HttpFeature arrays', async () => {
+  it('does not expose root listen for widened HttpFeature arrays', async () => {
     const maybeHttpFeatures: readonly HttpFeature[] = [];
     const maybeHttpApp = await onNode(createApp(maybeHttpFeatures));
 
-    expectTypeOf(maybeHttpApp)
-      .toHaveProperty('listen')
-      .toEqualTypeOf<
-        | ((
-            portOrOptions?: number | { readonly port?: number; readonly hostname?: string },
-          ) => Promise<ServerHandle>)
-        | undefined
-      >();
     expect('listen' in maybeHttpApp).toBe(false);
 
     await maybeHttpApp.shutdown();
@@ -168,6 +176,7 @@ describe('onNode return types', () => {
     expectTypeOf(nodeApp).not.toHaveProperty('listen');
     expect('http' in nodeApp).toBe(true);
     expect('listen' in nodeApp).toBe(false);
+    expect('listen' in nodeApp.http).toBe(false);
     expect(nodeApp.hasFeature(HttpFeature)).toBe(false);
 
     await nodeApp.shutdown();
@@ -186,8 +195,10 @@ describe('onNode return types', () => {
       createApp([new CustomHttpFeature({ controllers: [SubclassController] })]),
     );
 
-    expectTypeOf(nodeApp).toHaveProperty('listen');
-    expect('listen' in nodeApp).toBe(true);
+    expectTypeOf(nodeApp).not.toHaveProperty('listen');
+    expectTypeOf(nodeApp.http).toHaveProperty('listen');
+    expect('listen' in nodeApp).toBe(false);
+    expect('listen' in nodeApp.http).toBe(true);
     expect(nodeApp.hasFeature(HttpFeature)).toBe(true);
 
     await nodeApp.shutdown();
@@ -200,7 +211,7 @@ describe('onNode with HTTP', () => {
 
   afterEach(async () => {
     await handle?.shutdown();
-    if (!handle) await nodeApp?.shutdown();
+    await nodeApp?.shutdown();
     handle = undefined;
     nodeApp = undefined;
   });
@@ -219,7 +230,7 @@ describe('onNode with HTTP', () => {
 
     expect(isHttpNodeApp(nodeApp)).toBe(true);
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.listen(0);
+    handle = await nodeApp.http.listen(0);
 
     expect(handle.address.port).toBeGreaterThan(0);
     expect(handle.shutdown).toBeTypeOf('function');
@@ -242,11 +253,60 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.listen(0);
+    handle = await nodeApp.http.listen(0);
 
     expect(handle.address.port).toBeGreaterThan(0);
     const res = await fetch(`http://localhost:${handle.address.port}/`);
     expect(res.status).toBe(200);
+  });
+
+  it('listens on each named HTTP namespace independently', async () => {
+    @Controller('/')
+    class PublicController {
+      @Get('/public')
+      getPublic() {
+        return { scope: 'public' };
+      }
+    }
+
+    @Controller('/')
+    class PrivateController {
+      @Get('/private')
+      getPrivate() {
+        return { scope: 'private' };
+      }
+    }
+
+    const app = createApp([
+      http({ controllers: [PublicController] }),
+      http({ name: 'private' as const, controllers: [PrivateController] }),
+    ]);
+    const namedNodeApp = await onNode(app);
+
+    const publicHandle = await namedNodeApp.http.listen(0);
+    const privateHandle = await namedNodeApp.private.listen(0);
+
+    try {
+      expect('listen' in namedNodeApp).toBe(false);
+
+      const publicOk = await fetch(`http://localhost:${publicHandle.address.port}/public`);
+      expect(publicOk.status).toBe(200);
+      await expect(publicOk.json()).resolves.toEqual({ scope: 'public' });
+
+      const publicMiss = await fetch(`http://localhost:${publicHandle.address.port}/private`);
+      expect(publicMiss.status).toBe(404);
+
+      const privateOk = await fetch(`http://localhost:${privateHandle.address.port}/private`);
+      expect(privateOk.status).toBe(200);
+      await expect(privateOk.json()).resolves.toEqual({ scope: 'private' });
+
+      const privateMiss = await fetch(`http://localhost:${privateHandle.address.port}/public`);
+      expect(privateMiss.status).toBe(404);
+    } finally {
+      await publicHandle.shutdown();
+      await privateHandle.shutdown();
+      await namedNodeApp.shutdown();
+    }
   });
 
   it('calls app.createRuntime() during onNode', async () => {
@@ -266,7 +326,7 @@ describe('onNode with HTTP', () => {
     expect(readySpy).toHaveBeenCalledOnce();
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.listen(0);
+    handle = await nodeApp.http.listen(0);
     const res = await fetch(`http://localhost:${handle.address.port}/health/`);
     const body: { status: string } = await res.json();
     expect(body.status).toBe('ok');
@@ -297,7 +357,7 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.listen(0);
+    handle = await nodeApp.http.listen(0);
 
     const res = await fetch(`http://localhost:${handle.address.port}/`);
     expect(res.status).toBe(200);
@@ -316,7 +376,7 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.listen(0);
+    handle = await nodeApp.http.listen(0);
     const { port } = handle.address;
 
     await handle.shutdown();

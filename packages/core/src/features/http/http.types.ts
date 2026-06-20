@@ -33,7 +33,8 @@ export type HttpMountableFeatureModule = {
   readonly realize: (resolver: ServiceResolver) => Promise<HttpMountableCapabilities>;
 };
 
-export type HttpModuleOptions = {
+export type HttpModuleOptions<TName extends string = 'http'> = {
+  readonly name?: TName;
   readonly path?: string;
   readonly controllers?: readonly ControllerClass[];
   readonly middlewares?: readonly MiddlewareInput[];
@@ -43,5 +44,5 @@ export type HttpModuleOptions = {
 
 export type HttpCapabilities = Pick<HttpMountableCapabilities, 'fetch' | 'request'>;
 
-export type HttpChildOptions = HttpModuleOptions;
-export type HttpOptions = HttpModuleOptions;
+export type HttpChildOptions = HttpModuleOptions<string>;
+export type HttpOptions = HttpModuleOptions<string>;

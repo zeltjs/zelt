@@ -26,8 +26,15 @@ describe('http feature', () => {
     expect(feature.key).toBe('http');
   });
 
-  it('infers http() as HttpFeature', () => {
-    expectTypeOf(http({ controllers: [TestController] })).toEqualTypeOf<HttpFeature>();
+  it('infers unnamed http() as the default http namespace', () => {
+    expectTypeOf(http({ controllers: [TestController] })).toEqualTypeOf<HttpFeature<'http'>>();
+  });
+
+  it('uses the provided name as the feature namespace', () => {
+    const feature = http({ name: 'private' as const, controllers: [TestController] });
+
+    expect(feature.key).toBe('private');
+    expectTypeOf(feature).toEqualTypeOf<HttpFeature<'private'>>();
   });
 
   it('keeps feature methods callable when destructured', () => {
@@ -46,18 +53,63 @@ describe('http feature', () => {
     await readyApp.shutdown();
   });
 
-  it('hasFeature narrows RuntimeApp by HttpFeature', async () => {
+  it('returns HttpFeature entries by feature class', async () => {
     const app = createApp([http({ controllers: [TestController] })]);
     const readyApp = await app.createRuntime();
     expect(readyApp.hasFeature(HttpFeature)).toBe(true);
 
-    const caps = readyApp.getFeatureCapabilities(HttpFeature);
-    expect(caps).toBeDefined();
-    expectTypeOf(caps?.fetch).toEqualTypeOf<
+    const entries = readyApp.getFeatureEntries(HttpFeature);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.key).toBe('http');
+    expectTypeOf(entries[0]?.capabilities.fetch).toEqualTypeOf<
       ((request: Request) => Promise<Response>) | undefined
     >();
 
     await readyApp.shutdown();
+  });
+
+  it('supports multiple HttpFeature instances with distinct namespaces', async () => {
+    @Controller('/')
+    class PublicController {
+      @Get('/public')
+      getPublic() {
+        return { scope: 'public' };
+      }
+    }
+
+    @Controller('/')
+    class PrivateController {
+      @Get('/private')
+      getPrivate() {
+        return { scope: 'private' };
+      }
+    }
+
+    const app = createApp([
+      http({ controllers: [PublicController] }),
+      http({ name: 'private' as const, controllers: [PrivateController] }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    expectTypeOf(readyApp.http.fetch).toEqualTypeOf<(request: Request) => Promise<Response>>();
+    expectTypeOf(readyApp.private.fetch).toEqualTypeOf<(request: Request) => Promise<Response>>();
+    expect(readyApp.getFeatureEntries(HttpFeature).map((entry) => entry.key)).toEqual([
+      'http',
+      'private',
+    ]);
+
+    expect((await readyApp.http.request('/public')).status).toBe(200);
+    expect((await readyApp.http.request('/private')).status).toBe(404);
+    expect((await readyApp.private.request('/private')).status).toBe(200);
+    expect((await readyApp.private.request('/public')).status).toBe(404);
+
+    await readyApp.shutdown();
+  });
+
+  it('rejects duplicate resolved HTTP namespaces', () => {
+    expect(() => createApp([http({ controllers: [] }), http({ controllers: [] })])).toThrow(
+      /Duplicate feature namespace: http/,
+    );
   });
 
   it('returns a ConfiguredFeature with key "http"', () => {

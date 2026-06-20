@@ -10,11 +10,12 @@ export { UnsafeInjectionTokenWeakMap } from './injection-token-weak-map';
 export { unsafeTypedJsonParse } from './json';
 export {
   type KeyedMethodValue,
+  type KeyedValueEntry,
   type KeyedValues,
   type MapFromKeyedValues,
   type ObjectFromKeyedValues,
   type ObjectFromNonEmptyKeyedValues,
-  unsafeGetKeyedValueForClass,
+  unsafeGetKeyedValueEntriesForClass,
   unsafeKeyedValues,
   unsafeObjectFromKeyedValues,
   unsafeObjectFromKeyedValuesSync,

@@ -47,6 +47,22 @@ class OtherFeature extends Feature<'otherFeature', { readonly other: () => strin
   realize = () => ({ other: () => 'no' });
 }
 
+class NamedTypedFeature<TKey extends string> extends Feature<
+  TKey,
+  { readonly value: () => string }
+> {
+  constructor(
+    readonly key: TKey,
+    private readonly result: string,
+  ) {
+    super();
+  }
+
+  featureClasses = () => [];
+  blueprint = () => ({});
+  realize = () => ({ value: () => this.result });
+}
+
 const duplicateStaticCapabilities = vi.fn(() => ({}));
 
 class DuplicateA extends Feature<'dup', { readonly a: () => string }> {
@@ -167,20 +183,42 @@ describe('createApp', () => {
     const app = createApp([new TypedFeature()]);
 
     expect(app.hasFeature(TypedFeature)).toBe(true);
-
-    expect(app.getFeatureCapabilities(TypedFeature)).toBeUndefined();
+    expectTypeOf(app).not.toHaveProperty('getFeatureCapabilities');
+    expectTypeOf(app).not.toHaveProperty('getFeatureEntries');
   });
 
-  it('hasFeature narrows RuntimeApp by feature class', async () => {
+  it('returns runtime feature entries by feature class', async () => {
     const app = createApp([new TypedFeature()]);
     const readyApp = await app.createRuntime();
 
     expect(readyApp.hasFeature(TypedFeature)).toBe(true);
 
-    const caps = readyApp.getFeatureCapabilities(TypedFeature);
-    expect(caps).toBeDefined();
-    expectTypeOf(caps?.value).toEqualTypeOf<(() => string) | undefined>();
-    expect(caps?.value()).toBe('ok');
+    const entries = readyApp.getFeatureEntries(TypedFeature);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.key).toBe('typed');
+    expect(entries[0]?.feature).toBeInstanceOf(TypedFeature);
+    expect(entries[0]?.capabilities.value()).toBe('ok');
+    expectTypeOf(entries[0]?.capabilities.value).toEqualTypeOf<(() => string) | undefined>();
+
+    await readyApp.shutdown();
+  });
+
+  it('returns all matching runtime feature entries for a feature class', async () => {
+    const app = createApp([
+      new NamedTypedFeature('alpha', 'a'),
+      new NamedTypedFeature('beta', 'b'),
+      new OtherFeature(),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    const entries = readyApp.getFeatureEntries(NamedTypedFeature);
+
+    expect(entries.map((entry) => [entry.key, entry.capabilities.value()])).toEqual([
+      ['alpha', 'a'],
+      ['beta', 'b'],
+    ]);
+    expectTypeOf(readyApp.alpha.value).toEqualTypeOf<() => string>();
+    expectTypeOf(readyApp.beta.value).toEqualTypeOf<() => string>();
 
     await readyApp.shutdown();
   });
@@ -192,10 +230,10 @@ describe('createApp', () => {
     expect(readyApp.hasFeature(UserFeature)).toBe(true);
     expect(readyApp.hasFeature(OtherFeature)).toBe(false);
 
-    const caps = readyApp.getFeatureCapabilities(UserFeature);
-    expect(caps).toBeDefined();
-    expectTypeOf(caps?.run).toEqualTypeOf<(() => number) | undefined>();
-    expect(caps?.run()).toBe(123);
+    const entries = readyApp.getFeatureEntries(UserFeature);
+    expect(entries).toHaveLength(1);
+    expectTypeOf(entries[0]?.capabilities.run).toEqualTypeOf<(() => number) | undefined>();
+    expect(entries[0]?.capabilities.run()).toBe(123);
 
     await readyApp.shutdown();
   });
@@ -204,7 +242,7 @@ describe('createApp', () => {
     duplicateStaticCapabilities.mockClear();
 
     expect(() => createApp([new DuplicateA(), new DuplicateB()])).toThrow(
-      /Duplicate feature key: dup/,
+      /Duplicate feature namespace: dup/,
     );
     expect(duplicateStaticCapabilities).not.toHaveBeenCalled();
   });
@@ -213,7 +251,7 @@ describe('createApp', () => {
     reservedStaticCapabilities.mockClear();
 
     expect(() => createApp([new ReservedCreateRuntimeFeature()])).toThrow(
-      /Reserved feature key: createRuntime/,
+      /Reserved feature namespace: createRuntime/,
     );
     expect(reservedStaticCapabilities).not.toHaveBeenCalled();
   });
@@ -224,7 +262,7 @@ describe('createApp', () => {
     'prototype',
   ])('rejects feature key reserved by JavaScript object semantics: %s', (key) => {
     expect(() => createApp([createEmptyFeature(key)])).toThrow(
-      new RegExp(`Reserved feature key: ${key}`),
+      new RegExp(`Reserved feature namespace: ${key}`),
     );
   });
 });

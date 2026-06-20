@@ -1,6 +1,11 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
-import type { ConfiguredFeature, FeatureApp, RuntimeApp } from '@zeltjs/core';
+import type {
+  ConfiguredFeature,
+  FeatureApp,
+  FeatureReadyCapabilities,
+  RuntimeApp,
+} from '@zeltjs/core';
 import { HttpFeature } from '@zeltjs/core';
 
 import { NodeCliConfig } from './node-cli.config';
@@ -31,27 +36,53 @@ type HttpNodeAppPart = {
   readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
 };
 
-export type NodeApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart) &
-  Partial<HttpNodeAppPart>;
+type NodeFeatureCapabilities<TFeature extends ConfiguredFeature> =
+  FeatureReadyCapabilities<TFeature> &
+    (TFeature extends HttpFeature<string> ? HttpNodeAppPart : unknown);
 
-type HasFeatureClass<F extends readonly ConfiguredFeature[], TFeature extends ConfiguredFeature> =
-  Extract<F[number], TFeature> extends never ? false : true;
+type NodeNamespacedCapabilities<F extends readonly ConfiguredFeature[]> = {
+  readonly [TFeature in F[number] as TFeature['key']]: NodeFeatureCapabilities<TFeature>;
+};
 
-type WithFeatureClass<
-  F extends readonly ConfiguredFeature[],
-  TFeature extends ConfiguredFeature,
-  TPart extends object,
-> = HasFeatureClass<F, TFeature> extends true ? TPart : unknown;
+export type NodeApp = RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart;
 
 type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
   EnvironmentNodeAppPart &
-  (number extends F['length']
-    ? Partial<HttpNodeAppPart>
-    : WithFeatureClass<F, HttpFeature, HttpNodeAppPart>);
+  NodeNamespacedCapabilities<F>;
+
+type ServerRegistry = {
+  readonly add: (server: ServerType) => void;
+  readonly close: (server: ServerType) => Promise<void>;
+  readonly closeAll: () => Promise<void>;
+};
+
+const closeServer = (server: ServerType): Promise<void> =>
+  new Promise<void>((resolve, reject) => {
+    server.close((err) => (err ? reject(err) : resolve()));
+  });
+
+const createServerRegistry = (): ServerRegistry => {
+  const servers = new Set<ServerType>();
+
+  const close = async (server: ServerType): Promise<void> => {
+    if (!servers.delete(server)) return;
+    await closeServer(server);
+  };
+
+  return {
+    add: (server) => {
+      servers.add(server);
+    },
+    close,
+    closeAll: async () => {
+      await Promise.all([...servers].map((server) => close(server)));
+    },
+  };
+};
 
 const createListenForHttp = (
   appFetch: (request: Request) => Promise<Response>,
-  appShutdown: () => Promise<void>,
+  serverRegistry: ServerRegistry,
 ): ((portOrOptions?: number | ListenOptions) => Promise<ServerHandle>) => {
   return async (portOrOptions?: number | ListenOptions): Promise<ServerHandle> => {
     const listenOptions: ListenOptions =
@@ -66,14 +97,12 @@ const createListenForHttp = (
         resolve({ port: info.port, address: info.address }),
       );
     });
+    serverRegistry.add(server);
 
     const address = await serverReady;
 
     const shutdown = async (): Promise<void> => {
-      await new Promise<void>((resolve, reject) => {
-        server.close((err) => (err ? reject(err) : resolve()));
-      });
-      await appShutdown();
+      await serverRegistry.close(server);
     };
 
     return { address, shutdown };
@@ -86,6 +115,7 @@ const createNodeApp = (
   readyApp: RuntimeApp<readonly ConfiguredFeature[]>,
   shutdown: () => Promise<void>,
   args: readonly string[],
+  serverRegistry: ServerRegistry,
 ): NodeApp => {
   const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = {
     ...readyApp,
@@ -93,12 +123,20 @@ const createNodeApp = (
     shutdown,
   };
 
-  const httpCaps = readyApp.getFeatureCapabilities(HttpFeature);
-  if (!httpCaps) return base;
-  return {
-    ...base,
-    listen: createListenForHttp(httpCaps.fetch, shutdown),
-  };
+  const nodeApp: NodeApp = { ...base };
+
+  for (const entry of readyApp.getFeatureEntries(HttpFeature)) {
+    Object.defineProperty(nodeApp, entry.key, {
+      value: {
+        ...entry.capabilities,
+        listen: createListenForHttp(entry.capabilities.fetch, serverRegistry),
+      },
+      configurable: true,
+      enumerable: true,
+    });
+  }
+
+  return nodeApp;
 };
 
 export function onNode<const F extends readonly ConfiguredFeature[]>(
@@ -118,6 +156,7 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
 
   const cliConfig = await readyApp.get(NodeCliConfig);
   const runtimeShutdown = readyApp.shutdown;
+  const serverRegistry = createServerRegistry();
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -129,6 +168,7 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
     if (shuttingDown) return;
     shuttingDown = true;
     try {
+      await serverRegistry.closeAll();
       await runtimeShutdown();
     } finally {
       detachSignals();
@@ -144,5 +184,5 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
 
   const args = getArgs();
 
-  return createNodeApp(readyApp, shutdown, args);
+  return createNodeApp(readyApp, shutdown, args, serverRegistry);
 }
