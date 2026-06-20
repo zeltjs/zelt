@@ -1,4 +1,10 @@
-import type { CommandCapabilities, ConfiguredFeature, FeatureApp, RuntimeApp } from '@zeltjs/core';
+import type {
+  CommandCapabilities,
+  ConfiguredFeature,
+  FeatureApp,
+  FeatureReadyCapabilities,
+  RuntimeApp,
+} from '@zeltjs/core';
 import { HttpFeature } from '@zeltjs/core';
 
 import { BunCliConfig } from './bun-cli.config';
@@ -35,33 +41,32 @@ type HttpBunAppPart = {
   readonly serve: (options?: ServeOptions) => ServerHandle;
 };
 
-export type HttpBunApp = BunAppBase & RuntimeApp<readonly [HttpFeature]> & HttpBunAppPart;
+type BunFeatureCapabilities<TFeature extends ConfiguredFeature> =
+  FeatureReadyCapabilities<TFeature> &
+    (TFeature extends HttpFeature<string> ? HttpBunAppPart : unknown);
+
+type BunNamespacedCapabilities<F extends readonly ConfiguredFeature[]> = {
+  readonly [TFeature in F[number] as TFeature['key']]: BunFeatureCapabilities<TFeature>;
+};
+
+export type HttpBunApp = BunAppBase &
+  RuntimeApp<readonly [HttpFeature]> & {
+    readonly http: RuntimeApp<readonly [HttpFeature]>['http'] & HttpBunAppPart;
+  };
 
 export type CommandBunApp = BunAppBase & { readonly commands: CommandCapabilities };
 
 export type FullBunApp = HttpBunApp & CommandBunApp;
 
-export type BunApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart) &
-  Partial<HttpBunAppPart>;
-
-type HasFeatureClass<F extends readonly ConfiguredFeature[], TFeature extends ConfiguredFeature> =
-  Extract<F[number], TFeature> extends never ? false : true;
-
-type WithFeatureClass<
-  F extends readonly ConfiguredFeature[],
-  TFeature extends ConfiguredFeature,
-  TPart extends object,
-> = HasFeatureClass<F, TFeature> extends true ? TPart : unknown;
+export type BunApp = RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentBunAppPart;
 
 type BunAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
   EnvironmentBunAppPart &
-  (number extends F['length']
-    ? Partial<HttpBunAppPart>
-    : WithFeatureClass<F, HttpFeature, HttpBunAppPart>);
+  BunNamespacedCapabilities<F>;
 
 const createServeForHttp = (
   appFetch: (request: Request) => Promise<Response>,
-  appShutdown: () => Promise<void>,
+  registerShutdown: (callback: () => Promise<void>) => () => Promise<void>,
 ): ((options?: ServeOptions) => ServerHandle) => {
   return (options?: ServeOptions): ServerHandle => {
     const port = options?.port ?? 3000;
@@ -72,11 +77,9 @@ const createServeForHttp = (
       port,
       hostname,
     });
-
-    const shutdown = async (): Promise<void> => {
+    const shutdown = registerShutdown(async () => {
       await server.stop();
-      await appShutdown();
-    };
+    });
 
     return {
       address: { port: server.port ?? port, hostname: server.hostname ?? hostname },
@@ -98,12 +101,22 @@ const createBunApp = (
     shutdown,
   };
 
-  const httpCaps = readyApp.getFeatureCapabilities(HttpFeature);
-  if (!httpCaps) return base;
-  return {
-    ...base,
-    serve: createServeForHttp(httpCaps.fetch, shutdown),
-  };
+  const bunApp: BunApp = { ...base };
+
+  for (const entry of readyApp.getFeatureEntries(HttpFeature)) {
+    Object.defineProperty(bunApp, entry.key, {
+      value: {
+        ...entry.capabilities,
+        serve: createServeForHttp(entry.capabilities.fetch, (callback) =>
+          entry.feature.registerShutdown(callback),
+        ),
+      },
+      configurable: true,
+      enumerable: true,
+    });
+  }
+
+  return bunApp;
 };
 
 export function onBun<const F extends readonly ConfiguredFeature[]>(
@@ -122,7 +135,6 @@ export async function onBun<const F extends readonly ConfiguredFeature[]>(
   });
 
   const cliConfig = await readyApp.get(BunCliConfig);
-  const runtimeShutdown = readyApp.shutdown;
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -134,7 +146,7 @@ export async function onBun<const F extends readonly ConfiguredFeature[]>(
     if (shuttingDown) return;
     shuttingDown = true;
     try {
-      await runtimeShutdown();
+      await readyApp.shutdown();
     } finally {
       detachSignals();
     }

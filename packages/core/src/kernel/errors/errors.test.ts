@@ -129,7 +129,7 @@ describe('ZeltAppConfigurationError', () => {
       reason: 'duplicate_feature_key',
       details: 'http',
     });
-    expect(error.message).toBe('Duplicate feature key: http');
+    expect(error.message).toBe('Duplicate feature namespace: http');
   });
 
   it('formats reserved_feature_key reason correctly', () => {
@@ -137,7 +137,7 @@ describe('ZeltAppConfigurationError', () => {
       reason: 'reserved_feature_key',
       details: 'createRuntime',
     });
-    expect(error.message).toBe('Reserved feature key: createRuntime');
+    expect(error.message).toBe('Reserved feature namespace: createRuntime');
   });
 });
 

@@ -74,7 +74,7 @@ export const app = createApp([http({
 export default await onNode(app);
 ```
 
-The `onNode()` function prepares your app for the Node.js runtime, returning a `NodeApp` with `listen()`, `get()`, and `args` properties.
+The `onNode()` function prepares your app for the Node.js runtime, returning a `NodeApp` with `http.listen()`, `get()`, and `args` properties.
 
 ### Step 3: Start the Server
 
@@ -93,7 +93,7 @@ class HelloController {
 const app = createApp([http({ controllers: [HelloController] })]);
 const nodeApp = await onNode(app);
 // ---cut---
-const server = await nodeApp.listen({ port: 3000 });
+const server = await nodeApp.http.listen({ port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 

@@ -21,6 +21,7 @@ export abstract class Feature<
   abstract featureClasses(): readonly FeatureManagedClass[];
   abstract blueprint(): TStaticCaps;
   abstract realize(resolver: ServiceResolver): TReadyCaps | Promise<TReadyCaps>;
+  declare shutdown?: () => void | Promise<void>;
 }
 
 export type ConfiguredFeature<
@@ -37,6 +38,12 @@ export type FeatureReadyCapabilities<TFeature extends ConfiguredFeature> = Keyed
   TFeature,
   'realize'
 >;
+
+export type FeatureEntry<TFeature extends ConfiguredFeature> = {
+  readonly key: TFeature['key'];
+  readonly feature: TFeature;
+  readonly capabilities: FeatureReadyCapabilities<TFeature>;
+};
 
 export type FeatureCaps<TFeature extends ConfiguredFeature> = {
   readonly [TKey in TFeature['key']]: TFeature extends ConfiguredFeature<

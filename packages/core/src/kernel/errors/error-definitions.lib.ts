@@ -40,10 +40,10 @@ export const coreErrorDefinitions = {
       | { reason: 'reserved_feature_key'; details: string },
   ) => {
     if (ctx.reason === 'reserved_feature_key') {
-      return `Reserved feature key: ${ctx.details}`;
+      return `Reserved feature namespace: ${ctx.details}`;
     }
     if (ctx.reason === 'duplicate_feature_key') {
-      return `Duplicate feature key: ${ctx.details}`;
+      return `Duplicate feature namespace: ${ctx.details}`;
     }
     return `Duplicate command name: ${ctx.details}`;
   },

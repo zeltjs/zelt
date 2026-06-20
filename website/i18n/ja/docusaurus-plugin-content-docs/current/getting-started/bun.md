@@ -85,13 +85,13 @@ const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const bunApp = await onBun(app);
 
-const server = bunApp.serve({ port: 3000 });
+const server = bunApp.http.serve({ port: 3000 });
 console.log(`Server running at http://${server.address.hostname}:${server.address.port}`);
 ```
 
 `onBun()` 関数は Bun ランタイム用にアプリを準備します。以下のオブジェクトを返します：
 
-- `serve(options?)` — `Bun.serve()` を使用して HTTP サーバーを起動
+- `http.serve(options?)` — `Bun.serve()` を使用して HTTP サーバーを起動
 - `shutdown()` — アプリケーションをグレースフルにシャットダウン
 - `get<T>(Class)` — DI コンテナからサービスを解決
 - `args` — コマンドライン引数 (`Bun.argv.slice(2)`)
@@ -110,7 +110,7 @@ bun run src/index.ts
 
 ## サーバーオプション
 
-`serve()` メソッドはポートとホスト名のオプションを受け付けます：
+`http.serve()` メソッドはポートとホスト名のオプションを受け付けます：
 
 ```typescript
 // @noErrors
@@ -126,7 +126,7 @@ class HelloController {
 const app = createApp([http({ controllers: [HelloController] })]);
 const bunApp = await onBun(app);
 // ---cut---
-const server = bunApp.serve({
+const server = bunApp.http.serve({
   port: 8080,
   hostname: '127.0.0.1',
 });

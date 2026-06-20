@@ -25,6 +25,12 @@ export type KeyedValues<TItems extends readonly KeyedItem[], TMethod extends Pro
   readonly map: MapFromKeyedValues<TItems, TMethod>;
 };
 
+export type KeyedValueEntry<TItem extends KeyedItem, TMethod extends PropertyKey> = {
+  readonly key: TItem['key'];
+  readonly item: TItem;
+  readonly value: KeyedMethodValue<TItem, TMethod>;
+};
+
 type IsEmptyObject<T> = keyof T extends never ? true : false;
 
 export type ObjectFromNonEmptyKeyedValues<
@@ -123,7 +129,7 @@ export const unsafeKeyedValues = async <
   };
 };
 
-export const unsafeGetKeyedValueForClass = <
+export const unsafeGetKeyedValueEntriesForClass = <
   const TMethod extends PropertyKey,
   const TItems extends readonly KeyedItem[],
   const TClass extends abstract new (
@@ -133,8 +139,17 @@ export const unsafeGetKeyedValueForClass = <
   items: TItems,
   values: MapFromKeyedValues<TItems, TMethod>,
   itemClass: TClass,
-): KeyedMethodValue<InstanceType<TClass>, TMethod> | undefined => {
-  const item = items.find((candidate) => candidate instanceof itemClass);
-  if (!item) return undefined;
-  return values.get(item) as KeyedMethodValue<InstanceType<TClass>, TMethod> | undefined;
+): readonly KeyedValueEntry<InstanceType<TClass>, TMethod>[] => {
+  const entries: KeyedValueEntry<InstanceType<TClass>, TMethod>[] = [];
+
+  for (const item of items) {
+    if (!(item instanceof itemClass)) continue;
+    entries.push({
+      key: item.key,
+      item: item as InstanceType<TClass>,
+      value: values.get(item) as KeyedMethodValue<InstanceType<TClass>, TMethod>,
+    });
+  }
+
+  return entries;
 };

@@ -15,19 +15,26 @@ import { collectRoutes } from './routing';
 
 export const HTTP_FEATURE_KEY = 'http' as const;
 
+type ShutdownCallback = () => void | Promise<void>;
+type RegisteredShutdown = () => Promise<void>;
+
 /** @throws {ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
-export class HttpFeature
-  extends Feature<'http', HttpMountableCapabilities, HttpStaticCapabilities>
+export class HttpFeature<TName extends string = string>
+  extends Feature<TName, HttpMountableCapabilities, HttpStaticCapabilities>
   implements HttpMountableFeatureModule
 {
-  readonly key = HTTP_FEATURE_KEY;
+  readonly key: TName;
   readonly path: string;
+  private readonly opts: HttpModuleOptions<string>;
   private readonly controllers: readonly ControllerClass[];
   private readonly children: readonly HttpMountableFeatureModule[];
+  private readonly shutdownCallbacks = new Set<RegisteredShutdown>();
 
   /** @throws {ZeltDecoratorUsageError} */
-  constructor(private readonly opts: HttpModuleOptions) {
+  constructor(opts: HttpModuleOptions<TName>, key: TName) {
     super();
+    this.opts = opts;
+    this.key = key;
     this.path = opts.path ?? '/';
     this.controllers = opts.controllers ?? [];
     this.children = opts.children ?? [];
@@ -63,6 +70,32 @@ export class HttpFeature
     return this.toCapabilities(rootRouter);
   };
 
+  registerShutdown(callback: ShutdownCallback): RegisteredShutdown {
+    const registered = async (): Promise<void> => {
+      if (!this.shutdownCallbacks.delete(registered)) return;
+      await callback();
+    };
+    this.shutdownCallbacks.add(registered);
+    return registered;
+  }
+
+  protected readonly shutdownHttpCallbacks = async (): Promise<void> => {
+    const results = await Promise.allSettled(
+      [...this.shutdownCallbacks].map((callback) => callback()),
+    );
+    const errors: unknown[] = [];
+    for (const result of results) {
+      if (result.status === 'rejected') errors.push(result.reason);
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'One or more HTTP shutdown callbacks failed');
+    }
+  };
+
+  override readonly shutdown = async (): Promise<void> => {
+    await this.shutdownHttpCallbacks();
+  };
+
   private collectMetadata(): HttpMetadata {
     const ownControllers = collectOwnControllerMetadata(this.controllers, this.path);
     const childControllers = this.children.flatMap((child) => {
@@ -92,7 +125,16 @@ export class HttpFeature
   }
 }
 
-export const http = (opts: HttpModuleOptions): HttpFeature => new HttpFeature(opts);
+export function http(opts: Omit<HttpModuleOptions, 'name'>): HttpFeature<typeof HTTP_FEATURE_KEY>;
+export function http<const TName extends string>(
+  opts: HttpModuleOptions<TName> & { readonly name: TName },
+): HttpFeature<TName>;
+export function http<const TName extends string>(
+  opts: HttpModuleOptions<TName>,
+): HttpFeature<TName | typeof HTTP_FEATURE_KEY> {
+  const key = opts.name ?? HTTP_FEATURE_KEY;
+  return new HttpFeature(opts, key);
+}
 export type {
   HttpCapabilities,
   HttpMountableCapabilities,

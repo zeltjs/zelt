@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { RuntimeApp } from '../../app';
 import { createApp } from '../../app';
 import { http } from '../http/http.feature';
 import { Cron } from './schedule/cron.decorator';
 import { Scheduled } from './schedule/scheduled.decorator';
+import type { SchedulerCapabilities } from './scheduler.feature';
 import { scheduler } from './scheduler.feature';
 
 describe('createApp with schedulers', () => {
   let readyApp:
-    | RuntimeApp<readonly [ReturnType<typeof http>, ReturnType<typeof scheduler>]>
+    | { readonly schedulers: SchedulerCapabilities; readonly shutdown: () => Promise<void> }
     | undefined;
 
   afterEach(async () => {

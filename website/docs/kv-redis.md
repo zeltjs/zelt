@@ -167,7 +167,7 @@ import { RedisConfig } from '@zeltjs/redis';
 const app = createApp([http({ controllers: [AppController] })], { configs: [RedisConfig] });
 const nodeApp = await onNode(app);
 // ---cut---
-const handle = await nodeApp.listen({ port: 3000 });
+const handle = await nodeApp.http.listen({ port: 3000 });
 
 // Disconnects the server and runs lifecycle shutdown (Redis included)
 await handle.shutdown();

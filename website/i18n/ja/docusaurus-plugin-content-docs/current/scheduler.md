@@ -264,7 +264,7 @@ import { createApp, Scheduled, Daily, http, scheduler } from '@zeltjs/core';
 const app = createApp([http({ controllers: [] }), scheduler([MyScheduler])]);
 // ---cut---
 const nodeApp = await onNode(app);
-const handle = await nodeApp.listen(3000);
+const handle = await nodeApp.http.listen(3000);
 
 // Start scheduled tasks
 await nodeApp.schedulers.startScheduler();

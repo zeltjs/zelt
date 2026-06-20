@@ -1,6 +1,11 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
-import type { ConfiguredFeature, FeatureApp, RuntimeApp } from '@zeltjs/core';
+import type {
+  ConfiguredFeature,
+  FeatureApp,
+  FeatureReadyCapabilities,
+  RuntimeApp,
+} from '@zeltjs/core';
 import { HttpFeature } from '@zeltjs/core';
 
 import { NodeCliConfig } from './node-cli.config';
@@ -31,27 +36,28 @@ type HttpNodeAppPart = {
   readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
 };
 
-export type NodeApp = (RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart) &
-  Partial<HttpNodeAppPart>;
+type NodeFeatureCapabilities<TFeature extends ConfiguredFeature> =
+  FeatureReadyCapabilities<TFeature> &
+    (TFeature extends HttpFeature<string> ? HttpNodeAppPart : unknown);
 
-type HasFeatureClass<F extends readonly ConfiguredFeature[], TFeature extends ConfiguredFeature> =
-  Extract<F[number], TFeature> extends never ? false : true;
+type NodeNamespacedCapabilities<F extends readonly ConfiguredFeature[]> = {
+  readonly [TFeature in F[number] as TFeature['key']]: NodeFeatureCapabilities<TFeature>;
+};
 
-type WithFeatureClass<
-  F extends readonly ConfiguredFeature[],
-  TFeature extends ConfiguredFeature,
-  TPart extends object,
-> = HasFeatureClass<F, TFeature> extends true ? TPart : unknown;
+export type NodeApp = RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart;
 
 type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
   EnvironmentNodeAppPart &
-  (number extends F['length']
-    ? Partial<HttpNodeAppPart>
-    : WithFeatureClass<F, HttpFeature, HttpNodeAppPart>);
+  NodeNamespacedCapabilities<F>;
+
+const closeServer = (server: ServerType): Promise<void> =>
+  new Promise<void>((resolve, reject) => {
+    server.close((err) => (err ? reject(err) : resolve()));
+  });
 
 const createListenForHttp = (
   appFetch: (request: Request) => Promise<Response>,
-  appShutdown: () => Promise<void>,
+  registerShutdown: (callback: () => Promise<void>) => () => Promise<void>,
 ): ((portOrOptions?: number | ListenOptions) => Promise<ServerHandle>) => {
   return async (portOrOptions?: number | ListenOptions): Promise<ServerHandle> => {
     const listenOptions: ListenOptions =
@@ -66,15 +72,9 @@ const createListenForHttp = (
         resolve({ port: info.port, address: info.address }),
       );
     });
+    const shutdown = registerShutdown(() => closeServer(server));
 
     const address = await serverReady;
-
-    const shutdown = async (): Promise<void> => {
-      await new Promise<void>((resolve, reject) => {
-        server.close((err) => (err ? reject(err) : resolve()));
-      });
-      await appShutdown();
-    };
 
     return { address, shutdown };
   };
@@ -93,12 +93,22 @@ const createNodeApp = (
     shutdown,
   };
 
-  const httpCaps = readyApp.getFeatureCapabilities(HttpFeature);
-  if (!httpCaps) return base;
-  return {
-    ...base,
-    listen: createListenForHttp(httpCaps.fetch, shutdown),
-  };
+  const nodeApp: NodeApp = { ...base };
+
+  for (const entry of readyApp.getFeatureEntries(HttpFeature)) {
+    Object.defineProperty(nodeApp, entry.key, {
+      value: {
+        ...entry.capabilities,
+        listen: createListenForHttp(entry.capabilities.fetch, (callback) =>
+          entry.feature.registerShutdown(callback),
+        ),
+      },
+      configurable: true,
+      enumerable: true,
+    });
+  }
+
+  return nodeApp;
 };
 
 export function onNode<const F extends readonly ConfiguredFeature[]>(
@@ -117,7 +127,6 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
   });
 
   const cliConfig = await readyApp.get(NodeCliConfig);
-  const runtimeShutdown = readyApp.shutdown;
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -129,7 +138,7 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
     if (shuttingDown) return;
     shuttingDown = true;
     try {
-      await runtimeShutdown();
+      await readyApp.shutdown();
     } finally {
       detachSignals();
     }

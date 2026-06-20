@@ -75,7 +75,7 @@ const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const bunApp = await onBun(app);
 
-const server = bunApp.serve({ port: 3000 });
+const server = bunApp.http.serve({ port: 3000 });
 console.log(`Server running at http://${server.address.hostname}:${server.address.port}`);
 ```
 
@@ -116,7 +116,7 @@ class HelloController {
 const app = createApp([http({ controllers: [HelloController] })]);
 const bunApp = await onBun(app);
 // ---cut---
-const server = bunApp.serve({
+const server = bunApp.http.serve({
   port: 8080,
   hostname: '127.0.0.1',
 });
