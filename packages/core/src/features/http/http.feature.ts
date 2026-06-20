@@ -83,10 +83,10 @@ export class HttpFeature<TName extends string = string>
     const results = await Promise.allSettled(
       [...this.shutdownCallbacks].map((callback) => callback()),
     );
-    const errors = results.flatMap((result) => {
-      if (result.status === 'fulfilled') return [];
-      return [result.reason];
-    });
+    const errors: unknown[] = [];
+    for (const result of results) {
+      if (result.status === 'rejected') errors.push(result.reason);
+    }
     if (errors.length > 0) {
       throw new AggregateError(errors, 'One or more HTTP shutdown callbacks failed');
     }

@@ -107,10 +107,10 @@ const warmupFeatureClasses = async (
 /** @throws {AggregateError | ZeltLifecycleStateError} */
 const shutdownFeatures = async (features: readonly ConfiguredFeature[]): Promise<void> => {
   const results = await Promise.allSettled(features.map((feature) => feature.shutdown?.()));
-  const errors = results.flatMap((result) => {
-    if (result.status === 'fulfilled') return [];
-    return [result.reason];
-  });
+  const errors: unknown[] = [];
+  for (const result of results) {
+    if (result.status === 'rejected') errors.push(result.reason);
+  }
   if (errors.length > 0) {
     throw new AggregateError(errors, 'One or more feature shutdown hooks failed');
   }
