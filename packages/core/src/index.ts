@@ -1,4 +1,3 @@
-export type { TypedResponse } from 'hono';
 export { HTTPException } from 'hono/http-exception';
 export type {
   App,
@@ -157,6 +156,7 @@ export type {
 export type {
   CookieOptions,
   ResponseBuilder,
+  TypedResponse,
   ZeltSSEMessage,
   ZeltSSEWriter,
   ZeltStreamWriter,
