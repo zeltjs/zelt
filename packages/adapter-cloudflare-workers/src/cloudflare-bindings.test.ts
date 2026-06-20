@@ -13,7 +13,9 @@ describe('CloudflareBindings', () => {
   it('throws outside request handling', () => {
     const bindings = new CloudflareBindings();
 
-    expect(() => bindings.get('DB')).toThrow(/outside entry execution/);
+    expect(() => bindings.get('DB')).toThrow(
+      /CloudflareBindings\.get\(\) called outside entry execution/,
+    );
   });
 
   it('types binding keys from generated Env', () => {

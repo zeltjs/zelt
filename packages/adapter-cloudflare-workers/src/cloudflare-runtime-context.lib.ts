@@ -13,7 +13,7 @@ export const getCloudflareRuntimeContext = (): CloudflareRuntimeContext => {
   const context = storage.getStore();
   if (!context) {
     throw new ZeltContextNotAvailableError({
-      primitive: 'cloudflareBindings',
+      primitive: 'CloudflareBindings.get',
       requiredContext: 'entry',
     });
   }
