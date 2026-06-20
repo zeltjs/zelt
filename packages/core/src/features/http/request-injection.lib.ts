@@ -1,7 +1,13 @@
 import { createContextKey, getInternal, setInternal } from '../../kernel';
 import type { FunctionMiddleware } from './middleware/middleware.types';
 import { setHonoContext } from './request';
-import { parseRequestBody, setBody, setPathParams } from './request/injection';
+import {
+  parseRequestBody,
+  readRequestBody,
+  setBody,
+  setBodyRaw,
+  setPathParams,
+} from './request/injection';
 
 const REQUEST_INJECTED = createContextKey<true>('zelt:request-injected');
 
@@ -19,6 +25,7 @@ export const createRequestInjectionMiddleware = (): FunctionMiddleware => {
     }
     setInternal(REQUEST_INJECTED, true);
     setHonoContext(c);
+    setBodyRaw(await readRequestBody(c));
     setBody(await parseRequestBody(c));
     setPathParams(c.req.param());
     await next();

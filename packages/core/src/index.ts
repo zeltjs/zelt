@@ -127,6 +127,7 @@ export {
 export type { RequestContextSchema } from './features/http/request/injection';
 export {
   body,
+  bodyRaw,
   cookie,
   getContext,
   header,
