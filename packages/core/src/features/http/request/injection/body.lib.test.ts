@@ -97,6 +97,29 @@ describe('body', () => {
     expect(await res.json()).toEqual({ receivedName: 'John' });
   });
 
+  it('throws when raw multipart body is requested', async () => {
+    @Controller('/')
+    class TestController {
+      @Post('/form')
+      form() {
+        return { raw: bodyRaw() };
+      }
+    }
+
+    const app = createApp([http({ controllers: [TestController] })]);
+    const formData = new FormData();
+    formData.append('name', 'John');
+
+    const readyApp = await app.createRuntime();
+    const res = await readyApp.http.fetch(
+      new Request('http://localhost/form', {
+        method: 'POST',
+        body: formData,
+      }),
+    );
+    expect(res.status).toBe(415);
+  });
+
   it('provides text body synchronously as default parameter', async () => {
     @Controller('/')
     class TestController {

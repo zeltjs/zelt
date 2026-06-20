@@ -42,7 +42,6 @@ export const readRequestBody = async (c: Pick<Context, 'req'>): Promise<string |
 
   if (
     !contentType.includes('application/json') &&
-    !contentType.includes('multipart/form-data') &&
     !contentType.includes('application/x-www-form-urlencoded') &&
     !contentType.startsWith('text/')
   ) {
@@ -125,9 +124,13 @@ const getBodyRaw = (): RawBody => {
   return ctx;
 };
 
-/** @throws {ZeltContextNotAvailableError} */
-export const bodyRaw = (): string | undefined => {
-  return getBodyRaw().val;
+/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
+export const bodyRaw = (): string => {
+  const raw = getBodyRaw().val;
+  if (raw === undefined) {
+    throw new UnsupportedMediaTypeException({ expected: 'raw', actual: getBody().type });
+  }
+  return raw;
 };
 
 /** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
