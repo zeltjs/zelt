@@ -95,6 +95,8 @@ export type {
   ControllerClass,
   HttpChildOptions,
   HttpModuleOptions,
+  HttpMountableRouter,
+  HttpOptions,
 } from './features/http/http.types';
 // HTTP primitives
 export { currentRoles, currentUser, setUser } from './features/http/middleware/auth';
@@ -119,12 +121,16 @@ export { SecureHeadersConfig } from './features/http/middleware/secure-headers/s
 export { SecureHeadersMiddleware } from './features/http/middleware/secure-headers/secure-headers.middleware';
 export { SkipMiddleware } from './features/http/middleware/skip-middleware.decorator';
 export { UseMiddleware } from './features/http/middleware/use-middleware.decorator';
+export type { ValidationFailedContext } from './features/http/request';
 export {
   AsyncValidationUnsupportedException,
   requestContext,
   ValidationFailedException,
 } from './features/http/request';
-export type { RequestContextSchema } from './features/http/request/injection';
+export type {
+  ParsedBody,
+  RequestContextSchema,
+} from './features/http/request/injection';
 export {
   body,
   bodyRaw,
@@ -151,12 +157,13 @@ export type {
 export type {
   CookieOptions,
   ResponseBuilder,
+  TypedResponse,
   ZeltSSEMessage,
   ZeltSSEWriter,
   ZeltStreamWriter,
 } from './features/http/response';
 export { response } from './features/http/response';
-export type { ControllerRouteInfo, RouteInfo } from './features/http/routing';
+export type { ControllerRouteInfo, HttpMethod, RouteInfo } from './features/http/routing';
 export { getControllerMetadata } from './features/http/routing';
 export { Controller } from './features/http/routing/controller.decorator';
 export { Delete, Get, Patch, Post, Put } from './features/http/routing/http-method.decorator';
