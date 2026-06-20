@@ -72,9 +72,16 @@ class FakeHttpLikeFeature extends Feature<
 }
 
 class CustomHttpFeature extends HttpFeature<typeof HTTP_FEATURE_KEY> {
-  constructor(opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>) {
+  constructor(
+    opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>,
+    private readonly onShutdown: () => void = () => {},
+  ) {
     super(opts, HTTP_FEATURE_KEY);
   }
+
+  override readonly shutdown = async (): Promise<void> => {
+    this.onShutdown();
+  };
 }
 
 describe('onNode return types', () => {
@@ -191,8 +198,9 @@ describe('onNode return types', () => {
       }
     }
 
+    const shutdown = vi.fn();
     const nodeApp = await onNode(
-      createApp([new CustomHttpFeature({ controllers: [SubclassController] })]),
+      createApp([new CustomHttpFeature({ controllers: [SubclassController] }, shutdown)]),
     );
 
     expectTypeOf(nodeApp).not.toHaveProperty('listen');
@@ -202,6 +210,7 @@ describe('onNode return types', () => {
     expect(nodeApp.hasFeature(HttpFeature)).toBe(true);
 
     await nodeApp.shutdown();
+    expect(shutdown).toHaveBeenCalledOnce();
   });
 });
 
@@ -380,6 +389,29 @@ describe('onNode with HTTP', () => {
     const { port } = handle.address;
 
     await handle.shutdown();
+    handle = undefined;
+
+    await expect(fetch(`http://localhost:${port}/`)).rejects.toThrow();
+  });
+
+  it('app shutdown stops listening servers through the HTTP feature shutdown hook', async () => {
+    @Controller('/')
+    class AppShutdownController {
+      @Get('/')
+      get() {
+        return {};
+      }
+    }
+
+    const app = createApp([http({ controllers: [AppShutdownController] })]);
+    nodeApp = await onNode(app);
+
+    if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
+    handle = await nodeApp.http.listen(0);
+    const { port } = handle.address;
+
+    await nodeApp.shutdown();
+    nodeApp = undefined;
     handle = undefined;
 
     await expect(fetch(`http://localhost:${port}/`)).rejects.toThrow();

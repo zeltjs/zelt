@@ -104,6 +104,10 @@ const warmupFeatureClasses = async (
   }
 };
 
+const shutdownFeatures = async (features: readonly ConfiguredFeature[]): Promise<void> => {
+  await Promise.all(features.map((feature) => feature.shutdown?.()));
+};
+
 const registerConfigs = (
   configRegistry: ConfigRegistry,
   configs: readonly ConfigClass<object>[] | undefined,
@@ -124,6 +128,56 @@ const hasFeature = (
   return features.some((feature) => feature instanceof featureClass);
 };
 
+/** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+  baseConfigs: readonly ConfigClass<object>[] | undefined,
+  runtimeOptions: CreateRuntimeOptions | undefined,
+): Promise<RuntimeApp<F>> => {
+  const container = new Container();
+  const runtime = container.get(AppBootstrap);
+  const configRegistry = container.get(ConfigRegistry);
+
+  registerConfigs(configRegistry, baseConfigs, undefined);
+  registerConfigs(configRegistry, runtimeOptions?.configs, runtimeOptions?.fallbackConfigs);
+  runtime.applyRegisteredConfigs();
+
+  const readyResult = await runtime.ready();
+  const caps = await realizeNamespacedCapabilities(readyResult, features);
+
+  if (runtimeOptions?.warmup) {
+    await warmupFeatureClasses(readyResult, features);
+  }
+
+  let shuttingDown = false;
+  /** @throws {ZeltLifecycleStateError} */
+  const shutdown = async (): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    try {
+      await shutdownFeatures(features);
+    } finally {
+      await runtime.shutdown();
+    }
+  };
+
+  const readyApp: RuntimeApp<F> = {
+    ...caps.object,
+    features,
+    hasFeature: (featureClass) => hasFeature(features, featureClass),
+    getFeatureEntries: (featureClass) =>
+      unsafeGetKeyedValueEntriesForClass(features, caps.map, featureClass).map((entry) => ({
+        key: entry.key,
+        feature: entry.item,
+        capabilities: entry.value,
+      })),
+    get: readyResult.get,
+    shutdown,
+  };
+
+  return attachContainer(readyApp, container);
+};
+
 /** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
   features: F,
@@ -136,40 +190,8 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
 
   const app = {
     ...staticCaps,
-    createRuntime: async (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> => {
-      const container = new Container();
-
-      const runtime = container.get(AppBootstrap);
-      const configRegistry = container.get(ConfigRegistry);
-
-      registerConfigs(configRegistry, baseConfigs, undefined);
-      registerConfigs(configRegistry, runtimeOptions?.configs, runtimeOptions?.fallbackConfigs);
-      runtime.applyRegisteredConfigs();
-
-      const readyResult = await runtime.ready();
-
-      const caps = await realizeNamespacedCapabilities(readyResult, features);
-
-      if (runtimeOptions?.warmup) {
-        await warmupFeatureClasses(readyResult, features);
-      }
-
-      const readyApp: RuntimeApp<F> = {
-        ...caps.object,
-        features,
-        hasFeature: (featureClass) => hasFeature(features, featureClass),
-        getFeatureEntries: (featureClass) =>
-          unsafeGetKeyedValueEntriesForClass(features, caps.map, featureClass).map((entry) => ({
-            key: entry.key,
-            feature: entry.item,
-            capabilities: entry.value,
-          })),
-        get: readyResult.get,
-        shutdown: () => runtime.shutdown(),
-      };
-
-      return attachContainer(readyApp, container);
-    },
+    createRuntime: (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> =>
+      createRuntimeApp(features, baseConfigs, runtimeOptions),
   };
 
   return {

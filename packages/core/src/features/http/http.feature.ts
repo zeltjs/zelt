@@ -15,6 +15,9 @@ import { collectRoutes } from './routing';
 
 export const HTTP_FEATURE_KEY = 'http' as const;
 
+type ShutdownCallback = () => void | Promise<void>;
+type RegisteredShutdown = () => Promise<void>;
+
 /** @throws {ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
 export class HttpFeature<TName extends string = string>
   extends Feature<TName, HttpMountableCapabilities, HttpStaticCapabilities>
@@ -25,6 +28,7 @@ export class HttpFeature<TName extends string = string>
   private readonly opts: HttpModuleOptions<string>;
   private readonly controllers: readonly ControllerClass[];
   private readonly children: readonly HttpMountableFeatureModule[];
+  private readonly shutdownCallbacks = new Set<RegisteredShutdown>();
 
   /** @throws {ZeltDecoratorUsageError} */
   constructor(opts: HttpModuleOptions<TName>, key: TName) {
@@ -64,6 +68,19 @@ export class HttpFeature<TName extends string = string>
     const rootRouter = await service.createLocalRouter({ controllers: [] });
     Reflect.apply(rootRouter.route, rootRouter, [this.path, local]);
     return this.toCapabilities(rootRouter);
+  };
+
+  registerShutdown(callback: ShutdownCallback): RegisteredShutdown {
+    const registered = async (): Promise<void> => {
+      if (!this.shutdownCallbacks.delete(registered)) return;
+      await callback();
+    };
+    this.shutdownCallbacks.add(registered);
+    return registered;
+  }
+
+  override readonly shutdown = async (): Promise<void> => {
+    await Promise.all([...this.shutdownCallbacks].map((callback) => callback()));
   };
 
   private collectMetadata(): HttpMetadata {

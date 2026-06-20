@@ -50,39 +50,14 @@ type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> 
   EnvironmentNodeAppPart &
   NodeNamespacedCapabilities<F>;
 
-type ServerRegistry = {
-  readonly add: (server: ServerType) => void;
-  readonly close: (server: ServerType) => Promise<void>;
-  readonly closeAll: () => Promise<void>;
-};
-
 const closeServer = (server: ServerType): Promise<void> =>
   new Promise<void>((resolve, reject) => {
     server.close((err) => (err ? reject(err) : resolve()));
   });
 
-const createServerRegistry = (): ServerRegistry => {
-  const servers = new Set<ServerType>();
-
-  const close = async (server: ServerType): Promise<void> => {
-    if (!servers.delete(server)) return;
-    await closeServer(server);
-  };
-
-  return {
-    add: (server) => {
-      servers.add(server);
-    },
-    close,
-    closeAll: async () => {
-      await Promise.all([...servers].map((server) => close(server)));
-    },
-  };
-};
-
 const createListenForHttp = (
   appFetch: (request: Request) => Promise<Response>,
-  serverRegistry: ServerRegistry,
+  registerShutdown: (callback: () => Promise<void>) => () => Promise<void>,
 ): ((portOrOptions?: number | ListenOptions) => Promise<ServerHandle>) => {
   return async (portOrOptions?: number | ListenOptions): Promise<ServerHandle> => {
     const listenOptions: ListenOptions =
@@ -97,13 +72,9 @@ const createListenForHttp = (
         resolve({ port: info.port, address: info.address }),
       );
     });
-    serverRegistry.add(server);
+    const shutdown = registerShutdown(() => closeServer(server));
 
     const address = await serverReady;
-
-    const shutdown = async (): Promise<void> => {
-      await serverRegistry.close(server);
-    };
 
     return { address, shutdown };
   };
@@ -115,7 +86,6 @@ const createNodeApp = (
   readyApp: RuntimeApp<readonly ConfiguredFeature[]>,
   shutdown: () => Promise<void>,
   args: readonly string[],
-  serverRegistry: ServerRegistry,
 ): NodeApp => {
   const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = {
     ...readyApp,
@@ -129,7 +99,9 @@ const createNodeApp = (
     Object.defineProperty(nodeApp, entry.key, {
       value: {
         ...entry.capabilities,
-        listen: createListenForHttp(entry.capabilities.fetch, serverRegistry),
+        listen: createListenForHttp(entry.capabilities.fetch, (callback) =>
+          entry.feature.registerShutdown(callback),
+        ),
       },
       configurable: true,
       enumerable: true,
@@ -155,8 +127,6 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
   });
 
   const cliConfig = await readyApp.get(NodeCliConfig);
-  const runtimeShutdown = readyApp.shutdown;
-  const serverRegistry = createServerRegistry();
 
   let shuttingDown = false;
   const detachSignals = (): void => {
@@ -168,8 +138,7 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
     if (shuttingDown) return;
     shuttingDown = true;
     try {
-      await serverRegistry.closeAll();
-      await runtimeShutdown();
+      await readyApp.shutdown();
     } finally {
       detachSignals();
     }
@@ -184,5 +153,5 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
 
   const args = getArgs();
 
-  return createNodeApp(readyApp, shutdown, args, serverRegistry);
+  return createNodeApp(readyApp, shutdown, args);
 }

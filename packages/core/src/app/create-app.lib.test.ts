@@ -47,6 +47,22 @@ class OtherFeature extends Feature<'otherFeature', { readonly other: () => strin
   realize = () => ({ other: () => 'no' });
 }
 
+class ShutdownFeature<TKey extends string> extends Feature<TKey, Record<never, never>> {
+  constructor(
+    readonly key: TKey,
+    private readonly onShutdown: () => void,
+  ) {
+    super();
+  }
+
+  featureClasses = () => [];
+  blueprint = () => ({});
+  realize = () => ({});
+  override readonly shutdown = async (): Promise<void> => {
+    this.onShutdown();
+  };
+}
+
 class NamedTypedFeature<TKey extends string> extends Feature<
   TKey,
   { readonly value: () => string }
@@ -137,6 +153,23 @@ describe('createApp', () => {
 
     await a.shutdown();
     await b.shutdown();
+  });
+
+  it('runtime shutdown calls each feature shutdown hook', async () => {
+    const shutdownA = vi.fn();
+    const shutdownB = vi.fn();
+    const app = createApp([
+      new ShutdownFeature('a', shutdownA),
+      createEmptyFeature('middle'),
+      new ShutdownFeature('b', shutdownB),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    await readyApp.shutdown();
+    await readyApp.shutdown();
+
+    expect(shutdownA).toHaveBeenCalledOnce();
+    expect(shutdownB).toHaveBeenCalledOnce();
   });
 
   it('createRuntime() accepts config overrides', async () => {

@@ -16,6 +16,7 @@ import { onBun } from './on-bun';
 
 const originalBun = globalThis.Bun;
 const servedFetches: ((request: Request) => Promise<Response>)[] = [];
+const servedServers: { readonly stop: ReturnType<typeof vi.fn> }[] = [];
 const serveMock = vi.fn(
   (options: {
     readonly fetch: (request: Request) => Promise<Response>;
@@ -23,11 +24,13 @@ const serveMock = vi.fn(
     readonly hostname?: string;
   }) => {
     servedFetches.push(options.fetch);
-    return {
+    const server = {
       hostname: options.hostname,
       port: options.port,
       stop: vi.fn(),
     };
+    servedServers.push(server);
+    return server;
   },
 );
 
@@ -40,6 +43,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   servedFetches.length = 0;
+  servedServers.length = 0;
   serveMock.mockClear();
 });
 
@@ -68,9 +72,16 @@ class FakeHttpLikeFeature extends Feature<
 }
 
 class CustomHttpFeature extends HttpFeature<typeof HTTP_FEATURE_KEY> {
-  constructor(opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>) {
+  constructor(
+    opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>,
+    private readonly onShutdown: () => void = () => {},
+  ) {
     super(opts, HTTP_FEATURE_KEY);
   }
+
+  override readonly shutdown = async (): Promise<void> => {
+    this.onShutdown();
+  };
 }
 
 describe('onBun return types', () => {
@@ -171,8 +182,9 @@ describe('onBun return types', () => {
       }
     }
 
+    const shutdown = vi.fn();
     const bunApp = await onBun(
-      createApp([new CustomHttpFeature({ controllers: [SubclassController] })]),
+      createApp([new CustomHttpFeature({ controllers: [SubclassController] }, shutdown)]),
     );
 
     expectTypeOf(bunApp).not.toHaveProperty('serve');
@@ -182,6 +194,7 @@ describe('onBun return types', () => {
     expect(bunApp.hasFeature(HttpFeature)).toBe(true);
 
     await bunApp.shutdown();
+    expect(shutdown).toHaveBeenCalledOnce();
   });
 
   it('adds serve for each named HTTP namespace', async () => {
@@ -227,5 +240,24 @@ describe('onBun return types', () => {
     await publicHandle.shutdown();
     await privateHandle.shutdown();
     await bunApp.shutdown();
+  });
+
+  it('app shutdown stops served servers through the HTTP feature shutdown hook', async () => {
+    @Controller('/')
+    class AppShutdownController {
+      @Get('/')
+      get() {
+        return {};
+      }
+    }
+
+    const bunApp = await onBun(createApp([http({ controllers: [AppShutdownController] })]));
+    bunApp.http.serve({ port: 3000 });
+    const server = servedServers[0];
+    if (!server) throw new Error('expected Bun.serve server');
+
+    await bunApp.shutdown();
+
+    expect(server.stop).toHaveBeenCalledOnce();
   });
 });
