@@ -9,5 +9,3 @@ export class CloudflareBindingsService {
     return getCloudflareRuntimeContext().env[key];
   }
 }
-
-export { CloudflareBindingsService as CloudflareBindings };

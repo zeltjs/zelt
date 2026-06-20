@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { CloudflareBindings } from './cloudflare-bindings.service';
+import { CloudflareBindings } from './index';
 
 declare global {
   interface Env {

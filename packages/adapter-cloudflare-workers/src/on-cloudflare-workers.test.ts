@@ -1,8 +1,7 @@
 import { Controller, createApp, EnvAdaptor, Get, http, inject } from '@zeltjs/core';
 import { describe, expect, it, vi } from 'vitest';
-
-import { CloudflareBindings } from './cloudflare-bindings.service';
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
+import { CloudflareBindings } from './index';
 import { onCloudflareWorkers } from './on-cloudflare-workers';
 
 declare global {
