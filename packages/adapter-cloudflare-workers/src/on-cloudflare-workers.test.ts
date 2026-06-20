@@ -1,8 +1,16 @@
-import { Controller, createApp, EnvAdaptor, Get, http } from '@zeltjs/core';
+import { Controller, createApp, EnvAdaptor, Get, http, inject } from '@zeltjs/core';
 import { describe, expect, it, vi } from 'vitest';
 
+import { CloudflareBindings } from './cloudflare-bindings.service';
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 import { onCloudflareWorkers } from './on-cloudflare-workers';
+
+declare global {
+  interface Env {
+    DB: D1Database;
+    CACHE: KVNamespace;
+  }
+}
 
 @Controller('/hello')
 class HelloController {
@@ -11,6 +19,26 @@ class HelloController {
     return { message: 'hello from workers' };
   }
 }
+
+@Controller('/bindings')
+class BindingsController {
+  constructor(private readonly bindings = inject(CloudflareBindings)) {}
+
+  @Get('/db')
+  db() {
+    return { same: this.bindings.get('DB') === mockD1 };
+  }
+}
+
+const mockD1 = {
+  prepare: vi.fn(),
+} as unknown as D1Database;
+
+const mockCache = {
+  get: vi.fn(),
+} as unknown as KVNamespace;
+
+const createMockEnv = (): Env => ({ DB: mockD1, CACHE: mockCache });
 
 const createMockExecutionContext = () =>
   ({
@@ -35,7 +63,11 @@ describe('onCloudflareWorkers', () => {
     const workersApp = await onCloudflareWorkers(app);
     const ctx = createMockExecutionContext();
 
-    const res = await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    const res = await workersApp.fetch(
+      new Request('https://example.com/hello/'),
+      createMockEnv(),
+      ctx,
+    );
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ message: 'hello from workers' });
@@ -71,9 +103,9 @@ describe('onCloudflareWorkers', () => {
     const ctx = createMockExecutionContext();
 
     const workersApp = await onCloudflareWorkers(app);
-    await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
-    await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
-    await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    await workersApp.fetch(new Request('https://example.com/hello/'), createMockEnv(), ctx);
+    await workersApp.fetch(new Request('https://example.com/hello/'), createMockEnv(), ctx);
+    await workersApp.fetch(new Request('https://example.com/hello/'), createMockEnv(), ctx);
 
     expect(readySpy).toHaveBeenCalledTimes(1);
   });
@@ -83,7 +115,7 @@ describe('onCloudflareWorkers', () => {
     const workersApp = await onCloudflareWorkers(app);
     const ctx = createMockExecutionContext();
 
-    await workersApp.fetch(new Request('https://example.com/hello/'), {}, ctx);
+    await workersApp.fetch(new Request('https://example.com/hello/'), createMockEnv(), ctx);
 
     expect(ctx.waitUntil).toHaveBeenCalled();
   });
@@ -110,5 +142,20 @@ describe('onCloudflareWorkers', () => {
 
     const env = await workersApp.get(EnvAdaptor);
     expect(env.get).toBeTypeOf('function');
+  });
+
+  it('provides Cloudflare bindings through DI during request handling', async () => {
+    const app = createApp([http({ controllers: [BindingsController] })]);
+    const workersApp = await onCloudflareWorkers(app);
+    const ctx = createMockExecutionContext();
+
+    const res = await workersApp.fetch(
+      new Request('https://example.com/bindings/db'),
+      createMockEnv(),
+      ctx,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ same: true });
   });
 });
