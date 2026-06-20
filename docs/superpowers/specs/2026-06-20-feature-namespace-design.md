@@ -174,6 +174,7 @@ Reserved namespace checks still apply to names that would overwrite app-level
 runtime methods or JavaScript object semantics, such as:
 
 - `features`
+- `createRuntime`
 - `get`
 - `hasFeature`
 - `getFeatureEntries`

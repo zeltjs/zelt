@@ -63,6 +63,22 @@ class ShutdownFeature<TKey extends string> extends Feature<TKey, Record<never, n
   };
 }
 
+class AsyncShutdownFeature<TKey extends string> extends Feature<TKey, Record<never, never>> {
+  constructor(
+    readonly key: TKey,
+    private readonly onShutdown: () => Promise<void>,
+  ) {
+    super();
+  }
+
+  featureClasses = () => [];
+  blueprint = () => ({});
+  realize = () => ({});
+  override readonly shutdown = async (): Promise<void> => {
+    await this.onShutdown();
+  };
+}
+
 class NamedTypedFeature<TKey extends string> extends Feature<
   TKey,
   { readonly value: () => string }
@@ -170,6 +186,20 @@ describe('createApp', () => {
 
     expect(shutdownA).toHaveBeenCalledOnce();
     expect(shutdownB).toHaveBeenCalledOnce();
+  });
+
+  it('runtime shutdown waits for every feature shutdown hook before reporting failures', async () => {
+    const delayedShutdown = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 10)));
+    const app = createApp([
+      new AsyncShutdownFeature('failing', async () => {
+        throw new Error('feature shutdown failed');
+      }),
+      new AsyncShutdownFeature('delayed', delayedShutdown),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    await expect(readyApp.shutdown()).rejects.toThrow(AggregateError);
+    expect(delayedShutdown).toHaveResolved();
   });
 
   it('createRuntime() accepts config overrides', async () => {

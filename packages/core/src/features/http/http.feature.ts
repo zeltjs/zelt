@@ -79,8 +79,21 @@ export class HttpFeature<TName extends string = string>
     return registered;
   }
 
+  protected readonly shutdownHttpCallbacks = async (): Promise<void> => {
+    const results = await Promise.allSettled(
+      [...this.shutdownCallbacks].map((callback) => callback()),
+    );
+    const errors = results.flatMap((result) => {
+      if (result.status === 'fulfilled') return [];
+      return [result.reason];
+    });
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'One or more HTTP shutdown callbacks failed');
+    }
+  };
+
   override readonly shutdown = async (): Promise<void> => {
-    await Promise.all([...this.shutdownCallbacks].map((callback) => callback()));
+    await this.shutdownHttpCallbacks();
   };
 
   private collectMetadata(): HttpMetadata {

@@ -21,7 +21,7 @@ export abstract class Feature<
   abstract featureClasses(): readonly FeatureManagedClass[];
   abstract blueprint(): TStaticCaps;
   abstract realize(resolver: ServiceResolver): TReadyCaps | Promise<TReadyCaps>;
-  shutdown?(): void | Promise<void>;
+  declare shutdown?: () => void | Promise<void>;
 }
 
 export type ConfiguredFeature<

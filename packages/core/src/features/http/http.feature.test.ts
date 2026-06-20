@@ -1,5 +1,5 @@
 import { Container } from '@needle-di/core';
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { createApp } from '../../app';
 import { HttpFeature, http } from './http.feature';
@@ -104,6 +104,19 @@ describe('http feature', () => {
     expect((await readyApp.private.request('/public')).status).toBe(404);
 
     await readyApp.shutdown();
+  });
+
+  it('waits for every registered shutdown callback before reporting failures', async () => {
+    const feature = http({ controllers: [] });
+    const delayedShutdown = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 10)));
+
+    feature.registerShutdown(() => {
+      throw new Error('shutdown failed');
+    });
+    feature.registerShutdown(delayedShutdown);
+
+    await expect(feature.shutdown()).rejects.toThrow(AggregateError);
+    expect(delayedShutdown).toHaveResolved();
   });
 
   it('rejects duplicate resolved HTTP namespaces', () => {

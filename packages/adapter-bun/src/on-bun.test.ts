@@ -80,6 +80,7 @@ class CustomHttpFeature extends HttpFeature<typeof HTTP_FEATURE_KEY> {
   }
 
   override readonly shutdown = async (): Promise<void> => {
+    // Test-only override: records that RuntimeApp delegates shutdown to HttpFeature subclasses.
     this.onShutdown();
   };
 }
