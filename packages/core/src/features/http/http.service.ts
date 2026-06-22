@@ -1,5 +1,6 @@
 import { Container } from '@needle-di/core';
 import type { Hono } from 'hono';
+import { LoggerService } from '../../built-in-service';
 import { Injectable, inject, LifecycleManager, resolve, ZeltInternalError } from '../../kernel';
 import { DefaultErrorHandler } from './error/default.error-handler';
 import type { HttpOptions } from './http.types';
@@ -56,6 +57,7 @@ export class HttpService {
   constructor(
     private readonly container: Container = inject(Container),
     private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
+    private readonly logger: LoggerService = inject(LoggerService),
   ) {}
 
   /** @throws {ZeltInternalError} */
@@ -79,19 +81,22 @@ export class HttpService {
 
     const routerToken = Symbol('zelt:http-router');
     const hono = new Hono({ strict: false });
-    hono.use(createBootstrapMiddleware(this.lifecycleManager, routerToken));
+    hono.use(
+      createBootstrapMiddleware(this.lifecycleManager, routerToken, (error) => {
+        this.logger.error('After-response callback failed', { error });
+      }),
+    );
     // Request helpers (body() etc.) must work inside the security and user
     // middlewares below, so injection happens before they run.
     hono.use(createRequestInjectionMiddleware());
 
     const errorHandlers = resolveErrorHandlers(options.errorHandlers ?? [], this.container);
-    hono.onError(
-      createRouterErrorHandler(
-        errorHandlers,
-        fallbackHandler,
-        createRequestRootChecker(routerToken),
-      ),
+    const routerErrorHandler = createRouterErrorHandler(
+      errorHandlers,
+      fallbackHandler,
+      createRequestRootChecker(routerToken),
     );
+    hono.onError(routerErrorHandler);
 
     const securityMiddlewares: readonly MiddlewareInput[] = [
       CorsMiddleware,

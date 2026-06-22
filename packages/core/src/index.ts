@@ -43,6 +43,7 @@ export type {
   HttpMountableCapabilities,
   HttpMountableFeatureModule,
   HttpStaticCapabilities,
+  JobCapabilities,
   NamespacedCaps,
   SchedulerCapabilities,
   ServiceResolver,
@@ -56,6 +57,8 @@ export {
   HTTP_FEATURE_KEY,
   HttpFeature,
   http,
+  JobFeature,
+  jobs,
   SchedulerFeature,
   scheduler,
 } from './features';
@@ -159,6 +162,14 @@ export type { ControllerRouteInfo, RouteInfo } from './features/http/routing';
 export { getControllerMetadata } from './features/http/routing';
 export { Controller } from './features/http/routing/controller.decorator';
 export { Delete, Get, Patch, Post, Put } from './features/http/routing/http-method.decorator';
+export { JobService } from './features/job/job.service';
+export type {
+  Job,
+  JobDispatcher,
+  JobDispatchOptions,
+  JobFailure,
+  JobStats,
+} from './features/job/job.types';
 // Scheduler decorators
 export { Cron } from './features/scheduler/schedule/cron.decorator';
 export { Daily } from './features/scheduler/schedule/daily.decorator';
