@@ -8,6 +8,10 @@ import {
   setInternal,
 } from '../../kernel';
 import type { FunctionMiddleware } from './middleware/middleware.types';
+import {
+  flushAfterResponseCallbacks,
+  initializeAfterResponseCallbacks,
+} from './request/after-response.feature';
 
 // Identifies which router's bootstrap created the request context store.
 // The creator is the request root: the only error-handling level that must
@@ -22,6 +26,7 @@ const ROOT_REQUEST = createContextKey<Request>('zelt:request-root');
 export const createBootstrapMiddleware = (
   lifecycle: LifecycleManager,
   routerToken: symbol,
+  onAfterResponseError?: (error: unknown) => void,
 ): FunctionMiddleware => {
   return async (c, next) => {
     // A Zelt context may exist (e.g. event handler, test harness) without
@@ -41,7 +46,12 @@ export const createBootstrapMiddleware = (
     async function run(): Promise<void> {
       setInternal(STORE_CREATOR, routerToken);
       setInternal(ROOT_REQUEST, c.req.raw);
-      await next();
+      initializeAfterResponseCallbacks();
+      try {
+        await next();
+      } finally {
+        flushAfterResponseCallbacks(onAfterResponseError);
+      }
     }
 
     if (hasContext() && getInternal(STORE_CREATOR) !== undefined) {

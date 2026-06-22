@@ -119,6 +119,54 @@ const server = await nodeApp.http.listen({ port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 
+## Jobs
+
+Use the built-in jobs feature for process-local business tasks that can run now,
+after the current HTTP response, or after a short in-memory delay. Jobs are
+intentionally in-memory: pending jobs are not persisted and are lost when the
+process exits.
+
+```typescript
+import { Controller, JobService, Post, createApp, http, inject, jobs } from '@zeltjs/core';
+
+@Controller('/users')
+class UserController {
+  constructor(private readonly jobService = inject(JobService)) {}
+
+  @Post('/')
+  async create() {
+    await this.jobService.dispatchAfterResponse({
+      name: 'send-welcome-email',
+      async handle() {
+        await sendWelcomeEmail();
+      },
+    });
+
+    return { queued: true };
+  }
+}
+
+const app = createApp([jobs(), http({ controllers: [UserController] })]);
+const runtime = await app.createRuntime();
+
+await runtime.jobs.dispatchSync({
+  name: 'rebuild-search-index',
+  async handle() {
+    await rebuildSearchIndex();
+  },
+});
+
+await runtime.jobs.dispatch(
+  {
+    name: 'follow-up',
+    async handle() {
+      await sendFollowUp();
+    },
+  },
+  { delay: 5_000 },
+);
+```
+
 ## Deploy Anywhere
 
 Same application code, different adapters:
