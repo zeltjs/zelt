@@ -1,5 +1,4 @@
-import { Controller, Get, inject, Post, pathParam, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Get, inject, Post, request, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 import { HelloService } from './hello.service';
@@ -19,12 +18,13 @@ export class HelloController {
   constructor(private helloService = inject(HelloService)) {}
 
   @Get('/:name')
-  greet(name = pathParam('name')): GreetResponse {
-    return { message: this.helloService.greet(name) };
+  greet(): GreetResponse {
+    return { message: this.helloService.greet(request().pathParam('name')) };
   }
 
   @Post('/')
-  greetPost(body = validated(GreetBody), res = response()) {
+  async greetPost(req = request(GreetBody), res = response()) {
+    const body = await req.body();
     const message =
       body.excited === true
         ? `${this.helloService.greet(body.name)}!!!`

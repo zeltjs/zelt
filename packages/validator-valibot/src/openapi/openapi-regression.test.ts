@@ -36,8 +36,8 @@ const generateDoc = async () => {
   }
 };
 
-describe('OpenAPI validated() import compatibility', () => {
-  it('generates request body schema for validated() imported from @zeltjs/core', async () => {
+describe('OpenAPI request() import compatibility', () => {
+  it('generates request body schema for request() imported from @zeltjs/core', async () => {
     const doc = await generateDoc();
 
     expect(doc.paths['/core-import']?.['post']?.requestBody).toBeDefined();
@@ -46,7 +46,7 @@ describe('OpenAPI validated() import compatibility', () => {
     });
   });
 
-  it('generates request body schema for validated() imported from @zeltjs/validator-valibot', async () => {
+  it('generates request body schema for request() imported from @zeltjs/validator-valibot', async () => {
     const doc = await generateDoc();
 
     expect(doc.paths['/validator-import']?.['post']?.requestBody).toBeDefined();

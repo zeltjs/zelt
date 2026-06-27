@@ -124,13 +124,17 @@ export {
   requestContext,
   ValidationFailedException,
 } from './features/http/request';
-export type { ExtractRequestBody, HasRequestBody, RequestAccessor } from './features/http/request';
 export type { RequestContextSchema } from './features/http/request/injection';
 export {
   getContext,
   request,
   setContext,
 } from './features/http/request/injection';
+export type {
+  ExtractRequestBody,
+  HasRequestBody,
+  RequestAccessor,
+} from './features/http/request/validated.types';
 export type {
   CookieOptions,
   ResponseBuilder,

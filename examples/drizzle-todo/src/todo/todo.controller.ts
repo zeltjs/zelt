@@ -6,10 +6,9 @@ import {
   inject,
   Patch,
   Post,
-  pathParam,
+  request,
   response,
 } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 
 import type { Todo } from '../db/schema';
@@ -35,8 +34,8 @@ export class TodoController {
   }
 
   @Get('/:id')
-  findById(id = pathParam('id')): Todo {
-    const todo = this.todoService.findById(Number(id));
+  findById(): Todo {
+    const todo = this.todoService.findById(Number(request().pathParam('id')));
     if (!todo) {
       throw new HTTPException(404, { message: 'Todo not found' });
     }
@@ -44,14 +43,15 @@ export class TodoController {
   }
 
   @Post('/')
-  create(body = validated(CreateTodoBody), res = response()) {
+  async create(req = request(CreateTodoBody), res = response()) {
+    const body = await req.body();
     const todo = this.todoService.create({ title: body.title });
     return res.json(todo, 201);
   }
 
   @Patch('/:id')
-  update(id = pathParam('id'), body = validated(UpdateTodoBody)): Todo {
-    const todo = this.todoService.update(Number(id), body);
+  async update(req = request(UpdateTodoBody)): Promise<Todo> {
+    const todo = this.todoService.update(Number(req.pathParam('id')), await req.body());
     if (!todo) {
       throw new HTTPException(404, { message: 'Todo not found' });
     }
@@ -59,8 +59,8 @@ export class TodoController {
   }
 
   @Delete('/:id')
-  delete(id = pathParam('id')) {
-    const deleted = this.todoService.delete(Number(id));
+  delete() {
+    const deleted = this.todoService.delete(Number(request().pathParam('id')));
     if (!deleted) {
       throw new HTTPException(404, { message: 'Todo not found' });
     }

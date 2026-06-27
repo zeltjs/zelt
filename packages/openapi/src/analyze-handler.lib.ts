@@ -32,10 +32,28 @@ const findParameterAtPosition = (
   return visit(sourceFile);
 };
 
+const extractTargetFromObjectLiteral = (
+  arg: import('typescript').ObjectLiteralExpression,
+  ts: TypeScriptModule,
+): ValidationTarget => {
+  for (const prop of arg.properties) {
+    if (
+      ts.isPropertyAssignment(prop) &&
+      ts.isIdentifier(prop.name) &&
+      prop.name.text === 'target' &&
+      ts.isStringLiteral(prop.initializer)
+    ) {
+      return prop.initializer.text === 'form' ? 'form' : 'json';
+    }
+  }
+  return 'json';
+};
+
 const extractTarget = (expr: TSCallExpression, ts: TypeScriptModule): ValidationTarget => {
   const arg = expr.arguments[1];
-  if (!arg || !ts.isStringLiteral(arg)) return 'json';
-  return arg.text === 'form' ? 'form' : 'json';
+  if (!arg) return 'json';
+  if (ts.isObjectLiteralExpression(arg)) return extractTargetFromObjectLiteral(arg, ts);
+  return 'json';
 };
 
 const resolveRelativeModuleSpecifier = (sourceFile: TSSourceFile, specifier: string): string => {
@@ -103,7 +121,7 @@ const hasLocalIdentifierDeclaration = (
   return false;
 };
 
-const buildValidatedRef = (
+const buildRequestRef = (
   call: TSCallExpression,
   sourceFile: TSSourceFile,
   ts: TypeScriptModule,
@@ -133,13 +151,13 @@ const buildValidatedRef = (
   return { kind: 'none' };
 };
 
-const matchValidatedCall = (
+const matchRequestCall = (
   init: import('typescript').Expression | undefined,
   ts: TypeScriptModule,
 ): TSCallExpression | undefined => {
   if (!init || !ts.isCallExpression(init)) return undefined;
   if (!ts.isIdentifier(init.expression)) return undefined;
-  if (init.expression.text !== 'validated') return undefined;
+  if (init.expression.text !== 'request') return undefined;
   return init;
 };
 
@@ -153,7 +171,7 @@ export const analyzeParamFromPosition = (
   const offset = ts.getPositionOfLineAndCharacter(sourceFile, pos.line - 1, pos.column - 1);
   const param = findParameterAtPosition(sourceFile, offset, ts);
   if (!param) return { kind: 'none' };
-  const call = matchValidatedCall(param.initializer, ts);
+  const call = matchRequestCall(param.initializer, ts);
   if (!call) return { kind: 'none' };
-  return buildValidatedRef(call, sourceFile, ts);
+  return buildRequestRef(call, sourceFile, ts);
 };

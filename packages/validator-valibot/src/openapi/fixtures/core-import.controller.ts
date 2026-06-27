@@ -8,7 +8,7 @@ export const CoreImportSchema = v.object({
 @Controller('/core-import')
 export class CoreImportController {
   @Post('/')
-  async create() {
-    return await request(CoreImportSchema).body();
+  async create(req = request(CoreImportSchema)) {
+    return await req.body();
   }
 }

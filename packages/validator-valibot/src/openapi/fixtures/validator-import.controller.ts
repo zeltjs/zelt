@@ -9,7 +9,7 @@ export const ValidatorImportSchema = v.object({
 @Controller('/validator-import')
 export class ValidatorImportController {
   @Post('/')
-  async create() {
-    return await request(ValidatorImportSchema).body();
+  async create(req = request(ValidatorImportSchema)) {
+    return await req.body();
   }
 }
