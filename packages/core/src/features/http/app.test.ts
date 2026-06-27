@@ -10,9 +10,14 @@ import { http } from './http.feature';
 import { Middleware } from './middleware/middleware.decorator';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
-import { body, getContext, pathParam, setContext, url } from './request/injection';
+import { getContext, request, setContext } from './request/injection';
+import { createStandardSchema } from './request/injection/test.lib';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
+
+const passthroughFormSchema = createStandardSchema<unknown>({
+  validate: (value) => ({ value }),
+});
 
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
@@ -34,22 +39,26 @@ class HelloController {
 
   @Get('/:name')
   greet() {
-    return { message: this.greeter.greet(pathParam('name')) };
+    return { message: this.greeter.greet(request().pathParam('name')) };
   }
 }
 
 @Controller('/echo')
 class EchoController {
   @Post('/')
-  create(data = body('json')) {
-    return data;
+  async create() {
+    return await request().body();
   }
 }
 
 @Controller('/upload')
 class UploadController {
   @Post('/')
-  upload(formData = body('form')) {
+  async upload() {
+    const formData = (await request(passthroughFormSchema, { target: 'form' }).body()) as Record<
+      string,
+      string | File | (string | File)[]
+    >;
     const description = formData['description'] as string;
     const file = formData['file'] as File;
     return { description, filename: file.name, size: file.size };
@@ -101,11 +110,11 @@ describe('createApp() — fetch', () => {
     @Controller('/inner-context')
     class InnerContextController {
       @Post('/')
-      get() {
+      async get() {
         return {
-          body: body('json'),
+          body: await request().body(),
           requestId: getContext('requestId') ?? null,
-          url: url(),
+          url: request().url(),
         };
       }
     }
@@ -115,9 +124,9 @@ describe('createApp() — fetch', () => {
       @Post('/')
       async get() {
         setContext('requestId', 'outer');
-        const outerBefore = { body: body('json'), requestId: getContext('requestId'), url: url() };
+        const outerBefore = { body: await request().body(), requestId: getContext('requestId'), url: request().url() };
         const res = await fetchInner();
-        const outerAfter = { body: body('json'), requestId: getContext('requestId'), url: url() };
+        const outerAfter = { body: await request().body(), requestId: getContext('requestId'), url: request().url() };
         return { inner: await res.json(), outerAfter, outerBefore };
       }
     }
@@ -259,7 +268,7 @@ describe('error paths', () => {
     class BrokenController {
       @Get('/')
       run() {
-        return { v: pathParam('id') };
+        return { v: request().pathParam('id') };
       }
     }
     const app = createApp([http({ controllers: [BrokenController] })]);
@@ -300,7 +309,7 @@ describe('middleware', () => {
   it('lets global middlewares read the request body before the handler', async () => {
     const seen: unknown[] = [];
     const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
-      seen.push(body('json'));
+      seen.push(await request().body());
       await next();
     };
 
@@ -325,7 +334,7 @@ describe('middleware', () => {
   it('lets parent middlewares read the body for nested child routes', async () => {
     const seen: unknown[] = [];
     const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
-      seen.push(body('json'));
+      seen.push(await request().body());
       await next();
     };
 

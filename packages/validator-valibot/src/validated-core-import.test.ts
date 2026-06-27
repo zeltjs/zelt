@@ -1,4 +1,4 @@
-import { Controller, createApp, http, Post, validated } from '@zeltjs/core';
+import { Controller, createApp, http, Post, request } from '@zeltjs/core';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
@@ -7,13 +7,13 @@ const CreateUserSchema = v.object({
   email: v.pipe(v.string(), v.email()),
 });
 
-describe('validated() imported from @zeltjs/core with Valibot', () => {
+describe('request() imported from @zeltjs/core with Valibot', () => {
   it('validates a real Valibot schema at runtime', async () => {
     @Controller('/users')
     class UserController {
       @Post('/')
-      create(data = validated(CreateUserSchema)) {
-        return data;
+      async create() {
+        return await request(CreateUserSchema).body();
       }
     }
 

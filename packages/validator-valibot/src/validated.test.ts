@@ -2,17 +2,17 @@ import { Controller, createApp, http, Post } from '@zeltjs/core';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
-import { validated } from './index';
+import { request } from './index';
 
 const Schema = v.object({ name: v.string(), age: v.number() });
 
-describe('validated()', () => {
+describe('request() with Valibot schema', () => {
   it('returns parsed body when schema matches (json)', async () => {
     @Controller('/')
     class TestController {
       @Post('/json')
-      json(data = validated(Schema)) {
-        return data;
+      async json() {
+        return await request(Schema).body();
       }
     }
 
@@ -35,8 +35,8 @@ describe('validated()', () => {
     @Controller('/')
     class TestController {
       @Post('/form')
-      form(data = validated(FormSchema, 'form')) {
-        return data;
+      async form() {
+        return await request(FormSchema, { target: 'form' }).body();
       }
     }
 
@@ -58,8 +58,8 @@ describe('validated()', () => {
     @Controller('/')
     class TestController {
       @Post('/json')
-      json(data = validated(Schema)) {
-        return data;
+      async json() {
+        return await request(Schema).body();
       }
     }
 
@@ -79,8 +79,8 @@ describe('validated()', () => {
     @Controller('/')
     class TestController {
       @Post('/json')
-      json(data = validated(Schema)) {
-        return data;
+      async json() {
+        return await request(Schema).body();
       }
     }
 

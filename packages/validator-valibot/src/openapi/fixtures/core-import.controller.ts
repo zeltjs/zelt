@@ -1,4 +1,4 @@
-import { Controller, Post, validated } from '@zeltjs/core';
+import { Controller, Post, request } from '@zeltjs/core';
 import * as v from 'valibot';
 
 export const CoreImportSchema = v.object({
@@ -8,7 +8,7 @@ export const CoreImportSchema = v.object({
 @Controller('/core-import')
 export class CoreImportController {
   @Post('/')
-  create(data = validated(CoreImportSchema)) {
-    return data;
+  async create() {
+    return await request(CoreImportSchema).body();
   }
 }

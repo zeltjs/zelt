@@ -1,5 +1,5 @@
 import { Controller, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 
 export const ValidatorImportSchema = v.object({
@@ -9,7 +9,7 @@ export const ValidatorImportSchema = v.object({
 @Controller('/validator-import')
 export class ValidatorImportController {
   @Post('/')
-  create(data = validated(ValidatorImportSchema)) {
-    return data;
+  async create() {
+    return await request(ValidatorImportSchema).body();
   }
 }

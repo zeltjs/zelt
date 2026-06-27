@@ -2,8 +2,8 @@ export { app } from './app.lib';
 export { GenerateCommand } from './commands';
 export type {
   BuildAppType,
+  ExtractHandlerBody,
   ExtractPathParams,
-  ExtractRequestBody,
   ExtractResponse,
   ExtractValidationErrors,
   Route,

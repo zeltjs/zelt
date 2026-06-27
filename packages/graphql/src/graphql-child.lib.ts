@@ -5,7 +5,7 @@ import type {
   HttpStaticCapabilities,
   ServiceResolver,
 } from '@zeltjs/core';
-import { body, Controller, http, Post } from '@zeltjs/core';
+import { Controller, http, Post, request } from '@zeltjs/core';
 
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { setGraphqlControllerMetadata } from './graphql-metadata.lib';
@@ -120,7 +120,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
           );
         }
 
-        const payload = parseGraphqlRequestPayload(body());
+        const payload = parseGraphqlRequestPayload(await request().body());
         if (!payload) {
           return Response.json(
             { errors: [{ message: 'GraphQL request body must include a query string.' }] },

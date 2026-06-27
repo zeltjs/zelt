@@ -3,10 +3,4 @@ export {
   AsyncValidationUnsupportedException,
   ValidationFailedException,
 } from './validated.exceptions';
-export type {
-  ExtractValidated,
-  ExtractValidationTarget,
-  IsValidated,
-  ValidatedMarker,
-  ValidationTarget,
-} from './validated.types';
+export type { ExtractRequestBody, HasRequestBody, RequestAccessor } from './injection/request.lib';

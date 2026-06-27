@@ -1,2 +1,2 @@
-export type { ValidatedMarker, ValidationTarget } from '@zeltjs/core';
-export { validated } from '@zeltjs/core';
+export type { RequestAccessor } from '@zeltjs/core';
+export { request } from '@zeltjs/core';
