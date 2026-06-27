@@ -81,7 +81,7 @@ Use session functions in your handlers:
 
 ```typescript
 import { Controller, Post, Get } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/validator-valibot';
 import { getSession, setSession, destroySession } from '@zeltjs/auth-session';
 import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
@@ -91,7 +91,8 @@ declare function validateCredentials(email: string, password: string): Promise<{
 @Controller('/auth')
 class AuthController {
   @Post('/login')
-  async login(body = validated(LoginSchema)) {
+  async login(req = request(LoginSchema)) {
+    const body = await req.body();
     const user = await validateCredentials(body.email, body.password);
     if (!user) {
       throw new HTTPException(401, { message: 'Invalid credentials' });
@@ -396,7 +397,7 @@ Always regenerate the session ID after login:
 
 ```typescript
 import { Controller, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/validator-valibot';
 import { destroySession, setSession } from '@zeltjs/auth-session';
 import * as v from 'valibot';
 const LoginSchema = v.object({ email: v.string(), password: v.string() });
@@ -405,7 +406,8 @@ declare function validateCredentials(email: string, password: string): Promise<{
 @Controller('/auth')
 class AuthController {
   @Post('/login')
-  async login(body = validated(LoginSchema)) {
+  async login(req = request(LoginSchema)) {
+    const body = await req.body();
     const user = await validateCredentials(body.email, body.password);
     
     destroySession();  // Clear old session

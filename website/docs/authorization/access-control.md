@@ -152,7 +152,7 @@ class PostController {
 
 ```typescript
 import { Controller, Authorized, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/validator-valibot';
 import { RateLimit } from '@zeltjs/rate-limit';
 import * as v from 'valibot';
 
@@ -163,7 +163,8 @@ class ApiController {
   @Authorized()
   @RateLimit({ limit: 100, windowSec: 60, key: 'posts' })
   @Post('/posts')
-  create(data = validated(CreatePostSchema)) {
+  async create(req = request(CreatePostSchema)) {
+    const data = await req.body();
     return { created: true };
   }
 }
@@ -225,7 +226,7 @@ const app = createApp([http({
 Don't use `@Authorized` — check the user manually:
 
 ```typescript
-import { Controller, Get, Injectable, inject, pathParam, currentUser } from '@zeltjs/core';
+import { Controller, Get, Injectable, inject, request, currentUser } from '@zeltjs/core';
 
 type Post = { authorId: string };
 type User = { id: string };
@@ -242,7 +243,8 @@ class PostController {
   constructor(private postRepo = inject(PostRepository)) {}
 
   @Get('/:id')
-  async getPost(id = pathParam('id')) {
+  async getPost(req = request()) {
+    const id = req.pathParam('id');
     const user = currentUser() as User | undefined;
     const post = await this.postRepo.findById(id);
 
@@ -259,8 +261,8 @@ class PostController {
 Combine `@Authorized` with ownership checks:
 
 ```typescript
-import { Controller, Authorized, Put, Injectable, inject, pathParam, currentUser, currentRoles } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Authorized, Put, Injectable, inject, currentUser, currentRoles } from '@zeltjs/core';
+import { request } from '@zeltjs/validator-valibot';
 import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
 
@@ -286,7 +288,9 @@ class PostController {
 
   @Authorized()
   @Put('/:id')
-  async updatePost(id = pathParam('id'), data = validated(UpdateSchema)) {
+  async updatePost(req = request(UpdateSchema)) {
+    const id = req.pathParam('id');
+    const data = await req.body();
     const user = currentUser() as User;
     const post = await this.postRepo.findById(id);
 
@@ -328,7 +332,7 @@ class PostController {
 For complex scenarios, move logic to a service:
 
 ```typescript
-import { Controller, Delete, Authorized, Injectable, inject, pathParam, currentUser, currentRoles } from '@zeltjs/core';
+import { Controller, Delete, Authorized, Injectable, inject, request, currentUser, currentRoles } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
 
 type Post = { isPublic: boolean; authorId: string };
@@ -373,7 +377,8 @@ class PostController {
 
   @Authorized()
   @Delete('/:id')
-  async delete(id = pathParam('id')) {
+  async delete(req = request()) {
+    const id = req.pathParam('id');
     const post = await this.postRepo.findById(id);
 
     if (!this.authService.canDelete()) {

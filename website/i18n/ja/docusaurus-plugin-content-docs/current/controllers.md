@@ -10,8 +10,8 @@ Controllers are responsible for handling incoming **requests** and returning **r
 A controller is a class decorated with `@Controller()`. The decorator accepts a path prefix that will be prepended to all routes defined in the controller.
 
 ```typescript
-import { Controller, Get, Post, pathParam, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Get, Post, response } from '@zeltjs/core';
+import { request } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({
@@ -27,15 +27,25 @@ export class UserController {
   }
 
   @Get('/:id')
-  findOne(id = pathParam('id')) {
+  findOne(req = request()) {
+    const id = req.pathParam('id');
     return { id, name: 'John Doe' };
   }
 
   @Post('/')
-  create(body = validated(CreateUserBody), res = response()) {
+  async create(req = request(CreateUserBody), res = response()) {
+    const body = await req.body();
     return res.json({ id: '1', ...body }, 201);
   }
 }
+
+// ---cut-after---
+import { expect, test } from 'vitest';
+
+test('UserController.findAll returns users array', () => {
+  const controller = new UserController();
+  expect(controller.findAll()).toEqual({ users: [] });
+});
 ```
 
 ## HTTP Method Decorators
@@ -51,8 +61,8 @@ Zelt provides decorators for all standard HTTP methods:
 | `@Delete()` | DELETE |
 
 ```typescript
-import { Controller, Get, Post, Put, Patch, Delete, pathParam } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Get, Post, Put, Patch, Delete } from '@zeltjs/core';
+import { request } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 const schema = v.object({ name: v.string() });
 // ---cut---
@@ -62,19 +72,36 @@ export class ItemController {
   findAll() { /* ... */ }
 
   @Get('/:id')
-  findOne(id = pathParam('id')) { /* ... */ }
+  findOne(req = request()) {
+    const id = req.pathParam('id');
+    /* ... */
+  }
 
   @Post('/')
-  create(body = validated(schema)) { /* ... */ }
+  async create(req = request(schema)) {
+    const body = await req.body();
+    /* ... */
+  }
 
   @Put('/:id')
-  update(id = pathParam('id'), body = validated(schema)) { /* ... */ }
+  async update(req = request(schema)) {
+    const id = req.pathParam('id');
+    const body = await req.body();
+    /* ... */
+  }
 
   @Patch('/:id')
-  patch(id = pathParam('id'), body = validated(schema)) { /* ... */ }
+  async patch(req = request(schema)) {
+    const id = req.pathParam('id');
+    const body = await req.body();
+    /* ... */
+  }
 
   @Delete('/:id')
-  remove(id = pathParam('id')) { /* ... */ }
+  remove(req = request()) {
+    const id = req.pathParam('id');
+    /* ... */
+  }
 }
 ```
 
@@ -83,15 +110,14 @@ export class ItemController {
 Use `pathParam()` to extract route parameters:
 
 ```typescript
-import { Controller, Get, pathParam } from '@zeltjs/core';
+import { Controller, Get, request } from '@zeltjs/core';
 // ---cut---
 @Controller('/items')
 class ItemController {
   @Get('/:category/:id')
-  findOne(
-    category = pathParam('category'),
-    id = pathParam('id')
-  ) {
+  findOne(req = request()) {
+    const category = req.pathParam('category');
+    const id = req.pathParam('id');
     return { category, id };
   }
 }
@@ -103,7 +129,7 @@ Use `validated()` with a Valibot schema to validate and type the request body:
 
 ```typescript
 import { Controller, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 // ---cut---
 const CreatePostBody = v.object({
@@ -115,7 +141,8 @@ const CreatePostBody = v.object({
 @Controller('/posts')
 class PostController {
   @Post('/')
-  create(body = validated(CreatePostBody)) {
+  async create(req = request(CreatePostBody)) {
+    const body = await req.body();
     // body is fully typed as { title: string; content: string; tags?: string[] }
     return { id: '1', ...body };
   }
@@ -129,23 +156,15 @@ If validation fails, Zelt automatically returns a 400 response with detailed err
 Use `response()` to control the HTTP status code:
 
 ```typescript
-import { Controller, Post, Delete, pathParam, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
-import * as v from 'valibot';
-const schema = v.object({ name: v.string() });
+import { Controller, Post, request } from '@zeltjs/core';
 // ---cut---
-@Controller('/items')
-class ItemController {
-  @Post('/')
-  create(body = validated(schema), res = response()) {
-    const created = { id: '1', ...body };
-    return res.json(created, 201); // Returns 201 Created
-  }
-
-  @Delete('/:id')
-  remove(id = pathParam('id')) {
-    // Perform delete operation
-    return new Response(null, { status: 204 }); // Returns 204 No Content
+@Controller('/webhooks')
+class WebhookController {
+  @Post('/github')
+  async handleGithubWebhook(req = request()) {
+    const payload = await req.body();
+    // payload is typed as unknown
+    return { received: true };
   }
 }
 ```
@@ -155,23 +174,20 @@ class ItemController {
 Controllers must be registered in `createApp()`:
 
 ```typescript
-import { createApp, Controller, Get, Post, pathParam, response, http } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
-import * as v from 'valibot';
-
-const CreateUserBody = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
-@Controller('/users') class UserController {
-  @Get('/') findAll() { return { users: [] }; }
-  @Get('/:id') findOne(id = pathParam('id')) { return { id }; }
-  @Post('/') create(body = validated(CreateUserBody), res = response()) { return res.json({ id: '1', ...body }, 201); }
-}
-@Controller('/posts') class PostController {
-  @Get('/') findAll() { return { posts: [] }; }
-}
+import { Controller, Get } from '@zeltjs/core';
 // ---cut---
-export const app = createApp([http({
-    controllers: [UserController, PostController],
-  })]);
+@Controller('/users')
+class UserController {
+  @Get('/')
+  findAll() {
+    return { users: [] }; // → 200 OK, Content-Type: application/json
+  }
+
+  @Get('/health')
+  health() {
+    return 'OK'; // → 200 OK, Content-Type: text/plain
+  }
+}
 ```
 
 ## Next Steps

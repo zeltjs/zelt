@@ -275,8 +275,8 @@ class ExternalAuthMiddleware {
 Roles are set once and rarely change:
 
 ```typescript
-import { Controller, Authorized, Post, Injectable, inject, pathParam } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Authorized, Post, Injectable, inject } from '@zeltjs/core';
+import { request } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 
 const RolesSchema = v.object({ roles: v.array(v.string()) });
@@ -292,7 +292,9 @@ class UserRolesController {
 
   @Authorized(['admin'])
   @Post('/:id/roles')
-  async assignRoles(id = pathParam('id'), data = validated(RolesSchema)) {
+  async assignRoles(req = request(RolesSchema)) {
+    const id = req.pathParam('id');
+    const data = await req.body();
     await this.userRepo.updateRoles(id, data.roles);
     return { success: true };
   }

@@ -137,7 +137,7 @@ export const TransactionMiddleware = createTransactionMiddleware(DrizzleService)
 
 ```typescript
 // @noErrors
-import { Controller, Post, body, UseMiddleware } from '@zeltjs/core';
+import { Controller, Post, UseMiddleware, request } from '@zeltjs/core';
 
 @Controller('/orders')
 @UseMiddleware(TransactionMiddleware)
@@ -145,7 +145,8 @@ export class OrderController {
   constructor(private orderService = inject(OrderService)) {}
 
   @Post('/')
-  async create(data = body<CreateOrderDto>()) {
+  async create(req = request()) {
+    const data = await req.body();
     return this.orderService.placeOrder(data.userId, data.items);
   }
 }

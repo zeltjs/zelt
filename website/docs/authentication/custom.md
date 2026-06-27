@@ -231,7 +231,7 @@ export class OAuthMiddleware {
 ### OAuth Callback Handler
 
 ```typescript
-import { Controller, Get, Injectable, inject, queryParam } from '@zeltjs/core';
+import { Controller, Get, Injectable, inject, request } from '@zeltjs/core';
 
 type User = { id: string; oauthId?: string; name?: string; email?: string };
 
@@ -273,7 +273,9 @@ class OAuthController {
   ) {}
 
   @Get('/callback')
-  async callback(code = queryParam('code'), _state = queryParam('state')) {
+  async callback(req = request()) {
+    const code = req.queryParam('code');
+    const _state = req.queryParam('state');
     const tokens = await this.oauth.exchangeCode(code);
     const userInfo = await this.oauth.getUserInfo(tokens.access_token);
 

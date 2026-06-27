@@ -10,16 +10,14 @@ Zelt provides functional primitives for accessing request data and building resp
 ### Query Parameters
 
 ```typescript
-import { Controller, Get, queryParam, queryParams, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/search')
 export class SearchController {
   @Get('/')
-  search(
-    q = queryParam('q'),
-    tags = queryParams('tag'),
-    res = response(),
-  ) {
+  search(req = request(), res = response()) {
+    const q = req.queryParam('q');
+    const tags = req.queryParams('tag');
     // q: string | undefined
     // tags: string[] (empty array if not provided)
     return res.json({ query: q, tags });
@@ -35,16 +33,14 @@ export class SearchController {
 ### Headers
 
 ```typescript
-import { Controller, Get, header, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/api')
 export class ApiController {
   @Get('/info')
-  info(
-    userAgent = header('User-Agent'),
-    acceptLanguage = header('Accept-Language'),
-    res = response(),
-  ) {
+  info(req = request(), res = response()) {
+    const userAgent = req.header('User-Agent');
+    const acceptLanguage = req.header('Accept-Language');
     return res.json({ userAgent, acceptLanguage });
   }
 }
@@ -57,15 +53,13 @@ export class ApiController {
 ### Cookies
 
 ```typescript
-import { Controller, Get, cookie, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/session')
 export class SessionController {
   @Get('/')
-  getSession(
-    sessionId = cookie('session_id'),
-    res = response(),
-  ) {
+  getSession(req = request(), res = response()) {
+    const sessionId = req.cookie('session_id');
     return res.json({ sessionId });
   }
 }
@@ -78,17 +72,15 @@ export class SessionController {
 ### URL & Path
 
 ```typescript
-import { Controller, Get, url, path, method, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/debug')
 export class DebugController {
   @Get('/request')
-  requestInfo(
-    fullUrl = url(),
-    requestPath = path(),
-    httpMethod = method(),
-    res = response(),
-  ) {
+  requestInfo(req = request(), res = response()) {
+    const fullUrl = req.url();
+    const requestPath = req.path();
+    const httpMethod = req.method();
     return res.json({
       url: fullUrl,      // "http://localhost:3000/debug/request?foo=bar"
       path: requestPath, // "/debug/request"
@@ -107,18 +99,14 @@ export class DebugController {
 ### Request Body
 
 ```typescript
-import { Controller, Post, body, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
-@Controller('/upload')
-export class UploadController {
-  @Post('/json')
-  uploadJson(data = body(), res = response()) {
-    return res.json({ received: data });
-  }
-
-  @Post('/form')
-  uploadForm(formData = body('form'), res = response()) {
-    return res.json({ fields: formData });
+@Controller('/debug')
+export class DebugController {
+  @Get('/ip')
+  clientIp(req = request(), res = response()) {
+    const ip = req.ip();
+    return res.json({ ip });
   }
 }
 ```
@@ -136,17 +124,21 @@ For validated request bodies with automatic type inference, use [`validated()`](
 ### Path Parameters
 
 ```typescript
-import { Controller, Get, pathParam, response } from '@zeltjs/core';
+// @noErrors
+import { Controller, Post, request, response } from '@zeltjs/core';
 
-@Controller('/users')
-export class UserController {
-  @Get('/:id')
-  getUser(
-    id = pathParam('id'),
-    res = response(),
-  ) {
-    // id: string (throws if not defined)
-    return res.json({ userId: id });
+@Controller('/upload')
+export class UploadController {
+  @Post('/json')
+  async uploadJson(req = request(), res = response()) {
+    const data = await req.body();
+    return res.json({ received: data });
+  }
+
+  @Post('/form')
+  async uploadForm(req = request(undefined, { target: 'form' }), res = response()) {
+    const formData = await req.body();
+    return res.json({ fields: formData });
   }
 }
 ```
@@ -160,6 +152,35 @@ export class UserController {
 ### response()
 
 The `response()` primitive returns a builder for constructing HTTP responses:
+
+```typescript
+import { Controller, Get, request, response } from '@zeltjs/core';
+
+@Controller('/users')
+export class UserController {
+  @Get('/:id')
+  getUser(req = request(), res = response()) {
+    const id = req.pathParam('id');
+    // id: string (throws if not defined)
+    return res.json({ userId: id });
+  }
+}
+```
+
+### Response Methods
+
+| Method | Description |
+|--------|-------------|
+| `json(data, status?, headers?)` | JSON response with optional status code and headers |
+| `text(data, status?)` | Plain text response |
+| `redirect(url, status?)` | HTTP redirect (default: 302) |
+| `body(data, status?)` | Raw body response |
+| `header(name, value)` | Set a response header (chainable) |
+| `stream(cb, onError?)` | Stream binary data |
+| `streamText(cb, onError?)` | Stream text data |
+| `sse(cb, onError?)` | Server-Sent Events stream |
+
+### Setting Cookies
 
 ```typescript
 import { Controller, Get, Post, response } from '@zeltjs/core';
@@ -188,20 +209,25 @@ export class ApiController {
 }
 ```
 
-### Response Methods
+### Cookie Options
 
-| Method | Description |
-|--------|-------------|
-| `json(data, status?, headers?)` | JSON response with optional status code and headers |
-| `text(data, status?)` | Plain text response |
-| `redirect(url, status?)` | HTTP redirect (default: 302) |
-| `body(data, status?)` | Raw body response |
-| `header(name, value)` | Set a response header (chainable) |
-| `stream(cb, onError?)` | Stream binary data |
-| `streamText(cb, onError?)` | Stream text data |
-| `sse(cb, onError?)` | Server-Sent Events stream |
+| Option | Type | Description |
+|--------|------|-------------|
+| `domain` | `string` | Cookie domain |
+| `expires` | `Date` | Expiration date |
+| `httpOnly` | `boolean` | HTTP-only flag |
+| `maxAge` | `number` | Max age in seconds |
+| `path` | `string` | Cookie path |
+| `secure` | `boolean` | Secure flag |
+| `sameSite` | `'Strict' \| 'Lax' \| 'None'` | SameSite attribute |
 
-### Setting Cookies
+## Streaming Responses
+
+Zelt provides streaming capabilities for real-time data delivery.
+
+### Basic Streaming
+
+Use `stream()` for binary data or `streamText()` for text data:
 
 ```typescript
 import { Controller, Post, response } from '@zeltjs/core';
@@ -229,25 +255,9 @@ export class AuthController {
 }
 ```
 
-### Cookie Options
+### Server-Sent Events (SSE)
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `domain` | `string` | Cookie domain |
-| `expires` | `Date` | Expiration date |
-| `httpOnly` | `boolean` | HTTP-only flag |
-| `maxAge` | `number` | Max age in seconds |
-| `path` | `string` | Cookie path |
-| `secure` | `boolean` | Secure flag |
-| `sameSite` | `'Strict' \| 'Lax' \| 'None'` | SameSite attribute |
-
-## Streaming Responses
-
-Zelt provides streaming capabilities for real-time data delivery.
-
-### Basic Streaming
-
-Use `stream()` for binary data or `streamText()` for text data:
+Use `sse()` for Server-Sent Events:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -275,9 +285,20 @@ export class StreamController {
 }
 ```
 
-### Server-Sent Events (SSE)
+### Stream Writer Methods
 
-Use `sse()` for Server-Sent Events:
+| Method | Description |
+|--------|-------------|
+| `write(input)` | Write `Uint8Array` or `string` to stream |
+| `writeln(input)` | Write string with newline |
+| `writeSSE(message)` | Write SSE message (SSE streams only) |
+| `sleep(ms)` | Pause for specified milliseconds |
+| `pipe(body)` | Pipe a `ReadableStream` |
+| `close()` | Close the stream |
+| `abort()` | Abort the stream |
+| `onAbort(listener)` | Register abort handler |
+
+### SSE Message Format
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -304,20 +325,9 @@ export class EventController {
 }
 ```
 
-### Stream Writer Methods
+### Error Handling
 
-| Method | Description |
-|--------|-------------|
-| `write(input)` | Write `Uint8Array` or `string` to stream |
-| `writeln(input)` | Write string with newline |
-| `writeSSE(message)` | Write SSE message (SSE streams only) |
-| `sleep(ms)` | Pause for specified milliseconds |
-| `pipe(body)` | Pipe a `ReadableStream` |
-| `close()` | Close the stream |
-| `abort()` | Abort the stream |
-| `onAbort(listener)` | Register abort handler |
-
-### SSE Message Format
+Both streaming methods accept an optional error handler:
 
 ```typescript
 type SSEMessage = {
@@ -328,9 +338,9 @@ type SSEMessage = {
 };
 ```
 
-### Error Handling
+## Chaining Response Methods
 
-Both streaming methods accept an optional error handler:
+Response methods that modify state (`header`, `setCookie`, `deleteCookie`) return the builder, allowing method chaining:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -348,26 +358,6 @@ class StreamController {
         await stream.close();
       }
     );
-  }
-}
-```
-
-## Chaining Response Methods
-
-Response methods that modify state (`header`, `setCookie`, `deleteCookie`) return the builder, allowing method chaining:
-
-```typescript
-import { Controller, Get, response } from '@zeltjs/core';
-// ---cut---
-@Controller('/files')
-class FileController {
-  @Get('/download')
-  download(res = response()) {
-    return res
-      .header('Content-Disposition', 'attachment; filename="report.csv"')
-      .header('Cache-Control', 'no-cache')
-      .setCookie('download_started', 'true')
-      .text('id,name\n1,Alice\n2,Bob');
   }
 }
 ```

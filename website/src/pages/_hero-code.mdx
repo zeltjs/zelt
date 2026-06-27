@@ -1,6 +1,6 @@
 ```typescript twoslash
-import { Controller, Get, Post, pathParam, createApp, http } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Get, Post, createApp, http } from '@zeltjs/core';
+import { request } from '@zeltjs/validator-valibot';
 import { onNode } from '@zeltjs/adapter-node';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 import { onLambda } from '@zeltjs/adapter-lambda';
@@ -21,12 +21,14 @@ class UserController {
   }
 
   @Get('/:id')
-  findOne(id = pathParam('id')) {
+  findOne(req = request()) {
+    const id = req.pathParam('id');
     return { user: db.users.find(id) };
   }
 
   @Post('/')
-  create(data = validated(UserSchema)) {
+  async create(req = request(UserSchema)) {
+    const data = await req.body();
     return { user: db.users.create(data) };
   }
 }

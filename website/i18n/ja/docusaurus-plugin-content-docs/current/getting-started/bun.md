@@ -37,12 +37,13 @@ my-app/
 
 ```typescript
 // @noErrors
-import { Controller, Get, pathParam } from '@zeltjs/core';
+import { Controller, Get, request } from '@zeltjs/core';
 // ---cut---
 @Controller('/hello')
 export class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) {
+  greet(req = request()) {
+    const name = req.pathParam('name');
     return { message: `Hello, ${name}!` };
   }
 }
@@ -54,11 +55,11 @@ export class HelloController {
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam, http, command } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
 export const app = createApp([http({
@@ -72,13 +73,13 @@ export const app = createApp([http({
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam, http, command } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
 const app = createApp([http({ controllers: [HelloController] })]);
@@ -114,13 +115,13 @@ bun run src/index.ts
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam, http, command } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
 const app = createApp([http({ controllers: [HelloController] })]);
@@ -173,13 +174,13 @@ console.log(result.exitCode); // 0 or 1
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, pathParam, http, command } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
 const app = createApp([http({ controllers: [HelloController] })]);

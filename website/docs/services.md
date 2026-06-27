@@ -38,8 +38,8 @@ export class UserService {
 Use `inject()` to inject services into controllers:
 
 ```typescript
-import { Controller, Get, Post, inject, pathParam, Injectable } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Get, Post, inject, Injectable } from '@zeltjs/core';
+import { request } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 
 @Injectable() class UserService {
@@ -61,7 +61,8 @@ export class UserController {
   }
 
   @Get('/:id')
-  findOne(id = pathParam('id')) {
+  findOne(req = request()) {
+    const id = req.pathParam('id');
     const user = this.userService.findOne(id);
     if (!user) {
       throw new Error('User not found');
@@ -70,7 +71,8 @@ export class UserController {
   }
 
   @Post('/')
-  create(body = validated(CreateUserBody)) {
+  async create(req = request(CreateUserBody)) {
+    const body = await req.body();
     return this.userService.create(body.name);
   }
 }
