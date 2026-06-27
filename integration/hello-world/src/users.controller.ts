@@ -1,5 +1,5 @@
 import { Controller, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 
 export const CreateUserSchema = v.object({
@@ -11,7 +11,8 @@ export const CreateUserSchema = v.object({
 @Controller('/users')
 export class UsersController {
   @Post('/')
-  create(data = validated(CreateUserSchema)) {
+  async create(req = request(CreateUserSchema)) {
+    const data = await req.body();
     return { id: '1', ...data };
   }
 }

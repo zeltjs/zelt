@@ -4,7 +4,7 @@ import {
   Get,
   getContext,
   Middleware,
-  queryParam,
+  request,
   setContext,
   UseMiddleware,
 } from '@zeltjs/core';
@@ -63,7 +63,8 @@ export class ConditionalFailMiddleware {
 @UseMiddleware(AppendStageOneMiddleware, AppendStageTwoMiddleware)
 export class MiddlewareController {
   @Get('/context')
-  read(id = queryParam('id')) {
+  read(req = request()) {
+    const id = req.queryParam('id');
     // Reading via getContext proves that values written by middleware are
     // visible to the controller within the same request.
     return {

@@ -1,26 +1,31 @@
-import { body, Controller, Post } from '@zeltjs/core';
+import { Controller, Post, request } from '@zeltjs/core';
+import * as v from 'valibot';
 
-type JsonInput = { name: string; age: number };
+const FormSchema = v.record(v.string(), v.unknown());
 
 @Controller('/body')
 export class BodyParserController {
   @Post('/json')
-  json(data = body('json') as JsonInput) {
+  async json(req = request()) {
+    const data = await req.body();
     return { parsed: data };
   }
 
   @Post('/text')
-  text(data = body('text')) {
+  async text(req = request(v.string(), { target: 'text' })) {
+    const data = await req.body();
     return { length: data.length, value: data };
   }
 
   @Post('/form')
-  form(data = body('form')) {
+  async form(req = request(FormSchema, { target: 'form' })) {
+    const data = await req.body();
     return { fields: data };
   }
 
   @Post('/multipart')
-  multipart(data = body('form')) {
+  async multipart(req = request(FormSchema, { target: 'form' })) {
+    const data = await req.body();
     const filename = data['file'] instanceof File ? data['file'].name : null;
     return { filename, label: data['label'] };
   }
