@@ -6,7 +6,7 @@ import {
   AsyncValidationUnsupportedException,
   ValidationFailedException,
 } from '../validated.exceptions';
-import { body } from './body.lib';
+import { body, getBody } from './body.lib';
 import { pathParam } from './path-param.lib';
 import { resolveClientIp } from './resolve-client-ip.lib';
 
@@ -78,6 +78,8 @@ export function request<Schema extends StandardSchemaV1>(
 
   const accessor: RequestAccessorBase<unknown> = {
     async body() {
+      const parsed = getBody();
+      if (parsed.type === 'none') return undefined;
       const raw = target === 'form' ? body('form') : target === 'text' ? body('text') : body();
       if (!schema) return raw;
       return validateBody(raw, schema);

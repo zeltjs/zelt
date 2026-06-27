@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../../app';
 import { http } from '../../http.feature';
 import { Controller } from '../../routing/controller.decorator';
-import { Get } from '../../routing/http-method.decorator';
+import { Get, Post } from '../../routing/http-method.decorator';
 import { request } from './request.lib';
+import { createStandardSchema } from './test.lib';
 
 describe('request() — sync accessors', () => {
   it('returns HTTP method', async () => {
@@ -176,5 +177,204 @@ describe('request() — sync accessors', () => {
       new Request('http://localhost/', { headers: { 'cf-connecting-ip': '1.1.1.1' } }),
     );
     expect(await res.json()).toEqual({ ip: '1.1.1.1' });
+  });
+});
+
+const userSchema = createStandardSchema<{ name: string; age: number }>({
+  validate: (value) => {
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'name' in value &&
+      'age' in value &&
+      typeof value.name === 'string' &&
+      typeof value.age === 'number'
+    ) {
+      return { value: { name: value.name, age: value.age } };
+    }
+    return { issues: [{ message: 'Invalid user' }] };
+  },
+});
+
+describe('request() — async body', () => {
+  it('returns raw JSON body without schema', async () => {
+    @Controller('/')
+    class C {
+      @Post('/json')
+      async handle(req = request()) {
+        const data = await req.body();
+        return data;
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/json', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'test' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(await res.json()).toEqual({ name: 'test' });
+  });
+
+  it('returns undefined when body is absent', async () => {
+    @Controller('/')
+    class C {
+      @Get('/')
+      async handle(req = request()) {
+        const data = await req.body();
+        return { hasBody: data !== undefined };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(new Request('http://localhost/'));
+    expect(await res.json()).toEqual({ hasBody: false });
+  });
+
+  it('validates and returns typed body with schema', async () => {
+    @Controller('/')
+    class C {
+      @Post('/validated')
+      async handle(req = request(userSchema)) {
+        const data = await req.body();
+        return data;
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/validated', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Ada', age: 36 }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ name: 'Ada', age: 36 });
+  });
+
+  it('returns 400 when validation fails', async () => {
+    @Controller('/')
+    class C {
+      @Post('/validated')
+      async handle(req = request(userSchema)) {
+        return await req.body();
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/validated', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Ada' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { code: string };
+    expect(json.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('validates form body with target option', async () => {
+    const formSchema = createStandardSchema<{ name: string }>({
+      validate: (value) => {
+        if (typeof value === 'object' && value !== null && 'name' in value) {
+          return { value: { name: String(value.name) } };
+        }
+        return { issues: [{ message: 'Invalid form' }] };
+      },
+    });
+
+    @Controller('/')
+    class C {
+      @Post('/form')
+      async handle(req = request(formSchema, { target: 'form' })) {
+        return await req.body();
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const formData = new FormData();
+    formData.append('name', 'Ada');
+    const res = await ready.http.fetch(
+      new Request('http://localhost/form', { method: 'POST', body: formData }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ name: 'Ada' });
+  });
+
+  it('returns 415 when content-type mismatches target', async () => {
+    @Controller('/')
+    class C {
+      @Post('/json')
+      async handle(req = request()) {
+        return await req.body();
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/json', {
+        method: 'POST',
+        body: 'plain text',
+        headers: { 'Content-Type': 'text/plain' },
+      }),
+    );
+    expect(res.status).toBe(415);
+  });
+
+  it('body() is idempotent when called twice', async () => {
+    @Controller('/')
+    class C {
+      @Post('/twice')
+      async handle(req = request(userSchema)) {
+        const a = await req.body();
+        const b = await req.body();
+        return { same: JSON.stringify(a) === JSON.stringify(b) };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/twice', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Ada', age: 36 }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(await res.json()).toEqual({ same: true });
+  });
+
+  it('works when called in method body (not default parameter)', async () => {
+    @Controller('/')
+    class C {
+      @Post('/body-call')
+      async handle() {
+        const req = request(userSchema);
+        const data = await req.body();
+        return data;
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/body-call', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Ada', age: 36 }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ name: 'Ada', age: 36 });
   });
 });

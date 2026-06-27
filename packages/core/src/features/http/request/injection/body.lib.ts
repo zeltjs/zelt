@@ -60,7 +60,7 @@ export const parseRequestBody = async (c: Pick<Context, 'req'>): Promise<ParsedB
 };
 
 /** @throws {ZeltContextNotAvailableError} */
-const getBody = (): ParsedBody => {
+export const getBody = (): ParsedBody => {
   const ctx = getInternal(BODY_CONTEXT);
   if (!ctx)
     throw new ZeltContextNotAvailableError({
