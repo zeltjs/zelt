@@ -117,11 +117,14 @@ export class DebugController {
 
 ### Request Body
 
-The request body target is configured when calling `request()`. Use `await req.body()` to read the parsed body:
+The request body target is configured when calling `request()`. Use `await req.body()` to read the parsed body. When no schema is passed, `request()` uses an internal any schema and the default `json` target.
 
 ```typescript
 // @noErrors
 import { Controller, Post, request, response } from '@zeltjs/core';
+import * as v from 'valibot';
+
+const FormSchema = v.record(v.string(), v.unknown());
 
 @Controller('/upload')
 export class UploadController {
@@ -132,7 +135,7 @@ export class UploadController {
   }
 
   @Post('/form')
-  async uploadForm(req = request(undefined, { target: 'form' }), res = response()) {
+  async uploadForm(req = request(FormSchema, { target: 'form' }), res = response()) {
     const formData = await req.body();
     return res.json({ fields: formData });
   }
@@ -141,9 +144,9 @@ export class UploadController {
 
 | `request()` call | `await req.body()` type | Description |
 |------|-------------|-------------|
-| `request()` | `unknown` | Parsed JSON body |
-| `request(undefined, { target: 'form' })` | `FormBody` | Form data record (`Record<string, string \| File \| (string \| File)[]>`) |
-| `request(undefined, { target: 'text' })` | `string` | Plain text body |
+| `request()` | `unknown` | Parsed JSON body with the default any schema |
+| `request(schema)` | schema output | Validated JSON body |
+| `request(schema, { target: 'form' })` | schema output | Validated form data |
 
 :::tip
 For validated request bodies with automatic type inference, use [`request()` with a schema](./validation.md) instead.

@@ -235,6 +235,25 @@ describe('request() — async body', () => {
     expect(await res.json()).toEqual({ hasBody: false });
   });
 
+  it('returns 400 when body is absent for a schema request', async () => {
+    @Controller('/')
+    class C {
+      @Post('/validated')
+      async handle(req = request(userSchema)) {
+        return await req.body();
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/validated', { method: 'POST' }),
+    );
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { code: string };
+    expect(json.code).toBe('VALIDATION_FAILED');
+  });
+
   it('validates and returns typed body with schema', async () => {
     @Controller('/')
     class C {

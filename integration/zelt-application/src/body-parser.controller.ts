@@ -11,12 +11,6 @@ export class BodyParserController {
     return { parsed: data };
   }
 
-  @Post('/text')
-  async text(req = request(v.string(), { target: 'text' })) {
-    const data = await req.body();
-    return { length: data.length, value: data };
-  }
-
   @Post('/form')
   async form(req = request(FormSchema, { target: 'form' })) {
     const data = await req.body();

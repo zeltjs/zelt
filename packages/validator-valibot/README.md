@@ -16,7 +16,7 @@ npm install @zeltjs/validator-valibot valibot @zeltjs/core
 
 ```typescript
 import { Controller, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/validator-valibot';
 import * as v from 'valibot';
 
 const CreateUserSchema = v.object({
@@ -27,7 +27,8 @@ const CreateUserSchema = v.object({
 @Controller('/users')
 class UserController {
   @Post('/')
-  create(data = validated(CreateUserSchema)) {
+  async create(req = request(CreateUserSchema)) {
+    const data = await req.body();
     return { user: data };
   }
 }

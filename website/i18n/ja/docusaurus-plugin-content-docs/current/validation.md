@@ -60,7 +60,7 @@ import TabItem from '@theme/TabItem';
 
 ## Basic Usage
 
-Use `validated()` with a Valibot schema to validate request bodies:
+Use `request(schema)` with a Valibot schema to validate request bodies:
 
 ```typescript
 import { Controller, Post, request, response } from '@zeltjs/core';
@@ -85,7 +85,7 @@ export class UserController {
 
 ## Form Data and File Uploads
 
-Use `validated(schema, 'form')` to validate `multipart/form-data` requests, including file uploads:
+Use `request(schema, { target: 'form' })` to validate `multipart/form-data` requests, including file uploads:
 
 ```typescript
 import { Controller, Post, request, response } from '@zeltjs/core';
@@ -110,7 +110,7 @@ export class UploadController {
 
 ### Target Options
 
-The second argument to `validated()` specifies the request body format:
+The `target` option of `request()` specifies the request body format:
 
 | Target | Content-Type | Use Case |
 |--------|-------------|----------|

@@ -125,7 +125,7 @@ class ItemController {
 
 ## Request Body Validation
 
-Use `validated()` with a Valibot schema to validate and type the request body:
+Use `request()` with a Valibot schema to validate and type the request body:
 
 ```typescript
 import { Controller, Post } from '@zeltjs/core';

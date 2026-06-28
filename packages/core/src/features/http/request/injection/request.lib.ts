@@ -37,7 +37,15 @@ export type ExtractRequestBody<H> =
 export type HasRequestBody<H> =
   NonNullable<H> extends Record<typeof __zeltRequestBodyBrand, true> ? true : false;
 
-type ValidationTarget = 'json' | 'form' | 'text';
+type ValidationTarget = 'json' | 'form';
+
+const anySchema: StandardSchemaV1<unknown, unknown> = {
+  '~standard': {
+    version: 1,
+    vendor: 'zelt',
+    validate: (value) => ({ value }),
+  },
+};
 
 const isThenable = (value: unknown): boolean => {
   if (value === null) return false;
@@ -74,15 +82,15 @@ export function request<Schema extends StandardSchemaV1>(
   opts?: { target?: ValidationTarget },
 ): RequestAccessorBase<unknown> {
   const ctx = requestContext();
+  const bodySchema = schema ?? anySchema;
   const target: ValidationTarget = opts?.target ?? 'json';
 
   const accessor: RequestAccessorBase<unknown> = {
     async body() {
       const parsed = getBody();
-      if (parsed.type === 'none') return undefined;
-      const raw = target === 'form' ? body('form') : target === 'text' ? body('text') : body();
-      if (!schema) return raw;
-      return validateBody(raw, schema);
+      if (parsed.type === 'none') return validateBody(undefined, bodySchema);
+      const raw = target === 'form' ? body('form') : body();
+      return validateBody(raw, bodySchema);
     },
     pathParam: (name: string) => pathParam(name),
     queryParam: (name: string) => ctx.req.query(name),

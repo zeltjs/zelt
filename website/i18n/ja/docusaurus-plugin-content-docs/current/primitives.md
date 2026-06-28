@@ -99,33 +99,10 @@ export class DebugController {
 ### Request Body
 
 ```typescript
-import { Controller, Get, request, response } from '@zeltjs/core';
-
-@Controller('/debug')
-export class DebugController {
-  @Get('/ip')
-  clientIp(req = request(), res = response()) {
-    const ip = req.ip();
-    return res.json({ ip });
-  }
-}
-```
-
-| Type | Return Type | Description |
-|------|-------------|-------------|
-| `body()` | `unknown` | Parsed JSON body |
-| `body('form')` | `FormBody` | Form data record (`Record<string, string \| File \| (string \| File)[]>`) |
-| `body('text')` | `string` | Plain text body |
-
-:::tip
-For validated request bodies with automatic type inference, use [`validated()`](./validation.md) instead.
-:::
-
-### Path Parameters
-
-```typescript
-// @noErrors
 import { Controller, Post, request, response } from '@zeltjs/core';
+import * as v from 'valibot';
+
+const FormSchema = v.record(v.string(), v.unknown());
 
 @Controller('/upload')
 export class UploadController {
@@ -136,9 +113,36 @@ export class UploadController {
   }
 
   @Post('/form')
-  async uploadForm(req = request(undefined, { target: 'form' }), res = response()) {
+  async uploadForm(req = request(FormSchema, { target: 'form' }), res = response()) {
     const formData = await req.body();
     return res.json({ fields: formData });
+  }
+}
+```
+
+The request body target is configured when calling `request()`. When no schema is passed, `request()` uses an internal any schema and the default `json` target.
+
+| Type | Return Type | Description |
+|------|-------------|-------------|
+| `request()` | `unknown` | Parsed JSON body with the default any schema |
+| `request(schema)` | schema output | Validated JSON body |
+| `request(schema, { target: 'form' })` | schema output | Validated form data |
+
+:::tip
+For validated request bodies with automatic type inference, use [`request()` with a schema](./validation.md) instead.
+:::
+
+### Path Parameters
+
+```typescript
+import { Controller, Get, request, response } from '@zeltjs/core';
+
+@Controller('/users')
+export class UserController {
+  @Get('/:id')
+  getUser(req = request(), res = response()) {
+    const id = req.pathParam('id');
+    return res.json({ userId: id });
   }
 }
 ```
