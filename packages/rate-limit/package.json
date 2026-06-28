@@ -40,7 +40,6 @@
     "@zeltjs/core": "workspace:*",
     "@zeltjs/kv": "workspace:*",
     "@zeltjs/testing": "workspace:*",
-    "@zeltjs/validator-valibot": "workspace:*",
     "valibot": "catalog:"
   },
   "volta": {

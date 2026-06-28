@@ -561,9 +561,6 @@ importers:
       '@zeltjs/testing':
         specifier: workspace:*
         version: link:../testing
-      '@zeltjs/validator-valibot':
-        specifier: workspace:*
-        version: link:../validator-valibot
       valibot:
         specifier: 'catalog:'
         version: 1.3.1(typescript@6.0.2)
