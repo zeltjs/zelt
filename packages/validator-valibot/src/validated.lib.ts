@@ -1,2 +1,2 @@
-export type { RequestAccessor } from '@zeltjs/core';
+export type { RequestAccessor, RequestBodyAccessor } from '@zeltjs/core';
 export { request } from '@zeltjs/core';

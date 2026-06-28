@@ -1,1 +1,6 @@
-export type { ExtractRequestBody, HasRequestBody, RequestAccessor } from './injection';
+export type {
+  ExtractRequestBody,
+  HasRequestBody,
+  RequestAccessor,
+  RequestBodyAccessor,
+} from './injection';

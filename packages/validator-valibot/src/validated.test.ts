@@ -11,8 +11,8 @@ describe('request() with Valibot schema', () => {
     @Controller('/')
     class TestController {
       @Post('/json')
-      async json() {
-        return await request(Schema).body();
+      async json(req = request(Schema)) {
+        return await req.body();
       }
     }
 
@@ -35,8 +35,8 @@ describe('request() with Valibot schema', () => {
     @Controller('/')
     class TestController {
       @Post('/form')
-      async form() {
-        return await request(FormSchema, { target: 'form' }).body();
+      async form(req = request(FormSchema, { target: 'form' })) {
+        return await req.body();
       }
     }
 
@@ -58,8 +58,8 @@ describe('request() with Valibot schema', () => {
     @Controller('/')
     class TestController {
       @Post('/json')
-      async json() {
-        return await request(Schema).body();
+      async json(req = request(Schema)) {
+        return await req.body();
       }
     }
 
@@ -79,8 +79,8 @@ describe('request() with Valibot schema', () => {
     @Controller('/')
     class TestController {
       @Post('/json')
-      async json() {
-        return await request(Schema).body();
+      async json(req = request(Schema)) {
+        return await req.body();
       }
     }
 

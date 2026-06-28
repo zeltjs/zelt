@@ -34,8 +34,8 @@ export class TodoController {
   }
 
   @Get('/:id')
-  findById(): Todo {
-    const todo = this.todoService.findById(Number(request().pathParam('id')));
+  findById(req = request()): Todo {
+    const todo = this.todoService.findById(Number(req.pathParam('id')));
     if (!todo) {
       throw new HTTPException(404, { message: 'Todo not found' });
     }
@@ -59,8 +59,8 @@ export class TodoController {
   }
 
   @Delete('/:id')
-  delete() {
-    const deleted = this.todoService.delete(Number(request().pathParam('id')));
+  delete(req = request()) {
+    const deleted = this.todoService.delete(Number(req.pathParam('id')));
     if (!deleted) {
       throw new HTTPException(404, { message: 'Todo not found' });
     }

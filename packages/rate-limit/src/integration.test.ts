@@ -12,8 +12,8 @@ describe('rate-limit integration with primitives', () => {
     class AuthController {
       @Post('/login')
       @RateLimit({ limit: 1, windowSec: 60, key: () => `login:${request().ip()}` })
-      async login() {
-        await request(LoginSchema).body();
+      async login(req = request(LoginSchema)) {
+        await req.body();
         return { ok: true };
       }
     }
@@ -54,8 +54,8 @@ describe('rate-limit integration with primitives', () => {
         windowSec: 60,
         key: async () => `login:${(await request(LoginSchema).body()).email}`,
       })
-      async login() {
-        await request(LoginSchema).body();
+      async login(req = request(LoginSchema)) {
+        await req.body();
         return { ok: true };
       }
     }

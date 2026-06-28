@@ -123,7 +123,7 @@ export class ItemController {
 
 ## Route Parameters
 
-Use `request().pathParam()` to extract route parameters:
+Inject `request()` as a handler parameter and use `req.pathParam()` to extract route parameters:
 
 ```typescript
 import { Controller, Get, request } from '@zeltjs/core';
@@ -171,7 +171,7 @@ If validation fails, Zelt automatically returns a 400 response with detailed err
 
 ### Without Validation
 
-For cases where you don't need validation (e.g., accepting arbitrary JSON), use `request().body()`:
+For cases where you don't need validation (e.g., accepting arbitrary JSON), inject `request()` and use `req.body()`:
 
 ```typescript
 import { Controller, Post, request } from '@zeltjs/core';

@@ -140,6 +140,7 @@ export type {
   ExtractRequestBody,
   HasRequestBody,
   RequestAccessor,
+  RequestBodyAccessor,
 } from './features/http/request/validated.types';
 export type {
   CookieOptions,

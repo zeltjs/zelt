@@ -53,8 +53,8 @@ export class UrlController {
   }
 
   @Get('/stats/:code')
-  async stats(ctx = requestContext() as RequestContext) {
-    const code = request().pathParam('code');
+  async stats(req = request(), ctx = requestContext() as RequestContext) {
+    const code = req.pathParam('code');
     const record = await this.kv.get(ctx, code);
     if (!record) {
       throw new HTTPException(404, { message: 'URL not found' });
@@ -63,8 +63,8 @@ export class UrlController {
   }
 
   @Get('/:code')
-  async redirect(res = response(), ctx = requestContext() as RequestContext) {
-    const code = request().pathParam('code');
+  async redirect(req = request(), res = response(), ctx = requestContext() as RequestContext) {
+    const code = req.pathParam('code');
     const record = await this.kv.get(ctx, code);
     if (!record) {
       throw new HTTPException(404, { message: 'URL not found' });

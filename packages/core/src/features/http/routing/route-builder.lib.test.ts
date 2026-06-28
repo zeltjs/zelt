@@ -78,8 +78,8 @@ describe('parseRequestBody — malformed body handling', () => {
   @Controller('/body')
   class BodyController {
     @Post('/json')
-    async json() {
-      return { received: await request().body() };
+    async json(req = request()) {
+      return { received: await req.body() };
     }
   }
 

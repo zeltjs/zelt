@@ -27,7 +27,9 @@ type RequestAccessorBase<TBody> = {
   method(): string;
 };
 
-export type RequestAccessor<TBody = unknown> = RequestAccessorBase<TBody> & {
+export type RequestAccessor<TBody = unknown> = RequestAccessorBase<TBody>;
+
+export type RequestBodyAccessor<TBody> = RequestAccessor<TBody> & {
   [__zeltRequestBodyBrand]: true;
   readonly [__zeltRequestBodyType]: TBody;
 };
@@ -76,7 +78,7 @@ export function request(): RequestAccessor<unknown>;
 export function request<Schema extends StandardSchemaV1>(
   schema: Schema,
   opts?: { target?: ValidationTarget },
-): RequestAccessor<StandardSchemaV1.InferOutput<Schema>>;
+): RequestBodyAccessor<StandardSchemaV1.InferOutput<Schema>>;
 /** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
 export function request<Schema extends StandardSchemaV1>(
   schema?: Schema,

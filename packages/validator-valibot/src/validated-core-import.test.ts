@@ -12,8 +12,8 @@ describe('request() imported from @zeltjs/core with Valibot', () => {
     @Controller('/users')
     class UserController {
       @Post('/')
-      async create() {
-        return await request(CreateUserSchema).body();
+      async create(req = request(CreateUserSchema)) {
+        return await req.body();
       }
     }
 

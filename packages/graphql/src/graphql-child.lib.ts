@@ -111,7 +111,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
   private createController(): ControllerClass {
     class GraphqlEndpointController {
       /** @throws {Error} */
-      async handle(): Promise<Response> {
+      async handle(req = request()): Promise<Response> {
         const state = getGraphqlRuntimeState(this);
         if (!state) {
           return Response.json(
@@ -120,7 +120,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
           );
         }
 
-        const payload = parseGraphqlRequestPayload(await request().body());
+        const payload = parseGraphqlRequestPayload(await req.body());
         if (!payload) {
           return Response.json(
             { errors: [{ message: 'GraphQL request body must include a query string.' }] },

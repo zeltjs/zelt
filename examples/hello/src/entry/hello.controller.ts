@@ -18,8 +18,8 @@ export class HelloController {
   constructor(private helloService = inject(HelloService)) {}
 
   @Get('/:name')
-  greet(): GreetResponse {
-    return { message: this.helloService.greet(request().pathParam('name')) };
+  greet(req = request()): GreetResponse {
+    return { message: this.helloService.greet(req.pathParam('name')) };
   }
 
   @Post('/')
