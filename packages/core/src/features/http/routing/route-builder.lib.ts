@@ -19,7 +19,14 @@ import type {
   MiddlewareInput,
 } from '../middleware/middleware.types';
 import { setHonoContext } from '../request';
-import { hasParsedBody, parseRequestBody, setBody, setPathParams } from '../request/injection';
+import {
+  hasParsedBody,
+  parseRequestBody,
+  readRequestBody,
+  setBody,
+  setBodyRaw,
+  setPathParams,
+} from '../request/injection';
 import { joinPath } from './path-utils.lib';
 import type { ControllerClass, HttpMethod } from './routing-metadata.lib';
 import {
@@ -165,6 +172,7 @@ const createInjectionMiddleware = (): FunctionMiddleware => {
     const run = async (): Promise<void> => {
       setHonoContext(c);
       if (!hasParsedBody()) {
+        setBodyRaw(await readRequestBody(c));
         setBody(await parseRequestBody(c));
       }
       setPathParams(c.req.param());

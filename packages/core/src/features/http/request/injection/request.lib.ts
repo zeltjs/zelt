@@ -6,7 +6,7 @@ import {
   AsyncValidationUnsupportedException,
   ValidationFailedException,
 } from '../validated.exceptions';
-import { body, getBody } from './body.lib';
+import { body, bodyRaw, getBody } from './body.lib';
 import { pathParam } from './path-param.lib';
 import { resolveClientIp } from './resolve-client-ip.lib';
 
@@ -15,6 +15,7 @@ declare const __zeltRequestBodyType: unique symbol;
 
 type RequestAccessorBase<TBody> = {
   body(): Promise<TBody>;
+  bodyRaw(): string;
   pathParam(name: string): string;
   queryParam(name: string): string | undefined;
   queryParams(name: string): string[];
@@ -69,14 +70,14 @@ const validateBody = <Schema extends StandardSchemaV1>(
   return result.value;
 };
 
-/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | AsyncValidationUnsupportedException | ValidationFailedException} */
+/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
 export function request(): RequestAccessor<unknown>;
-/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | AsyncValidationUnsupportedException | ValidationFailedException} */
+/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
 export function request<Schema extends StandardSchemaV1>(
   schema: Schema,
   opts?: { target?: ValidationTarget },
 ): RequestAccessor<StandardSchemaV1.InferOutput<Schema>>;
-/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | AsyncValidationUnsupportedException | ValidationFailedException} */
+/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
 export function request<Schema extends StandardSchemaV1>(
   schema?: Schema,
   opts?: { target?: ValidationTarget },
@@ -92,6 +93,7 @@ export function request<Schema extends StandardSchemaV1>(
       const raw = target === 'form' ? body('form') : body();
       return validateBody(raw, bodySchema);
     },
+    bodyRaw: () => bodyRaw(),
     pathParam: (name: string) => pathParam(name),
     queryParam: (name: string) => ctx.req.query(name),
     queryParams: (name: string) => ctx.req.queries(name) ?? [],

@@ -1,4 +1,4 @@
-import type { ExtractRequestBody as ExtractBodyFromAccessor, HasRequestBody, ValidationErrorBody } from '@zeltjs/core';
+import type { ExtractRequestBody, HasRequestBody, ValidationErrorBody } from '@zeltjs/core';
 import type { Hono } from 'hono';
 import type { BlankEnv, Schema, TypedResponse } from 'hono/types';
 import type { StatusCode } from 'hono/utils/http-status';
@@ -17,15 +17,15 @@ export type ExtractHandlerBody<H extends (...args: never[]) => unknown> = H exte
   a0: infer A0,
   ...r0: infer _R0
 ) => unknown
-  ? ExtractBodyFromAccessor<A0> extends never
+  ? ExtractRequestBody<A0> extends never
     ? H extends (b0: infer _B0, a1: infer A1, ...r1: infer _R1) => unknown
-      ? ExtractBodyFromAccessor<A1> extends never
+      ? ExtractRequestBody<A1> extends never
         ? H extends (c0: infer _C0, c1: infer _C1, a2: infer A2, ...r2: infer _R2) => unknown
-          ? ExtractBodyFromAccessor<A2>
+          ? ExtractRequestBody<A2>
           : never
-        : ExtractBodyFromAccessor<A1>
+        : ExtractRequestBody<A1>
       : never
-    : ExtractBodyFromAccessor<A0>
+    : ExtractRequestBody<A0>
   : never;
 
 type WrapRaw<T> = [T] extends [

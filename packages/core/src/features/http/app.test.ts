@@ -1,4 +1,5 @@
 import { injectable } from '@needle-di/core';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Context, MiddlewareHandler, Next } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../app';
@@ -11,9 +12,26 @@ import { Middleware } from './middleware/middleware.decorator';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
 import { getContext, request, setContext } from './request/injection';
-import { createStandardSchema } from './request/injection/test.lib';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
+
+const createStandardSchema = <Output>({
+  validate,
+}: {
+  readonly validate: (
+    value: unknown,
+  ) => StandardSchemaV1.Result<Output> | Promise<StandardSchemaV1.Result<Output>>;
+}): StandardSchemaV1<unknown, Output> => {
+  const types: StandardSchemaV1.Types<unknown, Output> | undefined = undefined;
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'zelt-test',
+      validate,
+      types,
+    },
+  };
+};
 
 const passthroughFormSchema = createStandardSchema<unknown>({
   validate: (value) => ({ value }),
@@ -124,9 +142,17 @@ describe('createApp() — fetch', () => {
       @Post('/')
       async get() {
         setContext('requestId', 'outer');
-        const outerBefore = { body: await request().body(), requestId: getContext('requestId'), url: request().url() };
+        const outerBefore = {
+          body: await request().body(),
+          requestId: getContext('requestId'),
+          url: request().url(),
+        };
         const res = await fetchInner();
-        const outerAfter = { body: await request().body(), requestId: getContext('requestId'), url: request().url() };
+        const outerAfter = {
+          body: await request().body(),
+          requestId: getContext('requestId'),
+          url: request().url(),
+        };
         return { inner: await res.json(), outerAfter, outerBefore };
       }
     }

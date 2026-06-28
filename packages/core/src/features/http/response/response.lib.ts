@@ -3,6 +3,8 @@ import { deleteCookie, setCookie } from 'hono/cookie';
 import { stream, streamSSE, streamText } from 'hono/streaming';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
+export type { TypedResponse };
+
 export type ZeltStreamWriter = {
   readonly aborted: boolean;
   readonly closed: boolean;

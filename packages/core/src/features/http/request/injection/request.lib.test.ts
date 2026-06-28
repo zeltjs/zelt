@@ -219,6 +219,28 @@ describe('request() — async body', () => {
     expect(await res.json()).toEqual({ name: 'test' });
   });
 
+  it('returns raw body text for signed JSON payloads', async () => {
+    @Controller('/')
+    class C {
+      @Post('/json')
+      handle(req = request()) {
+        return { raw: req.bodyRaw() };
+      }
+    }
+
+    const raw = '{ "name": "test", "sig": "preserve whitespace" }';
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/json', {
+        method: 'POST',
+        body: raw,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(await res.json()).toEqual({ raw });
+  });
+
   it('returns undefined when body is absent', async () => {
     @Controller('/')
     class C {
@@ -327,6 +349,25 @@ describe('request() — async body', () => {
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ name: 'Ada' });
+  });
+
+  it('returns 415 when raw multipart body is requested', async () => {
+    @Controller('/')
+    class C {
+      @Post('/form')
+      handle(req = request()) {
+        return { raw: req.bodyRaw() };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const formData = new FormData();
+    formData.append('name', 'Ada');
+    const res = await ready.http.fetch(
+      new Request('http://localhost/form', { method: 'POST', body: formData }),
+    );
+    expect(res.status).toBe(415);
   });
 
   it('returns 415 when content-type mismatches target', async () => {
