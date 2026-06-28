@@ -1,1 +1,1 @@
-export type { ExtractRequestBody, HasRequestBody, RequestAccessor } from './injection/request.lib';
+export type { ExtractRequestBody, HasRequestBody, RequestAccessor } from './injection';
