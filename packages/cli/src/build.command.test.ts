@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,6 +18,14 @@ describe('runBuild', () => {
     await rm(testDir, { recursive: true, force: true });
   });
 
+  const writeBin = async (rootDir: string, name: string, content: string): Promise<void> => {
+    const binDir = join(rootDir, 'node_modules', '.bin');
+    await mkdir(binDir, { recursive: true });
+    const binPath = join(binDir, name);
+    await writeFile(binPath, content);
+    await chmod(binPath, 0o755);
+  };
+
   it('runs build.command without requiring a tsdown entry', async () => {
     const command = `node -e "require('node:fs').writeFileSync('built.txt', 'ok')"`;
     await writeFile(
@@ -35,6 +43,62 @@ describe('runBuild', () => {
     await runBuild(testDir, {});
 
     await expect(readFile(join(testDir, 'built.txt'), 'utf8')).resolves.toBe('ok');
+  });
+
+  it('resolves build.command from ancestor node_modules/.bin', async () => {
+    const workspaceDir = join(testDir, 'workspace');
+    const projectDir = join(workspaceDir, 'app');
+    await mkdir(projectDir, { recursive: true });
+    await writeBin(
+      workspaceDir,
+      'custom-builder',
+      `#!/usr/bin/env sh\nprintf ok > "$PWD/custom-built.txt"\n`,
+    );
+    await writeFile(
+      join(projectDir, 'zelt.config.ts'),
+      `
+        export default {
+          app: () => ({}),
+          build: {
+            command: "custom-builder",
+          },
+        };
+      `,
+    );
+
+    await runBuild(projectDir, {});
+
+    await expect(readFile(join(projectDir, 'custom-built.txt'), 'utf8')).resolves.toBe('ok');
+  });
+
+  it('runs the default tsdown build through the same ancestor bin resolution', async () => {
+    const workspaceDir = join(testDir, 'workspace');
+    const projectDir = join(workspaceDir, 'app');
+    await mkdir(projectDir, { recursive: true });
+    await writeBin(
+      workspaceDir,
+      'tsdown',
+      `#!/usr/bin/env sh\nprintf "%s" "$*" > "$PWD/tsdown-args.txt"\nprintf ok > "$PWD/default-built.txt"\n`,
+    );
+    await writeFile(
+      join(projectDir, 'zelt.config.ts'),
+      `
+        export default {
+          app: () => ({}),
+          build: {
+            entry: "./src/main.ts",
+            outDir: "./dist",
+          },
+        };
+      `,
+    );
+
+    await runBuild(projectDir, {});
+
+    await expect(readFile(join(projectDir, 'default-built.txt'), 'utf8')).resolves.toBe('ok');
+    await expect(readFile(join(projectDir, 'tsdown-args.txt'), 'utf8')).resolves.toContain(
+      '--entry ./src/main.ts --out-dir ./dist',
+    );
   });
 
   it('throws when build.command is configured with a plugin build hook', async () => {

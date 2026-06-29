@@ -2,16 +2,18 @@ import { spawn } from 'node:child_process';
 
 import consola from 'consola';
 
+import { buildCommandEnv } from './build-bin-path.lib';
 import { ZeltBuildError } from './cli.errors';
 
 export type CommandBuildOptions = {
   readonly cwd: string;
   readonly command: string;
+  readonly env: NodeJS.ProcessEnv;
 };
 
 /** @throws {ZeltBuildError} */
 export const runCommandBuild = async (options: CommandBuildOptions): Promise<void> => {
-  const { cwd, command } = options;
+  const { cwd, command, env } = options;
 
   consola.info(`Running build command in ${cwd}`);
   consola.debug(command);
@@ -19,6 +21,7 @@ export const runCommandBuild = async (options: CommandBuildOptions): Promise<voi
   const exitCode = await new Promise<number>((resolvePromise, rejectPromise) => {
     const child = spawn(command, {
       cwd,
+      env: buildCommandEnv(cwd, env),
       shell: true,
       stdio: 'inherit',
     });

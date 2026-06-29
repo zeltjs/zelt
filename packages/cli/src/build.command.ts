@@ -18,7 +18,7 @@ import { runCommandBuild } from './command-build.lib';
 import type { BuildConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
-import { runTsdownBuild } from './tsdown.lib';
+import { buildTsdownCommand } from './tsdown.lib';
 
 type BuildArgs = {
   readonly config?: string;
@@ -66,13 +66,14 @@ const assertBuildImplementation = (
 };
 
 /** @throws {ZeltBuildError} */
-const runDefaultBuild = async (cwd: string, buildConfig: BuildConfig): Promise<void> => {
+const runDefaultBuild = async (
+  cwd: string,
+  buildConfig: BuildConfig,
+  env: NodeJS.ProcessEnv,
+): Promise<void> => {
   consola.start('Building...');
-  if (buildConfig.command !== undefined) {
-    await runCommandBuild({ cwd, command: buildConfig.command });
-  } else {
-    await runTsdownBuild({ cwd, config: buildConfig });
-  }
+  const command = buildConfig.command ?? buildTsdownCommand(buildConfig);
+  await runCommandBuild({ cwd, command, env });
   consola.success('Build completed');
 };
 
@@ -96,7 +97,7 @@ export const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void>
     const buildResult = await runBuildHook(hookOptions);
 
     if (!buildResult.handled) {
-      await runDefaultBuild(cwd, buildConfig);
+      await runDefaultBuild(cwd, buildConfig, nodeCliRuntime.env());
     }
   } catch (error) {
     success = false;

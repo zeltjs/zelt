@@ -48,3 +48,7 @@ export default defineConfig({
 
 `build.command` replaces the default tsdown build. It cannot be used together with a
 plugin `build` hook, because both define the build implementation.
+
+The command runs from the current working directory used to invoke `zelt build`.
+Local binaries are resolved from `node_modules/.bin` in that directory and each
+ancestor directory, so workspace-root binaries are available to package builds.
