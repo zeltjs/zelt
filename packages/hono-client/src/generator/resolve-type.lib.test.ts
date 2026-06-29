@@ -70,6 +70,15 @@ const loadCompilerContext = async () => {
 describe('resolveAppType', () => {
   const resolver = new AppTypeResolverService();
 
+  const callResolverPrivate = <TArgs extends readonly unknown[], TReturn>(
+    methodName: string,
+    ...args: TArgs
+  ): TReturn => {
+    const method = Reflect.get(resolver, methodName);
+    expect(typeof method).toBe('function');
+    return Reflect.apply(method, resolver, args) as TReturn;
+  };
+
   it(
     'resolves BuildAppType to a fully expanded Hono type',
     async () => {
@@ -123,6 +132,41 @@ describe('resolveAppType', () => {
     },
     portableTestTimeout,
   );
+
+  it('normalizes external imports with Windows path separators', () => {
+    const output = callResolverPrivate<[string], string>(
+      'normalizeExternalImportReferences',
+      String.raw`type App = import("C:\\repo\\node_modules\\hono\\dist\\types\\hono").Hono;`,
+    );
+
+    expect(output).toBe("type App = import('hono').Hono;");
+  });
+
+  it('detects Windows local project references in portable output', () => {
+    const result = callResolverPrivate<
+      [string, string],
+      ReturnType<AppTypeResolverService['resolve']>
+    >(
+      'assertNoLocalReferences',
+      'type App = import("C:/repo/pkg/src/user").User;',
+      String.raw`C:\\repo\\pkg`,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe('local_reference_leaked');
+  });
+
+  it('detects Windows relative imports in portable output', () => {
+    const result = callResolverPrivate<
+      [string, string],
+      ReturnType<AppTypeResolverService['resolve']>
+    >('assertNoLocalReferences', String.raw`type App = import("..\\user").User;`, projectRoot);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe('local_reference_leaked');
+  });
 
   it(
     'does not contain local project file paths',

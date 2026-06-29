@@ -1,4 +1,4 @@
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve, win32 } from 'node:path';
 
 import { Injectable } from '@zeltjs/core';
 
@@ -178,8 +178,9 @@ export class AppTypeResolverService {
   }
 
   private externalModuleSpecifier(absoluteModulePath: string): string | undefined {
+    const normalizedModulePath = this.normalizePathSeparators(absoluteModulePath);
     for (const [test, specifier] of this.externalModuleRewrites) {
-      if (absoluteModulePath.includes(test)) return specifier;
+      if (normalizedModulePath.includes(test)) return specifier;
     }
     return undefined;
   }
@@ -559,11 +560,34 @@ export class AppTypeResolverService {
   }
 
   private resolveModulePath(modulePath: string, containingDir: string): string {
-    return modulePath.startsWith('.') ? resolve(containingDir, modulePath) : modulePath;
+    if (!modulePath.startsWith('.')) return modulePath;
+    if (this.isWindowsAbsolutePath(containingDir)) return win32.resolve(containingDir, modulePath);
+    return resolve(containingDir, modulePath);
+  }
+
+  private normalizePathSeparators(pathText: string): string {
+    return pathText.replace(/\\+/g, '/').replace(/\/+/g, '/');
+  }
+
+  private isWindowsAbsolutePath(pathText: string): boolean {
+    return /^[A-Za-z]:[\\/]/.test(pathText);
+  }
+
+  private isAbsolutePath(pathText: string): boolean {
+    return isAbsolute(pathText) || this.isWindowsAbsolutePath(pathText);
+  }
+
+  private normalizeAbsolutePath(pathText: string): string {
+    const absolutePath = this.isWindowsAbsolutePath(pathText) ? pathText : resolve(pathText);
+    return this.normalizePathSeparators(absolutePath);
+  }
+
+  private isNodeModulesPath(pathText: string): boolean {
+    return this.normalizePathSeparators(pathText).includes('/node_modules/');
   }
 
   private normalizeProjectRoot(projectRoot: string): string {
-    const normalized = resolve(projectRoot);
+    const normalized = this.normalizeAbsolutePath(projectRoot);
     return normalized.endsWith('/') ? normalized : `${normalized}/`;
   }
 
@@ -573,9 +597,11 @@ export class AppTypeResolverService {
     containingDir: string,
   ): boolean {
     const resolvedPath = this.resolveModulePath(modulePath, containingDir);
-    if (!isAbsolute(resolvedPath)) return false;
-    if (resolvedPath.includes('/node_modules/')) return false;
-    return resolve(resolvedPath).startsWith(this.normalizeProjectRoot(projectRoot));
+    if (!this.isAbsolutePath(resolvedPath)) return false;
+    if (this.isNodeModulesPath(resolvedPath)) return false;
+    return this.normalizeAbsolutePath(resolvedPath).startsWith(
+      this.normalizeProjectRoot(projectRoot),
+    );
   }
 
   private getLocalModulePath(
@@ -584,7 +610,7 @@ export class AppTypeResolverService {
     containingDir: string,
   ): string | undefined {
     const resolvedPath = this.resolveModulePath(modulePath, containingDir);
-    if (modulePath.includes('/node_modules/')) return undefined;
+    if (this.isNodeModulesPath(modulePath)) return undefined;
     if (!this.isInsideProjectRoot(modulePath, projectRoot, containingDir)) return undefined;
     return resolvedPath;
   }
@@ -634,14 +660,16 @@ export class AppTypeResolverService {
   }
 
   private assertNoLocalReferences(source: string, projectRoot: string): ResolveResult<void> {
-    const relativeReference = /import\(['"](\.{1,2}\/[^'"]+)['"]\)/.exec(source)?.[1];
+    const normalizedSource = this.normalizePathSeparators(source);
+    const relativeReference = /import\(['"](\.{1,2}\/[^'"]+)['"]\)/.exec(normalizedSource)?.[1];
     if (relativeReference) {
       return {
         ok: false,
         error: { kind: 'local_reference_leaked', reference: relativeReference },
       };
     }
-    if (!source.includes(projectRoot)) return { ok: true, value: undefined };
+    const normalizedProjectRoot = this.normalizeProjectRoot(projectRoot);
+    if (!normalizedSource.includes(normalizedProjectRoot)) return { ok: true, value: undefined };
     return { ok: false, error: { kind: 'local_reference_leaked', reference: projectRoot } };
   }
 
