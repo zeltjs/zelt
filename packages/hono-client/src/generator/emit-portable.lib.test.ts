@@ -1,7 +1,9 @@
 import { resolve } from 'node:path';
 
 import { Controller } from '@zeltjs/core';
+import { getOrCreateProgram } from '@zeltjs/decorator-metadata/inspect';
 import { describe, expect, it } from 'vitest';
+import { PortableDtoController } from './fixtures/portable-dto.controller.fixture';
 import type { ControllerClass, HttpMetadata } from './generator.types';
 import { PortableAppTypeEmitterService } from './portable-app-type-emitter.service';
 
@@ -55,6 +57,59 @@ const distDir = resolve(__dirname, '../../generated');
 const tsconfig = resolve(__dirname, '../../tsconfig.json');
 const projectRoot = resolve(__dirname, '../..');
 const portableTestTimeout = 30_000;
+
+const portableDtoMetadata: HttpMetadata = {
+  controllers: [
+    {
+      basePath: '/portable-dto',
+      name: 'PortableDtoController',
+      routes: [
+        {
+          method: 'GET',
+          path: '/:id',
+          fullPath: '/portable-dto/:id',
+          methodName: 'show',
+        },
+      ],
+    },
+  ],
+};
+
+const expectGeneratedAppTypeToTypeCheck = async (sourceText: string) => {
+  const result = await getOrCreateProgram(tsconfig);
+  if (result.isErr()) throw new Error(`Failed to load program: ${result.error.message}`);
+
+  const { ts, program: baseProgram } = result.value;
+  const compilerOptions = baseProgram.getCompilerOptions();
+  const fileName = resolve(distDir, 'app-type.ts');
+  const sourceFile = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
+  const host = ts.createCompilerHost(compilerOptions);
+  const getSourceFile = host.getSourceFile.bind(host);
+  const fileExists = host.fileExists.bind(host);
+  const readFile = host.readFile.bind(host);
+
+  host.getSourceFile = (requestedFileName, languageVersion, onError, shouldCreateNewSourceFile) => {
+    if (requestedFileName === fileName) return sourceFile;
+    return getSourceFile(requestedFileName, languageVersion, onError, shouldCreateNewSourceFile);
+  };
+  host.fileExists = (requestedFileName) =>
+    requestedFileName === fileName || fileExists(requestedFileName);
+  host.readFile = (requestedFileName) => {
+    if (requestedFileName === fileName) return sourceText;
+    return readFile(requestedFileName);
+  };
+
+  const generatedProgram = ts.createProgram({
+    rootNames: [fileName],
+    options: compilerOptions,
+    host,
+  });
+  const diagnostics = [
+    ...generatedProgram.getSyntacticDiagnostics(),
+    ...generatedProgram.getSemanticDiagnostics(),
+  ];
+  expect(diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'))).toEqual([]);
+};
 
 describe('emitPortableAppType', () => {
   const emitter = new PortableAppTypeEmitterService();
@@ -159,6 +214,28 @@ describe('emitPortableAppType', () => {
       expect(result.value).toContain('/posts');
       expect(result.value).toContain('$get');
       expect(result.value).toContain('title: string');
+    },
+    portableTestTimeout,
+  );
+
+  it(
+    'generates type-checkable portable output for generic DTOs with imported local DTOs',
+    async () => {
+      const result = await emitter.emit({
+        metadata: portableDtoMetadata,
+        controllers: [PortableDtoController] as readonly ControllerClass[],
+        distDir,
+        tsconfig,
+        projectRoot,
+      });
+
+      if (!result.ok) throw new Error(JSON.stringify(result.error));
+
+      expect(result.value).toContain('/portable-dto/:id');
+      expect(result.value).toContain('value:');
+      expect(result.value).toContain('bio: string');
+      expect(result.value).not.toContain('PortableProfile');
+      await expectGeneratedAppTypeToTypeCheck(result.value);
     },
     portableTestTimeout,
   );

@@ -217,7 +217,7 @@ describe('resolveAppType', () => {
 
       const output = result.value.portableOutput;
       expect(output).not.toContain(projectRoot);
-      expect(output).toMatch(/profile:\s*\(\{\s*displayName: string;/);
+      expect(output).toMatch(/profile:\s*\{[^}]*displayName: string;/);
       expect(output).toContain('displayName: string');
     },
     portableTestTimeout,

@@ -186,93 +186,254 @@ export class AppTypeResolverService {
     return undefined;
   }
 
-  private hasLocalTypeDeclaration(
-    sourceFile: TSSourceFile,
-    typeName: string,
+  private parseTypeText(
+    source: string,
     ts: TypeScriptModule,
-  ): boolean {
-    return this.findLocalTypeDeclaration(sourceFile, typeName, ts) !== undefined;
+  ): { readonly sourceFile: TSSourceFile; readonly typeNode: import('typescript').TypeNode } {
+    const sourceFile = ts.createSourceFile(
+      '__portable_type.ts',
+      `type __Portable = ${source};`,
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    const statement = sourceFile.statements[0];
+    if (!statement || !ts.isTypeAliasDeclaration(statement)) {
+      throw new Error('Failed to parse rendered type text');
+    }
+    return { sourceFile, typeNode: statement.type };
   }
 
-  private createLocalImportTypeNode(
+  private typeParameterSubstitutions(
+    declaration: LocalTypeDeclaration,
+    typeArguments: readonly import('typescript').TypeNode[],
+  ): ReadonlyMap<string, import('typescript').TypeNode> {
+    const substitutions = new Map<string, import('typescript').TypeNode>();
+    for (const [index, typeParameter] of (declaration.typeParameters ?? []).entries()) {
+      const argument = typeArguments[index];
+      if (argument) substitutions.set(typeParameter.name.text, argument);
+    }
+    return substitutions;
+  }
+
+  private declarationTypeNode(
+    declaration: LocalTypeDeclaration,
+    ts: TypeScriptModule,
+  ): import('typescript').TypeNode {
+    if (ts.isTypeAliasDeclaration(declaration)) return declaration.type;
+    return ts.factory.createTypeLiteralNode(declaration.members);
+  }
+
+  private importTypeReference(
+    node: import('typescript').ImportTypeNode,
+    ts: TypeScriptModule,
+  ): { readonly modulePath: string; readonly exportName: string } | undefined {
+    if (!ts.isLiteralTypeNode(node.argument)) return undefined;
+    if (!ts.isStringLiteral(node.argument.literal)) return undefined;
+    if (!node.qualifier || !ts.isIdentifier(node.qualifier)) return undefined;
+    return { modulePath: node.argument.literal.text, exportName: node.qualifier.text };
+  }
+
+  private findImportedLocalTypeDeclaration(
+    program: TSProgram,
     sourceFile: TSSourceFile,
     typeName: string,
-    typeArguments: import('typescript').NodeArray<import('typescript').TypeNode> | undefined,
+    projectRoot: string,
     ts: TypeScriptModule,
-  ): import('typescript').ImportTypeNode {
-    return ts.factory.createImportTypeNode(
-      ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(sourceFile.fileName)),
-      undefined,
-      ts.factory.createIdentifier(typeName),
-      typeArguments,
-      false,
+  ): { readonly sourceFile: TSSourceFile; readonly declaration: LocalTypeDeclaration } | undefined {
+    for (const statement of sourceFile.statements) {
+      if (!ts.isImportDeclaration(statement)) continue;
+      if (!ts.isStringLiteral(statement.moduleSpecifier)) continue;
+      const namedBindings = statement.importClause?.namedBindings;
+      if (!namedBindings || !ts.isNamedImports(namedBindings)) continue;
+
+      for (const element of namedBindings.elements) {
+        if (element.name.text !== typeName) continue;
+
+        const localModulePath = this.getLocalModulePath(
+          statement.moduleSpecifier.text,
+          projectRoot,
+          dirname(sourceFile.fileName),
+        );
+        if (!localModulePath) return undefined;
+
+        const importedSourceFile = this.getSourceFileForImport(program, localModulePath);
+        if (!importedSourceFile) return undefined;
+
+        const exportName = element.propertyName?.text ?? element.name.text;
+        const declaration = this.findLocalTypeDeclaration(importedSourceFile, exportName, ts);
+        if (!declaration) return undefined;
+
+        return { sourceFile: importedSourceFile, declaration };
+      }
+    }
+    return undefined;
+  }
+
+  private inlineDeclarationTypeNode(
+    program: TSProgram,
+    declaration: LocalTypeDeclaration,
+    declarationSourceFile: TSSourceFile,
+    typeArguments: readonly import('typescript').TypeNode[],
+    projectRoot: string,
+    ts: TypeScriptModule,
+    transformContext: import('typescript').TransformationContext,
+    seen: ReadonlySet<string>,
+  ): import('typescript').TypeNode {
+    const substitutions = this.typeParameterSubstitutions(declaration, typeArguments);
+    return this.inlineLocalTypeNode(
+      program,
+      this.declarationTypeNode(declaration, ts),
+      declarationSourceFile,
+      dirname(declarationSourceFile.fileName),
+      projectRoot,
+      ts,
+      transformContext,
+      substitutions,
+      seen,
     );
   }
 
-  private printNodeWithLocalTypeImports(
-    node: import('typescript').Node,
+  private inlineLocalTypeNode(
+    program: TSProgram,
+    node: import('typescript').TypeNode,
     sourceFile: TSSourceFile,
+    containingDir: string,
+    projectRoot: string,
     ts: TypeScriptModule,
-  ): string {
-    const transformed = ts.transform(node, [
-      (context) => (root) => ts.visitNode(root, this.localImportVisitor(context, sourceFile, ts)),
-    ]);
-    const transformedNode = transformed.transformed[0];
-    if (!transformedNode) {
-      transformed.dispose();
-      return this.printNode(node, sourceFile, ts);
-    }
-    const result = this.printNode(transformedNode, sourceFile, ts);
-    transformed.dispose();
-    return result;
-  }
-
-  private localImportVisitor(
-    context: import('typescript').TransformationContext,
-    sourceFile: TSSourceFile,
-    ts: TypeScriptModule,
-  ): (child: import('typescript').Node) => import('typescript').Node {
+    transformContext: import('typescript').TransformationContext,
+    substitutions: ReadonlyMap<string, import('typescript').TypeNode>,
+    seen: ReadonlySet<string>,
+  ): import('typescript').TypeNode {
     const visit = (child: import('typescript').Node): import('typescript').Node => {
-      if (
-        ts.isTypeReferenceNode(child) &&
-        ts.isIdentifier(child.typeName) &&
-        this.hasLocalTypeDeclaration(sourceFile, child.typeName.text, ts)
-      ) {
-        return this.createLocalImportTypeNode(
+      if (ts.isTypeReferenceNode(child) && ts.isIdentifier(child.typeName)) {
+        const substitution = substitutions.get(child.typeName.text);
+        if (substitution) return ts.visitNode(substitution, visit);
+
+        const localDeclaration = this.findLocalTypeDeclaration(sourceFile, child.typeName.text, ts);
+        if (localDeclaration) {
+          return this.inlineResolvedDeclaration(
+            program,
+            localDeclaration,
+            sourceFile,
+            child.typeArguments ?? [],
+            sourceFile,
+            containingDir,
+            projectRoot,
+            ts,
+            transformContext,
+            seen,
+          );
+        }
+
+        const importedDeclaration = this.findImportedLocalTypeDeclaration(
+          program,
           sourceFile,
           child.typeName.text,
-          child.typeArguments,
+          projectRoot,
           ts,
         );
+        if (importedDeclaration) {
+          return this.inlineResolvedDeclaration(
+            program,
+            importedDeclaration.declaration,
+            importedDeclaration.sourceFile,
+            child.typeArguments ?? [],
+            sourceFile,
+            containingDir,
+            projectRoot,
+            ts,
+            transformContext,
+            seen,
+          );
+        }
       }
-      return ts.visitEachChild(child, visit, context);
+
+      if (ts.isImportTypeNode(child)) {
+        const reference = this.importTypeReference(child, ts);
+        if (!reference) return ts.visitEachChild(child, visit, transformContext);
+        if (!this.isInsideProjectRoot(reference.modulePath, projectRoot, containingDir)) {
+          return ts.visitEachChild(child, visit, transformContext);
+        }
+
+        const localModulePath = this.getLocalModulePath(
+          reference.modulePath,
+          projectRoot,
+          containingDir,
+        );
+        if (!localModulePath) return ts.visitEachChild(child, visit, transformContext);
+
+        const importedSourceFile = this.getSourceFileForImport(program, localModulePath);
+        if (!importedSourceFile) return ts.visitEachChild(child, visit, transformContext);
+
+        const declaration = this.findLocalTypeDeclaration(
+          importedSourceFile,
+          reference.exportName,
+          ts,
+        );
+        if (!declaration) return ts.visitEachChild(child, visit, transformContext);
+
+        return this.inlineResolvedDeclaration(
+          program,
+          declaration,
+          importedSourceFile,
+          child.typeArguments ?? [],
+          sourceFile,
+          containingDir,
+          projectRoot,
+          ts,
+          transformContext,
+          seen,
+        );
+      }
+
+      return ts.visitEachChild(child, visit, transformContext);
     };
-    return visit;
+
+    return ts.visitNode(node, visit) as import('typescript').TypeNode;
   }
 
-  private renderInterfaceExpression(
-    declaration: import('typescript').InterfaceDeclaration,
-    sourceFile: TSSourceFile,
-    ts: TypeScriptModule,
-  ): string {
-    const typeLiteral = ts.factory.createTypeLiteralNode(declaration.members);
-    return this.printNodeWithLocalTypeImports(typeLiteral, sourceFile, ts);
-  }
-
-  private findLocalTypeExpression(
+  private inlineResolvedDeclaration(
     program: TSProgram,
-    modulePath: string,
-    exportName: string,
+    declaration: LocalTypeDeclaration,
+    declarationSourceFile: TSSourceFile,
+    typeArguments: readonly import('typescript').TypeNode[],
+    typeArgumentSourceFile: TSSourceFile,
+    typeArgumentContainingDir: string,
+    projectRoot: string,
     ts: TypeScriptModule,
-  ): string | undefined {
-    const sourceFile = this.getSourceFileForImport(program, modulePath);
-    if (!sourceFile) return undefined;
-    const declaration = this.findLocalTypeDeclaration(sourceFile, exportName, ts);
-    if (!declaration) return undefined;
-    if (ts.isTypeAliasDeclaration(declaration)) {
-      return this.printNodeWithLocalTypeImports(declaration.type, sourceFile, ts);
+    transformContext: import('typescript').TransformationContext,
+    seen: ReadonlySet<string>,
+  ): import('typescript').TypeNode {
+    const key = `${declarationSourceFile.fileName}#${declaration.name.text}`;
+    if (seen.has(key)) {
+      throw new Error(`Recursive local type reference is not supported: ${key}`);
     }
-    return this.renderInterfaceExpression(declaration, sourceFile, ts);
+
+    const nextSeen = new Set(seen);
+    nextSeen.add(key);
+    const resolvedTypeArguments = typeArguments.map((argument) =>
+      this.inlineLocalTypeNode(
+        program,
+        argument,
+        typeArgumentSourceFile,
+        typeArgumentContainingDir,
+        projectRoot,
+        ts,
+        transformContext,
+        new Map(),
+        seen,
+      ),
+    );
+    return this.inlineDeclarationTypeNode(
+      program,
+      declaration,
+      declarationSourceFile,
+      resolvedTypeArguments,
+      projectRoot,
+      ts,
+      transformContext,
+      nextSeen,
+    );
   }
 
   private resolveModulePath(modulePath: string, containingDir: string): string {
@@ -313,41 +474,30 @@ export class AppTypeResolverService {
     ts: TypeScriptModule,
     containingDir: string,
   ): ResolveResult<string> {
-    let current = source;
-    for (let i = 0; i < 20; i += 1) {
-      const next = this.replaceLocalImportReferences(
-        program,
-        current,
-        projectRoot,
-        ts,
-        containingDir,
-      );
-      if (next === current) return { ok: true, value: current };
-      current = next;
+    const parsed = this.parseTypeText(source, ts);
+    const transformed = ts.transform(parsed.typeNode, [
+      (context) => (root) =>
+        this.inlineLocalTypeNode(
+          program,
+          root,
+          parsed.sourceFile,
+          containingDir,
+          projectRoot,
+          ts,
+          context,
+          new Map(),
+          new Set(),
+        ),
+    ]);
+    const transformedNode = transformed.transformed[0];
+    if (!transformedNode) {
+      transformed.dispose();
+      return this.typeResolutionError('Local type reference expansion returned no type node');
     }
-    return this.typeResolutionError(
-      'Local type reference expansion did not converge within iteration limit',
-    );
-  }
 
-  private replaceLocalImportReferences(
-    program: TSProgram,
-    source: string,
-    projectRoot: string,
-    ts: TypeScriptModule,
-    containingDir: string,
-  ): string {
-    return source.replace(
-      /import\("([^"]+)"\)\.([A-Za-z_$][\w$]*)/g,
-      (matched: string, modulePath: string, exportName: string) => {
-        if (!this.isInsideProjectRoot(modulePath, projectRoot, containingDir)) return matched;
-        const localModulePath = this.getLocalModulePath(modulePath, projectRoot, containingDir);
-        if (!localModulePath) return matched;
-        const expression = this.findLocalTypeExpression(program, localModulePath, exportName, ts);
-        if (!expression) return matched;
-        return `(${expression})`;
-      },
-    );
+    const result = this.printNode(transformedNode, parsed.sourceFile, ts);
+    transformed.dispose();
+    return { ok: true, value: result };
   }
 
   private assertNoLocalReferences(source: string, projectRoot: string): ResolveResult<void> {
