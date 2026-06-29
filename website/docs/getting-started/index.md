@@ -14,7 +14,7 @@ Zelt is split into focused packages. Here's where each function lives:
 | Function | Package | Purpose |
 |----------|---------|---------|
 | `createApp`, `Controller`, `Get`, `Post`, `inject`, ... | `@zeltjs/core` | Framework core |
-| `request()` | `@zeltjs/validator-valibot` | Request validation with Valibot |
+| `request()`, `request(schema)` | `@zeltjs/core` | Request access, body parsing, and Standard Schema validation |
 | `onNode()` | `@zeltjs/adapter-node` | Node.js runtime adapter |
 | `onBun()` | `@zeltjs/adapter-bun` | Bun runtime adapter |
 | `onCloudflareWorkers()` | `@zeltjs/adapter-cloudflare-workers` | Workers adapter |

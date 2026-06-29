@@ -152,7 +152,7 @@ class PostController {
 
 ```typescript
 import { Controller, Authorized, Post } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import { RateLimit } from '@zeltjs/rate-limit';
 import * as v from 'valibot';
 
@@ -262,7 +262,7 @@ Combine `@Authorized` with ownership checks:
 
 ```typescript
 import { Controller, Authorized, Put, Injectable, inject, currentUser, currentRoles } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
 

@@ -32,9 +32,9 @@ import TabItem from '@theme/TabItem';
   </TabItem>
 </Tabs>
 
-### @zeltjs/validator-valibot と併用する場合
+### Valibot adapter と併用する場合
 
-`@zeltjs/validator-valibot` を使っている場合、`@valibot/to-json-schema` も必要です：
+Valibot から schema を生成する場合は、`@zeltjs/validator-valibot/openapi` と `@valibot/to-json-schema` が必要です：
 
 <Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>

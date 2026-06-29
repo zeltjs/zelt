@@ -53,7 +53,7 @@ export class HelloController {
 
 - `@Controller('/hello')` — Sets the base path for all routes in this controller
 - `@Get('/:name')` — Handles GET requests to `/hello/:name`
-- `pathParam('name')` — Extracts the `name` parameter from the URL path
+- `req.pathParam('name')` — Extracts the `name` parameter from the URL path
 
 ### Step 2: Create the Application
 

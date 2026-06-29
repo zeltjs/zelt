@@ -1,5 +1,4 @@
-import { Controller, Post } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { Controller, Post, request } from '@zeltjs/core';
 import * as v from 'valibot';
 
 export const CreateUserSchema = v.object({

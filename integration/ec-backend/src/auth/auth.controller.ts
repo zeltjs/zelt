@@ -1,7 +1,6 @@
 import { JwtMiddleware } from '@zeltjs/auth-jwt';
-import { Controller, Get, inject, Post, UseMiddleware } from '@zeltjs/core';
+import { Controller, Get, inject, Post, request, UseMiddleware } from '@zeltjs/core';
 import { RateLimit } from '@zeltjs/rate-limit';
-import { request } from '@zeltjs/validator-valibot';
 import { HTTPException } from 'hono/http-exception';
 import { LoginSchema, RegisterSchema } from './auth.schema';
 import { AuthService } from './auth.service';

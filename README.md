@@ -34,7 +34,7 @@ A portable TypeScript application framework with built-in DI. Swap adapters to r
 ## Installation
 
 ```bash
-npm i @zeltjs/core @zeltjs/adapter-node @zeltjs/validator-valibot valibot
+npm i @zeltjs/core @zeltjs/adapter-node valibot
 ```
 
 ## Quick Start
@@ -42,8 +42,7 @@ npm i @zeltjs/core @zeltjs/adapter-node @zeltjs/validator-valibot valibot
 ### 1. Define a Controller
 
 ```typescript
-import { Controller, Get, Post, response } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { Controller, Get, Post, request, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({

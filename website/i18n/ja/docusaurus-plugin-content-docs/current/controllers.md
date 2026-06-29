@@ -11,7 +11,7 @@ A controller is a class decorated with `@Controller()`. The decorator accepts a 
 
 ```typescript
 import { Controller, Get, Post, response } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({
@@ -62,7 +62,7 @@ Zelt provides decorators for all standard HTTP methods:
 
 ```typescript
 import { Controller, Get, Post, Put, Patch, Delete } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 const schema = v.object({ name: v.string() });
 // ---cut---
@@ -129,7 +129,7 @@ Use `request()` with a Valibot schema to validate and type the request body:
 
 ```typescript
 import { Controller, Post } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 // ---cut---
 const CreatePostBody = v.object({

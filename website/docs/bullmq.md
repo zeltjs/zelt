@@ -141,7 +141,7 @@ Enqueue jobs from your HTTP controllers:
 
 ```typescript
 import { Controller, Post, inject } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 declare class EmailService { sendWelcomeEmail(to: string): Promise<void>; }
 // ---cut---

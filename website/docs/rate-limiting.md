@@ -72,7 +72,7 @@ Use `RateLimitService` for custom rate limiting logic:
 
 ```typescript
 import { Controller, Post, inject, response } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import { RateLimitService } from '@zeltjs/rate-limit';
 import * as v from 'valibot';
 

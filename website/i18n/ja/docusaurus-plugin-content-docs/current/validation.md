@@ -3,7 +3,7 @@
 
 # Validation
 
-Zelt uses [Valibot](https://valibot.dev/) for request validation, providing a type-safe and lightweight validation solution.
+Zelt validates request bodies with synchronous Standard Schema compatible schemas. You can use any validator that exposes `schema["~standard"].validate(value)`, including [Valibot](https://valibot.dev/), Zod, and ArkType.
 
 ## Installation
 
@@ -13,24 +13,24 @@ import TabItem from '@theme/TabItem';
 <Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>
     ```bash
-    npm install @zeltjs/validator-valibot valibot
+    npm install @zeltjs/core valibot
     ```
   </TabItem>
   <TabItem value="pnpm" label="pnpm">
     ```bash
-    pnpm add @zeltjs/validator-valibot valibot
+    pnpm add @zeltjs/core valibot
     ```
   </TabItem>
   <TabItem value="bun" label="bun">
     ```bash
-    bun add @zeltjs/validator-valibot valibot
+    bun add @zeltjs/core valibot
     ```
   </TabItem>
 </Tabs>
 
 ### OpenAPI 生成を使う場合
 
-`@zeltjs/openapi` で OpenAPI スペックを生成する場合は、`@valibot/to-json-schema` も必要です：
+`@zeltjs/openapi` で Valibot schema から OpenAPI スペックを生成する場合は、`@zeltjs/validator-valibot/openapi` と `@valibot/to-json-schema` が必要です：
 
 <Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>

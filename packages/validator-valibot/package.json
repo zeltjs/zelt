@@ -42,7 +42,6 @@
     "typecheck": "tsc -b"
   },
   "peerDependencies": {
-    "@zeltjs/core": "workspace:*",
     "@zeltjs/openapi": "workspace:*",
     "valibot": "catalog:peer",
     "@valibot/to-json-schema": "catalog:peer"

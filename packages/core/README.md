@@ -34,7 +34,7 @@ A portable TypeScript application framework with built-in DI. Swap adapters to r
 ## Installation
 
 ```bash
-npm i @zeltjs/core @zeltjs/adapter-node @zeltjs/validator-valibot valibot
+npm i @zeltjs/core @zeltjs/adapter-node valibot
 ```
 
 ## Quick Start

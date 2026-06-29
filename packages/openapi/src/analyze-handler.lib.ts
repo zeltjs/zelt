@@ -89,6 +89,8 @@ const resolveImportedName = (
 
 type ResolvedImport = { readonly modulePath: string; readonly exportName: string };
 
+const REQUEST_MODULES = new Set(['@zeltjs/core']);
+
 const findIdentifierImport = (
   sourceFile: TSSourceFile,
   localName: string,
@@ -153,11 +155,15 @@ const buildRequestRef = (
 
 const matchRequestCall = (
   init: import('typescript').Expression | undefined,
+  sourceFile: TSSourceFile,
   ts: TypeScriptModule,
 ): TSCallExpression | undefined => {
   if (!init || !ts.isCallExpression(init)) return undefined;
   if (!ts.isIdentifier(init.expression)) return undefined;
-  if (init.expression.text !== 'request') return undefined;
+  const imported = findIdentifierImport(sourceFile, init.expression.text, ts);
+  if (!imported) return undefined;
+  if (imported.exportName !== 'request') return undefined;
+  if (!REQUEST_MODULES.has(imported.modulePath)) return undefined;
   return init;
 };
 
@@ -171,7 +177,7 @@ export const analyzeParamFromPosition = (
   const offset = ts.getPositionOfLineAndCharacter(sourceFile, pos.line - 1, pos.column - 1);
   const param = findParameterAtPosition(sourceFile, offset, ts);
   if (!param) return { kind: 'none' };
-  const call = matchRequestCall(param.initializer, ts);
+  const call = matchRequestCall(param.initializer, sourceFile, ts);
   if (!call) return { kind: 'none' };
   return buildRequestRef(call, sourceFile, ts);
 };

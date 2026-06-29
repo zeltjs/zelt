@@ -7,9 +7,9 @@ import {
   inject,
   Post,
   Put,
+  request,
   UseMiddleware,
 } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
 
 import { requireUser } from '../auth/current-user.lib';
 import { AddToCartSchema, UpdateCartItemSchema } from './cart.schema';

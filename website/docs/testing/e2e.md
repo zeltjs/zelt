@@ -65,7 +65,7 @@ For complete E2E tests with real dependencies, use `onTest()` to apply test conf
 
 ```typescript
 import { createApp, Controller, Get, Post, response, http } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import { onTest } from '@zeltjs/testing/vitest';
 import { RedisConfig } from '@zeltjs/redis';
 import { RedisTestContainerConfig } from '@zeltjs/redis/testing';

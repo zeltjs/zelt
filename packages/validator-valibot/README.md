@@ -2,21 +2,21 @@
 
 [![Documentation](https://img.shields.io/badge/docs-zeltjs.com-blue)](https://zeltjs.com)
 
-Valibot validation integration for Zelt applications.
+Valibot OpenAPI schema adapter for Zelt applications.
 
 **[Read the Documentation](https://zeltjs.com)**
 
 ## Installation
 
 ```bash
-npm install @zeltjs/validator-valibot valibot @zeltjs/core
+npm install @zeltjs/validator-valibot valibot @valibot/to-json-schema @zeltjs/openapi
 ```
 
 ## Usage
 
 ```typescript
-import { Controller, Post } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
+import { generateOpenApi } from '@zeltjs/openapi';
 import * as v from 'valibot';
 
 const CreateUserSchema = v.object({
@@ -24,12 +24,8 @@ const CreateUserSchema = v.object({
   email: v.pipe(v.string(), v.email()),
 });
 
-@Controller('/users')
-class UserController {
-  @Post('/')
-  async create(req = request(CreateUserSchema)) {
-    const data = await req.body();
-    return { user: data };
-  }
-}
+await generateOpenApi(app.http, {
+  distDir: './openapi',
+  schemaAdapter: valibotAdapter,
+});
 ```

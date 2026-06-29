@@ -137,7 +137,7 @@ Apply to controllers:
 
 ```typescript
 // @noErrors
-import { Controller, Post, UseMiddleware, request } from '@zeltjs/core';
+import { Controller, Post, UseMiddleware, inject, request } from '@zeltjs/core';
 
 @Controller('/orders')
 @UseMiddleware(TransactionMiddleware)

@@ -276,7 +276,7 @@ Roles are set once and rarely change:
 
 ```typescript
 import { Controller, Authorized, Post, Injectable, inject } from '@zeltjs/core';
-import { request } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const RolesSchema = v.object({ roles: v.array(v.string()) });

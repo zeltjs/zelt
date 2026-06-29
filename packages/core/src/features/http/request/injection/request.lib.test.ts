@@ -322,6 +322,33 @@ describe('request() — async body', () => {
     expect(json.code).toBe('VALIDATION_FAILED');
   });
 
+  it('returns 500 when schema validation is async', async () => {
+    const asyncSchema = createStandardSchema<{ ok: true }>({
+      validate: async () => ({ value: { ok: true } }),
+    });
+
+    @Controller('/')
+    class C {
+      @Post('/async-schema')
+      async handle(req = request(asyncSchema)) {
+        return await req.body();
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/async-schema', {
+        method: 'POST',
+        body: JSON.stringify({ ok: true }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { code: string };
+    expect(json.code).toBe('ASYNC_VALIDATION_UNSUPPORTED');
+  });
+
   it('validates form body with target option', async () => {
     const formSchema = createStandardSchema<{ name: string }>({
       validate: (value) => {

@@ -259,9 +259,14 @@ export class AuthController {
 }
 ```
 
-### Server-Sent Events (SSE)
+## Streaming Responses
 
-Use `sse()` for Server-Sent Events:
+Zelt provides streaming capabilities for real-time data delivery.
+
+### Basic Streaming
+
+Use `stream()` for binary data or `streamText()` for text data:
+
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -289,20 +294,9 @@ export class StreamController {
 }
 ```
 
-### Stream Writer Methods
+### Server-Sent Events (SSE)
 
-| Method | Description |
-|--------|-------------|
-| `write(input)` | Write `Uint8Array` or `string` to stream |
-| `writeln(input)` | Write string with newline |
-| `writeSSE(message)` | Write SSE message (SSE streams only) |
-| `sleep(ms)` | Pause for specified milliseconds |
-| `pipe(body)` | Pipe a `ReadableStream` |
-| `close()` | Close the stream |
-| `abort()` | Abort the stream |
-| `onAbort(listener)` | Register abort handler |
-
-### SSE Message Format
+Use `sse()` for Server-Sent Events:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -329,9 +323,20 @@ export class EventController {
 }
 ```
 
-### Error Handling
+### Stream Writer Methods
 
-Both streaming methods accept an optional error handler:
+| Method | Description |
+|--------|-------------|
+| `write(input)` | Write `Uint8Array` or `string` to stream |
+| `writeln(input)` | Write string with newline |
+| `writeSSE(message)` | Write SSE message (SSE streams only) |
+| `sleep(ms)` | Pause for specified milliseconds |
+| `pipe(body)` | Pipe a `ReadableStream` |
+| `close()` | Close the stream |
+| `abort()` | Abort the stream |
+| `onAbort(listener)` | Register abort handler |
+
+### SSE Message Format
 
 ```typescript
 type SSEMessage = {
@@ -342,9 +347,9 @@ type SSEMessage = {
 };
 ```
 
-## Chaining Response Methods
+### Error Handling
 
-Response methods that modify state (`header`, `setCookie`, `deleteCookie`) return the builder, allowing method chaining:
+Streaming methods accept an optional error handler:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -362,6 +367,25 @@ class StreamController {
         await stream.close();
       }
     );
+  }
+}
+```
+
+## Chaining Response Methods
+
+Response methods that modify state (`header`, `setCookie`, `deleteCookie`) return the builder, allowing method chaining:
+
+```typescript
+import { Controller, Get, response } from '@zeltjs/core';
+// ---cut---
+@Controller('/files')
+class FileController {
+  @Get('/download')
+  download(res = response()) {
+    return res
+      .header('Content-Disposition', 'attachment; filename="report.csv"')
+      .header('Cache-Control', 'no-cache')
+      .body('id,name\n1,Alice', 200);
   }
 }
 ```
