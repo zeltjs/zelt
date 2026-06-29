@@ -3,6 +3,7 @@ export type CliSignalHandler = () => void;
 
 export type CliRuntime = {
   readonly cwd: () => string;
+  readonly env: () => NodeJS.ProcessEnv;
   readonly setExitCode: (code: number) => void;
   readonly onSignal: (signal: CliSignal, handler: CliSignalHandler) => void;
   readonly offSignal: (signal: CliSignal, handler: CliSignalHandler) => void;
@@ -10,6 +11,7 @@ export type CliRuntime = {
 
 export const nodeCliRuntime: CliRuntime = {
   cwd: () => process.cwd(),
+  env: () => process.env,
   setExitCode: (code) => {
     process.exitCode = code;
   },

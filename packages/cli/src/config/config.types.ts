@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 
 const BuildConfigSchema = v.object({
+  command: v.optional(v.string()),
   entry: v.optional(v.string()),
   outDir: v.optional(v.string()),
   platform: v.optional(v.picklist(['node', 'browser', 'neutral'])),
