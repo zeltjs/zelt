@@ -30,3 +30,21 @@ export default defineConfig({
   // configuration options
 });
 ```
+
+### Custom build command
+
+By default, `zelt build` uses tsdown. To use another builder, set `build.command`:
+
+```typescript
+import { defineConfig } from '@zeltjs/cli';
+
+export default defineConfig({
+  app: () => import('./src/app').then((m) => m.app),
+  build: {
+    command: 'vite build',
+  },
+});
+```
+
+`build.command` replaces the default tsdown build. It cannot be used together with a
+plugin `build` hook, because both define the build implementation.
