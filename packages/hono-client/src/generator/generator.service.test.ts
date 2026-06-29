@@ -9,7 +9,7 @@ import type { ControllerClass, HttpMetadata } from './generator.types';
 const portableTestTimeout = 30_000;
 
 @Controller('/users')
-class UserController {
+export class UserController {
   show() {
     return 'show';
   }

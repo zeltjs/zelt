@@ -4,6 +4,7 @@ import { Injectable } from '@zeltjs/core';
 
 type TypeScriptModule = typeof import('typescript');
 type TSCompilerOptions = Parameters<TypeScriptModule['createCompilerHost']>[0];
+type TSDiagnostic = import('typescript').Diagnostic;
 type TSProgram = import('typescript').Program;
 type TSSourceFile = import('typescript').SourceFile;
 type TSTypeFormatFlags = import('typescript').TypeFormatFlags;
@@ -632,7 +633,29 @@ export class AppTypeResolverService {
     if (!sf)
       return this.programCreationError(`Failed to load virtual source file: ${virtualFileName}`);
 
+    const diagnosticsResult = this.assertNoVirtualSourceDiagnostics(program, sf, ts);
+    if (!diagnosticsResult.ok) return diagnosticsResult;
+
     return { ok: true, value: { program, checker: program.getTypeChecker(), sourceFile: sf } };
+  }
+
+  private assertNoVirtualSourceDiagnostics(
+    program: TSProgram,
+    sourceFile: TSSourceFile,
+    ts: TypeScriptModule,
+  ): ResolveResult<void> {
+    const diagnostics = [
+      ...program.getSyntacticDiagnostics(sourceFile),
+      ...program.getSemanticDiagnostics(sourceFile),
+    ];
+    if (diagnostics.length === 0) return { ok: true, value: undefined };
+    return this.typeResolutionError(this.formatDiagnostics(diagnostics, ts));
+  }
+
+  private formatDiagnostics(diagnostics: readonly TSDiagnostic[], ts: TypeScriptModule): string {
+    return diagnostics
+      .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+      .join('\n');
   }
 
   private findAppTypeAlias(

@@ -53,6 +53,18 @@ const multiControllerMetadata: HttpMetadata = {
   ],
 };
 
+const missingMethodMetadata: HttpMetadata = {
+  controllers: [
+    {
+      basePath: '/users',
+      name: 'UserController',
+      routes: [
+        { method: 'GET', path: '/missing', fullPath: '/users/missing', methodName: 'missing' },
+      ],
+    },
+  ],
+};
+
 const distDir = resolve(__dirname, '../../generated');
 const tsconfig = resolve(__dirname, '../../tsconfig.json');
 const projectRoot = resolve(__dirname, '../..');
@@ -215,6 +227,27 @@ describe('emitPortableAppType', () => {
       expect(result.value).toContain('/posts');
       expect(result.value).toContain('$get');
       expect(result.value).toContain('title: string');
+    },
+    portableTestTimeout,
+  );
+
+  it(
+    'returns error when emitted AppType has semantic diagnostics',
+    async () => {
+      const result = await emitter.emit({
+        metadata: missingMethodMetadata,
+        controllers: [UserController] as readonly ControllerClass[],
+        distDir,
+        tsconfig,
+        projectRoot,
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+
+      expect(result.error.kind).toBe('type_resolution_failed');
+      if (result.error.kind !== 'type_resolution_failed') return;
+      expect(result.error.message).toContain('missing');
     },
     portableTestTimeout,
   );
