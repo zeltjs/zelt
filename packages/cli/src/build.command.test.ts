@@ -22,8 +22,9 @@ describe('runBuild', () => {
     const binDir = join(rootDir, 'node_modules', '.bin');
     await mkdir(binDir, { recursive: true });
     const binPath = join(binDir, name);
-    await writeFile(binPath, content);
+    await writeFile(binPath, `#!/usr/bin/env node\n${content}`);
     await chmod(binPath, 0o755);
+    await writeFile(`${binPath}.cmd`, `@echo off\r\nnode "%~dp0\\${name}" %*\r\n`);
   };
 
   it('runs build.command without requiring a tsdown entry', async () => {
@@ -52,7 +53,7 @@ describe('runBuild', () => {
     await writeBin(
       workspaceDir,
       'custom-builder',
-      `#!/usr/bin/env sh\nprintf ok > "$PWD/custom-built.txt"\n`,
+      `require('node:fs').writeFileSync('custom-built.txt', 'ok');\n`,
     );
     await writeFile(
       join(projectDir, 'zelt.config.ts'),
@@ -78,7 +79,7 @@ describe('runBuild', () => {
     await writeBin(
       workspaceDir,
       'tsdown',
-      `#!/usr/bin/env sh\nprintf "%s" "$*" > "$PWD/tsdown-args.txt"\nprintf ok > "$PWD/default-built.txt"\n`,
+      `require('node:fs').writeFileSync('tsdown-args.txt', process.argv.slice(2).join(' '));\nrequire('node:fs').writeFileSync('default-built.txt', 'ok');\n`,
     );
     await writeFile(
       join(projectDir, 'zelt.config.ts'),

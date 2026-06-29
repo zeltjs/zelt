@@ -29,12 +29,12 @@ const buildArgs = (config: BuildConfig): string[] => {
   return args;
 };
 
-const quoteShellArg = (arg: string): string => {
+export const quoteShellArg = (arg: string): string => {
   if (/^[A-Za-z0-9_./:=@%-]+$/.test(arg)) {
     return arg;
   }
 
-  return `'${arg.replaceAll("'", "'\\''")}'`;
+  return `"${arg.replaceAll('"', '\\"').replaceAll('$', '\\$').replaceAll('`', '\\`')}"`;
 };
 
 export const buildTsdownCommand = (config: BuildConfig): string =>

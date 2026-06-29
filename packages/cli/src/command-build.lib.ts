@@ -26,8 +26,13 @@ export const runCommandBuild = async (options: CommandBuildOptions): Promise<voi
       stdio: 'inherit',
     });
 
-    child.on('close', (code) => {
-      resolvePromise(code ?? 0);
+    child.on('close', (code, signal) => {
+      if (code === 0 && signal === null) {
+        resolvePromise(0);
+        return;
+      }
+
+      resolvePromise(code ?? 1);
     });
 
     child.on('error', (err) => {
