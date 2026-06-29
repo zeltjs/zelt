@@ -1,4 +1,5 @@
 import type {
+  ConfigClass,
   ConfiguredFeature,
   CreateRuntimeOptions,
   HttpCapabilities,
@@ -8,6 +9,7 @@ import type {
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 
 export type CloudflareWorkersOptions = {
+  readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
 };
 
@@ -30,6 +32,7 @@ export const onCloudflareWorkers = async (
   options: CloudflareWorkersOptions = {},
 ): Promise<CloudflareWorkersApp> => {
   const readyApp = await app.createRuntime({
+    ...(options.configs === undefined ? {} : { configs: options.configs }),
     fallbackConfigs: [CloudflareWorkersEnvAdaptor],
     warmup: options.warmup ?? false,
   });

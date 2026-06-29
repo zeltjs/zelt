@@ -1,5 +1,11 @@
 export { CliConfig, type Signal, type SignalHandler } from './cli';
-export { Config, type ConfigClass, overrideConfig, resolveConfig } from './config';
+export {
+  assertNoUnresolvedAbstractConfigs,
+  Config,
+  type ConfigClass,
+  overrideConfig,
+  resolveConfig,
+} from './config';
 export { Env, EnvAdaptor } from './env';
 export {
   ConsoleTransport,

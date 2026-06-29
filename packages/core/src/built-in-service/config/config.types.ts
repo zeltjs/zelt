@@ -1,1 +1,1 @@
-export type ConfigClass<T = unknown> = new (...args: never[]) => T;
+export type ConfigClass<T = unknown> = abstract new (...args: never[]) => T;

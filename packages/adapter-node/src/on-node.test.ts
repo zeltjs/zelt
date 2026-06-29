@@ -7,6 +7,7 @@ import type {
 import {
   args,
   Command,
+  Config,
   Controller,
   Cron,
   cliSchema,
@@ -352,6 +353,28 @@ describe('onNode with HTTP', () => {
       fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
       warmup: true,
     });
+  });
+
+  it('passes config overrides to createRuntime()', async () => {
+    @Config
+    class TestEnvAdaptor extends EnvAdaptor {
+      override get(key: string): string | undefined {
+        return key === 'NODE_ENV' ? 'test-override' : undefined;
+      }
+    }
+
+    const app = createApp([http({ controllers: [] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
+
+    nodeApp = await onNode(app, { configs: [TestEnvAdaptor] });
+
+    expect(readySpy).toHaveBeenCalledWith({
+      configs: [TestEnvAdaptor],
+      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
+      warmup: true,
+    });
+    const env = await nodeApp.get(EnvAdaptor);
+    expect(env.get('NODE_ENV')).toBe('test-override');
   });
 
   it('works without explicit EnvAdaptor in configs', async () => {

@@ -1,4 +1,5 @@
 import type {
+  ConfigClass,
   ConfiguredFeature,
   CreateRuntimeOptions,
   HttpCapabilities,
@@ -11,6 +12,7 @@ import { setupIpcBridge } from './ipc-bridge';
 type IpcChannel = `http://${string}` | `https://${string}`;
 
 export type ElectronAppOptions = {
+  readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
   readonly ipcChannel?: IpcChannel;
 };
@@ -37,6 +39,7 @@ export const onElectron = async (
   options: ElectronAppOptions = {},
 ): Promise<OnElectronApp> => {
   const readyApp = await app.createRuntime({
+    ...(options.configs === undefined ? {} : { configs: options.configs }),
     fallbackConfigs: [ElectronEnvAdaptor],
     warmup: options.warmup ?? true,
   });

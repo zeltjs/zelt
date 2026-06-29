@@ -1,6 +1,7 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
 import type {
+  ConfigClass,
   ConfiguredFeature,
   FeatureApp,
   FeatureReadyCapabilities,
@@ -22,6 +23,7 @@ export type ServerHandle = {
 };
 
 export type NodeAppOptions = {
+  readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
 };
 
@@ -122,6 +124,7 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
   options: NodeAppOptions = {},
 ): Promise<NodeApp> {
   const readyApp = await app.createRuntime({
+    ...(options.configs === undefined ? {} : { configs: options.configs }),
     fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
     warmup: options.warmup ?? true,
   });

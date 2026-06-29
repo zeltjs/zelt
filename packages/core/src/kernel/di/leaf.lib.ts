@@ -2,7 +2,7 @@ import type { Container } from '@needle-di/core';
 import { InjectionToken } from '@needle-di/core';
 import { isClassConstructor, UnsafeInjectionTokenWeakMap } from '@zeltjs/unsafe-type-lib';
 
-type AnyClass<T extends object = object> = new (...args: never[]) => T;
+type AnyClass<T extends object = object> = abstract new (...args: never[]) => T;
 type AnyInstance = object;
 
 type LeafInjectionToken<T extends object = object> = InjectionToken<T>;
@@ -96,7 +96,11 @@ const bindLeafInternal = (container: Container, token: LeafInjectionToken, cls: 
   const singleToken = new InjectionToken<AnyInstance>(`${cls.name}:single`);
   container.bind({
     provide: singleToken,
-    useFactory: () => new cls(),
+    useFactory: () => {
+      const instance: unknown = Reflect.construct(cls, []);
+      if (typeof instance === 'object' && instance !== null) return instance;
+      return {};
+    },
   });
   container.bind({ provide: token, useExisting: singleToken });
   markTokenBound(container, token);
@@ -134,7 +138,7 @@ export const ensureLeafBound = <T extends object = object>(
 /** @throws {ZeltLifecycleStateError} */
 export const getLeaf = <T extends object>(
   container: Container,
-  cls: new (...args: never[]) => T,
+  cls: abstract new (...args: never[]) => T,
 ): T => container.get(ensureLeafBound(container, cls));
 
 export const resolveLeaf = (container: Container, cls: AnyClass): void => {

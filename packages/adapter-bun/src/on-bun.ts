@@ -1,5 +1,6 @@
 import type {
   CommandCapabilities,
+  ConfigClass,
   ConfiguredFeature,
   FeatureApp,
   FeatureReadyCapabilities,
@@ -21,6 +22,7 @@ export type ServerHandle = {
 };
 
 export type BunAppOptions = {
+  readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
 };
 
@@ -130,6 +132,7 @@ export async function onBun<const F extends readonly ConfiguredFeature[]>(
   options: BunAppOptions = {},
 ): Promise<BunApp> {
   const readyApp = await app.createRuntime({
+    ...(options.configs === undefined ? {} : { configs: options.configs }),
     fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
     warmup: options.warmup ?? true,
   });

@@ -1,10 +1,12 @@
 import type { HttpModuleOptions } from '@zeltjs/core';
 import {
   Command,
+  Config,
   Controller,
   cliSchema,
   command,
   createApp,
+  EnvAdaptor,
   Feature,
   Get,
   HTTP_FEATURE_KEY,
@@ -12,6 +14,8 @@ import {
   http,
 } from '@zeltjs/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { BunCliConfig } from './bun-cli.config';
+import { BunEnvAdaptor } from './bun-env.adaptor';
 import { onBun } from './on-bun';
 
 const originalBun = globalThis.Bun;
@@ -260,5 +264,29 @@ describe('onBun return types', () => {
     await bunApp.shutdown();
 
     expect(server.stop).toHaveBeenCalledOnce();
+  });
+
+  it('passes config overrides to createRuntime()', async () => {
+    @Config
+    class TestEnvAdaptor extends EnvAdaptor {
+      override get(key: string): string | undefined {
+        return key === 'BUN_ENV' ? 'test-override' : undefined;
+      }
+    }
+
+    const app = createApp([http({ controllers: [] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
+
+    const bunApp = await onBun(app, { configs: [TestEnvAdaptor] });
+
+    expect(readySpy).toHaveBeenCalledWith({
+      configs: [TestEnvAdaptor],
+      fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
+      warmup: true,
+    });
+    const env = await bunApp.get(EnvAdaptor);
+    expect(env.get('BUN_ENV')).toBe('test-override');
+
+    await bunApp.shutdown();
   });
 });
