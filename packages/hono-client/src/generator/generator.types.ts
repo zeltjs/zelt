@@ -17,9 +17,19 @@ export type HttpMetadata = {
   readonly controllers: readonly ControllerRouteInfo[];
 };
 
-export type GenerateOptions = {
+export type StandardGenerateOptions = {
   readonly distDir: string;
+  portable?: false;
 };
+
+export type PortableGenerateOptions = {
+  readonly distDir: string;
+  portable: true;
+  readonly tsconfig: string;
+  readonly projectRoot: string;
+};
+
+export type GenerateOptions = StandardGenerateOptions | PortableGenerateOptions;
 
 export type HttpAppLike = {
   getMetadata: () => HttpMetadata;
