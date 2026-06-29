@@ -141,7 +141,7 @@ Enqueue jobs from your HTTP controllers:
 
 ```typescript
 import { Controller, Post, inject } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 declare class EmailService { sendWelcomeEmail(to: string): Promise<void>; }
 // ---cut---
@@ -150,13 +150,13 @@ class UserController {
   constructor(private emailService = inject(EmailService)) {}
 
   @Post('/register')
-  async register() {
-    const body = validated(v.object({ email: v.string() }));
-    
+  async register(req = request(v.object({ email: v.string() }))) {
+    const body = await req.body();
+
     // ... create user
-    
+
     await this.emailService.sendWelcomeEmail(body.email);
-    
+
     return { message: 'User registered' };
   }
 }

@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 
 import { runInContext } from '../../../kernel';
-import { body, pathParam, setBody, setPathParams } from './injection';
+import { request, setBody, setPathParams } from './injection';
 import { requestContext, setHonoContext } from './request-context.lib';
 
 type FormBody = Record<string, string | File | (string | File)[]>;
@@ -29,15 +29,15 @@ const runInEntryContext = <T>(ctx: TestEntryContext, fn: () => T): T => {
 };
 
 describe('entry-context', () => {
-  it('returns the running context inside runInEntryContext', () => {
+  it('returns the running context inside runInEntryContext', async () => {
     const honoContext = { marker: 'test' } as unknown as Context;
     const bodyVal = { type: 'json' as const, val: { hello: 'world' } };
     const pathParams = { id: '42' };
 
-    runInEntryContext({ honoContext, body: bodyVal, pathParams }, () => {
+    await runInEntryContext({ honoContext, body: bodyVal, pathParams }, async () => {
       expect(requestContext()).toBe(honoContext);
-      expect(body('json')).toEqual({ hello: 'world' });
-      expect(pathParam('id')).toBe('42');
+      expect(await request().body()).toEqual({ hello: 'world' });
+      expect(request().pathParam('id')).toBe('42');
     });
   });
 
@@ -50,10 +50,10 @@ describe('entry-context', () => {
     const [a, b] = await Promise.all([
       runInEntryContext({ honoContext, body: { type: 'json', val: 'A' } }, async () => {
         await new Promise((r) => setTimeout(r, 10));
-        return body('json');
+        return await request().body();
       }),
       runInEntryContext({ honoContext, body: { type: 'json', val: 'B' } }, async () =>
-        body('json'),
+        request().body(),
       ),
     ]);
     expect(a).toBe('A');

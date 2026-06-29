@@ -3,23 +3,21 @@
 
 # Request & Response Primitives
 
-Zelt provides functional primitives for accessing request data and building responses. These primitives can be used as default parameters in controller methods.
+Zelt provides a `request()` primitive for accessing request data and a `response()` primitive for building responses. `request()` can be used as a default parameter in controller methods and returns a request accessor.
 
 ## Request Primitives
 
 ### Query Parameters
 
 ```typescript
-import { Controller, Get, queryParam, queryParams, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/search')
 export class SearchController {
   @Get('/')
-  search(
-    q = queryParam('q'),
-    tags = queryParams('tag'),
-    res = response(),
-  ) {
+  search(req = request(), res = response()) {
+    const q = req.queryParam('q');
+    const tags = req.queryParams('tag');
     // q: string | undefined
     // tags: string[] (empty array if not provided)
     return res.json({ query: q, tags });
@@ -27,68 +25,62 @@ export class SearchController {
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `queryParam(name)` | `string \| undefined` | Get a single query parameter |
-| `queryParams(name)` | `string[]` | Get all values for a query parameter |
+| `req.queryParam(name)` | `string \| undefined` | Get a single query parameter |
+| `req.queryParams(name)` | `string[]` | Get all values for a query parameter |
 
 ### Headers
 
 ```typescript
-import { Controller, Get, header, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/api')
 export class ApiController {
   @Get('/info')
-  info(
-    userAgent = header('User-Agent'),
-    acceptLanguage = header('Accept-Language'),
-    res = response(),
-  ) {
+  info(req = request(), res = response()) {
+    const userAgent = req.header('User-Agent');
+    const acceptLanguage = req.header('Accept-Language');
     return res.json({ userAgent, acceptLanguage });
   }
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `header(name)` | `string \| undefined` | Get a request header value |
+| `req.header(name)` | `string \| undefined` | Get a request header value |
 
 ### Cookies
 
 ```typescript
-import { Controller, Get, cookie, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/session')
 export class SessionController {
   @Get('/')
-  getSession(
-    sessionId = cookie('session_id'),
-    res = response(),
-  ) {
+  getSession(req = request(), res = response()) {
+    const sessionId = req.cookie('session_id');
     return res.json({ sessionId });
   }
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `cookie(name)` | `string \| undefined` | Get a cookie value |
+| `req.cookie(name)` | `string \| undefined` | Get a cookie value |
 
 ### URL & Path
 
 ```typescript
-import { Controller, Get, url, path, method, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/debug')
 export class DebugController {
   @Get('/request')
-  requestInfo(
-    fullUrl = url(),
-    requestPath = path(),
-    httpMethod = method(),
-    res = response(),
-  ) {
+  requestInfo(req = request(), res = response()) {
+    const fullUrl = req.url();
+    const requestPath = req.path();
+    const httpMethod = req.method();
     return res.json({
       url: fullUrl,      // "http://localhost:3000/debug/request?foo=bar"
       path: requestPath, // "/debug/request"
@@ -98,62 +90,87 @@ export class DebugController {
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `url()` | `string` | Full request URL including query string |
-| `path()` | `string` | Request path without query string |
-| `method()` | `string` | HTTP method (GET, POST, etc.) |
+| `req.url()` | `string` | Full request URL including query string |
+| `req.path()` | `string` | Request path without query string |
+| `req.method()` | `string` | HTTP method (GET, POST, etc.) |
+
+### Client IP
+
+```typescript
+import { Controller, Get, request, response } from '@zeltjs/core';
+
+@Controller('/debug')
+export class DebugController {
+  @Get('/ip')
+  clientIp(req = request(), res = response()) {
+    const ip = req.ip();
+    return res.json({ ip });
+  }
+}
+```
+
+| Method | Return Type | Description |
+|----------|-------------|-------------|
+| `req.ip()` | `string \| undefined` | Client IP address |
 
 ### Request Body
 
+The request body target is configured when calling `request()`. Use `await req.body()` to read the parsed body. When no schema is passed, `request()` uses an internal any schema and the default `json` target.
+
 ```typescript
-import { Controller, Post, body, response } from '@zeltjs/core';
+// @noErrors
+import { Controller, Post, request, response } from '@zeltjs/core';
+import * as v from 'valibot';
+
+const FormSchema = v.record(v.string(), v.unknown());
 
 @Controller('/upload')
 export class UploadController {
   @Post('/json')
-  uploadJson(data = body(), res = response()) {
+  async uploadJson(req = request(), res = response()) {
+    const data = await req.body();
     return res.json({ received: data });
   }
 
   @Post('/form')
-  uploadForm(formData = body('form'), res = response()) {
+  async uploadForm(req = request(FormSchema, { target: 'form' }), res = response()) {
+    const formData = await req.body();
     return res.json({ fields: formData });
   }
 }
 ```
 
-| Type | Return Type | Description |
+| `request()` call | `await req.body()` type | Description |
 |------|-------------|-------------|
-| `body()` | `unknown` | Parsed JSON body |
-| `body('form')` | `FormBody` | Form data record (`Record<string, string \| File \| (string \| File)[]>`) |
-| `body('text')` | `string` | Plain text body |
+| `request()` | `unknown` | Parsed JSON body with the default any schema |
+| `request(schema)` | schema output | Validated JSON body |
+| `request(schema, { target: 'form' })` | schema output | Validated form data |
 
 :::tip
-For validated request bodies with automatic type inference, use [`validated()`](./validation.md) instead.
+For validated request bodies with automatic type inference, use [`request()` with a schema](./validation.md) instead.
 :::
 
 ### Path Parameters
 
 ```typescript
-import { Controller, Get, pathParam, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/users')
 export class UserController {
   @Get('/:id')
-  getUser(
-    id = pathParam('id'),
-    res = response(),
-  ) {
+  getUser(req = request(), res = response()) {
+    const id = req.pathParam('id');
     // id: string (throws if not defined)
     return res.json({ userId: id });
   }
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `pathParam(name)` | `string` | Get a path parameter (throws if undefined) |
+| `req.pathParam(name)` | `string` | Get a path parameter (throws if undefined) |
 
 ## Response Primitives
 

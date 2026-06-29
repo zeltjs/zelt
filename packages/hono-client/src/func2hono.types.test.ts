@@ -1,3 +1,4 @@
+import type { RequestBodyAccessor } from '@zeltjs/core';
 import type { hc } from 'hono/client';
 import type { TypedResponse } from 'hono/types';
 import { describe, expectTypeOf, it } from 'vitest';
@@ -86,5 +87,22 @@ describe('WrapRaw distribution', () => {
     expectTypeOf<Result>().toEqualTypeOf<
       TypedResponse<{ ok: true; data: string } | { ok: false; err: string }, 200, 'json'>
     >();
+  });
+});
+
+type ValidatedBody = { name: string };
+type ValidatedHandler = (
+  req?: RequestBodyAccessor<ValidatedBody>,
+) => Promise<TypedResponse<{ message: string }, 201, 'json'>>;
+
+type ValidatedClient = ReturnType<
+  typeof hc<BuildAppType<[Route<'POST', '/validated', ValidatedHandler>]>>
+>;
+
+describe('validated route response status', () => {
+  it('includes validation error status in typed client response', () => {
+    type Response = Awaited<ReturnType<ValidatedClient['validated']['$post']>>;
+
+    expectTypeOf<Response['status']>().toEqualTypeOf<201 | 400>();
   });
 });

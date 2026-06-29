@@ -30,7 +30,7 @@ Rate limiting keys determine how requests are grouped. Use static strings or fun
 ```typescript
 // @noErrors
 // Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import { Controller, Get, currentUser, header } from '@zeltjs/core';
+import { Controller, Get, currentUser, request } from '@zeltjs/core';
 import { RateLimit } from '@zeltjs/rate-limit';
 
 declare module '@zeltjs/core' {
@@ -59,7 +59,7 @@ class ApiController {
   @RateLimit({
     limit: 500,
     windowSec: 60,
-    key: () => `apikey:${header('X-API-Key')}`,
+    key: () => `apikey:${request().header('X-API-Key')}`,
   })
   @Get('/api-data')
   apiData() { return { data: [] }; }
@@ -72,7 +72,7 @@ Use `RateLimitService` for custom rate limiting logic:
 
 ```typescript
 import { Controller, Post, inject, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import { RateLimitService } from '@zeltjs/rate-limit';
 import * as v from 'valibot';
 
@@ -83,7 +83,8 @@ export class AuthController {
   constructor(private rateLimiter = inject(RateLimitService)) {}
 
   @Post('/login')
-  async login(body = validated(LoginSchema), res = response()) {
+  async login(req = request(LoginSchema), res = response()) {
+    const body = await req.body();
     const result = await this.rateLimiter.hit(`login:${body.email}`, {
       limit: 5,
       windowSec: 300,

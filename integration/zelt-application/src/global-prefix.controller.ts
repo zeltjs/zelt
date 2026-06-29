@@ -1,4 +1,4 @@
-import { Controller, Get, Post, pathParam } from '@zeltjs/core';
+import { Controller, Get, Post, request } from '@zeltjs/core';
 
 @Controller('/api/v1/health')
 export class HealthController {
@@ -21,7 +21,8 @@ export class UsersController {
   }
 
   @Get('/:id')
-  getById(id = pathParam('id')) {
+  getById(req = request()) {
+    const id = req.pathParam('id');
     return { id };
   }
 }
@@ -29,7 +30,8 @@ export class UsersController {
 @Controller('/api/:tenantId/items')
 export class TenantItemsController {
   @Get('/')
-  list(tenantId = pathParam('tenantId')) {
+  list(req = request()) {
+    const tenantId = req.pathParam('tenantId');
     return { tenantId };
   }
 }

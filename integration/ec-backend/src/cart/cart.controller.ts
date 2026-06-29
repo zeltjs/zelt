@@ -7,10 +7,9 @@ import {
   inject,
   Post,
   Put,
-  pathParam,
+  request,
   UseMiddleware,
 } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
 
 import { requireUser } from '../auth/current-user.lib';
 import { AddToCartSchema, UpdateCartItemSchema } from './cart.schema';
@@ -32,26 +31,29 @@ export class CartController {
 
   @Authorized()
   @Post('/items')
-  async addItem(data = validated(AddToCartSchema)) {
+  async addItem(req = request(AddToCartSchema)) {
     const user = requireUser();
+    const data = await req.body();
     const cart = await this.cartService.addItem(user.id, data.productId, data.quantity);
     return cart;
   }
 
   @Authorized()
   @Put('/items/:productId')
-  async updateItem(productIdStr = pathParam('productId'), data = validated(UpdateCartItemSchema)) {
+  async updateItem(req = request(UpdateCartItemSchema)) {
     const user = requireUser();
+    const productIdStr = req.pathParam('productId');
     const productId = parseInt(productIdStr, 10);
+    const data = await req.body();
     const cart = await this.cartService.updateQuantity(user.id, productId, data.quantity);
     return cart;
   }
 
   @Authorized()
   @Delete('/items/:productId')
-  async removeItem(productIdStr = pathParam('productId')) {
+  async removeItem(req = request()) {
     const user = requireUser();
-    const productId = parseInt(productIdStr, 10);
+    const productId = parseInt(req.pathParam('productId'), 10);
     const cart = await this.cartService.removeItem(user.id, productId);
     return cart;
   }

@@ -42,12 +42,13 @@ Controllers handle incoming HTTP requests and return responses. Each controller 
 Create `src/controllers/hello.controller.ts`:
 
 ```typescript
-import { Controller, Get, pathParam } from '@zeltjs/core';
+import { Controller, Get, request } from '@zeltjs/core';
 // ---cut---
 @Controller('/hello')
 export class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) {
+  greet(req = request()) {
+    const name = req.pathParam('name');
     return { message: `Hello, ${name}!` };
   }
 }
@@ -62,11 +63,11 @@ export class HelloController {
 Create `src/app.ts` to wire up your controllers:
 
 ```typescript
-import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
 export const app = createApp([http({
@@ -79,13 +80,13 @@ export const app = createApp([http({
 Create `src/index.ts` as the Cloudflare Workers entry point:
 
 ```typescript
-import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
 const app = createApp([http({ controllers: [HelloController] })]);
@@ -221,7 +222,7 @@ export class GreetingService {
 Inject into controllers:
 
 ```typescript
-import { Controller, Get, pathParam, inject, Injectable } from '@zeltjs/core';
+import { Controller, Get, request, inject, Injectable } from '@zeltjs/core';
 @Injectable()
 class GreetingService {
   greet(name: string): string { return `Hello, ${name}!`; }
@@ -232,7 +233,8 @@ export class HelloController {
   constructor(private greetingService = inject(GreetingService)) {}
 
   @Get('/:name')
-  greet(name = pathParam('name')) {
+  greet(req = request()) {
+    const name = req.pathParam('name');
     return { message: this.greetingService.greet(name) };
   }
 }
@@ -255,13 +257,13 @@ By default, `onCloudflareWorkers()` uses lazy initialization (`warmup: false`) t
 If you prefer to resolve all controllers at initialization (useful for debugging or when cold start time is less critical), set `warmup: true`:
 
 ```typescript
-import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
 const app = createApp([http({ controllers: [HelloController] })]);

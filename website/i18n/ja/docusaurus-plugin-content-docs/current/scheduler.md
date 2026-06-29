@@ -285,7 +285,7 @@ import { onNode } from '@zeltjs/adapter-node';
 class SchedulerConfig {
   static readonly Token = SchedulerConfig;
   constructor(private env = inject(Env)) {}
-  get enabled() { return this.env.getString('ENABLE_SCHEDULER') !== 'false'; }
+  get enabled() { return this.env.getBoolean('ENABLE_SCHEDULER', true); }
 }
 
 @Scheduled() class MyScheduler { @Daily({ hour: 9 }) async task() {} }

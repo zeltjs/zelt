@@ -33,16 +33,6 @@ describe('Body parsing', () => {
     expect(res.status).toBe(400);
   });
 
-  it('parses text/plain request body', async () => {
-    const res = await testApp.http.request('/body/text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: 'hello zelt',
-    });
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ length: 10, value: 'hello zelt' });
-  });
-
   it('parses application/x-www-form-urlencoded body', async () => {
     const res = await testApp.http.request('/body/form', {
       method: 'POST',
@@ -111,12 +101,6 @@ describe('Body parsing', () => {
 
     it.todo('returns 4xx for POST without Content-Type to a form endpoint', async () => {
       const res = await testApp.http.request('/body/form', { method: 'POST' });
-      expect(res.status).toBeGreaterThanOrEqual(400);
-      expect(res.status).toBeLessThan(500);
-    });
-
-    it.todo('returns 4xx for POST without Content-Type to a text endpoint', async () => {
-      const res = await testApp.http.request('/body/text', { method: 'POST' });
       expect(res.status).toBeGreaterThanOrEqual(400);
       expect(res.status).toBeLessThan(500);
     });

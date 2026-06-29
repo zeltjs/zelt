@@ -1,4 +1,5 @@
 import { injectable } from '@needle-di/core';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Context, MiddlewareHandler, Next } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../app';
@@ -10,9 +11,31 @@ import { http } from './http.feature';
 import { Middleware } from './middleware/middleware.decorator';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
-import { body, getContext, pathParam, setContext, url } from './request/injection';
+import { getContext, request, setContext } from './request/injection';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
+
+const createStandardSchema = <Output>({
+  validate,
+}: {
+  readonly validate: (
+    value: unknown,
+  ) => StandardSchemaV1.Result<Output> | Promise<StandardSchemaV1.Result<Output>>;
+}): StandardSchemaV1<unknown, Output> => {
+  const types: StandardSchemaV1.Types<unknown, Output> | undefined = undefined;
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'zelt-test',
+      validate,
+      types,
+    },
+  };
+};
+
+const passthroughFormSchema = createStandardSchema<unknown>({
+  validate: (value) => ({ value }),
+});
 
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
@@ -33,23 +56,24 @@ class HelloController {
   constructor(private greeter = inject(Greeter)) {}
 
   @Get('/:name')
-  greet() {
-    return { message: this.greeter.greet(pathParam('name')) };
+  greet(req = request()) {
+    return { message: this.greeter.greet(req.pathParam('name')) };
   }
 }
 
 @Controller('/echo')
 class EchoController {
   @Post('/')
-  create(data = body('json')) {
-    return data;
+  async create(req = request()) {
+    return await req.body();
   }
 }
 
 @Controller('/upload')
 class UploadController {
   @Post('/')
-  upload(formData = body('form')) {
+  async upload(req = request(passthroughFormSchema, { target: 'form' })) {
+    const formData = (await req.body()) as Record<string, string | File | (string | File)[]>;
     const description = formData['description'] as string;
     const file = formData['file'] as File;
     return { description, filename: file.name, size: file.size };
@@ -101,11 +125,11 @@ describe('createApp() — fetch', () => {
     @Controller('/inner-context')
     class InnerContextController {
       @Post('/')
-      get() {
+      async get(req = request()) {
         return {
-          body: body('json'),
+          body: await req.body(),
           requestId: getContext('requestId') ?? null,
-          url: url(),
+          url: req.url(),
         };
       }
     }
@@ -113,11 +137,19 @@ describe('createApp() — fetch', () => {
     @Controller('/outer-context')
     class OuterContextController {
       @Post('/')
-      async get() {
+      async get(req = request()) {
         setContext('requestId', 'outer');
-        const outerBefore = { body: body('json'), requestId: getContext('requestId'), url: url() };
+        const outerBefore = {
+          body: await req.body(),
+          requestId: getContext('requestId'),
+          url: req.url(),
+        };
         const res = await fetchInner();
-        const outerAfter = { body: body('json'), requestId: getContext('requestId'), url: url() };
+        const outerAfter = {
+          body: await req.body(),
+          requestId: getContext('requestId'),
+          url: req.url(),
+        };
         return { inner: await res.json(), outerAfter, outerBefore };
       }
     }
@@ -258,8 +290,8 @@ describe('error paths', () => {
     @Controller('/x')
     class BrokenController {
       @Get('/')
-      run() {
-        return { v: pathParam('id') };
+      run(req = request()) {
+        return { v: req.pathParam('id') };
       }
     }
     const app = createApp([http({ controllers: [BrokenController] })]);
@@ -300,7 +332,7 @@ describe('middleware', () => {
   it('lets global middlewares read the request body before the handler', async () => {
     const seen: unknown[] = [];
     const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
-      seen.push(body('json'));
+      seen.push(await request().body());
       await next();
     };
 
@@ -325,7 +357,7 @@ describe('middleware', () => {
   it('lets parent middlewares read the body for nested child routes', async () => {
     const seen: unknown[] = [];
     const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
-      seen.push(body('json'));
+      seen.push(await request().body());
       await next();
     };
 

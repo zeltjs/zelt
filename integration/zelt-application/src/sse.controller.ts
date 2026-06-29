@@ -1,4 +1,4 @@
-import { Controller, Get, queryParam, response } from '@zeltjs/core';
+import { Controller, Get, request, response } from '@zeltjs/core';
 
 @Controller('/sse')
 export class SseController {
@@ -15,7 +15,9 @@ export class SseController {
   }
 
   @Get('/burst')
-  burst(res = response(), n = queryParam('n') ?? '20', size = queryParam('size') ?? '256') {
+  burst(res = response(), req = request()) {
+    const n = req.queryParam('n') ?? '20';
+    const size = req.queryParam('size') ?? '256';
     const parsedCount = Number.parseInt(n, 10);
     const parsedSize = Number.parseInt(size, 10);
     const count =

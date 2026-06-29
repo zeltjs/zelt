@@ -7,7 +7,7 @@ Zelt validates request bodies with synchronous Standard Schema compatible schema
 
 ## Installation
 
-`validated()` is included in `@zeltjs/core`. Install the schema library you want to use:
+`request()` is included in `@zeltjs/core`. Install the schema library you want to use:
 
 ```bash
 pnpm add @zeltjs/core valibot
@@ -30,17 +30,16 @@ Check the [Valibot releases](https://github.com/fabian-hiller/valibot/releases) 
 :::
 
 :::info[Important]
-New code should import `validated()` from `@zeltjs/core`.
-For compatibility, `@zeltjs/validator-valibot` continues to re-export `validated()`.
+Import `request()` from `@zeltjs/core`. The Valibot package only provides the OpenAPI schema adapter.
 The `valibot` peer dependency must be `^1.0.0`. We test against `1.3.x`; using an older version may cause type inference issues.
 :::
 
 ## Basic Usage
 
-Use `validated()` with a Valibot schema to validate request bodies:
+Use `request()` with a Valibot schema to validate request bodies:
 
 ```typescript
-import { Controller, Post, response, validated } from '@zeltjs/core';
+import { Controller, Post, request, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserSchema = v.object({
@@ -52,7 +51,8 @@ const CreateUserSchema = v.object({
 @Controller('/users')
 export class UserController {
   @Post('/')
-  create(body = validated(CreateUserSchema), res = response()) {
+  async create(req = request(CreateUserSchema), res = response()) {
+    const body = await req.body();
     // body is fully typed: { name: string; email: string; age?: number }
     return res.json({ id: '1', ...body }, 201);
   }
@@ -61,10 +61,10 @@ export class UserController {
 
 ## Form Data and File Uploads
 
-Use `validated(schema, 'form')` to validate `multipart/form-data` requests, including file uploads:
+Use `request(schema, { target: 'form' })` to validate `multipart/form-data` requests, including file uploads:
 
 ```typescript
-import { Controller, Post, response, validated } from '@zeltjs/core';
+import { Controller, Post, request, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const UploadSchema = v.object({
@@ -75,7 +75,8 @@ const UploadSchema = v.object({
 @Controller('/upload')
 export class UploadController {
   @Post('/')
-  upload(body = validated(UploadSchema, 'form'), res = response()) {
+  async upload(req = request(UploadSchema, { target: 'form' }), res = response()) {
+    const body = await req.body();
     // body.file is a File object
     console.log(body.file.name, body.file.size, body.file.type);
     return res.json({ filename: body.file.name, size: body.file.size }, 201);
@@ -85,7 +86,7 @@ export class UploadController {
 
 ### Target Options
 
-The second argument to `validated()` specifies the request body format:
+The `target` option of `request()` specifies the request body format:
 
 | Target | Content-Type | Use Case |
 |--------|-------------|----------|
@@ -95,7 +96,7 @@ The second argument to `validated()` specifies the request body format:
 ### Multiple Files
 
 ```typescript
-import { Controller, Post, validated } from '@zeltjs/core';
+import { Controller, Post, request } from '@zeltjs/core';
 import * as v from 'valibot';
 // ---cut---
 const MultiUploadSchema = v.object({
@@ -106,7 +107,8 @@ const MultiUploadSchema = v.object({
 @Controller('/upload')
 class BulkUploadController {
   @Post('/bulk')
-  bulkUpload(body = validated(MultiUploadSchema, 'form')) {
+  async bulkUpload(req = request(MultiUploadSchema, { target: 'form' })) {
+    const body = await req.body();
     for (const file of body.files) {
       console.log(file.name);
     }

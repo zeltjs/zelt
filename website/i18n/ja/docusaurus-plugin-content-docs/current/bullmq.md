@@ -29,7 +29,7 @@ class BullMQConfig {
   get connection(): RedisOptions {
     return {
       host: this.env.getString('REDIS_HOST', 'localhost'),
-      port: Number(this.env.getString('REDIS_PORT', '6379')),
+      port: this.env.getNumber('REDIS_PORT', 6379),
     };
   }
 }
@@ -141,7 +141,7 @@ Enqueue jobs from your HTTP controllers:
 
 ```typescript
 import { Controller, Post, inject } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 declare class EmailService { sendWelcomeEmail(to: string): Promise<void>; }
 // ---cut---
@@ -150,13 +150,13 @@ class UserController {
   constructor(private emailService = inject(EmailService)) {}
 
   @Post('/register')
-  async register() {
-    const body = validated(v.object({ email: v.string() }));
-    
+  async register(req = request(v.object({ email: v.string() }))) {
+    const body = await req.body();
+
     // ... create user
-    
+
     await this.emailService.sendWelcomeEmail(body.email);
-    
+
     return { message: 'User registered' };
   }
 }
@@ -199,9 +199,8 @@ class BullMQConfig {
 const app = createApp([http({ controllers: [UserController] })], { configs: [BullMQConfig] });
 
 // Instantiate worker to start processing
-app.createRuntime().then(() => {
-  inject(EmailWorker);
-});
+const readyApp = await app.createRuntime();
+await readyApp.get(EmailWorker);
 ```
 
 ## Custom Configuration
@@ -223,9 +222,9 @@ class ProductionBullMQConfig extends BullMQConfig {
   override get connection(): ConnectionOptions {
     return {
       host: this.env.getRequired('REDIS_HOST'),
-      port: Number(this.env.getString('REDIS_PORT', '6379')),
-      password: this.env.getString('REDIS_PASSWORD'),
-      tls: this.env.getString('REDIS_TLS') === 'true' ? {} : undefined,
+      port: this.env.getNumber('REDIS_PORT', 6379),
+      password: this.env.getString('REDIS_PASSWORD') || undefined,
+      tls: this.env.getBoolean('REDIS_TLS') ? {} : undefined,
     };
   }
 }
@@ -277,15 +276,24 @@ For testing, use a separate Redis instance or mock the queue:
 
 ```typescript
 import { describe, it, vi, expect } from 'vitest';
-declare class EmailService {
-  constructor(bullmq: { client: unknown });
-  sendWelcomeEmail(to: string): Promise<void>;
+import { Injectable } from '@zeltjs/core';
+import { Queue } from 'bullmq';
+declare class BullMQService { readonly client: unknown; }
+@Injectable()
+class EmailService {
+  private readonly queue: Queue;
+  constructor(bullmq: Pick<BullMQService, 'client'>) {
+    this.queue = new Queue('email', { connection: bullmq.client as any });
+  }
+  async sendWelcomeEmail(to: string): Promise<void> {
+    await this.queue.add('welcome', { to, subject: 'Welcome!', body: '...' });
+  }
 }
 // ---cut---
 describe('EmailService', () => {
   it('enqueues welcome email', async () => {
     const mockQueue = { add: vi.fn() };
-    const service = new EmailService({ client: {} } as any);
+    const service = new EmailService({ client: {} });
     (service as any).queue = mockQueue;
 
     await service.sendWelcomeEmail('test@example.com');

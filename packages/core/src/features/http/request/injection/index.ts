@@ -1,11 +1,20 @@
 export type { ParsedBody } from './body.lib';
-export { body, hasParsedBody, parseRequestBody, setBody } from './body.lib';
-export { cookie } from './cookie.lib';
+export {
+  bodyRaw,
+  getBody,
+  hasParsedBody,
+  parseRequestBody,
+  readRequestBody,
+  setBody,
+  setBodyRaw,
+} from './body.lib';
 export type { RequestContextSchema } from './get-context.lib';
 export { getContext, setContext } from './get-context.lib';
-export { header } from './header.lib';
-export { ip } from './ip.lib';
-export { pathParam, setPathParams } from './path-param.lib';
-export { queryParam, queryParams } from './query-param.lib';
-export { method, path, url } from './url.lib';
-export { validated } from './validated.lib';
+export { setPathParams } from './path-param.lib';
+export type {
+  ExtractRequestBody,
+  HasRequestBody,
+  RequestAccessor,
+  RequestBodyAccessor,
+} from './request.lib';
+export { request } from './request.lib';

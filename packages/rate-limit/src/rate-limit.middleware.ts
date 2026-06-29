@@ -23,7 +23,7 @@ export class RateLimitMiddleware {
       return undefined;
     }
 
-    const key = typeof opts.key === 'string' ? opts.key : opts.key();
+    const key = typeof opts.key === 'string' ? opts.key : await opts.key();
     const r = await this.limiter.hit(key, {
       limit: opts.limit,
       windowSec: opts.windowSec,
