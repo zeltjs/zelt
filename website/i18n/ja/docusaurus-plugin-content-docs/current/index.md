@@ -21,7 +21,8 @@ To achieve this, we build with these five policies:
 ## Quick Example
 
 ```typescript
-import { Controller, Get } from '@zeltjs/core';
+import { createApp, Controller, Get, http } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
 
 @Controller('/hello')
 class HelloController {
@@ -30,6 +31,10 @@ class HelloController {
     return { message: 'Hello, World!' };
   }
 }
+
+const app = createApp([http({ controllers: [HelloController] })]);
+const nodeApp = await onNode(app);
+await nodeApp.http.listen({ port: 3000 });
 ```
 
 ## Benchmark

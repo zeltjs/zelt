@@ -4,11 +4,10 @@ import {
   HTTPException,
   inject,
   Post,
-  pathParam,
+  request,
   requestContext,
   response,
 } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
 import type { Context } from 'hono';
 import * as v from 'valibot';
 
@@ -38,10 +37,11 @@ export class UrlController {
 
   @Post('/shorten')
   async shorten(
-    body = validated(ShortenBody),
+    req = request(ShortenBody),
     res = response(),
     ctx = requestContext() as RequestContext,
   ) {
+    const body = await req.body();
     const code = generateCode();
     const record: UrlRecord = {
       url: body.url,
@@ -53,7 +53,8 @@ export class UrlController {
   }
 
   @Get('/stats/:code')
-  async stats(code = pathParam('code'), ctx = requestContext() as RequestContext) {
+  async stats(req = request(), ctx = requestContext() as RequestContext) {
+    const code = req.pathParam('code');
     const record = await this.kv.get(ctx, code);
     if (!record) {
       throw new HTTPException(404, { message: 'URL not found' });
@@ -62,11 +63,8 @@ export class UrlController {
   }
 
   @Get('/:code')
-  async redirect(
-    code = pathParam('code'),
-    res = response(),
-    ctx = requestContext() as RequestContext,
-  ) {
+  async redirect(req = request(), res = response(), ctx = requestContext() as RequestContext) {
+    const code = req.pathParam('code');
     const record = await this.kv.get(ctx, code);
     if (!record) {
       throw new HTTPException(404, { message: 'URL not found' });

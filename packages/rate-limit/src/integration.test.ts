@@ -1,5 +1,4 @@
-import { Controller, createApp, http, ip, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, createApp, http, Post, request } from '@zeltjs/core';
 import { object, string } from 'valibot';
 import { describe, expect, it } from 'vitest';
 
@@ -12,8 +11,9 @@ describe('rate-limit integration with primitives', () => {
     @Controller('/auth')
     class AuthController {
       @Post('/login')
-      @RateLimit({ limit: 1, windowSec: 60, key: () => `login:${ip()}` })
-      login(_body = validated(LoginSchema)) {
+      @RateLimit({ limit: 1, windowSec: 60, key: () => `login:${request().ip()}` })
+      async login(req = request(LoginSchema)) {
+        await req.body();
         return { ok: true };
       }
     }
@@ -45,16 +45,17 @@ describe('rate-limit integration with primitives', () => {
     expect(r3.status).toBe(200);
   });
 
-  it('uses validated() in dynamic key (per-email rate limit)', async () => {
+  it('uses request() body in dynamic key (per-email rate limit)', async () => {
     @Controller('/auth')
     class AuthController2 {
       @Post('/login')
       @RateLimit({
         limit: 1,
         windowSec: 60,
-        key: () => `login:${validated(LoginSchema).email}`,
+        key: async () => `login:${(await request(LoginSchema).body()).email}`,
       })
-      login(_body = validated(LoginSchema)) {
+      async login(req = request(LoginSchema)) {
+        await req.body();
         return { ok: true };
       }
     }

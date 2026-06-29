@@ -132,27 +132,15 @@ export type {
   RequestContextSchema,
 } from './features/http/request/injection';
 export {
-  body,
-  bodyRaw,
-  cookie,
   getContext,
-  header,
-  ip,
-  method,
-  path,
-  pathParam,
-  queryParam,
-  queryParams,
+  request,
   setContext,
-  url,
-  validated,
 } from './features/http/request/injection';
 export type {
-  ExtractValidated,
-  ExtractValidationTarget,
-  IsValidated,
-  ValidatedMarker,
-  ValidationTarget,
+  ExtractRequestBody,
+  HasRequestBody,
+  RequestAccessor,
+  RequestBodyAccessor,
 } from './features/http/request/validated.types';
 export type {
   CookieOptions,

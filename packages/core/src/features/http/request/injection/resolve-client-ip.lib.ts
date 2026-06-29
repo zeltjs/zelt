@@ -1,8 +1,6 @@
-import { requestContext } from '../index';
+import type { Context } from 'hono';
 
-/** @throws {ZeltContextNotAvailableError} */
-export const ip = (): string | undefined => {
-  const c = requestContext();
+export const resolveClientIp = (c: Context): string | undefined => {
   return (
     c.req.header('cf-connecting-ip') ??
     c.req.header('x-real-ip') ??

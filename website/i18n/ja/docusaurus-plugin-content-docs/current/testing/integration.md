@@ -19,7 +19,7 @@ declare function describe(name: string, fn: () => void): void;
 declare function it(name: string, fn: () => void | Promise<void>): void;
 declare function expect<T>(value: T): { toBe(expected: T): void; };
 declare function createTestTarget<T extends object>(cls: new (...args: never[]) => T, opts?: { configs?: readonly ConfigClass<object>[] }): Promise<{ target: T; shutdown: () => Promise<void> }>;
-declare const RedisTestContainerConfig: ConfigClass<object>;
+import { RedisTestContainerConfig } from '@zeltjs/redis/testing';
 declare class CacheService { set(key: string, value: string): Promise<void>; get(key: string): Promise<string>; }
 // ---cut---
 describe('CacheService', () => {
@@ -104,7 +104,7 @@ declare function it(name: string, fn: () => void | Promise<void>): void;
 declare function expect<T>(value: T): { toBe(expected: T): void; };
 type TestTargetResult<T> = { target: T; get: <U>(cls: new (...args: never[]) => U) => U; shutdown: () => Promise<void> };
 declare function createTestTarget<T extends object>(cls: new (...args: never[]) => T, opts?: { configs?: readonly ConfigClass<object>[] }): Promise<TestTargetResult<T>>;
-declare const RedisTestContainerConfig: ConfigClass<object>;
+import { RedisTestContainerConfig } from '@zeltjs/redis/testing';
 declare class SessionService { create(data: { userId: string }): Promise<{ id: string }>; }
 declare class UserService { fromSession(sessionId: string): Promise<{ id: string }>; }
 // ---cut---

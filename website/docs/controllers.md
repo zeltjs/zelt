@@ -10,8 +10,8 @@ Controllers are responsible for handling incoming **requests** and returning **r
 A controller is a class decorated with `@Controller()`. The decorator accepts a path prefix that will be prepended to all routes defined in the controller.
 
 ```typescript
-import { Controller, Get, Post, pathParam, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Get, Post, response } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({
@@ -27,12 +27,14 @@ export class UserController {
   }
 
   @Get('/:id')
-  findOne(id = pathParam('id')) {
+  findOne(req = request()) {
+    const id = req.pathParam('id');
     return { id, name: 'John Doe' };
   }
 
   @Post('/')
-  create(body = validated(CreateUserBody), res = response()) {
+  async create(req = request(CreateUserBody), res = response()) {
+    const body = await req.body();
     return res.json({ id: '1', ...body }, 201);
   }
 }
@@ -75,8 +77,8 @@ Zelt provides decorators for all standard HTTP methods:
 | `@Delete()` | DELETE |
 
 ```typescript
-import { Controller, Get, Post, Put, Patch, Delete, pathParam } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Get, Post, Put, Patch, Delete } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 const schema = v.object({ name: v.string() });
 // ---cut---
@@ -86,36 +88,52 @@ export class ItemController {
   findAll() { /* ... */ }
 
   @Get('/:id')
-  findOne(id = pathParam('id')) { /* ... */ }
+  findOne(req = request()) {
+    const id = req.pathParam('id');
+    /* ... */
+  }
 
   @Post('/')
-  create(body = validated(schema)) { /* ... */ }
+  async create(req = request(schema)) {
+    const body = await req.body();
+    /* ... */
+  }
 
   @Put('/:id')
-  update(id = pathParam('id'), body = validated(schema)) { /* ... */ }
+  async update(req = request(schema)) {
+    const id = req.pathParam('id');
+    const body = await req.body();
+    /* ... */
+  }
 
   @Patch('/:id')
-  patch(id = pathParam('id'), body = validated(schema)) { /* ... */ }
+  async patch(req = request(schema)) {
+    const id = req.pathParam('id');
+    const body = await req.body();
+    /* ... */
+  }
 
   @Delete('/:id')
-  remove(id = pathParam('id')) { /* ... */ }
+  remove(req = request()) {
+    const id = req.pathParam('id');
+    /* ... */
+  }
 }
 ```
 
 ## Route Parameters
 
-Use `pathParam()` to extract route parameters:
+Inject `request()` as a handler parameter and use `req.pathParam()` to extract route parameters:
 
 ```typescript
-import { Controller, Get, pathParam } from '@zeltjs/core';
+import { Controller, Get, request } from '@zeltjs/core';
 // ---cut---
 @Controller('/items')
 class ItemController {
   @Get('/:category/:id')
-  findOne(
-    category = pathParam('category'),
-    id = pathParam('id')
-  ) {
+  findOne(req = request()) {
+    const category = req.pathParam('category');
+    const id = req.pathParam('id');
     return { category, id };
   }
 }
@@ -125,11 +143,11 @@ class ItemController {
 
 ### With Validation (Recommended)
 
-Use `validated()` with a Valibot schema to validate and type the request body:
+Use `request()` with a Valibot schema to validate and type the request body:
 
 ```typescript
 import { Controller, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 // ---cut---
 const CreatePostBody = v.object({
@@ -141,7 +159,8 @@ const CreatePostBody = v.object({
 @Controller('/posts')
 class PostController {
   @Post('/')
-  create(body = validated(CreatePostBody)) {
+  async create(req = request(CreatePostBody)) {
+    const body = await req.body();
     // body is fully typed as { title: string; content: string; tags?: string[] }
     return { id: '1', ...body };
   }
@@ -152,22 +171,23 @@ If validation fails, Zelt automatically returns a 400 response with detailed err
 
 ### Without Validation
 
-For cases where you don't need validation (e.g., accepting arbitrary JSON), use the `body()` primitive:
+For cases where you don't need validation (e.g., accepting arbitrary JSON), inject `request()` and use `req.body()`:
 
 ```typescript
-import { Controller, Post, body } from '@zeltjs/core';
+import { Controller, Post, request } from '@zeltjs/core';
 // ---cut---
 @Controller('/webhooks')
 class WebhookController {
   @Post('/github')
-  handleGithubWebhook(payload = body()) {
+  async handleGithubWebhook(req = request()) {
+    const payload = await req.body();
     // payload is typed as unknown
     return { received: true };
   }
 }
 ```
 
-See [Request & Response Primitives](./primitives.md) for more details on `body()` and other request helpers.
+See [Request & Response Primitives](./primitives.md) for more details on `request()` and other request helpers.
 
 ## Returning Responses
 
@@ -199,20 +219,22 @@ class UserController {
 Use `response()` when you need a status code other than 200, custom headers, or redirects:
 
 ```typescript
-import { Controller, Post, Delete, pathParam, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Post, Delete, response } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 const schema = v.object({ name: v.string() });
 // ---cut---
 @Controller('/users')
 class UserController {
   @Post('/')
-  create(body = validated(schema), res = response()) {
+  async create(req = request(schema), res = response()) {
+    const body = await req.body();
     return res.json({ id: '1', ...body }, 201); // 201 Created
   }
 
   @Delete('/:id')
-  remove(id = pathParam('id')) {
+  remove(req = request()) {
+    const id = req.pathParam('id');
     return new Response(null, { status: 204 }); // 204 No Content
   }
 }
@@ -236,21 +258,23 @@ See [Request & Response Primitives](./primitives.md) for the full `response()` A
 Use `response()` to control the HTTP status code:
 
 ```typescript
-import { Controller, Post, Delete, pathParam, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Post, Delete, response } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 const schema = v.object({ name: v.string() });
 // ---cut---
 @Controller('/items')
 class ItemController {
   @Post('/')
-  create(body = validated(schema), res = response()) {
+  async create(req = request(schema), res = response()) {
+    const body = await req.body();
     const created = { id: '1', ...body };
     return res.json(created, 201); // Returns 201 Created
   }
 
   @Delete('/:id')
-  remove(id = pathParam('id')) {
+  remove(req = request()) {
+    const id = req.pathParam('id');
     // Perform delete operation
     return new Response(null, { status: 204 }); // Returns 204 No Content
   }
@@ -262,15 +286,15 @@ class ItemController {
 Controllers must be registered in `createApp()`:
 
 ```typescript
-import { createApp, Controller, Get, Post, pathParam, response, http } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { createApp, Controller, Get, Post, response, http } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
 @Controller('/users') class UserController {
   @Get('/') findAll() { return { users: [] }; }
-  @Get('/:id') findOne(id = pathParam('id')) { return { id }; }
-  @Post('/') create(body = validated(CreateUserBody), res = response()) { return res.json({ id: '1', ...body }, 201); }
+  @Get('/:id') findOne(req = request()) { const id = req.pathParam('id'); return { id }; }
+  @Post('/') async create(req = request(CreateUserBody), res = response()) { const body = await req.body(); return res.json({ id: '1', ...body }, 201); }
 }
 @Controller('/posts') class PostController {
   @Get('/') findAll() { return { posts: [] }; }

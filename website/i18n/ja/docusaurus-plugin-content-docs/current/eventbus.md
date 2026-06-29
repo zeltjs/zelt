@@ -145,7 +145,7 @@ const unsubscribe = eventBus.on('user.created', (data) => {
   console.log(data.email);
 });
 
-// 後で、リッスンを停止
+// Later, stop listening
 unsubscribe();
 ```
 

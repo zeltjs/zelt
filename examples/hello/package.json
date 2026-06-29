@@ -18,8 +18,7 @@
     "@zeltjs/openapi": "workspace:*",
     "@zeltjs/hono-client": "workspace:*",
     "tsdown": "catalog:",
-    "valibot": "catalog:",
-    "@zeltjs/validator-valibot": "workspace:*"
+    "valibot": "catalog:"
   },
   "devDependencies": {
     "hono": "catalog:",

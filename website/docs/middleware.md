@@ -68,7 +68,7 @@ export class AdminController {
 Apply to specific methods:
 
 ```typescript
-import { Controller, Get, Delete, UseMiddleware, pathParam, type FunctionMiddleware } from '@zeltjs/core';
+import { Controller, Get, Delete, UseMiddleware, request, type FunctionMiddleware } from '@zeltjs/core';
 
 const adminOnlyMiddleware: FunctionMiddleware = async (c, next) => { await next(); };
 // ---cut---
@@ -81,7 +81,8 @@ export class PostController {
 
   @UseMiddleware(adminOnlyMiddleware)
   @Delete('/:id')
-  remove(id = pathParam('id')) {
+  remove(req = request()) {
+    const id = req.pathParam('id');
     return { deleted: id };
   }
 }

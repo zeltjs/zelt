@@ -8,8 +8,6 @@ export default defineConfig({
   fixedExtension: false,
   deps: {
     neverBundle: [
-      '@zeltjs/core',
-      /^@zeltjs\/core\//,
       '@zeltjs/openapi',
       /^@zeltjs\/openapi\//,
       'hono',

@@ -1,4 +1,4 @@
-import type { ExtractValidated, IsValidated, ValidationErrorBody } from '@zeltjs/core';
+import type { ExtractRequestBody, HasRequestBody, ValidationErrorBody } from '@zeltjs/core';
 import type { Hono } from 'hono';
 import type { BlankEnv, Schema, TypedResponse } from 'hono/types';
 import type { StatusCode } from 'hono/utils/http-status';
@@ -13,19 +13,19 @@ export type ExtractPathParams<P extends string> = string extends P
       ? { [K in Param]: string }
       : Record<string, never>;
 
-export type ExtractRequestBody<H extends (...args: never[]) => unknown> = H extends (
+export type ExtractHandlerBody<H extends (...args: never[]) => unknown> = H extends (
   a0: infer A0,
   ...r0: infer _R0
 ) => unknown
-  ? ExtractValidated<A0> extends never
+  ? ExtractRequestBody<A0> extends never
     ? H extends (b0: infer _B0, a1: infer A1, ...r1: infer _R1) => unknown
-      ? ExtractValidated<A1> extends never
+      ? ExtractRequestBody<A1> extends never
         ? H extends (c0: infer _C0, c1: infer _C1, a2: infer A2, ...r2: infer _R2) => unknown
-          ? ExtractValidated<A2>
+          ? ExtractRequestBody<A2>
           : never
-        : ExtractValidated<A1>
+        : ExtractRequestBody<A1>
       : never
-    : ExtractValidated<A0>
+    : ExtractRequestBody<A0>
   : never;
 
 type WrapRaw<T> = [T] extends [
@@ -42,13 +42,13 @@ export type ExtractResponse<H extends (...args: never[]) => unknown> = WrapRaw<
 
 export type ExtractValidationErrors<H extends (...args: never[]) => unknown> = (
   H extends (a0: infer A0, ...r0: infer _R0) => unknown
-    ? IsValidated<A0> extends true
+    ? HasRequestBody<A0> extends true
       ? true
       : H extends (b0: infer _B0, a1: infer A1, ...r1: infer _R1) => unknown
-        ? IsValidated<A1> extends true
+        ? HasRequestBody<A1> extends true
           ? true
           : H extends (c0: infer _C0, c1: infer _C1, a2: infer A2, ...r2: infer _R2) => unknown
-            ? IsValidated<A2> extends true
+            ? HasRequestBody<A2> extends true
               ? true
               : false
             : false
@@ -64,7 +64,7 @@ export type Route<M extends string, P extends string, H extends (...args: never[
   readonly method: M;
   readonly path: P;
   readonly params: ExtractPathParams<P>;
-  readonly body: ExtractRequestBody<H>;
+  readonly body: ExtractHandlerBody<H>;
   readonly response: ExtractResponse<H> | ExtractValidationErrors<H>;
 };
 

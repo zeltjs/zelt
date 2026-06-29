@@ -17,7 +17,7 @@ export const ValidationFailedException: HttpExceptionClass<ValidationFailedConte
     },
   );
 
-const ASYNC_VALIDATION_MESSAGE = 'validated() does not support async validation schemas.';
+const ASYNC_VALIDATION_MESSAGE = 'request() does not support async validation schemas.';
 
 export const AsyncValidationUnsupportedException: HttpExceptionClass<unknown> = defineHttpException(
   'AsyncValidationUnsupportedException',

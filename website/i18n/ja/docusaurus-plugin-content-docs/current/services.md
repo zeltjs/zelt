@@ -38,8 +38,8 @@ export class UserService {
 Use `inject()` to inject services into controllers:
 
 ```typescript
-import { Controller, Get, Post, inject, pathParam, Injectable } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Get, Post, inject, Injectable } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
 import * as v from 'valibot';
 
 @Injectable() class UserService {
@@ -61,7 +61,8 @@ export class UserController {
   }
 
   @Get('/:id')
-  findOne(id = pathParam('id')) {
+  findOne(req = request()) {
+    const id = req.pathParam('id');
     const user = this.userService.findOne(id);
     if (!user) {
       throw new Error('User not found');
@@ -70,7 +71,8 @@ export class UserController {
   }
 
   @Post('/')
-  create(body = validated(CreateUserBody)) {
+  async create(req = request(CreateUserBody)) {
+    const body = await req.body();
     return this.userService.create(body.name);
   }
 }
@@ -134,28 +136,25 @@ For configuration, prefer using `@Config` classes with `inject()`. See [Configur
 The singleton pattern makes testing straightforward — you can provide mock implementations:
 
 ```typescript
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { Controller, Get, inject, Injectable } from '@zeltjs/core';
+import { createTestTarget } from '@zeltjs/testing';
 
 @Injectable() class UserService { findAll(): { id: string; name: string }[] { return []; } }
 @Controller('/users') class UserController {
   constructor(private userService = inject(UserService)) {}
   @Get('/') findAll() { return { users: this.userService.findAll() }; }
 }
-type TestContainer = { override(cls: unknown, impl: unknown): TestContainer; resolve<T>(cls: new (...args: never[]) => T): T; };
-declare function createTestContainer(): TestContainer;
 // ---cut---
 describe('UserController', () => {
   it('should return all users', async () => {
     const mockUsers = [{ id: '1', name: 'John' }];
-    
-    const container = createTestContainer()
-      .override(UserService, {
-        findAll: () => mockUsers,
-      });
 
-    const controller = container.resolve(UserController);
-    const result = controller.findAll();
+    const { target } = await createTestTarget(UserController, {
+      overrides: [{ provide: UserService, useValue: { findAll: () => mockUsers } as UserService }],
+    });
+
+    const result = target.findAll();
 
     expect(result).toEqual({ users: mockUsers });
   });

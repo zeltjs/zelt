@@ -17,7 +17,7 @@ describe('/hello', () => {
     });
 
   it('GET narrows response and returns greeting', async () => {
-    // GET has no validated() arg, so AppType narrows status to 200 only — no
+    // GET has no request() body arg, so AppType narrows status to 200 only — no
     // 400 union branch. `await res.json()` returns GreetResponse directly.
     const res = await getClient().hello[':name'].$get({ param: { name: 'zelt' } });
     expect(res.status).toBe(200);

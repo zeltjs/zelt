@@ -231,7 +231,7 @@ export class OAuthMiddleware {
 ### OAuth Callback Handler
 
 ```typescript
-import { Controller, Get, Injectable, inject, queryParam } from '@zeltjs/core';
+import { Controller, Get, Injectable, inject, request } from '@zeltjs/core';
 
 type User = { id: string; oauthId?: string; name?: string; email?: string };
 
@@ -273,7 +273,9 @@ class OAuthController {
   ) {}
 
   @Get('/callback')
-  async callback(code = queryParam('code'), _state = queryParam('state')) {
+  async callback(req = request()) {
+    const code = req.queryParam('code');
+    const _state = req.queryParam('state');
     const tokens = await this.oauth.exchangeCode(code);
     const userInfo = await this.oauth.getUserInfo(tokens.access_token);
 
@@ -443,7 +445,7 @@ Mock the user context in tests:
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { onTest } from '@zeltjs/testing';
-import { createApp, setUser, Controller, Get, Authorized, currentUser, http } from '@zeltjs/core';
+import { createApp, setUser, Controller, Get, Authorized, currentUser, type FunctionMiddleware, http } from '@zeltjs/core';
 
 @Controller('/users')
 class UserController {
@@ -451,14 +453,21 @@ class UserController {
   me() { return currentUser(); }
 }
 
-const app = createApp([http({ controllers: [UserController] })]);
+// Middleware sets user within request context — required for setUser to work
+const mockAuthMiddleware: FunctionMiddleware = async (_c, next) => {
+  setUser({ id: '123', name: 'Test User' }, ['admin']);
+  await next();
+};
+
+const app = createApp([http({
+    controllers: [UserController],
+    middlewares: [mockAuthMiddleware],
+  })]);
+const readyApp = await app.createRuntime();
 // ---cut---
 describe('Protected routes', () => {
   it('returns user data when authenticated', async () => {
     const testApp = await onTest(app);
-    
-    // Mock authentication
-    setUser({ id: '123', name: 'Test User' }, ['admin']);
     
     const res = await testApp.http.request('/users/me');
     expect(res.status).toBe(200);
