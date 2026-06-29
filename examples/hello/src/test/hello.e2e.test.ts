@@ -5,6 +5,16 @@ import { app } from '../app';
 
 let readyApp: Awaited<ReturnType<typeof app.createRuntime>>;
 
+type ResponseWithStatus = { readonly status: number };
+type ExpectStatus = <R extends ResponseWithStatus, S extends R['status']>(
+  res: R,
+  status: S,
+) => asserts res is Extract<R, { readonly status: S }>;
+
+const expectStatus: ExpectStatus = (res, status) => {
+  expect(res.status).toBe(status);
+};
+
 beforeAll(async () => {
   readyApp = await app.createRuntime();
 });
@@ -27,21 +37,15 @@ describe('/hello', () => {
 
   it('POST returns 201 with validated body', async () => {
     const res = await getClient().hello.$post({ json: { name: 'zelt', excited: true } });
-    if (res.status === 400) {
-      const body = await res.json();
-      expect(body.code).toBe('VALIDATION_FAILED');
-      return;
-    }
+    expectStatus(res, 201);
 
-    expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body).toMatchObject({ message: 'hello, zelt!!!' });
+    expect(body.message).toBe('hello, zelt!!!');
   });
 
   it('POST returns 400 ValidationErrorBody on invalid payload', async () => {
     const res = await getClient().hello.$post({ json: JSON.parse('{"name":123}') });
-    expect(res.status).toBe(400);
-    if (res.status !== 400) throw new Error(`Unexpected status: ${res.status}`);
+    expectStatus(res, 400);
 
     const body = await res.json();
     expect(body.code).toBe('VALIDATION_FAILED');
