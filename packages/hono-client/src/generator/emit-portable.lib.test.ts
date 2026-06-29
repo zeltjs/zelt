@@ -77,7 +77,8 @@ const portableDtoMetadata: HttpMetadata = {
 
 const expectGeneratedAppTypeToTypeCheck = async (sourceText: string) => {
   const result = await getOrCreateProgram(tsconfig);
-  if (result.isErr()) throw new Error(`Failed to load program: ${result.error.message}`);
+  expect(result.isOk()).toBe(true);
+  if (result.isErr()) return;
 
   const { ts, program: baseProgram } = result.value;
   const compilerOptions = baseProgram.getCompilerOptions();
@@ -229,7 +230,8 @@ describe('emitPortableAppType', () => {
         projectRoot,
       });
 
-      if (!result.ok) throw new Error(JSON.stringify(result.error));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
 
       expect(result.value).toContain('/portable-dto/:id');
       expect(result.value).toContain('value:');

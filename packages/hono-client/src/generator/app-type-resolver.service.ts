@@ -49,6 +49,20 @@ type RenderedHonoTypes = {
   readonly basePathText: string;
 };
 
+type InlineTypeNodeResult =
+  | { ok: true; readonly value: import('typescript').TypeNode }
+  | { ok: false; readonly message: string };
+
+type ParsedTypeTextResult =
+  | {
+      ok: true;
+      readonly value: {
+        readonly sourceFile: TSSourceFile;
+        readonly typeNode: import('typescript').TypeNode;
+      };
+    }
+  | { ok: false; readonly message: string };
+
 @Injectable()
 export class AppTypeResolverService {
   private readonly externalModuleRewrites: readonly [test: string, specifier: string][] = [
@@ -186,10 +200,7 @@ export class AppTypeResolverService {
     return undefined;
   }
 
-  private parseTypeText(
-    source: string,
-    ts: TypeScriptModule,
-  ): { readonly sourceFile: TSSourceFile; readonly typeNode: import('typescript').TypeNode } {
+  private parseTypeText(source: string, ts: TypeScriptModule): ParsedTypeTextResult {
     const sourceFile = ts.createSourceFile(
       '__portable_type.ts',
       `type __Portable = ${source};`,
@@ -198,9 +209,9 @@ export class AppTypeResolverService {
     );
     const statement = sourceFile.statements[0];
     if (!statement || !ts.isTypeAliasDeclaration(statement)) {
-      throw new Error('Failed to parse rendered type text');
+      return { ok: false, message: 'Failed to parse rendered type text' };
     }
-    return { sourceFile, typeNode: statement.type };
+    return { ok: true, value: { sourceFile, typeNode: statement.type } };
   }
 
   private typeParameterSubstitutions(
@@ -278,7 +289,7 @@ export class AppTypeResolverService {
     ts: TypeScriptModule,
     transformContext: import('typescript').TransformationContext,
     seen: ReadonlySet<string>,
-  ): import('typescript').TypeNode {
+  ): InlineTypeNodeResult {
     const substitutions = this.typeParameterSubstitutions(declaration, typeArguments);
     return this.inlineLocalTypeNode(
       program,
@@ -303,15 +314,20 @@ export class AppTypeResolverService {
     transformContext: import('typescript').TransformationContext,
     substitutions: ReadonlyMap<string, import('typescript').TypeNode>,
     seen: ReadonlySet<string>,
-  ): import('typescript').TypeNode {
-    const visit = (child: import('typescript').Node): import('typescript').Node => {
+  ): InlineTypeNodeResult {
+    let failureMessage: string | undefined;
+    const visit = (
+      child: import('typescript').Node,
+    ): import('typescript').VisitResult<import('typescript').Node> => {
+      if (failureMessage) return child;
+
       if (ts.isTypeReferenceNode(child) && ts.isIdentifier(child.typeName)) {
         const substitution = substitutions.get(child.typeName.text);
         if (substitution) return ts.visitNode(substitution, visit);
 
         const localDeclaration = this.findLocalTypeDeclaration(sourceFile, child.typeName.text, ts);
         if (localDeclaration) {
-          return this.inlineResolvedDeclaration(
+          const result = this.inlineResolvedDeclaration(
             program,
             localDeclaration,
             sourceFile,
@@ -323,6 +339,11 @@ export class AppTypeResolverService {
             transformContext,
             seen,
           );
+          if (!result.ok) {
+            failureMessage = result.message;
+            return child;
+          }
+          return result.value;
         }
 
         const importedDeclaration = this.findImportedLocalTypeDeclaration(
@@ -333,7 +354,7 @@ export class AppTypeResolverService {
           ts,
         );
         if (importedDeclaration) {
-          return this.inlineResolvedDeclaration(
+          const result = this.inlineResolvedDeclaration(
             program,
             importedDeclaration.declaration,
             importedDeclaration.sourceFile,
@@ -345,6 +366,11 @@ export class AppTypeResolverService {
             transformContext,
             seen,
           );
+          if (!result.ok) {
+            failureMessage = result.message;
+            return child;
+          }
+          return result.value;
         }
       }
 
@@ -372,7 +398,7 @@ export class AppTypeResolverService {
         );
         if (!declaration) return ts.visitEachChild(child, visit, transformContext);
 
-        return this.inlineResolvedDeclaration(
+        const result = this.inlineResolvedDeclaration(
           program,
           declaration,
           importedSourceFile,
@@ -384,12 +410,22 @@ export class AppTypeResolverService {
           transformContext,
           seen,
         );
+        if (!result.ok) {
+          failureMessage = result.message;
+          return child;
+        }
+        return result.value;
       }
 
       return ts.visitEachChild(child, visit, transformContext);
     };
 
-    return ts.visitNode(node, visit) as import('typescript').TypeNode;
+    const result = ts.visitNode(node, visit);
+    if (failureMessage) return { ok: false, message: failureMessage };
+    if (!result || !ts.isTypeNode(result)) {
+      return { ok: false, message: 'Local type reference expansion returned no type node' };
+    }
+    return { ok: true, value: result };
   }
 
   private inlineResolvedDeclaration(
@@ -403,16 +439,17 @@ export class AppTypeResolverService {
     ts: TypeScriptModule,
     transformContext: import('typescript').TransformationContext,
     seen: ReadonlySet<string>,
-  ): import('typescript').TypeNode {
+  ): InlineTypeNodeResult {
     const key = `${declarationSourceFile.fileName}#${declaration.name.text}`;
     if (seen.has(key)) {
-      throw new Error(`Recursive local type reference is not supported: ${key}`);
+      return { ok: false, message: `Recursive local type reference is not supported: ${key}` };
     }
 
     const nextSeen = new Set(seen);
     nextSeen.add(key);
-    const resolvedTypeArguments = typeArguments.map((argument) =>
-      this.inlineLocalTypeNode(
+    const resolvedTypeArguments: import('typescript').TypeNode[] = [];
+    for (const argument of typeArguments) {
+      const result = this.inlineLocalTypeNode(
         program,
         argument,
         typeArgumentSourceFile,
@@ -422,8 +459,10 @@ export class AppTypeResolverService {
         transformContext,
         new Map(),
         seen,
-      ),
-    );
+      );
+      if (!result.ok) return result;
+      resolvedTypeArguments.push(result.value);
+    }
     return this.inlineDeclarationTypeNode(
       program,
       declaration,
@@ -475,27 +514,38 @@ export class AppTypeResolverService {
     containingDir: string,
   ): ResolveResult<string> {
     const parsed = this.parseTypeText(source, ts);
-    const transformed = ts.transform(parsed.typeNode, [
-      (context) => (root) =>
-        this.inlineLocalTypeNode(
+    if (!parsed.ok) return this.typeResolutionError(parsed.message);
+
+    let failureMessage: string | undefined;
+    const transformed = ts.transform(parsed.value.typeNode, [
+      (context) => (root) => {
+        const result = this.inlineLocalTypeNode(
           program,
           root,
-          parsed.sourceFile,
+          parsed.value.sourceFile,
           containingDir,
           projectRoot,
           ts,
           context,
           new Map(),
           new Set(),
-        ),
+        );
+        if (result.ok) return result.value;
+        failureMessage = result.message;
+        return root;
+      },
     ]);
+    if (failureMessage) {
+      transformed.dispose();
+      return this.typeResolutionError(failureMessage);
+    }
     const transformedNode = transformed.transformed[0];
     if (!transformedNode) {
       transformed.dispose();
       return this.typeResolutionError('Local type reference expansion returned no type node');
     }
 
-    const result = this.printNode(transformedNode, parsed.sourceFile, ts);
+    const result = this.printNode(transformedNode, parsed.value.sourceFile, ts);
     transformed.dispose();
     return { ok: true, value: result };
   }
