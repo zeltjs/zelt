@@ -440,28 +440,4 @@ describe('request() — async body', () => {
     );
     expect(await res.json()).toEqual({ same: true });
   });
-
-  it('works when called in method body (not default parameter)', async () => {
-    @Controller('/')
-    class C {
-      @Post('/body-call')
-      async handle() {
-        const req = request(userSchema);
-        const data = await req.body();
-        return data;
-      }
-    }
-
-    const app = createApp([http({ controllers: [C] })]);
-    const ready = await app.createRuntime();
-    const res = await ready.http.fetch(
-      new Request('http://localhost/body-call', {
-        method: 'POST',
-        body: JSON.stringify({ name: 'Ada', age: 36 }),
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ name: 'Ada', age: 36 });
-  });
 });

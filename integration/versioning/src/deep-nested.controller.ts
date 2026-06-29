@@ -5,8 +5,7 @@ import { Controller, Get, request, response } from '@zeltjs/core';
 @Controller('/v1/api/users')
 export class DeepNestedV1Controller {
   @Get('/:id/posts/:postId')
-  userPost() {
-    const req = request();
+  userPost(req = request()) {
     const id = req.pathParam('id');
     const postId = req.pathParam('postId');
     return response().text(`V1 user=${id} post=${postId}`);
@@ -16,8 +15,7 @@ export class DeepNestedV1Controller {
 @Controller('/v2/api/users')
 export class DeepNestedV2Controller {
   @Get('/:id/posts/:postId')
-  userPost() {
-    const req = request();
+  userPost(req = request()) {
     const id = req.pathParam('id');
     const postId = req.pathParam('postId');
     return response().text(`V2 user=${id} post=${postId}`);
