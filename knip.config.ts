@@ -78,6 +78,10 @@ const config: KnipConfig = {
       // for AST-based import resolution testing (must be a separate file)
       ignore: ['src/gql-args-sample.lib.ts'],
     },
+    'packages/hono-client': {
+      // Portable AppType tests need real files for TypeScript program resolution.
+      ignore: ['src/generator/test/fixtures/**'],
+    },
     'packages/adapter-node': {
       ignoreDependencies: ['@zeltjs/core'],
     },
