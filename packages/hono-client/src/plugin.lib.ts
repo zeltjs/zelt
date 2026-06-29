@@ -40,11 +40,6 @@ const buildGenerateOptions = (
   };
 };
 
-export type HonoClientPortablePluginOptions = HonoClientPluginBaseOptions & {
-  portable: true;
-  readonly tsconfig?: string;
-};
-
 /** @throws {ZeltPluginConfigurationError | ZeltDecoratorUsageError | ZeltHonoClientGenerationError} */
 export const honoClientPlugin = (
   options: HonoClientPluginOptions = {},
