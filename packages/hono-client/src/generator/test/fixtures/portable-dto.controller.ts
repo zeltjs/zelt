@@ -1,7 +1,7 @@
 import { Controller } from '@zeltjs/core';
 
-import type { PortableBox } from './portable-box.fixture';
-import type { PortableUser } from './portable-user.fixture';
+import type { PortableBox } from './portable-box.types';
+import type { PortableUser } from './portable-user.types';
 
 @Controller('/portable-dto')
 export class PortableDtoController {

@@ -3,9 +3,9 @@ import { resolve } from 'node:path';
 import { Controller } from '@zeltjs/core';
 import { getOrCreateProgram } from '@zeltjs/decorator-metadata/inspect';
 import { describe, expect, it } from 'vitest';
-import { PortableDtoController } from './fixtures/portable-dto.controller.fixture';
 import type { ControllerClass, HttpMetadata } from './generator.types';
 import { PortableAppTypeEmitterService } from './portable-app-type-emitter.service';
+import { PortableDtoController } from './test/fixtures/portable-dto.controller';
 
 @Controller('/users')
 export class UserController {
