@@ -139,6 +139,14 @@ describe('ZeltAppConfigurationError', () => {
     });
     expect(error.message).toBe('Reserved feature namespace: createRuntime');
   });
+
+  it('formats abstract_leaf_without_concrete reason correctly', () => {
+    const error = new ZeltAppConfigurationError({
+      reason: 'abstract_leaf_without_concrete',
+      details: 'BaseConfig',
+    });
+    expect(error.message).toBe('Abstract config class BaseConfig requires a concrete config class');
+  });
 });
 
 describe('ZeltRouteConfigurationError', () => {

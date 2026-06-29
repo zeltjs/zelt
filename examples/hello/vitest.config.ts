@@ -6,7 +6,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       name: 'examples/hello',
-      include: ['src/**/*.e2e-spec.ts'],
+      include: ['src/**/*.e2e.test.ts'],
     },
   }),
 );

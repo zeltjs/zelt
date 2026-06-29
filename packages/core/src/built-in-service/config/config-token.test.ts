@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../app/index';
+import { Injectable, inject } from '../../kernel';
 import { Config } from './index';
 
 describe('config token', () => {
@@ -102,6 +103,63 @@ describe('config token', () => {
       const app = createApp([]);
       const readyApp = await app.createRuntime();
       expect((await readyApp.get(ImplicitConfig)).value).toBe('implicit');
+    });
+  });
+
+  describe('abstract config tokens', () => {
+    it('resolves an abstract config token from a configured leaf class', async () => {
+      @Config({ abstract: true })
+      abstract class AbstractConfig {
+        abstract get value(): string;
+      }
+
+      class ConcreteConfig extends AbstractConfig {
+        override get value() {
+          return 'concrete';
+        }
+      }
+
+      @Injectable()
+      class ConfigConsumer {
+        constructor(public readonly config = inject(AbstractConfig)) {}
+      }
+
+      const app = createApp([], { configs: [ConcreteConfig] });
+      const readyApp = await app.createRuntime();
+
+      expect((await readyApp.get(ConfigConsumer)).config.value).toBe('concrete');
+    });
+
+    it('fails during startup when an abstract config token has no concrete leaf', async () => {
+      @Config({ abstract: true })
+      abstract class AbstractConfig {
+        abstract get value(): string;
+      }
+
+      const app = createApp([], { configs: [AbstractConfig] });
+
+      await expect(app.createRuntime()).rejects.toThrow(
+        'Abstract config class AbstractConfig requires a concrete config class',
+      );
+    });
+
+    it('fails during startup when an abstract override remains after fallback config registration', async () => {
+      @Config({ abstract: true })
+      abstract class AbstractConfig {
+        abstract get value(): string;
+      }
+
+      class FallbackConcreteConfig extends AbstractConfig {
+        override get value() {
+          return 'fallback';
+        }
+      }
+
+      const app = createApp([], { configs: [AbstractConfig] });
+
+      await expect(
+        app.createRuntime({ fallbackConfigs: [FallbackConcreteConfig] }),
+      ).rejects.toThrow('Abstract config class AbstractConfig requires a concrete config class');
     });
   });
 

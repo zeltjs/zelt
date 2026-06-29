@@ -1,6 +1,10 @@
 import { Container, injectable } from '@needle-di/core';
 
-import { overrideConfig, resolveConfig } from '../built-in-service';
+import {
+  assertNoUnresolvedAbstractConfigs,
+  overrideConfig,
+  resolveConfig,
+} from '../built-in-service';
 import { inject, LifecycleManager, resolve, ZeltLifecycleStateError } from '../kernel';
 import { ConfigRegistry } from './config-registry.lib';
 
@@ -49,7 +53,7 @@ export class AppBootstrap {
     return this.cachedResult;
   }
 
-  /** @throws {ZeltLifecycleStateError} */
+  /** @throws {ZeltLifecycleStateError | ZeltAppConfigurationError} */
   applyRegisteredConfigs(): void {
     this.assertCanModifyConfig('applyRegisteredConfigs');
 
@@ -62,6 +66,7 @@ export class AppBootstrap {
     for (const config of defaults) {
       overrideConfig(this.container, config, { fallback: true });
     }
+    assertNoUnresolvedAbstractConfigs(allConfigs, defaults);
     for (const config of allConfigs) {
       resolveConfig(this.container, config);
     }

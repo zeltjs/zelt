@@ -36,9 +36,13 @@ export const coreErrorDefinitions = {
   ZeltAppConfigurationError: (
     ctx:
       | { reason: 'duplicate_command'; details: string }
+      | { reason: 'abstract_leaf_without_concrete'; details: string }
       | { reason: 'duplicate_feature_key'; details: string }
       | { reason: 'reserved_feature_key'; details: string },
   ) => {
+    if (ctx.reason === 'abstract_leaf_without_concrete') {
+      return `Abstract config class ${ctx.details} requires a concrete config class`;
+    }
     if (ctx.reason === 'reserved_feature_key') {
       return `Reserved feature namespace: ${ctx.details}`;
     }

@@ -1,4 +1,4 @@
-import { Controller, createApp, EnvAdaptor, Get, http, inject } from '@zeltjs/core';
+import { Config, Controller, createApp, EnvAdaptor, Get, http, inject } from '@zeltjs/core';
 import { describe, expect, it, vi } from 'vitest';
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 import { CloudflareBindings } from './index';
@@ -131,6 +131,28 @@ describe('onCloudflareWorkers', () => {
       fallbackConfigs: [CloudflareWorkersEnvAdaptor],
       warmup: false,
     });
+  });
+
+  it('passes config overrides to createRuntime()', async () => {
+    @Config
+    class TestEnvAdaptor extends EnvAdaptor {
+      override get(key: string): string | undefined {
+        return key === 'CF_ENV' ? 'test-override' : undefined;
+      }
+    }
+
+    const app = createApp([http({ controllers: [HelloController] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
+
+    const workersApp = await onCloudflareWorkers(app, { configs: [TestEnvAdaptor] });
+
+    expect(readySpy).toHaveBeenCalledWith({
+      configs: [TestEnvAdaptor],
+      fallbackConfigs: [CloudflareWorkersEnvAdaptor],
+      warmup: false,
+    });
+    const env = await workersApp.get(EnvAdaptor);
+    expect(env.get('CF_ENV')).toBe('test-override');
   });
 
   it('provides get() to retrieve dependencies from container', async () => {
