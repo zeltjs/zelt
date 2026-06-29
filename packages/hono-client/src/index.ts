@@ -13,8 +13,10 @@ export type {
   GenerateOptions,
   HttpAppLike,
   HttpMetadata,
+  PortableGenerateOptions,
   RouteInfo,
+  StandardGenerateOptions,
 } from './generator';
-export { GeneratorService } from './generator';
+export { GeneratorService, ZeltHonoClientGenerationError } from './generator';
 export type { HonoClientPluginOptions } from './plugin.lib';
 export { honoClientPlugin } from './plugin.lib';

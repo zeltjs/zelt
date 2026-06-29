@@ -73,7 +73,7 @@ describe('GenerateCommand', () => {
     await expect(readFile(outputPath, 'utf-8')).resolves.toBe('ok');
   });
 
-  it('generates directly using GeneratorService', () => {
+  it('generates directly using GeneratorService', async () => {
     const service = new GeneratorService();
     const metadata: HttpMetadata = {
       controllers: [
@@ -86,7 +86,7 @@ describe('GenerateCommand', () => {
     };
     const controllers: readonly ControllerClass[] = [TestController];
 
-    const output = service.generateFromApp(
+    const output = await service.generateFromApp(
       { getMetadata: () => metadata, getControllers: () => controllers },
       { distDir: '/dist' },
     );
