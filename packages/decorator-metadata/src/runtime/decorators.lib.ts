@@ -109,7 +109,7 @@ const adaptClassContext = (handler: ClassHandler): ClassDecoratorFn => {
 export type ConfigurableClassDecoratorFn<TOptions> = ClassDecoratorFn &
   ((options?: TOptions) => ClassDecoratorFn);
 
-export const createConfigurableClassDecorator = <TOptions>(
+export const createConfigurableClassDecorator = <TOptions extends Record<string, unknown>>(
   factory: (rawOptions: unknown) => ClassDecoratorFn,
 ): ConfigurableClassDecoratorFn<TOptions> => {
   function decorate<T extends abstract new (...args: never[]) => unknown>(
