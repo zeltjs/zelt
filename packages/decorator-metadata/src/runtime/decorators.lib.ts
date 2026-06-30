@@ -30,7 +30,7 @@ export type ClassDecoratorFn = {
     value: T,
     context: ClassDecoratorContext,
   ): void;
-  <T extends new (...args: never[]) => unknown>(target: T): T | undefined;
+  <T extends abstract new (...args: never[]) => unknown>(target: T): T | undefined;
 };
 
 export type MethodDecoratorFn = {
@@ -88,7 +88,7 @@ const adaptClassContext = (handler: ClassHandler): ClassDecoratorFn => {
     value: T,
     context: ClassDecoratorContext,
   ): void;
-  function decorate<T extends new (...args: never[]) => unknown>(target: T): T | undefined;
+  function decorate<T extends abstract new (...args: never[]) => unknown>(target: T): T | undefined;
   function decorate(...args: unknown[]): unknown {
     const cls = isClassConstructor(args[0]) ? args[0] : undefined;
     if (!cls) return undefined;
@@ -102,6 +102,28 @@ const adaptClassContext = (handler: ClassHandler): ClassDecoratorFn => {
         handler(cls, getPrototypeKey(cls));
         return cls;
       });
+  }
+  return decorate;
+};
+
+export type ConfigurableClassDecoratorFn<TOptions> = ClassDecoratorFn &
+  ((options?: TOptions) => ClassDecoratorFn);
+
+export const createConfigurableClassDecorator = <TOptions>(
+  factory: (rawOptions: unknown) => ClassDecoratorFn,
+): ConfigurableClassDecoratorFn<TOptions> => {
+  function decorate<T extends abstract new (...args: never[]) => unknown>(
+    value: T,
+    context: ClassDecoratorContext,
+  ): void;
+  function decorate<T extends abstract new (...args: never[]) => unknown>(target: T): T | undefined;
+  function decorate(options?: TOptions): ClassDecoratorFn;
+  function decorate(...args: unknown[]): unknown {
+    if (isClassConstructor(args[0])) {
+      const fn: (...a: unknown[]) => unknown = factory(undefined);
+      return fn(...args);
+    }
+    return factory(args[0]);
   }
   return decorate;
 };
@@ -266,7 +288,7 @@ export const composeClassDecorators = (...decorators: ClassDecoratorFn[]): Class
     value: T,
     context: ClassDecoratorContext,
   ): void;
-  function decorate<T extends new (...args: never[]) => unknown>(target: T): T | undefined;
+  function decorate<T extends abstract new (...args: never[]) => unknown>(target: T): T | undefined;
   function decorate(...args: unknown[]): unknown {
     const cls = asObject(args[0]);
     if (!cls) return undefined;
