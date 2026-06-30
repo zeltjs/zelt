@@ -1,6 +1,7 @@
 export type {
   ClassDecoratorFn,
   ClassDecoratorOptions,
+  ConfigurableClassDecoratorFn,
   MethodDecoratorFn,
   MethodDecoratorOptions,
   PropertyDecoratorFn,
@@ -11,6 +12,7 @@ export {
   composeMethodDecorators,
   composePropertyDecorators,
   createClassDecorator,
+  createConfigurableClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
 } from './decorators.lib';
