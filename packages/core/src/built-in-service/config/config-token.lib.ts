@@ -54,7 +54,7 @@ export const registerConfigClass = (
   config: AnyConfigClass,
   options?: { readonly abstract?: boolean },
 ): void => {
-  registerAsLeaf(config);
+  registerAsLeaf(config, { abstract: options?.abstract === true });
   if (options?.abstract === true) abstractConfigClasses.add(config);
 };
 
@@ -91,7 +91,7 @@ export const overrideConfig = (
   overrideLeaf(container, config, options);
 };
 
-/** @throws {ZeltLifecycleStateError} */
+/** @throws {ZeltLifecycleStateError | ZeltAppConfigurationError} */
 export const resolveConfig = (container: Container, config: AnyConfigClass): void => {
   resolveLeaf(container, config);
 };

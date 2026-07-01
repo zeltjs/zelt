@@ -2,6 +2,7 @@ import { Container, injectable } from '@needle-di/core';
 import { describe, expect, it } from 'vitest';
 
 import { Config } from '../../built-in-service';
+import { ZeltAppConfigurationError } from '../errors';
 import { getLeaf, isLeafClass, overrideLeaf, registerAsLeaf, resolveLeaf } from './leaf.lib';
 
 describe('leaf mechanism', () => {
@@ -199,6 +200,39 @@ describe('leaf mechanism', () => {
       expect(instantiated).toBe(false);
       resolveLeaf(container, SideEffectConfig);
       expect(instantiated).toBe(true);
+    });
+  });
+
+  describe('abstract leaf defaults', () => {
+    it('throws a config error when an abstract leaf has no concrete implementation', () => {
+      abstract class AbstractConfig {}
+      registerAsLeaf(AbstractConfig, { abstract: true });
+
+      const container = new Container();
+
+      expect(() => getLeaf(container, AbstractConfig)).toThrow(ZeltAppConfigurationError);
+      expect(() => getLeaf(container, AbstractConfig)).toThrow(
+        'Abstract config class AbstractConfig requires a concrete config class',
+      );
+    });
+
+    it('allows fallback concrete leaves to replace inherited abstract defaults', () => {
+      abstract class ParentConfig {}
+      registerAsLeaf(ParentConfig, { abstract: true });
+
+      abstract class ChildConfig extends ParentConfig {}
+      registerAsLeaf(ChildConfig, { abstract: true });
+
+      class FallbackConfig extends ParentConfig {
+        value = 'fallback';
+      }
+      registerAsLeaf(FallbackConfig);
+
+      const container = new Container();
+      overrideLeaf(container, ChildConfig);
+      overrideLeaf(container, FallbackConfig, { fallback: true });
+
+      expect(getLeaf(container, ParentConfig)).toBeInstanceOf(FallbackConfig);
     });
   });
 });

@@ -26,7 +26,7 @@ export class AppBootstrap {
     private readonly configRegistry: ConfigRegistry = inject(ConfigRegistry),
   ) {}
 
-  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   async ready(): Promise<ReadyResult> {
     if (this.state === 'disposed') {
       throw new ZeltLifecycleStateError({ operation: 'ready', currentState: 'disposed' });
@@ -40,7 +40,7 @@ export class AppBootstrap {
     return this.readyPromise;
   }
 
-  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   private async doReady(): Promise<ReadyResult> {
     await this.lifecycleManager.startup();
 
@@ -72,7 +72,7 @@ export class AppBootstrap {
     }
   }
 
-  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   private buildReadyResult(): ReadyResult {
     return {
       get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => {
