@@ -215,5 +215,24 @@ describe('leaf mechanism', () => {
         'Abstract config class AbstractConfig requires a concrete config class',
       );
     });
+
+    it('allows fallback concrete leaves to replace inherited abstract defaults', () => {
+      abstract class ParentConfig {}
+      registerAsLeaf(ParentConfig, { abstract: true });
+
+      abstract class ChildConfig extends ParentConfig {}
+      registerAsLeaf(ChildConfig, { abstract: true });
+
+      class FallbackConfig extends ParentConfig {
+        value = 'fallback';
+      }
+      registerAsLeaf(FallbackConfig);
+
+      const container = new Container();
+      overrideLeaf(container, ChildConfig);
+      overrideLeaf(container, FallbackConfig, { fallback: true });
+
+      expect(getLeaf(container, ParentConfig)).toBeInstanceOf(FallbackConfig);
+    });
   });
 });

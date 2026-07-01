@@ -109,13 +109,25 @@ const markTokenBoundToConcrete = (container: Container, token: LeafInjectionToke
 const isTokenBoundToConcrete = (container: Container, token: LeafInjectionToken): boolean =>
   isTokenBound(container, token) && !(abstractDefaultTokens.get(container)?.has(token) ?? false);
 
+const markTokenBoundLikeExisting = (
+  container: Container,
+  token: LeafInjectionToken,
+  existingToken: LeafInjectionToken,
+): void => {
+  if (abstractDefaultTokens.get(container)?.has(existingToken) === true) {
+    markTokenBoundToAbstractDefault(container, token);
+  } else {
+    markTokenBoundToConcrete(container, token);
+  }
+};
+
 const bindExistingLeaf = (
   container: Container,
   token: LeafInjectionToken,
   existingToken: LeafInjectionToken,
 ): void => {
   container.bind({ provide: token, useExisting: existingToken });
-  markTokenBoundToConcrete(container, token);
+  markTokenBoundLikeExisting(container, token, existingToken);
 };
 
 const bindLeafInternal = (container: Container, token: LeafInjectionToken, cls: AnyClass): void => {
@@ -192,12 +204,13 @@ export const ensureLeafBound = <T extends object = object>(
   return token;
 };
 
-/** @throws {ZeltLifecycleStateError} */
+/** @throws {ZeltLifecycleStateError | ZeltAppConfigurationError} */
 export const getLeaf = <T extends object>(
   container: Container,
   cls: abstract new (...args: never[]) => T,
 ): T => container.get(ensureLeafBound(container, cls));
 
+/** @throws {ZeltLifecycleStateError | ZeltAppConfigurationError} */
 export const resolveLeaf = (container: Container, cls: AnyClass): void => {
   const token = ensureLeafBound(container, cls);
   container.get(token);
