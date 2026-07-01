@@ -182,6 +182,26 @@ describe('config token', () => {
         'Abstract config class AbstractConfig requires a concrete config class',
       );
     });
+
+    it('fails with a config error when a registered config depends on an unconfigured abstract config', async () => {
+      @Config({ abstract: true })
+      abstract class AbstractConfig {
+        abstract getValue(): string;
+      }
+
+      @Config
+      class RegisteredConfig {
+        constructor(public readonly config = inject(AbstractConfig)) {}
+      }
+
+      const app = createApp([], { configs: [RegisteredConfig] });
+      const createRuntime = app.createRuntime();
+
+      await expect(createRuntime).rejects.toThrow(ZeltAppConfigurationError);
+      await expect(createRuntime).rejects.toThrow(
+        'Abstract config class AbstractConfig requires a concrete config class',
+      );
+    });
   });
 
   describe('multiple independent configs', () => {
