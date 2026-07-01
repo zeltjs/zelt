@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { ControllerClass, HttpMetadata } from './generator.types';
 import { PortableAppTypeEmitterService } from './portable-app-type-emitter.service';
 import { PortableDtoController } from './test/fixtures/portable-dto.controller';
+import { PortableLicenseController } from './test/fixtures/portable-license.controller';
 
 @Controller('/users')
 export class UserController {
@@ -81,6 +82,23 @@ const portableDtoMetadata: HttpMetadata = {
           path: '/:id',
           fullPath: '/portable-dto/:id',
           methodName: 'show',
+        },
+      ],
+    },
+  ],
+};
+
+const portableLicenseMetadata: HttpMetadata = {
+  controllers: [
+    {
+      basePath: '/license',
+      name: 'PortableLicenseController',
+      routes: [
+        {
+          method: 'GET',
+          path: '/validate',
+          fullPath: '/license/validate',
+          methodName: 'validate',
         },
       ],
     },
@@ -270,6 +288,29 @@ describe('emitPortableAppType', () => {
       expect(result.value).toContain('value:');
       expect(result.value).toContain('bio: string');
       expect(result.value).not.toContain('PortableProfile');
+      await expectGeneratedAppTypeToTypeCheck(result.value);
+    },
+    portableTestTimeout,
+  );
+
+  it(
+    'preserves string literal types when inlining imported local aliases',
+    async () => {
+      const result = await emitter.emit({
+        metadata: portableLicenseMetadata,
+        controllers: [PortableLicenseController] as readonly ControllerClass[],
+        distDir,
+        tsconfig,
+        projectRoot,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      expect(result.value).toMatch(/status:\s*['"]valid['"]/);
+      expect(result.value).toMatch(/status:\s*['"]revoked['"]/);
+      expect(result.value).not.toContain('cense-se');
+      expect(result.value).not.toContain('orResponse');
       await expectGeneratedAppTypeToTypeCheck(result.value);
     },
     portableTestTimeout,

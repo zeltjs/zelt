@@ -615,6 +615,19 @@ export class AppTypeResolverService {
     return resolvedPath;
   }
 
+  private stripTextRanges(
+    node: TSTypeNode,
+    ts: TypeScriptModule,
+    transformContext: TSTransformationContext,
+  ): TSTypeNode {
+    const visit = (child: TSNode): TSVisitResult => {
+      const visited = ts.visitEachChild(child, visit, transformContext);
+      return ts.setTextRange(visited, { pos: -1, end: -1 });
+    };
+
+    return ts.visitNode(node, visit, ts.isTypeNode);
+  }
+
   private inlineLocalImportReferences(
     program: TSProgram,
     source: string,
@@ -639,7 +652,7 @@ export class AppTypeResolverService {
           new Map(),
           new Set(),
         );
-        if (result.ok) return result.value;
+        if (result.ok) return this.stripTextRanges(result.value, ts, context);
         failureMessage = result.message;
         return root;
       },
