@@ -1,5 +1,4 @@
 export {
-  getAbstractLeafClassFromError,
   Injectable,
   inject,
   overrideLeaf,

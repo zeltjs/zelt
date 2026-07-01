@@ -5,14 +5,7 @@ import {
   overrideConfig,
   resolveConfig,
 } from '../built-in-service';
-import {
-  getAbstractLeafClassFromError,
-  inject,
-  LifecycleManager,
-  resolve,
-  ZeltAppConfigurationError,
-  ZeltLifecycleStateError,
-} from '../kernel';
+import { inject, LifecycleManager, resolve, ZeltLifecycleStateError } from '../kernel';
 import { ConfigRegistry } from './config-registry.lib';
 
 export type ReadyResult = {
@@ -86,20 +79,9 @@ export class AppBootstrap {
         if (this.state === 'disposed') {
           throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });
         }
-        try {
-          const instance = resolve(this.container, cls);
-          await this.lifecycleManager.startupPending();
-          return instance;
-        } catch (error) {
-          const abstractLeafClass = getAbstractLeafClassFromError(error);
-          if (abstractLeafClass) {
-            throw new ZeltAppConfigurationError({
-              reason: 'abstract_leaf_without_concrete',
-              details: abstractLeafClass.name,
-            });
-          }
-          throw error;
-        }
+        const instance = resolve(this.container, cls);
+        await this.lifecycleManager.startupPending();
+        return instance;
       },
     };
   }

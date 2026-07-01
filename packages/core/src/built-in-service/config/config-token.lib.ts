@@ -1,12 +1,6 @@
 import type { Container } from '@needle-di/core';
 import { isClassConstructor } from '@zeltjs/unsafe-type-lib';
-import {
-  getAbstractLeafClassFromError,
-  overrideLeaf,
-  registerAsLeaf,
-  resolveLeaf,
-  ZeltAppConfigurationError,
-} from '../../kernel';
+import { overrideLeaf, registerAsLeaf, resolveLeaf, ZeltAppConfigurationError } from '../../kernel';
 
 type AnyConfigClass = abstract new (...args: never[]) => object;
 
@@ -99,16 +93,5 @@ export const overrideConfig = (
 
 /** @throws {ZeltLifecycleStateError | ZeltAppConfigurationError} */
 export const resolveConfig = (container: Container, config: AnyConfigClass): void => {
-  try {
-    resolveLeaf(container, config);
-  } catch (error) {
-    const abstractLeafClass = getAbstractLeafClassFromError(error);
-    if (abstractLeafClass) {
-      throw new ZeltAppConfigurationError({
-        reason: 'abstract_leaf_without_concrete',
-        details: abstractLeafClass.name,
-      });
-    }
-    throw error;
-  }
+  resolveLeaf(container, config);
 };
