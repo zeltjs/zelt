@@ -19,23 +19,26 @@ Zelt provides request-scoped functions to access and manage the authenticated us
 Call `setUser()` in your authentication middleware after validating credentials:
 
 ```typescript
-import type { FunctionMiddleware } from '@zeltjs/core';
-import { setUser } from '@zeltjs/core';
+import { Middleware, request, setUser, type Next } from '@zeltjs/core';
 declare function verifyToken(token: string): Promise<{ sub: string; name: string; email: string; roles: string[] }>;
 // ---cut---
-export const authMiddleware: FunctionMiddleware = async (c, next) => {
-  const token = c.req.header('Authorization')?.replace('Bearer ', '');
-  
-  if (token) {
-    const payload = await verifyToken(token);
-    setUser(
-      { id: payload.sub, name: payload.name, email: payload.email },
-      payload.roles
-    );
+@Middleware
+export class AuthMiddleware {
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+
+    if (token) {
+      const payload = await verifyToken(token);
+      setUser(
+        { id: payload.sub, name: payload.name, email: payload.email },
+        payload.roles
+      );
+    }
+
+    await next();
+    return undefined;
   }
-  
-  await next();
-};
+}
 ```
 
 ### Parameters

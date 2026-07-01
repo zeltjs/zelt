@@ -98,6 +98,7 @@ export type {
   HttpMountableRouter,
   HttpOptions,
 } from './features/http/http.types';
+export { fromHonoMiddleware } from './features/http/middleware';
 // HTTP primitives
 export { currentRoles, currentUser, setUser } from './features/http/middleware/auth';
 // HTTP decorators
@@ -108,11 +109,10 @@ export { Middleware } from './features/http/middleware/middleware.decorator';
 export type {
   ErrorHandlerClass,
   ErrorHandlerInstance,
-  FunctionMiddleware,
   MiddlewareClass,
+  MiddlewareEntry,
   MiddlewareIdentifier,
   MiddlewareInput,
-  MiddlewareInputWithOptions,
   MiddlewareInstance,
   Next,
   RequestContext,

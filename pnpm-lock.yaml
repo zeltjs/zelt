@@ -33,6 +33,10 @@ catalogs:
     vitest:
       specifier: 4.1.5
       version: 4.1.5
+  peer:
+    hono:
+      specifier: ^4.0.0
+      version: 4.12.16
 
 importers:
 
@@ -269,6 +273,10 @@ importers:
         version: link:../core
 
   packages/auth-jwt:
+    dependencies:
+      hono:
+        specifier: catalog:peer
+        version: 4.12.16
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -279,14 +287,15 @@ importers:
       '@zeltjs/testing':
         specifier: workspace:*
         version: link:../testing
-      hono:
-        specifier: 'catalog:'
-        version: 4.12.16
       jose:
         specifier: 6.0.11
         version: 6.0.11
 
   packages/auth-session:
+    dependencies:
+      hono:
+        specifier: catalog:peer
+        version: 4.12.16
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -297,9 +306,6 @@ importers:
       '@zeltjs/kv':
         specifier: workspace:*
         version: link:../kv
-      hono:
-        specifier: 'catalog:'
-        version: 4.12.16
 
   packages/cli:
     dependencies:

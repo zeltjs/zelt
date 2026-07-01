@@ -1,18 +1,19 @@
-import type { Next, RequestContext } from '@zeltjs/core';
-import { inject, LoggerService, Middleware } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
+import { inject, LoggerService, Middleware, request, requestContext } from '@zeltjs/core';
 
 @Middleware
 export class LoggingMiddleware {
   constructor(private readonly logger = inject(LoggerService)) {}
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+  async use(next: Next, req = request()): Promise<Response | undefined> {
     const start = performance.now();
     await next();
     const duration = Math.round(performance.now() - start);
+    const c = requestContext();
 
     this.logger.info('request', {
-      method: c.req.method,
-      path: c.req.path,
+      method: req.method(),
+      path: req.path(),
       status: c.res.status,
       duration,
     });

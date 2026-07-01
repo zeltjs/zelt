@@ -39,8 +39,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@zeltjs/core": "workspace:*",
-    "@zeltjs/kv": "workspace:*",
-    "hono": "catalog:"
+    "@zeltjs/kv": "workspace:*"
   },
   "volta": {
     "extends": "../../package.json"

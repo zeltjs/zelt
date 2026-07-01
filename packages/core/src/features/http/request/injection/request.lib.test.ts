@@ -219,12 +219,34 @@ describe('request() — async body', () => {
     expect(await res.json()).toEqual({ name: 'test' });
   });
 
+  it('does not parse the body until body() is called', async () => {
+    @Controller('/')
+    class C {
+      @Post('/skip-body')
+      handle(req = request()) {
+        return { method: req.method() };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/skip-body', {
+        method: 'POST',
+        body: '{ invalid json }',
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ method: 'POST' });
+  });
+
   it('returns raw body text for signed JSON payloads', async () => {
     @Controller('/')
     class C {
       @Post('/json')
-      handle(req = request()) {
-        return { raw: req.bodyRaw() };
+      async handle(req = request()) {
+        return { raw: await req.bodyRaw() };
       }
     }
 
@@ -378,12 +400,62 @@ describe('request() — async body', () => {
     expect(await res.json()).toEqual({ name: 'Ada' });
   });
 
-  it('returns 415 when raw multipart body is requested', async () => {
+  it('keeps single multipart array fields as arrays', async () => {
+    const formSchema = createStandardSchema<Record<string, string | File | (string | File)[]>>({
+      validate: (value) => ({ value: value as Record<string, string | File | (string | File)[]> }),
+    });
+
     @Controller('/')
     class C {
       @Post('/form')
-      handle(req = request()) {
-        return { raw: req.bodyRaw() };
+      async handle(req = request(formSchema, { target: 'form' })) {
+        const data = await req.body();
+        return { tags: data['tags[]'], isArray: Array.isArray(data['tags[]']) };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const formData = new FormData();
+    formData.append('tags[]', 'a');
+    const res = await ready.http.fetch(
+      new Request('http://localhost/form', { method: 'POST', body: formData }),
+    );
+    expect(await res.json()).toEqual({ tags: ['a'], isArray: true });
+  });
+
+  it('keeps single urlencoded array fields as arrays', async () => {
+    const formSchema = createStandardSchema<Record<string, string | File | (string | File)[]>>({
+      validate: (value) => ({ value: value as Record<string, string | File | (string | File)[]> }),
+    });
+
+    @Controller('/')
+    class C {
+      @Post('/form')
+      async handle(req = request(formSchema, { target: 'form' })) {
+        const data = await req.body();
+        return { tags: data['tags[]'], isArray: Array.isArray(data['tags[]']) };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const res = await ready.http.fetch(
+      new Request('http://localhost/form', {
+        method: 'POST',
+        body: 'tags%5B%5D=a',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      }),
+    );
+    expect(await res.json()).toEqual({ tags: ['a'], isArray: true });
+  });
+
+  it('returns raw multipart body text', async () => {
+    @Controller('/')
+    class C {
+      @Post('/form')
+      async handle(req = request()) {
+        return { raw: await req.bodyRaw() };
       }
     }
 
@@ -394,7 +466,60 @@ describe('request() — async body', () => {
     const res = await ready.http.fetch(
       new Request('http://localhost/form', { method: 'POST', body: formData }),
     );
-    expect(res.status).toBe(415);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { raw: string };
+    expect(json.raw).toContain('name="name"');
+    expect(json.raw).toContain('Ada');
+  });
+
+  it('can read bodyRaw() after multipart body()', async () => {
+    const formSchema = createStandardSchema<Record<string, string | File | (string | File)[]>>({
+      validate: (value) => ({ value: value as Record<string, string | File | (string | File)[]> }),
+    });
+
+    @Controller('/')
+    class C {
+      @Post('/form')
+      async handle(req = request(formSchema, { target: 'form' })) {
+        const data = (await req.body()) as Record<string, string>;
+        const raw = await req.bodyRaw();
+        return { name: data['name'], hasRawName: raw.includes('name="name"') };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const formData = new FormData();
+    formData.append('name', 'Ada');
+    const res = await ready.http.fetch(
+      new Request('http://localhost/form', { method: 'POST', body: formData }),
+    );
+    expect(await res.json()).toEqual({ name: 'Ada', hasRawName: true });
+  });
+
+  it('can read multipart body() after bodyRaw()', async () => {
+    const formSchema = createStandardSchema<Record<string, string | File | (string | File)[]>>({
+      validate: (value) => ({ value: value as Record<string, string | File | (string | File)[]> }),
+    });
+
+    @Controller('/')
+    class C {
+      @Post('/form')
+      async handle(req = request(formSchema, { target: 'form' })) {
+        const raw = await req.bodyRaw();
+        const data = (await req.body()) as Record<string, string>;
+        return { name: data['name'], hasRawName: raw.includes('name="name"') };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const formData = new FormData();
+    formData.append('name', 'Ada');
+    const res = await ready.http.fetch(
+      new Request('http://localhost/form', { method: 'POST', body: formData }),
+    );
+    expect(await res.json()).toEqual({ name: 'Ada', hasRawName: true });
   });
 
   it('returns 415 when content-type mismatches target', async () => {
@@ -439,5 +564,53 @@ describe('request() — async body', () => {
       }),
     );
     expect(await res.json()).toEqual({ same: true });
+  });
+
+  it('bodyRaw() is idempotent when called twice', async () => {
+    @Controller('/')
+    class C {
+      @Post('/raw-twice')
+      async handle(req = request()) {
+        const a = await req.bodyRaw();
+        const b = await req.bodyRaw();
+        return { same: a === b, raw: b };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const raw = '{ "name": "Ada" }';
+    const res = await ready.http.fetch(
+      new Request('http://localhost/raw-twice', {
+        method: 'POST',
+        body: raw,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(await res.json()).toEqual({ same: true, raw });
+  });
+
+  it('can read bodyRaw() after body() from the cached raw payload', async () => {
+    @Controller('/')
+    class C {
+      @Post('/body-then-raw')
+      async handle(req = request()) {
+        const data = await req.body();
+        const raw = await req.bodyRaw();
+        return { data, raw };
+      }
+    }
+
+    const app = createApp([http({ controllers: [C] })]);
+    const ready = await app.createRuntime();
+    const raw = '{ "name": "Ada" }';
+    const res = await ready.http.fetch(
+      new Request('http://localhost/body-then-raw', {
+        method: 'POST',
+        body: raw,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(await res.json()).toEqual({ data: { name: 'Ada' }, raw });
   });
 });

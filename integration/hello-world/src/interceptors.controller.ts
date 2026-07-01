@@ -36,13 +36,13 @@ export class InterceptorsController {
     return this.helloService.greeting();
   }
 
-  @UseMiddleware([StatusMiddleware, { statusCode: 400 }])
+  @UseMiddleware(StatusMiddleware, { statusCode: 400 })
   @Get('/status')
   status() {
     return this.helloService.greeting();
   }
 
-  @UseMiddleware([HeaderMiddleware, { headerName: 'Authorization', headerValue: 'jwt' }])
+  @UseMiddleware(HeaderMiddleware, { headerName: 'Authorization', headerValue: 'jwt' })
   @Get('/header')
   header() {
     return { message: this.helloService.greeting() };

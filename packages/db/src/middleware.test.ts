@@ -50,7 +50,7 @@ describe('createTransactionMiddleware', () => {
     const middleware = new TransactionMiddleware();
     let nextCalled = false;
 
-    await middleware.use({} as never, async () => {
+    await middleware.use(async () => {
       nextCalled = true;
     });
 
@@ -65,7 +65,7 @@ describe('createTransactionMiddleware', () => {
     // use() returns Promise<Response | undefined>, next() returns Promise<void>
     // so the return value from next is discarded; we just verify it completes
     let nextCalled = false;
-    const result = await middleware.use({} as never, async () => {
+    const result = await middleware.use(async () => {
       nextCalled = true;
     });
 

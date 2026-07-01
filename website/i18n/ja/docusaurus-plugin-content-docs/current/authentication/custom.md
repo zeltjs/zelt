@@ -32,7 +32,7 @@ Use class middleware when authentication requires database access or other injec
 ### Basic API Key Middleware
 
 ```typescript
-import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
 
 @Injectable()
 class ApiKeyRepository {
@@ -45,8 +45,8 @@ class ApiKeyRepository {
 export class ApiKeyAuthMiddleware {
   constructor(private apiKeyRepo = inject(ApiKeyRepository)) {}
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const apiKey = c.req.header('X-API-Key');
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const apiKey = req.header('X-API-Key');
 
     if (apiKey) {
       const client = await this.apiKeyRepo.findByKey(apiKey);
@@ -67,7 +67,7 @@ export class ApiKeyAuthMiddleware {
 ### With Revocation Check and Usage Tracking
 
 ```typescript
-import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
 
 type ApiKey = { id: string; name: string; tier: string; scopes: string[]; revokedAt?: Date };
@@ -85,8 +85,8 @@ class ApiKeyService {
 export class ApiKeyAuthMiddleware {
   constructor(private apiKeyService = inject(ApiKeyService)) {}
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const apiKey = c.req.header('X-API-Key');
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const apiKey = req.header('X-API-Key');
 
     if (!apiKey) {
       await next();
@@ -118,7 +118,7 @@ export class ApiKeyAuthMiddleware {
 ## Basic Authentication
 
 ```typescript
-import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
 
 @Injectable()
 class UserService {
@@ -134,8 +134,8 @@ class UserService {
 export class BasicAuthMiddleware {
   constructor(private userService = inject(UserService)) {}
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const auth = c.req.header('Authorization');
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const auth = req.header('Authorization');
 
     if (auth?.startsWith('Basic ')) {
       const base64 = auth.slice(6);
@@ -161,7 +161,7 @@ export class BasicAuthMiddleware {
 For OAuth integration, use `@Config` for credentials and `@Injectable` for services:
 
 ```typescript
-import { Config, Env, Injectable, Middleware, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { Config, Env, Injectable, Middleware, inject, request, setUser, type Next } from '@zeltjs/core';
 
 @Config
 class OAuthConfig {
@@ -203,8 +203,8 @@ export class OAuthMiddleware {
     private userRepo = inject(UserRepository)
   ) {}
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const token = c.req.header('Authorization')?.replace('Bearer ', '');
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (token) {
       try {
@@ -300,7 +300,7 @@ class OAuthController {
 Support multiple auth methods in one middleware. Use the framework-provided `JwtService` from `@zeltjs/auth-jwt`:
 
 ```typescript
-import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
 import { JwtService } from '@zeltjs/auth-jwt';
 
 @Injectable()
@@ -317,9 +317,9 @@ export class MultiAuthMiddleware {
     private jwtService = inject(JwtService)
   ) {}
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const auth = c.req.header('Authorization');
-    const apiKey = c.req.header('X-API-Key');
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const auth = req.header('Authorization');
+    const apiKey = req.header('X-API-Key');
 
     // Try API key first
     if (apiKey) {
@@ -353,7 +353,7 @@ export class MultiAuthMiddleware {
 For secure machine-to-machine communication:
 
 ```typescript
-import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
 
 type Client = { id: string; name: string; secret: string; permissions: string[] };
@@ -399,10 +399,10 @@ export class HmacAuthMiddleware {
     private cryptoService = inject(CryptoService)
   ) {}
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const signature = c.req.header('X-Signature');
-    const timestamp = c.req.header('X-Timestamp');
-    const clientId = c.req.header('X-Client-ID');
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const signature = req.header('X-Signature');
+    const timestamp = req.header('X-Timestamp');
+    const clientId = req.header('X-Client-ID');
 
     if (!signature || !timestamp || !clientId) {
       await next();
@@ -423,7 +423,7 @@ export class HmacAuthMiddleware {
     }
 
     // Verify signature
-    const body = await c.req.text();
+    const body = await req.bodyRaw();
     const payload = `${timestamp}.${body}`;
     const expected = await this.cryptoService.hmacSha256(client.secret, payload);
 
@@ -445,7 +445,7 @@ Mock the user context in tests:
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { onTest } from '@zeltjs/testing';
-import { createApp, setUser, Controller, Get, Authorized, currentUser, type FunctionMiddleware, http } from '@zeltjs/core';
+import { createApp, setUser, Controller, Get, Authorized, currentUser, Middleware, type Next, http } from '@zeltjs/core';
 
 @Controller('/users')
 class UserController {
@@ -454,14 +454,18 @@ class UserController {
 }
 
 // Middleware sets user within request context — required for setUser to work
-const mockAuthMiddleware: FunctionMiddleware = async (_c, next) => {
-  setUser({ id: '123', name: 'Test User' }, ['admin']);
-  await next();
-};
+@Middleware
+class MockAuthMiddleware {
+  async use(next: Next): Promise<Response | undefined> {
+    setUser({ id: '123', name: 'Test User' }, ['admin']);
+    await next();
+    return undefined;
+  }
+}
 
 const app = createApp([http({
     controllers: [UserController],
-    middlewares: [mockAuthMiddleware],
+    middlewares: [MockAuthMiddleware],
   })]);
 const readyApp = await app.createRuntime();
 // ---cut---

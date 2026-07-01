@@ -1,12 +1,10 @@
-export type { ParsedBody } from './body.lib';
+export type { BodySource, ParsedBody } from './body.lib';
 export {
   bodyRaw,
   getBody,
-  hasParsedBody,
-  parseRequestBody,
+  hasBodySource,
   readRequestBody,
-  setBody,
-  setBodyRaw,
+  setBodySource,
 } from './body.lib';
 export type { RequestContextSchema } from './get-context.lib';
 export { getContext, setContext } from './get-context.lib';

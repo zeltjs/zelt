@@ -1,5 +1,4 @@
-import type { Context } from 'hono';
-
+import { match } from 'ts-pattern';
 import {
   createContextKey,
   getInternal,
@@ -16,94 +15,128 @@ export type ParsedBody =
   | { type: 'text'; val: string }
   | { type: 'none'; val: undefined };
 
-type RawBody = { val: string | undefined };
+type BodyState = {
+  readonly source?: BodySource;
+  parsed?: Promise<ParsedBody>;
+  raw?: Promise<string | undefined>;
+  form?: Promise<ParsedBody>;
+};
 
-const BODY_CONTEXT = createContextKey<ParsedBody>('zelt:body');
-const BODY_RAW_CONTEXT = createContextKey<RawBody>('zelt:body-raw');
+type BodyKind = 'json' | 'urlencoded' | 'multipart' | 'text' | 'none';
 
-/** @throws {ZeltContextNotAvailableError} */
-export const setBody = (body: ParsedBody): void => {
-  setInternal(BODY_CONTEXT, body);
+export type BodySource = {
+  readonly contentType: string;
+  readonly request: Request;
+};
+
+const BODY_CONTEXT = createContextKey<BodyState>('zelt:body');
+
+const resolveBodyKind = (contentType: string): BodyKind => {
+  if (contentType.includes('application/json')) return 'json';
+  if (contentType.includes('application/x-www-form-urlencoded')) return 'urlencoded';
+  if (contentType.includes('multipart/form-data')) return 'multipart';
+  if (contentType.startsWith('text/')) return 'text';
+  return 'none';
 };
 
 /** @throws {ZeltContextNotAvailableError} */
-export const setBodyRaw = (body: string | undefined): void => {
-  setInternal(BODY_RAW_CONTEXT, { val: body });
+export const setBodySource = (source: BodySource): void => {
+  setInternal(BODY_CONTEXT, { source });
 };
 
-// Lets injection middlewares at different router levels avoid re-reading the
-// request stream: only the first injection per request parses the body.
+// Lets injection middlewares at different router levels avoid replacing the
+// body source. The request stream is still read lazily by body()/bodyRaw().
 /** @throws {ZeltContextNotAvailableError} */
-export const hasParsedBody = (): boolean => getInternal(BODY_CONTEXT) !== undefined;
+export const hasBodySource = (): boolean => getInternal(BODY_CONTEXT) !== undefined;
 
 /** @throws {BadRequestException} */
-export const readRequestBody = async (c: Pick<Context, 'req'>): Promise<string | undefined> => {
-  const contentType = c.req.header('content-type') ?? '';
-
-  if (
-    !contentType.includes('application/json') &&
-    !contentType.includes('application/x-www-form-urlencoded') &&
-    !contentType.startsWith('text/')
-  ) {
+export const readRequestBody = async (source: BodySource): Promise<string | undefined> => {
+  if (resolveBodyKind(source.contentType) === 'none') {
     return undefined;
   }
 
-  return c.req.raw
-    .clone()
-    .text()
-    .catch((e: Error) => {
-      throw new BadRequestException({ reason: `Invalid body: ${e.message}` });
-    });
+  try {
+    return await source.request.clone().text();
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    throw new BadRequestException({ reason: `Invalid body: ${message}` });
+  }
 };
 
 /** @throws {BadRequestException} */
-const parseJsonBody = async (c: Pick<Context, 'req'>): Promise<ParsedBody> => {
-  const val = await c.req.json<unknown>().catch((e: Error) => {
-    throw new BadRequestException({ reason: `Invalid JSON: ${e.message}` });
-  });
-  return { type: 'json', val };
+const parseJsonBody = (raw: string): ParsedBody => {
+  try {
+    const val: unknown = JSON.parse(raw);
+    return { type: 'json', val };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    throw new BadRequestException({ reason: `Invalid JSON: ${message}` });
+  }
 };
 
 /** @throws {BadRequestException} */
-const parseFormBody = async (c: Pick<Context, 'req'>): Promise<ParsedBody> => {
-  const val: FormBody = await c.req.parseBody({ all: true }).catch((e: Error) => {
-    throw new BadRequestException({ reason: `Invalid form data: ${e.message}` });
-  });
-  return { type: 'form', val };
+const parseFormDataBody = async (source: BodySource): Promise<ParsedBody> => {
+  try {
+    const form: FormBody = {};
+    const formData = await source.request.clone().formData();
+    for (const [key, value] of formData) {
+      appendFormField(form, key, value);
+    }
+    return { type: 'form', val: form };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    throw new BadRequestException({ reason: `Invalid form data: ${message}` });
+  }
 };
 
 /** @throws {BadRequestException} */
-const parseTextBody = async (c: Pick<Context, 'req'>): Promise<ParsedBody> => {
-  const raw = await c.req.text().catch((e: Error) => {
-    throw new BadRequestException({ reason: `Invalid text body: ${e.message}` });
-  });
+const parseTextBody = (raw: string): ParsedBody => {
   return { type: 'text', val: raw };
 };
 
+const appendFormField = (form: FormBody, key: string, value: string | File): void => {
+  const current = form[key];
+  if (current === undefined) {
+    if (key.endsWith('[]')) {
+      form[key] = [value];
+      return;
+    }
+    form[key] = value;
+    return;
+  }
+  if (Array.isArray(current)) {
+    current.push(value);
+    return;
+  }
+  form[key] = [current, value];
+};
+
+const parseUrlEncodedBody = (raw: string): ParsedBody => {
+  const form: FormBody = {};
+  for (const [key, value] of new URLSearchParams(raw)) {
+    appendFormField(form, key, value);
+  }
+  return { type: 'form', val: form };
+};
+
 /** @throws {BadRequestException} */
-export const parseRequestBody = async (c: Pick<Context, 'req'>): Promise<ParsedBody> => {
-  const contentType = c.req.header('content-type') ?? '';
+const parseRawBodyByKind = (kind: Exclude<BodyKind, 'multipart'>, raw: string): ParsedBody =>
+  match(kind)
+    .with('json', () => parseJsonBody(raw))
+    .with('urlencoded', () => parseUrlEncodedBody(raw))
+    .with('text', () => parseTextBody(raw))
+    .with('none', () => ({ type: 'none', val: undefined }) satisfies ParsedBody)
+    .exhaustive();
 
-  if (contentType.includes('application/json')) {
-    return parseJsonBody(c);
-  }
-
-  if (
-    contentType.includes('multipart/form-data') ||
-    contentType.includes('application/x-www-form-urlencoded')
-  ) {
-    return parseFormBody(c);
-  }
-
-  if (contentType.startsWith('text/')) {
-    return parseTextBody(c);
-  }
-
-  return { type: 'none', val: undefined };
+/** @throws {BadRequestException} */
+const _parseRequestBody = async (source: BodySource): Promise<ParsedBody> => {
+  const kind = resolveBodyKind(source.contentType);
+  if (kind === 'multipart') return parseFormDataBody(source);
+  return parseRawBodyByKind(kind, (await readRequestBody(source)) ?? '');
 };
 
 /** @throws {ZeltContextNotAvailableError} */
-export const getBody = (): ParsedBody => {
+const getBodyState = (): BodyState => {
   const ctx = getInternal(BODY_CONTEXT);
   if (!ctx)
     throw new ZeltContextNotAvailableError({
@@ -114,34 +147,67 @@ export const getBody = (): ParsedBody => {
 };
 
 /** @throws {ZeltContextNotAvailableError} */
-const getBodyRaw = (): RawBody => {
-  const ctx = getInternal(BODY_RAW_CONTEXT);
-  if (!ctx)
+const ensureBodySource = (state: BodyState, primitive: string): BodySource => {
+  if (!state.source)
     throw new ZeltContextNotAvailableError({
-      primitive: 'bodyRaw',
+      primitive,
       requiredContext: 'entry',
     });
-  return ctx;
+  return state.source;
 };
 
-/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
-export const bodyRaw = (): string => {
-  const raw = getBodyRaw().val;
+/** @throws {ZeltContextNotAvailableError | BadRequestException} */
+const getBodyRaw = async (): Promise<string | undefined> => {
+  const state = getBodyState();
+  if (!state.raw) {
+    state.raw = readRequestBody(ensureBodySource(state, 'bodyRaw'));
+  }
+  return state.raw;
+};
+
+/** @throws {BadRequestException} */
+const getFormBody = async (state: BodyState, source: BodySource): Promise<ParsedBody> => {
+  if (!state.form) {
+    state.form = parseFormDataBody(source);
+  }
+  return state.form;
+};
+
+/** @throws {ZeltContextNotAvailableError | BadRequestException} */
+const parseCachedRequestBody = async (state: BodyState): Promise<ParsedBody> => {
+  const source = ensureBodySource(state, 'body');
+  const kind = resolveBodyKind(source.contentType);
+  if (kind === 'multipart') return getFormBody(state, source);
+  return parseRawBodyByKind(kind, (await getBodyRaw()) ?? '');
+};
+
+/** @throws {ZeltContextNotAvailableError | BadRequestException} */
+export const getBody = async (): Promise<ParsedBody> => {
+  const state = getBodyState();
+  if (!state.parsed) {
+    state.parsed = parseCachedRequestBody(state);
+  }
+  return state.parsed;
+};
+
+/** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
+export const bodyRaw = async (): Promise<string> => {
+  const raw = await getBodyRaw();
   if (raw === undefined) {
-    throw new UnsupportedMediaTypeException({ expected: 'raw', actual: getBody().type });
+    throw new UnsupportedMediaTypeException({ expected: 'raw', actual: (await getBody()).type });
   }
   return raw;
 };
 
-/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
-export function body(type?: 'json'): unknown;
-/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
-export function body(type: 'form'): FormBody;
-/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
-export function body(type: 'text'): string;
-/** @throws {ZeltContextNotAvailableError | UnsupportedMediaTypeException} */
-export function body(type: 'json' | 'form' | 'text' = 'json'): unknown {
-  const parsedBody = getBody();
+/** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
+export function body(type?: 'json'): Promise<unknown>;
+/** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
+export function body(type: 'form'): Promise<FormBody>;
+/** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
+export function body(type: 'text'): Promise<string>;
+/** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
+export async function body(type: 'json' | 'form' | 'text' = 'json'): Promise<unknown> {
+  const parsedBody = await getBody();
 
   if (parsedBody.type !== type) {
     throw new UnsupportedMediaTypeException({ expected: type, actual: parsedBody.type });

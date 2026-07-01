@@ -1,4 +1,4 @@
-import { Controller, createApp, Get, http, Post, UseMiddleware } from '@zeltjs/core';
+import { Controller, createApp, Get, http, Post, response, UseMiddleware } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 import { SessionConfig } from './session.config';
 import { destroySession, getSession, isNewSession, setSession } from './session.functions.lib';
@@ -42,6 +42,13 @@ class SessionTestController {
 
   @Post('/login')
   login() {
+    setSession({ userId: 'user-123', count: 1 });
+    return { success: true };
+  }
+
+  @Post('/login-with-cookie')
+  loginWithCookie(res = response()) {
+    res.setCookie('app', 'value', { path: '/' });
     setSession({ userId: 'user-123', count: 1 });
     return { success: true };
   }
@@ -102,6 +109,14 @@ describe('SessionMiddleware', () => {
     const body = (await getRes.json()) as { session: SessionSchema };
     expect(body.session.userId).toBe('user-123');
     expect(body.session.count).toBe(1);
+  });
+
+  it('should append the session cookie without replacing existing cookies', async () => {
+    const app = await buildApp();
+    const res = await app.http.request('/session/login-with-cookie', { method: 'POST' });
+
+    expect(res.headers.get('Set-Cookie')).toContain('app=value');
+    expect(res.headers.get('Set-Cookie')).toContain('sid=');
   });
 
   it('should persist session across requests', async () => {
