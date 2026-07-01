@@ -55,7 +55,6 @@ describe('@SkipMiddleware', () => {
   it('throws when applied to static method', () => {
     expect(() => {
       @Controller('/test')
-      @Controller('/test')
       class TestController {
         @SkipMiddleware(AuthMiddleware)
         static staticHandler() {

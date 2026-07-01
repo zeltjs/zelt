@@ -153,14 +153,14 @@ const buildResponseBuilder = (c: Context): ResponseBuilder => {
     body: makeBody(c),
     header: (name, value, options) => {
       if (options?.type === 'append') {
-        c.res.headers.append(name, value);
+        c.header(name, value, { append: true });
       } else {
         c.header(name, value);
       }
       return builder;
     },
     removeHeader: (name) => {
-      c.res.headers.delete(name);
+      c.header(name, undefined);
       return builder;
     },
     setCookie: (name, value, options) => {

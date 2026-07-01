@@ -1,12 +1,10 @@
-import type { Context, Env, Input } from 'hono';
 import {
   createContextKey,
   getInternal,
   setInternal,
   ZeltContextNotAvailableError,
 } from '../../../kernel';
-
-type RequestContext = Context<Env, string, Input>;
+import type { RequestContext } from '../middleware/middleware.types';
 
 const HONO_CONTEXT = createContextKey<RequestContext>('zelt:hono');
 

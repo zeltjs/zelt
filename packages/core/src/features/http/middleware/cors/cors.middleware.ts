@@ -26,7 +26,7 @@ export class CorsMiddleware implements MiddlewareInstance {
     this.delegate = new HonoCorsMiddleware();
   }
 
-  async use(next: Next): Promise<Response | undefined> {
+  async use(next: Next) {
     if (!this.delegate) {
       await next();
       return undefined;

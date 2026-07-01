@@ -370,6 +370,21 @@ class PoweredByMiddleware {
 }
 ```
 
+Use `{ type: 'append' }` when multiple values for the same header should be preserved:
+
+```typescript
+import { Middleware, response, type Next } from '@zeltjs/core';
+// ---cut---
+@Middleware
+class CacheTagMiddleware {
+  async use(next: Next, res = response()) {
+    res.header('Cache-Tag', 'api');
+    res.header('Cache-Tag', 'users', { type: 'append' });
+    await next();
+  }
+}
+```
+
 ### Measure Response Time
 
 ```typescript

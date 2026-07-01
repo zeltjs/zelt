@@ -6,7 +6,7 @@ export type Next = () => Promise<void>;
 
 type MaybePromise<T> = T | Promise<T>;
 
-type MiddlewareResult = MaybePromise<Response | undefined>;
+type MiddlewareResult = MaybePromise<Response | undefined | undefined>;
 
 export type MiddlewareInstance<TOptions = undefined> = [TOptions] extends [undefined]
   ? {
