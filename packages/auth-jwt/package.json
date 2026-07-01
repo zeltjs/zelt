@@ -39,7 +39,6 @@
     "@types/node": "catalog:",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/testing": "workspace:*",
-    "hono": "catalog:",
     "jose": "6.0.11"
   },
   "volta": {

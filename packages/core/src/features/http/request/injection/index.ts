@@ -3,7 +3,6 @@ export {
   bodyRaw,
   getBody,
   hasBodySource,
-  parseRequestBody,
   readRequestBody,
   setBodySource,
 } from './body.lib';
