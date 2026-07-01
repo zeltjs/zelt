@@ -302,7 +302,7 @@ Using Redis requires registering `RedisConfig` (from `@zeltjs/redis`) so the ada
 Sessions don't automatically set the user context. Add middleware to bridge them:
 
 ```typescript
-import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
+import { Middleware, Injectable, inject, setUser, type Next } from '@zeltjs/core';
 import { getSession } from '@zeltjs/auth-session';
 
 type User = { id: string; name: string; email: string; roles: string[] };
@@ -318,7 +318,7 @@ class UserRepository {
 export class SessionAuthMiddleware {
   constructor(private userRepo = inject(UserRepository)) {}
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
+  async use(next: Next): Promise<Response | undefined> {
     const session = getSession() as { userId?: string } | undefined;
 
     if (session?.userId) {
@@ -338,7 +338,7 @@ export class SessionAuthMiddleware {
 Register after `SessionMiddleware`:
 
 ```typescript
-import { createApp, Config, Controller, Get, Middleware, Injectable, inject, setUser, type RequestContext, type Next, http } from '@zeltjs/core';
+import { createApp, Config, Controller, Get, Middleware, Injectable, inject, setUser, type Next, http } from '@zeltjs/core';
 import { MemoryKVService } from '@zeltjs/kv';
 import { SessionMiddleware, SessionConfig, getSession } from '@zeltjs/auth-session';
 
@@ -359,7 +359,7 @@ class MySessionConfig extends SessionConfig {
 @Middleware
 class SessionAuthMiddleware {
   constructor(private userRepo = inject(UserRepository)) {}
-  async use(c: RequestContext, next: Next) {
+  async use(next: Next) {
     const session = getSession() as { userId?: string } | undefined;
     if (session?.userId) {
       const user = await this.userRepo.findById(session.userId);

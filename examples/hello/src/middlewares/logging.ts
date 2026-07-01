@@ -1,8 +1,13 @@
-import type { FunctionMiddleware } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
+import { Middleware, request } from '@zeltjs/core';
 
-export const loggingMiddleware: FunctionMiddleware = async (c, next) => {
-  const start = Date.now();
-  await next();
-  const duration = Date.now() - start;
-  console.log(`[${c.req.method}] ${c.req.path} ${c.res.status} ${duration}ms`);
-};
+@Middleware
+export class LoggingMiddleware {
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const start = Date.now();
+    await next();
+    const duration = Date.now() - start;
+    console.log(`[${req.method()}] ${req.path()} ${duration}ms`);
+    return undefined;
+  }
+}

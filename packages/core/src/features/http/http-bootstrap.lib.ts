@@ -7,7 +7,7 @@ import {
   runInRootContext,
   setInternal,
 } from '../../kernel';
-import type { FunctionMiddleware } from './middleware/middleware.types';
+import type { HonoMiddleware } from './middleware/middleware.types';
 
 // Identifies which router's bootstrap created the request context store.
 // The creator is the request root: the only error-handling level that must
@@ -22,7 +22,7 @@ const ROOT_REQUEST = createContextKey<Request>('zelt:request-root');
 export const createBootstrapMiddleware = (
   lifecycle: LifecycleManager,
   routerToken: symbol,
-): FunctionMiddleware => {
+): HonoMiddleware => {
   return async (c, next) => {
     // A Zelt context may exist (e.g. event handler, test harness) without
     // being a request-scoped store. Only skip when STORE_CREATOR is set,

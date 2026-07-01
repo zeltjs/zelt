@@ -1,4 +1,4 @@
-import type { FunctionMiddleware, Next, RequestContext } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
 import {
   Controller,
   Get,
@@ -11,21 +11,25 @@ import {
 
 import './context-schema';
 
-// Function middleware: assigns a per-request id from query (?id=...) and
-// initializes context buckets used by subsequent middlewares and the handler.
-export const assignIdMiddleware: FunctionMiddleware = async (c, next) => {
-  const id = c.req.query('id') ?? 'anonymous';
-  setContext('requestId', id);
-  setContext('middlewareChain', []);
-  await next();
-};
+// Assigns a per-request id from query (?id=...) and initializes context buckets
+// used by subsequent middlewares and the handler.
+@Middleware
+export class AssignIdMiddleware {
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const id = req.queryParam('id') ?? 'anonymous';
+    setContext('requestId', id);
+    setContext('middlewareChain', []);
+    await next();
+    return undefined;
+  }
+}
 
 // Class middleware: appends a tag to the chain. Demonstrates that multiple
 // middlewares can read+write the same context bucket without leaking across
 // requests because storage is request-scoped (AsyncLocalStorage).
 @Middleware
 export class AppendStageOneMiddleware {
-  async use(_c: RequestContext, next: Next): Promise<Response | undefined> {
+  async use(next: Next): Promise<Response | undefined> {
     const chain = getContext('middlewareChain') ?? [];
     setContext('middlewareChain', [...chain, 'stage-one']);
     setContext('middlewareTag', 'stage-one');
@@ -36,7 +40,7 @@ export class AppendStageOneMiddleware {
 
 @Middleware
 export class AppendStageTwoMiddleware {
-  async use(_c: RequestContext, next: Next): Promise<Response | undefined> {
+  async use(next: Next): Promise<Response | undefined> {
     const chain = getContext('middlewareChain') ?? [];
     setContext('middlewareChain', [...chain, 'stage-two']);
     // Overwrite the tag to verify the latest middleware's value wins.
@@ -50,8 +54,8 @@ export class AppendStageTwoMiddleware {
 // in one request does not leak context to a sibling request.
 @Middleware
 export class ConditionalFailMiddleware {
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    if (c.req.query('fail') === '1') {
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    if (req.queryParam('fail') === '1') {
       throw new Error('middleware intentionally failed');
     }
     await next();
@@ -60,7 +64,8 @@ export class ConditionalFailMiddleware {
 }
 
 @Controller('/middleware')
-@UseMiddleware(AppendStageOneMiddleware, AppendStageTwoMiddleware)
+@UseMiddleware(AppendStageTwoMiddleware)
+@UseMiddleware(AppendStageOneMiddleware)
 export class MiddlewareController {
   @Get('/context')
   read(req = request()) {

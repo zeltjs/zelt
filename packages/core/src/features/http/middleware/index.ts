@@ -1,3 +1,4 @@
+export { fromHonoMiddleware } from './from-hono-middleware.lib';
 export {
   attachSkippedMiddlewares,
   guardMiddleware,

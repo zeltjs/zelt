@@ -1,4 +1,4 @@
-import type { FunctionMiddleware, Next, RequestContext } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
 import { Controller, createApp, Get, http, Middleware, Post, UseMiddleware } from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -9,8 +9,22 @@ const INCLUDED_VALUE = 'test_included';
 
 @Middleware
 class WildcardMiddleware {
-  async use(c: RequestContext, _next: Next) {
-    return c.text(WILDCARD_VALUE);
+  async use(_next: Next) {
+    return new Response(WILDCARD_VALUE);
+  }
+}
+
+@Middleware
+class GlobalWildcardMiddleware {
+  use(): Response {
+    return new Response(WILDCARD_VALUE);
+  }
+}
+
+@Middleware
+class IncludedPostMiddleware {
+  use(): Response {
+    return new Response(INCLUDED_VALUE, { status: 201 });
   }
 }
 
@@ -55,15 +69,11 @@ describe('Middleware (class)', () => {
     expect(await res.text()).toBe(WILDCARD_VALUE);
   });
 
-  it('global function middleware applies to all routes', async () => {
-    const globalMiddleware: FunctionMiddleware = async (c, _next) => {
-      return c.text(WILDCARD_VALUE);
-    };
-
+  it('global middleware applies to all routes', async () => {
     const app = createApp([
       http({
         controllers: [HelloController],
-        middlewares: [globalMiddleware],
+        middlewares: [GlobalWildcardMiddleware],
       }),
     ]);
     const testApp = await onTest(app);
@@ -74,14 +84,10 @@ describe('Middleware (class)', () => {
   });
 
   it('global middleware applies to /test route', async () => {
-    const globalMiddleware: FunctionMiddleware = async (c, _next) => {
-      return c.text(WILDCARD_VALUE);
-    };
-
     const app = createApp([
       http({
         controllers: [TestController],
-        middlewares: [globalMiddleware],
+        middlewares: [GlobalWildcardMiddleware],
       }),
     ]);
     const testApp = await onTest(app);
@@ -99,7 +105,7 @@ describe('Middleware (class)', () => {
         return RETURN_VALUE;
       }
 
-      @UseMiddleware(async (c, _next) => c.text(INCLUDED_VALUE, 201))
+      @UseMiddleware(IncludedPostMiddleware)
       @Post('/tests/included')
       post() {
         return RETURN_VALUE;

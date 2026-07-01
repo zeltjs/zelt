@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Next, RequestContext } from '../../index';
+import type { Next } from '../../index';
 import { Config, Controller, createApp, Get, http, inject, Middleware } from '../../index';
 
 import { JsonlFormatter, PrettyFormatter } from './formatter';
@@ -60,7 +60,7 @@ describe('Logger integration', () => {
     it('propagates request context to all logs', async () => {
       @Middleware
       class RequestContextMiddleware {
-        async use(_ctx: RequestContext, next: Next): Promise<Response | undefined> {
+        async use(next: Next): Promise<Response | undefined> {
           const requestId = `req-${Math.random().toString(36).slice(2)}`;
           await withLogContext({ requestId }, () => next());
           return undefined;

@@ -4,15 +4,34 @@ import { toUnknownCallable } from '@zeltjs/unsafe-type-lib';
 import { match, P } from 'ts-pattern';
 
 import { ZeltDecoratorUsageError } from '../../../kernel';
-import type { MiddlewareInput } from './middleware.types';
+import type { MiddlewareClass } from './middleware.types';
 
 const tc39ClassPattern = { kind: 'class' as const, metadata: P.nonNullable };
 
+const toMiddlewareInput = <TOptions>(
+  middleware: MiddlewareClass<TOptions>,
+  options: [] | [TOptions],
+) => {
+  if (options.length === 0) return middleware;
+  return { middleware, options: options[0] };
+};
+
+export function UseMiddleware(
+  middleware: MiddlewareClass<undefined>,
+): ClassDecoratorFn & MethodDecoratorFn;
+export function UseMiddleware<TOptions>(
+  middleware: MiddlewareClass<TOptions>,
+  options: TOptions,
+): ClassDecoratorFn & MethodDecoratorFn;
 /** @throws {E} */
-export const UseMiddleware = (
-  ...middlewares: MiddlewareInput[]
-): ClassDecoratorFn & MethodDecoratorFn => {
-  const props = { decorator: 'UseMiddleware' as const, middlewares };
+export function UseMiddleware<TOptions>(
+  middleware: MiddlewareClass<TOptions>,
+  ...options: [] | [TOptions]
+): ClassDecoratorFn & MethodDecoratorFn {
+  const props = {
+    decorator: 'UseMiddleware' as const,
+    middlewares: [toMiddlewareInput(middleware, options)],
+  };
   const classDecorate = createClassDecorator(props);
   const methodDecorate = createMethodDecorator(props, {
     rejectStatic: () =>
@@ -44,4 +63,4 @@ export const UseMiddleware = (
     return fn(...args);
   }
   return dispatch;
-};
+}

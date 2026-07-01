@@ -1,43 +1,41 @@
 import { cors } from 'hono/cors';
+
 import { inject } from '../../../../kernel';
+import { fromHonoMiddleware } from '..';
 import { Middleware } from '../middleware.decorator';
-import type {
-  FunctionMiddleware,
-  MiddlewareInstance,
-  Next,
-  RequestContext,
-} from '../middleware.types';
+import type { MiddlewareInstance, Next } from '../middleware.types';
 import { CorsConfig } from './cors.config';
 
 @Middleware
 export class CorsMiddleware implements MiddlewareInstance {
-  private readonly middleware: FunctionMiddleware | undefined;
+  private readonly delegate: MiddlewareInstance | undefined;
 
   constructor(config: CorsConfig = inject(CorsConfig)) {
-    const origin = config.origin;
-    const hasOrigin = Array.isArray(origin) ? origin.length > 0 : origin !== '';
-    if (!hasOrigin) {
-      this.middleware = undefined;
-      return;
-    }
+    if (!this.isEnabled(config)) return;
 
-    const maxAge = config.maxAge;
-    this.middleware = cors({
-      origin: config.origin,
-      allowMethods: config.allowMethods,
-      allowHeaders: config.allowHeaders,
-      exposeHeaders: config.exposeHeaders,
-      ...(maxAge !== undefined && { maxAge }),
-      credentials: config.credentials,
-    });
+    const HonoCorsMiddleware = fromHonoMiddleware(
+      cors({
+        origin: config.origin,
+        allowMethods: config.allowMethods,
+        allowHeaders: config.allowHeaders,
+        exposeHeaders: config.exposeHeaders,
+        ...(config.maxAge !== undefined && { maxAge: config.maxAge }),
+        credentials: config.credentials,
+      }),
+    );
+    this.delegate = new HonoCorsMiddleware();
   }
 
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    if (!this.middleware) {
+  async use(next: Next): Promise<Response | undefined> {
+    if (!this.delegate) {
       await next();
       return undefined;
     }
-    const res = await this.middleware(c, next);
-    return res ?? undefined;
+    return await this.delegate.use(next);
+  }
+
+  private isEnabled(config: CorsConfig): boolean {
+    const { origin } = config;
+    return Array.isArray(origin) ? origin.length > 0 : origin !== '';
   }
 }

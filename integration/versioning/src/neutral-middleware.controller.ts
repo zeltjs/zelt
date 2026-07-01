@@ -1,9 +1,9 @@
 import { Controller, Get, UseMiddleware } from '@zeltjs/core';
 
-import { helloFromMiddleware } from './hello-from-middleware';
+import { HelloFromMiddleware } from './hello-from-middleware';
 
 // Version-neutral middleware controller: mounted without a version prefix.
-@UseMiddleware(helloFromMiddleware)
+@UseMiddleware(HelloFromMiddleware)
 @Controller('/middleware')
 export class NeutralMiddlewareController {
   @Get('/neutral')

@@ -15,7 +15,7 @@ declare const __zeltRequestBodyType: unique symbol;
 
 type RequestAccessorBase<TBody> = {
   body(): Promise<TBody>;
-  bodyRaw(): string;
+  bodyRaw(): Promise<string>;
   pathParam(name: string): string;
   queryParam(name: string): string | undefined;
   queryParams(name: string): string[];
@@ -72,14 +72,14 @@ const validateBody = <Schema extends StandardSchemaV1>(
   return result.value;
 };
 
-/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
+/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | BadRequestException | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
 export function request(): RequestAccessor<unknown>;
-/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
+/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | BadRequestException | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
 export function request<Schema extends StandardSchemaV1>(
   schema: Schema,
   opts?: { target?: ValidationTarget },
 ): RequestBodyAccessor<StandardSchemaV1.InferOutput<Schema>>;
-/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
+/** @throws {ZeltContextNotAvailableError | ZeltRouteConfigurationError | BadRequestException | UnsupportedMediaTypeException | AsyncValidationUnsupportedException | ValidationFailedException} */
 export function request<Schema extends StandardSchemaV1>(
   schema?: Schema,
   opts?: { target?: ValidationTarget },
@@ -90,12 +90,14 @@ export function request<Schema extends StandardSchemaV1>(
 
   const accessor: RequestAccessorBase<unknown> = {
     async body() {
-      const parsed = getBody();
+      const parsed = await getBody();
       if (parsed.type === 'none') return validateBody(undefined, bodySchema);
-      const raw = target === 'form' ? body('form') : body();
+      const raw = target === 'form' ? await body('form') : await body();
       return validateBody(raw, bodySchema);
     },
-    bodyRaw: () => bodyRaw(),
+    async bodyRaw() {
+      return await bodyRaw();
+    },
     pathParam: (name: string) => pathParam(name),
     queryParam: (name: string) => ctx.req.query(name),
     queryParams: (name: string) => ctx.req.queries(name) ?? [],

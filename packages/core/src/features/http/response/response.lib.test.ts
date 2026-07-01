@@ -28,6 +28,21 @@ class ResponseTestController {
     return res.header('X-Foo', 'bar').json({ ok: true });
   }
 
+  @Get('/header-append')
+  headerAppendRoute(res = response()) {
+    return res.header('X-Foo', 'one').header('X-Foo', 'two', { type: 'append' }).json({ ok: true });
+  }
+
+  @Get('/header-override')
+  headerOverrideRoute(res = response()) {
+    return res.header('X-Foo', 'one').header('X-Foo', 'two').json({ ok: true });
+  }
+
+  @Get('/header-remove')
+  headerRemoveRoute(res = response()) {
+    return res.header('X-Foo', 'one').removeHeader('X-Foo').json({ ok: true });
+  }
+
   @Post('/raw')
   rawRoute() {
     return { wrapped: true };
@@ -90,6 +105,24 @@ describe('response()', () => {
     const res = await readyApp.http.fetch(new Request('http://localhost/r/header'));
     expect(res.headers.get('x-foo')).toBe('bar');
     expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it('header appends when requested', async () => {
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/header-append'));
+    expect(res.headers.get('x-foo')).toBe('one, two');
+  });
+
+  it('header overrides by default', async () => {
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/header-override'));
+    expect(res.headers.get('x-foo')).toBe('two');
+  });
+
+  it('removes headers', async () => {
+    const readyApp = await ready;
+    const res = await readyApp.http.fetch(new Request('http://localhost/r/header-remove'));
+    expect(res.headers.get('x-foo')).toBeNull();
   });
 
   it('raw return wraps with c.json', async () => {

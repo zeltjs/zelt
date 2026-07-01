@@ -419,12 +419,12 @@ it('returns 401 for unauthenticated requests', async () => {
 
 ```typescript
 import { it, expect } from 'vitest';
-import { createApp, Controller, Get, Authorized, Middleware, setUser, type RequestContext, type Next, http } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, Middleware, request, setUser, type Next, http } from '@zeltjs/core';
 
 @Middleware
 class MockAuthMiddleware {
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    if (c.req.header('X-Test-User')) {
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    if (req.header('X-Test-User')) {
       setUser({ id: '123', name: 'Test' }, ['user']);
     }
     await next();
@@ -451,12 +451,12 @@ it('returns data for authenticated users', async () => {
 
 ```typescript
 import { it, expect } from 'vitest';
-import { createApp, Controller, Get, Authorized, Middleware, setUser, type RequestContext, type Next, http } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, Middleware, request, setUser, type Next, http } from '@zeltjs/core';
 
 @Middleware
 class MockRoleMiddleware {
-  async use(c: RequestContext, next: Next): Promise<Response | undefined> {
-    const role = c.req.header('X-Test-Role');
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const role = req.header('X-Test-Role');
     if (role) {
       setUser({ id: '123', name: 'Test' }, [role]);
     }

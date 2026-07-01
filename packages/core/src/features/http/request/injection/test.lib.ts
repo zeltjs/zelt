@@ -1,15 +1,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { Context } from 'hono';
+import type { Context, Env, Input } from 'hono';
 
 import { runInContext } from '../../../../kernel';
 import { setHonoContext } from '../index';
-import type { ParsedBody } from './body.lib';
-import { setBody } from './body.lib';
 import { setPathParams } from './path-param.lib';
 
 type TestEntryContext = {
-  honoContext: Context;
-  body?: ParsedBody;
+  honoContext: Context<Env, string, Input>;
   pathParams?: Readonly<Record<string, string>>;
 };
 
@@ -17,7 +14,6 @@ type TestEntryContext = {
 export const runInEntryContext = <T>(ctx: TestEntryContext, fn: () => T): T => {
   return runInContext(() => {
     setHonoContext(ctx.honoContext);
-    setBody(ctx.body ?? { type: 'none', val: undefined });
     setPathParams(ctx.pathParams ?? {});
     return fn();
   });

@@ -18,9 +18,8 @@ type RouteMetadata = {
   readonly methodName: string | symbol;
 };
 
-// One entry per `@UseMiddleware(...)` application. The arguments passed to a
-// single application are kept together as a set — they are intentionally not
-// flattened across applications, because their meaning depends on grouping.
+// One entry per `@UseMiddleware(...)` application. The outer array preserves
+// decorator application order; callers that need one chain should flatten it.
 type ControllerMiddlewareSet = readonly MiddlewareInput[];
 type ControllerMiddlewareMetadata = readonly ControllerMiddlewareSet[];
 

@@ -16,7 +16,7 @@ export class MiddlewareController {
     return { ok: true };
   }
 
-  @UseMiddleware([HeaderMiddleware, { headerName: 'X-Custom', headerValue: 'test-value' }])
+  @UseMiddleware(HeaderMiddleware, { headerName: 'X-Custom', headerValue: 'test-value' })
   @Get('/with-header')
   withHeader() {
     return { ok: true };
