@@ -129,7 +129,7 @@ const parseRawBodyByKind = (kind: Exclude<BodyKind, 'multipart'>, raw: string): 
     .exhaustive();
 
 /** @throws {BadRequestException} */
-export const parseRequestBody = async (source: BodySource): Promise<ParsedBody> => {
+const _parseRequestBody = async (source: BodySource): Promise<ParsedBody> => {
   const kind = resolveBodyKind(source.contentType);
   if (kind === 'multipart') return parseFormDataBody(source);
   return parseRawBodyByKind(kind, (await readRequestBody(source)) ?? '');
