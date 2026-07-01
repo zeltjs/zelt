@@ -5,7 +5,14 @@ import {
   overrideConfig,
   resolveConfig,
 } from '../built-in-service';
-import { inject, LifecycleManager, resolve, ZeltLifecycleStateError } from '../kernel';
+import {
+  getAbstractLeafClassFromError,
+  inject,
+  LifecycleManager,
+  resolve,
+  ZeltAppConfigurationError,
+  ZeltLifecycleStateError,
+} from '../kernel';
 import { ConfigRegistry } from './config-registry.lib';
 
 export type ReadyResult = {
@@ -26,7 +33,7 @@ export class AppBootstrap {
     private readonly configRegistry: ConfigRegistry = inject(ConfigRegistry),
   ) {}
 
-  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   async ready(): Promise<ReadyResult> {
     if (this.state === 'disposed') {
       throw new ZeltLifecycleStateError({ operation: 'ready', currentState: 'disposed' });
@@ -40,7 +47,7 @@ export class AppBootstrap {
     return this.readyPromise;
   }
 
-  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   private async doReady(): Promise<ReadyResult> {
     await this.lifecycleManager.startup();
 
@@ -72,16 +79,27 @@ export class AppBootstrap {
     }
   }
 
-  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   private buildReadyResult(): ReadyResult {
     return {
       get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => {
         if (this.state === 'disposed') {
           throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });
         }
-        const instance = resolve(this.container, cls);
-        await this.lifecycleManager.startupPending();
-        return instance;
+        try {
+          const instance = resolve(this.container, cls);
+          await this.lifecycleManager.startupPending();
+          return instance;
+        } catch (error) {
+          const abstractLeafClass = getAbstractLeafClassFromError(error);
+          if (abstractLeafClass) {
+            throw new ZeltAppConfigurationError({
+              reason: 'abstract_leaf_without_concrete',
+              details: abstractLeafClass.name,
+            });
+          }
+          throw error;
+        }
       },
     };
   }

@@ -54,7 +54,7 @@ export const registerConfigClass = (
   config: AnyConfigClass,
   options?: { readonly abstract?: boolean },
 ): void => {
-  registerAsLeaf(config);
+  registerAsLeaf(config, { abstract: options?.abstract === true });
   if (options?.abstract === true) abstractConfigClasses.add(config);
 };
 

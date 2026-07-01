@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../app/index';
-import { Injectable, inject } from '../../kernel';
+import { Injectable, inject, ZeltAppConfigurationError } from '../../kernel';
 import { Config } from './index';
 
 describe('config token', () => {
@@ -160,6 +160,27 @@ describe('config token', () => {
       await expect(
         app.createRuntime({ fallbackConfigs: [FallbackConcreteConfig] }),
       ).rejects.toThrow('Abstract config class AbstractConfig requires a concrete config class');
+    });
+
+    it('fails when an unconfigured abstract config token is injected', async () => {
+      @Config({ abstract: true })
+      abstract class AbstractConfig {
+        abstract getValue(): string;
+      }
+
+      @Injectable()
+      class ConfigConsumer {
+        constructor(public readonly config = inject(AbstractConfig)) {}
+      }
+
+      const app = createApp([], { configs: [] });
+      const readyApp = await app.createRuntime();
+      const getConsumer = readyApp.get(ConfigConsumer);
+
+      await expect(getConsumer).rejects.toThrow(ZeltAppConfigurationError);
+      await expect(getConsumer).rejects.toThrow(
+        'Abstract config class AbstractConfig requires a concrete config class',
+      );
     });
   });
 

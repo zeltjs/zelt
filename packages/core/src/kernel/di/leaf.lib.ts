@@ -7,7 +7,11 @@ type AnyInstance = object;
 
 type LeafInjectionToken<T extends object = object> = InjectionToken<T>;
 
+const leafTokenDescription = (cls: AnyClass): string => `zelt:leaf:${cls.name}`;
+
 const leafClasses = new WeakSet<AnyClass>();
+const abstractLeafClasses = new WeakSet<AnyClass>();
+const abstractLeafTokenLabels = new Map<string, AnyClass>();
 const leafCategoryCache = new WeakMap<AnyClass, 'direct' | 'inherited'>();
 const leafTokenMap = new UnsafeInjectionTokenWeakMap();
 const boundTokens = new WeakMap<Container, Set<LeafInjectionToken>>();
@@ -17,9 +21,20 @@ const toAnyClass = (proto: unknown): AnyClass | null => {
   return isClassConstructor<AnyInstance>(proto) ? proto : null;
 };
 
-export const registerAsLeaf = (cls: AnyClass): void => {
+export const registerAsLeaf = (cls: AnyClass, options?: { readonly abstract?: boolean }): void => {
   leafClasses.add(cls);
+  if (options?.abstract === true) {
+    abstractLeafClasses.add(cls);
+    const existingToken = leafTokenMap.get(cls);
+    if (existingToken) abstractLeafTokenLabels.set(existingToken.toString(), cls);
+  }
   leafCategoryCache.set(cls, 'direct');
+};
+
+const isAbstractLeafClass = (cls: AnyClass): boolean => abstractLeafClasses.has(cls);
+
+const rememberAbstractLeafToken = (cls: AnyClass, token: LeafInjectionToken): void => {
+  if (isAbstractLeafClass(cls)) abstractLeafTokenLabels.set(token.toString(), cls);
 };
 
 /** @throws {ZeltLifecycleStateError} */
@@ -63,9 +78,17 @@ const getLeafToken = <T extends object = object>(cls: AnyClass<T>): LeafInjectio
   const existing = leafTokenMap.get<T>(cls);
   if (existing) return existing;
 
-  const token = new InjectionToken<T>(cls.name);
+  const token = new InjectionToken<T>(leafTokenDescription(cls));
   leafTokenMap.set(cls, token);
+  rememberAbstractLeafToken(cls, token);
   return token;
+};
+
+export const getAbstractLeafClassFromError = (error: unknown): AnyClass | undefined => {
+  if (!(error instanceof Error)) return undefined;
+  const prefix = 'No provider(s) found for ';
+  if (!error.message.startsWith(prefix)) return undefined;
+  return abstractLeafTokenLabels.get(error.message.slice(prefix.length));
 };
 
 /** @throws {ZeltLifecycleStateError} */
@@ -91,7 +114,6 @@ const bindExistingLeaf = (
   markTokenBound(container, token);
 };
 
-/** @throws {ZeltLifecycleStateError} */
 const bindLeafInternal = (container: Container, token: LeafInjectionToken, cls: AnyClass): void => {
   const singleToken = new InjectionToken<AnyInstance>(`${cls.name}:single`);
   container.bind({
@@ -128,7 +150,7 @@ export const ensureLeafBound = <T extends object = object>(
 ): LeafInjectionToken<T> => {
   const token = getLeafToken(cls);
 
-  if (!isTokenBound(container, token)) {
+  if (!isTokenBound(container, token) && !isAbstractLeafClass(cls)) {
     bindLeafInternal(container, token, cls);
   }
 
