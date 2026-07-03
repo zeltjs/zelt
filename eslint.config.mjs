@@ -29,6 +29,20 @@ const TOOL_CONFIG_FILES = [
   'vitest.shared.ts',
 ];
 
+// Shared no-restricted-imports entries. The rule's options replace wholesale
+// when a later block matches the same file, so each boundary/restricted-imports-*
+// block below must declare its COMPLETE ban list from these fragments.
+const BAN_NEEDLE_DI = {
+  name: '@needle-di/core',
+  message:
+    'Import from @zeltjs/core or @zeltjs/testing instead. Direct @needle-di/core imports are only allowed in packages/core, packages/command, and packages/cli.',
+};
+const BAN_INTERNAL_BRIDGE_TESTING = {
+  group: ['@zeltjs/core/internal-bridge/testing'],
+  message:
+    'internal-bridge/testing is reserved for @zeltjs/core and @zeltjs/testing. Use the public API from @zeltjs/core or @zeltjs/testing instead.',
+};
+
 export default tseslint.config(
   // ═══════════════════════════════════════════════════════════════════════════
   // Ignores
@@ -253,45 +267,38 @@ export default tseslint.config(
     },
   },
   {
-    name: 'boundary/needle-di-encapsulation',
+    name: 'boundary/restricted-imports',
+    // Default for packages: both bans. Packages exempt from one ban are
+    // ignored here and get their complete list in the blocks below.
     files: ['packages/**/*.{ts,tsx}'],
     ignores: [
+      // core may use both (it owns needle-di and internal-bridge)
       'packages/core/**/*.{ts,tsx}',
+      // command/cli may use @needle-di/core
       'packages/command/**/*.{ts,tsx}',
       'packages/cli/**/*.{ts,tsx}',
+      // testing may use internal-bridge/testing
+      'packages/testing/**/*.{ts,tsx}',
     ],
     rules: {
       'no-restricted-imports': [
         'error',
-        {
-          paths: [
-            {
-              name: '@needle-di/core',
-              message:
-                'Import from @zeltjs/core or @zeltjs/testing instead. Direct @needle-di/core imports are only allowed in packages/core, packages/command, and packages/cli.',
-            },
-          ],
-        },
+        { paths: [BAN_NEEDLE_DI], patterns: [BAN_INTERNAL_BRIDGE_TESTING] },
       ],
     },
   },
   {
-    name: 'boundary/internal-bridge',
-    files: ['packages/**/*.{ts,tsx}'],
-    ignores: ['packages/core/**/*.{ts,tsx}', 'packages/testing/**/*.{ts,tsx}'],
+    name: 'boundary/restricted-imports-di-packages',
+    files: ['packages/command/**/*.{ts,tsx}', 'packages/cli/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@zeltjs/core/internal-bridge/testing'],
-              message:
-                'internal-bridge/testing is reserved for @zeltjs/core and @zeltjs/testing. Use the public API from @zeltjs/core or @zeltjs/testing instead.',
-            },
-          ],
-        },
-      ],
+      'no-restricted-imports': ['error', { patterns: [BAN_INTERNAL_BRIDGE_TESTING] }],
+    },
+  },
+  {
+    name: 'boundary/restricted-imports-testing',
+    files: ['packages/testing/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: [BAN_NEEDLE_DI] }],
     },
   },
 
