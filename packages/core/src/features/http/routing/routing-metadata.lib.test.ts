@@ -10,6 +10,7 @@ import {
   getAuthorizedMetadata,
   getControllerMetadata,
   getControllerMiddlewareMetadata,
+  getControllerSkipMiddlewareMetadata,
   getMethodMiddlewareMetadata,
   getRouteMetadata,
   getSkipMiddlewareMetadata,
@@ -91,6 +92,22 @@ describe('metadata collectors (via decorators)', () => {
     }
 
     expect(getSkipMiddlewareMetadata(Z)).toEqual([{ methodName: 'free', skipped: [MwA] }]);
+  });
+
+  it('collects controller-level SkipMiddleware metadata', () => {
+    class MwA {
+      async use(): Promise<undefined> {
+        return undefined;
+      }
+    }
+    @SkipMiddleware(MwA)
+    @Controller('/z')
+    class Z {
+      @Get('/free')
+      free(): void {}
+    }
+
+    expect(getControllerSkipMiddlewareMetadata(Z)).toEqual([MwA]);
   });
 
   it('collects Authorized metadata per method', () => {

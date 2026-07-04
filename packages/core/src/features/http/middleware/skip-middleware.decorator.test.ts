@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSkipMiddlewareMetadata } from '../routing';
+import { getControllerSkipMiddlewareMetadata, getSkipMiddlewareMetadata } from '../routing';
 import { Controller } from '../routing/controller.decorator';
 import { Get } from '../routing/http-method.decorator';
 import type { MiddlewareInstance } from './middleware.types';
@@ -20,6 +20,20 @@ class LoggingMiddleware implements MiddlewareInstance {
 }
 
 describe('@SkipMiddleware', () => {
+  it('registers skipped middlewares on controller metadata', () => {
+    @SkipMiddleware(AuthMiddleware)
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      handler() {
+        return {};
+      }
+    }
+
+    const meta = getControllerSkipMiddlewareMetadata(TestController);
+    expect(meta).toEqual([AuthMiddleware]);
+  });
+
   it('registers skipped middlewares on method metadata', () => {
     @Controller('/test')
     class TestController {

@@ -13,6 +13,7 @@ import {
   createClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
+  dispatchClassOrMethodDecorator,
   getClassMetadata,
   recordClass,
   recordMethod,
@@ -393,6 +394,27 @@ describe('create* options', () => {
       { decorator: 'Controller', basePath: '/users' },
       { decorator: 'UseAuth' },
     ]);
+  });
+
+  it('dispatchClassOrMethodDecorator treats TC39 class contexts without metadata as class decorators', () => {
+    const apply = dispatchClassOrMethodDecorator(
+      createClassDecorator({ decorator: 'Class' }),
+      createMethodDecorator({ decorator: 'Method' }),
+    );
+    class Foo {}
+    const ctx = {
+      kind: 'class',
+      name: 'Foo',
+      addInitializer: () => {},
+    } as unknown as ClassDecoratorContext;
+
+    const result = (apply as unknown as (value: unknown, ctx: ClassDecoratorContext) => unknown)(
+      Foo,
+      ctx,
+    );
+
+    expect(result).toBeUndefined();
+    expect(getClassMetadata(Foo)?.props).toEqual([{ decorator: 'Class' }]);
   });
 
   describe('legacy decorator support', () => {

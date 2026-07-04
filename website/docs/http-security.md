@@ -3,7 +3,9 @@
 
 # HTTP Security
 
-Zelt provides built-in HTTP security through two configuration classes: `SecureHeadersConfig` and `CorsConfig`. Both use the `@Config` decorator pattern for type-safe, DI-based configuration.
+Zelt provides built-in HTTP security through two auto-registered middleware classes: `SecureHeadersMiddleware` and `CorsMiddleware`. Both are registered globally on every HTTP app and run on all routes before your configured global middleware.
+
+Configuration is controlled through `SecureHeadersConfig` and `CorsConfig`. Both use the `@Config` decorator pattern for type-safe, DI-based configuration.
 
 - **SecureHeadersConfig** is enabled by default with secure defaults
 - **CorsConfig** is disabled by default (empty origin) and must be explicitly configured
@@ -16,17 +18,17 @@ Security headers are automatically applied to all responses. The default configu
 
 | Header | Default |
 |--------|---------|
-| `Cross-Origin-Resource-Policy` | enabled |
-| `Cross-Origin-Opener-Policy` | enabled |
-| `Origin-Agent-Cluster` | enabled |
-| `Referrer-Policy` | enabled |
-| `Strict-Transport-Security` | enabled |
-| `X-Content-Type-Options` | enabled |
-| `X-DNS-Prefetch-Control` | enabled |
-| `X-Download-Options` | enabled |
-| `X-Frame-Options` | enabled |
-| `X-Permitted-Cross-Domain-Policies` | enabled |
-| `X-XSS-Protection` | enabled |
+| `Cross-Origin-Resource-Policy` | `same-origin` |
+| `Cross-Origin-Opener-Policy` | `same-origin` |
+| `Origin-Agent-Cluster` | `?1` |
+| `Referrer-Policy` | `no-referrer` |
+| `Strict-Transport-Security` | `max-age=15552000; includeSubDomains` |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-DNS-Prefetch-Control` | `off` |
+| `X-Download-Options` | `noopen` |
+| `X-Frame-Options` | `SAMEORIGIN` |
+| `X-Permitted-Cross-Domain-Policies` | `none` |
+| `X-XSS-Protection` | `0` |
 | `X-Powered-By` | removed |
 | `Cross-Origin-Embedder-Policy` | disabled |
 
@@ -118,7 +120,7 @@ class MyCorsConfig extends CorsConfig {
 
 ## Registration
 
-Register custom configs when creating the app:
+The middleware classes are registered automatically. Register custom configs when creating the app:
 
 ```typescript
 import { createApp, Config, CorsConfig, SecureHeadersConfig, Controller, Get, http } from '@zeltjs/core';
@@ -142,3 +144,36 @@ const app = createApp([http({
 ```
 
 The framework automatically detects and uses your custom configuration classes when registered in the `configs` array.
+
+## Skipping Security Middleware
+
+Use `@SkipMiddleware` to skip either built-in middleware for one endpoint or every endpoint in a controller. Method-level and controller-level skips are combined.
+
+```typescript
+import {
+  Controller,
+  CorsMiddleware,
+  Get,
+  SecureHeadersMiddleware,
+  SkipMiddleware,
+} from '@zeltjs/core';
+
+@SkipMiddleware(CorsMiddleware)
+@Controller('/webhook')
+class WebhookController {
+  @Get('/health')
+  health() {
+    return { ok: true };
+  }
+
+  @SkipMiddleware(SecureHeadersMiddleware)
+  @Get('/raw')
+  raw() {
+    return { ok: true };
+  }
+}
+```
+
+In this example, non-preflight requests to `WebhookController` endpoints skip CORS response headers. The `/webhook/raw` endpoint also skips secure headers.
+
+`@SkipMiddleware(CorsMiddleware)` does not disable CORS preflight handling. `OPTIONS` preflight requests are handled by `CorsMiddleware` before an endpoint handler is selected, so the preflight response can still include CORS allow headers. The actual endpoint response is the part that skips `CorsMiddleware`.

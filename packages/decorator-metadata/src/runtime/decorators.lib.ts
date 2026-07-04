@@ -128,6 +128,37 @@ export const createConfigurableClassDecorator = <TOptions extends Record<string,
   return decorate;
 };
 
+export const dispatchClassOrMethodDecorator = (
+  classDecorate: ClassDecoratorFn,
+  methodDecorate: MethodDecoratorFn,
+): ClassDecoratorFn & MethodDecoratorFn => {
+  function dispatch<T extends abstract new (...args: never[]) => unknown>(
+    value: T,
+    context: ClassDecoratorContext,
+  ): void;
+  function dispatch(
+    value: (...args: never[]) => unknown,
+    context: ClassMethodDecoratorContext,
+  ): void;
+  function dispatch<T extends new (...args: never[]) => unknown>(target: T): T | undefined;
+  function dispatch(
+    target: object,
+    propertyKey: string | symbol,
+    descriptor?: PropertyDescriptor,
+  ): void;
+  function dispatch(...args: unknown[]): unknown {
+    const isClassDecorator = match(args[1])
+      .with(P.nullish, () => true)
+      .with(tc39ClassContextPattern, () => true)
+      .otherwise(() => false);
+    const fn = isClassDecorator
+      ? toUnknownCallable(classDecorate)
+      : toUnknownCallable(methodDecorate);
+    return fn(...args);
+  }
+  return dispatch;
+};
+
 type MethodInfo = {
   readonly classKey: object;
   readonly name: string | symbol;
