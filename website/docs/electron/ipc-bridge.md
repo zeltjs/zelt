@@ -139,6 +139,8 @@ export const client = hc<AppType>('http://zelt-app', {
 });
 ```
 
+`AppType` is generated from your app definition — either by the CLI plugin (`zelt build`) or, when your build is driven by electron-vite instead of the Zelt CLI, programmatically via [`GeneratorService.generateFromApp()`](../hono-client#programmatic-generation). For renderer code that cannot import from the main process build output, generate with `portable: true`.
+
 ## Accessing the IPC Event
 
 In controllers, use `ipcEvent()` to access the underlying `IpcMainInvokeEvent`:
