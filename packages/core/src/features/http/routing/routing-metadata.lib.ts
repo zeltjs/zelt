@@ -28,6 +28,8 @@ type MethodMiddlewareMetadata = {
   readonly middlewares: readonly MiddlewareInput[];
 };
 
+type ControllerSkipMiddlewareMetadata = readonly MiddlewareIdentifier[];
+
 type SkipMiddlewareMetadata = {
   readonly methodName: string | symbol;
   readonly skipped: readonly MiddlewareIdentifier[];
@@ -163,6 +165,21 @@ export const getMethodMiddlewareMetadata = (cls: object): readonly MethodMiddlew
     }
   }
   return result;
+};
+
+export const getControllerSkipMiddlewareMetadata = (
+  cls: object,
+): ControllerSkipMiddlewareMetadata => {
+  const meta = getClassMetadata(cls);
+  if (!meta) return [];
+  const skipped: MiddlewareIdentifier[] = [];
+  for (const p of meta.props) {
+    const entry = match(p)
+      .with(skipMiddlewarePattern, (sm) => toMiddlewareIdentifiers(sm.skipped))
+      .otherwise(() => undefined);
+    if (entry) skipped.push(...entry);
+  }
+  return skipped;
 };
 
 export const getSkipMiddlewareMetadata = (cls: object): readonly SkipMiddlewareMetadata[] => {

@@ -123,6 +123,35 @@ export class ApiController {
 }
 ```
 
+Apply `@SkipMiddleware` to a controller class to exclude middleware from every route in that controller:
+
+```typescript
+import { Controller, Get, Middleware, SkipMiddleware, type Next } from '@zeltjs/core';
+
+@Middleware
+class AuthMiddleware { async use(next: Next) { await next(); return undefined; } }
+// ---cut---
+@SkipMiddleware(AuthMiddleware)
+@Controller('/public')
+export class PublicController {
+  @Get('/health')
+  health() {
+    return { status: 'ok' };
+  }
+
+  @Get('/version')
+  version() {
+    return { version: '1.0.0' };
+  }
+}
+```
+
+Class-level and method-level skip declarations are combined. If a controller skips `AuthMiddleware` and a method skips `LoggingMiddleware`, that method skips both.
+
+More specific middleware attachment wins over a class-level skip. If a controller has `@SkipMiddleware(AuthMiddleware)` but one method also has `@UseMiddleware(AuthMiddleware)`, `AuthMiddleware` runs for that method. If the same method has both `@UseMiddleware(AuthMiddleware)` and `@SkipMiddleware(AuthMiddleware)`, the method-level skip wins.
+
+`CorsMiddleware` and `SecureHeadersMiddleware` are auto-registered on every HTTP app. See [HTTP Security](./http-security.md) for their defaults, configuration options, skip examples, and CORS preflight behavior.
+
 ## Context Sharing
 
 Middleware can share data with handlers via `setContext()` and `getContext()`.

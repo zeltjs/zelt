@@ -11,6 +11,7 @@ import { http } from './http.feature';
 import { fromHonoMiddleware } from './middleware';
 import { Middleware } from './middleware/middleware.decorator';
 import type { Next } from './middleware/middleware.types';
+import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
 import { getContext, request, setContext } from './request/injection';
@@ -516,6 +517,194 @@ describe('middleware', () => {
     executed.length = 0;
     await readyApp.http.request('/test/public');
     expect(executed).toEqual(['public']);
+  });
+
+  it('skips global middleware for every controller route with class-level @SkipMiddleware', async () => {
+    const executed: string[] = [];
+    @Middleware
+    class AuthMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('auth');
+        await next();
+        return undefined;
+      }
+    }
+
+    @SkipMiddleware(AuthMiddleware)
+    @Controller('/test')
+    class TestController {
+      @Get('/one')
+      one() {
+        executed.push('one');
+        return { ok: true };
+      }
+
+      @Get('/two')
+      two() {
+        executed.push('two');
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [TestController],
+        middlewares: [AuthMiddleware],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    executed.length = 0;
+    await readyApp.http.request('/test/one');
+    expect(executed).toEqual(['one']);
+
+    executed.length = 0;
+    await readyApp.http.request('/test/two');
+    expect(executed).toEqual(['two']);
+  });
+
+  it('unions class-level and method-level @SkipMiddleware declarations', async () => {
+    const executed: string[] = [];
+    @Middleware
+    class AuthMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('auth');
+        await next();
+        return undefined;
+      }
+    }
+    @Middleware
+    class LoggingMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('logging');
+        await next();
+        return undefined;
+      }
+    }
+
+    @SkipMiddleware(AuthMiddleware)
+    @Controller('/test')
+    class TestController {
+      @Get('/class-only')
+      classOnly() {
+        executed.push('classOnly');
+        return { ok: true };
+      }
+
+      @SkipMiddleware(LoggingMiddleware)
+      @Get('/public')
+      public() {
+        executed.push('public');
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [TestController],
+        middlewares: [AuthMiddleware, LoggingMiddleware],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    executed.length = 0;
+    await readyApp.http.request('/test/class-only');
+    expect(executed).toEqual(['logging', 'classOnly']);
+
+    executed.length = 0;
+    await readyApp.http.request('/test/public');
+    expect(executed).toEqual(['public']);
+  });
+
+  it('runs method-level @UseMiddleware when the same middleware is skipped at class level', async () => {
+    const executed: string[] = [];
+    @Middleware
+    class TrackingMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('tracking');
+        await next();
+        return undefined;
+      }
+    }
+
+    @SkipMiddleware(TrackingMiddleware)
+    @Controller('/test')
+    class TestController {
+      @UseMiddleware(TrackingMiddleware)
+      @Get('/explicit')
+      explicit() {
+        executed.push('handler');
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [TestController],
+        middlewares: [TrackingMiddleware],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    await readyApp.http.request('/test/explicit');
+    expect(executed).toEqual(['tracking', 'handler']);
+  });
+
+  it('skips method-level @UseMiddleware when the same method also declares @SkipMiddleware', async () => {
+    const executed: string[] = [];
+    @Middleware
+    class TrackingMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('tracking');
+        await next();
+        return undefined;
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      @SkipMiddleware(TrackingMiddleware)
+      @UseMiddleware(TrackingMiddleware)
+      @Get('/explicit')
+      explicit() {
+        executed.push('handler');
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.createRuntime();
+
+    await readyApp.http.request('/test/explicit');
+    expect(executed).toEqual(['handler']);
+  });
+
+  it('skips built-in security middleware with class-level @SkipMiddleware', async () => {
+    @SkipMiddleware(SecureHeadersMiddleware)
+    @Controller('/webhooks')
+    class WebhookController {
+      @Get('/incoming')
+      incoming() {
+        return { ok: true };
+      }
+    }
+
+    @Controller('/api')
+    class ApiController {
+      @Get('/data')
+      data() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [WebhookController, ApiController] })]);
+    const readyApp = await app.createRuntime();
+
+    const skippedRes = await readyApp.http.request('/webhooks/incoming');
+    expect(skippedRes.headers.get('X-Content-Type-Options')).toBeNull();
+
+    const defaultRes = await readyApp.http.request('/api/data');
+    expect(defaultRes.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
   it('resolves @Middleware class through DI', async () => {

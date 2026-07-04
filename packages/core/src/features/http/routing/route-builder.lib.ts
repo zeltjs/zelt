@@ -6,6 +6,7 @@ import {
   ZeltDecoratorUsageError,
   ZeltRouteConfigurationError,
 } from '../../../kernel';
+import type { SkippedMiddlewareSets } from '../middleware';
 import {
   attachSkippedMiddlewares,
   guardMiddleware,
@@ -13,11 +14,7 @@ import {
   resolveMiddleware,
 } from '../middleware';
 import { currentRoles, currentUser } from '../middleware/auth';
-import type {
-  HonoMiddleware,
-  MiddlewareIdentifier,
-  MiddlewareInput,
-} from '../middleware/middleware.types';
+import type { HonoMiddleware, MiddlewareInput } from '../middleware/middleware.types';
 import { setHonoContext } from '../request';
 import { hasBodySource, setBodySource, setPathParams } from '../request/injection';
 import { joinPath } from './path-utils.lib';
@@ -26,6 +23,7 @@ import {
   getAuthorizedMetadata,
   getControllerMetadata,
   getControllerMiddlewareMetadata,
+  getControllerSkipMiddlewareMetadata,
   getMethodMiddlewareMetadata,
   getRouteMetadata,
   getSkipMiddlewareMetadata,
@@ -127,13 +125,18 @@ const collectRouteMiddlewares = (
   );
   const authorizedMeta = getAuthorizedMetadata(controllerClass, methodName);
 
-  const inputs: MiddlewareInput[] = [
-    ...(controllerMeta?.flat() ?? []),
-    ...methodMetas.flatMap((m) => m.middlewares),
-  ];
+  const controllerInputs: MiddlewareInput[] = [...(controllerMeta?.flat() ?? [])];
+  const methodInputs: MiddlewareInput[] = methodMetas.flatMap((m) => m.middlewares);
 
-  const guarded = inputs.map((input) =>
+  const guarded = controllerInputs.map((input) =>
     guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver)),
+  );
+  guarded.push(
+    ...methodInputs.map((input) =>
+      guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver), {
+        skipScope: 'method',
+      }),
+    ),
   );
 
   if (authorizedMeta) {
@@ -146,12 +149,14 @@ const collectRouteMiddlewares = (
 const collectSkippedMiddlewares = (
   controllerClass: ControllerClass,
   methodName: string | symbol,
-): ReadonlySet<MiddlewareIdentifier> =>
-  new Set(
+): SkippedMiddlewareSets => ({
+  classLevel: new Set(getControllerSkipMiddlewareMetadata(controllerClass)),
+  methodLevel: new Set(
     getSkipMiddlewareMetadata(controllerClass)
       .filter((m) => m.methodName === methodName)
       .flatMap((m) => m.skipped),
-  );
+  ),
+});
 
 // Populates the request context store before route-chained middlewares and
 // the controller run. The router-level request injection normally ran

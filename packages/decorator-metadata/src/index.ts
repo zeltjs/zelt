@@ -18,5 +18,6 @@ export {
   createConfigurableClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
+  dispatchClassOrMethodDecorator,
   getClassMetadata,
 } from './runtime/index';

@@ -8,6 +8,13 @@ import type { HonoMiddleware, MiddlewareIdentifier, MiddlewareInput } from './mi
 
 const SKIPPED_MIDDLEWARES = Symbol('zelt:skipped-middlewares');
 
+export type SkippedMiddlewareSets = {
+  readonly classLevel: ReadonlySet<MiddlewareIdentifier>;
+  readonly methodLevel: ReadonlySet<MiddlewareIdentifier>;
+};
+
+type MiddlewareSkipScope = 'default' | 'method';
+
 const hasUseMethod = (proto: unknown): boolean => {
   if (proto === null || proto === undefined) return false;
   if (typeof proto !== 'object') return false;
@@ -41,21 +48,40 @@ export const resolveMiddleware = (
   return async (_c, next) => await instance.use(next, middleware.options);
 };
 
-export const attachSkippedMiddlewares = (
-  handler: object,
-  skipped: ReadonlySet<MiddlewareIdentifier>,
-): void => {
+export const attachSkippedMiddlewares = (handler: object, skipped: SkippedMiddlewareSets): void => {
   Reflect.set(handler, SKIPPED_MIDDLEWARES, skipped);
 };
 
-const findSkippedMiddlewares = (c: Context): ReadonlySet<unknown> | undefined => {
+// Read-side counterpart of SkippedMiddlewareSets: values cross the handler
+// symbol boundary as unknown, and instanceof can only recover Set<unknown>.
+type FoundSkippedSets = {
+  readonly classLevel: ReadonlySet<unknown>;
+  readonly methodLevel: ReadonlySet<unknown>;
+};
+
+const findSkippedMiddlewares = (c: Context): FoundSkippedSets | undefined => {
   for (const route of matchedRoutes(c)) {
     // route() mounting may wrap handlers for error-handler scoping;
     // findTargetHandler unwraps to the function the skip set was attached to.
     const skipped: unknown = Reflect.get(findTargetHandler(route.handler), SKIPPED_MIDDLEWARES);
-    if (skipped instanceof Set) return skipped;
+    if (typeof skipped !== 'object' || skipped === null) continue;
+    const classLevel: unknown = Reflect.get(skipped, 'classLevel');
+    const methodLevel: unknown = Reflect.get(skipped, 'methodLevel');
+    if (classLevel instanceof Set && methodLevel instanceof Set) {
+      return { classLevel, methodLevel };
+    }
   }
   return undefined;
+};
+
+const shouldSkipMiddleware = (
+  skipped: FoundSkippedSets | undefined,
+  identifier: MiddlewareIdentifier,
+  scope: MiddlewareSkipScope,
+): boolean => {
+  if (!skipped) return false;
+  if (scope === 'method') return skipped.methodLevel.has(identifier);
+  return skipped.classLevel.has(identifier) || skipped.methodLevel.has(identifier);
 };
 
 // Skip is decided here, at execution time, against the matched endpoint's
@@ -64,10 +90,11 @@ const findSkippedMiddlewares = (c: Context): ReadonlySet<unknown> | undefined =>
 export const guardMiddleware = (
   identifier: MiddlewareIdentifier,
   middleware: HonoMiddleware,
+  options?: { readonly skipScope?: MiddlewareSkipScope },
 ): HonoMiddleware => {
   return async (c, next) => {
     const skipped = findSkippedMiddlewares(c);
-    if (skipped?.has(identifier)) return next();
+    if (shouldSkipMiddleware(skipped, identifier, options?.skipScope ?? 'default')) return next();
     const result = await middleware(c, next);
     if (result instanceof Response) {
       c.res = result;

@@ -15,6 +15,7 @@ export {
   createConfigurableClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
+  dispatchClassOrMethodDecorator,
 } from './decorators.lib';
 export type { ClassMeta, MethodMeta, PropertyMeta } from './store.lib';
 export {
