@@ -15,10 +15,20 @@ npm install @zeltjs/adapter-node @zeltjs/core
 ## Usage
 
 ```typescript
-import { serve } from '@zeltjs/adapter-node';
-import { createApp } from '@zeltjs/core';
+import { createApp, http, Controller, Get } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
 
-const app = createApp({ controllers: [...] });
+@Controller('/hello')
+class HelloController {
+  @Get('/')
+  greet() {
+    return { message: 'Hello from Node.js!' };
+  }
+}
 
-serve(app, { port: 3000 });
+const app = createApp([http({ controllers: [HelloController] })]);
+
+const nodeApp = await onNode(app);
+const server = await nodeApp.http.listen({ port: 3000 });
+console.log(`Listening on port ${server.address.port}`);
 ```

@@ -15,7 +15,7 @@ bun add @zeltjs/adapter-bun @zeltjs/core
 ## Usage
 
 ```typescript
-import { createApp, Controller, Get } from '@zeltjs/core';
+import { createApp, http, Controller, Get } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
@@ -26,10 +26,8 @@ class HelloController {
   }
 }
 
-const app = createApp({
-  http: { controllers: [HelloController] },
-});
+const app = createApp([http({ controllers: [HelloController] })]);
 
-const bun = await onBun(app);
-bun.listen(3000);
+const bunApp = await onBun(app);
+bunApp.http.serve({ port: 3000 });
 ```

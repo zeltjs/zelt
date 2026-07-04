@@ -15,7 +15,7 @@ npm install @zeltjs/adapter-lambda @zeltjs/core
 ## Usage
 
 ```typescript
-import { createApp, Controller, Get } from '@zeltjs/core';
+import { createApp, http, Controller, Get } from '@zeltjs/core';
 import { onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
@@ -26,11 +26,9 @@ class HelloController {
   }
 }
 
-const app = createApp({
-  http: { controllers: [HelloController] },
-});
+const app = createApp([http({ controllers: [HelloController] })]);
 
-const lambda = await onLambda(app);
+const lambdaApp = await onLambda(app);
 
-export const handler = lambda.handler;
+export const handler = lambdaApp.handler;
 ```
