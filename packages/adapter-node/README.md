@@ -36,6 +36,14 @@ console.log(`Listening on port ${server.address.port}`);
 Each named `http()` feature gets its own namespace with an independent `listen()`, sharing the same runtime and services:
 
 ```typescript
+@Controller('/admin')
+class AdminController {
+  @Get('/')
+  status() {
+    return { admin: true };
+  }
+}
+
 const app = createApp([
   http({ controllers: [HelloController] }),
   http({ name: 'admin', controllers: [AdminController] }),

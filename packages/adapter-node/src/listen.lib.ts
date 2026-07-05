@@ -16,6 +16,7 @@ const closeServer = (server: ServerType): Promise<void> =>
     server.close((err) => (err ? reject(err) : resolve()));
   });
 
+/** @throws {Error} propagates the server's bind error (e.g. EADDRINUSE) instead of hanging */
 export const createListenForHttp = (
   appFetch: (request: Request) => Promise<Response>,
   registerShutdown: (callback: () => Promise<void>) => () => Promise<void>,
@@ -28,14 +29,17 @@ export const createListenForHttp = (
     const hostname = listenOptions.hostname ?? '0.0.0.0';
 
     let server!: ServerType;
-    const serverReady = new Promise<{ port: number; address: string }>((resolve) => {
-      server = serve({ fetch: appFetch, port, hostname }, (info) =>
-        resolve({ port: info.port, address: info.address }),
-      );
+    const serverReady = new Promise<{ port: number; address: string }>((resolve, reject) => {
+      const onError = (err: Error): void => reject(err);
+      server = serve({ fetch: appFetch, port, hostname }, (info) => {
+        server.off('error', onError);
+        resolve({ port: info.port, address: info.address });
+      });
+      server.once('error', onError);
     });
-    const shutdown = registerShutdown(() => closeServer(server));
 
     const address = await serverReady;
+    const shutdown = registerShutdown(() => closeServer(server));
 
     return { address, shutdown };
   };
