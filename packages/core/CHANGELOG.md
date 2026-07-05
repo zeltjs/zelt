@@ -7,6 +7,14 @@
 * **di:** `inject(token, options)` is no longer part of the Zelt API. Code using
   needle-di options such as `{ optional: true }` through `inject()` should model
   the dependency explicitly instead of relying on optional injection.
+* **core:** `body`, `validated`, `pathParam`, `queryParam`, `header`, `cookie`,
+  `ip`, `url`, `path`, and `method` injection functions are removed. Use the
+  unified `request()` accessor instead.
+* **core:** `FunctionMiddleware` is removed in favor of `HonoMiddleware`.
+  `MiddlewareInstance.use()` now takes `(next, options?)` instead of
+  `(context, next, options)`; read the request via `requestContext()` inside
+  `use()` instead of a `context` parameter. Use the new `fromHonoMiddleware()`
+  to adapt a raw Hono middleware handler into a `MiddlewareClass`.
 
 ## [0.5.0](https://github.com/zeltjs/zelt/compare/core-v0.4.0...core-v0.5.0) (2026-05-17)
 

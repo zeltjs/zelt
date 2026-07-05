@@ -70,14 +70,21 @@ const electronZelt = await onElectron(app, {
 |--------|------|---------|-------------|
 | `ipcChannel` | `` `http://${string}` \| `https://${string}` `` | `'http://zelt-ipc'` | IPC channel identifier |
 | `warmup` | `boolean` | `true` | Resolve all controllers at startup |
+| `ipcFeature` | `string` | `'http'` | Key of the HTTP feature to bind to the IPC bridge, for apps with multiple `http()` features |
 
 ### Return Value (`OnElectronApp`)
 
+Each configured feature is namespaced under its key (`http` by default). HTTP features additionally expose `listen()` to serve over TCP instead of IPC:
+
 | Property | Type | Description |
 |----------|------|-------------|
-| `fetch` | `(request: Request) => Promise<Response>` | Handle a request directly |
+| `http.fetch` | `(request: Request) => Promise<Response>` | Handle a request directly |
+| `http.request` | `(input: string \| Request, init?: RequestInit) => Promise<Response>` | Handle a request built from a URL/path and `RequestInit` |
+| `http.listen` | `(portOrOptions?: number \| ListenOptions) => Promise<ServerHandle>` | Serve this feature over TCP instead of IPC |
 | `shutdown` | `() => Promise<void>` | Graceful shutdown |
 | `get` | `<T>(Class) => Promise<T>` | Resolve a service from DI |
+
+Breaking change: the old `electronZelt.fetch` shorthand is gone — use `electronZelt.http.fetch` instead (or the key you configured via `ipcFeature`).
 
 ### Warmup
 
