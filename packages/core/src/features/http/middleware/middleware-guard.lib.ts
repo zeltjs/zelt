@@ -4,15 +4,16 @@ import { findTargetHandler } from 'hono/utils/handler';
 
 import type { ResolverHandle } from '../../../kernel';
 import { createContextKey, getInternal, setInternal } from '../../../kernel';
-import type {
-  FunctionMiddleware,
-  MiddlewareClass,
-  MiddlewareIdentifier,
-  MiddlewareInput,
-  MiddlewareInputWithOptions,
-} from './middleware.types';
+import type { HonoMiddleware, MiddlewareIdentifier, MiddlewareInput } from './middleware.types';
 
 const SKIPPED_MIDDLEWARES = Symbol('zelt:skipped-middlewares');
+
+export type SkippedMiddlewareSets = {
+  readonly classLevel: ReadonlySet<MiddlewareIdentifier>;
+  readonly methodLevel: ReadonlySet<MiddlewareIdentifier>;
+};
+
+type MiddlewareSkipScope = 'default' | 'method';
 
 const hasUseMethod = (proto: unknown): boolean => {
   if (proto === null || proto === undefined) return false;
@@ -23,68 +24,64 @@ const hasUseMethod = (proto: unknown): boolean => {
 const checkMiddlewareClass = (input: MiddlewareInput): boolean =>
   typeof input === 'function' && input.prototype !== undefined && hasUseMethod(input.prototype);
 
-const checkMiddlewareWithOptions = (input: MiddlewareInput): boolean => {
-  if (!Array.isArray(input)) return false;
-  const tuple: MiddlewareInputWithOptions = input;
-  return checkMiddlewareClass(tuple[0]);
-};
-
-function narrowToWithOptions(middleware: MiddlewareInput): MiddlewareInputWithOptions;
-function narrowToWithOptions(middleware: MiddlewareInput): MiddlewareInput {
-  return middleware;
-}
-
-function narrowToClass(middleware: MiddlewareInput): MiddlewareClass;
-function narrowToClass(middleware: MiddlewareInput): MiddlewareInput {
-  return middleware;
-}
-
-function narrowToFunction(middleware: MiddlewareInput): FunctionMiddleware;
-function narrowToFunction(middleware: MiddlewareInput): MiddlewareInput {
-  return middleware;
-}
-
-// Skip declarations reference the class (or function) itself, so a
-// [class, options] tuple must collapse to the class for identity checks.
 export const middlewareIdentity = (input: MiddlewareInput): MiddlewareIdentifier => {
-  if (checkMiddlewareWithOptions(input)) return narrowToWithOptions(input)[0];
-  if (checkMiddlewareClass(input)) return narrowToClass(input);
-  return narrowToFunction(input);
+  if (typeof input === 'function') return input;
+  return input.middleware;
 };
 
-/** @throws {ZeltLifecycleStateError} */
+/** @throws {ZeltLifecycleStateError | TypeError} */
 export const resolveMiddleware = (
   middleware: MiddlewareInput,
   resolver: ResolverHandle,
-): FunctionMiddleware => {
-  if (checkMiddlewareWithOptions(middleware)) {
-    const [mwClass, options] = narrowToWithOptions(middleware);
-    const instance = resolver.get(mwClass);
-    return (c, next) => instance.use(c, next, options);
+): HonoMiddleware => {
+  if (typeof middleware === 'function') {
+    if (!checkMiddlewareClass(middleware)) {
+      throw new TypeError('Invalid middleware class. Missing use() method.');
+    }
+    const instance = resolver.get(middleware);
+    return async (_c, next) => await instance.use(next);
   }
-  if (checkMiddlewareClass(middleware)) {
-    const mwClass = narrowToClass(middleware);
-    const instance = resolver.get(mwClass);
-    return (c, next) => instance.use(c, next, undefined);
+  if (!checkMiddlewareClass(middleware.middleware)) {
+    throw new TypeError('Invalid middleware class. Missing use() method.');
   }
-  return narrowToFunction(middleware);
+  const instance = resolver.get(middleware.middleware);
+  return async (_c, next) => await instance.use(next, middleware.options);
 };
 
-export const attachSkippedMiddlewares = (
-  handler: object,
-  skipped: ReadonlySet<MiddlewareIdentifier>,
-): void => {
+export const attachSkippedMiddlewares = (handler: object, skipped: SkippedMiddlewareSets): void => {
   Reflect.set(handler, SKIPPED_MIDDLEWARES, skipped);
 };
 
-const findSkippedMiddlewares = (c: Context): ReadonlySet<unknown> | undefined => {
+// Read-side counterpart of SkippedMiddlewareSets: values cross the handler
+// symbol boundary as unknown, and instanceof can only recover Set<unknown>.
+type FoundSkippedSets = {
+  readonly classLevel: ReadonlySet<unknown>;
+  readonly methodLevel: ReadonlySet<unknown>;
+};
+
+const findSkippedMiddlewares = (c: Context): FoundSkippedSets | undefined => {
   for (const route of matchedRoutes(c)) {
     // route() mounting may wrap handlers for error-handler scoping;
     // findTargetHandler unwraps to the function the skip set was attached to.
     const skipped: unknown = Reflect.get(findTargetHandler(route.handler), SKIPPED_MIDDLEWARES);
-    if (skipped instanceof Set) return skipped;
+    if (typeof skipped !== 'object' || skipped === null) continue;
+    const classLevel: unknown = Reflect.get(skipped, 'classLevel');
+    const methodLevel: unknown = Reflect.get(skipped, 'methodLevel');
+    if (classLevel instanceof Set && methodLevel instanceof Set) {
+      return { classLevel, methodLevel };
+    }
   }
   return undefined;
+};
+
+const shouldSkipMiddleware = (
+  skipped: FoundSkippedSets | undefined,
+  identifier: MiddlewareIdentifier,
+  scope: MiddlewareSkipScope,
+): boolean => {
+  if (!skipped) return false;
+  if (scope === 'method') return skipped.methodLevel.has(identifier);
+  return skipped.classLevel.has(identifier) || skipped.methodLevel.has(identifier);
 };
 
 // Skip is decided here, at execution time, against the matched endpoint's
@@ -92,11 +89,12 @@ const findSkippedMiddlewares = (c: Context): ReadonlySet<unknown> | undefined =>
 // and route-chained middlewares share a single skip semantics.
 export const guardMiddleware = (
   identifier: MiddlewareIdentifier,
-  middleware: FunctionMiddleware,
-): FunctionMiddleware => {
+  middleware: HonoMiddleware,
+  options?: { readonly skipScope?: MiddlewareSkipScope },
+): HonoMiddleware => {
   return async (c, next) => {
     const skipped = findSkippedMiddlewares(c);
-    if (skipped?.has(identifier)) return next();
+    if (shouldSkipMiddleware(skipped, identifier, options?.skipScope ?? 'default')) return next();
     const result = await middleware(c, next);
     if (result instanceof Response) {
       c.res = result;
@@ -111,8 +109,8 @@ const APPLIED_MIDDLEWARES = createContextKey<Set<MiddlewareIdentifier>>('zelt:ap
 /** @throws {ZeltContextNotAvailableError} */
 export const oncePerRequest = (
   identifier: MiddlewareIdentifier,
-  middleware: FunctionMiddleware,
-): FunctionMiddleware => {
+  middleware: HonoMiddleware,
+): HonoMiddleware => {
   return (c, next) => {
     const existing = getInternal(APPLIED_MIDDLEWARES);
     if (existing) {

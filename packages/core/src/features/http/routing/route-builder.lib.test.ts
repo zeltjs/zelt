@@ -2,7 +2,7 @@ import { HTTPException } from 'hono/http-exception';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../app';
 import { http } from '../http.feature';
-import { body } from '../request/injection';
+import { request } from '../request/injection';
 import { Controller } from './controller.decorator';
 import { Get, Post } from './http-method.decorator';
 
@@ -78,8 +78,8 @@ describe('parseRequestBody — malformed body handling', () => {
   @Controller('/body')
   class BodyController {
     @Post('/json')
-    json() {
-      return { received: body() };
+    async json(req = request()) {
+      return { received: await req.body() };
     }
   }
 

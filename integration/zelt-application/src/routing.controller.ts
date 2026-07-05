@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Patch, Post, Put, pathParam, response } from '@zeltjs/core';
+import { Controller, Delete, Get, Patch, Post, Put, request, response } from '@zeltjs/core';
 
 @Controller('/routing')
 export class RoutingController {
@@ -8,12 +8,15 @@ export class RoutingController {
   }
 
   @Get('/params/:id')
-  params(id = pathParam('id')) {
+  params(req = request()) {
+    const id = req.pathParam('id');
     return { id };
   }
 
   @Get('/multi/:a/:b')
-  multi(a = pathParam('a'), b = pathParam('b')) {
+  multi(req = request()) {
+    const a = req.pathParam('a');
+    const b = req.pathParam('b');
     return { a, b };
   }
 

@@ -152,7 +152,7 @@ class PostController {
 
 ```typescript
 import { Controller, Authorized, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import { RateLimit } from '@zeltjs/rate-limit';
 import * as v from 'valibot';
 
@@ -163,7 +163,8 @@ class ApiController {
   @Authorized()
   @RateLimit({ limit: 100, windowSec: 60, key: 'posts' })
   @Post('/posts')
-  create(data = validated(CreatePostSchema)) {
+  async create(req = request(CreatePostSchema)) {
+    const data = await req.body();
     return { created: true };
   }
 }
@@ -225,7 +226,7 @@ const app = createApp([http({
 Don't use `@Authorized` — check the user manually:
 
 ```typescript
-import { Controller, Get, Injectable, inject, pathParam, currentUser } from '@zeltjs/core';
+import { Controller, Get, Injectable, inject, request, currentUser } from '@zeltjs/core';
 
 type Post = { authorId: string };
 type User = { id: string };
@@ -242,7 +243,8 @@ class PostController {
   constructor(private postRepo = inject(PostRepository)) {}
 
   @Get('/:id')
-  async getPost(id = pathParam('id')) {
+  async getPost(req = request()) {
+    const id = req.pathParam('id');
     const user = currentUser() as User | undefined;
     const post = await this.postRepo.findById(id);
 
@@ -259,8 +261,8 @@ class PostController {
 Combine `@Authorized` with ownership checks:
 
 ```typescript
-import { Controller, Authorized, Put, Injectable, inject, pathParam, currentUser, currentRoles } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Authorized, Put, Injectable, inject, currentUser, currentRoles } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
 
@@ -286,7 +288,9 @@ class PostController {
 
   @Authorized()
   @Put('/:id')
-  async updatePost(id = pathParam('id'), data = validated(UpdateSchema)) {
+  async updatePost(req = request(UpdateSchema)) {
+    const id = req.pathParam('id');
+    const data = await req.body();
     const user = currentUser() as User;
     const post = await this.postRepo.findById(id);
 
@@ -328,7 +332,7 @@ class PostController {
 For complex scenarios, move logic to a service:
 
 ```typescript
-import { Controller, Delete, Authorized, Injectable, inject, pathParam, currentUser, currentRoles } from '@zeltjs/core';
+import { Controller, Delete, Authorized, Injectable, inject, request, currentUser, currentRoles } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
 
 type Post = { isPublic: boolean; authorId: string };
@@ -373,7 +377,8 @@ class PostController {
 
   @Authorized()
   @Delete('/:id')
-  async delete(id = pathParam('id')) {
+  async delete(req = request()) {
+    const id = req.pathParam('id');
     const post = await this.postRepo.findById(id);
 
     if (!this.authService.canDelete()) {
@@ -414,7 +419,18 @@ it('returns 401 for unauthenticated requests', async () => {
 
 ```typescript
 import { it, expect } from 'vitest';
-import { createApp, Controller, Get, Authorized, setUser, http } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, Middleware, request, setUser, type Next, http } from '@zeltjs/core';
+
+@Middleware
+class MockAuthMiddleware {
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    if (req.header('X-Test-User')) {
+      setUser({ id: '123', name: 'Test' }, ['user']);
+    }
+    await next();
+    return undefined;
+  }
+}
 
 @Controller('/dashboard')
 class DashboardController {
@@ -422,14 +438,11 @@ class DashboardController {
   index() { return { stats: [] }; }
 }
 
-const app = createApp([http({ controllers: [DashboardController] })]);
+const app = createApp([http({ controllers: [DashboardController], middlewares: [MockAuthMiddleware] })]);
 const readyApp = await app.createRuntime();
 // ---cut---
 it('returns data for authenticated users', async () => {
-  // Set up authentication context
-  setUser({ id: '123', name: 'Test' }, ['user']);
-  
-  const res = await readyApp.http.request('/dashboard');
+  const res = await readyApp.http.request('/dashboard', { headers: { 'X-Test-User': 'true' } });
   expect(res.status).toBe(200);
 });
 ```
@@ -438,7 +451,19 @@ it('returns data for authenticated users', async () => {
 
 ```typescript
 import { it, expect } from 'vitest';
-import { createApp, Controller, Get, Authorized, setUser, http } from '@zeltjs/core';
+import { createApp, Controller, Get, Authorized, Middleware, request, setUser, type Next, http } from '@zeltjs/core';
+
+@Middleware
+class MockRoleMiddleware {
+  async use(next: Next, req = request()): Promise<Response | undefined> {
+    const role = req.header('X-Test-Role');
+    if (role) {
+      setUser({ id: '123', name: 'Test' }, [role]);
+    }
+    await next();
+    return undefined;
+  }
+}
 
 @Controller('/admin')
 class AdminController {
@@ -446,20 +471,16 @@ class AdminController {
   listUsers() { return { users: [] }; }
 }
 
-const app = createApp([http({ controllers: [AdminController] })]);
+const app = createApp([http({ controllers: [AdminController], middlewares: [MockRoleMiddleware] })]);
 const readyApp = await app.createRuntime();
 // ---cut---
 it('returns 403 for non-admin users', async () => {
-  setUser({ id: '123', name: 'Test' }, ['user']);  // Not admin
-  
-  const res = await readyApp.http.request('/admin/users');
+  const res = await readyApp.http.request('/admin/users', { headers: { 'X-Test-Role': 'user' } });
   expect(res.status).toBe(403);
 });
 
 it('allows admin access', async () => {
-  setUser({ id: '123', name: 'Test' }, ['admin']);
-  
-  const res = await readyApp.http.request('/admin/users');
+  const res = await readyApp.http.request('/admin/users', { headers: { 'X-Test-Role': 'admin' } });
   expect(res.status).toBe(200);
 });
 ```

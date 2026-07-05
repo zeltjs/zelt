@@ -6,6 +6,7 @@ import {
   ZeltDecoratorUsageError,
   ZeltRouteConfigurationError,
 } from '../../../kernel';
+import type { SkippedMiddlewareSets } from '../middleware';
 import {
   attachSkippedMiddlewares,
   guardMiddleware,
@@ -13,19 +14,16 @@ import {
   resolveMiddleware,
 } from '../middleware';
 import { currentRoles, currentUser } from '../middleware/auth';
-import type {
-  FunctionMiddleware,
-  MiddlewareIdentifier,
-  MiddlewareInput,
-} from '../middleware/middleware.types';
+import type { HonoMiddleware, MiddlewareInput } from '../middleware/middleware.types';
 import { setHonoContext } from '../request';
-import { hasParsedBody, parseRequestBody, setBody, setPathParams } from '../request/injection';
+import { hasBodySource, setBodySource, setPathParams } from '../request/injection';
 import { joinPath } from './path-utils.lib';
 import type { ControllerClass, HttpMethod } from './routing-metadata.lib';
 import {
   getAuthorizedMetadata,
   getControllerMetadata,
   getControllerMiddlewareMetadata,
+  getControllerSkipMiddlewareMetadata,
   getMethodMiddlewareMetadata,
   getRouteMetadata,
   getSkipMiddlewareMetadata,
@@ -36,11 +34,11 @@ export { joinPath };
 type MiddlewareContext = Context<Env, string, Input>;
 type RouteHandler = (c: MiddlewareContext) => Promise<Response>;
 type HonoRouter = {
-  readonly get: (path: string, ...handlers: (FunctionMiddleware | RouteHandler)[]) => unknown;
-  readonly post: (path: string, ...handlers: (FunctionMiddleware | RouteHandler)[]) => unknown;
-  readonly put: (path: string, ...handlers: (FunctionMiddleware | RouteHandler)[]) => unknown;
-  readonly patch: (path: string, ...handlers: (FunctionMiddleware | RouteHandler)[]) => unknown;
-  readonly delete: (path: string, ...handlers: (FunctionMiddleware | RouteHandler)[]) => unknown;
+  readonly get: (path: string, ...handlers: (HonoMiddleware | RouteHandler)[]) => unknown;
+  readonly post: (path: string, ...handlers: (HonoMiddleware | RouteHandler)[]) => unknown;
+  readonly put: (path: string, ...handlers: (HonoMiddleware | RouteHandler)[]) => unknown;
+  readonly patch: (path: string, ...handlers: (HonoMiddleware | RouteHandler)[]) => unknown;
+  readonly delete: (path: string, ...handlers: (HonoMiddleware | RouteHandler)[]) => unknown;
 };
 
 type Route = {
@@ -89,7 +87,7 @@ const resolveHandler = (instance: object, methodName: string | symbol): (() => u
 };
 
 /** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
-const createAuthorizationMiddleware = (requiredRoles: readonly string[]): FunctionMiddleware => {
+const createAuthorizationMiddleware = (requiredRoles: readonly string[]): HonoMiddleware => {
   return async (_c, next) => {
     const user = currentUser();
     if (user === undefined) {
@@ -115,25 +113,30 @@ const createAuthorizationMiddleware = (requiredRoles: readonly string[]): Functi
   };
 };
 
-/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
+/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError | TypeError} */
 const collectRouteMiddlewares = (
   controllerClass: ControllerClass,
   methodName: string | symbol,
   resolver: ResolverHandle,
-): FunctionMiddleware[] => {
+): HonoMiddleware[] => {
   const controllerMeta = getControllerMiddlewareMetadata(controllerClass);
   const methodMetas = getMethodMiddlewareMetadata(controllerClass).filter(
     (m) => m.methodName === methodName,
   );
   const authorizedMeta = getAuthorizedMetadata(controllerClass, methodName);
 
-  const inputs: MiddlewareInput[] = [
-    ...(controllerMeta?.flat() ?? []),
-    ...methodMetas.flatMap((m) => m.middlewares),
-  ];
+  const controllerInputs: MiddlewareInput[] = [...(controllerMeta?.flat() ?? [])];
+  const methodInputs: MiddlewareInput[] = methodMetas.flatMap((m) => m.middlewares);
 
-  const guarded = inputs.map((input) =>
+  const guarded = controllerInputs.map((input) =>
     guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver)),
+  );
+  guarded.push(
+    ...methodInputs.map((input) =>
+      guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver), {
+        skipScope: 'method',
+      }),
+    ),
   );
 
   if (authorizedMeta) {
@@ -146,26 +149,31 @@ const collectRouteMiddlewares = (
 const collectSkippedMiddlewares = (
   controllerClass: ControllerClass,
   methodName: string | symbol,
-): ReadonlySet<MiddlewareIdentifier> =>
-  new Set(
+): SkippedMiddlewareSets => ({
+  classLevel: new Set(getControllerSkipMiddlewareMetadata(controllerClass)),
+  methodLevel: new Set(
     getSkipMiddlewareMetadata(controllerClass)
       .filter((m) => m.methodName === methodName)
       .flatMap((m) => m.skipped),
-  );
+  ),
+});
 
 // Populates the request context store before route-chained middlewares and
 // the controller run. The router-level request injection normally ran
 // earlier; this re-applies path params for the matched route (parent routers
 // only see their mount-level params) and keeps bare buildRoutes() usage
-// working by parsing the body when nothing parsed it yet.
+// working by registering the lazy body source when nothing registered it yet.
 /** @throws {ZeltContextNotAvailableError | BadRequestException} */
-const createInjectionMiddleware = (): FunctionMiddleware => {
+const createInjectionMiddleware = (): HonoMiddleware => {
   return async (c, next) => {
     /** @throws {ZeltContextNotAvailableError | BadRequestException} */
     const run = async (): Promise<void> => {
       setHonoContext(c);
-      if (!hasParsedBody()) {
-        setBody(await parseRequestBody(c));
+      if (!hasBodySource()) {
+        setBodySource({
+          contentType: c.req.header('content-type') ?? '',
+          request: c.req.raw.clone(),
+        });
       }
       setPathParams(c.req.param());
       await next();
@@ -196,7 +204,7 @@ const getOrCreateInstance = (
   return instance;
 };
 
-/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError | BadRequestException} */
+/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError | BadRequestException | TypeError} */
 const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route): void => {
   const middlewares = collectRouteMiddlewares(
     route.controllerClass,
@@ -239,7 +247,7 @@ export type BuildRoutesOptions = {
   readonly lifecycle: LifecycleManager;
 };
 
-/** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError | BadRequestException} */
+/** @throws {ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError | BadRequestException | TypeError} */
 export const buildRoutes = (options: BuildRoutesOptions): void => {
   const ctx: RouteBuilderContext = {
     resolver: options.resolver,

@@ -63,6 +63,35 @@ pnpm zelt build
 
 This generates `<outDir>/<output>` (default: `generated/app-type.ts`) containing the `AppType`.
 
+## Programmatic Generation
+
+When your build is not driven by the Zelt CLI — an electron-vite pipeline, a custom build script, a monorepo task runner — use `GeneratorService.generateFromApp()` directly. It takes the `http` feature of your app and returns the generated type source as a string:
+
+```typescript
+import { createApp, http } from '@zeltjs/core';
+import { GeneratorService } from '@zeltjs/hono-client';
+declare function writeFileSync(path: string, data: string, encoding: 'utf-8'): void;
+const app = createApp([http({ controllers: [] })]);
+// ---cut---
+const generator = new GeneratorService();
+const content = await generator.generateFromApp(app.http, { distDir: './dist' });
+
+writeFileSync('./dist/app-type.generated.ts', content, 'utf-8');
+```
+
+Run this as a build step after your app modules are compiled — for example a script executed by `node` against the built output, or an electron-vite `buildStart` hook.
+
+### Generate Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `distDir` | `string` | Directory of the built app output; generated imports are resolved against it |
+| `portable` | `boolean` | Emit a self-contained type file with resolved literal types instead of imports into `distDir` |
+| `tsconfig` | `string` | Path to the project tsconfig (required when `portable: true`) |
+| `projectRoot` | `string` | Project root for path resolution (required when `portable: true`) |
+
+Use `portable: true` when the generated file is consumed outside the server package — for example an Electron renderer or a separate frontend workspace that cannot import from the server's `dist`.
+
 ### Generated app-type.ts
 
 ```typescript
@@ -107,7 +136,7 @@ if (response.ok) {
 ### Testing with Type-Safe Client
 
 ```typescript
-import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
 declare function describe(name: string, fn: () => void): void;
 declare function it(name: string, fn: () => Promise<void>): void;
 declare function expect(value: any): { toBe(expected: any): void };
@@ -123,7 +152,7 @@ declare function hc<T>(baseUrl: string, options?: { fetch: (input: RequestInfo |
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
 const app = createApp([http({ controllers: [HelloController] })]);

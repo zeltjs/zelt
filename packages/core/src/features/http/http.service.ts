@@ -14,7 +14,7 @@ import {
 } from './middleware';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
 import type {
-  FunctionMiddleware,
+  HonoMiddleware,
   MiddlewareInput,
   RequestContext,
 } from './middleware/middleware.types';
@@ -44,7 +44,7 @@ type _HonoInstanceCheck = HonoInstance extends {
   readonly put: (path: string, handler: RouteHandler) => unknown;
   readonly patch: (path: string, handler: RouteHandler) => unknown;
   readonly delete: (path: string, handler: RouteHandler) => unknown;
-  readonly use: (handler: FunctionMiddleware) => unknown;
+  readonly use: (handler: HonoMiddleware) => unknown;
   readonly onError: (handler: (err: Error, c: RequestContext) => Promise<Response>) => unknown;
   readonly route: (path: string, app: Hono) => unknown;
   readonly fetch: (request: Request) => Response | Promise<Response>;

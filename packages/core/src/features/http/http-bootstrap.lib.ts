@@ -7,7 +7,7 @@ import {
   runInRootContext,
   setInternal,
 } from '../../kernel';
-import type { FunctionMiddleware } from './middleware/middleware.types';
+import type { HonoMiddleware } from './middleware/middleware.types';
 import {
   flushAfterResponseCallbacks,
   initializeAfterResponseCallbacks,
@@ -27,7 +27,7 @@ export const createBootstrapMiddleware = (
   lifecycle: LifecycleManager,
   routerToken: symbol,
   onAfterResponseError?: (error: unknown) => void,
-): FunctionMiddleware => {
+): HonoMiddleware => {
   return async (c, next) => {
     // A Zelt context may exist (e.g. event handler, test harness) without
     // being a request-scoped store. Only skip when STORE_CREATOR is set,

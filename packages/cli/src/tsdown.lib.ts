@@ -1,15 +1,4 @@
-import { spawn } from 'node:child_process';
-import { resolve } from 'node:path';
-
-import consola from 'consola';
-
-import { ZeltBuildError } from './cli.errors';
 import type { BuildConfig } from './config/config.types';
-
-export type BuildOptions = {
-  readonly cwd: string;
-  readonly config: BuildConfig;
-};
 
 const buildArgs = (config: BuildConfig): string[] => {
   const args: string[] = [];
@@ -40,32 +29,13 @@ const buildArgs = (config: BuildConfig): string[] => {
   return args;
 };
 
-/** @throws {ZeltBuildError} */
-export const runTsdownBuild = async (options: BuildOptions): Promise<void> => {
-  const { cwd, config } = options;
-  const args = buildArgs(config);
-
-  consola.info(`Running tsdown in ${cwd}`);
-  consola.debug(`tsdown ${args.join(' ')}`);
-
-  const tsdownBin = resolve(cwd, 'node_modules/.bin/tsdown');
-
-  const exitCode = await new Promise<number>((resolvePromise, rejectPromise) => {
-    const child = spawn(tsdownBin, args, {
-      cwd,
-      stdio: 'inherit',
-    });
-
-    child.on('close', (code) => {
-      resolvePromise(code ?? 0);
-    });
-
-    child.on('error', (err) => {
-      rejectPromise(err);
-    });
-  });
-
-  if (exitCode !== 0) {
-    throw new ZeltBuildError({ exitCode });
+export const quoteShellArg = (arg: string): string => {
+  if (/^[A-Za-z0-9_./:=@%-]+$/.test(arg)) {
+    return arg;
   }
+
+  return `"${arg.replaceAll('"', '\\"').replaceAll('$', '\\$').replaceAll('`', '\\`')}"`;
 };
+
+export const buildTsdownCommand = (config: BuildConfig): string =>
+  ['tsdown', ...buildArgs(config).map(quoteShellArg)].join(' ');

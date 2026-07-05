@@ -26,6 +26,12 @@ export const ZeltBuildError = defineError(
   (ctx: { exitCode: number }) => `Build failed with exit code ${ctx.exitCode}`,
 );
 
+export const ZeltBuildCommandConflictError = defineError(
+  'ZeltBuildCommandConflictError',
+  (ctx: { pluginName: string }) =>
+    `Both plugin build hook (${ctx.pluginName}) and build.command are configured. Use only one build implementation.`,
+);
+
 export const ZeltNoEntryError = defineError('ZeltNoEntryError', () => 'No entry file specified');
 
 export const ZeltNoCliEntryError = defineError(
@@ -44,6 +50,11 @@ export const isZeltConfigLoadError = (
 
 export const isZeltBuildError = (err: unknown): err is InstanceType<typeof ZeltBuildError> =>
   err instanceof ZeltBuildError;
+
+export const isZeltBuildCommandConflictError = (
+  err: unknown,
+): err is InstanceType<typeof ZeltBuildCommandConflictError> =>
+  err instanceof ZeltBuildCommandConflictError;
 
 export const isZeltNoEntryError = (err: unknown): err is InstanceType<typeof ZeltNoEntryError> =>
   err instanceof ZeltNoEntryError;

@@ -7,12 +7,10 @@ import {
   inject,
   Post,
   Put,
-  pathParam,
-  queryParam,
+  request,
   response,
   UseMiddleware,
 } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
 import { HTTPException } from 'hono/http-exception';
 import { CreateProductSchema, UpdateProductSchema } from './product.schema';
 import { ProductService } from './product.service';
@@ -22,13 +20,12 @@ export class ProductController {
   constructor(private readonly productService = inject(ProductService)) {}
 
   @Get('/')
-  async list(
-    pageStr = queryParam('page'),
-    limitStr = queryParam('limit'),
-    category = queryParam('category'),
-    minPriceStr = queryParam('minPrice'),
-    maxPriceStr = queryParam('maxPrice'),
-  ) {
+  async list(req = request()) {
+    const pageStr = req.queryParam('page');
+    const limitStr = req.queryParam('limit');
+    const category = req.queryParam('category');
+    const minPriceStr = req.queryParam('minPrice');
+    const maxPriceStr = req.queryParam('maxPrice');
     const page = Math.max(1, parseInt(pageStr ?? '1', 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(limitStr ?? '20', 10) || 20));
     const minPrice = minPriceStr ? parseInt(minPriceStr, 10) : undefined;
@@ -51,7 +48,8 @@ export class ProductController {
   }
 
   @Get('/:id')
-  async detail(idStr = pathParam('id')) {
+  async detail(req = request()) {
+    const idStr = req.pathParam('id');
     const id = parseInt(idStr, 10);
     if (Number.isNaN(id)) {
       throw new HTTPException(400, { message: 'Invalid product ID' });
@@ -67,7 +65,8 @@ export class ProductController {
   @UseMiddleware(JwtMiddleware)
   @Authorized(['admin'])
   @Post('/')
-  async create(data = validated(CreateProductSchema), res = response()) {
+  async create(req = request(CreateProductSchema), res = response()) {
+    const data = await req.body();
     const product = await this.productService.create(data);
     return res.json(product, 201);
   }
@@ -75,12 +74,14 @@ export class ProductController {
   @UseMiddleware(JwtMiddleware)
   @Authorized(['admin'])
   @Put('/:id')
-  async update(idStr = pathParam('id'), data = validated(UpdateProductSchema)) {
+  async update(req = request(UpdateProductSchema)) {
+    const idStr = req.pathParam('id');
     const id = parseInt(idStr, 10);
     if (Number.isNaN(id)) {
       throw new HTTPException(400, { message: 'Invalid product ID' });
     }
 
+    const data = await req.body();
     const product = await this.productService.update(id, data);
     if (!product) {
       throw new HTTPException(404, { message: 'Product not found' });
@@ -91,7 +92,8 @@ export class ProductController {
   @UseMiddleware(JwtMiddleware)
   @Authorized(['admin'])
   @Delete('/:id')
-  async remove(idStr = pathParam('id')) {
+  async remove(req = request()) {
+    const idStr = req.pathParam('id');
     const id = parseInt(idStr, 10);
     if (Number.isNaN(id)) {
       throw new HTTPException(400, { message: 'Invalid product ID' });

@@ -3,7 +3,7 @@
 
 # Validation
 
-Zelt uses [Valibot](https://valibot.dev/) for request validation, providing a type-safe and lightweight validation solution.
+Zelt validates request bodies with synchronous Standard Schema compatible schemas. You can use any validator that exposes `schema["~standard"].validate(value)`, including [Valibot](https://valibot.dev/), Zod, and ArkType.
 
 ## Installation
 
@@ -13,24 +13,24 @@ import TabItem from '@theme/TabItem';
 <Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>
     ```bash
-    npm install @zeltjs/validator-valibot valibot
+    npm install @zeltjs/core valibot
     ```
   </TabItem>
   <TabItem value="pnpm" label="pnpm">
     ```bash
-    pnpm add @zeltjs/validator-valibot valibot
+    pnpm add @zeltjs/core valibot
     ```
   </TabItem>
   <TabItem value="bun" label="bun">
     ```bash
-    bun add @zeltjs/validator-valibot valibot
+    bun add @zeltjs/core valibot
     ```
   </TabItem>
 </Tabs>
 
 ### OpenAPI 生成を使う場合
 
-`@zeltjs/openapi` で OpenAPI スペックを生成する場合は、`@valibot/to-json-schema` も必要です：
+`@zeltjs/openapi` で Valibot schema から OpenAPI スペックを生成する場合は、`@zeltjs/validator-valibot/openapi` と `@valibot/to-json-schema` が必要です：
 
 <Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>
@@ -60,11 +60,10 @@ import TabItem from '@theme/TabItem';
 
 ## Basic Usage
 
-Use `validated()` with a Valibot schema to validate request bodies:
+Use `request(schema)` with a Valibot schema to validate request bodies:
 
 ```typescript
-import { Controller, Post, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Post, request, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserSchema = v.object({
@@ -76,7 +75,8 @@ const CreateUserSchema = v.object({
 @Controller('/users')
 export class UserController {
   @Post('/')
-  create(body = validated(CreateUserSchema), res = response()) {
+  async create(req = request(CreateUserSchema), res = response()) {
+    const body = await req.body();
     // body is fully typed: { name: string; email: string; age?: number }
     return res.json({ id: '1', ...body }, 201);
   }
@@ -85,11 +85,10 @@ export class UserController {
 
 ## Form Data and File Uploads
 
-Use `validated(schema, 'form')` to validate `multipart/form-data` requests, including file uploads:
+Use `request(schema, { target: 'form' })` to validate `multipart/form-data` requests, including file uploads:
 
 ```typescript
-import { Controller, Post, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Post, request, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const UploadSchema = v.object({
@@ -100,7 +99,8 @@ const UploadSchema = v.object({
 @Controller('/upload')
 export class UploadController {
   @Post('/')
-  upload(body = validated(UploadSchema, 'form'), res = response()) {
+  async upload(req = request(UploadSchema, { target: 'form' }), res = response()) {
+    const body = await req.body();
     // body.file is a File object
     console.log(body.file.name, body.file.size, body.file.type);
     return res.json({ filename: body.file.name, size: body.file.size }, 201);
@@ -110,7 +110,7 @@ export class UploadController {
 
 ### Target Options
 
-The second argument to `validated()` specifies the request body format:
+The `target` option of `request()` specifies the request body format:
 
 | Target | Content-Type | Use Case |
 |--------|-------------|----------|
@@ -120,8 +120,7 @@ The second argument to `validated()` specifies the request body format:
 ### Multiple Files
 
 ```typescript
-import { Controller, Post } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Post, request } from '@zeltjs/core';
 import * as v from 'valibot';
 // ---cut---
 const MultiUploadSchema = v.object({
@@ -132,7 +131,8 @@ const MultiUploadSchema = v.object({
 @Controller('/upload')
 class BulkUploadController {
   @Post('/bulk')
-  bulkUpload(body = validated(MultiUploadSchema, 'form')) {
+  async bulkUpload(req = request(MultiUploadSchema, { target: 'form' })) {
+    const body = await req.body();
     for (const file of body.files) {
       console.log(file.name);
     }

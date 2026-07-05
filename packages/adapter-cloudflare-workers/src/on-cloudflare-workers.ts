@@ -1,13 +1,15 @@
 import type {
+  ConfigClass,
   ConfiguredFeature,
   CreateRuntimeOptions,
   HttpCapabilities,
   RuntimeApp,
 } from '@zeltjs/core';
-
+import { runWithCloudflareRuntimeContext } from './cloudflare-runtime-context.lib';
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 
 export type CloudflareWorkersOptions = {
+  readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
 };
 
@@ -21,7 +23,7 @@ type HttpApp = {
 
 export type CloudflareWorkersApp = {
   readonly get: HttpRuntimeApp['get'];
-  readonly fetch: (request: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>;
+  readonly fetch: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
 };
 
@@ -30,16 +32,15 @@ export const onCloudflareWorkers = async (
   options: CloudflareWorkersOptions = {},
 ): Promise<CloudflareWorkersApp> => {
   const readyApp = await app.createRuntime({
+    ...(options.configs === undefined ? {} : { configs: options.configs }),
     fallbackConfigs: [CloudflareWorkersEnvAdaptor],
     warmup: options.warmup ?? false,
   });
 
-  const fetch = async (
-    request: Request,
-    _env: unknown,
-    ctx: ExecutionContext,
-  ): Promise<Response> => {
-    const response = readyApp.http.fetch(request);
+  const fetch = async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> => {
+    const response = runWithCloudflareRuntimeContext({ env, ctx }, () =>
+      readyApp.http.fetch(request),
+    );
     ctx.waitUntil(response.then(() => {}));
     return response;
   };

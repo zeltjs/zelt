@@ -35,6 +35,7 @@
     "@zeltjs/core": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "@cloudflare/workers-types": "4.20250523.0"
   },
   "volta": {

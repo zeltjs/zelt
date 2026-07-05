@@ -11,6 +11,7 @@ export {
   getAuthorizedMetadata,
   getControllerMetadata,
   getControllerMiddlewareMetadata,
+  getControllerSkipMiddlewareMetadata,
   getMethodMiddlewareMetadata,
   getRouteMetadata,
   getSkipMiddlewareMetadata,

@@ -1,18 +1,18 @@
-import type { Next, RequestContext } from '@zeltjs/core';
-import { Middleware } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
+import { Middleware, response } from '@zeltjs/core';
 
 @Middleware
 export class TransformMiddleware {
-  async use(c: RequestContext, next: Next) {
+  async use(next: Next) {
     await next();
-    return c.json({ transformed: true });
+    return Response.json({ transformed: true });
   }
 }
 
 @Middleware
 export class HeaderMiddleware {
-  async use(c: RequestContext, next: Next, options: { headerName: string; headerValue: string }) {
-    c.header(options.headerName, options.headerValue);
+  async use(next: Next, options: { headerName: string; headerValue: string }, res = response()) {
+    res.header(options.headerName, options.headerValue);
     await next();
     return undefined;
   }

@@ -1,6 +1,6 @@
 import type { InjectionToken } from '@needle-di/core';
 
-type TokenKey = new (...args: never[]) => unknown;
+type TokenKey = abstract new (...args: never[]) => unknown;
 
 export class UnsafeInjectionTokenWeakMap {
   private readonly map = new WeakMap<TokenKey, InjectionToken<unknown>>();

@@ -2,6 +2,7 @@ export type {
   ClassDecoratorFn,
   ClassDecoratorOptions,
   ClassMeta,
+  ConfigurableClassDecoratorFn,
   MethodDecoratorFn,
   MethodDecoratorOptions,
   MethodMeta,
@@ -14,7 +15,9 @@ export {
   composeMethodDecorators,
   composePropertyDecorators,
   createClassDecorator,
+  createConfigurableClassDecorator,
   createMethodDecorator,
   createPropertyDecorator,
+  dispatchClassOrMethodDecorator,
   getClassMetadata,
 } from './runtime/index';

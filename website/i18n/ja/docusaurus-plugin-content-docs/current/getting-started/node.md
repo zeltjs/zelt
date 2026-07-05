@@ -39,12 +39,13 @@ Controllers handle incoming HTTP requests and return responses. Each controller 
 Create `src/controllers/hello.controller.ts`:
 
 ```typescript
-import { Controller, Get, pathParam } from '@zeltjs/core';
+import { Controller, Get, request } from '@zeltjs/core';
 // ---cut---
 @Controller('/hello')
 export class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) {
+  greet(req = request()) {
+    const name = req.pathParam('name');
     return { message: `Hello, ${name}!` };
   }
 }
@@ -52,19 +53,19 @@ export class HelloController {
 
 - `@Controller('/hello')` — Sets the base path for all routes in this controller
 - `@Get('/:name')` — Handles GET requests to `/hello/:name`
-- `pathParam('name')` — Extracts the `name` parameter from the URL path
+- `req.pathParam('name')` — Extracts the `name` parameter from the URL path
 
 ### Step 2: Create the Application
 
 Create `src/app.ts` to wire up your controllers and prepare for the Node.js runtime:
 
 ```typescript
-import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
 export const app = createApp([http({
@@ -81,13 +82,13 @@ The `onNode()` function prepares your app for the Node.js runtime, returning a `
 Create `src/main.ts` to start the server:
 
 ```typescript
-import { createApp, Controller, Get, pathParam, http } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
-  greet(name = pathParam('name')) { return { message: `Hello, ${name}!` }; }
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
 const app = createApp([http({ controllers: [HelloController] })]);
@@ -148,7 +149,7 @@ export class GreetingService {
 Update your controller to use the service:
 
 ```typescript
-import { Controller, Get, pathParam, inject, Injectable } from '@zeltjs/core';
+import { Controller, Get, request, inject, Injectable } from '@zeltjs/core';
 @Injectable()
 class GreetingService {
   greet(name: string): string { return `Hello, ${name}!`; }
@@ -159,7 +160,8 @@ export class HelloController {
   constructor(private greetingService = inject(GreetingService)) {}
 
   @Get('/:name')
-  greet(name = pathParam('name')) {
+  greet(req = request()) {
+    const name = req.pathParam('name');
     return { message: this.greetingService.greet(name) };
   }
 }

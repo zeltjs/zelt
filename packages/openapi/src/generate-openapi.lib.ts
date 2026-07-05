@@ -148,7 +148,7 @@ const buildRequestBody = async (
   if (ref.kind === 'none') return undefined;
   if (!schemaAdapter) {
     throw new Error(
-      `Controller ${controller.name}.${route.methodName} uses validated() but no schemaAdapter was provided to generateOpenApi`,
+      `Controller ${controller.name}.${route.methodName} uses request() but no schemaAdapter was provided to generateOpenApi`,
     );
   }
 

@@ -2,14 +2,14 @@ import { createApp, http } from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { authMiddleware } from '../src/auth.middleware';
+import { AuthMiddleware } from '../src/auth.middleware';
 import { GuardsController } from '../src/guards.controller';
 
 describe('Guards (Authorization)', () => {
   const app = createApp([
     http({
       controllers: [GuardsController],
-      middlewares: [authMiddleware],
+      middlewares: [AuthMiddleware],
     }),
   ]);
   let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;

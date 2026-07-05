@@ -18,9 +18,8 @@ type RouteMetadata = {
   readonly methodName: string | symbol;
 };
 
-// One entry per `@UseMiddleware(...)` application. The arguments passed to a
-// single application are kept together as a set — they are intentionally not
-// flattened across applications, because their meaning depends on grouping.
+// One entry per `@UseMiddleware(...)` application. The outer array preserves
+// decorator application order; callers that need one chain should flatten it.
 type ControllerMiddlewareSet = readonly MiddlewareInput[];
 type ControllerMiddlewareMetadata = readonly ControllerMiddlewareSet[];
 
@@ -28,6 +27,8 @@ type MethodMiddlewareMetadata = {
   readonly methodName: string | symbol;
   readonly middlewares: readonly MiddlewareInput[];
 };
+
+type ControllerSkipMiddlewareMetadata = readonly MiddlewareIdentifier[];
 
 type SkipMiddlewareMetadata = {
   readonly methodName: string | symbol;
@@ -164,6 +165,21 @@ export const getMethodMiddlewareMetadata = (cls: object): readonly MethodMiddlew
     }
   }
   return result;
+};
+
+export const getControllerSkipMiddlewareMetadata = (
+  cls: object,
+): ControllerSkipMiddlewareMetadata => {
+  const meta = getClassMetadata(cls);
+  if (!meta) return [];
+  const skipped: MiddlewareIdentifier[] = [];
+  for (const p of meta.props) {
+    const entry = match(p)
+      .with(skipMiddlewarePattern, (sm) => toMiddlewareIdentifiers(sm.skipped))
+      .otherwise(() => undefined);
+    if (entry) skipped.push(...entry);
+  }
+  return skipped;
 };
 
 export const getSkipMiddlewareMetadata = (cls: object): readonly SkipMiddlewareMetadata[] => {

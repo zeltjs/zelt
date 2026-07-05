@@ -7,6 +7,7 @@ import type {
 import {
   args,
   Command,
+  Config,
   Controller,
   Cron,
   cliSchema,
@@ -270,6 +271,24 @@ describe('onNode with HTTP', () => {
     expect(res.status).toBe(200);
   });
 
+  it('rejects instead of hanging when the port is already in use', async () => {
+    @Controller('/')
+    class ConflictController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [ConflictController] })]);
+    nodeApp = await onNode(app);
+
+    if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
+    handle = await nodeApp.http.listen(0);
+
+    await expect(nodeApp.http.listen(handle.address.port)).rejects.toThrow();
+  });
+
   it('listens on each named HTTP namespace independently', async () => {
     @Controller('/')
     class PublicController {
@@ -352,6 +371,28 @@ describe('onNode with HTTP', () => {
       fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
       warmup: true,
     });
+  });
+
+  it('passes config overrides to createRuntime()', async () => {
+    @Config
+    class TestEnvAdaptor extends EnvAdaptor {
+      override get(key: string): string | undefined {
+        return key === 'NODE_ENV' ? 'test-override' : undefined;
+      }
+    }
+
+    const app = createApp([http({ controllers: [] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
+
+    nodeApp = await onNode(app, { configs: [TestEnvAdaptor] });
+
+    expect(readySpy).toHaveBeenCalledWith({
+      configs: [TestEnvAdaptor],
+      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
+      warmup: true,
+    });
+    const env = await nodeApp.get(EnvAdaptor);
+    expect(env.get('NODE_ENV')).toBe('test-override');
   });
 
   it('works without explicit EnvAdaptor in configs', async () => {

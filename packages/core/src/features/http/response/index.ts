@@ -1,6 +1,7 @@
 export type {
   CookieOptions,
   ResponseBuilder,
+  TypedResponse,
   ZeltSSEMessage,
   ZeltSSEWriter,
   ZeltStreamWriter,

@@ -136,7 +136,7 @@ const hasFeature = (
   return features.some((feature) => feature instanceof featureClass);
 };
 
-/** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+/** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
 const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   features: F,
   baseConfigs: readonly ConfigClass<object>[] | undefined,

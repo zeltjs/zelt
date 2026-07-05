@@ -1,11 +1,11 @@
 import { createApp, http } from '@zeltjs/core';
 
 import { controllers } from './controllers';
-import { loggingMiddleware } from './middlewares';
+import { LoggingMiddleware } from './middlewares';
 
 export const app = createApp([
   http({
     controllers,
-    middlewares: [loggingMiddleware],
+    middlewares: [LoggingMiddleware],
   }),
 ]);

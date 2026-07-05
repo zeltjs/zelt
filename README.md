@@ -34,7 +34,7 @@ A portable TypeScript application framework with built-in DI. Swap adapters to r
 ## Installation
 
 ```bash
-npm i @zeltjs/core @zeltjs/adapter-node @zeltjs/validator-valibot valibot
+npm i @zeltjs/core @zeltjs/adapter-node valibot
 ```
 
 ## Quick Start
@@ -42,8 +42,7 @@ npm i @zeltjs/core @zeltjs/adapter-node @zeltjs/validator-valibot valibot
 ### 1. Define a Controller
 
 ```typescript
-import { Controller, Get, Post, pathParam, response } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { Controller, Get, Post, request, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
 const CreateUserBody = v.object({
@@ -59,12 +58,14 @@ class UserController {
   }
 
   @Get('/:id')
-  findOne(id = pathParam('id')) {
+  findOne(req = request()) {
+    const id = req.pathParam('id');
     return { id, name: 'John Doe' };
   }
 
   @Post('/')
-  create(body = validated(CreateUserBody), res = response()) {
+  async create(req = request(CreateUserBody), res = response()) {
+    const body = await req.body();
     return res.json({ id: '1', ...body }, 201);
   }
 }
@@ -105,17 +106,13 @@ class UserController {
 ### 3. Create and Run the Application
 
 ```typescript
-import { createApp } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
-const app = createApp({
-  http: {
-    controllers: [UserController],
-  },
-});
+const app = createApp([http({ controllers: [UserController] })]);
 
 const nodeApp = await onNode(app);
-const server = await nodeApp.listen({ port: 3000 });
+const server = await nodeApp.http.listen({ port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 
@@ -127,12 +124,12 @@ Same application code, different adapters:
 // Node.js
 import { onNode } from '@zeltjs/adapter-node';
 const nodeApp = await onNode(app);
-await nodeApp.listen({ port: 3000 });
+await nodeApp.http.listen({ port: 3000 });
 
 // Bun
 import { onBun } from '@zeltjs/adapter-bun';
 const bunApp = await onBun(app);
-bunApp.serve({ port: 3000 });
+bunApp.http.serve({ port: 3000 });
 
 // Cloudflare Workers
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';

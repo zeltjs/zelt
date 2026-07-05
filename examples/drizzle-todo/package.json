@@ -17,7 +17,6 @@
     "better-sqlite3": "12.9.0",
     "drizzle-orm": "0.45.2",
     "valibot": "catalog:",
-    "@zeltjs/validator-valibot": "workspace:*",
     "@zeltjs/openapi": "workspace:*"
   },
   "devDependencies": {

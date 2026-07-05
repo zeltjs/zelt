@@ -1,5 +1,6 @@
 import { injectable } from '@needle-di/core';
-import type { Context, MiddlewareHandler, Next } from 'hono';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { Context } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../app';
 import { Config } from '../../built-in-service';
@@ -7,13 +8,39 @@ import type { Lifecycle } from '../../kernel';
 import { inject, LifecycleManager, runInContext } from '../../kernel';
 import { ErrorHandler } from './error/error-handler.decorator';
 import { http } from './http.feature';
+import { fromHonoMiddleware } from './middleware';
 import { Middleware } from './middleware/middleware.decorator';
+import type { Next } from './middleware/middleware.types';
+import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
 import { registerAfterResponseCallback } from './request';
-import { body, getContext, pathParam, setContext, url } from './request/injection';
+import { getContext, request, setContext } from './request/injection';
+import { response } from './response';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
+
+const createStandardSchema = <Output>({
+  validate,
+}: {
+  readonly validate: (
+    value: unknown,
+  ) => StandardSchemaV1.Result<Output> | Promise<StandardSchemaV1.Result<Output>>;
+}): StandardSchemaV1<unknown, Output> => {
+  const types: StandardSchemaV1.Types<unknown, Output> | undefined = undefined;
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'zelt-test',
+      validate,
+      types,
+    },
+  };
+};
+
+const passthroughFormSchema = createStandardSchema<unknown>({
+  validate: (value) => ({ value }),
+});
 
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
@@ -34,23 +61,24 @@ class HelloController {
   constructor(private greeter = inject(Greeter)) {}
 
   @Get('/:name')
-  greet() {
-    return { message: this.greeter.greet(pathParam('name')) };
+  greet(req = request()) {
+    return { message: this.greeter.greet(req.pathParam('name')) };
   }
 }
 
 @Controller('/echo')
 class EchoController {
   @Post('/')
-  create(data = body('json')) {
-    return data;
+  async create(req = request()) {
+    return await req.body();
   }
 }
 
 @Controller('/upload')
 class UploadController {
   @Post('/')
-  upload(formData = body('form')) {
+  async upload(req = request(passthroughFormSchema, { target: 'form' })) {
+    const formData = (await req.body()) as Record<string, string | File | (string | File)[]>;
     const description = formData['description'] as string;
     const file = formData['file'] as File;
     return { description, filename: file.name, size: file.size };
@@ -104,11 +132,11 @@ describe('createApp() — fetch', () => {
     @Controller('/inner-context')
     class InnerContextController {
       @Post('/')
-      get() {
+      async get(req = request()) {
         return {
-          body: body('json'),
+          body: await req.body(),
           requestId: getContext('requestId') ?? null,
-          url: url(),
+          url: req.url(),
         };
       }
     }
@@ -116,11 +144,19 @@ describe('createApp() — fetch', () => {
     @Controller('/outer-context')
     class OuterContextController {
       @Post('/')
-      async get() {
+      async get(req = request()) {
         setContext('requestId', 'outer');
-        const outerBefore = { body: body('json'), requestId: getContext('requestId'), url: url() };
+        const outerBefore = {
+          body: await req.body(),
+          requestId: getContext('requestId'),
+          url: req.url(),
+        };
         const res = await fetchInner();
-        const outerAfter = { body: body('json'), requestId: getContext('requestId'), url: url() };
+        const outerAfter = {
+          body: await req.body(),
+          requestId: getContext('requestId'),
+          url: req.url(),
+        };
         return { inner: await res.json(), outerAfter, outerBefore };
       }
     }
@@ -261,8 +297,8 @@ describe('error paths', () => {
     @Controller('/x')
     class BrokenController {
       @Get('/')
-      run() {
-        return { v: pathParam('id') };
+      run(req = request()) {
+        return { v: req.pathParam('id') };
       }
     }
     const app = createApp([http({ controllers: [BrokenController] })]);
@@ -275,10 +311,14 @@ describe('error paths', () => {
 describe('middleware', () => {
   it('executes global middleware on all routes', async () => {
     const executed: string[] = [];
-    const trackMiddleware: MiddlewareHandler = async (_c, next) => {
-      executed.push('global');
-      await next();
-    };
+    @Middleware
+    class TrackMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('global');
+        await next();
+        return undefined;
+      }
+    }
 
     @Controller('/test')
     class TestController {
@@ -291,7 +331,7 @@ describe('middleware', () => {
     const app = createApp([
       http({
         controllers: [TestController],
-        middlewares: [trackMiddleware],
+        middlewares: [TrackMiddleware],
       }),
     ]);
     const readyApp = await app.createRuntime();
@@ -300,15 +340,46 @@ describe('middleware', () => {
     expect(executed).toContain('global');
   });
 
-  it('lets global middlewares read the request body before the handler', async () => {
-    const seen: unknown[] = [];
-    const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
-      seen.push(body('json'));
+  it('adapts Hono middleware explicitly through fromHonoMiddleware()', async () => {
+    const HeaderMiddleware = fromHonoMiddleware(async (c, next) => {
+      c.header('X-Bridge', 'hono');
       await next();
-    };
+    });
+
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
 
     const app = createApp([
-      http({ controllers: [EchoController], middlewares: [captureBodyMiddleware] }),
+      http({
+        controllers: [TestController],
+        middlewares: [HeaderMiddleware],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.request('/test/');
+    expect(res.headers.get('X-Bridge')).toBe('hono');
+    await readyApp.shutdown();
+  });
+
+  it('lets global middlewares read the request body before the handler', async () => {
+    const seen: unknown[] = [];
+    @Middleware
+    class CaptureBodyMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        seen.push(await request().body());
+        await next();
+        return undefined;
+      }
+    }
+
+    const app = createApp([
+      http({ controllers: [EchoController], middlewares: [CaptureBodyMiddleware] }),
     ]);
     const readyApp = await app.createRuntime();
 
@@ -327,14 +398,18 @@ describe('middleware', () => {
 
   it('lets parent middlewares read the body for nested child routes', async () => {
     const seen: unknown[] = [];
-    const captureBodyMiddleware: MiddlewareHandler = async (_c, next) => {
-      seen.push(body('json'));
-      await next();
-    };
+    @Middleware
+    class CaptureBodyMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        seen.push(await request().body());
+        await next();
+        return undefined;
+      }
+    }
 
     const app = createApp([
       http({
-        middlewares: [captureBodyMiddleware],
+        middlewares: [CaptureBodyMiddleware],
         children: [http({ path: '/v1', controllers: [EchoController] })],
       }),
     ]);
@@ -355,23 +430,35 @@ describe('middleware', () => {
 
   it('executes middlewares in order: global -> controller -> method', async () => {
     const order: string[] = [];
-    const globalMiddleware: MiddlewareHandler = async (_c, next) => {
-      order.push('global');
-      await next();
-    };
-    const controllerMiddleware: MiddlewareHandler = async (_c, next) => {
-      order.push('controller');
-      await next();
-    };
-    const methodMiddleware: MiddlewareHandler = async (_c, next) => {
-      order.push('method');
-      await next();
-    };
+    @Middleware
+    class GlobalMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        order.push('global');
+        await next();
+        return undefined;
+      }
+    }
+    @Middleware
+    class ControllerMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        order.push('controller');
+        await next();
+        return undefined;
+      }
+    }
+    @Middleware
+    class MethodMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        order.push('method');
+        await next();
+        return undefined;
+      }
+    }
 
-    @UseMiddleware(controllerMiddleware)
+    @UseMiddleware(ControllerMiddleware)
     @Controller('/test')
     class TestController {
-      @UseMiddleware(methodMiddleware)
+      @UseMiddleware(MethodMiddleware)
       @Get('/')
       get() {
         order.push('handler');
@@ -382,7 +469,7 @@ describe('middleware', () => {
     const app = createApp([
       http({
         controllers: [TestController],
-        middlewares: [globalMiddleware],
+        middlewares: [GlobalMiddleware],
       }),
     ]);
     const readyApp = await app.createRuntime();
@@ -393,10 +480,14 @@ describe('middleware', () => {
 
   it('skips global middleware with @SkipMiddleware', async () => {
     const executed: string[] = [];
-    const authMiddleware: MiddlewareHandler = async (_c, next) => {
-      executed.push('auth');
-      await next();
-    };
+    @Middleware
+    class AuthMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('auth');
+        await next();
+        return undefined;
+      }
+    }
 
     @Controller('/test')
     class TestController {
@@ -406,7 +497,7 @@ describe('middleware', () => {
         return { ok: true };
       }
 
-      @SkipMiddleware(authMiddleware)
+      @SkipMiddleware(AuthMiddleware)
       @Get('/public')
       public() {
         executed.push('public');
@@ -417,7 +508,7 @@ describe('middleware', () => {
     const app = createApp([
       http({
         controllers: [TestController],
-        middlewares: [authMiddleware],
+        middlewares: [AuthMiddleware],
       }),
     ]);
     const readyApp = await app.createRuntime();
@@ -429,6 +520,194 @@ describe('middleware', () => {
     executed.length = 0;
     await readyApp.http.request('/test/public');
     expect(executed).toEqual(['public']);
+  });
+
+  it('skips global middleware for every controller route with class-level @SkipMiddleware', async () => {
+    const executed: string[] = [];
+    @Middleware
+    class AuthMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('auth');
+        await next();
+        return undefined;
+      }
+    }
+
+    @SkipMiddleware(AuthMiddleware)
+    @Controller('/test')
+    class TestController {
+      @Get('/one')
+      one() {
+        executed.push('one');
+        return { ok: true };
+      }
+
+      @Get('/two')
+      two() {
+        executed.push('two');
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [TestController],
+        middlewares: [AuthMiddleware],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    executed.length = 0;
+    await readyApp.http.request('/test/one');
+    expect(executed).toEqual(['one']);
+
+    executed.length = 0;
+    await readyApp.http.request('/test/two');
+    expect(executed).toEqual(['two']);
+  });
+
+  it('unions class-level and method-level @SkipMiddleware declarations', async () => {
+    const executed: string[] = [];
+    @Middleware
+    class AuthMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('auth');
+        await next();
+        return undefined;
+      }
+    }
+    @Middleware
+    class LoggingMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('logging');
+        await next();
+        return undefined;
+      }
+    }
+
+    @SkipMiddleware(AuthMiddleware)
+    @Controller('/test')
+    class TestController {
+      @Get('/class-only')
+      classOnly() {
+        executed.push('classOnly');
+        return { ok: true };
+      }
+
+      @SkipMiddleware(LoggingMiddleware)
+      @Get('/public')
+      public() {
+        executed.push('public');
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [TestController],
+        middlewares: [AuthMiddleware, LoggingMiddleware],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    executed.length = 0;
+    await readyApp.http.request('/test/class-only');
+    expect(executed).toEqual(['logging', 'classOnly']);
+
+    executed.length = 0;
+    await readyApp.http.request('/test/public');
+    expect(executed).toEqual(['public']);
+  });
+
+  it('runs method-level @UseMiddleware when the same middleware is skipped at class level', async () => {
+    const executed: string[] = [];
+    @Middleware
+    class TrackingMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('tracking');
+        await next();
+        return undefined;
+      }
+    }
+
+    @SkipMiddleware(TrackingMiddleware)
+    @Controller('/test')
+    class TestController {
+      @UseMiddleware(TrackingMiddleware)
+      @Get('/explicit')
+      explicit() {
+        executed.push('handler');
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [TestController],
+        middlewares: [TrackingMiddleware],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    await readyApp.http.request('/test/explicit');
+    expect(executed).toEqual(['tracking', 'handler']);
+  });
+
+  it('skips method-level @UseMiddleware when the same method also declares @SkipMiddleware', async () => {
+    const executed: string[] = [];
+    @Middleware
+    class TrackingMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('tracking');
+        await next();
+        return undefined;
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      @SkipMiddleware(TrackingMiddleware)
+      @UseMiddleware(TrackingMiddleware)
+      @Get('/explicit')
+      explicit() {
+        executed.push('handler');
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [TestController] })]);
+    const readyApp = await app.createRuntime();
+
+    await readyApp.http.request('/test/explicit');
+    expect(executed).toEqual(['handler']);
+  });
+
+  it('skips built-in security middleware with class-level @SkipMiddleware', async () => {
+    @SkipMiddleware(SecureHeadersMiddleware)
+    @Controller('/webhooks')
+    class WebhookController {
+      @Get('/incoming')
+      incoming() {
+        return { ok: true };
+      }
+    }
+
+    @Controller('/api')
+    class ApiController {
+      @Get('/data')
+      data() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [WebhookController, ApiController] })]);
+    const readyApp = await app.createRuntime();
+
+    const skippedRes = await readyApp.http.request('/webhooks/incoming');
+    expect(skippedRes.headers.get('X-Content-Type-Options')).toBeNull();
+
+    const defaultRes = await readyApp.http.request('/api/data');
+    expect(defaultRes.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
   it('resolves @Middleware class through DI', async () => {
@@ -443,7 +722,7 @@ describe('middleware', () => {
     class DIMiddleware {
       constructor(private config = inject(ConfigService)) {}
 
-      async use(_c: Context, next: Next): Promise<Response | undefined> {
+      async use(next: Next): Promise<Response | undefined> {
         setContext('configValue', this.config.getValue());
         await next();
         return undefined;
@@ -467,10 +746,14 @@ describe('middleware', () => {
   });
 
   it('middleware can set context values accessible in handler via getContext()', async () => {
-    const setUserMiddleware: MiddlewareHandler = async (_c, next) => {
-      setContext('user', { id: 123, name: 'alice' });
-      await next();
-    };
+    @Middleware
+    class SetUserMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        setContext('user', { id: 123, name: 'alice' });
+        await next();
+        return undefined;
+      }
+    }
 
     @Controller('/test')
     class TestController {
@@ -484,7 +767,7 @@ describe('middleware', () => {
     const app = createApp([
       http({
         controllers: [TestController],
-        middlewares: [setUserMiddleware],
+        middlewares: [SetUserMiddleware],
       }),
     ]);
     const readyApp = await app.createRuntime();
@@ -495,9 +778,12 @@ describe('middleware', () => {
   });
 
   it('middleware exception is handled by Koya error handler', async () => {
-    const throwingMiddleware: MiddlewareHandler = async () => {
-      throw new Error('middleware error');
-    };
+    @Middleware
+    class ThrowingMiddleware {
+      use(): Response | undefined {
+        throw new Error('middleware error');
+      }
+    }
 
     @Controller('/test')
     class TestController {
@@ -510,7 +796,7 @@ describe('middleware', () => {
     const app = createApp([
       http({
         controllers: [TestController],
-        middlewares: [throwingMiddleware],
+        middlewares: [ThrowingMiddleware],
       }),
     ]);
     const readyApp = await app.createRuntime();
@@ -520,12 +806,15 @@ describe('middleware', () => {
   });
 
   it('middleware can return Response to short-circuit', async () => {
-    const earlyReturnMiddleware: MiddlewareHandler = async () => {
-      return new Response(JSON.stringify({ blocked: true }), {
-        status: 403,
-        headers: { 'content-type': 'application/json' },
-      });
-    };
+    @Middleware
+    class EarlyReturnMiddleware {
+      use(): Response {
+        return new Response(JSON.stringify({ blocked: true }), {
+          status: 403,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+    }
 
     @Controller('/test')
     class TestController {
@@ -538,7 +827,7 @@ describe('middleware', () => {
     const app = createApp([
       http({
         controllers: [TestController],
-        middlewares: [earlyReturnMiddleware],
+        middlewares: [EarlyReturnMiddleware],
       }),
     ]);
     const readyApp = await app.createRuntime();
@@ -663,10 +952,14 @@ describe('errorHandlers', () => {
   it('middlewares and errorHandlers work together', async () => {
     const executed: string[] = [];
 
-    const beforeMiddleware: MiddlewareHandler = async (_c, next) => {
-      executed.push('middleware');
-      await next();
-    };
+    @Middleware
+    class BeforeMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        executed.push('middleware');
+        await next();
+        return undefined;
+      }
+    }
 
     @ErrorHandler
     class TestErrorHandler {
@@ -688,7 +981,7 @@ describe('errorHandlers', () => {
     const app = createApp([
       http({
         controllers: [TestController],
-        middlewares: [beforeMiddleware],
+        middlewares: [BeforeMiddleware],
         errorHandlers: [TestErrorHandler],
       }),
     ]);
@@ -709,13 +1002,13 @@ describe('errorHandlers', () => {
       finishMiddleware = resolve;
     });
 
-    const afterMiddleware: MiddlewareHandler = async (_c, next) => {
+    const AfterMiddleware = fromHonoMiddleware(async (_c, next) => {
       events.push('middleware-before');
       await next();
       events.push('middleware-after-start');
       await middlewareGate;
       events.push('middleware-after-finished');
-    };
+    });
 
     @ErrorHandler
     class AsyncErrorHandler {
@@ -741,7 +1034,7 @@ describe('errorHandlers', () => {
     const app = createApp([
       http({
         controllers: [TestController],
-        middlewares: [afterMiddleware],
+        middlewares: [AfterMiddleware],
         errorHandlers: [AsyncErrorHandler],
       }),
     ]);
@@ -977,14 +1270,22 @@ describe('nested children', () => {
 
   it('middlewares accumulate from parent to child', async () => {
     const order: string[] = [];
-    const parentMiddleware: MiddlewareHandler = async (_c, next) => {
-      order.push('parent');
-      await next();
-    };
-    const childMiddleware: MiddlewareHandler = async (_c, next) => {
-      order.push('child');
-      await next();
-    };
+    @Middleware
+    class ParentMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        order.push('parent');
+        await next();
+        return undefined;
+      }
+    }
+    @Middleware
+    class ChildMiddleware {
+      async use(next: Next): Promise<Response | undefined> {
+        order.push('child');
+        await next();
+        return undefined;
+      }
+    }
 
     @Controller('/test')
     class ChildController {
@@ -998,12 +1299,12 @@ describe('nested children', () => {
     const app = createApp([
       http({
         controllers: [],
-        middlewares: [parentMiddleware],
+        middlewares: [ParentMiddleware],
         children: [
           http({
             path: '/api',
             controllers: [ChildController],
-            middlewares: [childMiddleware],
+            middlewares: [ChildMiddleware],
           }),
         ],
       }),
@@ -1229,13 +1530,13 @@ describe('nested children', () => {
       finishParentMiddleware = resolve;
     });
 
-    const parentMiddleware: MiddlewareHandler = async (_c, next) => {
+    const ParentMiddleware = fromHonoMiddleware(async (_c, next) => {
       events.push('parent-before');
       await next();
       events.push('parent-after-start');
       await parentMiddlewareGate;
       events.push('parent-after-finished');
-    };
+    });
 
     @ErrorHandler
     class ChildHandler {
@@ -1259,7 +1560,7 @@ describe('nested children', () => {
     const app = createApp([
       http({
         controllers: [],
-        middlewares: [parentMiddleware],
+        middlewares: [ParentMiddleware],
         children: [
           http({
             path: '/api',
@@ -1510,14 +1811,18 @@ describe('warmup option', () => {
     await readyApp.shutdown();
   });
 
-  it('middleware receives options when used with tuple syntax', async () => {
+  it('middleware receives options', async () => {
     type RateLimitOptions = { limit: number; windowSec: number };
 
     @Middleware
     class RateLimitMiddleware {
-      async use(c: Context, next: Next, options: RateLimitOptions): Promise<Response | undefined> {
-        c.header('X-RateLimit-Limit', String(options.limit));
-        c.header('X-RateLimit-Window', String(options.windowSec));
+      async use(
+        next: Next,
+        options: RateLimitOptions,
+        res = response(),
+      ): Promise<Response | undefined> {
+        res.header('X-RateLimit-Limit', String(options.limit));
+        res.header('X-RateLimit-Window', String(options.windowSec));
         await next();
         return undefined;
       }
@@ -1525,7 +1830,7 @@ describe('warmup option', () => {
 
     @Controller('/api')
     class ApiController {
-      @UseMiddleware([RateLimitMiddleware, { limit: 100, windowSec: 60 }])
+      @UseMiddleware(RateLimitMiddleware, { limit: 100, windowSec: 60 })
       @Get('/')
       get() {
         return { ok: true };

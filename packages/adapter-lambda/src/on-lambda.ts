@@ -1,4 +1,5 @@
 import type {
+  ConfigClass,
   ConfiguredFeature,
   CreateRuntimeOptions,
   HttpCapabilities,
@@ -15,6 +16,7 @@ import type {
 import { LambdaEnvAdaptor } from './lambda-env.adaptor';
 
 export type LambdaAppOptions = {
+  readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
 };
 
@@ -199,6 +201,7 @@ export const onLambda = async (
   options: LambdaAppOptions = {},
 ): Promise<LambdaApp> => {
   const readyApp = await app.createRuntime({
+    ...(options.configs === undefined ? {} : { configs: options.configs }),
     fallbackConfigs: [LambdaEnvAdaptor],
     warmup: options.warmup ?? false,
   });

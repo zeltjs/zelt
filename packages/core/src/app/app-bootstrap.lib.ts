@@ -1,6 +1,10 @@
 import { Container, injectable } from '@needle-di/core';
 
-import { overrideConfig, resolveConfig } from '../built-in-service';
+import {
+  assertNoUnresolvedAbstractConfigs,
+  overrideConfig,
+  resolveConfig,
+} from '../built-in-service';
 import { inject, LifecycleManager, resolve, ZeltLifecycleStateError } from '../kernel';
 import { ConfigRegistry } from './config-registry.lib';
 
@@ -22,7 +26,7 @@ export class AppBootstrap {
     private readonly configRegistry: ConfigRegistry = inject(ConfigRegistry),
   ) {}
 
-  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   async ready(): Promise<ReadyResult> {
     if (this.state === 'disposed') {
       throw new ZeltLifecycleStateError({ operation: 'ready', currentState: 'disposed' });
@@ -36,7 +40,7 @@ export class AppBootstrap {
     return this.readyPromise;
   }
 
-  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   private async doReady(): Promise<ReadyResult> {
     await this.lifecycleManager.startup();
 
@@ -49,7 +53,7 @@ export class AppBootstrap {
     return this.cachedResult;
   }
 
-  /** @throws {ZeltLifecycleStateError} */
+  /** @throws {ZeltLifecycleStateError | ZeltAppConfigurationError} */
   applyRegisteredConfigs(): void {
     this.assertCanModifyConfig('applyRegisteredConfigs');
 
@@ -62,12 +66,13 @@ export class AppBootstrap {
     for (const config of defaults) {
       overrideConfig(this.container, config, { fallback: true });
     }
+    assertNoUnresolvedAbstractConfigs(allConfigs, defaults);
     for (const config of allConfigs) {
       resolveConfig(this.container, config);
     }
   }
 
-  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError} */
+  /** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   private buildReadyResult(): ReadyResult {
     return {
       get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => {

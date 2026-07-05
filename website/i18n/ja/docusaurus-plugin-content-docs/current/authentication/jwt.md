@@ -54,7 +54,7 @@ Use `JwtService` to sign tokens at login:
 
 ```typescript
 import { Controller, Post, inject } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import { JwtService } from '@zeltjs/auth-jwt';
 import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
@@ -70,7 +70,8 @@ class AuthController {
   constructor(private jwtService = inject(JwtService)) {}
 
   @Post('/login')
-  async login(body = validated(LoginSchema)) {
+  async login(req = request(LoginSchema)) {
+    const body = await req.body();
     const user = await validateCredentials(body.email, body.password);
     if (!user) {
       throw new HTTPException(401, { message: 'Invalid credentials' });
@@ -311,7 +312,7 @@ For long-lived sessions, implement a refresh token flow:
 
 ```typescript
 import { Controller, Post, Injectable, inject } from '@zeltjs/core';
-import { validated } from '@zeltjs/validator-valibot';
+import { request } from '@zeltjs/core';
 import { JwtService } from '@zeltjs/auth-jwt';
 import * as v from 'valibot';
 
@@ -334,7 +335,8 @@ class AuthController {
   ) {}
 
   @Post('/refresh')
-  async refresh(body = validated(RefreshSchema)) {
+  async refresh(req = request(RefreshSchema)) {
+    const body = await req.body();
     const payload = await this.jwtService.verify(body.refreshToken);
 
     const user = await this.userRepo.findById(payload.sub!);

@@ -1,4 +1,4 @@
-import { Controller, Get, header, inject, queryParam } from '@zeltjs/core';
+import { Controller, Get, inject, request } from '@zeltjs/core';
 
 import './context-schema';
 import { CounterService } from './counter.service';
@@ -26,7 +26,8 @@ export class ScopesController {
   }
 
   @Get('/request')
-  request(id = header('X-Request-Id')) {
+  request(req = request()) {
+    const id = req.header('X-Request-Id');
     this.requestIds.assign(id ?? 'anonymous');
     const first = this.requestIds.tick('begin');
     const second = this.requestIds.tick('end');
@@ -39,7 +40,9 @@ export class ScopesController {
   }
 
   @Get('/overlap')
-  async overlap(id = queryParam('id'), delay = queryParam('delay')) {
+  async overlap(req = request()) {
+    const id = req.queryParam('id');
+    const delay = req.queryParam('delay');
     this.requestIds.assign(id ?? 'missing');
     this.requestIds.tick('start');
     const ms = Number(delay ?? '0');

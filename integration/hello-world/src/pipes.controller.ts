@@ -1,4 +1,4 @@
-import { Controller, Get, HTTPException, inject, pathParam } from '@zeltjs/core';
+import { Controller, Get, HTTPException, inject, request } from '@zeltjs/core';
 
 import { HelloService } from './hello.service';
 
@@ -14,13 +14,14 @@ export class PipesController {
   constructor(private helloService = inject(HelloService)) {}
 
   @Get('/user/:id')
-  getUserById(id = pathParam('id')) {
-    const numericId = parseIntParam(id);
+  getUserById(req = request()) {
+    const numericId = parseIntParam(req.pathParam('id'));
     return { id: numericId, greeting: this.helloService.greeting() };
   }
 
   @Get('/transform/:value')
-  transformValue(value = pathParam('value')) {
+  transformValue(req = request()) {
+    const value = req.pathParam('value');
     return { original: value, upper: value.toUpperCase(), lower: value.toLowerCase() };
   }
 }

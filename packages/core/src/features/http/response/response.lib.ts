@@ -3,6 +3,8 @@ import { deleteCookie, setCookie } from 'hono/cookie';
 import { stream, streamSSE, streamText } from 'hono/streaming';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
+export type { TypedResponse };
+
 export type ZeltStreamWriter = {
   readonly aborted: boolean;
   readonly closed: boolean;
@@ -42,6 +44,10 @@ export type CookieOptions = {
   sameSite?: 'Strict' | 'Lax' | 'None';
 };
 
+export type HeaderOptions = {
+  readonly type?: 'override' | 'append';
+};
+
 export type ResponseBuilder = {
   json<T, S extends ContentfulStatusCode = 200>(
     data: T,
@@ -64,7 +70,9 @@ export type ResponseBuilder = {
     status?: S,
   ): TypedResponse<T, S, 'body'>;
 
-  header(name: string, value: string): ResponseBuilder;
+  header(name: string, value: string, options?: HeaderOptions): ResponseBuilder;
+
+  removeHeader(name: string): ResponseBuilder;
 
   setCookie(name: string, value: string, options?: CookieOptions): ResponseBuilder;
 
@@ -143,8 +151,16 @@ const buildResponseBuilder = (c: Context): ResponseBuilder => {
     redirect: makeRedirect(c),
     text: makeText(c),
     body: makeBody(c),
-    header: (name, value) => {
-      c.header(name, value);
+    header: (name, value, options) => {
+      if (options?.type === 'append') {
+        c.header(name, value, { append: true });
+      } else {
+        c.header(name, value);
+      }
+      return builder;
+    },
+    removeHeader: (name) => {
+      c.header(name, undefined);
       return builder;
     },
     setCookie: (name, value, options) => {

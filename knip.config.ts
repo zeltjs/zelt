@@ -66,12 +66,21 @@ const config: KnipConfig = {
       // neverthrow は今後 Result wrapper に使う想定で keep。
       ignoreDependencies: ['neverthrow'],
       // barrel files used by test files via '..' import path (required by no-cross-directory-lib-import rule)
-      ignore: ['src/app/index.ts', 'src/features/scheduler/index.ts'],
+      // request/injection/test.lib.ts is a same-directory helper for injection tests.
+      ignore: [
+        'src/app/index.ts',
+        'src/features/http/request/injection/test.lib.ts',
+        'src/features/scheduler/index.ts',
+      ],
     },
     'packages/graphql': {
       // gql-args-sample.lib.ts is a test fixture imported by generate-sdl.test.ts
       // for AST-based import resolution testing (must be a separate file)
       ignore: ['src/gql-args-sample.lib.ts'],
+    },
+    'packages/hono-client': {
+      // Portable AppType tests need real files for TypeScript program resolution.
+      ignore: ['src/generator/test/fixtures/**'],
     },
     'packages/adapter-node': {
       ignoreDependencies: ['@zeltjs/core'],

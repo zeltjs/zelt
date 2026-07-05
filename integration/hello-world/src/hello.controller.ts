@@ -1,4 +1,4 @@
-import { Controller, Get, inject, pathParam, response } from '@zeltjs/core';
+import { Controller, Get, inject, request, response } from '@zeltjs/core';
 
 import { HelloService } from './hello.service';
 
@@ -28,7 +28,8 @@ export class HelloController {
   }
 
   @Get('/:name')
-  greet(name = pathParam('name')) {
+  greet(req = request()) {
+    const name = req.pathParam('name');
     return response()
       .header('Authorization', 'Bearer')
       .json({ message: this.helloService.greet(name) });

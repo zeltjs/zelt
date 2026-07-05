@@ -169,6 +169,6 @@ const nodeApp = await onNode(app);
 // ---cut---
 const handle = await nodeApp.http.listen({ port: 3000 });
 
-// サーバを停止し、ライフサイクルのシャットダウン（Redis を含む）を実行
+// Disconnects the server and runs lifecycle shutdown (Redis included)
 await handle.shutdown();
 ```

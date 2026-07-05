@@ -1,5 +1,5 @@
-import type { FunctionMiddleware } from '@zeltjs/core';
-import { createApp, http } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
+import { createApp, http, Middleware, response } from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -42,15 +42,19 @@ describe('Middleware (global)', () => {
   });
 
   it('global middleware applies to all routes', async () => {
-    const globalMiddleware: FunctionMiddleware = async (c, next) => {
-      c.header('X-Global', 'applied');
-      await next();
-    };
+    @Middleware
+    class GlobalMiddleware {
+      async use(next: Next, res = response()): Promise<Response | undefined> {
+        res.header('X-Global', 'applied');
+        await next();
+        return undefined;
+      }
+    }
 
     const app = createApp([
       http({
         controllers: [WildcardController],
-        middlewares: [globalMiddleware],
+        middlewares: [GlobalMiddleware],
       }),
     ]);
     const testApp = await onTest(app);
@@ -61,15 +65,19 @@ describe('Middleware (global)', () => {
   });
 
   it('global middleware applies to nested routes', async () => {
-    const globalMiddleware: FunctionMiddleware = async (c, next) => {
-      c.header('X-Global', 'applied');
-      await next();
-    };
+    @Middleware
+    class GlobalMiddleware {
+      async use(next: Next, res = response()): Promise<Response | undefined> {
+        res.header('X-Global', 'applied');
+        await next();
+        return undefined;
+      }
+    }
 
     const app = createApp([
       http({
         controllers: [WildcardController],
-        middlewares: [globalMiddleware],
+        middlewares: [GlobalMiddleware],
       }),
     ]);
     const testApp = await onTest(app);
