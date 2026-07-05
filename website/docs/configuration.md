@@ -115,6 +115,69 @@ const app = createApp([http({
 
 The `Token` property is inherited from the parent class, so `inject(DatabaseConfig)` will receive the overridden `TestDatabaseConfig` instance.
 
+## Abstract Configuration
+
+Use `@Config({ abstract: true })` to declare a config base class with no default
+implementation. This is useful for a config contract that every environment
+must supply a concrete value for — there is no sensible fallback:
+
+```typescript
+import { Config, createApp } from '@zeltjs/core';
+
+@Config({ abstract: true })
+export abstract class PaymentGatewayConfig {
+  abstract get apiKey(): string;
+}
+
+export class StripeConfig extends PaymentGatewayConfig {
+  override get apiKey() {
+    return 'sk_test_...';
+  }
+}
+// ---cut---
+const app = createApp([], { configs: [StripeConfig] });
+```
+
+If an abstract config is registered without a concrete subclass resolving it —
+whether left unregistered, passed directly in `configs`, or only resolved by an
+abstract subclass — `createRuntime()` (or the first `inject()` of the token)
+throws a `ZeltAppConfigurationError` with reason `abstract_leaf_without_concrete`.
+
+### Fallback Configuration
+
+`createRuntime({ fallbackConfigs })` registers config subclasses that apply only
+when nothing else resolves the base config. Resolution priority, from highest
+to lowest:
+
+1. `createRuntime({ configs })` — runtime override
+2. `createApp([...], { configs })` — user-provided
+3. `createRuntime({ fallbackConfigs })` — fallback
+4. The base config class's own default getter value
+
+`fallbackConfigs` is commonly used to satisfy an abstract config with a
+development-only default while requiring production code to pass a concrete
+`configs` entry explicitly:
+
+```typescript
+import { Config, createApp } from '@zeltjs/core';
+
+@Config({ abstract: true })
+abstract class PaymentGatewayConfig {
+  abstract get apiKey(): string;
+}
+
+class DevPaymentGatewayConfig extends PaymentGatewayConfig {
+  override get apiKey() {
+    return 'sk_test_dev';
+  }
+}
+// ---cut---
+const app = createApp([]);
+const readyApp = await app.createRuntime({
+  fallbackConfigs: [DevPaymentGatewayConfig],
+});
+```
+
 ## Environment-Based Configuration
 
 `inject(Env)` reads environment variables from the platform-specific source registered by the adapter. No additional setup is needed for the common case.
