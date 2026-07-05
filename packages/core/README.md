@@ -120,53 +120,54 @@ const server = await nodeApp.http.listen({ port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 
-## Jobs
+## Background Tasks
 
-Use the built-in jobs feature for process-local business tasks that can run now,
-after the current HTTP response, or after a short in-memory delay. Jobs are
-intentionally in-memory: pending jobs are not persisted and are lost when the
-process exits.
+Use the built-in tasks feature for process-local side effects that should not
+block the current work: run them in the background now, or after the current
+HTTP response is sent. Tasks are intentionally ephemeral — they are not
+persisted, not retried, and pending tasks are lost when the process exits.
+Use an external queue for durable or retryable work.
+
+No feature registration is needed — inject `TaskService` wherever you need it.
 
 ```typescript
-import { Controller, JobService, Post, createApp, http, inject, jobs } from '@zeltjs/core';
+import { Controller, Post, TaskService, createApp, http, inject } from '@zeltjs/core';
 
 @Controller('/users')
 class UserController {
-  constructor(private readonly jobService = inject(JobService)) {}
+  constructor(private readonly tasks = inject(TaskService)) {}
 
   @Post('/')
   async create() {
-    await this.jobService.dispatchAfterResponse({
-      name: 'send-welcome-email',
-      async handle() {
-        await sendWelcomeEmail();
-      },
-    });
-
+    // Runs after the HTTP response is sent (waitUntil-style)
+    this.tasks.afterResponse(() => sendWelcomeEmail(), { name: 'send-welcome-email' });
     return { queued: true };
   }
 }
 
-const app = createApp([jobs(), http({ controllers: [UserController] })]);
+const app = createApp([http({ controllers: [UserController] })]);
 const runtime = await app.createRuntime();
 
-await runtime.jobs.dispatchSync({
-  name: 'rebuild-search-index',
-  async handle() {
-    await rebuildSearchIndex();
-  },
-});
+const tasks = await runtime.get(TaskService);
 
-await runtime.jobs.dispatch(
-  {
-    name: 'follow-up',
-    async handle() {
-      await sendFollowUp();
-    },
-  },
-  { delay: 5_000 },
-);
+// Fire-and-forget background execution
+tasks.run(() => rebuildSearchIndex(), { name: 'rebuild-search-index' });
+
+// Wait for completion
+await tasks.runAndWait(() => warmUpCaches());
 ```
+
+Failed background tasks are reported through the built-in logger with the
+task name. Outside an HTTP request context, `afterResponse()` behaves like
+`run()`. On shutdown the runtime waits for active tasks to settle, so a
+long-running task delays shutdown.
+
+Background execution assumes a long-lived process (Node.js, Bun, Electron).
+`afterResponse()` is **not currently supported on serverless runtimes**: on
+Cloudflare Workers the isolate's lifetime is tied to the HTTP response
+promise, so after-response tasks will not run, and AWS Lambda may freeze the
+process right after the response is sent. Adapter-level `waitUntil`
+integration is planned.
 
 ## Deploy Anywhere
 
