@@ -130,7 +130,7 @@ void bootstrap();
 
 `onElectron()` starts the Zelt runtime and automatically registers the IPC handler for the specified channel. It returns:
 
-- `fetch(request)` — Handles a `Request` and returns a `Response`
+- `http.fetch(request)` — Handles a `Request` and returns a `Response` (each configured feature is namespaced by its key; `http` is the default)
 - `shutdown()` — Gracefully shuts down the application
 - `get<T>(Class)` — Resolves a service from the DI container
 

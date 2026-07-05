@@ -171,6 +171,11 @@ Schema-first:
 Automatic schema-first codegen during `zelt dev` is not part of this release
 boundary. Use `zelt graphql codegen` explicitly for now.
 
+Pass `resolverChecks: { out, gqlTypesImport }` to `graphqlPlugin()` in
+schema-first mode to additionally generate a type-check file that asserts each
+resolver method's return type is assignable to the corresponding generated
+`Gql.Query`/`Gql.Mutation` result type.
+
 ## Current limitations
 
 ### Code-first
