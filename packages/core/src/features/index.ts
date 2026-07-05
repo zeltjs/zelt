@@ -18,7 +18,5 @@ export type {
   HttpStaticCapabilities,
 } from './http/http.feature';
 export { HTTP_FEATURE_KEY, HttpFeature, http } from './http/http.feature';
-export type { JobCapabilities } from './job';
-export { JobFeature, jobs } from './job';
 export type { SchedulerCapabilities } from './scheduler/scheduler.feature';
 export { SchedulerFeature, scheduler } from './scheduler/scheduler.feature';

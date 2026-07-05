@@ -43,7 +43,6 @@ export type {
   HttpMountableCapabilities,
   HttpMountableFeatureModule,
   HttpStaticCapabilities,
-  JobCapabilities,
   NamespacedCaps,
   SchedulerCapabilities,
   ServiceResolver,
@@ -57,8 +56,6 @@ export {
   HTTP_FEATURE_KEY,
   HttpFeature,
   http,
-  JobFeature,
-  jobs,
   SchedulerFeature,
   scheduler,
 } from './features';
@@ -158,14 +155,6 @@ export type { ControllerRouteInfo, HttpMethod, RouteInfo } from './features/http
 export { getControllerMetadata } from './features/http/routing';
 export { Controller } from './features/http/routing/controller.decorator';
 export { Delete, Get, Patch, Post, Put } from './features/http/routing/http-method.decorator';
-export { JobService } from './features/job/job.service';
-export type {
-  Job,
-  JobDispatcher,
-  JobDispatchOptions,
-  JobFailure,
-  JobStats,
-} from './features/job/job.types';
 // Scheduler decorators
 export { Cron } from './features/scheduler/schedule/cron.decorator';
 export { Daily } from './features/scheduler/schedule/daily.decorator';
@@ -174,6 +163,8 @@ export { Hourly } from './features/scheduler/schedule/hourly.decorator';
 export { Scheduled } from './features/scheduler/schedule/scheduled.decorator';
 export { Weekly } from './features/scheduler/schedule/weekly.decorator';
 export type { SchedulerClass } from './features/scheduler/scheduler.types';
+export { TaskService } from './features/task/task.service';
+export type { TaskFunction, TaskOptions } from './features/task/task.types';
 export type { Lifecycle } from './kernel';
 export { LifecycleManager, runInContext } from './kernel';
 // DI primitives
