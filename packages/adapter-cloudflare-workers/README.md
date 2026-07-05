@@ -68,3 +68,7 @@ const workers = await onCloudflareWorkers(app);
 
 export default { fetch: workers.fetch };
 ```
+
+## Background Tasks
+
+`onCloudflareWorkers()` automatically registers `CloudflareWorkersWaitUntilAdaptor`, which extends `TaskService`'s after-response and fire-and-forget tasks through `ctx.waitUntil`, so the Workers runtime keeps the isolate alive until they finish.

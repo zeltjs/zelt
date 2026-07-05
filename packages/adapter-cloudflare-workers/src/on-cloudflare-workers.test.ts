@@ -1,6 +1,16 @@
-import { Config, Controller, createApp, EnvAdaptor, Get, http, inject } from '@zeltjs/core';
+import {
+  Config,
+  Controller,
+  createApp,
+  EnvAdaptor,
+  Get,
+  http,
+  inject,
+  TaskService,
+} from '@zeltjs/core';
 import { describe, expect, it, vi } from 'vitest';
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
+import { CloudflareWorkersWaitUntilAdaptor } from './cloudflare-workers-wait-until.adaptor';
 import { CloudflareBindings } from './index';
 import { onCloudflareWorkers } from './on-cloudflare-workers';
 
@@ -28,6 +38,22 @@ class BindingsController {
     return { same: this.bindings.get('DB') === mockD1 };
   }
 }
+
+const createAfterResponseController = (events: string[]) => {
+  @Controller('/after-response')
+  class AfterResponseController {
+    constructor(private readonly tasks = inject(TaskService)) {}
+
+    @Get('/')
+    trigger() {
+      this.tasks.afterResponse(() => {
+        events.push('task-ran');
+      });
+      return { triggered: true };
+    }
+  }
+  return AfterResponseController;
+};
 
 const mockD1 = {
   prepare: vi.fn(),
@@ -79,7 +105,7 @@ describe('onCloudflareWorkers', () => {
     await onCloudflareWorkers(app);
 
     expect(readySpy).toHaveBeenCalledWith({
-      fallbackConfigs: [CloudflareWorkersEnvAdaptor],
+      fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
       warmup: false,
     });
   });
@@ -91,7 +117,7 @@ describe('onCloudflareWorkers', () => {
     await onCloudflareWorkers(app, { warmup: true });
 
     expect(readySpy).toHaveBeenCalledWith({
-      fallbackConfigs: [CloudflareWorkersEnvAdaptor],
+      fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
       warmup: true,
     });
   });
@@ -128,7 +154,7 @@ describe('onCloudflareWorkers', () => {
     await onCloudflareWorkers(app);
 
     expect(readySpy).toHaveBeenCalledWith({
-      fallbackConfigs: [CloudflareWorkersEnvAdaptor],
+      fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
       warmup: false,
     });
   });
@@ -148,7 +174,7 @@ describe('onCloudflareWorkers', () => {
 
     expect(readySpy).toHaveBeenCalledWith({
       configs: [TestEnvAdaptor],
-      fallbackConfigs: [CloudflareWorkersEnvAdaptor],
+      fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
       warmup: false,
     });
     const env = await workersApp.get(EnvAdaptor);
@@ -178,5 +204,35 @@ describe('onCloudflareWorkers', () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ same: true });
+  });
+
+  it('extends execution for afterResponse tasks via ctx.waitUntil', async () => {
+    const events: string[] = [];
+    const app = createApp([http({ controllers: [createAfterResponseController(events)] })]);
+    const workersApp = await onCloudflareWorkers(app);
+    const recorded: Promise<unknown>[] = [];
+    const ctx = {
+      waitUntil: vi.fn((promise: Promise<unknown>) => {
+        recorded.push(promise);
+      }),
+      passThroughOnException: vi.fn(),
+      props: {},
+    } as unknown as ExecutionContext;
+
+    const res = await workersApp.fetch(
+      new Request('https://example.com/after-response/'),
+      createMockEnv(),
+      ctx,
+    );
+
+    expect(res.status).toBe(200);
+    // The task must not have run synchronously with the response.
+    expect(events).toEqual([]);
+    // More than the response promise was registered: the after-response flush
+    // promise is also extended through ctx.waitUntil.
+    expect(recorded.length).toBeGreaterThan(1);
+
+    await Promise.all(recorded);
+    await vi.waitFor(() => expect(events).toEqual(['task-ran']));
   });
 });
