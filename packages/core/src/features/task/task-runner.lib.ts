@@ -46,7 +46,15 @@ const assertNotInsideTask = (state: TaskRunnerState): void => {
 const runInTaskContext = (state: TaskRunnerState, task: TaskFunction): Promise<void> | void =>
   state.taskExecutionContext.run(TASK_EXECUTION_CONTEXT, () => task());
 
-export const createTaskRunner = (onFailure: TaskFailureHandler): TaskRunner => {
+export type CreateTaskRunnerOptions = {
+  readonly onFailure: TaskFailureHandler;
+  // Lets the platform tie a fire-and-forget task to the runtime's
+  // post-response lifetime (e.g. Cloudflare's ExecutionContext.waitUntil).
+  readonly extend?: (task: Promise<void>) => void;
+};
+
+export const createTaskRunner = (options: CreateTaskRunnerOptions): TaskRunner => {
+  const { onFailure, extend } = options;
   const state: TaskRunnerState = {
     taskExecutionContext: new AsyncLocalStorage<TaskExecutionContext>(),
     activeTasks: new Set<Promise<void>>(),
@@ -56,14 +64,14 @@ export const createTaskRunner = (onFailure: TaskFailureHandler): TaskRunner => {
   const startup = (): void => {};
 
   /** @throws {ZeltLifecycleStateError} */
-  const run = (task: TaskFunction, options: TaskOptions = {}): void => {
+  const run = (task: TaskFunction, taskOptions: TaskOptions = {}): void => {
     assertRunning(state, 'run');
     let activeTask: Promise<void>;
     activeTask = Promise.resolve()
       .then(() => runInTaskContext(state, task))
       .catch((error: unknown) => {
         try {
-          onFailure(options.name ?? ANONYMOUS_TASK_NAME, error);
+          onFailure(taskOptions.name ?? ANONYMOUS_TASK_NAME, error);
         } catch {
           // A throwing failure handler must not reject the background chain:
           // nothing observes activeTask, so it would surface as an unhandledRejection
@@ -72,6 +80,16 @@ export const createTaskRunner = (onFailure: TaskFailureHandler): TaskRunner => {
       })
       .finally(() => state.activeTasks.delete(activeTask));
     state.activeTasks.add(activeTask);
+
+    if (extend) {
+      try {
+        extend(activeTask);
+      } catch (error) {
+        // Extension failure means the platform may kill this task after the
+        // response — report it against the task instead of crashing run().
+        onFailure(taskOptions.name ?? ANONYMOUS_TASK_NAME, error);
+      }
+    }
   };
 
   /** @throws {ZeltLifecycleStateError | unknown} from task() */

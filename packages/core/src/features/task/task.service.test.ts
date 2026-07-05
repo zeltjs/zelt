@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createApp } from '../../app';
+import { Config, WaitUntilAdaptor } from '../../built-in-service';
 import { inject, ZeltLifecycleStateError } from '../../kernel';
 import { http } from '../http/http.feature';
 import { Controller } from '../http/routing/controller.decorator';
@@ -122,6 +123,42 @@ describe('TaskService', () => {
     taskService.afterResponse(task, { name: 'fallback-task' });
 
     await vi.waitFor(() => expect(task).toHaveBeenCalledTimes(1));
+    await runtime.shutdown();
+  });
+
+  it('routes task and flush promises through a custom WaitUntilAdaptor', async () => {
+    const registered: Promise<void>[] = [];
+
+    @Config
+    class RecordingWaitUntilAdaptor extends WaitUntilAdaptor {
+      override waitUntil(promise: Promise<void>): void {
+        registered.push(promise);
+      }
+    }
+
+    @Controller('/tasks')
+    class TasksController {
+      constructor(private readonly taskService: TaskService = inject(TaskService)) {}
+
+      @Get('/after-response')
+      trigger() {
+        this.taskService.afterResponse(() => {
+          events.push('task-ran');
+        });
+        return { ok: true };
+      }
+    }
+
+    const events: string[] = [];
+    const app = createApp([http({ controllers: [TasksController] })]);
+    const runtime = await app.createRuntime({ configs: [RecordingWaitUntilAdaptor] });
+
+    const response = await runtime.http.request('/tasks/after-response');
+    expect(response.status).toBe(200);
+    expect(registered.length).toBeGreaterThanOrEqual(1); // flush promise registered synchronously
+
+    await Promise.all(registered);
+    await vi.waitFor(() => expect(events).toEqual(['task-ran']));
     await runtime.shutdown();
   });
 

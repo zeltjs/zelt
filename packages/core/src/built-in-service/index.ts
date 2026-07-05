@@ -24,3 +24,4 @@ export {
   type TransportBinding,
   withLogContext,
 } from './logger';
+export { WaitUntilAdaptor } from './wait-until';

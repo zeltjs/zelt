@@ -27,6 +27,7 @@ export const createBootstrapMiddleware = (
   lifecycle: LifecycleManager,
   routerToken: symbol,
   onAfterResponseError?: (error: unknown) => void,
+  waitUntil?: (promise: Promise<void>) => void,
 ): HonoMiddleware => {
   return async (c, next) => {
     // A Zelt context may exist (e.g. event handler, test harness) without
@@ -50,7 +51,12 @@ export const createBootstrapMiddleware = (
       try {
         await next();
       } finally {
-        flushAfterResponseCallbacks(onAfterResponseError);
+        const flushed = flushAfterResponseCallbacks(onAfterResponseError);
+        try {
+          waitUntil?.(flushed);
+        } catch (error) {
+          onAfterResponseError?.(error);
+        }
       }
     }
 

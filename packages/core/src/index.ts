@@ -32,6 +32,7 @@ export {
   PrettyFormatterConfig,
   withLogContext,
 } from './built-in-service/logger';
+export { WaitUntilAdaptor } from './built-in-service/wait-until';
 export type {
   CommandCapabilities,
   ConfiguredFeature,

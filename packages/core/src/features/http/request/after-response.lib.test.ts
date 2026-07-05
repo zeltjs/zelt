@@ -25,7 +25,7 @@ describe('after-response callbacks', () => {
   it('returns false after callbacks have been flushed', () => {
     runInContext(() => {
       initializeAfterResponseCallbacks();
-      flushAfterResponseCallbacks();
+      void flushAfterResponseCallbacks();
 
       expect(registerAfterResponseCallback(() => {})).toBe(false);
     });
@@ -40,7 +40,7 @@ describe('after-response callbacks', () => {
         initializeAfterResponseCallbacks();
         expect(registerAfterResponseCallback(callback)).toBe(true);
         expect(registerAfterResponseCallback(callback)).toBe(true);
-        flushAfterResponseCallbacks();
+        void flushAfterResponseCallbacks();
       });
 
       await vi.runOnlyPendingTimersAsync();
@@ -61,7 +61,7 @@ describe('after-response callbacks', () => {
         registerAfterResponseCallback(() => {
           events.push('started');
         });
-        flushAfterResponseCallbacks();
+        void flushAfterResponseCallbacks();
       });
 
       await Promise.resolve();
@@ -92,8 +92,8 @@ describe('after-response callbacks', () => {
           }),
         ).toBe(true);
 
-        flushAfterResponseCallbacks();
-        flushAfterResponseCallbacks();
+        void flushAfterResponseCallbacks();
+        void flushAfterResponseCallbacks();
       });
     });
 
@@ -101,6 +101,40 @@ describe('after-response callbacks', () => {
     expect(events).toEqual(['started']);
     releaseCallback();
     await pending;
+    expect(events).toEqual(['started', 'finished']);
+  });
+
+  it('returns a promise that resolves only after every callback has completed', async () => {
+    const events: string[] = [];
+    let releaseCallback!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseCallback = resolve;
+    });
+
+    let flushed!: Promise<void>;
+    runInContext(() => {
+      initializeAfterResponseCallbacks();
+      registerAfterResponseCallback(async () => {
+        events.push('started');
+        await gate;
+        events.push('finished');
+      });
+
+      flushed = flushAfterResponseCallbacks();
+    });
+
+    let settled = false;
+    void flushed.then(() => {
+      settled = true;
+    });
+
+    await vi.waitFor(() => expect(events).toEqual(['started']));
+    expect(settled).toBe(false);
+
+    releaseCallback();
+    await flushed;
+
+    expect(settled).toBe(true);
     expect(events).toEqual(['started', 'finished']);
   });
 
@@ -115,7 +149,7 @@ describe('after-response callbacks', () => {
         registerAfterResponseCallback(async () => {
           throw error;
         });
-        flushAfterResponseCallbacks(onError);
+        void flushAfterResponseCallbacks(onError);
       });
 
       await vi.runOnlyPendingTimersAsync();
@@ -138,7 +172,7 @@ describe('after-response callbacks', () => {
         registerAfterResponseCallback(async () => {
           throw primaryError;
         });
-        flushAfterResponseCallbacks(() => {
+        void flushAfterResponseCallbacks(() => {
           throw secondaryError;
         });
       });

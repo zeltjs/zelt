@@ -26,27 +26,33 @@ export const registerAfterResponseCallback = (callback: AfterResponseCallback): 
 };
 
 /** @throws {ZeltContextNotAvailableError} */
-export const flushAfterResponseCallbacks = (onError?: (error: unknown) => void): void => {
-  if (!hasContext()) return;
+export const flushAfterResponseCallbacks = (onError?: (error: unknown) => void): Promise<void> => {
+  if (!hasContext()) return Promise.resolve();
 
   const registry = getInternal(AFTER_RESPONSE_REGISTRY);
-  if (!registry || registry.flushed) return;
+  if (!registry || registry.flushed) return Promise.resolve();
 
   registry.flushed = true;
   const callbacks = [...registry.callbacks];
   registry.callbacks.length = 0;
 
-  for (const callback of callbacks) {
-    setTimeout(() => {
-      void Promise.resolve()
-        .then(callback)
-        .catch((error: unknown) => {
-          try {
-            onError?.(error);
-          } catch {
-            // The original callback failure has already been reported.
-          }
-        });
-    }, 0);
-  }
+  const completions = callbacks.map(
+    (callback) =>
+      new Promise<void>((resolveDone) => {
+        setTimeout(() => {
+          void Promise.resolve()
+            .then(callback)
+            .catch((error: unknown) => {
+              try {
+                onError?.(error);
+              } catch {
+                // The original callback failure has already been reported.
+              }
+            })
+            .finally(resolveDone);
+        }, 0);
+      }),
+  );
+
+  return Promise.all(completions).then(() => {});
 };

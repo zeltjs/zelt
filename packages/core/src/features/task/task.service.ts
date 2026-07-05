@@ -1,4 +1,4 @@
-import { LoggerService } from '../../built-in-service';
+import { LoggerService, WaitUntilAdaptor } from '../../built-in-service';
 import { Injectable, inject, LifecycleManager } from '../../kernel';
 import { registerAfterResponseCallback } from '../http/request';
 import type { TaskFunction, TaskOptions } from './task.types';
@@ -12,9 +12,13 @@ export class TaskService {
   constructor(
     lifecycleManager: LifecycleManager = inject(LifecycleManager),
     logger: LoggerService = inject(LoggerService),
+    waitUntilAdaptor: WaitUntilAdaptor = inject(WaitUntilAdaptor),
   ) {
-    this.runner = createTaskRunner((taskName, error) => {
-      logger.error('Background task failed', { taskName, error });
+    this.runner = createTaskRunner({
+      onFailure: (taskName, error) => {
+        logger.error('Background task failed', { taskName, error });
+      },
+      extend: (task) => waitUntilAdaptor.waitUntil(task),
     });
     lifecycleManager.register(this.runner);
   }

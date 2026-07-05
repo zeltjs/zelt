@@ -162,12 +162,13 @@ task name. Outside an HTTP request context, `afterResponse()` behaves like
 `run()`. On shutdown the runtime waits for active tasks to settle, so a
 long-running task delays shutdown.
 
-Background execution assumes a long-lived process (Node.js, Bun, Electron).
-`afterResponse()` is **not currently supported on serverless runtimes**: on
-Cloudflare Workers the isolate's lifetime is tied to the HTTP response
-promise, so after-response tasks will not run, and AWS Lambda may freeze the
-process right after the response is sent. Adapter-level `waitUntil`
-integration is planned.
+Background execution is guaranteed by the runtime through the `WaitUntilAdaptor`
+abstraction: on long-lived processes (Node.js, Bun, Electron) the default no-op
+adaptor applies and shutdown drains active tasks; on Cloudflare Workers the
+adapter ties tasks and after-response callbacks to `ctx.waitUntil`, so they run
+within the platform's post-response execution window. AWS Lambda has no
+equivalent primitive — the execution environment may freeze right after the
+response — so use an external queue for post-response work on Lambda.
 
 ## Deploy Anywhere
 
