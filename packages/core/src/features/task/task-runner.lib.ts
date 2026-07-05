@@ -29,9 +29,9 @@ type TaskRunnerState = {
 };
 
 /** @throws {ZeltLifecycleStateError} */
-const assertRunning = (state: TaskRunnerState): void => {
+const assertRunning = (state: TaskRunnerState, operation: 'run' | 'runAndWait'): void => {
   if (state.shutdownRequested) {
-    throw new ZeltLifecycleStateError({ operation: 'run', currentState: 'disposed' });
+    throw new ZeltLifecycleStateError({ operation, currentState: 'disposed' });
   }
 };
 
@@ -57,7 +57,7 @@ export const createTaskRunner = (onFailure: TaskFailureHandler): TaskRunner => {
 
   /** @throws {ZeltLifecycleStateError} */
   const run = (task: TaskFunction, options: TaskOptions = {}): void => {
-    assertRunning(state);
+    assertRunning(state, 'run');
     let activeTask: Promise<void>;
     activeTask = Promise.resolve()
       .then(() => runInTaskContext(state, task))
@@ -76,7 +76,7 @@ export const createTaskRunner = (onFailure: TaskFailureHandler): TaskRunner => {
 
   /** @throws {ZeltLifecycleStateError | unknown} from task() */
   const runAndWait = async (task: TaskFunction): Promise<void> => {
-    assertRunning(state);
+    assertRunning(state, 'runAndWait');
     let activeTask: Promise<void>;
     activeTask = Promise.resolve()
       .then(() => runInTaskContext(state, task))

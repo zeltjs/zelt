@@ -82,6 +82,8 @@ describe('createTaskRunner', () => {
     await runner.shutdown();
 
     await expect(runner.runAndWait(() => {})).rejects.toThrow(ZeltLifecycleStateError);
+    // Guards against the operation label regressing to the shared 'run' default.
+    await expect(runner.runAndWait(() => {})).rejects.toThrow(/runAndWait/);
   });
 
   it('shutdown() waits for active tasks to settle', async () => {

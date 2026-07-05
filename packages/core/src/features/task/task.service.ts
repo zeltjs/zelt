@@ -29,6 +29,9 @@ export class TaskService {
     return this.runner.runAndWait(task);
   }
 
+  // ZeltContextNotAvailableError is declared per the throw-trace convention because it
+  // statically propagates from registerAfterResponseCallback, but it is unreachable here:
+  // registerAfterResponseCallback checks hasContext() before touching context internals.
   /** @throws {ZeltLifecycleStateError | ZeltContextNotAvailableError} */
   afterResponse(task: TaskFunction, options?: TaskOptions): void {
     const registered = registerAfterResponseCallback(() => this.runner.run(task, options));
