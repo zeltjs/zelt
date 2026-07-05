@@ -163,8 +163,8 @@ export { Hourly } from './features/scheduler/schedule/hourly.decorator';
 export { Scheduled } from './features/scheduler/schedule/scheduled.decorator';
 export { Weekly } from './features/scheduler/schedule/weekly.decorator';
 export type { SchedulerClass } from './features/scheduler/scheduler.types';
-export { TaskService } from './features/task/task.service';
-export type { TaskFunction, TaskOptions } from './features/task/task.types';
+export type { TaskFunction, TaskOptions } from './features/task';
+export { TaskService } from './features/task';
 export type { Lifecycle } from './kernel';
 export { LifecycleManager, runInContext } from './kernel';
 // DI primitives
