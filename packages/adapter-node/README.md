@@ -32,3 +32,16 @@ const nodeApp = await onNode(app);
 const server = await nodeApp.http.listen({ port: 3000 });
 console.log(`Listening on port ${server.address.port}`);
 ```
+
+Each named `http()` feature gets its own namespace with an independent `listen()`, sharing the same runtime and services:
+
+```typescript
+const app = createApp([
+  http({ controllers: [HelloController] }),
+  http({ name: 'admin', controllers: [AdminController] }),
+]);
+
+const nodeApp = await onNode(app);
+await nodeApp.http.listen(3000);
+await nodeApp.admin.listen(8080);
+```
