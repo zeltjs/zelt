@@ -87,7 +87,9 @@ export class HttpService {
         this.lifecycleManager,
         routerToken,
         (error) => {
-          this.logger.error('After-response callback failed', { error });
+          // Sink for both after-response callback rejections and waitUntil
+          // registration failures — keep the message generic enough for both.
+          this.logger.error('After-response execution failed', { error });
         },
         (promise) => this.waitUntilAdaptor.waitUntil(promise),
       ),
