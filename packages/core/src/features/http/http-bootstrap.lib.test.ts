@@ -47,6 +47,32 @@ describe('createBootstrapMiddleware', () => {
     }
   });
 
+  it('forwards a synchronously throwing waitUntil hook to the error handler without failing the request', async () => {
+    const lifecycle = {
+      startupPending: vi.fn().mockResolvedValue(undefined),
+    } as unknown as LifecycleManager;
+    const onAfterResponseError = vi.fn();
+    const error = new Error('waitUntil rejected registration');
+    const waitUntil = vi.fn(() => {
+      throw error;
+    });
+    const next = vi.fn(async () => {});
+    const middleware = createBootstrapMiddleware(
+      lifecycle,
+      Symbol('router'),
+      onAfterResponseError,
+      waitUntil,
+    );
+
+    await expect(
+      middleware({ req: { raw: new Request('https://example.test/') } } as never, next),
+    ).resolves.toBeUndefined();
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(waitUntil).toHaveBeenCalledOnce();
+    expect(onAfterResponseError).toHaveBeenCalledWith(error);
+  });
+
   it('forwards after-response callback rejections to the provided error handler', async () => {
     vi.useFakeTimers();
     try {

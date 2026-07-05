@@ -12,6 +12,14 @@ Cloudflare Workers adapter for Zelt.
 pnpm add @zeltjs/adapter-cloudflare-workers
 ```
 
+This adapter uses `AsyncLocalStorage` from `node:async_hooks`, so the
+`nodejs_compat` compatibility flag (or the narrower `nodejs_als`) must be
+enabled in your `wrangler.toml` / `wrangler.jsonc`:
+
+```toml
+compatibility_flags = ["nodejs_compat"]
+```
+
 ## Usage
 
 ```typescript
