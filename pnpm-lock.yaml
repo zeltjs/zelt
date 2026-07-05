@@ -232,6 +232,9 @@ importers:
 
   packages/adapter-electron:
     dependencies:
+      '@zeltjs/adapter-node':
+        specifier: workspace:*
+        version: link:../adapter-node
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../core

@@ -271,6 +271,24 @@ describe('onNode with HTTP', () => {
     expect(res.status).toBe(200);
   });
 
+  it('rejects instead of hanging when the port is already in use', async () => {
+    @Controller('/')
+    class ConflictController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [ConflictController] })]);
+    nodeApp = await onNode(app);
+
+    if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
+    handle = await nodeApp.http.listen(0);
+
+    await expect(nodeApp.http.listen(handle.address.port)).rejects.toThrow();
+  });
+
   it('listens on each named HTTP namespace independently', async () => {
     @Controller('/')
     class PublicController {

@@ -54,6 +54,33 @@ const data = await response.json();
 
 The channel string must match across all three layers.
 
+### Multiple HTTP features
+
+Configure additional named `http()` features alongside the renderer-facing one:
+
+```typescript
+const app = createApp([
+  http({ controllers: [ApiController] }),
+  http({ name: 'mcp', controllers: [McpController] }),
+]);
+
+const electronZelt = await onElectron(app);
+```
+
+By default the `http` feature is bound to the IPC bridge; pass `ipcFeature` to bind a different one instead:
+
+```typescript
+const electronZelt = await onElectron(app, { ipcFeature: 'mcp' });
+```
+
+Any other feature can be served over TCP instead of IPC — handy for exposing an MCP server or other external API from the same runtime and shared services, keeping only the router and trust boundary separate from the renderer-facing API:
+
+```typescript
+await electronZelt.mcp.listen({ port: 8765, hostname: '127.0.0.1' });
+```
+
+Breaking change: the old `electronZelt.fetch` shorthand is gone — use `electronZelt.http.fetch` instead.
+
 ## Learn More
 
 - [Getting Started with Electron](https://zeltjs.com/docs/getting-started/electron) — full walkthrough with electron-vite

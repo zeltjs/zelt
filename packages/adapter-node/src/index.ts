@@ -1,4 +1,6 @@
 export { createAdaptorServer } from '@hono/node-server';
+export type { ListenOptions } from './listen.lib';
+export { createListenForHttp } from './listen.lib';
 export { NodeCliConfig } from './node-cli.config';
 export type { ServerHandle } from './on-node';
 export { onNode } from './on-node';
