@@ -39,15 +39,17 @@ class BindingsController {
   }
 }
 
-const createAfterResponseController = (events: string[]) => {
+const createAfterResponseController = (events: string[], gate: Promise<void>) => {
   @Controller('/after-response')
   class AfterResponseController {
     constructor(private readonly tasks = inject(TaskService)) {}
 
     @Get('/')
     trigger() {
-      this.tasks.afterResponse(() => {
-        events.push('task-ran');
+      this.tasks.afterResponse(async () => {
+        events.push('task-started');
+        await gate;
+        events.push('task-finished');
       });
       return { triggered: true };
     }
@@ -208,7 +210,11 @@ describe('onCloudflareWorkers', () => {
 
   it('extends execution for afterResponse tasks via ctx.waitUntil', async () => {
     const events: string[] = [];
-    const app = createApp([http({ controllers: [createAfterResponseController(events)] })]);
+    let releaseGate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+    const app = createApp([http({ controllers: [createAfterResponseController(events, gate)] })]);
     const workersApp = await onCloudflareWorkers(app);
     const recorded: Promise<unknown>[] = [];
     const ctx = {
@@ -228,11 +234,29 @@ describe('onCloudflareWorkers', () => {
     expect(res.status).toBe(200);
     // The task must not have run synchronously with the response.
     expect(events).toEqual([]);
-    // More than the response promise was registered: the after-response flush
-    // promise is also extended through ctx.waitUntil.
-    expect(recorded.length).toBeGreaterThan(1);
 
-    await Promise.all(recorded);
-    await vi.waitFor(() => expect(events).toEqual(['task-ran']));
+    // The flush fired: the task started and is now blocked on the gate.
+    await vi.waitFor(() => expect(events).toEqual(['task-started']));
+
+    // Exactly three registrations: the response promise (adapter fetch), the
+    // after-response flush promise (http bootstrap), and the task's own
+    // promise (task runner extend) — the last one is this task's deliverable.
+    expect(recorded).toHaveLength(3);
+
+    // The task's own promise must still be pending while the task is gated;
+    // this proves ctx.waitUntil tracks task completion, not just the flush.
+    const taskPromise = recorded[2];
+    if (taskPromise === undefined) throw new Error('unreachable: length asserted above');
+    let settled = false;
+    void taskPromise.then(() => {
+      settled = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+
+    releaseGate();
+    await taskPromise;
+    expect(settled).toBe(true);
+    expect(events).toEqual(['task-started', 'task-finished']);
   });
 });
