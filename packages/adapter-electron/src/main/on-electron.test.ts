@@ -93,6 +93,7 @@ describe('onElectron', () => {
 
         expect(electronApp.mcp).toHaveProperty('listen');
         expect('listen' in electronApp).toBe(false);
+        expect('fetch' in electronApp).toBe(false);
       } finally {
         await electronApp.shutdown();
       }
@@ -142,6 +143,7 @@ describe('onElectron', () => {
   describe('missing ipcFeature', () => {
     it('rejects with ZeltElectronIpcFeatureNotFoundError when no feature matches the key', async () => {
       await expect(
+        // @ts-expect-error runtime safety-net test: 'does-not-exist' is not a configured feature key.
         onElectron(createMultiFeatureApp(), { ipcFeature: 'does-not-exist' }),
       ).rejects.toThrow(ZeltElectronIpcFeatureNotFoundError);
     });
@@ -153,12 +155,33 @@ describe('onElectron', () => {
 
       const app = createApp([http({ controllers: [HttpOnlyController] }), mcpFeature]);
 
-      await expect(onElectron(app, { ipcFeature: 'does-not-exist' })).rejects.toThrow(
-        ZeltElectronIpcFeatureNotFoundError,
-      );
+      await expect(
+        // @ts-expect-error runtime safety-net test: 'does-not-exist' is not a configured feature key.
+        onElectron(app, { ipcFeature: 'does-not-exist' }),
+      ).rejects.toThrow(ZeltElectronIpcFeatureNotFoundError);
 
       expect(shutdownSpy).toHaveBeenCalled();
     });
+
+    it('rejects with AggregateError when cleanup shutdown also fails', async () => {
+      const mcpFeature = http({ name: 'mcp' as const, controllers: [McpOnlyController] });
+      mcpFeature.registerShutdown(() => {
+        throw new Error('shutdown callback failed');
+      });
+
+      const app = createApp([http({ controllers: [HttpOnlyController] }), mcpFeature]);
+
+      await expect(
+        // @ts-expect-error runtime safety-net test: 'does-not-exist' is not a configured feature key.
+        onElectron(app, { ipcFeature: 'does-not-exist' }),
+      ).rejects.toThrow(AggregateError);
+    });
+
+    const _assertIpcFeatureMustMatchConfiguredKeys = (): void => {
+      // @ts-expect-error 'nope' is not a key of any HttpFeature configured on this app.
+      void onElectron(createMultiFeatureApp(), { ipcFeature: 'nope' });
+    };
+    void _assertIpcFeatureMustMatchConfiguredKeys;
   });
 
   describe('shutdown', () => {

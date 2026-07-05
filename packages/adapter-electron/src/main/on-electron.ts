@@ -19,12 +19,17 @@ export { ZeltElectronIpcFeatureNotFoundError } from './on-electron.exceptions';
 
 type IpcChannel = `http://${string}` | `https://${string}`;
 
-export type ElectronAppOptions = {
+export type ElectronAppOptions<TIpcFeature extends string = string> = {
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
   readonly ipcChannel?: IpcChannel;
-  readonly ipcFeature?: string;
+  readonly ipcFeature?: TIpcFeature;
 };
+
+type HttpFeatureKeys<F extends readonly ConfiguredFeature[]> = Extract<
+  F[number],
+  HttpFeature<string>
+>['key'];
 
 type EnvironmentElectronAppPart = {
   readonly shutdown: () => Promise<void>;
@@ -101,7 +106,7 @@ const createElectronApp = (
 
 export function onElectron<const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
-  options?: ElectronAppOptions,
+  options?: ElectronAppOptions<HttpFeatureKeys<F>>,
 ): Promise<ElectronAppForFeatures<F>>;
 
 /** @throws {ZeltContextNotAvailableError | ZeltElectronIpcFeatureNotFoundError | AggregateError} */
@@ -115,8 +120,15 @@ export async function onElectron<const F extends readonly ConfiguredFeature[]>(
     warmup: options.warmup ?? true,
   });
 
+  // declared outside the body so cleanup can remove the IPC handler even if a step
+  // after setupIpcBridge (e.g. createElectronApp) throws before onElectron returns.
+  let removeIpcHandler: (() => void) | undefined;
+
   return withCleanupOnError(
-    () => readyApp.shutdown(),
+    async () => {
+      removeIpcHandler?.();
+      await readyApp.shutdown();
+    },
     async () => {
       const ipcFeature = options.ipcFeature ?? HTTP_FEATURE_KEY;
       const ipcEntry = readyApp
@@ -130,14 +142,14 @@ export async function onElectron<const F extends readonly ConfiguredFeature[]>(
       const electronAdaptor = await readyApp.get(ElectronAdaptor);
       const channel = options.ipcChannel ?? DEFAULT_IPC_CHANNEL;
 
-      const removeIpcHandler = setupIpcBridge(
+      removeIpcHandler = setupIpcBridge(
         electronAdaptor.ready.ipcMain,
         ipcEntry.capabilities.fetch,
         channel,
       );
 
       const shutdown = async (): Promise<void> => {
-        removeIpcHandler();
+        removeIpcHandler?.();
         await readyApp.shutdown();
       };
 
