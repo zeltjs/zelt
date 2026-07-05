@@ -1,7 +1,7 @@
 import { injectable } from '@needle-di/core';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Context } from 'hono';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../app';
 import { Config } from '../../built-in-service';
 import type { Lifecycle } from '../../kernel';
@@ -14,6 +14,7 @@ import type { Next } from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
+import { registerAfterResponseCallback } from './request';
 import { getContext, request, setContext } from './request/injection';
 import { response } from './response';
 import { Controller } from './routing/controller.decorator';
@@ -90,6 +91,8 @@ const buildApp = async () => {
   ]);
   return app.createRuntime();
 };
+
+const nextMacrotask = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('createApp() — fetch', () => {
   it('serves a constructor-injected GET endpoint with pathParam', async () => {
@@ -987,6 +990,101 @@ describe('errorHandlers', () => {
     await readyApp.http.request('/test/');
     expect(executed).toEqual(['middleware', 'handler', 'errorHandler']);
   });
+
+  it('starts after-response callbacks after async error handler completion', async () => {
+    const events: string[] = [];
+    let finishErrorHandler!: () => void;
+    let finishMiddleware!: () => void;
+    const errorHandlerGate = new Promise<void>((resolve) => {
+      finishErrorHandler = resolve;
+    });
+    const middlewareGate = new Promise<void>((resolve) => {
+      finishMiddleware = resolve;
+    });
+
+    const AfterMiddleware = fromHonoMiddleware(async (_c, next) => {
+      events.push('middleware-before');
+      await next();
+      events.push('middleware-after-start');
+      await middlewareGate;
+      events.push('middleware-after-finished');
+    });
+
+    @ErrorHandler
+    class AsyncErrorHandler {
+      async onError(_error: Error, _c: Context) {
+        events.push('error-handler-start');
+        await errorHandlerGate;
+        events.push('error-handler-finished');
+        return Response.json({ handled: true }, { status: 500 });
+      }
+    }
+
+    @Controller('/test')
+    class TestController {
+      @Get('/')
+      get() {
+        registerAfterResponseCallback(() => {
+          events.push('after-response');
+        });
+        throw new Error('test');
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [TestController],
+        middlewares: [AfterMiddleware],
+        errorHandlers: [AsyncErrorHandler],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    const responsePromise = readyApp.http.request('/test/');
+    await vi.waitFor(() => expect(events).toEqual(['middleware-before', 'error-handler-start']));
+
+    expect(events).toEqual(['middleware-before', 'error-handler-start']);
+
+    finishErrorHandler();
+    await vi.waitFor(() =>
+      expect(events).toEqual([
+        'middleware-before',
+        'error-handler-start',
+        'error-handler-finished',
+        'middleware-after-start',
+      ]),
+    );
+    await nextMacrotask();
+
+    expect(events).toEqual([
+      'middleware-before',
+      'error-handler-start',
+      'error-handler-finished',
+      'middleware-after-start',
+    ]);
+
+    finishMiddleware();
+    const response = await responsePromise;
+    expect(response.status).toBe(500);
+    expect(events).toEqual([
+      'middleware-before',
+      'error-handler-start',
+      'error-handler-finished',
+      'middleware-after-start',
+      'middleware-after-finished',
+    ]);
+
+    await vi.waitFor(() =>
+      expect(events).toEqual([
+        'middleware-before',
+        'error-handler-start',
+        'error-handler-finished',
+        'middleware-after-start',
+        'middleware-after-finished',
+        'after-response',
+      ]),
+    );
+  });
 });
 
 describe('createApp 2-phase initialization', () => {
@@ -1351,6 +1449,156 @@ describe('nested children', () => {
 
     const defaultRes = await readyApp.http.request('/api/test/default-error');
     expect(defaultRes.status).toBe(500);
+  });
+
+  it('starts child after-response callbacks after parent async error handler completion', async () => {
+    const events: string[] = [];
+    let finishParentHandler!: () => void;
+    const parentHandlerGate = new Promise<void>((resolve) => {
+      finishParentHandler = resolve;
+    });
+
+    @ErrorHandler
+    class ParentHandler {
+      async onError(_error: Error, _c: Context) {
+        events.push('parent-start');
+        await parentHandlerGate;
+        events.push('parent-finished');
+        return Response.json({ handler: 'parent' }, { status: 400 });
+      }
+    }
+
+    @ErrorHandler
+    class ChildHandler {
+      onError(_error: Error, _c: Context) {
+        events.push('child-rethrow');
+        return undefined;
+      }
+    }
+
+    @Controller('/test')
+    class ChildController {
+      @Get('/')
+      get() {
+        registerAfterResponseCallback(() => {
+          events.push('after-response');
+        });
+        throw new Error('parent-handles');
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [],
+        errorHandlers: [ParentHandler],
+        children: [
+          http({
+            path: '/api',
+            controllers: [ChildController],
+            errorHandlers: [ChildHandler],
+          }),
+        ],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    const responsePromise = readyApp.http.request('/api/test/');
+    await vi.waitFor(() => expect(events).toEqual(['child-rethrow', 'parent-start']));
+    await nextMacrotask();
+
+    expect(events).toEqual(['child-rethrow', 'parent-start']);
+
+    finishParentHandler();
+    const response = await responsePromise;
+    expect(response.status).toBe(400);
+    expect(events).toEqual(['child-rethrow', 'parent-start', 'parent-finished']);
+
+    await vi.waitFor(() =>
+      expect(events).toEqual([
+        'child-rethrow',
+        'parent-start',
+        'parent-finished',
+        'after-response',
+      ]),
+    );
+  });
+
+  it('starts child handled after-response callbacks after parent middleware post-processing', async () => {
+    const events: string[] = [];
+    let finishParentMiddleware!: () => void;
+    const parentMiddlewareGate = new Promise<void>((resolve) => {
+      finishParentMiddleware = resolve;
+    });
+
+    const ParentMiddleware = fromHonoMiddleware(async (_c, next) => {
+      events.push('parent-before');
+      await next();
+      events.push('parent-after-start');
+      await parentMiddlewareGate;
+      events.push('parent-after-finished');
+    });
+
+    @ErrorHandler
+    class ChildHandler {
+      onError(_error: Error, _c: Context) {
+        events.push('child-handler');
+        return Response.json({ handler: 'child' }, { status: 409 });
+      }
+    }
+
+    @Controller('/test')
+    class ChildController {
+      @Get('/')
+      get() {
+        registerAfterResponseCallback(() => {
+          events.push('after-response');
+        });
+        throw new Error('child-handles');
+      }
+    }
+
+    const app = createApp([
+      http({
+        controllers: [],
+        middlewares: [ParentMiddleware],
+        children: [
+          http({
+            path: '/api',
+            controllers: [ChildController],
+            errorHandlers: [ChildHandler],
+          }),
+        ],
+      }),
+    ]);
+    const readyApp = await app.createRuntime();
+
+    const responsePromise = readyApp.http.request('/api/test/');
+    await vi.waitFor(() =>
+      expect(events).toEqual(['parent-before', 'child-handler', 'parent-after-start']),
+    );
+    await nextMacrotask();
+
+    expect(events).toEqual(['parent-before', 'child-handler', 'parent-after-start']);
+
+    finishParentMiddleware();
+    const response = await responsePromise;
+    expect(response.status).toBe(409);
+    expect(events).toEqual([
+      'parent-before',
+      'child-handler',
+      'parent-after-start',
+      'parent-after-finished',
+    ]);
+
+    await vi.waitFor(() =>
+      expect(events).toEqual([
+        'parent-before',
+        'child-handler',
+        'parent-after-start',
+        'parent-after-finished',
+        'after-response',
+      ]),
+    );
   });
 
   it('multi-level nesting works (3 levels)', async () => {

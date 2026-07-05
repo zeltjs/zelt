@@ -120,6 +120,58 @@ const server = await nodeApp.http.listen({ port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 
+## Background Tasks
+
+Use the built-in tasks feature for process-local side effects that should not
+block the current work: run them in the background now, or after the current
+HTTP response is sent. Tasks are intentionally ephemeral — they are not
+persisted, not retried, and pending tasks are lost when the process exits.
+Use an external queue for durable or retryable work.
+
+No feature registration is needed — inject `TaskService` wherever you need it.
+
+```typescript
+import { Controller, Post, TaskService, createApp, http, inject } from '@zeltjs/core';
+
+@Controller('/users')
+class UserController {
+  constructor(private readonly tasks = inject(TaskService)) {}
+
+  @Post('/')
+  async create() {
+    // Runs after the HTTP response is sent (waitUntil-style)
+    this.tasks.afterResponse(() => sendWelcomeEmail(), { name: 'send-welcome-email' });
+    return { queued: true };
+  }
+}
+
+const app = createApp([http({ controllers: [UserController] })]);
+const runtime = await app.createRuntime();
+
+const tasks = await runtime.get(TaskService);
+
+// Fire-and-forget background execution
+tasks.run(() => rebuildSearchIndex(), { name: 'rebuild-search-index' });
+
+// Wait for completion
+await tasks.runAndWait(() => warmUpCaches());
+```
+
+Failed background tasks are reported through the built-in logger with the
+task name. Outside an HTTP request context, `afterResponse()` behaves like
+`run()`. On shutdown the runtime waits for active tasks to settle, so a
+long-running task delays shutdown.
+
+How far background execution extends depends on the runtime, resolved through
+the `WaitUntilAdaptor` abstraction: on long-lived processes (Node.js, Bun,
+Electron) the default no-op adaptor applies and execution is best-effort — a
+graceful shutdown drains active tasks, but a crash or forced kill loses them;
+on Cloudflare Workers the adapter ties tasks and after-response callbacks to
+`ctx.waitUntil`, so they run within the platform's post-response execution
+window. AWS Lambda has no equivalent primitive — the execution environment may
+freeze right after the response — so use an external queue for post-response
+work on Lambda.
+
 ## Deploy Anywhere
 
 Same application code, different adapters:

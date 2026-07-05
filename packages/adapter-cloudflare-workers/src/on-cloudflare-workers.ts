@@ -7,6 +7,7 @@ import type {
 } from '@zeltjs/core';
 import { runWithCloudflareRuntimeContext } from './cloudflare-runtime-context.lib';
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
+import { CloudflareWorkersWaitUntilAdaptor } from './cloudflare-workers-wait-until.adaptor';
 
 export type CloudflareWorkersOptions = {
   readonly configs?: readonly ConfigClass<object>[];
@@ -33,7 +34,7 @@ export const onCloudflareWorkers = async (
 ): Promise<CloudflareWorkersApp> => {
   const readyApp = await app.createRuntime({
     ...(options.configs === undefined ? {} : { configs: options.configs }),
-    fallbackConfigs: [CloudflareWorkersEnvAdaptor],
+    fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
     warmup: options.warmup ?? false,
   });
 

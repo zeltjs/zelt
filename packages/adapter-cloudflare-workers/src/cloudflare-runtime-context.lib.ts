@@ -25,6 +25,9 @@ export const runWithCloudflareRuntimeContext = <T>(
   fn: () => T,
 ): T => storage.run(context, fn);
 
+export const tryGetCloudflareRuntimeContext = (): CloudflareRuntimeContext | undefined =>
+  storage.getStore();
+
 declare global {
   interface Env {}
 }

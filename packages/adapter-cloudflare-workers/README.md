@@ -12,6 +12,14 @@ Cloudflare Workers adapter for Zelt.
 pnpm add @zeltjs/adapter-cloudflare-workers
 ```
 
+This adapter uses `AsyncLocalStorage` from `node:async_hooks`, so the
+`nodejs_compat` compatibility flag (or the narrower `nodejs_als`) must be
+enabled in your `wrangler.toml` / `wrangler.jsonc`:
+
+```toml
+compatibility_flags = ["nodejs_compat"]
+```
+
 ## Usage
 
 ```typescript
@@ -106,3 +114,7 @@ export default { fetch: workers.fetch };
 `bindings.get('DB')` is typed from the augmented global `Env`, so no manual typing is needed.
 
 **Important:** `CloudflareBindings.get()` reads from request-scoped storage populated by `onCloudflareWorkers()`, so it only works during request handling — calling it outside a request (e.g. at module load time) throws.
+
+## Background Tasks
+
+`onCloudflareWorkers()` automatically registers `CloudflareWorkersWaitUntilAdaptor`, which extends `TaskService`'s after-response and fire-and-forget tasks through `ctx.waitUntil`, so the Workers runtime keeps the isolate alive until they finish.
