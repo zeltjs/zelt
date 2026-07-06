@@ -21,3 +21,5 @@ html, body, #root { height: 100%; margin: 0; font-family: ui-sans-serif, system-
 .kind-service { border-color: #64748b; }
 .kind-service .badge { background: #e2e8f0; color: #334155; }
 .unresolved { border-style: dashed; border-color: #ef4444; }
+/* read-only 表示のため接続ハンドルは不可視化する（エッジ描画自体には Handle が必要） */
+.react-flow__handle { opacity: 0; pointer-events: none; }

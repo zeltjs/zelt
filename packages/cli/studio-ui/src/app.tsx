@@ -1,5 +1,5 @@
 import type { Edge, NodeChange, NodeProps } from '@xyflow/react';
-import { Background, Controls, ReactFlow } from '@xyflow/react';
+import { Background, Controls, Handle, Position, ReactFlow } from '@xyflow/react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -12,11 +12,14 @@ type AnalyzeResult =
   | { ok: true; readonly graph: DependencyGraph }
   | { ok: false; readonly errorOutput: string };
 
+// Handle が無いと React Flow はエッジを描画しない（read-only でも必須）
 const CardNode = ({ data }: NodeProps<FlowNode>): JSX.Element => (
   <div className={`card kind-${data.kind}${data.unresolved ? ' unresolved' : ''}`}>
+    <Handle type="target" position={Position.Top} />
     <span className="badge">{data.kind}</span>
     <strong>{data.className}</strong>
     <small>{data.filePath}</small>
+    <Handle type="source" position={Position.Bottom} />
   </div>
 );
 
