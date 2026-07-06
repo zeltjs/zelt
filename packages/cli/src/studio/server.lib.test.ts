@@ -111,6 +111,48 @@ describe('startStudioServer', () => {
     ).rejects.toThrow();
   });
 
+  it('rejects cross-site POST /api/reload with a foreign Origin and does not re-analyze', async () => {
+    let calls = 0;
+    server = await startStudioServer({
+      port: 0,
+      staticDir: makeStaticDir(),
+      analyze: () => {
+        calls += 1;
+        return Promise.resolve(okResult);
+      },
+    });
+    const res = await fetch(`${server.url}/api/reload`, {
+      method: 'POST',
+      headers: { Origin: 'http://evil.example' },
+    });
+    expect(res.status).toBe(403);
+    // 起動時の1回のみ。Origin 拒否で analyzeOnce() が呼ばれていない
+    expect(calls).toBe(1);
+  });
+
+  it('allows POST /api/reload with a same-origin localhost Origin', async () => {
+    server = await startStudioServer({
+      port: 0,
+      staticDir: makeStaticDir(),
+      analyze: () => Promise.resolve(okResult),
+    });
+    const res = await fetch(`${server.url}/api/reload`, {
+      method: 'POST',
+      headers: { Origin: server.url },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('allows POST /api/reload when no Origin header is present (e.g. curl)', async () => {
+    server = await startStudioServer({
+      port: 0,
+      staticDir: makeStaticDir(),
+      analyze: () => Promise.resolve(okResult),
+    });
+    const res = await fetch(`${server.url}/api/reload`, { method: 'POST' });
+    expect(res.status).toBe(200);
+  });
+
   it('coalesces concurrent reloads into a single analysis', async () => {
     let calls = 0;
     server = await startStudioServer({

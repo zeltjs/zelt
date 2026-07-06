@@ -34,6 +34,18 @@ describe('resolvePort', () => {
   it('returns undefined for a non-numeric value', () => {
     expect(resolvePort('not-a-port')).toBeUndefined();
   });
+
+  it('returns undefined for a negative port', () => {
+    expect(resolvePort('-1')).toBeUndefined();
+  });
+
+  it('returns undefined for a port above 65535', () => {
+    expect(resolvePort('70000')).toBeUndefined();
+  });
+
+  it('returns undefined for a non-integer port', () => {
+    expect(resolvePort('1.5')).toBeUndefined();
+  });
 });
 
 describe('handleExport', () => {

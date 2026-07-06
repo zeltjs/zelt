@@ -18,12 +18,15 @@ type TSTypeChecker = import('typescript').TypeChecker;
 const DEFAULT_TSCONFIG = './tsconfig.json';
 const CONFIG_DECORATOR_NAME = 'Config';
 
+// namespace import 経由 (`@ns.Controller()`) のデコレータは callee が
+// PropertyAccessExpression になるため、Identifier に直接絞らず再帰的に辿る
 const getDecoratorName = (
   expr: import('typescript').Expression,
   ts: TypeScriptModule,
 ): string | undefined => {
   if (ts.isIdentifier(expr)) return expr.text;
-  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) return expr.expression.text;
+  if (ts.isPropertyAccessExpression(expr)) return expr.name.text;
+  if (ts.isCallExpression(expr)) return getDecoratorName(expr.expression, ts);
   return undefined;
 };
 

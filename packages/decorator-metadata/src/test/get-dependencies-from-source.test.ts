@@ -34,6 +34,19 @@ describe('getDependenciesFromSource', () => {
     if (result.isErr()) expect(result.error.code).toBe('SOURCE_NOT_FOUND');
   });
 
+  it('resolves a namespace-imported (PropertyAccessExpression) decorator name on the dependency class', async () => {
+    const result = await getDependenciesFromSource(
+      resolve(__dirname, './fixtures/deps/namespace-decorator-dep.ts'),
+      'NamespaceDepConsumer',
+      { tsconfig: TSCONFIG },
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]?.decorators).toEqual(['Controller']);
+  });
+
   it('returns POSITION_INVALID when class is not in file', async () => {
     const result = await getDependenciesFromSource(
       resolve(__dirname, './fixtures/deps/single-dep.ts'),

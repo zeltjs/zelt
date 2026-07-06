@@ -138,6 +138,21 @@ describe('buildDependencyGraph', () => {
     expect(graph.edges).toHaveLength(0);
   });
 
+  it('keeps two unresolved roots with the same className but different featureKeys distinct', async () => {
+    const graph = await buildDependencyGraph(
+      [
+        { className: 'Ghost', filePath: undefined, kind: 'service', featureKey: 'http' },
+        { className: 'Ghost', filePath: undefined, kind: 'service', featureKey: 'cron' },
+      ],
+      makeResolver(new Map()),
+    );
+
+    expect(graph.nodes).toHaveLength(2);
+    expect(graph.nodes.every((n) => n.unresolved)).toBe(true);
+    expect(graph.nodes.every((n) => n.filePath === '(unknown)')).toBe(true);
+    expect(new Set(graph.nodes.map((n) => n.id)).size).toBe(2);
+  });
+
   it('does not visit the same node twice even if it appears as root and dependency', async () => {
     let calls = 0;
     const resolver: DependencyResolver = (_filePath, className) => {

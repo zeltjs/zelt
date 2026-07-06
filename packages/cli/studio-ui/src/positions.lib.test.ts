@@ -16,4 +16,26 @@ describe('positions', () => {
     window.localStorage.setItem(`zelt-studio:positions:${window.location.host}`, '{not json');
     expect(loadPositions()).toEqual({});
   });
+
+  it('falls back to empty object when stored values are not { x, y } numbers', () => {
+    window.localStorage.setItem(
+      `zelt-studio:positions:${window.location.host}`,
+      JSON.stringify({ a: { x: 'bad', y: 2 } }),
+    );
+    expect(loadPositions()).toEqual({});
+  });
+
+  it('falls back to empty object when the parsed JSON is not an object', () => {
+    window.localStorage.setItem(`zelt-studio:positions:${window.location.host}`, '"just a string"');
+    expect(loadPositions()).toEqual({});
+  });
+
+  it('returns well-shaped data unchanged', () => {
+    const positions = { 'a.ts#A': { x: 1, y: 2 }, 'b.ts#B': { x: -3, y: 0 } };
+    window.localStorage.setItem(
+      `zelt-studio:positions:${window.location.host}`,
+      JSON.stringify(positions),
+    );
+    expect(loadPositions()).toEqual(positions);
+  });
 });

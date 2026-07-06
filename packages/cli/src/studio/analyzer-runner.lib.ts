@@ -1,5 +1,7 @@
+import type { ChildProcessByStdio } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
+import type { Readable } from 'node:stream';
 
 import { GRAPH_MARKER } from './analyzer-protocol';
 import type { DependencyGraph } from './graph/index';
@@ -46,7 +48,12 @@ export type RunAnalyzerOptions = {
   readonly cwd: string;
   readonly analyzerPath: string;
   readonly configFile?: string | undefined;
+  readonly timeoutMs?: number | undefined;
 };
+
+// 大規模プロジェクトの TS Program 構築を考慮した上限。これを超えて子プロセスが
+// 応答しない場合はユーザーの config.app() がハングしているとみなして打ち切る
+export const ANALYZER_TIMEOUT_MS = 120_000;
 
 const require_ = createRequire(import.meta.url);
 
@@ -61,13 +68,27 @@ const analyzerArgs = (options: RunAnalyzerOptions): readonly string[] =>
 
 export const runAnalyzer = (options: RunAnalyzerOptions): Promise<AnalyzeResult> =>
   new Promise((resolvePromise) => {
-    const child = spawn(process.execPath, [resolveTsxCli(), ...analyzerArgs(options)], {
-      cwd: options.cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    let child: ChildProcessByStdio<null, Readable, Readable>;
+    try {
+      child = spawn(process.execPath, [resolveTsxCli(), ...analyzerArgs(options)], {
+        cwd: options.cwd,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (error) {
+      resolvePromise({ ok: false, errorOutput: String(error) });
+      return;
+    }
 
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
+    const timeoutMs = options.timeoutMs ?? ANALYZER_TIMEOUT_MS;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      // SIGTERM はユーザーコードが無視し得るため確実に落とす
+      child.kill('SIGKILL');
+    }, timeoutMs);
+
     child.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk.toString();
     });
@@ -75,9 +96,19 @@ export const runAnalyzer = (options: RunAnalyzerOptions): Promise<AnalyzeResult>
       stderr += chunk.toString();
     });
     child.on('close', (code) => {
+      clearTimeout(timeout);
+      if (timedOut) {
+        const suffix = stderr.trim() !== '' ? `\n${stderr}` : '';
+        resolvePromise({
+          ok: false,
+          errorOutput: `Analyzer timed out after ${timeoutMs}ms${suffix}`,
+        });
+        return;
+      }
       resolvePromise(parseAnalyzerOutput(code, stdout, stderr));
     });
     child.on('error', (error) => {
+      clearTimeout(timeout);
       resolvePromise({ ok: false, errorOutput: String(error) });
     });
   });

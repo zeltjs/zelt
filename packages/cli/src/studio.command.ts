@@ -63,7 +63,9 @@ export const resolvePort = (portArg: string | undefined): number | undefined => 
   const raw = nonEmpty(portArg);
   if (raw === undefined) return DEFAULT_PORT;
   const port = Number(raw);
-  return Number.isNaN(port) ? undefined : port;
+  // server.listen は範囲外ポートで同期 RangeError を投げるため、ここで弾いて
+  // 既存の Invalid port エラーパスに乗せる
+  return Number.isInteger(port) && port >= 0 && port <= 65535 ? port : undefined;
 };
 
 const exportGraph = async (

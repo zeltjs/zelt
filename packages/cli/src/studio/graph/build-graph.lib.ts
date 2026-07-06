@@ -37,9 +37,11 @@ type GraphState = {
   readonly queue: QueueItem[];
 };
 
-// filePath 不明なルートは AST 解析の起点を持てないため即 unresolved 扱いにする
+// filePath 不明なルートは AST 解析の起点を持てないため即 unresolved 扱いにする。
+// featureKey を判別子に含めないと、filePath 不明・同名 className の別ルートが
+// 同一 id に潰れて 2 つ目以降が消える
 const seedUnresolvedRoot = (state: GraphState, root: GraphRoot): void => {
-  const id = nodeId(UNKNOWN_FILE, root.className);
+  const id = nodeId(`${UNKNOWN_FILE}:${root.featureKey}`, root.className);
   if (state.nodes.has(id)) return;
   state.nodes.set(id, {
     id,

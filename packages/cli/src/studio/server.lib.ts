@@ -78,6 +78,20 @@ const createAnalyzeOnce = (analyze: () => Promise<AnalyzeResult>): AnalyzeOnce =
 
 type RequestState = { latest: AnalyzeResult };
 
+// POST /api/reload はユーザーコードを実行する解析を起動するため、simple request
+// （preflight なし）による cross-site 起動を Origin ヘッダで防ぐ。ヘッダ自体が
+// 無いリクエスト（curl 等のブラウザ外クライアント）は既存挙動どおり許可する
+export const isAllowedReloadOrigin = (origin: string | undefined): boolean => {
+  if (origin === undefined) return true;
+  try {
+    // URL.hostname は [::1] を ::1 に正規化する
+    const hostname = new URL(origin).hostname;
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch {
+    return false;
+  }
+};
+
 const handleRequest = async (
   req: IncomingMessage,
   res: ServerResponse,
@@ -93,6 +107,10 @@ const handleRequest = async (
   }
 
   if (req.method === 'POST' && url.pathname === '/api/reload') {
+    if (!isAllowedReloadOrigin(req.headers.origin)) {
+      respondEmpty(res, 403);
+      return;
+    }
     state.latest = await analyzeOnce();
     respondJson(res, state.latest);
     return;
