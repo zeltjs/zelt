@@ -55,6 +55,10 @@ export type RunAnalyzerOptions = {
 // 応答しない場合はユーザーの config.app() がハングしているとみなして打ち切る
 export const ANALYZER_TIMEOUT_MS = 120_000;
 
+// dev-server.lib.ts の KILL_TIMEOUT_MS と同じ猶予。SIGTERM がツリーに行き渡らない
+// 場合に SIGKILL へ切り替えるまでの時間
+const KILL_GRACE_MS = 3000;
+
 const require_ = createRequire(import.meta.url);
 
 // tsx を PATH ではなく自パッケージの runtime dependency から解決する
@@ -65,6 +69,33 @@ const analyzerArgs = (options: RunAnalyzerOptions): readonly string[] =>
   options.configFile !== undefined
     ? [options.analyzerPath, options.configFile]
     : [options.analyzerPath];
+
+// tsx CLI は実行用の node 孫プロセスを spawn し、SIGTERM をそちらへ転送する。
+// SIGKILL は転送不能で wrapper だけが死に、孫が pipe を掴んだまま残って close が
+// 永遠に発火しなくなるため、SIGTERM 起点で止め、猶予後に SIGKILL + pipe destroy する
+const scheduleTimeoutKill = (
+  child: ChildProcessByStdio<null, Readable, Readable>,
+  timeoutMs: number,
+  onTimeout: () => void,
+): { readonly clear: () => void } => {
+  let forceKillTimer: NodeJS.Timeout | undefined;
+  const timer = setTimeout(() => {
+    onTimeout();
+    child.kill('SIGTERM');
+    forceKillTimer = setTimeout(() => {
+      child.kill('SIGKILL');
+      // 孫が生き残っても自分側の pipe を閉じて close を必ず発火させる
+      child.stdout.destroy();
+      child.stderr.destroy();
+    }, KILL_GRACE_MS);
+  }, timeoutMs);
+  return {
+    clear: () => {
+      clearTimeout(timer);
+      if (forceKillTimer !== undefined) clearTimeout(forceKillTimer);
+    },
+  };
+};
 
 export const runAnalyzer = (options: RunAnalyzerOptions): Promise<AnalyzeResult> =>
   new Promise((resolvePromise) => {
@@ -83,11 +114,9 @@ export const runAnalyzer = (options: RunAnalyzerOptions): Promise<AnalyzeResult>
     let stderr = '';
     let timedOut = false;
     const timeoutMs = options.timeoutMs ?? ANALYZER_TIMEOUT_MS;
-    const timeout = setTimeout(() => {
+    const killer = scheduleTimeoutKill(child, timeoutMs, () => {
       timedOut = true;
-      // SIGTERM はユーザーコードが無視し得るため確実に落とす
-      child.kill('SIGKILL');
-    }, timeoutMs);
+    });
 
     child.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk.toString();
@@ -96,7 +125,7 @@ export const runAnalyzer = (options: RunAnalyzerOptions): Promise<AnalyzeResult>
       stderr += chunk.toString();
     });
     child.on('close', (code) => {
-      clearTimeout(timeout);
+      killer.clear();
       if (timedOut) {
         const suffix = stderr.trim() !== '' ? `\n${stderr}` : '';
         resolvePromise({
@@ -108,7 +137,7 @@ export const runAnalyzer = (options: RunAnalyzerOptions): Promise<AnalyzeResult>
       resolvePromise(parseAnalyzerOutput(code, stdout, stderr));
     });
     child.on('error', (error) => {
-      clearTimeout(timeout);
+      killer.clear();
       resolvePromise({ ok: false, errorOutput: String(error) });
     });
   });

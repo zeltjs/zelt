@@ -61,7 +61,9 @@ describe('runAnalyzer', () => {
   it('kills the analyzer and reports a timeout when it hangs', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'zelt-studio-analyzer-timeout-'));
     const hangingAnalyzerPath = join(dir, 'hanging-analyzer.ts');
-    await writeFile(hangingAnalyzerPath, 'await new Promise((r) => setTimeout(r, 60_000));\n');
+    // top-level await は package.json の無い tmpdir では tsx が CJS 変換して即エラーになる。
+    // setInterval でイベントループを掴めばモジュール形式に関係なく決定的にハングする
+    await writeFile(hangingAnalyzerPath, 'setInterval(() => {}, 60_000);\n');
 
     const result = await runAnalyzer({
       cwd: process.cwd(),
