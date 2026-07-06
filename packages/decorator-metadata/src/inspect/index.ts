@@ -1,5 +1,5 @@
 export { getClassMetadata } from '../runtime/index';
-export { getDependencies } from './get-dependencies.lib';
+export { getDependencies, getDependenciesFromSource } from './get-dependencies.lib';
 export { getTypeMetadata } from './get-type-metadata.lib';
 export type {
   ClassMetadata,

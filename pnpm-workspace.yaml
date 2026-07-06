@@ -1,5 +1,6 @@
 packages:
   - 'packages/*'
+  - 'packages/cli/studio-ui'
   - 'examples/*'
   - 'website'
 

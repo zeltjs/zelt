@@ -85,4 +85,5 @@ export type DependencyInfo = {
   readonly sourceFile: string;
   readonly moduleSpecifier: string;
   readonly hasConfigDecorator: boolean;
+  readonly decorators: readonly string[];
 };

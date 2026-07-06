@@ -68,6 +68,33 @@ describe('getDependencies', () => {
     expect(result.value[0]?.hasConfigDecorator).toBe(true);
   });
 
+  it('extracts decorator names of dependency classes', async () => {
+    const { SingleDepService } = await import('./fixtures/deps/single-dep');
+
+    const result = await getDependencies(SingleDepService, {
+      tsconfig: resolve(__dirname, '../../tsconfig.json'),
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    // DependencyA にはローカル @Service が付いている
+    expect(result.value[0]?.decorators).toEqual(['Service']);
+  });
+
+  it('returns empty decorators for undecorated dependency class', async () => {
+    const { PlainDepService } = await import('./fixtures/deps/plain-dep');
+
+    const result = await getDependencies(PlainDepService, {
+      tsconfig: resolve(__dirname, '../../tsconfig.json'),
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value[0]?.decorators).toEqual([]);
+  });
+
   it('returns error for class without decorator metadata', async () => {
     class PlainClass {}
 

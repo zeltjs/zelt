@@ -9,6 +9,10 @@ const config: KnipConfig = {
     'scripts/**',
     'integration/**',
   ],
+  // throw-trace is invoked indirectly via scripts/throw-trace.sh (which wraps
+  // it to exclude studio-ui's JSX from its parser), so knip's package.json
+  // scripts scan can't see the reference.
+  ignoreDependencies: ['throw-trace'],
   ignoreExportsUsedInFile: true,
   // GreetBody/GreetResponse: used via ts-morph AST resolution and AppType inference, invisible to static analysis
   // CreateUserBody/User: used by fixture file consumed via ts-morph at runtime, not traceable by static analysis
@@ -95,7 +99,13 @@ const config: KnipConfig = {
     'packages/cli': {
       // c12 is bundled into the CLI dist, but it imports jiti at runtime.
       // jiti must stay external because its package assets are not bundle-safe.
-      ignoreDependencies: ['jiti'],
+      // tsx is resolved at runtime via createRequire(...).resolve('tsx/cli')
+      // (analyzer-runner.lib.ts) to spawn the analyzer child process, so the
+      // import is invisible to knip's static analysis.
+      // test-fixtures apps are run by the studio analyzer as a disposable tsx
+      // child process, not imported statically, so they're invisible to knip.
+      ignoreDependencies: ['jiti', '@zeltjs/core', 'tsx'],
+      ignore: ['test-fixtures/**'],
     },
     'packages/testing': {
       // node:test requires @types/node for types - referenced via optional peer dependency

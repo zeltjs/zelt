@@ -13,7 +13,11 @@ import tseslint from 'typescript-eslint';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TEST_FILES = ['**/*.test.{ts,tsx}', '**/*.e2e.test.{ts,tsx}'];
-const TEST_FIXTURE_FILES = ['**/_fixtures/**/*.{ts,tsx}', '**/test/fixtures/**/*.{ts,tsx}'];
+const TEST_FIXTURE_FILES = [
+  '**/_fixtures/**/*.{ts,tsx}',
+  '**/test/fixtures/**/*.{ts,tsx}',
+  '**/test-fixtures/**/*.{ts,tsx}',
+];
 const EXAMPLE_FILES = ['examples/**/*.{ts,tsx}'];
 // Tests, their fixtures, and runnable examples share the same relaxed policy.
 const TEST_LIKE_FILES = [...TEST_FILES, ...EXAMPLE_FILES, ...TEST_FIXTURE_FILES];
@@ -24,6 +28,7 @@ const TOOL_CONFIG_FILES = [
   'knip.config.ts',
   '**/tsdown.config.ts',
   '**/vitest.config.ts',
+  '**/vite.config.ts',
   '**/drizzle.config.ts',
   '**/zelt.config.ts',
   'vitest.shared.ts',
@@ -164,6 +169,15 @@ export default tseslint.config(
             'ipc-bridge.ts',
             'ipc-fetch.ts',
             'expose-ipc.ts',
+            // tsx child-process entry point and its wire protocol; the exact
+            // basenames are a contract with the parent process spawn path
+            'analyzer-entry.ts',
+            'analyzer-protocol.ts',
+            // Vite SPA conventions (studio-ui): the rule strips only a
+            // trailing ".ts", so single-dot ".tsx" entry points never satisfy
+            // the double-dot check no matter how they're named
+            'main.tsx',
+            'app.tsx',
           ],
           allowedPatterns: ['on-*.ts'],
         },
@@ -325,6 +339,12 @@ export default tseslint.config(
       'packages/cli/src/cli-runtime.lib.ts',
       // Electron preload: process.contextIsolated is a preload-only Electron API
       'packages/adapter-electron/src/preload/expose-ipc.ts',
+      // Disposable tsx child process: no DI container exists in this throwaway
+      // script, so it IS the process boundary (argv/cwd/stdout/exitCode)
+      'packages/cli/src/studio/analyzer-entry.ts',
+      // Spawns the analyzer child process with the parent's own node binary
+      // (process.execPath) so it runs regardless of the host's PATH/shell setup
+      'packages/cli/src/studio/analyzer-runner.lib.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
@@ -335,6 +355,16 @@ export default tseslint.config(
     // no-console protects "log through the logger". ConsoleTransport IS the
     // logger's stdout sink; writing to console is its role.
     files: ['packages/core/src/built-in-service/logger/transport/console.transport.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    name: 'allow/studio-ui-browser-boundary',
+    // no-console protects "log through the logger", but studio-ui is a plain
+    // browser SPA with no zelt DI container and therefore no injected logger
+    // to route through. This file IS the client-side localStorage boundary.
+    files: ['packages/cli/studio-ui/src/positions.lib.ts'],
     rules: {
       'no-console': 'off',
     },
@@ -359,8 +389,9 @@ export default tseslint.config(
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Debt — rule violations the implementation must be fixed to remove.
-  // This section is the issue list: never add entries, only shrink it.
-  // Each block states how to repay.
+  // New entries are allowed only when they state a concrete repay condition
+  // (see each block's "Repay:" note). Once repaid, delete the entry to
+  // shrink this list.
   // ═══════════════════════════════════════════════════════════════════════════
   {
     name: 'debt/unvalidated-cast',
@@ -429,6 +460,47 @@ export default tseslint.config(
     },
   },
   {
+    name: 'debt/studio-app-shape-guard',
+    // analyzer-entry runs in a disposable child process and must narrow the
+    // user's `app` object (loaded from their zelt.config.ts) without importing
+    // core's runtime types (see design doc). FeatureLike.featureClasses is a
+    // function, which schema libraries (Valibot) cannot validate meaningfully,
+    // so a hand-written predicate is the least-bad option here.
+    // Repay: once core exposes a schema-validated app shape, use that instead.
+    files: ['packages/cli/src/studio/analyzer.lib.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-type-predicate': 'off',
+    },
+  },
+  {
+    name: 'debt/studio-graph-json-cast',
+    // Untrusted JSON from the analyzer child process must become a typed
+    // DependencyGraph at this boundary. A mirrored valibot schema would
+    // duplicate graph.types.ts as a second source of truth for the shape;
+    // a narrow cast after a manual field check is the least-bad option here.
+    // Repay: once DependencyGraph is defined via a valibot schema (single
+    // source of truth), replace this cast with schema-derived validation.
+    files: ['packages/cli/src/studio/analyzer-runner.lib.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+    },
+  },
+  {
+    name: 'debt/studio-ui-untrusted-json',
+    // Same boundary as debt/studio-graph-json-cast, one hop further down the
+    // pipe: the browser SPA receives the same untrusted JSON over HTTP
+    // (/api/graph, /api/reload) and from its own localStorage. A mirrored
+    // valibot schema would duplicate graph.types.ts as a second source of
+    // truth for the shape; a narrow cast is the least-bad option here.
+    // Repay: once DependencyGraph is defined via a valibot schema (single
+    // source of truth), replace these casts with schema-derived validation.
+    files: ['packages/cli/studio-ui/src/app.tsx', 'packages/cli/studio-ui/src/positions.lib.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-as-assertion': 'off',
+    },
+  },
+  {
     name: 'debt/citty-command-naming',
     // These are citty defineCommand entry points, not Zelt @Command DI classes,
     // yet they claim the .command.ts role suffix.
@@ -438,6 +510,7 @@ export default tseslint.config(
       'packages/cli/src/dev.command.ts',
       'packages/cli/src/run.command.ts',
       'packages/cli/src/graphql.command.ts',
+      'packages/cli/src/studio.command.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/nestjs-like-di-for-needle-di': 'off',

@@ -4,6 +4,7 @@ import { buildCommand } from './build.command';
 import { devCommand } from './dev.command';
 import { graphqlCommand } from './graphql.command';
 import { runCommandDef } from './run.command';
+import { studioCommand } from './studio.command';
 
 export const mainCommand = defineCommand({
   meta: {
@@ -16,5 +17,6 @@ export const mainCommand = defineCommand({
     dev: devCommand,
     graphql: graphqlCommand,
     run: runCommandDef,
+    studio: studioCommand,
   },
 });
