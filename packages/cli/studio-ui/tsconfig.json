@@ -1,0 +1,15 @@
+{
+  "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "noEmit": true,
+    "erasableSyntaxOnly": false,
+    "skipLibCheck": true
+  },
+  "include": ["src", "../src/studio/graph/graph.types.ts"]
+}

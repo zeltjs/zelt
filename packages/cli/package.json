@@ -41,22 +41,25 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && pnpm -C studio-ui build",
     "test": "vitest run",
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@zeltjs/decorator-metadata": "workspace:*",
     "chokidar": "5.0.0",
     "citty": "0.1.6",
     "consola": "3.4.2",
     "jiti": "2.6.1",
-    "ts-pattern": "5.7.1"
+    "ts-pattern": "5.7.1",
+    "tsx": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:peer"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@zeltjs/core": "workspace:*",
     "c12": "3.0.4",
     "tsdown": "catalog:",
     "typescript": "catalog:",

@@ -1,0 +1,25 @@
+html, body, #root { height: 100%; margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; }
+.studio { display: flex; flex-direction: column; height: 100%; }
+.studio header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid #e5e7eb; }
+.studio header h1 { font-size: 16px; margin: 0; }
+.studio .error { background: #fef2f2; color: #991b1b; padding: 12px 16px; margin: 0; overflow: auto; max-height: 40%; }
+.react-flow { flex: 1; }
+.card { width: 240px; padding: 10px 12px; border-radius: 8px; border: 1px solid #d1d5db; background: #ffffff; display: flex; flex-direction: column; gap: 2px; }
+.card strong { font-size: 13px; }
+.card small { color: #6b7280; font-size: 10px; word-break: break-all; }
+.card .badge { align-self: flex-start; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 999px; background: #f3f4f6; color: #374151; }
+.kind-controller { border-color: #3b82f6; }
+.kind-controller .badge { background: #dbeafe; color: #1d4ed8; }
+.kind-command { border-color: #8b5cf6; }
+.kind-command .badge { background: #ede9fe; color: #6d28d9; }
+.kind-config { border-color: #f59e0b; }
+.kind-config .badge { background: #fef3c7; color: #b45309; }
+.kind-middleware { border-color: #10b981; }
+.kind-middleware .badge { background: #d1fae5; color: #047857; }
+.kind-error-handler { border-color: #ef4444; }
+.kind-error-handler .badge { background: #fee2e2; color: #b91c1c; }
+.kind-service { border-color: #64748b; }
+.kind-service .badge { background: #e2e8f0; color: #334155; }
+.unresolved { border-style: dashed; border-color: #ef4444; }
+/* read-only 表示のため接続ハンドルは不可視化する（エッジ描画自体には Handle が必要） */
+.react-flow__handle { opacity: 0; pointer-events: none; }

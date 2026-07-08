@@ -7,7 +7,7 @@ import { getInternalClassMetadata } from '../runtime/index';
 import { findClassAtPosition, findClassByName } from './ast.lib';
 import type { DependencyInfo, GetDependenciesOptions, InspectError } from './inspect.types';
 import { resolvePosition } from './position.lib';
-import type { ProgramCacheError } from './program-cache.lib';
+import type { CachedProgram, ProgramCacheError } from './program-cache.lib';
 import { getOrCreateProgram } from './program-cache.lib';
 
 type TypeScriptModule = typeof import('typescript');
@@ -18,20 +18,20 @@ type TSTypeChecker = import('typescript').TypeChecker;
 const DEFAULT_TSCONFIG = './tsconfig.json';
 const CONFIG_DECORATOR_NAME = 'Config';
 
-const isConfigDecorator = (
+// namespace import 経由 (`@ns.Controller()`) のデコレータは callee が
+// PropertyAccessExpression になるため、Identifier に直接絞らず再帰的に辿る
+const getDecoratorName = (
   expr: import('typescript').Expression,
   ts: TypeScriptModule,
-): boolean => {
-  // Handle @Config (identifier)
-  if (ts.isIdentifier(expr)) {
-    return expr.text === CONFIG_DECORATOR_NAME;
-  }
-  // Handle @Config() (call expression)
-  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) {
-    return expr.expression.text === CONFIG_DECORATOR_NAME;
-  }
-  return false;
+): string | undefined => {
+  if (ts.isIdentifier(expr)) return expr.text;
+  if (ts.isPropertyAccessExpression(expr)) return expr.name.text;
+  if (ts.isCallExpression(expr)) return getDecoratorName(expr.expression, ts);
+  return undefined;
 };
+
+const isConfigDecorator = (expr: import('typescript').Expression, ts: TypeScriptModule): boolean =>
+  getDecoratorName(expr, ts) === CONFIG_DECORATOR_NAME;
 
 const hasConfigDecoratorOnClass = (
   decl: import('typescript').Declaration,
@@ -41,6 +41,18 @@ const hasConfigDecoratorOnClass = (
   return (
     decl.modifiers?.some((m) => ts.isDecorator(m) && isConfigDecorator(m.expression, ts)) ?? false
   );
+};
+
+const getClassDecoratorNames = (
+  decl: import('typescript').Declaration,
+  ts: TypeScriptModule,
+): readonly string[] => {
+  if (!ts.isClassDeclaration(decl)) return [];
+  return (decl.modifiers ?? []).flatMap((m) => {
+    if (!ts.isDecorator(m)) return [];
+    const name = getDecoratorName(m.expression, ts);
+    return name === undefined ? [] : [name];
+  });
 };
 
 const findModuleSpecifier = (
@@ -96,6 +108,7 @@ const extractDepFromParam = (
     sourceFile: decl.getSourceFile().fileName,
     moduleSpecifier: findModuleSpecifier(sourceFile, arg.text, ts),
     hasConfigDecorator: hasConfigDecoratorOnClass(decl, ts),
+    decorators: getClassDecoratorNames(decl, ts),
   };
 };
 
@@ -114,6 +127,37 @@ const extractInjectCalls = (
     const dep = extractDepFromParam(param, ts, checker, sourceFile);
     return dep ? [dep] : [];
   });
+};
+
+/**
+ * getDependencies と getDependenciesFromSource は「sourceFile 解決 → classNode 解決 →
+ * inject() 抽出」のボイラープレートを共有するため、classNode の探し方だけを差し替え可能にしている。
+ */
+const resolveClassNodeAndExtract = (
+  cached: CachedProgram,
+  sourceFilePath: string,
+  findClassNode: (sourceFile: TSSourceFile, ts: TypeScriptModule) => TSClassDeclaration | undefined,
+  positionErrorMessage: string,
+): ResultAsync<readonly DependencyInfo[], InspectError> => {
+  const { program, checker, ts } = cached;
+
+  const sourceFile = program.getSourceFile(sourceFilePath);
+  if (!sourceFile) {
+    return errAsync({
+      code: 'SOURCE_NOT_FOUND',
+      message: `Source file not found: ${sourceFilePath}`,
+    });
+  }
+
+  const classNode = findClassNode(sourceFile, ts);
+  if (!classNode) {
+    return errAsync({
+      code: 'POSITION_INVALID',
+      message: positionErrorMessage,
+    });
+  }
+
+  return okAsync(extractInjectCalls(classNode, ts, checker, sourceFile));
 };
 
 /** @throws {UnsupportedTypeScriptVersionError} */
@@ -139,33 +183,39 @@ export const getDependencies = (
 
   const tsconfigPath = resolve(options?.tsconfig ?? DEFAULT_TSCONFIG);
 
-  return getOrCreateProgram(tsconfigPath).andThen((cached) => {
-    const { program, checker, ts } = cached;
+  return getOrCreateProgram(tsconfigPath).andThen((cached) =>
+    resolveClassNodeAndExtract(
+      cached,
+      storedPos.sourceFile,
+      (sourceFile, ts) => {
+        const pos = ts.getPositionOfLineAndCharacter(
+          sourceFile,
+          storedPos.line - 1,
+          storedPos.column - 1,
+        );
+        return (
+          findClassAtPosition(sourceFile, pos, ts) ?? findClassByName(sourceFile, cls.name, ts)
+        );
+      },
+      `No class found at position ${storedPos.line}:${storedPos.column} or by name ${cls.name}`,
+    ),
+  );
+};
 
-    const sourceFile = program.getSourceFile(storedPos.sourceFile);
-    if (!sourceFile) {
-      return errAsync<readonly DependencyInfo[], InspectError>({
-        code: 'SOURCE_NOT_FOUND',
-        message: `Source file not found: ${storedPos.sourceFile}`,
-      });
-    }
+/** @throws {UnsupportedTypeScriptVersionError} */
+export const getDependenciesFromSource = (
+  sourceFilePath: string,
+  className: string,
+  options?: GetDependenciesOptions,
+): ResultAsync<readonly DependencyInfo[], InspectError | ProgramCacheError> => {
+  const tsconfigPath = resolve(options?.tsconfig ?? DEFAULT_TSCONFIG);
 
-    const pos = ts.getPositionOfLineAndCharacter(
-      sourceFile,
-      storedPos.line - 1,
-      storedPos.column - 1,
-    );
-
-    const classNode =
-      findClassAtPosition(sourceFile, pos, ts) ?? findClassByName(sourceFile, cls.name, ts);
-    if (!classNode || !ts.isClassDeclaration(classNode)) {
-      return errAsync<readonly DependencyInfo[], InspectError>({
-        code: 'POSITION_INVALID',
-        message: `No class found at position ${storedPos.line}:${storedPos.column} or by name ${cls.name}`,
-      });
-    }
-
-    const deps = extractInjectCalls(classNode, ts, checker, sourceFile);
-    return okAsync(deps);
-  });
+  return getOrCreateProgram(tsconfigPath).andThen((cached) =>
+    resolveClassNodeAndExtract(
+      cached,
+      sourceFilePath,
+      (sourceFile, ts) => findClassByName(sourceFile, className, ts),
+      `No class named ${className} in ${sourceFilePath}`,
+    ),
+  );
 };
