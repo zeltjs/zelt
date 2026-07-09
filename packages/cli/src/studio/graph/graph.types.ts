@@ -1,3 +1,5 @@
+import type { ClassSource } from '@zeltjs/decorator-metadata/inspect';
+
 export type GraphNodeKind =
   | 'controller'
   | 'command'
@@ -30,23 +32,29 @@ export type DependencyGraph = {
 
 export type GraphRoot = {
   readonly className: string;
-  // undefined = ソース位置を特定できない（unresolved ノードになる）
-  readonly filePath: string | undefined;
+  // undefined = ClassSource へ変換できない（unresolved ノードになる）
+  readonly source: ClassSource | undefined;
   readonly kind: GraphNodeKind;
   readonly featureKey: string;
 };
 
-export type ResolvedDependency = {
-  readonly className: string;
-  readonly filePath: string;
-  readonly decorators: readonly string[];
-};
+// resolver が返す 1 依存分。'class' の source は decorator-metadata 側で
+// 実クラス経由に正準化済みのため、root 由来のノードと文字列比較だけで合流できる
+export type DependencyResolution =
+  | {
+      kind: 'class';
+      readonly source: ClassSource;
+      readonly decorators: readonly string[];
+    }
+  | { kind: 'unresolved'; readonly localName: string };
 
 // TS AST 解析の副作用はこの境界の外に隔離する。
+// external = 依存展開の対象外（node_modules 等、program に含まれないソース）でエラーではない。
 // unresolved = そのクラスのみ解析不能（理由のログ出力は resolver 実装側の責務）。
 // tsconfig 異常など全体に波及するエラーは resolver が throw して fatal に扱う
 export type ResolveResult =
-  | { kind: 'resolved'; readonly deps: readonly ResolvedDependency[] }
+  | { kind: 'resolved'; readonly deps: readonly DependencyResolution[] }
+  | { kind: 'external' }
   | { kind: 'unresolved' };
 
-export type DependencyResolver = (filePath: string, className: string) => Promise<ResolveResult>;
+export type DependencyResolver = (source: ClassSource) => Promise<ResolveResult>;
