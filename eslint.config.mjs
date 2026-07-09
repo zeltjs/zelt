@@ -551,4 +551,20 @@ export default tseslint.config(
       'zelt/decorator-file-naming': 'off',
     },
   },
+  {
+    name: 'core/internal-injectables',
+    // core 内部のフレームワーククラス (AppBootstrap / ConfigRegistry / LifecycleManager /
+    // AbstractLeafImplementation)。@Injectable が zelt デコレータとしてメタデータを記録する
+    // ようになったことで命名検査の対象に入ったが、これらは .lib レイヤ規約と公開 API 名の
+    // 維持を decorator-file-naming より優先する。
+    files: [
+      'packages/core/src/app/app-bootstrap.lib.ts',
+      'packages/core/src/app/config-registry.lib.ts',
+      'packages/core/src/kernel/lifecycle.lib.ts',
+      'packages/core/src/kernel/di/leaf.lib.ts',
+    ],
+    rules: {
+      'zelt/decorator-file-naming': 'off',
+    },
+  },
 );

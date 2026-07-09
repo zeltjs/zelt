@@ -1,7 +1,8 @@
 import type { Container } from '@needle-di/core';
-import { InjectionToken, injectable } from '@needle-di/core';
+import { InjectionToken } from '@needle-di/core';
 import { isClassConstructor, UnsafeInjectionTokenWeakMap } from '@zeltjs/unsafe-type-lib';
 import { ZeltAppConfigurationError } from '../errors';
+import { Injectable } from './injectable.lib';
 
 type AnyClass<T extends object = object> = abstract new (...args: never[]) => T;
 type ConcreteClass<T extends object = object> = new (...args: unknown[]) => T;
@@ -145,7 +146,7 @@ const bindLeafInternal = (container: Container, token: LeafInjectionToken, cls: 
 };
 
 const createAbstractLeafImplementation = (cls: AnyClass): ConcreteClass => {
-  @injectable()
+  @Injectable()
   class AbstractLeafImplementation {
     /** @throws {ZeltAppConfigurationError} */
     constructor() {
