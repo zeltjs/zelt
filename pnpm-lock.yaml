@@ -103,8 +103,8 @@ importers:
         specifier: 0.1.8
         version: 0.1.8
       throw-trace:
-        specifier: 0.1.7
-        version: 0.1.7
+        specifier: 0.1.8
+        version: 0.1.8
       tsdown:
         specifier: 0.21.10
         version: 0.21.10(oxc-resolver@11.19.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1))(typescript@6.0.2)
@@ -11385,8 +11385,8 @@ packages:
     peerDependencies:
       tslib: ^2
 
-  throw-trace@0.1.7:
-    resolution: {integrity: sha512-exl9xIzB8tEUDTIWJUTl/HR85WJl0D9bQI4Q8oOzny3OuhJo59D9lM7bEOCNgq8hhzwM9SmKmfm1ggmOUzaBTQ==}
+  throw-trace@0.1.8:
+    resolution: {integrity: sha512-6yEAs8W8MEOL5AUSUXWeJEbkErf9iXGc0FOA7z+nIBMso8DC34VGrr8JS84v8TFosklea7N1vY4BeMMPAuqyqQ==}
     engines: {node: '>=18'}
     cpu: [x64, arm64]
     os: [linux, darwin, win32]
@@ -24335,7 +24335,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  throw-trace@0.1.7: {}
+  throw-trace@0.1.8: {}
 
   thunky@1.1.0: {}
 

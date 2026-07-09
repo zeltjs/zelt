@@ -5,7 +5,6 @@ import { ZeltAppConfigurationError } from '../errors';
 import { Injectable } from './injectable.lib';
 
 type AnyClass<T extends object = object> = abstract new (...args: never[]) => T;
-type ConcreteClass<T extends object = object> = new (...args: unknown[]) => T;
 type AnyInstance = object;
 
 type LeafInjectionToken<T extends object = object> = InjectionToken<T>;
@@ -145,29 +144,31 @@ const bindLeafInternal = (container: Container, token: LeafInjectionToken, cls: 
   markTokenBoundToConcrete(container, token);
 };
 
-const createAbstractLeafImplementation = (cls: AnyClass): ConcreteClass => {
-  @Injectable()
-  class AbstractLeafImplementation {
-    /** @throws {ZeltAppConfigurationError} */
-    constructor() {
-      throw new ZeltAppConfigurationError({
-        reason: 'abstract_leaf_without_concrete',
-        details: cls.name,
-      });
-    }
+// モジュールトップレベルで定義する: 関数内で class を定義して @Injectable() を適用すると、
+// throw-trace がその関数を「デコレータの重複ガード例外(E)を投げうる」と判定し、
+// inject() を経由する全 constructor へ @throws 要求が伝播してしまう。
+// leaf 名は useFactory クロージャから constructor 引数で受け取る。
+@Injectable()
+class AbstractLeafImplementation {
+  /** @throws {ZeltAppConfigurationError} */
+  constructor(leafName: string) {
+    throw new ZeltAppConfigurationError({
+      reason: 'abstract_leaf_without_concrete',
+      details: leafName,
+    });
   }
-
-  return AbstractLeafImplementation;
-};
+}
 
 const bindAbstractLeafInternal = (
   container: Container,
   token: LeafInjectionToken,
   cls: AnyClass,
 ): void => {
-  const abstractImplementation = createAbstractLeafImplementation(cls);
   const singleToken = new InjectionToken<AnyInstance>(`${cls.name}:abstract`);
-  container.bind({ provide: singleToken, useClass: abstractImplementation });
+  container.bind({
+    provide: singleToken,
+    useFactory: () => new AbstractLeafImplementation(cls.name),
+  });
   container.bind({ provide: token, useExisting: singleToken });
   markTokenBoundToAbstractDefault(container, token);
 };
