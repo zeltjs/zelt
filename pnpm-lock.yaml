@@ -103,8 +103,8 @@ importers:
         specifier: 0.1.8
         version: 0.1.8
       throw-trace:
-        specifier: 0.1.7
-        version: 0.1.7
+        specifier: 0.1.8
+        version: 0.1.8
       tsdown:
         specifier: 0.21.10
         version: 0.21.10(oxc-resolver@11.19.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1))(typescript@6.0.2)
@@ -432,6 +432,9 @@ importers:
 
   packages/decorator-metadata:
     dependencies:
+      import-meta-resolve:
+        specifier: 4.2.0
+        version: 4.2.0
       ts-pattern:
         specifier: 5.6.2
         version: 5.6.2
@@ -8485,6 +8488,9 @@ packages:
     resolution: {integrity: sha512-rKtvo6a868b5Hu3heneU+L4yEQ4jYKLtjpnPeUdK7h0yzXGmyBTypknlkCvHFBqfX9YlorEiMM6Dnq/5atfHkw==}
     engines: {node: '>=8'}
 
+  import-meta-resolve@4.2.0:
+    resolution: {integrity: sha512-Iqv2fzaTQN28s/FwZAoFq0ZSs/7hMAHJVX+w8PZl3cY19Pxk6jFFalxQoIfW2826i/fDLXv8IiEZRIT0lDuWcg==}
+
   import-without-cache@0.3.3:
     resolution: {integrity: sha512-bDxwDdF04gm550DfZHgffvlX+9kUlcz32UD0AeBTmVPFiWkrexF2XVmiuFFbDhiFuP8fQkrkvI2KdSNPYWAXkQ==}
     engines: {node: '>=20.19.0'}
@@ -11385,8 +11391,8 @@ packages:
     peerDependencies:
       tslib: ^2
 
-  throw-trace@0.1.7:
-    resolution: {integrity: sha512-exl9xIzB8tEUDTIWJUTl/HR85WJl0D9bQI4Q8oOzny3OuhJo59D9lM7bEOCNgq8hhzwM9SmKmfm1ggmOUzaBTQ==}
+  throw-trace@0.1.8:
+    resolution: {integrity: sha512-6yEAs8W8MEOL5AUSUXWeJEbkErf9iXGc0FOA7z+nIBMso8DC34VGrr8JS84v8TFosklea7N1vY4BeMMPAuqyqQ==}
     engines: {node: '>=18'}
     cpu: [x64, arm64]
     os: [linux, darwin, win32]
@@ -20465,6 +20471,8 @@ snapshots:
 
   import-lazy@4.0.0: {}
 
+  import-meta-resolve@4.2.0: {}
+
   import-without-cache@0.3.3: {}
 
   imurmurhash@0.1.4: {}
@@ -24335,7 +24343,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  throw-trace@0.1.7: {}
+  throw-trace@0.1.8: {}
 
   thunky@1.1.0: {}
 

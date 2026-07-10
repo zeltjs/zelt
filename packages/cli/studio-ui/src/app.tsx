@@ -1,4 +1,4 @@
-import type { Edge, NodeChange, NodeProps } from '@xyflow/react';
+import type { Edge, NodeProps } from '@xyflow/react';
 import { Background, Controls, Handle, Position, ReactFlow } from '@xyflow/react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { DependencyGraph } from '../../src/studio/graph/graph.types';
 import type { FlowNode } from './graph-to-flow.lib';
 import { graphToFlow } from './graph-to-flow.lib';
+import { applyStudioNodeChanges } from './node-changes.lib';
 import { loadPositions, savePosition } from './positions.lib';
 
 type AnalyzeResult =
@@ -24,18 +25,6 @@ const CardNode = ({ data }: NodeProps<FlowNode>): JSX.Element => (
 );
 
 const nodeTypes = { card: CardNode };
-
-// ドラッグ移動のみ反映する（削除等は扱わない）
-const applyPositionChanges = (nodes: FlowNode[], changes: NodeChange<FlowNode>[]): FlowNode[] =>
-  changes.reduce(
-    (acc, change) =>
-      change.type === 'position' && change.position
-        ? acc.map((n) =>
-            n.id === change.id ? { ...n, position: change.position ?? n.position } : n,
-          )
-        : acc,
-    nodes,
-  );
 
 const useStudioGraph = () => {
   const [nodes, setNodes] = useState<FlowNode[]>([]);
@@ -94,7 +83,7 @@ export const App = (): JSX.Element => {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
-        onNodesChange={(changes) => setNodes((prev) => applyPositionChanges(prev, changes))}
+        onNodesChange={(changes) => setNodes((prev) => applyStudioNodeChanges(prev, changes))}
         onNodeDragStop={(_event, node) => savePosition(node.id, node.position)}
         fitView
       >

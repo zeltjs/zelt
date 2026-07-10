@@ -60,7 +60,28 @@ export type InspectErrorCode =
   | 'NO_METADATA'
   | 'SOURCE_NOT_FOUND'
   | 'POSITION_INVALID'
-  | 'TSCONFIG_ERROR';
+  | 'TSCONFIG_ERROR'
+  | 'EXPORT_NOT_FOUND'
+  | 'MODULE_LOAD_FAILED';
+
+/**
+ * 実クラスと静的なソース参照を相互変換するための識別子。
+ * filePath はそのまま dynamic import できる解決済みパスであること
+ * (= ClassSource は「import 可能」を不変条件とする)。
+ */
+export type ClassSource = {
+  readonly filePath: string;
+  readonly exportName: string;
+};
+
+/**
+ * getDependencySources の 1 依存分の結果。
+ * kind: 'class' の source は「実クラス経由で正準化済み」の ClassSource
+ * (同一クラスなら root 由来でも依存由来でも必ず同じ値になる)。
+ */
+export type DependencySource =
+  | { kind: 'class'; readonly localName: string; readonly source: ClassSource }
+  | { kind: 'unresolved'; readonly localName: string; readonly reason: string };
 
 export type InspectError = {
   readonly code: InspectErrorCode;

@@ -44,8 +44,15 @@ PACKAGES=(
   "cli"
 )
 
+# Volta の node/npm shim は CWD から manifest (package.json) を探すため、
+# 呼び出し元の CWD に壊れた/生成途中の package.json があると起動自体に失敗する。
+# node/npm はすべてルート (manifest が常に正常) を CWD にして実行する。
+run_at_root() {
+  (cd "$ROOT_DIR" && "$@")
+}
+
 get_volta_section() {
-  node -e '
+  run_at_root node -e '
     const pkg = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
     const v = pkg.volta || {};
     const parts = Object.entries(v).map(([k, val]) => `    "${k}": "${val}"`);
@@ -64,7 +71,7 @@ get_integration_dirs() {
 get_npm_version() {
   local pkg="$1"
   local version
-  version=$(npm view "@zeltjs/$pkg" version 2>/dev/null | tail -1)
+  version=$(run_at_root npm view "@zeltjs/$pkg" version 2>/dev/null | tail -1)
   if [[ -z "$version" ]]; then
     echo "latest"
   else
@@ -98,7 +105,7 @@ get_catalog_version() {
 # `catalog:` プロトコルで参照されている依存名を重複なく列挙する。
 # (どの依存が catalog 管理かをハードコードせず実際の package.json から導出する)
 collect_catalog_dep_names() {
-  node -e '
+  run_at_root node -e '
     const fs = require("fs");
     const path = require("path");
     const dir = process.argv[1];
@@ -284,7 +291,7 @@ merge_extra_deps() {
   fi
 
   echo "  Merging package.extra.json..."
-  node -e '
+  run_at_root node -e '
     const fs = require("fs");
     const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
     const extra = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
@@ -304,7 +311,13 @@ setup_integration_dir() {
   name=$(basename "$integration_dir")
 
   echo "Setting up $name..."
-  generate_package_json "$mode" "$integration_dir" > "$integration_dir/package.json"
+  # `> package.json` 直書きだと、リダイレクトの truncate が先に走るため
+  # 生成が途中で失敗すると空の package.json が残り、以後の Volta 経由の
+  # コマンドがすべて manifest パースエラーになる。一時ファイル経由で置き換える。
+  local tmp_pkg
+  tmp_pkg=$(mktemp "$integration_dir/package.json.XXXXXX")
+  generate_package_json "$mode" "$integration_dir" > "$tmp_pkg"
+  mv "$tmp_pkg" "$integration_dir/package.json"
   merge_extra_deps "$integration_dir"
 
   echo "  Installing dependencies..."

@@ -110,22 +110,29 @@ const extractFilePath = (line: string): string | undefined => {
   return atMatch?.[1] ? normalizeStackFilePath(atMatch[1]) : undefined;
 };
 
-const extractOutsidePackageFiles = (stack: string): Set<string> => {
+const extractOutsidePackageFiles = (
+  stack: string,
+  isFrameworkPath: (path: string) => boolean,
+): Set<string> => {
   const lines = stack.split('\n').slice(1);
   const files = new Set<string>();
   for (const line of lines) {
     const file = extractFilePath(line);
     if (!file) continue;
     const normalized = file.replace(/\\/g, '/');
-    if (defaultIsFrameworkPath(normalized)) continue;
+    if (isFrameworkPath(normalized)) continue;
     files.add(normalized);
   }
   return files;
 };
 
-const diffOutsidePackageFiles = (defineStack: string, callStack: string): readonly string[] => {
-  const callFiles = extractOutsidePackageFiles(callStack);
-  const defineFiles = extractOutsidePackageFiles(defineStack);
+const diffOutsidePackageFiles = (
+  defineStack: string,
+  callStack: string,
+  isFrameworkPath: (path: string) => boolean,
+): readonly string[] => {
+  const callFiles = extractOutsidePackageFiles(callStack, isFrameworkPath);
+  const defineFiles = extractOutsidePackageFiles(defineStack, isFrameworkPath);
   const wrapperFiles: string[] = [];
   for (const file of defineFiles) {
     if (!callFiles.has(file)) wrapperFiles.push(file);
@@ -156,19 +163,26 @@ const findFirstUserPosition = (
   return undefined;
 };
 
-const buildIsFrameworkPath = (
+// define スタック（デコレータ factory 呼び出し時）にだけ現れるファイルは、factory を
+// 包む wrapper（例: core の createInjectableClassDecorator）とみなして除外対象に加える
+const buildIsExcludedPath = (
   trace: StackTrace,
-  options?: ResolvePositionOptions,
+  baseIsFrameworkPath: (path: string) => boolean,
 ): ((path: string) => boolean) => {
-  const baseIsFrameworkPath = options?.isFrameworkPath ?? defaultIsFrameworkPath;
   const defineStack = trace.error.stack;
   const callStack = trace.callError?.stack;
   if (!defineStack || !callStack) return baseIsFrameworkPath;
-  const wrapperFiles = diffOutsidePackageFiles(defineStack, callStack);
+  const wrapperFiles = diffOutsidePackageFiles(defineStack, callStack, baseIsFrameworkPath);
   if (wrapperFiles.length === 0) return baseIsFrameworkPath;
   const wrapperSet = new Set(wrapperFiles);
   return (path) => baseIsFrameworkPath(path) || wrapperSet.has(path.replace(/\\/g, '/'));
 };
+
+const buildIsFrameworkPath = (
+  trace: StackTrace,
+  options?: ResolvePositionOptions,
+): ((path: string) => boolean) =>
+  buildIsExcludedPath(trace, options?.isFrameworkPath ?? defaultIsFrameworkPath);
 
 export const resolvePosition = (
   trace: StackTrace | undefined,
@@ -178,4 +192,28 @@ export const resolvePosition = (
   const stack = trace.error.stack;
   if (!stack) return undefined;
   return findFirstUserPosition(stack, buildIsFrameworkPath(trace, options));
+};
+
+// デコレータ機構そのもの (decorator-metadata) のフレーム判定。
+// workspace 実行時は PACKAGE_ROOT、インストール実行時はパッケージパスの
+// マーカーで判定する (テスト fixture は resolvePosition と同様に機構扱いしない)
+const isDecoratorMachineryPath = (path: string): boolean => {
+  const normalized = path.replace(/\\/g, '/');
+  if (normalized.startsWith('node:')) return true;
+  if (normalized.includes('/@zeltjs/decorator-metadata/')) return true;
+  if (!isWithinPackageRoot(normalized, PACKAGE_ROOT)) return false;
+  return !isPackageTestPath(normalized, PACKAGE_ROOT);
+};
+
+/**
+ * クラス定義サイト (デコレータが適用されたモジュール) の位置を返す。
+ * resolvePosition が「ユーザーがデコレータを書いた場所」を探すために node_modules を
+ * 一律除外するのに対し、こちらは ClassSource 用に node_modules 内の定義もそのまま返す。
+ * 除外するのは機構自身と、define/call スタック差分から検出した factory wrapper のみ。
+ */
+export const resolveDefinitionPosition = (trace: StackTrace | undefined): Position | undefined => {
+  if (!trace) return undefined;
+  const stack = trace.error.stack;
+  if (!stack) return undefined;
+  return findFirstUserPosition(stack, buildIsExcludedPath(trace, isDecoratorMachineryPath));
 };

@@ -76,7 +76,12 @@ describe('Discovery', () => {
 
   it('exposes @Webhook props via getClassMetadata', () => {
     const meta = getClassMetadata(CleanupWebhook);
-    expect(meta?.props).toEqual([{ decorator: 'integration/discovery/Webhook', name: 'cleanup' }]);
+    // @Injectable も zelt メタデータを記録するようになったため(studio がソース位置を
+    // 解決する前提)、Webhook props に加えて Injectable の記録が並ぶ。
+    expect(meta?.props).toEqual([
+      { decorator: 'integration/discovery/Webhook', name: 'cleanup' },
+      { decorator: 'Injectable' },
+    ]);
   });
 
   it('exposes @WebhookHandler props per method via getClassMetadata', () => {

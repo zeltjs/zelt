@@ -1,11 +1,13 @@
+import type { ClassSource } from '@zeltjs/decorator-metadata/inspect';
+
 import type {
   DependencyGraph,
+  DependencyResolution,
   DependencyResolver,
   GraphEdge,
   GraphNode,
   GraphNodeKind,
   GraphRoot,
-  ResolvedDependency,
 } from './graph.types';
 
 const DECORATOR_KIND_MAP: ReadonlyMap<string, GraphNodeKind> = new Map([
@@ -28,18 +30,26 @@ export const decoratorsToKind = (decorators: readonly string[]): GraphNodeKind =
 
 const UNKNOWN_FILE = '(unknown)';
 
-type QueueItem = { readonly id: string; readonly filePath: string; readonly className: string };
+export type BuildGraphOptions = {
+  // 表示用パスへの変換（例: cwd からの相対化）。ID にも同じ変換を使い、表示と ID の対応を保つ
+  readonly formatPath?: (filePath: string) => string;
+};
+
+type QueueItem = { readonly id: string; readonly source: ClassSource };
 
 type GraphState = {
   readonly nodes: Map<string, GraphNode>;
   readonly edgeKeys: Set<string>;
   readonly edges: GraphEdge[];
   readonly queue: QueueItem[];
+  readonly formatPath: (filePath: string) => string;
 };
 
-// filePath 不明なルートは AST 解析の起点を持てないため即 unresolved 扱いにする。
-// featureKey を判別子に含めないと、filePath 不明・同名 className の別ルートが
-// 同一 id に潰れて 2 つ目以降が消える
+const idOfSource = (state: GraphState, source: ClassSource): string =>
+  nodeId(state.formatPath(source.filePath), source.exportName);
+
+// ClassSource へ変換できないルートは依存解決の起点を持てないため即 unresolved 扱いにする。
+// featureKey を判別子に含めないと、同名 className の別ルートが同一 id に潰れて 2 つ目以降が消える
 const seedUnresolvedRoot = (state: GraphState, root: GraphRoot): void => {
   const id = nodeId(`${UNKNOWN_FILE}:${root.featureKey}`, root.className);
   if (state.nodes.has(id)) return;
@@ -54,20 +64,25 @@ const seedUnresolvedRoot = (state: GraphState, root: GraphRoot): void => {
 };
 
 const seedRoot = (state: GraphState, root: GraphRoot): void => {
-  if (root.filePath === undefined) {
+  if (root.source === undefined) {
     seedUnresolvedRoot(state, root);
     return;
   }
-  const id = nodeId(root.filePath, root.className);
-  if (state.nodes.has(id)) return;
+  const id = idOfSource(state, root.source);
+  const existing = state.nodes.get(id);
+  if (existing) {
+    // 依存として先に発見されたクラスが root でもある場合、featureKey を付け直して合流する
+    state.nodes.set(id, { ...existing, featureKey: root.featureKey });
+    return;
+  }
   state.nodes.set(id, {
     id,
     className: root.className,
-    filePath: root.filePath,
+    filePath: state.formatPath(root.source.filePath),
     kind: root.kind,
     featureKey: root.featureKey,
   });
-  state.queue.push({ id, filePath: root.filePath, className: root.className });
+  state.queue.push({ id, source: root.source });
 };
 
 const addEdge = (state: GraphState, from: string, to: string): void => {
@@ -77,16 +92,38 @@ const addEdge = (state: GraphState, from: string, to: string): void => {
   state.edges.push({ from, to });
 };
 
-const visitDependency = (state: GraphState, item: QueueItem, dep: ResolvedDependency): void => {
-  const depId = nodeId(dep.filePath, dep.className);
+const visitClassDependency = (
+  state: GraphState,
+  item: QueueItem,
+  dep: Extract<DependencyResolution, { kind: 'class' }>,
+): void => {
+  const depId = idOfSource(state, dep.source);
   if (!state.nodes.has(depId)) {
     state.nodes.set(depId, {
       id: depId,
-      className: dep.className,
-      filePath: dep.filePath,
+      className: dep.source.exportName,
+      filePath: state.formatPath(dep.source.filePath),
       kind: decoratorsToKind(dep.decorators),
     });
-    state.queue.push({ id: depId, filePath: dep.filePath, className: dep.className });
+    state.queue.push({ id: depId, source: dep.source });
+  }
+  addEdge(state, item.id, depId);
+};
+
+const visitUnresolvedDependency = (
+  state: GraphState,
+  item: QueueItem,
+  dep: Extract<DependencyResolution, { kind: 'unresolved' }>,
+): void => {
+  const depId = nodeId(UNKNOWN_FILE, dep.localName);
+  if (!state.nodes.has(depId)) {
+    state.nodes.set(depId, {
+      id: depId,
+      className: dep.localName,
+      filePath: UNKNOWN_FILE,
+      kind: 'service',
+      unresolved: true,
+    });
   }
   addEdge(state, item.id, depId);
 };
@@ -96,26 +133,33 @@ const visitQueueItem = async (
   item: QueueItem,
   resolveDependencies: DependencyResolver,
 ): Promise<void> => {
-  const result = await resolveDependencies(item.filePath, item.className);
+  const result = await resolveDependencies(item.source);
+  if (result.kind === 'external') return;
   if (result.kind === 'unresolved') {
     const node = state.nodes.get(item.id);
     if (node) state.nodes.set(item.id, { ...node, unresolved: true });
     return;
   }
   for (const dep of result.deps) {
-    visitDependency(state, item, dep);
+    if (dep.kind === 'class') {
+      visitClassDependency(state, item, dep);
+    } else {
+      visitUnresolvedDependency(state, item, dep);
+    }
   }
 };
 
 export const buildDependencyGraph = async (
   roots: readonly GraphRoot[],
   resolveDependencies: DependencyResolver,
+  options?: BuildGraphOptions,
 ): Promise<DependencyGraph> => {
   const state: GraphState = {
     nodes: new Map(),
     edgeKeys: new Set(),
     edges: [],
     queue: [],
+    formatPath: options?.formatPath ?? ((filePath) => filePath),
   };
 
   for (const root of roots) {

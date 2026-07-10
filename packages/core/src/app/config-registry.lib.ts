@@ -1,8 +1,7 @@
-import { injectable } from '@needle-di/core';
-
 import type { ConfigClass } from '../built-in-service';
+import { Injectable } from '../kernel';
 
-@injectable()
+@Injectable()
 export class ConfigRegistry {
   private readonly defaults: ConfigClass<object>[] = [];
   private readonly overrides: ConfigClass<object>[] = [];

@@ -1,4 +1,4 @@
-import { injectable } from '@needle-di/core';
+import { Injectable } from './di/index';
 import { ZeltReadyFailedError } from './errors';
 import type { ReadyValue } from './internal';
 import { createReadyValue, disposeReadyValue, sealReadyValue } from './internal';
@@ -14,7 +14,7 @@ type LifecycleEntry = {
   readyValue?: ReadyValue<object>;
 };
 
-@injectable()
+@Injectable()
 export class LifecycleManager {
   private readonly lifecycles: LifecycleEntry[] = [];
   private startedIndex = 0;

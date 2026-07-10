@@ -1,11 +1,11 @@
-import { Container, injectable } from '@needle-di/core';
+import { Container } from '@needle-di/core';
 
 import {
   assertNoUnresolvedAbstractConfigs,
   overrideConfig,
   resolveConfig,
 } from '../built-in-service';
-import { inject, LifecycleManager, resolve, ZeltLifecycleStateError } from '../kernel';
+import { Injectable, inject, LifecycleManager, resolve, ZeltLifecycleStateError } from '../kernel';
 import { ConfigRegistry } from './config-registry.lib';
 
 export type ReadyResult = {
@@ -14,7 +14,7 @@ export type ReadyResult = {
 
 type AppBootstrapState = 'idle' | 'starting' | 'ready' | 'disposed';
 
-@injectable()
+@Injectable()
 export class AppBootstrap {
   private state: AppBootstrapState = 'idle';
   private readyPromise: Promise<ReadyResult> | undefined;

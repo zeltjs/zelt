@@ -54,6 +54,7 @@
     "typescript-6": "npm:typescript@~6.0.0"
   },
   "dependencies": {
+    "import-meta-resolve": "4.2.0",
     "ts-pattern": "5.6.2"
   },
   "devDependencies": {
