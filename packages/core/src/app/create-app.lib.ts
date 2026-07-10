@@ -136,7 +136,7 @@ const hasFeature = (
   return features.some((feature) => feature instanceof featureClass);
 };
 
-/** @throws {ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
+/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
 const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   features: F,
   baseConfigs: readonly ConfigClass<object>[] | undefined,
@@ -158,7 +158,7 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   }
 
   let shuttingDown = false;
-  /** @throws {ZeltLifecycleStateError} */
+  /** @throws {AggregateError | ZeltLifecycleStateError} */
   const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
@@ -186,7 +186,7 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   return attachContainer(readyApp, container);
 };
 
-/** @throws {ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
+/** @throws {AggregateError | ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
   features: F,
   options?: CreateAppOptions,

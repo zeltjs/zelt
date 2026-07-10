@@ -60,6 +60,48 @@ describe('LifecycleManager', () => {
     expect(events).toEqual(['second:stop', 'first:stop']);
   });
 
+  it('continues shutdown in reverse order and aggregates failures', async () => {
+    const manager = new LifecycleManager();
+    const events: string[] = [];
+    const shutdownError = new Error('second shutdown failed');
+
+    manager.register({
+      startup: async () => {},
+      shutdown: async () => {
+        events.push('first:stop');
+      },
+    });
+    manager.register({
+      startup: async () => {},
+      shutdown: async () => {
+        events.push('second:stop');
+        throw shutdownError;
+      },
+    });
+
+    await manager.startup();
+
+    await expect(manager.shutdown()).rejects.toMatchObject({ errors: [shutdownError] });
+    expect(events).toEqual(['second:stop', 'first:stop']);
+  });
+
+  it('does not run shutdown hooks again after shutdown completes', async () => {
+    const manager = new LifecycleManager();
+    let shutdownCalls = 0;
+    manager.register({
+      startup: async () => {},
+      shutdown: async () => {
+        shutdownCalls++;
+      },
+    });
+
+    await manager.startup();
+    await manager.shutdown();
+    await manager.shutdown();
+
+    expect(shutdownCalls).toBe(1);
+  });
+
   it('executes startup sequentially (waits for each to complete)', async () => {
     const manager = new LifecycleManager();
     let concurrent = 0;
@@ -158,7 +200,7 @@ describe('LifecycleManager', () => {
       name: 'ZeltReadyFailedError',
       cause,
     });
-    await expect(manager.startup()).rejects.toBeInstanceOf(ZeltReadyFailedError);
+    await expect(manager.startup()).rejects.toBeInstanceOf(ZeltLifecycleStateError);
   });
 
   it('startupPending is idempotent when no new lifecycles registered', async () => {
@@ -261,7 +303,7 @@ describe('LifecycleManager', () => {
       expect(events).toEqual(['started', 'stopped']);
     });
 
-    it('only shuts down started lifecycles', async () => {
+    it('rolls back only successfully started lifecycles when startup fails', async () => {
       const manager = new LifecycleManager();
       const events: string[] = [];
 
@@ -298,9 +340,45 @@ describe('LifecycleManager', () => {
       manager.register(third);
 
       await expect(manager.startup()).rejects.toBeInstanceOf(ZeltReadyFailedError);
+      expect(events).toEqual(['first:start', 'second:start', 'first:stop']);
+      await expect(manager.startup()).rejects.toBeInstanceOf(ZeltLifecycleStateError);
+
       await manager.shutdown();
 
       expect(events).toEqual(['first:start', 'second:start', 'first:stop']);
+    });
+
+    it('surfaces startup and rollback failures and disposes ReadyValues', async () => {
+      const manager = new LifecycleManager();
+      const startupCause = new Error('second startup failed');
+      const rollbackError = new Error('first rollback failed');
+
+      const ready = manager.register({
+        startup: async () => ({ client: 'ready' }),
+        shutdown: async () => {
+          throw rollbackError;
+        },
+      });
+      manager.register({
+        startup: async () => {
+          throw startupCause;
+        },
+        shutdown: async () => {},
+      });
+
+      const failure = await manager.startup().catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(AggregateError);
+      expect(failure).toMatchObject({
+        errors: [
+          {
+            name: 'ZeltReadyFailedError',
+            cause: startupCause,
+          },
+          rollbackError,
+        ],
+      });
+      expect(() => ready.client).toThrow(ZeltLifecycleStateError);
     });
   });
 });

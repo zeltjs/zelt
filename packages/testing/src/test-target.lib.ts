@@ -31,6 +31,7 @@ const mergeGlobalDefaults = (configs: readonly AnyConfigClass[]): AnyConfigClass
 
 /**
  * @throws {ZeltAppConfigurationError}
+ * @throws {AggregateError}
  * @throws {ZeltLifecycleStateError}
  * @throws {ZeltInternalError}
  * @throws {ZeltReadyFailedError}

@@ -212,7 +212,7 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
     ctx.resolver,
   );
 
-  /** @throws {ZeltContextNotAvailableError | ZeltReadyFailedError | ZeltLifecycleStateError | ZeltRouteConfigurationError} */
+  /** @throws {AggregateError | ZeltContextNotAvailableError | ZeltReadyFailedError | ZeltLifecycleStateError | ZeltRouteConfigurationError} */
   const handler = async (c: MiddlewareContext): Promise<Response> => {
     const instance = getOrCreateInstance(ctx, route.controllerClass);
     await ctx.lifecycle.startupPending();

@@ -22,7 +22,7 @@ const ROOT_REQUEST = createContextKey<Request>('zelt:request-root');
 // The request context store must exist before any middleware runs (setUser
 // etc. write into it). Only the outermost router actually creates the store;
 // nested routers see an existing store and stay transparent.
-/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError | ZeltReadyFailedError} */
+/** @throws {AggregateError | ZeltContextNotAvailableError | ZeltLifecycleStateError | ZeltReadyFailedError} */
 export const createBootstrapMiddleware = (
   lifecycle: LifecycleManager,
   routerToken: symbol,
