@@ -1,5 +1,6 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { resolve } from 'import-meta-resolve';
 import type { ResultAsync } from 'neverthrow';
 import { err, errAsync, ok, okAsync, ResultAsync as ResultAsyncCtor } from 'neverthrow';
 
@@ -79,7 +80,9 @@ const packageFromPath = (
 
 // sourcemap 適用済みスタックは公開パッケージに同梱されない src パスを指すことがある。
 // その場合はパッケージの self-reference 解決でエントリモジュールに落とし、
-// エントリの export から ClassSource を作る (依存側の正準化も同じ経路に収束する)
+// エントリの export から ClassSource を作る (依存側の正準化も同じ経路に収束する)。
+// stable Node の import.meta.resolve は第2引数 (parentURL) を無視して自パッケージ
+// 基準の解決になるため、Node の resolver を移植した import-meta-resolve を使う
 const packageEntryFallback = (
   sourceFile: string,
   cls: AnyClass,
@@ -89,7 +92,7 @@ const packageEntryFallback = (
   if (!pkg) return errAsync(original);
   try {
     const parentUrl = pathToFileURL(`${pkg.root}/package.json`).href;
-    const entry = fileURLToPath(import.meta.resolve(pkg.name, parentUrl));
+    const entry = fileURLToPath(resolve(pkg.name, parentUrl));
     return classSourceFromModule(entry, cls);
   } catch {
     return errAsync(original);

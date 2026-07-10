@@ -1,4 +1,8 @@
-import { resolve } from 'node:path';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import { getClassSource, resolveClassSource } from '../inspect/index';
@@ -45,6 +49,51 @@ describe('getClassSource', () => {
     expect(result.isErr()).toBe(true);
     if (!result.isErr()) return;
     expect(result.error.code).toBe('NO_METADATA');
+  });
+
+  // sourcemap 適用済みスタックが公開パッケージに同梱されない src パスを指すケース。
+  // stable Node の import.meta.resolve は第2引数 (parentURL) を無視するため、
+  // parentURL 基準の解決が実際に機能することを検証する。fallback はパスの
+  // /node_modules/ マーカーでパッケージルートを検出するため、リポジトリに
+  // node_modules 配下の fixture を置かず tmpdir に実行時生成する
+  it('falls back to the package entry when the recorded source path is not shipped', async () => {
+    // macOS では tmpdir が symlink (/var -> /private/var) のため realpath で正規化する
+    const base = await realpath(await mkdtemp(join(tmpdir(), 'class-source-fallback-')));
+    try {
+      const pkgRoot = join(base, 'node_modules', 'fallback-pkg');
+      await mkdir(join(pkgRoot, 'dist'), { recursive: true });
+      await writeFile(
+        join(pkgRoot, 'package.json'),
+        JSON.stringify({
+          name: 'fallback-pkg',
+          type: 'module',
+          exports: { '.': { import: './dist/index.mjs' } },
+        }),
+      );
+      const entryPath = join(pkgRoot, 'dist', 'index.mjs');
+      await writeFile(entryPath, 'export class PackagedService {}\n');
+
+      const entryModule: unknown = await import(pathToFileURL(entryPath).href);
+      const { PackagedService } = entryModule as { PackagedService: new () => object };
+      const { ensureClassMeta, CaptureStackError } = await import('../runtime/index');
+
+      const missingSrc = join(pkgRoot, 'src', 'index.ts');
+      const defineError = new CaptureStackError();
+      defineError.stack = [
+        'CaptureStackError: Capture stack trace',
+        `    at captureStackTrace (${resolve(__dirname, '../runtime/trace.lib.ts')}:16:17)`,
+        `    at ${missingSrc}:1:1`,
+      ].join('\n');
+      ensureClassMeta(PackagedService, { _brand: 'StackTrace', error: defineError });
+
+      const result = await getClassSource(PackagedService);
+
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) return;
+      expect(result.value).toEqual({ filePath: entryPath, exportName: 'PackagedService' });
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
 });
 
