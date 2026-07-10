@@ -7,6 +7,7 @@ import { SchedulerFeature, scheduler } from './scheduler.feature';
 
 const createRuntime = (container: Container) => ({
   get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => container.get(cls),
+  registerShutdown: (callback: () => void | Promise<void>) => async () => callback(),
 });
 
 @Scheduled()

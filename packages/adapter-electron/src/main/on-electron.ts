@@ -93,7 +93,7 @@ const createElectronApp = (
       value: {
         ...entry.capabilities,
         listen: createListenForHttp(entry.capabilities.fetch, (callback) =>
-          entry.feature.registerShutdown(callback),
+          readyApp.registerShutdown(callback),
         ),
       },
       configurable: true,

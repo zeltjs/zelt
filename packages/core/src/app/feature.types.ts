@@ -6,7 +6,14 @@ import type {
 
 export type ServiceResolver = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
+  readonly registerShutdown: RegisterRuntimeShutdown;
 };
+
+export type RuntimeShutdownCallback = () => void | Promise<void>;
+export type RegisteredRuntimeShutdown = () => Promise<void>;
+export type RegisterRuntimeShutdown = (
+  callback: RuntimeShutdownCallback,
+) => RegisteredRuntimeShutdown;
 
 export type FeatureManagedClass = new (...args: never[]) => object;
 
@@ -21,7 +28,6 @@ export abstract class Feature<
   abstract featureClasses(): readonly FeatureManagedClass[];
   abstract blueprint(): TStaticCaps;
   abstract realize(resolver: ServiceResolver): TReadyCaps | Promise<TReadyCaps>;
-  declare shutdown?: () => void | Promise<void>;
 }
 
 export type ConfiguredFeature<
