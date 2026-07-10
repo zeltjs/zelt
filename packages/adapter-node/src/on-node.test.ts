@@ -73,17 +73,9 @@ class FakeHttpLikeFeature extends Feature<
 }
 
 class CustomHttpFeature extends HttpFeature<typeof HTTP_FEATURE_KEY> {
-  constructor(
-    opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>,
-    private readonly onShutdown: () => void = () => {},
-  ) {
+  constructor(opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>) {
     super(opts, HTTP_FEATURE_KEY);
   }
-
-  override readonly shutdown = async (): Promise<void> => {
-    // Test-only override: records that RuntimeApp delegates shutdown to HttpFeature subclasses.
-    this.onShutdown();
-  };
 }
 
 describe('onNode return types', () => {
@@ -202,8 +194,9 @@ describe('onNode return types', () => {
 
     const shutdown = vi.fn();
     const nodeApp = await onNode(
-      createApp([new CustomHttpFeature({ controllers: [SubclassController] }, shutdown)]),
+      createApp([new CustomHttpFeature({ controllers: [SubclassController] })]),
     );
+    nodeApp.registerShutdown(shutdown);
 
     expectTypeOf(nodeApp).not.toHaveProperty('listen');
     expectTypeOf(nodeApp.http).toHaveProperty('listen');
@@ -335,6 +328,35 @@ describe('onNode with HTTP', () => {
       await publicHandle.shutdown();
       await privateHandle.shutdown();
       await namedNodeApp.shutdown();
+    }
+  });
+
+  it('keeps listeners isolated across runtimes created from one app definition', async () => {
+    @Controller('/')
+    class SharedController {
+      @Get('/')
+      get() {
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [SharedController] })]);
+    const first = await onNode(app);
+    const second = await onNode(app);
+    const firstHandle = await first.http.listen(0);
+    const secondHandle = await second.http.listen(0);
+
+    try {
+      await first.shutdown();
+
+      const response = await fetch(`http://localhost:${secondHandle.address.port}/`);
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ ok: true });
+    } finally {
+      await firstHandle.shutdown();
+      await secondHandle.shutdown();
+      await first.shutdown();
+      await second.shutdown();
     }
   });
 

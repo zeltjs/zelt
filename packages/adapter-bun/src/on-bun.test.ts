@@ -76,17 +76,9 @@ class FakeHttpLikeFeature extends Feature<
 }
 
 class CustomHttpFeature extends HttpFeature<typeof HTTP_FEATURE_KEY> {
-  constructor(
-    opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>,
-    private readonly onShutdown: () => void = () => {},
-  ) {
+  constructor(opts: HttpModuleOptions<typeof HTTP_FEATURE_KEY>) {
     super(opts, HTTP_FEATURE_KEY);
   }
-
-  override readonly shutdown = async (): Promise<void> => {
-    // Test-only override: records that RuntimeApp delegates shutdown to HttpFeature subclasses.
-    this.onShutdown();
-  };
 }
 
 describe('onBun return types', () => {
@@ -189,8 +181,9 @@ describe('onBun return types', () => {
 
     const shutdown = vi.fn();
     const bunApp = await onBun(
-      createApp([new CustomHttpFeature({ controllers: [SubclassController] }, shutdown)]),
+      createApp([new CustomHttpFeature({ controllers: [SubclassController] })]),
     );
+    bunApp.registerShutdown(shutdown);
 
     expectTypeOf(bunApp).not.toHaveProperty('serve');
     expectTypeOf(bunApp.http).toHaveProperty('serve');

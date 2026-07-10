@@ -1,3 +1,4 @@
+import type { ConfiguredFeature } from '@zeltjs/core';
 import { Controller, createApp, Get, http } from '@zeltjs/core';
 import type { IpcMainInvokeEvent } from 'electron';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -77,6 +78,18 @@ const createMultiFeatureApp = () =>
     http({ name: 'mcp' as const, controllers: [McpOnlyController] }),
   ]);
 
+const createCleanupFeature = (
+  callback: () => void | Promise<void>,
+): ConfiguredFeature<'cleanup', Record<never, never>> => ({
+  key: 'cleanup',
+  featureClasses: () => [],
+  blueprint: () => ({}),
+  realize: (resolver) => {
+    resolver.registerShutdown(callback);
+    return {};
+  },
+});
+
 describe('onElectron', () => {
   beforeEach(() => {
     fakeIpcMain = createFakeIpcMain();
@@ -150,10 +163,7 @@ describe('onElectron', () => {
 
     it('shuts down the already-started runtime instead of leaking it', async () => {
       const shutdownSpy = vi.fn();
-      const mcpFeature = http({ name: 'mcp' as const, controllers: [McpOnlyController] });
-      mcpFeature.registerShutdown(shutdownSpy);
-
-      const app = createApp([http({ controllers: [HttpOnlyController] }), mcpFeature]);
+      const app = createApp([createCleanupFeature(shutdownSpy)]);
 
       await expect(
         // @ts-expect-error runtime safety-net test: 'does-not-exist' is not a configured feature key.
@@ -164,12 +174,11 @@ describe('onElectron', () => {
     });
 
     it('rejects with AggregateError when cleanup shutdown also fails', async () => {
-      const mcpFeature = http({ name: 'mcp' as const, controllers: [McpOnlyController] });
-      mcpFeature.registerShutdown(() => {
-        throw new Error('shutdown callback failed');
-      });
-
-      const app = createApp([http({ controllers: [HttpOnlyController] }), mcpFeature]);
+      const app = createApp([
+        createCleanupFeature(() => {
+          throw new Error('shutdown callback failed');
+        }),
+      ]);
 
       await expect(
         // @ts-expect-error runtime safety-net test: 'does-not-exist' is not a configured feature key.

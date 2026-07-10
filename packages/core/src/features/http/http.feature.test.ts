@@ -8,6 +8,7 @@ import { Get } from './routing/http-method.decorator';
 
 const createRuntime = (container: Container) => ({
   get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => container.get(cls),
+  registerShutdown: (callback: () => void | Promise<void>) => async () => callback(),
 });
 
 @Controller('/')
@@ -106,17 +107,23 @@ describe('http feature', () => {
     await readyApp.shutdown();
   });
 
-  it('waits for every registered shutdown callback before reporting failures', async () => {
+  it('keeps shutdown callbacks isolated when one definition creates multiple runtimes', async () => {
     const feature = http({ controllers: [] });
-    const delayedShutdown = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 10)));
+    const app = createApp([feature]);
+    const first = await app.createRuntime();
+    const second = await app.createRuntime();
+    const firstShutdown = vi.fn();
+    const secondShutdown = vi.fn();
+    first.registerShutdown(firstShutdown);
+    second.registerShutdown(secondShutdown);
 
-    feature.registerShutdown(() => {
-      throw new Error('shutdown failed');
-    });
-    feature.registerShutdown(delayedShutdown);
+    await first.shutdown();
 
-    await expect(feature.shutdown()).rejects.toThrow(AggregateError);
-    expect(delayedShutdown).toHaveResolved();
+    expect(firstShutdown).toHaveBeenCalledOnce();
+    expect(secondShutdown).not.toHaveBeenCalled();
+
+    await second.shutdown();
+    expect(secondShutdown).toHaveBeenCalledOnce();
   });
 
   it('rejects duplicate resolved HTTP namespaces', () => {

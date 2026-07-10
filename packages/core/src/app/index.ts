@@ -16,6 +16,9 @@ export type {
   FeatureManagedClass,
   FeatureReadyCapabilities,
   NamespacedCaps,
+  RegisteredRuntimeShutdown,
+  RegisterRuntimeShutdown,
+  RuntimeShutdownCallback,
   ServiceResolver,
   StaticNamespacedCaps,
 } from './feature.types';

@@ -110,7 +110,7 @@ const createBunApp = (
       value: {
         ...entry.capabilities,
         serve: createServeForHttp(entry.capabilities.fetch, (callback) =>
-          entry.feature.registerShutdown(callback),
+          readyApp.registerShutdown(callback),
         ),
       },
       configurable: true,

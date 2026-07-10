@@ -1,10 +1,10 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { Feature } from '../features';
-import { Injectable } from '../kernel';
+import { Injectable, ZeltLifecycleStateError } from '../kernel';
 import type { RuntimeApp } from './create-app.lib';
 import { createApp } from './create-app.lib';
-import type { ConfiguredFeature } from './feature.types';
+import type { ConfiguredFeature, ServiceResolver } from './feature.types';
 
 const createStubFeature = <TKey extends string, TCaps extends object>(
   key: TKey,
@@ -57,9 +57,9 @@ class ShutdownFeature<TKey extends string> extends Feature<TKey, Record<never, n
 
   featureClasses = () => [];
   blueprint = () => ({});
-  realize = () => ({});
-  override readonly shutdown = async (): Promise<void> => {
-    this.onShutdown();
+  realize = (resolver: ServiceResolver) => {
+    resolver.registerShutdown(this.onShutdown);
+    return {};
   };
 }
 
@@ -73,9 +73,9 @@ class AsyncShutdownFeature<TKey extends string> extends Feature<TKey, Record<nev
 
   featureClasses = () => [];
   blueprint = () => ({});
-  realize = () => ({});
-  override readonly shutdown = async (): Promise<void> => {
-    await this.onShutdown();
+  realize = (resolver: ServiceResolver) => {
+    resolver.registerShutdown(this.onShutdown);
+    return {};
   };
 }
 
@@ -171,7 +171,33 @@ describe('createApp', () => {
     await b.shutdown();
   });
 
-  it('runtime shutdown calls each feature shutdown hook', async () => {
+  it('keeps shutdown callbacks scoped to the runtime that registered them', async () => {
+    const callbacks: ReturnType<typeof vi.fn>[] = [];
+    const feature: ConfiguredFeature<'runtimeScoped', Record<never, never>> = {
+      key: 'runtimeScoped',
+      featureClasses: () => [],
+      blueprint: () => ({}),
+      realize: (resolver) => {
+        const callback = vi.fn();
+        callbacks.push(callback);
+        resolver.registerShutdown(callback);
+        return {};
+      },
+    };
+    const app = createApp([feature]);
+    const first = await app.createRuntime();
+    const second = await app.createRuntime();
+
+    await first.shutdown();
+
+    expect(callbacks[0]).toHaveBeenCalledOnce();
+    expect(callbacks[1]).not.toHaveBeenCalled();
+
+    await second.shutdown();
+    expect(callbacks[1]).toHaveBeenCalledOnce();
+  });
+
+  it('runtime shutdown calls each registered feature cleanup', async () => {
     const shutdownA = vi.fn();
     const shutdownB = vi.fn();
     const app = createApp([
@@ -188,7 +214,7 @@ describe('createApp', () => {
     expect(shutdownB).toHaveBeenCalledOnce();
   });
 
-  it('runtime shutdown waits for every feature shutdown hook before reporting failures', async () => {
+  it('runtime shutdown waits for every registered cleanup before reporting failures', async () => {
     const delayedShutdown = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 10)));
     const app = createApp([
       new AsyncShutdownFeature('failing', async () => {
@@ -200,6 +226,13 @@ describe('createApp', () => {
 
     await expect(readyApp.shutdown()).rejects.toThrow(AggregateError);
     expect(delayedShutdown).toHaveResolved();
+  });
+
+  it('rejects shutdown registration after the runtime is disposed', async () => {
+    const runtime = await createApp([createEmptyFeature('empty')]).createRuntime();
+    await runtime.shutdown();
+
+    expect(() => runtime.registerShutdown(() => {})).toThrow(ZeltLifecycleStateError);
   });
 
   it('createRuntime() accepts config overrides', async () => {
@@ -317,6 +350,12 @@ describe('createApp', () => {
       /Reserved feature namespace: createRuntime/,
     );
     expect(reservedStaticCapabilities).not.toHaveBeenCalled();
+  });
+
+  it('rejects the runtime shutdown registration key as a feature namespace', () => {
+    expect(() => createApp([createEmptyFeature('registerShutdown')])).toThrow(
+      /Reserved feature namespace: registerShutdown/,
+    );
   });
 
   it.each([
