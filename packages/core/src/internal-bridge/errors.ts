@@ -1,1 +1,1 @@
-export { defineError } from '../kernel';
+export { defineError } from '../kernel/errors';
