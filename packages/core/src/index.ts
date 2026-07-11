@@ -166,8 +166,8 @@ export { Weekly } from './features/scheduler/schedule/weekly.decorator';
 export type { SchedulerClass } from './features/scheduler/scheduler.types';
 export type { TaskFunction, TaskOptions } from './features/task';
 export { TaskService } from './features/task';
-export type { Lifecycle } from './kernel';
-export { LifecycleManager, runInContext } from './kernel';
+export type { ContextStorage, Lifecycle } from './kernel';
+export { createContextStorage, LifecycleManager, runInContext } from './kernel';
 // DI primitives
 // DI
 export { Injectable, inject } from './kernel/di';

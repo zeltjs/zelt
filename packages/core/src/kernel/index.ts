@@ -17,7 +17,9 @@ export {
 } from './errors';
 export {
   type ContextKey,
+  type ContextStorage,
   createContextKey,
+  createContextStorage,
   createInjectableClassDecorator,
   createReadyValue,
   disposeReadyValue,

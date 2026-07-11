@@ -19,35 +19,41 @@ describe('session.crypto', () => {
   });
 
   describe('signSessionId / verifyAndExtractSessionId', () => {
-    it('should sign and verify a session ID', () => {
+    it('should sign and verify a session ID', async () => {
       const sessionId = generateSessionId();
-      const signed = signSessionId(sessionId, secret);
+      const signed = await signSessionId(sessionId, secret);
 
       expect(signed).toContain('.');
       expect(signed.startsWith(sessionId)).toBe(true);
 
-      const extracted = verifyAndExtractSessionId(signed, secret);
+      const extracted = await verifyAndExtractSessionId(signed, secret);
       expect(extracted).toBe(sessionId);
     });
 
-    it('should return null for invalid format', () => {
-      expect(verifyAndExtractSessionId('no-dot-here', secret)).toBeNull();
-      expect(verifyAndExtractSessionId('too.many.dots', secret)).toBeNull();
+    it('should preserve the existing HMAC-SHA-256 Base64URL format', async () => {
+      await expect(signSessionId('session-123', secret)).resolves.toBe(
+        'session-123.oaU0Ut7Fi0EnHT67P1a8hnJTIpEH8jGrbSnLPshkFHE',
+      );
     });
 
-    it('should return null for tampered signature', () => {
+    it('should return null for invalid format', async () => {
+      await expect(verifyAndExtractSessionId('no-dot-here', secret)).resolves.toBeNull();
+      await expect(verifyAndExtractSessionId('too.many.dots', secret)).resolves.toBeNull();
+    });
+
+    it('should return null for tampered signature', async () => {
       const sessionId = generateSessionId();
-      const signed = signSessionId(sessionId, secret);
+      const signed = await signSessionId(sessionId, secret);
       const tampered = `${signed.slice(0, -5)}xxxxx`;
 
-      expect(verifyAndExtractSessionId(tampered, secret)).toBeNull();
+      await expect(verifyAndExtractSessionId(tampered, secret)).resolves.toBeNull();
     });
 
-    it('should return null for wrong secret', () => {
+    it('should return null for wrong secret', async () => {
       const sessionId = generateSessionId();
-      const signed = signSessionId(sessionId, secret);
+      const signed = await signSessionId(sessionId, secret);
 
-      expect(verifyAndExtractSessionId(signed, 'wrong-secret')).toBeNull();
+      await expect(verifyAndExtractSessionId(signed, 'wrong-secret')).resolves.toBeNull();
     });
   });
 });

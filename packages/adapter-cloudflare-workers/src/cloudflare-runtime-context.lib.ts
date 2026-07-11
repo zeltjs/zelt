@@ -1,16 +1,15 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-import { ZeltContextNotAvailableError } from '@zeltjs/core';
+import { createContextStorage, ZeltContextNotAvailableError } from '@zeltjs/core';
 
 export type CloudflareRuntimeContext = {
   readonly env: Env;
   readonly ctx: ExecutionContext;
 };
 
-const storage = new AsyncLocalStorage<CloudflareRuntimeContext>();
+const storage = createContextStorage<CloudflareRuntimeContext>('zelt:cloudflare-runtime');
 
 /** @throws {ZeltContextNotAvailableError} */
 export const getCloudflareRuntimeContext = (): CloudflareRuntimeContext => {
-  const context = storage.getStore();
+  const context = storage.get();
   if (!context) {
     throw new ZeltContextNotAvailableError({
       primitive: 'CloudflareBindings.get',
@@ -26,7 +25,7 @@ export const runWithCloudflareRuntimeContext = <T>(
 ): T => storage.run(context, fn);
 
 export const tryGetCloudflareRuntimeContext = (): CloudflareRuntimeContext | undefined =>
-  storage.getStore();
+  storage.get();
 
 declare global {
   interface Env {}

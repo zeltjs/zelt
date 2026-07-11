@@ -17,8 +17,10 @@ class MockDatabaseService extends DatabaseService<{ query: (sql: string) => stri
     client: { query: (sql: string) => string },
     fn: (tx: { query: (sql: string) => string }) => Promise<T>,
   ): Promise<T> {
-    this.transactionCalls.push({ client });
-    return fn(client);
+    const transactionNumber = this.transactionCalls.length + 1;
+    const tx = { query: (sql: string) => `tx-${transactionNumber}: ${sql}` };
+    this.transactionCalls.push({ client, tx });
+    return fn(tx);
   }
 
   async shutdown() {
@@ -56,7 +58,7 @@ describe('DatabaseService', () => {
         return service.client.query('SELECT * FROM users');
       });
 
-      expect(result).toBe('result: SELECT * FROM users');
+      expect(result).toBe('tx-1: SELECT * FROM users');
       expect(service.transactionCalls).toHaveLength(1);
     });
 
@@ -97,6 +99,25 @@ describe('DatabaseService', () => {
         outerClientAfterNested = service.client;
         expect(outerClientAfterNested).toBe(outerClient);
       });
+    });
+
+    it('isolates concurrent transaction clients', async () => {
+      const [first, second] = await Promise.all([
+        service.withTransaction(async () => {
+          const before = service.client.query('before');
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return [before, service.client.query('after')];
+        }),
+        service.withTransaction(async () => {
+          const before = service.client.query('before');
+          await Promise.resolve();
+          return [before, service.client.query('after')];
+        }),
+      ]);
+
+      expect(first).toEqual(['tx-1: before', 'tx-1: after']);
+      expect(second).toEqual(['tx-2: before', 'tx-2: after']);
+      expect(service.client.query('outside')).toBe('result: outside');
     });
   });
 

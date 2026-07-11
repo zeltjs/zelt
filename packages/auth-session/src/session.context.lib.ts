@@ -1,4 +1,4 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
+import { createContextStorage } from '@zeltjs/core';
 
 import type { SessionMetadata, SessionSchema } from './session.types';
 
@@ -13,10 +13,10 @@ export interface SessionContext {
   isDirty: boolean;
 }
 
-const sessionStorage = new AsyncLocalStorage<SessionContext>();
+const sessionStorage = createContextStorage<SessionContext>('zelt:auth-session');
 
 export const getSessionContext = (): SessionContext | undefined => {
-  return sessionStorage.getStore();
+  return sessionStorage.get();
 };
 
 export const runWithSessionContext = <R>(context: SessionContext, fn: () => R): R => {

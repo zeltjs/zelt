@@ -54,7 +54,7 @@ export class SessionMiddleware {
     if (ctx.isDirty || ctx.isNew) {
       ctx.session.meta.expiresAt = Date.now() + this.config.ttlSec * 1000;
       await this.store.set(sessionId, ctx.session, { ttlSec: this.config.ttlSec });
-      const signedId = signSessionId(sessionId, this.config.secret);
+      const signedId = await signSessionId(sessionId, this.config.secret);
       return this.buildSetCookieHeader(signedId);
     }
 
@@ -69,7 +69,7 @@ export class SessionMiddleware {
     const signedId = req.cookie(this.config.cookieName);
 
     if (signedId) {
-      const sessionId = verifyAndExtractSessionId(signedId, this.config.secret);
+      const sessionId = await verifyAndExtractSessionId(signedId, this.config.secret);
       if (sessionId) {
         const stored = await this.store.get<StoredSession>(sessionId);
         if (stored && stored.meta.expiresAt > Date.now()) {

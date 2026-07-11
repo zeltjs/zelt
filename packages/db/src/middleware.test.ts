@@ -25,6 +25,10 @@ class MockDatabaseService extends DatabaseService<{ id: string }> {
 const mockService = new MockDatabaseService();
 
 vi.mock('@zeltjs/core', () => ({
+  createContextStorage: () => ({
+    get: () => undefined,
+    run: (_value: unknown, fn: () => unknown) => fn(),
+  }),
   inject: vi.fn((cls: unknown) => {
     if (cls === MockDatabaseService) return mockService;
     return { register: vi.fn() };

@@ -31,6 +31,26 @@ A portable TypeScript application framework with built-in DI. Swap adapters to r
 | AWS Lambda | `@zeltjs/adapter-lambda` |
 | Electron | `@zeltjs/adapter-electron` |
 
+## Runtime Context Storage
+
+Framework integrations can share request-scoped state through Zelt's runtime
+context instead of importing a platform-specific async-context API:
+
+```typescript
+import { createContextStorage } from '@zeltjs/core';
+
+const traceStorage = createContextStorage<string>('my-package:trace-id');
+
+const result = await traceStorage.run('trace-123', async () => {
+  await Promise.resolve();
+  return traceStorage.get();
+});
+```
+
+`run()` propagates the value across asynchronous work, isolates concurrent
+executions, and restores an outer value after nested execution. `get()`
+returns `undefined` outside an active context.
+
 ## Installation
 
 ```bash
