@@ -324,6 +324,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorBody"
+                }
+              }
+            }
           }
         }
       }
@@ -484,6 +494,37 @@
           }
         },
         "required": ["name", "email", "id"]
+      },
+      "ValidationErrorBody": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "const": "VALIDATION_FAILED"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "array",
+                  "items": {}
+                }
+              },
+              "required": ["kind", "type", "message"]
+            }
+          }
+        },
+        "required": ["code", "issues"]
       }
     }
   }

@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "zelt app",
+    "title": "Zelt API",
     "version": "0.0.0"
   },
   "paths": {
@@ -19,11 +19,11 @@
         ],
         "responses": {
           "200": {
-            "description": "",
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GreetResponse"
+                  "$ref": "#/components/schemas/HelloController_greet_Response"
                 }
               }
             }
@@ -38,24 +38,24 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GreetBody"
+                "$ref": "#/components/schemas/HelloController_greetPost_Request"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "",
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GreetResponse"
+                  "$ref": "#/components/schemas/HelloController_greetPost_Response"
                 }
               }
             }
           },
           "400": {
-            "description": "validation failed",
+            "description": "Validation failed",
             "content": {
               "application/json": {
                 "schema": {
@@ -70,6 +70,43 @@
   },
   "components": {
     "schemas": {
+      "HelloController_greet_Response": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "HelloController_greetPost_Request": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "excited": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "HelloController_greetPost_Response": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
       "ValidationErrorBody": {
         "type": "object",
         "properties": {
@@ -106,37 +143,7 @@
         "required": [
           "code",
           "issues"
-        ],
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      },
-      "GreetResponse": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "message"
-        ],
-        "additionalProperties": false,
-        "definitions": {}
-      },
-      "GreetBody": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "excited": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        ]
       }
     }
   }

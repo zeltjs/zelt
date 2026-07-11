@@ -27,6 +27,7 @@ const config: KnipConfig = {
         'src/controllers.ts',
         'src/middlewares/*.ts',
         'src/test/*.e2e.test.ts',
+        'scripts/generate-openapi.ts',
       ],
       ignore: ['generated/**'],
       ignoreDependencies: [
@@ -36,6 +37,7 @@ const config: KnipConfig = {
         '@zeltjs/cli',
         '@zeltjs/core',
         '@zeltjs/validator-valibot',
+        '@valibot/to-json-schema',
         'tsdown',
         'valibot',
       ],

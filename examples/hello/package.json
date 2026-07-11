@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tsx src/main.ts",
     "dev:node": "tsx src/node.ts",
+    "generate:openapi": "tsx scripts/generate-openapi.ts",
     "typecheck": "tsc --noEmit",
     "contract:build": "tsx ../../packages/contract/src/cli.ts build",
     "contract:watch": "tsx ../../packages/contract/src/cli.ts watch"
@@ -16,6 +17,8 @@
     "@zeltjs/cli": "workspace:*",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/openapi": "workspace:*",
+    "@zeltjs/validator-valibot": "workspace:*",
+    "@valibot/to-json-schema": "catalog:",
     "@zeltjs/hono-client": "workspace:*",
     "tsdown": "catalog:",
     "valibot": "catalog:"
