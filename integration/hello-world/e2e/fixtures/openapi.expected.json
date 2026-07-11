@@ -324,6 +324,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorBody"
+                }
+              }
+            }
           }
         }
       }
@@ -338,7 +348,9 @@
             "type": "string"
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "HelloController_asyncGreeting_Response": {
         "type": "object",
@@ -347,7 +359,9 @@
             "type": "string"
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "HelloController_streamGreeting_Response": {
         "type": "object",
@@ -356,7 +370,9 @@
             "type": "string"
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "HelloController_greet_Response": {
         "type": "object",
@@ -365,7 +381,9 @@
             "type": "string"
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "MiddlewareController_withLogging_Response": {
         "type": "object",
@@ -374,7 +392,9 @@
             "type": "boolean"
           }
         },
-        "required": ["ok"]
+        "required": [
+          "ok"
+        ]
       },
       "MiddlewareController_skipLogging_Response": {
         "type": "object",
@@ -383,7 +403,9 @@
             "type": "boolean"
           }
         },
-        "required": ["ok"]
+        "required": [
+          "ok"
+        ]
       },
       "MiddlewareController_withHeader_Response": {
         "type": "object",
@@ -392,7 +414,9 @@
             "type": "boolean"
           }
         },
-        "required": ["ok"]
+        "required": [
+          "ok"
+        ]
       },
       "PipesController_getUserById_Response": {
         "type": "object",
@@ -404,7 +428,10 @@
             "type": "string"
           }
         },
-        "required": ["id", "greeting"]
+        "required": [
+          "id",
+          "greeting"
+        ]
       },
       "PipesController_transformValue_Response": {
         "type": "object",
@@ -419,7 +446,11 @@
             "type": "string"
           }
         },
-        "required": ["original", "upper", "lower"]
+        "required": [
+          "original",
+          "upper",
+          "lower"
+        ]
       },
       "InterceptorsController_override_Response": {
         "type": "object",
@@ -428,7 +459,9 @@
             "type": "string"
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "InterceptorsController_transform_Response": {
         "type": "string"
@@ -449,7 +482,9 @@
             "type": "string"
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "UsersController_create_Request": {
         "type": "object",
@@ -464,7 +499,10 @@
             "type": "number"
           }
         },
-        "required": ["name", "email"],
+        "required": [
+          "name",
+          "email"
+        ],
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
       "UsersController_create_Response": {
@@ -483,7 +521,49 @@
             "type": "string"
           }
         },
-        "required": ["name", "email", "id"]
+        "required": [
+          "name",
+          "email",
+          "id"
+        ]
+      },
+      "ValidationErrorBody": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "const": "VALIDATION_FAILED"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "array",
+                  "items": {}
+                }
+              },
+              "required": [
+                "kind",
+                "type",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "code",
+          "issues"
+        ]
       }
     }
   }
