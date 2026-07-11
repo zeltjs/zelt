@@ -363,8 +363,11 @@ export default tseslint.config(
     name: 'allow/studio-ui-browser-boundary',
     // no-console protects "log through the logger", but studio-ui is a plain
     // browser SPA with no zelt DI container and therefore no injected logger
-    // to route through. This file IS the client-side localStorage boundary.
-    files: ['packages/cli/studio-ui/src/positions.lib.ts'],
+    // to route through. These files ARE the client-side localStorage boundary.
+    files: [
+      'packages/cli/studio-ui/src/positions.lib.ts',
+      'packages/cli/studio-ui/src/settings.lib.ts',
+    ],
     rules: {
       'no-console': 'off',
     },

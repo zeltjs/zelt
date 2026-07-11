@@ -1,6 +1,8 @@
 import type { SavedPositions } from './graph-to-flow.lib';
 
-const storageKey = (): string => `zelt-studio:positions:${window.location.host}`;
+// v2 で child 座標の意味が絶対座標→親（グループ）相対座標に変わったため、
+// 旧バージョンのデータをそのまま引き継がず key を分ける
+const storageKey = (): string => `zelt-studio:positions:v2:${window.location.host}`;
 
 const isPointShape = (value: unknown): boolean =>
   typeof value === 'object' &&
