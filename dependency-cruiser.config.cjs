@@ -1,6 +1,7 @@
 const coreSrc = '^packages/core/src/';
 const coreLayer = (name) => `${coreSrc}${name}/`;
 const coreLayerDeep = (name) => `${coreLayer(name)}(?!index\\.ts$).+`;
+const coreKernelDeepExceptErrorIndex = `${coreLayer('kernel')}(?!index\\.ts$|errors/index\\.ts$).+`;
 
 module.exports = {
   forbidden: [
@@ -57,12 +58,12 @@ module.exports = {
       },
     },
     {
-      name: 'core-internal-bridge-imports-core-index-only',
+      name: 'core-internal-bridge-imports-core-public-indexes-only',
       severity: 'error',
       from: { path: coreLayer('internal-bridge') },
       to: {
         path: [
-          coreLayerDeep('kernel'),
+          coreKernelDeepExceptErrorIndex,
           coreLayerDeep('built-in-service'),
           coreLayerDeep('app'),
           coreLayer('features'),
