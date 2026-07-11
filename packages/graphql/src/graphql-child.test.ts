@@ -2,15 +2,8 @@ import { getClassMetadata } from '@zeltjs/decorator-metadata';
 import { describe, expect, it } from 'vitest';
 
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
-import {
-  getGraphqlControllerMetadata,
-  getResolverMetadata,
-  graphql,
-  Mutation,
-  Query,
-  ResolveField,
-  Resolver,
-} from './index';
+import { getGraphqlControllerMetadata, getResolverMetadata } from './graphql-metadata.lib';
+import { graphql, Mutation, Query, ResolveField, Resolver } from './index';
 
 type UserPublic = {
   readonly id: string;
@@ -38,7 +31,13 @@ class UserResolver {
 describe('graphql HTTP child helper', () => {
   it('returns an HTTP-mountable feature module with a GraphQL controller', () => {
     const runtimeModule = './dist/graphql-runtime.js';
-    const child = graphql({ path: '/graphql', resolvers: [UserResolver], runtimeModule });
+    const runtimeLoader = async () => ({ graphqlRuntime: {} });
+    const child = graphql({
+      path: '/graphql',
+      resolvers: [UserResolver],
+      runtimeLoader,
+      runtimeModule,
+    });
 
     expect(child.path).toBe('/graphql');
     expect(child.blueprint().getControllers()).toHaveLength(1);
@@ -59,11 +58,11 @@ describe('graphql HTTP child helper', () => {
     });
   });
 
-  const _assertRuntimeModuleRequired = (): void => {
-    // @ts-expect-error runtimeModule is required for GraphQL HTTP endpoints.
+  const _assertRuntimeSourceRequired = (): void => {
+    // @ts-expect-error runtimeLoader or runtime is required for GraphQL HTTP endpoints.
     graphql({ path: '/graphql', resolvers: [UserResolver] });
   };
-  void _assertRuntimeModuleRequired;
+  void _assertRuntimeSourceRequired;
 });
 
 describe('resolver name collision detection', () => {
@@ -87,7 +86,7 @@ describe('resolver name collision detection', () => {
       graphql({
         path: '/graphql',
         resolvers: [resolverA, resolverB],
-        runtimeModule: './dist/graphql-runtime.js',
+        runtime: { schemaSdl: '', bindings: {} },
       }),
     ).toThrow(/duplicate.*resolver.*DuplicateName/i);
   });

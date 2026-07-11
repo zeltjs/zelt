@@ -9,6 +9,11 @@ import { Controller, http, Post, request } from '@zeltjs/core';
 
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { setGraphqlControllerMetadata } from './graphql-metadata.lib';
+import type {
+  GeneratedGraphqlRuntime,
+  GraphqlRuntimeLoader,
+  GraphqlRuntimeSource,
+} from './graphql-runtime.lib';
 import {
   createGraphqlExecutor,
   getGraphqlRuntimeState,
@@ -17,11 +22,20 @@ import {
   setGraphqlRuntimeState,
 } from './graphql-runtime.lib';
 
-export type GraphqlOptions = {
+type GraphqlBaseOptions = {
   readonly path: string;
   readonly resolvers: readonly GraphqlResolverClass[];
-  readonly runtimeModule: string;
+  /** Build-time output path consumed by graphqlPlugin(). */
+  readonly runtimeModule?: string;
 };
+
+export type GraphqlOptions = GraphqlBaseOptions &
+  (
+    | { readonly runtime: GeneratedGraphqlRuntime; readonly runtimeLoader?: never }
+    | { readonly runtime?: never; readonly runtimeLoader: GraphqlRuntimeLoader }
+    /** @deprecated Prefer runtime or runtimeLoader for portable runtime loading. */
+    | { readonly runtime?: never; readonly runtimeLoader?: never; readonly runtimeModule: string }
+  );
 
 export type GraphqlChildOptions = HttpMountableFeatureModule;
 
@@ -61,7 +75,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
     this.controller = GraphqlEndpointController;
     setGraphqlControllerMetadata(GraphqlEndpointController, {
       resolvers: options.resolvers,
-      runtimeModule: options.runtimeModule,
+      ...(options.runtimeModule !== undefined && { runtimeModule: options.runtimeModule }),
     });
   }
 
@@ -88,7 +102,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
   readonly realize = async (
     runtimeContext: ServiceResolver,
   ): Promise<HttpMountableCapabilities> => {
-    const generatedRuntime = await loadGeneratedGraphqlRuntime(this.options.runtimeModule);
+    const generatedRuntime = await loadGeneratedGraphqlRuntime(this.runtimeSource());
     const resolverInstances = new Map<string, object>();
     for (const resolver of this.options.resolvers) {
       resolverInstances.set(resolver.name, await runtimeContext.get(resolver));
@@ -106,6 +120,12 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
 
     return http({ path: this.path, controllers: [this.controller] }).realize(runtimeContext);
   };
+
+  private runtimeSource(): GraphqlRuntimeSource {
+    if (this.options.runtime) return this.options.runtime;
+    if (this.options.runtimeLoader) return this.options.runtimeLoader;
+    return this.options.runtimeModule;
+  }
 
   /** @throws {E | Error} */
   private createController(): ControllerClass {

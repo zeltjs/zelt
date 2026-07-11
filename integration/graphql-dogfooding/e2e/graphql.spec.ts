@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { generateGraphqlSdl } from '@zeltjs/graphql';
+import { generateGraphqlSdl } from '@zeltjs/graphql/codegen';
 import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
 import { beforeAll, describe, expect, it } from 'vitest';
 

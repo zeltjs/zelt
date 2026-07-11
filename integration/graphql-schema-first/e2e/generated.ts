@@ -1,7 +1,7 @@
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { generateGraphqlSdl } from '@zeltjs/graphql';
+import { generateGraphqlSdl } from '@zeltjs/graphql/codegen';
 
 import { createGraphqlSchemaFirstApp, graphqlRuntimeModule } from '../src/app';
 
