@@ -56,6 +56,22 @@ describe('args', () => {
 
     expect(output).toEqual({ id: 'product-1' });
   });
+
+  it('isolates concurrent GraphQL args across asynchronous boundaries', async () => {
+    const [first, second] = await Promise.all([
+      runWithGraphqlArgs({ id: 'first' }, async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return readGraphqlArgs<{ readonly id: string }>().id;
+      }),
+      runWithGraphqlArgs({ id: 'second' }, async () => {
+        await Promise.resolve();
+        return readGraphqlArgs<{ readonly id: string }>().id;
+      }),
+    ]);
+
+    expect([first, second]).toEqual(['first', 'second']);
+    expect(() => readGraphqlArgs()).toThrow(/requires a GraphQL args context/);
+  });
 });
 
 type UserPublic = {

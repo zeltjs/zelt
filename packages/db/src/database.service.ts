@@ -1,11 +1,9 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-
 import type { Lifecycle } from '@zeltjs/core';
-import { inject, LifecycleManager } from '@zeltjs/core';
+import { createContextStorage, inject, LifecycleManager } from '@zeltjs/core';
 
 export abstract class DatabaseService<TDatabase> implements Lifecycle<{ client: TDatabase }> {
   private readonly ready;
-  private readonly txStorage = new AsyncLocalStorage<TDatabase>();
+  private readonly txStorage = createContextStorage<TDatabase>('zelt:db:transaction');
 
   constructor(lifecycle = inject(LifecycleManager)) {
     this.ready = lifecycle.register(this);
@@ -22,11 +20,11 @@ export abstract class DatabaseService<TDatabase> implements Lifecycle<{ client: 
   abstract shutdown(): Promise<void>;
 
   get client(): TDatabase {
-    return this.txStorage.getStore() ?? this.ready.client;
+    return this.txStorage.get() ?? this.ready.client;
   }
 
   withTransaction<T>(fn: () => Promise<T>): Promise<T> {
-    const current = this.txStorage.getStore();
+    const current = this.txStorage.get();
     const targetClient = current ?? this.ready.client;
 
     return this.transaction(targetClient, (tx) => this.txStorage.run(tx, fn));

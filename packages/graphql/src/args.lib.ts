@@ -1,6 +1,5 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { createContextStorage } from '@zeltjs/core';
 
 export type StandardSchemaIssue = StandardSchemaV1.Issue;
 
@@ -11,7 +10,8 @@ export class GraphqlArgsValidationError extends Error {
   }
 }
 
-const graphqlArgsStorage = new AsyncLocalStorage<Readonly<Record<string, unknown>>>();
+const graphqlArgsStorage =
+  createContextStorage<Readonly<Record<string, unknown>>>('zelt:graphql:args');
 
 const isThenable = (value: unknown): boolean => {
   if (value === null) return false;
@@ -25,7 +25,7 @@ export const runWithGraphqlArgs = <T>(args: Readonly<Record<string, unknown>>, f
 
 /** @throws {Error} */
 const getGraphqlArgsContext = (): Readonly<Record<string, unknown>> => {
-  const rawArgs = graphqlArgsStorage.getStore();
+  const rawArgs = graphqlArgsStorage.get();
   if (rawArgs === undefined) {
     throw new Error(
       'args() requires a GraphQL args context; call it only as a resolver method default parameter.',

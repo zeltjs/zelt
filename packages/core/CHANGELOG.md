@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Features
+
+* **core:** add `createContextStorage()` for typed asynchronous context shared by
+  framework integrations. Existing application APIs require no migration.
+
 ### ⚠ BREAKING CHANGES
 
 * **di:** `inject(token, options)` is no longer part of the Zelt API. Code using
