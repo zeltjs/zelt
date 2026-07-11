@@ -443,7 +443,7 @@ describe('graphql HTTP runtime', () => {
           graphql({
             path: '/graphql',
             resolvers: [RuntimeViewerResolver],
-            runtimeModule: pathToFileURL(runtimeModulePath).href,
+            runtimeLoader: () => import(/* @vite-ignore */ pathToFileURL(runtimeModulePath).href),
           }),
         ],
       }),
@@ -511,7 +511,7 @@ describe('graphql HTTP runtime', () => {
           graphql({
             path: '/graphql',
             resolvers: [SeqResolver],
-            runtimeModule: pathToFileURL(runtimeModulePath).href,
+            runtimeLoader: () => import(/* @vite-ignore */ pathToFileURL(runtimeModulePath).href),
           }),
         ],
       }),

@@ -1,6 +1,3 @@
-import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-
 import type { ExecutionResult, GraphQLSchema, ValidationRule } from 'graphql';
 import {
   buildSchema,
@@ -47,6 +44,10 @@ export type GeneratedGraphqlRuntime = {
 
 export type GraphqlRuntimeManifest = GeneratedGraphqlRuntime;
 
+export type GraphqlRuntimeLoader = () => unknown | Promise<unknown>;
+
+export type GraphqlRuntimeSource = GeneratedGraphqlRuntime | GraphqlRuntimeLoader | string;
+
 export type GraphqlRequestPayload = {
   readonly query: string;
   readonly variables?: Readonly<Record<string, unknown>> | null;
@@ -78,17 +79,6 @@ export const setGraphqlRuntimeState = (controller: object, state: GraphqlRuntime
 
 export const getGraphqlRuntimeState = (controller: object): GraphqlRuntimeState | undefined =>
   runtimeRegistry.get(controller);
-
-const toImportSpecifier = (runtimeModule: string): string => {
-  if (
-    runtimeModule.startsWith('file:') ||
-    runtimeModule.startsWith('node:') ||
-    /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(runtimeModule)
-  ) {
-    return runtimeModule;
-  }
-  return pathToFileURL(resolve(runtimeModule)).href;
-};
 
 const _isPlainObject = (value: unknown): boolean =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -312,15 +302,25 @@ export const parseGraphqlRequestPayload = (value: unknown): GraphqlRequestPayloa
 
 /** @throws {Error} */
 export const loadGeneratedGraphqlRuntime = async (
-  runtimeModule: string,
+  source: GraphqlRuntimeSource,
 ): Promise<GeneratedGraphqlRuntime> => {
-  const mod: unknown = await import(toImportSpecifier(runtimeModule));
-  const modObject = toObject(mod);
-  const runtime = modObject
-    ? parseGeneratedGraphqlRuntime(readProperty(modObject, 'graphqlRuntime'))
-    : undefined;
+  const loaded: unknown =
+    typeof source === 'function'
+      ? await source()
+      : typeof source === 'string'
+        ? await import(source)
+        : source;
+  const loadedObject = toObject(loaded);
+  const runtime =
+    parseGeneratedGraphqlRuntime(loaded) ??
+    (loadedObject
+      ? parseGeneratedGraphqlRuntime(readProperty(loadedObject, 'graphqlRuntime'))
+      : undefined);
   if (!runtime) {
-    throw new Error(`GraphQL runtime module must export graphqlRuntime: ${runtimeModule}`);
+    const sourceLabel = typeof source === 'string' ? `: ${source}` : '';
+    throw new Error(
+      `GraphQL runtime source must be a manifest or export graphqlRuntime${sourceLabel}`,
+    );
   }
   return runtime;
 };

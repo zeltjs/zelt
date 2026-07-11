@@ -37,8 +37,6 @@ Schema-first:
 Supported experimental app-authoring APIs:
 
 - `graphql()`
-- `graphqlPlugin()`
-- `generateGraphqlSdl()`
 - `Resolver`
 - `Query`
 - `Mutation`
@@ -52,18 +50,13 @@ Generated-code APIs are exported for schema-first helpers only:
 - `readGraphqlArgs()`
 - `validateGraphqlArgs()`
 
-Advanced APIs such as `createGraphqlExecutor()`, `executeGraphqlRequest()`,
-`GraphqlRuntimeManifest`, `GeneratedGraphqlRuntime`, `generateSdlForResolvers()`,
-`generateGraphqlRuntimeForResolvers()`, `generateSchemaFirstCodegen()`,
-`generateSchemaFirstGraphqlRuntimeForResolvers()`, metadata getters, and type
-conversion helpers are not the normal application authoring surface.
-
-Future package boundaries may split these into `@zeltjs/graphql/runtime`,
-`@zeltjs/graphql/codegen`, and `@zeltjs/graphql/internal`.
+Build-time APIs such as `graphqlPlugin()`, `generateGraphqlSdl()`,
+`generateSdlForResolvers()`, schema-first codegen, metadata inspection, and
+type conversion are exported from `@zeltjs/graphql/codegen` only.
 
 ## Code-first
 
-```ts
+```ts no-check
 import { createApp, http } from '@zeltjs/core';
 import { args, graphql, Query, Resolver } from '@zeltjs/graphql';
 import * as v from 'valibot';
@@ -91,6 +84,7 @@ export const app = createApp([
       graphql({
         path: '/graphql',
         resolvers: [ProductResolver],
+        runtimeLoader: () => import('./dist/graphql-runtime.js'),
         runtimeModule: './dist/graphql-runtime.js',
       }),
     ],
@@ -148,25 +142,35 @@ should come from generated helpers, not handwritten generic arguments.
 
 ## Build flow
 
-GraphQL endpoints require a generated runtime module.
+GraphQL endpoints require a generated runtime manifest. `runtimeModule` is the
+codegen output path; `runtimeLoader` is the portable runtime loading hook.
+
+```ts no-check
+import { graphqlPlugin } from '@zeltjs/graphql/codegen';
+```
 
 Code-first:
 
 1. Write resolvers.
-2. Configure `graphql({ runtimeModule })`.
+2. Configure `graphql({ runtimeModule, runtimeLoader })`.
 3. Run `zelt build` or `graphqlPlugin()`.
 4. The plugin generates `graphql-runtime.js` and a sibling `.graphql` file.
-5. The runtime loads the generated module.
+5. The caller-supplied loader loads the generated module.
 
 Schema-first:
 
 1. Write `schema.graphql`.
 2. Run `zelt graphql codegen --schema ... --out ...`.
 3. Write resolvers using generated `Gql` helpers.
-4. Configure `graphql({ runtimeModule })`.
+4. Configure `graphql({ runtimeModule, runtimeLoader })`.
 5. Run `zelt build` or `graphqlPlugin({ mode: 'schema-first', ... })`.
 6. The plugin generates `graphql-runtime.js` and a sibling `.graphql` file.
-7. The runtime loads the generated module.
+7. The caller-supplied loader loads the generated module.
+
+Move generation imports from `@zeltjs/graphql` to
+`@zeltjs/graphql/codegen`. String-only `runtimeModule` loading remains for
+compatibility, but the string is passed directly to `import()` and is not
+resolved against the Node working directory.
 
 Automatic schema-first codegen during `zelt dev` is not part of this release
 boundary. Use `zelt graphql codegen` explicitly for now.
