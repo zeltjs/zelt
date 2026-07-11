@@ -105,6 +105,27 @@ const buildPathParams = (
 const isVoidType = (type: TypeInfo): boolean =>
   type.kind === 'primitive' && type.type === 'undefined';
 
+const VALIDATION_ERROR_SCHEMA: JsonSchema = {
+  type: 'object',
+  properties: {
+    code: { const: 'VALIDATION_FAILED' },
+    issues: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string' },
+          type: { type: 'string' },
+          message: { type: 'string' },
+          path: { type: 'array', items: {} },
+        },
+        required: ['kind', 'type', 'message'],
+      },
+    },
+  },
+  required: ['code', 'issues'],
+};
+
 const findMethodInfo = (metadata: ClassMetadata, methodName: string): MethodInfo | undefined =>
   metadata.methods.find((m) => m.name === methodName);
 
@@ -169,7 +190,71 @@ const buildRequestBody = async (
   };
 };
 
-const buildResponseSchemaFromTypeInfo = (
+type TypedResponseInfo = {
+  readonly body: TypeInfo;
+  readonly status: number;
+  readonly format: string;
+};
+
+const literalProperty = (type: TypeInfo, name: string): string | number | boolean | undefined => {
+  if (type.kind !== 'object') return undefined;
+  const property = type.properties.find((candidate) => candidate.name === name);
+  return property?.type.kind === 'literal' ? property.type.value : undefined;
+};
+
+const typedResponseInfo = (type: TypeInfo): TypedResponseInfo | undefined => {
+  if (type.kind !== 'object') return undefined;
+  const body = type.properties.find((property) => property.name === '_data')?.type;
+  const status = literalProperty(type, '_status');
+  const format = literalProperty(type, '_format');
+  if (!body || typeof status !== 'number' || typeof format !== 'string') return undefined;
+  return { body, status, format };
+};
+
+const flattenResponseTypes = (type: TypeInfo): readonly TypeInfo[] => {
+  if (type.kind === 'promise') return flattenResponseTypes(type.inner);
+  if (type.kind === 'union') return type.types.flatMap(flattenResponseTypes);
+  return [type];
+};
+
+const responseContentType = (format: string): string | undefined => {
+  if (format === 'json') return 'application/json';
+  if (format === 'text') return 'text/plain';
+  return format === 'body' ? 'application/octet-stream' : undefined;
+};
+
+const normalizeResponseType = (type: TypeInfo): TypedResponseInfo => {
+  const typed = typedResponseInfo(type);
+  if (typed) return typed;
+  return { body: type, status: 200, format: 'json' };
+};
+
+const buildResponseEntry = (
+  controller: ControllerRouteInfo,
+  route: RouteInfo,
+  responseType: TypeInfo,
+  suffix: string,
+  schemas: SchemaMap,
+): readonly [string, unknown] => {
+  const normalized = normalizeResponseType(responseType);
+  const status = String(normalized.status);
+  const { schema } = typeInfoToJsonSchema(normalized.body);
+  const contentType = responseContentType(normalized.format);
+  if (Object.keys(schema).length === 0 || !contentType) {
+    return [status, { description: 'OK' }];
+  }
+  const refName = `${controller.name}_${route.methodName}_Response${suffix}`;
+  schemas[refName] = schema;
+  return [
+    status,
+    {
+      description: 'OK',
+      content: { [contentType]: { schema: { $ref: `#/components/schemas/${refName}` } } },
+    },
+  ];
+};
+
+export const buildResponseSchemaFromTypeInfo = (
   controller: ControllerRouteInfo,
   route: RouteInfo,
   methodInfo: MethodInfo | undefined,
@@ -179,19 +264,22 @@ const buildResponseSchemaFromTypeInfo = (
     return { '200': { description: 'OK' } };
   }
 
-  const { schema } = typeInfoToJsonSchema(methodInfo.returnType);
-  if (Object.keys(schema).length === 0) {
-    return { '200': { description: 'OK' } };
+  const responseTypes = flattenResponseTypes(methodInfo.returnType);
+  const responses: Record<string, unknown> = {};
+  for (const [index, responseType] of responseTypes.entries()) {
+    const typed = typedResponseInfo(responseType);
+    const status = String(typed?.status ?? 200);
+    const suffix = responseTypes.length > 1 ? `_${status}_${index}` : '';
+    const [responseStatus, response] = buildResponseEntry(
+      controller,
+      route,
+      responseType,
+      suffix,
+      schemas,
+    );
+    responses[responseStatus] = response;
   }
-
-  const refName = `${controller.name}_${route.methodName}_Response`;
-  schemas[refName] = schema;
-  return {
-    '200': {
-      description: 'OK',
-      content: { 'application/json': { schema: { $ref: `#/components/schemas/${refName}` } } },
-    },
-  };
+  return responses;
 };
 
 type SchemaContext = {
@@ -226,7 +314,17 @@ const buildOperation = async (
   );
   if (reqBody) op['requestBody'] = reqBody;
 
-  op['responses'] = buildResponseSchemaFromTypeInfo(controller, route, methodInfo, schemas);
+  const responses = buildResponseSchemaFromTypeInfo(controller, route, methodInfo, schemas);
+  if (ref.kind !== 'none') {
+    schemas['ValidationErrorBody'] = VALIDATION_ERROR_SCHEMA;
+    responses['400'] ??= {
+      description: 'Validation failed',
+      content: {
+        'application/json': { schema: { $ref: '#/components/schemas/ValidationErrorBody' } },
+      },
+    };
+  }
+  op['responses'] = responses;
 
   return op;
 };

@@ -3,6 +3,8 @@ import type { HttpStaticCapabilities } from '@zeltjs/core';
 
 import type { GenerateOpenApiOptions } from './generate-openapi.lib';
 import { generateOpenApi } from './generate-openapi.lib';
+import type { SchemaResolver } from './resolve-schema.lib';
+import type { SchemaAdapter } from './schema.types';
 
 type HttpStaticApp = {
   readonly http: HttpStaticCapabilities;
@@ -13,6 +15,8 @@ export type OpenApiPluginOptions = {
   readonly tsconfig?: string;
   readonly title?: string;
   readonly version?: string;
+  readonly schemaAdapter?: SchemaAdapter;
+  readonly schemaResolver?: SchemaResolver;
 };
 
 const buildGenerateOptions = (options: OpenApiPluginOptions): GenerateOpenApiOptions => ({
@@ -20,6 +24,8 @@ const buildGenerateOptions = (options: OpenApiPluginOptions): GenerateOpenApiOpt
   ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
   ...(options.title !== undefined && { title: options.title }),
   ...(options.version !== undefined && { version: options.version }),
+  ...(options.schemaAdapter !== undefined && { schemaAdapter: options.schemaAdapter }),
+  ...(options.schemaResolver !== undefined && { schemaResolver: options.schemaResolver }),
 });
 
 /** @throws {ZeltDecoratorUsageError | UnsupportedTypeScriptVersionError | Error} */
