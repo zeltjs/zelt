@@ -2,6 +2,7 @@ type ShutdownFn = () => Promise<void>;
 
 const shutdownFns: ShutdownFn[] = [];
 
+/** @internal */
 export const registerShutdown = (fn: ShutdownFn): void => {
   shutdownFns.push(fn);
 };
