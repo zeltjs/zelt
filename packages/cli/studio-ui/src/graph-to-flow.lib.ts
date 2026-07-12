@@ -144,12 +144,14 @@ const cardDataOf = (node: GraphNode): CardData => ({
   unresolved: node.unresolved === true,
 });
 
+// 同一ノードペアに kind 違いの 2 本が並存しうるため、id に kind を含めて一意化する
 const edgesOf = (graph: DependencyGraph): Edge[] =>
   graph.edges.map((edge) => ({
-    id: `${edge.from}->${edge.to}`,
+    id: `${edge.from}->${edge.to}#${edge.kind}`,
     source: edge.from,
     target: edge.to,
     animated: false,
+    className: `edge-${edge.kind}`,
   }));
 
 const graphToFlowGrouped = (

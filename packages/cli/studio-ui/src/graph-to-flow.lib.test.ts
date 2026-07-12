@@ -45,12 +45,12 @@ describe('graphToFlow', () => {
 
     expect(flow.edges).toEqual([
       expect.objectContaining({
-        id: 'src/foo/a.ts#A->src/foo/c.ts#C',
+        id: 'src/foo/a.ts#A->src/foo/c.ts#C#injects',
         source: 'src/foo/a.ts#A',
         target: 'src/foo/c.ts#C',
       }),
       expect.objectContaining({
-        id: 'src/foo/a.ts#A->src/bar/b.ts#B',
+        id: 'src/foo/a.ts#A->src/bar/b.ts#B#injects',
         source: 'src/foo/a.ts#A',
         target: 'src/bar/b.ts#B',
       }),
@@ -126,9 +126,29 @@ describe('graphToFlow', () => {
       const flow = graphToFlow(graph, {}, { grouped: false });
 
       expect(flow.edges).toEqual([
-        expect.objectContaining({ id: 'src/foo/a.ts#A->src/foo/c.ts#C' }),
-        expect.objectContaining({ id: 'src/foo/a.ts#A->src/bar/b.ts#B' }),
+        expect.objectContaining({ id: 'src/foo/a.ts#A->src/foo/c.ts#C#injects' }),
+        expect.objectContaining({ id: 'src/foo/a.ts#A->src/bar/b.ts#B#injects' }),
       ]);
     });
+  });
+
+  it('maps edge kind into id and className', () => {
+    const graph: DependencyGraph = {
+      version: 2,
+      nodes: [
+        { id: 'a', className: 'A', filePath: 'src/a.ts', kind: 'controller' },
+        { id: 'b', className: 'B', filePath: 'src/b.ts', kind: 'middleware' },
+      ],
+      edges: [
+        { from: 'a', to: 'b', kind: 'injects' },
+        { from: 'a', to: 'b', kind: 'applies-middleware', methods: ['list'] },
+      ],
+    };
+    const { edges } = graphToFlow(graph, {}, { grouped: false });
+    expect(edges).toHaveLength(2);
+    expect(edges.map((e) => e.id).sort()).toEqual(['a->b#applies-middleware', 'a->b#injects']);
+    expect(edges.find((e) => e.id === 'a->b#applies-middleware')?.className).toBe(
+      'edge-applies-middleware',
+    );
   });
 });
