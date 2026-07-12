@@ -1,5 +1,5 @@
 html, body, #root { height: 100%; margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; }
-.studio { display: flex; flex-direction: column; height: 100%; }
+.studio { position: relative; display: flex; flex-direction: column; height: 100%; }
 .studio header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid #e5e7eb; }
 .studio header h1 { font-size: 16px; margin: 0; }
 .studio header .toggle { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #374151; cursor: pointer; }
@@ -27,3 +27,40 @@ html, body, #root { height: 100%; margin: 0; font-family: ui-sans-serif, system-
 /* read-only 表示のため接続ハンドルは不可視化する（エッジ描画自体には Handle が必要） */
 .react-flow__handle { opacity: 0; pointer-events: none; }
 .react-flow__edge.edge-applies-middleware .react-flow__edge-path { stroke: #10b981; stroke-dasharray: 6 4; }
+.inspector {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  width: 320px;
+  max-height: calc(100% - 80px);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+  font-size: 13px;
+}
+.inspector header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inspector header button {
+  margin-left: auto;
+}
+.inspector h3 {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+.inspector ul {
+  margin: 0;
+  padding-left: 16px;
+}
+.inspector code {
+  font-size: 12px;
+}
+

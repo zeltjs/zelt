@@ -178,6 +178,7 @@ export default tseslint.config(
             // the double-dot check no matter how they're named
             'main.tsx',
             'app.tsx',
+            'inspector-panel.tsx',
           ],
           allowedPatterns: ['on-*.ts'],
         },

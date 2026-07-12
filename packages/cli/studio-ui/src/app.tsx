@@ -1,12 +1,14 @@
 import type { Edge, Node, NodeProps } from '@xyflow/react';
 import { Background, Controls, Handle, Position, ReactFlow } from '@xyflow/react';
 import type { JSX } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { DependencyGraph } from '../../src/studio/graph/graph.types';
 import { hideNodeModules } from './graph-filter.lib';
 import type { CardData, FlowNode, GroupData } from './graph-to-flow.lib';
 import { graphToFlow } from './graph-to-flow.lib';
+import { findGraphNode } from './inspector.lib';
+import { InspectorPanel } from './inspector-panel';
 import { applyStudioNodeChanges } from './node-changes.lib';
 import type { PositionScope } from './positions.lib';
 import { loadPositions, savePosition } from './positions.lib';
@@ -72,17 +74,6 @@ const useToggleSetting = (
   return [value, toggle];
 };
 
-const deriveFlow = (
-  graph: DependencyGraph,
-  hideModules: boolean,
-  groupByFolder: boolean,
-  positionScope: PositionScope,
-): { nodes: FlowNode[]; edges: Edge[] } => {
-  // フィルタ後の graph から生成すれば node_modules フォルダの枠も自動的に消える
-  const target = hideModules ? hideNodeModules(graph) : graph;
-  return graphToFlow(target, loadPositions(positionScope), { grouped: groupByFolder });
-};
-
 const useGraphFetch = () => {
   const [graph, setGraph] = useState<DependencyGraph | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -132,13 +123,22 @@ const useStudioGraph = () => {
   const [edges, setEdges] = useState<Edge[]>([]);
   const positionScope: PositionScope = groupByFolder ? 'grouped' : 'flat';
 
-  // グラフ取得後、および hide/grouping トグル変更後に nodes/edges を再導出する
+  // インスペクタはフィルタ後のグラフから引く（隠れたノードは選択対象外）。
+  // useMemo は必須（毎レンダー新規オブジェクトになると下の useEffect が無限再実行される）
+  const filteredGraph = useMemo(
+    () => (graph === undefined ? undefined : hideModules ? hideNodeModules(graph) : graph),
+    [graph, hideModules],
+  );
+
+  // フィルタ/グルーピングトグル変更後に nodes/edges を再導出する
   useEffect(() => {
-    if (graph === undefined) return;
-    const flow = deriveFlow(graph, hideModules, groupByFolder, positionScope);
+    if (filteredGraph === undefined) return;
+    const flow = graphToFlow(filteredGraph, loadPositions(positionScope), {
+      grouped: groupByFolder,
+    });
     setNodes(flow.nodes);
     setEdges(flow.edges);
-  }, [graph, hideModules, groupByFolder, positionScope]);
+  }, [filteredGraph, groupByFolder, positionScope]);
 
   return {
     nodes,
@@ -152,6 +152,7 @@ const useStudioGraph = () => {
     groupByFolder,
     toggleGroupByFolder,
     positionScope,
+    filteredGraph,
   };
 };
 
@@ -170,6 +171,57 @@ const ToggleCheckbox = (props: {
   </label>
 );
 
+const StudioHeader = (props: {
+  readonly loading: boolean;
+  readonly onReload: () => void;
+  readonly hideModules: boolean;
+  readonly onToggleHideModules: (value: boolean) => void;
+  readonly groupByFolder: boolean;
+  readonly onToggleGroupByFolder: (value: boolean) => void;
+}): JSX.Element => (
+  <header>
+    <h1>zelt studio</h1>
+    <button type="button" disabled={props.loading} onClick={props.onReload}>
+      {props.loading ? 'Analyzing…' : 'Reload'}
+    </button>
+    <ToggleCheckbox
+      label="hide node_modules"
+      checked={props.hideModules}
+      onChange={props.onToggleHideModules}
+    />
+    <ToggleCheckbox
+      label="group by folder"
+      checked={props.groupByFolder}
+      onChange={props.onToggleGroupByFolder}
+    />
+  </header>
+);
+
+const GraphCanvas = (props: {
+  readonly nodes: FlowNode[];
+  readonly edges: Edge[];
+  readonly setNodes: (updater: (prev: FlowNode[]) => FlowNode[]) => void;
+  readonly positionScope: PositionScope;
+  readonly onSelect: (id: string) => void;
+  readonly onDeselect: () => void;
+}): JSX.Element => (
+  <ReactFlow
+    nodes={props.nodes}
+    edges={props.edges}
+    nodeTypes={nodeTypes}
+    onNodesChange={(changes) => props.setNodes((prev) => applyStudioNodeChanges(prev, changes))}
+    onNodeDragStop={(_event, node) => savePosition(props.positionScope, node.id, node.position)}
+    onNodeClick={(_event, node) => {
+      if (node.type === 'card') props.onSelect(node.id);
+    }}
+    onPaneClick={props.onDeselect}
+    fitView
+  >
+    <Background />
+    <Controls />
+  </ReactFlow>
+);
+
 export const App = (): JSX.Element => {
   const {
     nodes,
@@ -183,38 +235,37 @@ export const App = (): JSX.Element => {
     groupByFolder,
     toggleGroupByFolder,
     positionScope,
+    filteredGraph,
   } = useStudioGraph();
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  // フィルタ/リロードで消えたノードは自動的にパネルも消える（selectedId 自体はクリアしない）
+  const selectedNode =
+    filteredGraph !== undefined && selectedId !== undefined
+      ? findGraphNode(filteredGraph, selectedId)
+      : undefined;
 
   return (
     <div className="studio">
-      <header>
-        <h1>zelt studio</h1>
-        <button type="button" disabled={loading} onClick={() => void fetchGraph(true)}>
-          {loading ? 'Analyzing…' : 'Reload'}
-        </button>
-        <ToggleCheckbox
-          label="hide node_modules"
-          checked={hideModules}
-          onChange={toggleHideModules}
-        />
-        <ToggleCheckbox
-          label="group by folder"
-          checked={groupByFolder}
-          onChange={toggleGroupByFolder}
-        />
-      </header>
+      <StudioHeader
+        loading={loading}
+        onReload={() => void fetchGraph(true)}
+        hideModules={hideModules}
+        onToggleHideModules={toggleHideModules}
+        groupByFolder={groupByFolder}
+        onToggleGroupByFolder={toggleGroupByFolder}
+      />
       {error !== undefined && <pre className="error">{error}</pre>}
-      <ReactFlow
+      <GraphCanvas
         nodes={nodes}
         edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={(changes) => setNodes((prev) => applyStudioNodeChanges(prev, changes))}
-        onNodeDragStop={(_event, node) => savePosition(positionScope, node.id, node.position)}
-        fitView
-      >
-        <Background />
-        <Controls />
-      </ReactFlow>
+        setNodes={setNodes}
+        positionScope={positionScope}
+        onSelect={setSelectedId}
+        onDeselect={() => setSelectedId(undefined)}
+      />
+      {selectedNode !== undefined && (
+        <InspectorPanel node={selectedNode} onClose={() => setSelectedId(undefined)} />
+      )}
     </div>
   );
 };
