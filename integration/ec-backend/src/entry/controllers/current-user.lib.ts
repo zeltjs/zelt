@@ -1,7 +1,7 @@
 import { currentUser } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
 
-export type EcUser = { readonly id: number; readonly email: string };
+import type { EcUser } from '../../domain/user.types';
 
 export const requireUser = (): EcUser => {
   const user = currentUser();

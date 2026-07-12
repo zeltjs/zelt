@@ -2,11 +2,11 @@ import { Injectable, inject } from '@zeltjs/core';
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus';
 import { desc, eq, sql } from 'drizzle-orm';
 import { HTTPException } from 'hono/http-exception';
-import { CartService } from '../cart/cart.service';
-import { DrizzleService } from '../db/drizzle.service';
-import type { Order } from '../db/schema';
-import { orderItems, orders, products } from '../db/schema';
-import './order.events';
+import { DrizzleService } from '../infra/db/drizzle.service';
+import type { Order } from '../infra/db/schema';
+import { orderItems, orders, products } from '../infra/db/schema';
+import { CartService } from './cart.service';
+import '../domain/order.events';
 
 @Injectable()
 export class OrderService {

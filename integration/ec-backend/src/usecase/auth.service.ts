@@ -4,10 +4,9 @@ import { JwtService } from '@zeltjs/auth-jwt';
 import { Injectable, inject } from '@zeltjs/core';
 import { eq } from 'drizzle-orm';
 import { HTTPException } from 'hono/http-exception';
-
-import { DrizzleService } from '../db/drizzle.service';
-import { users } from '../db/schema';
-import type { RegisterInput } from './auth.schema';
+import type { RegisterInput } from '../domain/auth.schema';
+import { DrizzleService } from '../infra/db/drizzle.service';
+import { users } from '../infra/db/schema';
 
 const scryptAsync = promisify(scrypt);
 
