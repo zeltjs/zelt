@@ -13,7 +13,7 @@ export type AnalyzeResult =
 const parseGraphJson = (markerLine: string): AnalyzeResult => {
   try {
     const graph = JSON.parse(markerLine.slice(GRAPH_MARKER.length)) as DependencyGraph;
-    if (graph.version !== 1 || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
+    if (graph.version !== 2 || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
       return { ok: false, errorOutput: 'Analyzer produced graph JSON with unexpected shape' };
     }
     return { ok: true, graph };

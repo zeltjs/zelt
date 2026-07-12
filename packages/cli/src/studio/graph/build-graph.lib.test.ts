@@ -26,6 +26,7 @@ const controllerRoot: GraphRoot = {
   source: src('src/a.controller.ts', 'AController'),
   kind: 'controller',
   featureKey: 'http',
+  decorators: ['Controller'],
 };
 
 describe('decoratorsToKind', () => {
@@ -55,7 +56,7 @@ describe('buildDependencyGraph', () => {
 
     const graph = await buildDependencyGraph([controllerRoot], makeResolver(map));
 
-    expect(graph.version).toBe(1);
+    expect(graph.version).toBe(2);
     expect(graph.nodes).toHaveLength(3);
     expect(graph.nodes.map((n) => n.kind).sort()).toEqual(['config', 'controller', 'service']);
     // featureKey は起点クラスのみに付く
@@ -65,8 +66,13 @@ describe('buildDependencyGraph', () => {
       {
         from: nodeId('src/a.controller.ts', 'AController'),
         to: nodeId('src/b.service.ts', 'BService'),
+        kind: 'injects',
       },
-      { from: nodeId('src/b.service.ts', 'BService'), to: nodeId('src/c.config.ts', 'CConfig') },
+      {
+        from: nodeId('src/b.service.ts', 'BService'),
+        to: nodeId('src/c.config.ts', 'CConfig'),
+        kind: 'injects',
+      },
     ]);
   });
 
@@ -76,7 +82,13 @@ describe('buildDependencyGraph', () => {
     const adaptorSource = src('src/adaptor.ts', 'Adaptor');
     const roots: GraphRoot[] = [
       controllerRoot,
-      { className: 'Adaptor', source: adaptorSource, kind: 'service', featureKey: 'eventbus' },
+      {
+        className: 'Adaptor',
+        source: adaptorSource,
+        kind: 'service',
+        featureKey: 'eventbus',
+        decorators: [],
+      },
     ];
     const map = new Map([
       [nodeId('src/a.controller.ts', 'AController'), [dep('src/adaptor.ts', 'Adaptor')]],
@@ -91,6 +103,7 @@ describe('buildDependencyGraph', () => {
       {
         from: nodeId('src/a.controller.ts', 'AController'),
         to: nodeId('src/adaptor.ts', 'Adaptor'),
+        kind: 'injects',
       },
     ]);
   });
@@ -118,6 +131,7 @@ describe('buildDependencyGraph', () => {
         source: src('src/x.controller.ts', 'XController'),
         kind: 'controller',
         featureKey: 'http',
+        decorators: ['Controller'],
       },
     ];
     const shared = dep('src/shared.service.ts', 'SharedService');
@@ -177,7 +191,15 @@ describe('buildDependencyGraph', () => {
 
   it('marks roots without a ClassSource as unresolved and does not recurse into them', async () => {
     const graph = await buildDependencyGraph(
-      [{ className: 'Ghost', source: undefined, kind: 'service', featureKey: 'http' }],
+      [
+        {
+          className: 'Ghost',
+          source: undefined,
+          kind: 'service',
+          featureKey: 'http',
+          decorators: [],
+        },
+      ],
       makeResolver(new Map()),
     );
 
@@ -189,8 +211,20 @@ describe('buildDependencyGraph', () => {
   it('keeps two unresolved roots with the same className but different featureKeys distinct', async () => {
     const graph = await buildDependencyGraph(
       [
-        { className: 'Ghost', source: undefined, kind: 'service', featureKey: 'http' },
-        { className: 'Ghost', source: undefined, kind: 'service', featureKey: 'cron' },
+        {
+          className: 'Ghost',
+          source: undefined,
+          kind: 'service',
+          featureKey: 'http',
+          decorators: [],
+        },
+        {
+          className: 'Ghost',
+          source: undefined,
+          kind: 'service',
+          featureKey: 'cron',
+          decorators: [],
+        },
       ],
       makeResolver(new Map()),
     );
@@ -222,6 +256,7 @@ describe('buildDependencyGraph', () => {
           source: src('src/b.service.ts', 'BService'),
           kind: 'service',
           featureKey: 'http',
+          decorators: [],
         },
       ],
       resolver,
@@ -237,5 +272,173 @@ describe('buildDependencyGraph', () => {
 
     expect(graph.nodes[0]?.filePath).toBe('a.controller.ts');
     expect(graph.nodes[0]?.id).toBe(nodeId('a.controller.ts', 'AController'));
+  });
+
+  it('adds applies-middleware edges and seeds middleware nodes into the queue', async () => {
+    const mwSource = src('/app/logging.middleware.ts', 'LoggingMiddleware');
+    const roots: GraphRoot[] = [
+      {
+        className: 'UserController',
+        source: src('/app/user.controller.ts', 'UserController'),
+        kind: 'controller',
+        featureKey: 'http',
+        decorators: ['Controller', 'UseMiddleware'],
+        routes: [{ method: 'GET', path: '/users', handler: 'list' }],
+        appliedMiddlewares: [
+          { className: 'LoggingMiddleware', source: mwSource, decorators: ['Middleware'] },
+          { className: 'AuthMiddleware', source: undefined, decorators: [], methods: ['list'] },
+        ],
+      },
+    ];
+    // middleware の inject 依存も展開されることを確認するため resolver を記録する
+    const visited: string[] = [];
+    const graph = await buildDependencyGraph(roots, async (source) => {
+      visited.push(source.exportName);
+      return { kind: 'resolved', deps: [] };
+    });
+
+    expect(visited).toContain('LoggingMiddleware');
+    const byClass = new Map(graph.nodes.map((n) => [n.className, n]));
+    const nodeOf = (className: string) => {
+      const node = byClass.get(className);
+      if (!node) throw new Error(`node not found: ${className}`);
+      return node;
+    };
+    expect(nodeOf('LoggingMiddleware').kind).toBe('middleware');
+    expect(nodeOf('AuthMiddleware').unresolved).toBe(true);
+    expect(nodeOf('UserController').routes).toEqual([
+      { method: 'GET', path: '/users', handler: 'list' },
+    ]);
+    expect(nodeOf('UserController').decorators).toEqual(['Controller', 'UseMiddleware']);
+    expect(graph.edges).toContainEqual({
+      from: nodeOf('UserController').id,
+      to: nodeOf('LoggingMiddleware').id,
+      kind: 'applies-middleware',
+    });
+    expect(graph.edges).toContainEqual({
+      from: nodeOf('UserController').id,
+      to: nodeOf('AuthMiddleware').id,
+      kind: 'applies-middleware',
+      methods: ['list'],
+    });
+    expect(graph.version).toBe(2);
+  });
+
+  it('attaches contracts via resolveContract for resolved nodes only', async () => {
+    const roots: GraphRoot[] = [
+      {
+        className: 'UserService',
+        source: src('/app/user.service.ts', 'UserService'),
+        kind: 'service',
+        featureKey: 'http',
+        decorators: ['Injectable'],
+      },
+    ];
+    const contract = [{ name: 'find', params: [], returnType: 'string' }];
+    const graph = await buildDependencyGraph(roots, async () => ({ kind: 'resolved', deps: [] }), {
+      resolveContract: async () => contract,
+    });
+    expect(graph.nodes[0]?.contract).toEqual(contract);
+  });
+
+  // spec 5節の不変条件: external / unresolved ノードには contract が付かない
+  it('does not call resolveContract for external or unresolved nodes', async () => {
+    const roots: GraphRoot[] = [
+      {
+        className: 'UserController',
+        source: src('/app/user.controller.ts', 'UserController'),
+        kind: 'controller',
+        featureKey: 'http',
+        decorators: ['Controller'],
+      },
+    ];
+    const calls: string[] = [];
+    const graph = await buildDependencyGraph(
+      roots,
+      async (source) =>
+        source.exportName === 'UserController'
+          ? {
+              kind: 'resolved',
+              deps: [
+                { kind: 'class', source: src('/x/ext.ts', 'ExternalDep'), decorators: [] },
+                { kind: 'unresolved', localName: 'Ghost' },
+              ],
+            }
+          : { kind: 'external' },
+      {
+        resolveContract: async (source) => {
+          calls.push(source.exportName);
+          return [];
+        },
+      },
+    );
+    expect(calls).toEqual(['UserController']);
+    expect(graph.nodes.find((n) => n.className === 'ExternalDep')?.contract).toBeUndefined();
+    expect(graph.nodes.find((n) => n.className === 'Ghost')?.contract).toBeUndefined();
+  });
+
+  // spec 5節: program 内の契約抽出失敗は fatal（reject が伝播する）
+  it('rejects when resolveContract rejects', async () => {
+    const roots: GraphRoot[] = [
+      {
+        className: 'UserService',
+        source: src('/app/user.service.ts', 'UserService'),
+        kind: 'service',
+        featureKey: 'http',
+        decorators: [],
+      },
+    ];
+    await expect(
+      buildDependencyGraph(roots, async () => ({ kind: 'resolved', deps: [] }), {
+        resolveContract: async () => {
+          throw new Error('SIGNATURE_NOT_FOUND: boom');
+        },
+      }),
+    ).rejects.toThrow('SIGNATURE_NOT_FOUND');
+  });
+
+  it('dedups applies-middleware edges for the same pair', async () => {
+    const mwSource = src('/app/logging.middleware.ts', 'LoggingMiddleware');
+    const mw = { className: 'LoggingMiddleware', source: mwSource, decorators: ['Middleware'] };
+    const roots: GraphRoot[] = [
+      {
+        className: 'UserController',
+        source: src('/app/user.controller.ts', 'UserController'),
+        kind: 'controller',
+        featureKey: 'http',
+        decorators: ['Controller'],
+        // 同一 middleware が複数経路で発見されてもエッジは 1 本
+        appliedMiddlewares: [mw, mw],
+      },
+    ];
+    const graph = await buildDependencyGraph(roots, async () => ({ kind: 'resolved', deps: [] }));
+    expect(graph.edges.filter((e) => e.kind === 'applies-middleware')).toHaveLength(1);
+  });
+
+  it('keeps injects and applies-middleware edges between the same node pair distinct', async () => {
+    const mwSource = src('/app/logging.middleware.ts', 'LoggingMiddleware');
+    const roots: GraphRoot[] = [
+      {
+        className: 'UserController',
+        source: src('/app/user.controller.ts', 'UserController'),
+        kind: 'controller',
+        featureKey: 'http',
+        decorators: ['Controller'],
+        appliedMiddlewares: [
+          { className: 'LoggingMiddleware', source: mwSource, decorators: ['Middleware'] },
+        ],
+      },
+    ];
+    // controller が同じ middleware を inject もしている（適用 + 注入の 2 本）
+    const graph = await buildDependencyGraph(roots, async (source) =>
+      source.exportName === 'UserController'
+        ? {
+            kind: 'resolved',
+            deps: [{ kind: 'class', source: mwSource, decorators: ['Middleware'] }],
+          }
+        : { kind: 'resolved', deps: [] },
+    );
+    const kinds = graph.edges.map((e) => e.kind).sort();
+    expect(kinds).toEqual(['applies-middleware', 'injects']);
   });
 });

@@ -25,7 +25,7 @@ describe('studio analyzer (integration)', () => {
     expect(controller?.featureKey).toBe('http');
 
     expect(result.graph.edges).toHaveLength(2);
-    expect(result.graph.version).toBe(1);
+    expect(result.graph.version).toBe(2);
   }, 60_000);
 
   it('reports load errors via errorOutput', async () => {

@@ -10,7 +10,7 @@ import { startStudioServer } from './server.lib';
 
 const okResult: AnalyzeResult = {
   ok: true,
-  graph: { version: 1, nodes: [], edges: [] },
+  graph: { version: 2, nodes: [], edges: [] },
 };
 
 let server: StudioServer | undefined;

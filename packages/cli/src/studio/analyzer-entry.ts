@@ -34,11 +34,14 @@ const rootFromClass =
       // 位置を特定できない root は unresolved 表示になる。原因は stderr に残す
       consola.error(`[zelt studio] no ClassSource for ${cls.name}: ${source.error.message}`);
     }
+    // routes / appliedMiddlewares / contract の本配線は Task 4。ここは型を通すだけ
+    const decorators = decoratorNamesFromMetadata(cls);
     return {
       className: cls.name,
       source: source.isOk() ? source.value : undefined,
-      kind: decoratorsToKind(decoratorNamesFromMetadata(cls)),
+      kind: decoratorsToKind(decorators),
       featureKey,
+      decorators,
     };
   };
 

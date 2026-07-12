@@ -4,15 +4,15 @@ import type { DependencyGraph } from '../../src/studio/graph/graph.types';
 import { graphToFlow } from './graph-to-flow.lib';
 
 const graph: DependencyGraph = {
-  version: 1,
+  version: 2,
   nodes: [
     { id: 'src/foo/a.ts#A', className: 'A', filePath: 'src/foo/a.ts', kind: 'controller' },
     { id: 'src/foo/c.ts#C', className: 'C', filePath: 'src/foo/c.ts', kind: 'service' },
     { id: 'src/bar/b.ts#B', className: 'B', filePath: 'src/bar/b.ts', kind: 'service' },
   ],
   edges: [
-    { from: 'src/foo/a.ts#A', to: 'src/foo/c.ts#C' },
-    { from: 'src/foo/a.ts#A', to: 'src/bar/b.ts#B' },
+    { from: 'src/foo/a.ts#A', to: 'src/foo/c.ts#C', kind: 'injects' },
+    { from: 'src/foo/a.ts#A', to: 'src/bar/b.ts#B', kind: 'injects' },
   ],
 };
 
@@ -77,7 +77,7 @@ describe('graphToFlow', () => {
 
   it('groups nodes with "(unknown)" filePath into a single "(unknown)" group', () => {
     const unknownGraph: DependencyGraph = {
-      version: 1,
+      version: 2,
       nodes: [
         { id: 'x#X', className: 'X', filePath: '(unknown)', kind: 'service', unresolved: true },
         { id: 'y#Y', className: 'Y', filePath: '(unknown)', kind: 'service', unresolved: true },
