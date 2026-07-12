@@ -44,6 +44,7 @@ const defaultIsFrameworkPath = (path: string): boolean => {
 const TRANSPILER_HELPER_NAMES = new Set([
   'applyClassDecs',
   '__decorate',
+  '__decorateElement',
   '_decorate',
   'applyDecs',
   'applyDecs2305',
@@ -140,28 +141,67 @@ const diffOutsidePackageFiles = (
   return wrapperFiles;
 };
 
-const findFirstUserPosition = (
-  stack: string,
+type ScanOptions = {
+  // ヘルパーフレーム直後の匿名パスフレームも合成位置とみなしてスキップするか。
+  // resolvePosition は「ユーザーが書いた意味のある行」を求めるため既定で有効にするが、
+  // resolveDefinitionPosition はファイルさえ合っていればよく、Vite/Vitest の TC39
+  // デコレータ変換ではこの位置が「行番号は合成だがファイルは正しい」ことがあるため無効にする
+  readonly skipAnonymousAfterHelper?: boolean;
+  readonly isStillMachinery?: (lines: readonly string[], index: number) => boolean;
+};
+
+// helper: 合成フレームそのもの。anonAfterHelper: helper 直後に続く、行番号のない
+// 匿名パスフレーム（helper が生成した合成コードの続き）。candidate: 位置解決を試みる対象
+type FrameClass = 'helper' | 'anonAfterHelper' | 'candidate';
+
+const classifyFrame = (
+  line: string,
+  prevWasHelperFrame: boolean,
+  skipAnonymousAfterHelper: boolean,
+): FrameClass => {
+  if (isTranspilerHelperFrame(line)) return 'helper';
+  if (skipAnonymousAfterHelper && prevWasHelperFrame && isAnonymousPathFrame(line)) {
+    return 'anonAfterHelper';
+  }
+  return 'candidate';
+};
+
+const resolvePositionAt = (
+  lines: readonly string[],
+  index: number,
   isFrameworkPath: (path: string) => boolean,
+  isStillMachinery?: (lines: readonly string[], index: number) => boolean,
 ): Position | undefined => {
-  const lines = stack.split('\n').slice(2);
+  const pos = parsePositionFromStackLine(lines[index] ?? '', isFrameworkPath);
+  if (!pos) return undefined;
+  if (isStillMachinery?.(lines, index)) return undefined;
+  return pos;
+};
+
+const scanForUserPosition = (
+  lines: readonly string[],
+  isFrameworkPath: (path: string) => boolean,
+  options?: ScanOptions,
+): Position | undefined => {
+  const skipAnonymousAfterHelper = options?.skipAnonymousAfterHelper ?? true;
   let prevWasHelperFrame = false;
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
     if (!line) continue;
-    if (isTranspilerHelperFrame(line)) {
-      prevWasHelperFrame = true;
-      continue;
-    }
-    if (prevWasHelperFrame && isAnonymousPathFrame(line)) {
+    if (classifyFrame(line, prevWasHelperFrame, skipAnonymousAfterHelper) !== 'candidate') {
       prevWasHelperFrame = true;
       continue;
     }
     prevWasHelperFrame = false;
-    const pos = parsePositionFromStackLine(line, isFrameworkPath);
+    const pos = resolvePositionAt(lines, index, isFrameworkPath, options?.isStillMachinery);
     if (pos) return pos;
   }
   return undefined;
 };
+
+const findFirstUserPosition = (
+  stack: string,
+  isFrameworkPath: (path: string) => boolean,
+): Position | undefined => scanForUserPosition(stack.split('\n').slice(2), isFrameworkPath);
 
 // define スタック（デコレータ factory 呼び出し時）にだけ現れるファイルは、factory を
 // 包む wrapper（例: core の createInjectableClassDecorator）とみなして除外対象に加える
@@ -194,15 +234,32 @@ export const resolvePosition = (
   return findFirstUserPosition(stack, buildIsFrameworkPath(trace, options));
 };
 
-// デコレータ機構そのもの (decorator-metadata) のフレーム判定。
-// workspace 実行時は PACKAGE_ROOT、インストール実行時はパッケージパスの
-// マーカーで判定する (テスト fixture は resolvePosition と同様に機構扱いしない)
-const isDecoratorMachineryPath = (path: string): boolean => {
+// decorator-metadata 自身のパッケージ内フレームかどうか (workspace 実行時は PACKAGE_ROOT、
+// インストール実行時はパッケージパスのマーカーで判定する)。call スタック上で機構フレームに
+// 挟まれたフレームを検出する際にも使うため、node: 判定とは分離しておく
+const isDecoratorMetadataPackagePath = (path: string): boolean => {
   const normalized = path.replace(/\\/g, '/');
-  if (normalized.startsWith('node:')) return true;
   if (normalized.includes('/@zeltjs/decorator-metadata/')) return true;
   if (!isWithinPackageRoot(normalized, PACKAGE_ROOT)) return false;
   return !isPackageTestPath(normalized, PACKAGE_ROOT);
+};
+
+// デコレータ機構そのもの (decorator-metadata) のフレーム判定
+// (テスト fixture は resolvePosition と同様に機構扱いしない)
+const isDecoratorMachineryPath = (path: string): boolean => {
+  if (path.replace(/\\/g, '/').startsWith('node:')) return true;
+  return isDecoratorMetadataPackagePath(path);
+};
+
+// call トレースは decorator-metadata 内部のディスパッチ (ts-pattern の match/with) を
+// 経由するため、機構フレームの間に機構外のフレーム (ts-pattern 自身の実装) が挟まる。
+// 直後のフレームが decorator-metadata 自身に戻る場合は、まだ機構内とみなしてスキップする
+// (末尾の node: モジュールローダフレームは機構外の呼び出し元なので対象外)
+const isSandwichedByMachinery = (lines: readonly string[], index: number): boolean => {
+  const nextLine = lines[index + 1];
+  if (!nextLine) return false;
+  const nextFile = extractFilePath(nextLine);
+  return nextFile !== undefined && isDecoratorMetadataPackagePath(nextFile.replace(/\\/g, '/'));
 };
 
 /**
@@ -210,10 +267,26 @@ const isDecoratorMachineryPath = (path: string): boolean => {
  * resolvePosition が「ユーザーがデコレータを書いた場所」を探すために node_modules を
  * 一律除外するのに対し、こちらは ClassSource 用に node_modules 内の定義もそのまま返す。
  * 除外するのは機構自身と、define/call スタック差分から検出した factory wrapper のみ。
+ *
+ * define トレース (`trace.error`) は factory 型デコレータ (`@Controller('/x')`) では
+ * クラス定義サイトを含むが、直付け型デコレータ (`createInjectableClassDecorator(...)` を
+ * 直接 export するもの) ではモジュール読み込み時にしか捕捉されず定義サイトを含まない。
+ * call トレース (`trace.callError`) はデコレータ適用時 = クラス定義サイトで常に捕捉される
+ * ため、両スタイルで正しく解決できる call トレースを優先し、無い場合のみ define にフォールバックする。
  */
 export const resolveDefinitionPosition = (trace: StackTrace | undefined): Position | undefined => {
   if (!trace) return undefined;
+  const isExcludedPath = buildIsExcludedPath(trace, isDecoratorMachineryPath);
+  const callStack = trace.callError?.stack;
+  if (callStack) {
+    const lines = callStack.split('\n').slice(2);
+    const pos = scanForUserPosition(lines, isExcludedPath, {
+      skipAnonymousAfterHelper: false,
+      isStillMachinery: isSandwichedByMachinery,
+    });
+    if (pos) return pos;
+  }
   const stack = trace.error.stack;
   if (!stack) return undefined;
-  return findFirstUserPosition(stack, buildIsExcludedPath(trace, isDecoratorMachineryPath));
+  return findFirstUserPosition(stack, isExcludedPath);
 };

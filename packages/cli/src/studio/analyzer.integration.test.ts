@@ -35,7 +35,6 @@ describe('studio analyzer (integration)', () => {
 
     const controller = nodeOf(graph, 'GreetingController');
     expect(controller.kind).toBe('controller');
-    expect(nodeOf(graph, 'LoggingMiddleware').kind).toBe('middleware');
     expect(controller.featureKey).toBe('http');
 
     // routes: basePath 結合済み
@@ -47,15 +46,35 @@ describe('studio analyzer (integration)', () => {
       { name: 'greet', params: [], returnType: 'string' },
     ]);
 
-    // エッジ: injects 2 本 + applies-middleware 2 本
+    // middleware ノード: @Middleware は直付け型デコレータ (factory を介さない) のため、
+    // 実ファイルへの解決経路が factory 型と異なる。filePath が実体を指し、unresolved が
+    // 付かないこと、use メソッドの契約が取れていることを検証する
+    const loggingMiddleware = nodeOf(graph, 'LoggingMiddleware');
+    expect(loggingMiddleware.kind).toBe('middleware');
+    expect(loggingMiddleware.filePath).toBe('src/logging.middleware.ts');
+    expect(loggingMiddleware.unresolved).toBeUndefined();
+    expect(loggingMiddleware.contract).toEqual([
+      {
+        name: 'use',
+        params: [{ name: 'next', type: 'Next' }],
+        returnType: 'Promise<Response | undefined>',
+      },
+    ]);
+
+    const authMiddleware = nodeOf(graph, 'AuthMiddleware');
+    expect(authMiddleware.filePath).toBe('src/auth.middleware.ts');
+    expect(authMiddleware.unresolved).toBeUndefined();
+
+    // エッジ: injects 3 本 (GreetingController→GreetingService, GreetingService→ClockService,
+    // LoggingMiddleware→ClockService) + applies-middleware 2 本
     expect(graph.edges).toContainEqual({
       from: controller.id,
-      to: nodeOf(graph, 'LoggingMiddleware').id,
+      to: loggingMiddleware.id,
       kind: 'applies-middleware',
     });
     expect(graph.edges).toContainEqual({
       from: controller.id,
-      to: nodeOf(graph, 'AuthMiddleware').id,
+      to: authMiddleware.id,
       kind: 'applies-middleware',
       methods: ['greet'],
     });
@@ -64,7 +83,13 @@ describe('studio analyzer (integration)', () => {
       to: nodeOf(graph, 'GreetingService').id,
       kind: 'injects',
     });
-    expect(graph.edges).toHaveLength(4);
+    // middleware の inject 依存も BFS キューで展開されること (spec の必須要件)
+    expect(graph.edges).toContainEqual({
+      from: loggingMiddleware.id,
+      to: nodeOf(graph, 'ClockService').id,
+      kind: 'injects',
+    });
+    expect(graph.edges).toHaveLength(5);
     expect(graph.version).toBe(2);
   }, 60_000);
 

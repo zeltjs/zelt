@@ -51,6 +51,22 @@ describe('getClassSource', () => {
     expect(result.error.code).toBe('NO_METADATA');
   });
 
+  // @zeltjs/core の @Middleware 相当: createClassDecorator の結果を factory を介さず
+  // 直接 export する場合、define トレースは呼び出し元モジュール (direct-decorator.lib.ts)
+  // で捕捉され、適用先クラスの定義ファイルを含まない。call トレースから解決する必要がある
+  it('resolves ClassSource for a directly-applied (non-factory) class decorator', async () => {
+    const { DirectlyDecoratedService } = await import('./fixtures/class-source/direct-decorated');
+
+    const result = await getClassSource(DirectlyDecoratedService);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value).toEqual({
+      filePath: resolve(__dirname, './fixtures/class-source/direct-decorated.ts'),
+      exportName: 'DirectlyDecoratedService',
+    });
+  });
+
   // sourcemap 適用済みスタックが公開パッケージに同梱されない src パスを指すケース。
   // stable Node の import.meta.resolve は第2引数 (parentURL) を無視するため、
   // parentURL 基準の解決が実際に機能することを検証する。fallback はパスの
@@ -146,13 +162,16 @@ describe('resolveDefinitionPosition', () => {
       '    at /repo/node_modules/@zeltjs/eventbus/dist/index-chunk.js:7:1',
     ].join('\n');
 
-    // call スタック: デコレータ適用時。wrapper は現れず、機構の内部依存 (ts-pattern) が挟まる
+    // call スタック: デコレータ適用時。wrapper は現れず、機構の内部依存 (ts-pattern) が挟まる。
+    // match().with() の呼び出し元は常に decorator-metadata 自身のディスパッチ関数なので、
+    // ts-pattern のフレームの直後には機構フレーム (dispatch) がもう一度現れる
     const callError = new CaptureStackError();
     callError.stack = [
       'CaptureStackError: Capture stack trace',
       '    at captureStackTrace (/repo/node_modules/@zeltjs/decorator-metadata/dist/index.js:10:5)',
-      '    at decorate (/repo/node_modules/@zeltjs/decorator-metadata/dist/index.js:22:5)',
+      '    at adaptClassContext (/repo/node_modules/@zeltjs/decorator-metadata/dist/index.js:22:5)',
       '    at I.with (/repo/node_modules/ts-pattern/dist/index.js:1:6833)',
+      '    at dispatch (/repo/node_modules/@zeltjs/decorator-metadata/dist/index.js:25:5)',
       '    at /repo/node_modules/@zeltjs/eventbus/dist/index-chunk.js:7:1',
     ].join('\n');
 
