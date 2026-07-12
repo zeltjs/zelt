@@ -107,6 +107,15 @@ const findClassByExportName = (
   return findClassByName(sourceFile, localName, ts);
 };
 
+// 公開 export 名 (default / alias 含む) からクラス宣言を解決する。
+// getPublicMethodSignatures と共有するため export する
+export const findExportedClass = (
+  sourceFile: TSSourceFile,
+  exportName: string,
+  ts: TypeScriptModule,
+): TSClassDeclaration | undefined =>
+  findClassByExportName(sourceFile, exportName, buildExportAliasMaps(sourceFile, ts), ts);
+
 // 同一ファイル内クラスの export 名。export されていなければ undefined
 const exportNameOfLocalClass = (
   sourceFile: TSSourceFile,
