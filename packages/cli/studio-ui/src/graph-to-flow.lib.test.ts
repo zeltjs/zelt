@@ -18,7 +18,7 @@ const graph: DependencyGraph = {
 
 describe('graphToFlow', () => {
   it('creates one group node per folder, placed before its member cards', () => {
-    const flow = graphToFlow(graph, {});
+    const flow = graphToFlow(graph, {}, { grouped: true });
 
     const groupIds = flow.nodes.filter((n) => n.type === 'folder').map((n) => n.id);
     expect(groupIds.sort()).toEqual(['folder:src/bar', 'folder:src/foo']);
@@ -30,7 +30,7 @@ describe('graphToFlow', () => {
   });
 
   it('assigns card nodes to their folder group as parent, positioned relative to it', () => {
-    const flow = graphToFlow(graph, {});
+    const flow = graphToFlow(graph, {}, { grouped: true });
 
     const a = flow.nodes.find((n) => n.id === 'src/foo/a.ts#A');
     expect(a?.parentId).toBe('folder:src/foo');
@@ -41,7 +41,7 @@ describe('graphToFlow', () => {
   });
 
   it('keeps edge output identical to input edges regardless of group-level dedup', () => {
-    const flow = graphToFlow(graph, {});
+    const flow = graphToFlow(graph, {}, { grouped: true });
 
     expect(flow.edges).toEqual([
       expect.objectContaining({
@@ -58,7 +58,7 @@ describe('graphToFlow', () => {
   });
 
   it('prefers a saved child position over layout and grows the group to contain it', () => {
-    const flow = graphToFlow(graph, { 'src/foo/a.ts#A': { x: 500, y: 600 } });
+    const flow = graphToFlow(graph, { 'src/foo/a.ts#A': { x: 500, y: 600 } }, { grouped: true });
 
     const a = flow.nodes.find((n) => n.id === 'src/foo/a.ts#A');
     expect(a?.position).toEqual({ x: 500, y: 600 });
@@ -69,7 +69,7 @@ describe('graphToFlow', () => {
   });
 
   it('prefers a saved group position over layout', () => {
-    const flow = graphToFlow(graph, { 'folder:src/foo': { x: 999, y: 888 } });
+    const flow = graphToFlow(graph, { 'folder:src/foo': { x: 999, y: 888 } }, { grouped: true });
 
     const group = flow.nodes.find((n) => n.id === 'folder:src/foo');
     expect(group?.position).toEqual({ x: 999, y: 888 });
@@ -85,17 +85,50 @@ describe('graphToFlow', () => {
       edges: [],
     };
 
-    const flow = graphToFlow(unknownGraph, {});
+    const flow = graphToFlow(unknownGraph, {}, { grouped: true });
     const groups = flow.nodes.filter((n) => n.type === 'folder');
     expect(groups).toHaveLength(1);
     expect(groups[0]?.id).toBe('folder:(unknown)');
   });
 
   it('passes node data through for the card renderer', () => {
-    const flow = graphToFlow(graph, {});
+    const flow = graphToFlow(graph, {}, { grouped: true });
     const a = flow.nodes.find((n) => n.id === 'src/foo/a.ts#A');
     expect(a?.data).toEqual(
       expect.objectContaining({ className: 'A', filePath: 'src/foo/a.ts', kind: 'controller' }),
     );
+  });
+
+  describe('flat mode (grouped: false)', () => {
+    it('creates no folder group nodes', () => {
+      const flow = graphToFlow(graph, {}, { grouped: false });
+
+      expect(flow.nodes.some((n) => n.type === 'folder')).toBe(false);
+      expect(flow.nodes).toHaveLength(3);
+    });
+
+    it('positions cards without a parent, using absolute coordinates', () => {
+      const flow = graphToFlow(graph, {}, { grouped: false });
+
+      const a = flow.nodes.find((n) => n.id === 'src/foo/a.ts#A');
+      expect(a?.parentId).toBeUndefined();
+      expect(a?.extent).toBeUndefined();
+    });
+
+    it('prefers a saved absolute position over layout', () => {
+      const flow = graphToFlow(graph, { 'src/foo/a.ts#A': { x: 111, y: 222 } }, { grouped: false });
+
+      const a = flow.nodes.find((n) => n.id === 'src/foo/a.ts#A');
+      expect(a?.position).toEqual({ x: 111, y: 222 });
+    });
+
+    it('keeps edge output identical to grouped mode', () => {
+      const flow = graphToFlow(graph, {}, { grouped: false });
+
+      expect(flow.edges).toEqual([
+        expect.objectContaining({ id: 'src/foo/a.ts#A->src/foo/c.ts#C' }),
+        expect.objectContaining({ id: 'src/foo/a.ts#A->src/bar/b.ts#B' }),
+      ]);
+    });
   });
 });

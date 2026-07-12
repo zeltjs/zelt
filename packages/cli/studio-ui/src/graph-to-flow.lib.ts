@@ -137,7 +137,22 @@ const groupEdgesOf = (
   return groupEdges;
 };
 
-export const graphToFlow = (
+const cardDataOf = (node: GraphNode): CardData => ({
+  className: node.className,
+  filePath: node.filePath,
+  kind: node.kind,
+  unresolved: node.unresolved === true,
+});
+
+const edgesOf = (graph: DependencyGraph): Edge[] =>
+  graph.edges.map((edge) => ({
+    id: `${edge.from}->${edge.to}`,
+    source: edge.from,
+    target: edge.to,
+    animated: false,
+  }));
+
+const graphToFlowGrouped = (
   graph: DependencyGraph,
   saved: SavedPositions,
 ): { nodes: FlowNode[]; edges: Edge[] } => {
@@ -168,19 +183,37 @@ export const graphToFlow = (
     position: relativePositions.get(node.id) ?? { x: 0, y: 0 },
     parentId: groupIdOf(dirById.get(node.id) ?? dirOf(node.filePath)),
     extent: 'parent',
-    data: {
-      className: node.className,
-      filePath: node.filePath,
-      kind: node.kind,
-      unresolved: node.unresolved === true,
-    },
+    data: cardDataOf(node),
   }));
 
-  const edges: Edge[] = graph.edges.map((edge) => ({
-    id: `${edge.from}->${edge.to}`,
-    source: edge.from,
-    target: edge.to,
-    animated: false,
-  }));
-  return { nodes: [...groupNodes, ...cardNodes], edges };
+  return { nodes: [...groupNodes, ...cardNodes], edges: edgesOf(graph) };
 };
+
+// グルーピング導入前と同じフラット表示: グループ枠は作らず、全ノードを 1 回の dagre で配置する
+const graphToFlowFlat = (
+  graph: DependencyGraph,
+  saved: SavedPositions,
+): { nodes: FlowNode[]; edges: Edge[] } => {
+  const sizes = new Map(
+    graph.nodes.map((node) => [node.id, { width: NODE_WIDTH, height: NODE_HEIGHT }]),
+  );
+  const layout = runDagre(sizes, graph.edges, { nodesep: 40, ranksep: 80 });
+
+  const nodes: FlowNode[] = graph.nodes.map((node) => ({
+    id: node.id,
+    type: 'card',
+    position: saved[node.id] ?? layout.get(node.id) ?? { x: 0, y: 0 },
+    data: cardDataOf(node),
+  }));
+
+  return { nodes, edges: edgesOf(graph) };
+};
+
+export type GraphToFlowOptions = { readonly grouped: boolean };
+
+export const graphToFlow = (
+  graph: DependencyGraph,
+  saved: SavedPositions,
+  options: GraphToFlowOptions,
+): { nodes: FlowNode[]; edges: Edge[] } =>
+  options.grouped ? graphToFlowGrouped(graph, saved) : graphToFlowFlat(graph, saved);

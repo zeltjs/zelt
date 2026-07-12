@@ -1,8 +1,13 @@
 import type { SavedPositions } from './graph-to-flow.lib';
 
-// v2 で child 座標の意味が絶対座標→親（グループ）相対座標に変わったため、
-// 旧バージョンのデータをそのまま引き継がず key を分ける
-const storageKey = (): string => `zelt-studio:positions:v2:${window.location.host}`;
+export type PositionScope = 'grouped' | 'flat';
+
+// grouped の座標は親（グループ）相対、flat は絶対座標で意味が異なり混在させられないため
+// scope ごとに key を分ける。grouped 側は既存 key を維持し、ユーザーの現在の手動配置を壊さない
+const storageKey = (scope: PositionScope): string =>
+  scope === 'grouped'
+    ? `zelt-studio:positions:v2:${window.location.host}`
+    : `zelt-studio:positions:v2:flat:${window.location.host}`;
 
 const isPointShape = (value: unknown): boolean =>
   typeof value === 'object' &&
@@ -15,9 +20,9 @@ const isPointShape = (value: unknown): boolean =>
 const isSavedPositionsShape = (value: unknown): boolean =>
   typeof value === 'object' && value !== null && Object.values(value).every(isPointShape);
 
-export const loadPositions = (): SavedPositions => {
+export const loadPositions = (scope: PositionScope): SavedPositions => {
   try {
-    const raw = window.localStorage.getItem(storageKey());
+    const raw = window.localStorage.getItem(storageKey(scope));
     if (raw === null) return {};
     const parsed: unknown = JSON.parse(raw);
     if (!isSavedPositionsShape(parsed)) {
@@ -32,7 +37,11 @@ export const loadPositions = (): SavedPositions => {
   }
 };
 
-export const savePosition = (id: string, position: { x: number; y: number }): void => {
-  const next = { ...loadPositions(), [id]: position };
-  window.localStorage.setItem(storageKey(), JSON.stringify(next));
+export const savePosition = (
+  scope: PositionScope,
+  id: string,
+  position: { x: number; y: number },
+): void => {
+  const next = { ...loadPositions(scope), [id]: position };
+  window.localStorage.setItem(storageKey(scope), JSON.stringify(next));
 };
