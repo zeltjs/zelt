@@ -1,6 +1,9 @@
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
+  createResolveContract,
   extractDecoratorNames,
   extractMiddlewareRefs,
   extractRoutes,
@@ -98,5 +101,14 @@ describe('extractMiddlewareRefs', () => {
     };
     // class-level 適用があれば全メソッドに効くため methods は持たない
     expect(extractMiddlewareRefs(meta)).toEqual([{ middleware: MwA }]);
+  });
+});
+
+describe('createResolveContract', () => {
+  it('throws on extraction failure instead of suppressing it', async () => {
+    const resolveContract = createResolveContract(resolve(__dirname, '../../tsconfig.json'));
+    await expect(
+      resolveContract({ filePath: '/no/such/file.ts', exportName: 'X' }),
+    ).rejects.toThrow('SOURCE_NOT_FOUND');
   });
 });

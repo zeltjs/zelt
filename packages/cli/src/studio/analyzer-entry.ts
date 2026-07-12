@@ -17,14 +17,44 @@ import {
 import consola from 'consola';
 
 import { loadZeltConfig } from '../config/index';
-import type { AppLike, InspectableClass } from './analyzer.lib';
-import { extractDecoratorNames, isAppLike } from './analyzer.lib';
+import type { AppLike, ClassMetaLike, InspectableClass } from './analyzer.lib';
+import {
+  createResolveContract,
+  extractDecoratorNames,
+  extractMiddlewareRefs,
+  extractRoutes,
+  isAppLike,
+} from './analyzer.lib';
 import { GRAPH_MARKER } from './analyzer-protocol';
-import type { DependencyResolution, DependencyResolver, GraphRoot } from './graph/index';
+import type {
+  AppliedMiddleware,
+  DependencyResolution,
+  DependencyResolver,
+  GraphRoot,
+} from './graph/index';
 import { buildDependencyGraph, decoratorsToKind } from './graph/index';
 
 const decoratorNamesFromMetadata = (cls: InspectableClass): readonly string[] =>
   extractDecoratorNames(getClassMetadata(cls)?.props ?? []);
+
+// @UseMiddleware のクラス参照を ClassSource へ正準化する。失敗は unresolved ノードとして表示される
+const appliedMiddlewaresOf = (meta: ClassMetaLike): Promise<AppliedMiddleware[]> =>
+  Promise.all(
+    extractMiddlewareRefs(meta).map(async (ref): Promise<AppliedMiddleware> => {
+      const source = await getClassSource(ref.middleware);
+      if (source.isErr()) {
+        consola.error(
+          `[zelt studio] no ClassSource for middleware ${ref.middleware.name}: ${source.error.message}`,
+        );
+      }
+      return {
+        className: ref.middleware.name,
+        source: source.isOk() ? source.value : undefined,
+        decorators: decoratorNamesFromMetadata(ref.middleware),
+        ...(ref.methods !== undefined ? { methods: ref.methods } : {}),
+      };
+    }),
+  );
 
 const rootFromClass =
   (featureKey: string) =>
@@ -34,14 +64,18 @@ const rootFromClass =
       // 位置を特定できない root は unresolved 表示になる。原因は stderr に残す
       consola.error(`[zelt studio] no ClassSource for ${cls.name}: ${source.error.message}`);
     }
-    // routes / appliedMiddlewares / contract の本配線は Task 4。ここは型を通すだけ
-    const decorators = decoratorNamesFromMetadata(cls);
+    const meta: ClassMetaLike = getClassMetadata(cls) ?? { props: [], methods: [] };
+    const decorators = extractDecoratorNames(meta.props);
+    const routes = extractRoutes(meta);
+    const appliedMiddlewares = await appliedMiddlewaresOf(meta);
     return {
       className: cls.name,
       source: source.isOk() ? source.value : undefined,
       kind: decoratorsToKind(decorators),
       featureKey,
       decorators,
+      ...(routes.length > 0 ? { routes } : {}),
+      ...(appliedMiddlewares.length > 0 ? { appliedMiddlewares } : {}),
     };
   };
 
@@ -121,7 +155,10 @@ const main = async (): Promise<void> => {
   const graph = await buildDependencyGraph(
     await collectRoots(app),
     createResolveDependencies(tsconfig),
-    { formatPath: (filePath) => relative(cwd, filePath) },
+    {
+      formatPath: (filePath) => relative(cwd, filePath),
+      resolveContract: createResolveContract(tsconfig),
+    },
   );
   process.stdout.write(`${GRAPH_MARKER}${JSON.stringify(graph)}\n`);
 };

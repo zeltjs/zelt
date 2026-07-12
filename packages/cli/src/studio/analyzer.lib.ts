@@ -1,4 +1,6 @@
-import type { RouteInfo } from './graph/index';
+import { getPublicMethodSignatures } from '@zeltjs/decorator-metadata/inspect';
+
+import type { ContractResolver, RouteInfo } from './graph/index';
 
 export type InspectableClass = new (...args: never[]) => unknown;
 
@@ -152,3 +154,16 @@ export const extractMiddlewareRefs = (meta: ClassMetaLike): readonly MiddlewareR
     ),
   ];
 };
+
+// 契約は deps 解決済み(=program 内)のノードでのみ呼ばれるため、失敗は全体異常として fatal に扱う
+/**
+ * @throws {Error} from analyzer.lib.ts:createResolveContract
+ * @throws {UnsupportedTypeScriptVersionError} from resolve-typescript.lib.ts:resolveTypeScript
+ */
+export const createResolveContract =
+  (tsconfig: string): ContractResolver =>
+  async (source) => {
+    const result = await getPublicMethodSignatures(source, { tsconfig });
+    if (result.isErr()) throw new Error(`${result.error.code}: ${result.error.message}`);
+    return result.value;
+  };
