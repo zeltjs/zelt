@@ -183,4 +183,40 @@ describe('resolveDefinitionPosition', () => {
 
     expect(pos?.sourceFile).toBe('/repo/node_modules/@zeltjs/eventbus/dist/index-chunk.js');
   });
+
+  // ts-pattern の match/with dispatch が内部呼び出しをもう1段挟む (2 frame サンドイッチ) 将来の
+  // バージョンを模した合成スタック。1 frame 先読みしかしない実装だと、機構フレームに戻る前の
+  // 2つ目の ts-pattern 内部フレームを誤って「ユーザーコード」候補として解決してしまう
+  it('resolves through a 2-frame machinery sandwich (bounded lookahead)', async () => {
+    const { resolveDefinitionPosition } = await import('../inspect/index');
+    const { CaptureStackError } = await import('../runtime/index');
+
+    const defineError = new CaptureStackError();
+    defineError.stack = [
+      'CaptureStackError: Capture stack trace',
+      '    at captureStackTrace (/repo/node_modules/@zeltjs/decorator-metadata/dist/index.js:10:5)',
+      '    at createClassDecorator (/repo/node_modules/@zeltjs/decorator-metadata/dist/index.js:20:5)',
+      '    at createInjectableClassDecorator (/repo/node_modules/@zeltjs/core/dist/chunk.js:30:5)',
+      '    at /repo/node_modules/@zeltjs/eventbus/dist/index-chunk.js:7:1',
+    ].join('\n');
+
+    const callError = new CaptureStackError();
+    callError.stack = [
+      'CaptureStackError: Capture stack trace',
+      '    at captureStackTrace (/repo/node_modules/@zeltjs/decorator-metadata/dist/index.js:10:5)',
+      '    at adaptClassContext (/repo/node_modules/@zeltjs/decorator-metadata/dist/index.js:22:5)',
+      '    at I.with (/repo/node_modules/ts-pattern/dist/index.js:1:6833)',
+      '    at innerHelper (/repo/node_modules/ts-pattern/dist/index.js:2:100)',
+      '    at dispatch (/repo/node_modules/@zeltjs/decorator-metadata/dist/index.js:25:5)',
+      '    at /repo/node_modules/@zeltjs/eventbus/dist/index-chunk.js:7:1',
+    ].join('\n');
+
+    const pos = resolveDefinitionPosition({
+      _brand: 'StackTrace',
+      error: defineError,
+      callError,
+    });
+
+    expect(pos?.sourceFile).toBe('/repo/node_modules/@zeltjs/eventbus/dist/index-chunk.js');
+  });
 });

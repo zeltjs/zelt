@@ -44,6 +44,8 @@ const defaultIsFrameworkPath = (path: string): boolean => {
 const TRANSPILER_HELPER_NAMES = new Set([
   'applyClassDecs',
   '__decorate',
+  // esbuild が TC39 Stage 3 decorators を lowering する際に出力する内部ヘルパー
+  // (esbuild の internal/runtime/runtime.go に実装がある)
   '__decorateElement',
   '_decorate',
   'applyDecs',
@@ -253,13 +255,24 @@ const isDecoratorMachineryPath = (path: string): boolean => {
 
 // call トレースは decorator-metadata 内部のディスパッチ (ts-pattern の match/with) を
 // 経由するため、機構フレームの間に機構外のフレーム (ts-pattern 自身の実装) が挟まる。
-// 直後のフレームが decorator-metadata 自身に戻る場合は、まだ機構内とみなしてスキップする
+// 直後 1 frame のみを見ると、ts-pattern の内部実装がフレームを1つ増やした場合に
+// 検出が壊れて誤ったファイルへ解決してしまう。そのため機構フレームに再入するまで
+// 有界に先読みし、再入するまでの間のフレームはすべて機構の一部とみなす
 // (末尾の node: モジュールローダフレームは機構外の呼び出し元なので対象外)
+//
+// N=5: ts-pattern 5.6.2 時点の match/with dispatch は機構フレーム間に高々1 frame
+// しか挟まないが、内部実装のリファクタで数 frame 増えても追従できるよう余裕を持たせた
+const MACHINERY_SANDWICH_LOOKAHEAD = 5;
+
 const isSandwichedByMachinery = (lines: readonly string[], index: number): boolean => {
-  const nextLine = lines[index + 1];
-  if (!nextLine) return false;
-  const nextFile = extractFilePath(nextLine);
-  return nextFile !== undefined && isDecoratorMetadataPackagePath(nextFile.replace(/\\/g, '/'));
+  for (let offset = 1; offset <= MACHINERY_SANDWICH_LOOKAHEAD; offset++) {
+    const line = lines[index + offset];
+    if (!line) return false;
+    const file = extractFilePath(line);
+    if (!file) continue;
+    if (isDecoratorMetadataPackagePath(file.replace(/\\/g, '/'))) return true;
+  }
+  return false;
 };
 
 /**
