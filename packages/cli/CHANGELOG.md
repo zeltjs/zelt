@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* **cli:** `ZeltPlugin.preBuild()` may now return a
+  `readonly PrebuiltContribution[]` in addition to `void`. `zelt build` and
+  `zelt dev` collect every plugin's contributions and write
+  `.zelt/prebuilt.ts` (`export const zeltPrebuilt: ZeltPrebuilt`), generated
+  unconditionally even when no plugin contributes anything. Platform entry
+  files import this module and pass it to the adapter's `prebuilt` option.
+
 ## [0.5.0](https://github.com/zeltjs/zelt/compare/cli-v0.4.0...cli-v0.5.0) (2026-05-17)
 
 

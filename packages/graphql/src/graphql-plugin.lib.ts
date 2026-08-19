@@ -1,14 +1,16 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import type { ZeltPlugin } from '@zeltjs/cli';
+import type { PrebuiltContribution, ZeltPlugin } from '@zeltjs/cli';
 import type { ControllerClass, HttpStaticCapabilities } from '@zeltjs/core';
+import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { getGraphqlControllerMetadata } from './graphql-metadata.lib';
 import type { GraphqlRuntimeManifest } from './graphql-runtime.lib';
 import type { GenerateSdlOptions } from './graphql-sdl-generator.lib';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
+import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 import type { GenerateSchemaFirstResolverChecksOptions } from './schema-first-resolver-checks.lib';
 import { generateSchemaFirstResolverChecks } from './schema-first-resolver-checks.lib';
 import { generateSchemaFirstGraphqlRuntimeForResolvers } from './schema-first-runtime.lib';
@@ -17,11 +19,11 @@ type HttpStaticApp = {
   readonly http: Pick<HttpStaticCapabilities, 'getControllers'>;
 };
 
+export type GraphqlPrebuiltContribution = PrebuiltContribution;
+
 export type GraphqlPluginOptions = {
   readonly mode?: 'code-first' | 'schema-first';
-  readonly outDir?: string;
   readonly schema?: string;
-  readonly runtimeModule?: string;
   readonly resolverChecks?: Pick<
     GenerateSchemaFirstResolverChecksOptions,
     'out' | 'gqlTypesImport'
@@ -33,10 +35,9 @@ export type GraphqlPluginOptions = {
 };
 
 export type GenerateGraphqlSdlOptions = GenerateSdlOptions & {
-  readonly distDir: string;
+  readonly cwd: string;
   readonly mode?: 'code-first' | 'schema-first';
   readonly schema?: string;
-  readonly runtimeModule?: string;
   readonly resolverChecks?: Pick<
     GenerateSchemaFirstResolverChecksOptions,
     'out' | 'gqlTypesImport'
@@ -45,6 +46,7 @@ export type GenerateGraphqlSdlOptions = GenerateSdlOptions & {
 
 export type GenerateGraphqlSdlResult = {
   readonly changed: boolean;
+  readonly contributions: readonly GraphqlPrebuiltContribution[];
 };
 
 const writeIfChanged = async (path: string, content: string): Promise<boolean> => {
@@ -57,10 +59,10 @@ const writeIfChanged = async (path: string, content: string): Promise<boolean> =
 };
 
 type GraphqlEndpoint = {
+  readonly path: string;
   readonly resolvers: readonly NonNullable<
     ReturnType<typeof getGraphqlControllerMetadata>
   >['resolvers'][number][];
-  readonly runtimeModule: string | undefined;
 };
 
 const collectGraphqlEndpoints = (
@@ -70,10 +72,7 @@ const collectGraphqlEndpoints = (
   for (const controller of controllers) {
     const metadata = getGraphqlControllerMetadata(controller);
     if (!metadata) continue;
-    endpoints.push({
-      resolvers: metadata.resolvers,
-      runtimeModule: metadata.runtimeModule,
-    });
+    endpoints.push({ path: metadata.path, resolvers: metadata.resolvers });
   }
   return endpoints;
 };
@@ -122,127 +121,153 @@ const buildScalarObjectLiteral = (runtime: GraphqlRuntimeManifest): string | und
   return `  "scalars": {\n${entries.join(',\n')}\n  }`;
 };
 
-const buildRuntimeModule = (runtime: GraphqlRuntimeManifest): string => {
-  const imports = buildScalarImports(runtime);
+const buildRuntimeLiteral = (runtime: GraphqlRuntimeManifest): string => {
   const runtimeJson = JSON.stringify(toSerializableRuntime(runtime), null, 2);
   const scalarLiteral = buildScalarObjectLiteral(runtime);
-  if (!scalarLiteral) return `${imports}export const graphqlRuntime = ${runtimeJson};\n`;
+  if (!scalarLiteral) return runtimeJson;
   const trimmed = runtimeJson.replace(/\n}$/, '');
-  return `${imports}export const graphqlRuntime = ${trimmed},\n${scalarLiteral}\n};\n`;
+  return `${trimmed},\n${scalarLiteral}\n}`;
 };
 
-const writeRuntimeModule = async (
-  runtimeModule: string,
+const buildPrebuiltModule = (runtime: GraphqlRuntimeManifest, resolversHash: string): string => {
+  const imports = buildScalarImports(runtime);
+  const runtimeLiteral = buildRuntimeLiteral(runtime);
+  return `${imports}export const graphqlPrebuilt = {
+  "runtime": ${runtimeLiteral},
+  "resolversHash": ${JSON.stringify(resolversHash)}
+};\n`;
+};
+
+// GraphQL endpoint paths become filenames: '/graphql' -> 'graphql',
+// '/api/v1/graphql' -> 'api__v1__graphql'.
+const sanitizeGraphqlPath = (path: string): string => {
+  const trimmed = path.replace(/^\/+|\/+$/g, '').replace(/\//g, '__');
+  return trimmed.length > 0 ? trimmed : 'graphql';
+};
+
+const graphqlOutDir = (cwd: string): string => resolve(cwd, '.zelt', 'graphql');
+
+type WriteEndpointModuleResult = {
+  readonly changed: boolean;
+  readonly contribution: GraphqlPrebuiltContribution;
+};
+
+const writeGraphqlEndpointModule = async (
+  cwd: string,
+  endpoint: GraphqlEndpoint,
   runtime: GraphqlRuntimeManifest,
-): Promise<boolean> => {
-  const runtimePath = resolve(runtimeModule);
-  await mkdir(dirname(runtimePath), { recursive: true });
-  return writeIfChanged(runtimePath, buildRuntimeModule(runtime));
+): Promise<WriteEndpointModuleResult> => {
+  const outDir = graphqlOutDir(cwd);
+  await mkdir(outDir, { recursive: true });
+  const baseName = `${sanitizeGraphqlPath(endpoint.path)}.runtime`;
+  const runtimeFilePath = resolve(outDir, `${baseName}.ts`);
+  const sdlFilePath = resolve(outDir, `${baseName}.graphql`);
+  const resolversHash = await computeGraphqlPrebuiltHash(endpoint.path, endpoint.resolvers);
+  const runtimeChanged = await writeIfChanged(
+    runtimeFilePath,
+    buildPrebuiltModule(runtime, resolversHash),
+  );
+  const sdlChanged = await writeIfChanged(sdlFilePath, runtime.schemaSdl);
+  return {
+    changed: runtimeChanged || sdlChanged,
+    contribution: {
+      feature: 'graphql',
+      key: endpoint.path,
+      importPath: `./graphql/${baseName}`,
+      exportName: 'graphqlPrebuilt',
+    },
+  };
 };
 
-const toRuntimeSchemaPath = (runtimeModule: string): string => {
-  const runtimePath = resolve(runtimeModule);
-  const replaced = runtimePath.replace(/\.(?:cjs|mjs|js|ts)$/, '.graphql');
-  return replaced === runtimePath ? `${runtimePath}.graphql` : replaced;
+type SdlAdapterOptions = {
+  readonly tsconfig?: GenerateSdlOptions['tsconfig'];
+  readonly schemaAdapter?: GenerateSdlOptions['schemaAdapter'];
+  readonly schemaResolver?: GenerateSdlOptions['schemaResolver'];
+  readonly scalarResolver?: GenerateSdlOptions['scalarResolver'];
 };
 
-const toSdlOptions = (options: GenerateGraphqlSdlOptions): GenerateSdlOptions => ({
+const toSdlOptions = (options: SdlAdapterOptions): GenerateSdlOptions => ({
   ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
   ...(options.schemaAdapter !== undefined && { schemaAdapter: options.schemaAdapter }),
   ...(options.schemaResolver !== undefined && { schemaResolver: options.schemaResolver }),
   ...(options.scalarResolver !== undefined && { scalarResolver: options.scalarResolver }),
 });
 
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
-const generateStandaloneSchema = async (
-  endpoints: readonly GraphqlEndpoint[],
-  distDir: string,
-  options: GenerateGraphqlSdlOptions,
-): Promise<boolean> => {
-  const standaloneResolvers = endpoints
-    .filter((endpoint) => !endpoint.runtimeModule)
-    .flatMap((endpoint) => endpoint.resolvers);
-  if (standaloneResolvers.length === 0) return false;
-
-  const standaloneRuntime = await generateGraphqlRuntimeForResolvers(
-    standaloneResolvers,
-    toSdlOptions(options),
-  );
-  return writeIfChanged(resolve(distDir, 'schema.graphql'), standaloneRuntime.schemaSdl);
+type GenerateEndpointsResult = {
+  readonly changed: boolean;
+  readonly contributions: readonly GraphqlPrebuiltContribution[];
 };
 
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
-const generateRuntimeModules = async (
+const writeGraphqlEndpointModules = async (
+  cwd: string,
   endpoints: readonly GraphqlEndpoint[],
-  options: GenerateGraphqlSdlOptions,
-): Promise<boolean> => {
+  runtimeFor: (endpoint: GraphqlEndpoint) => Promise<GraphqlRuntimeManifest>,
+): Promise<GenerateEndpointsResult> => {
   let changed = false;
+  const contributions: GraphqlPrebuiltContribution[] = [];
   for (const endpoint of endpoints) {
-    if (!endpoint.runtimeModule) continue;
-    const runtime = await generateGraphqlRuntimeForResolvers(
-      endpoint.resolvers,
-      toSdlOptions(options),
-    );
-    changed = (await writeRuntimeModule(endpoint.runtimeModule, runtime)) || changed;
-    changed =
-      (await writeIfChanged(toRuntimeSchemaPath(endpoint.runtimeModule), runtime.schemaSdl)) ||
-      changed;
+    const runtime = await runtimeFor(endpoint);
+    const result = await writeGraphqlEndpointModule(cwd, endpoint, runtime);
+    changed = changed || result.changed;
+    contributions.push(result.contribution);
   }
-  return changed;
-};
-
-/** @throws {Error} */
-const resolveSchemaFirstRuntimeModule = (
-  endpoints: readonly GraphqlEndpoint[],
-  options: GenerateGraphqlSdlOptions,
-): string => {
-  if (options.runtimeModule) return options.runtimeModule;
-  const runtimeModules = endpoints.flatMap((endpoint) =>
-    endpoint.runtimeModule ? [endpoint.runtimeModule] : [],
-  );
-  const first = runtimeModules[0];
-  if (!first) {
-    throw new Error('schema-first graphqlPlugin requires runtimeModule.');
-  }
-  if (runtimeModules.length > 1) {
-    throw new Error(
-      'schema-first graphqlPlugin requires runtimeModule when multiple endpoints exist.',
-    );
-  }
-  return first;
+  return { changed, contributions };
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
-const generateSchemaFirstRuntimeModule = async (
+const generateCodeFirstEndpoints = (
   endpoints: readonly GraphqlEndpoint[],
   options: GenerateGraphqlSdlOptions,
+): Promise<GenerateEndpointsResult> =>
+  writeGraphqlEndpointModules(options.cwd, endpoints, (endpoint) =>
+    generateGraphqlRuntimeForResolvers(endpoint.resolvers, toSdlOptions(options)),
+  );
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const generateResolverChecksIfRequested = async (
+  schemaSdl: string,
+  resolvers: readonly GraphqlResolverClass[],
+  options: GenerateGraphqlSdlOptions,
 ): Promise<boolean> => {
+  if (!options.resolverChecks) return false;
+  const result = await generateSchemaFirstResolverChecks({
+    schemaSdl,
+    resolvers,
+    out: options.resolverChecks.out,
+    gqlTypesImport: options.resolverChecks.gqlTypesImport,
+    ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
+  });
+  return result.changed;
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const generateSchemaFirstEndpoints = async (
+  endpoints: readonly GraphqlEndpoint[],
+  options: GenerateGraphqlSdlOptions,
+): Promise<GenerateEndpointsResult> => {
   if (!options.schema) {
     throw new Error('schema-first graphqlPlugin requires schema.');
   }
-  const runtimeModule = resolveSchemaFirstRuntimeModule(endpoints, options);
   const schemaSdl = await readFile(resolve(options.schema), 'utf8');
-  const runtime = await generateSchemaFirstGraphqlRuntimeForResolvers(
-    endpoints.flatMap((endpoint) => endpoint.resolvers),
-    {
-      schemaSdl,
-      ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
-    },
+  const allResolvers = endpoints.flatMap((endpoint) => endpoint.resolvers);
+  const runtime = await generateSchemaFirstGraphqlRuntimeForResolvers(allResolvers, {
+    schemaSdl,
+    ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
+  });
+
+  const written = await writeGraphqlEndpointModules(options.cwd, endpoints, () =>
+    Promise.resolve(runtime),
   );
-  const runtimeChanged = await writeRuntimeModule(runtimeModule, runtime);
-  const schemaChanged = await writeIfChanged(toRuntimeSchemaPath(runtimeModule), schemaSdl);
-  const resolverChecksChanged = options.resolverChecks
-    ? (
-        await generateSchemaFirstResolverChecks({
-          schemaSdl,
-          resolvers: endpoints.flatMap((endpoint) => endpoint.resolvers),
-          out: options.resolverChecks.out,
-          gqlTypesImport: options.resolverChecks.gqlTypesImport,
-          ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
-        })
-      ).changed
-    : false;
-  return runtimeChanged || schemaChanged || resolverChecksChanged;
+  const resolverChecksChanged = await generateResolverChecksIfRequested(
+    schemaSdl,
+    allResolvers,
+    options,
+  );
+
+  return {
+    changed: written.changed || resolverChecksChanged,
+    contributions: written.contributions,
+  };
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -250,63 +275,34 @@ export const generateGraphqlSdl = async (
   app: Pick<HttpStaticCapabilities, 'getControllers'>,
   options: GenerateGraphqlSdlOptions,
 ): Promise<GenerateGraphqlSdlResult> => {
-  const distDir = resolve(options.distDir);
-  await mkdir(distDir, { recursive: true });
-
   const endpoints = collectGraphqlEndpoints(app.getControllers());
-  if (options.mode === 'schema-first' || options.schema !== undefined) {
-    return { changed: await generateSchemaFirstRuntimeModule(endpoints, options) };
-  }
-  const standaloneChanged = await generateStandaloneSchema(endpoints, distDir, options);
-  const runtimeChanged = await generateRuntimeModules(endpoints, options);
-  return { changed: standaloneChanged || runtimeChanged };
+  const result =
+    options.mode === 'schema-first' || options.schema !== undefined
+      ? await generateSchemaFirstEndpoints(endpoints, options)
+      : await generateCodeFirstEndpoints(endpoints, options);
+  return { changed: result.changed, contributions: result.contributions };
 };
 
-type WritableGenerateGraphqlSdlOptions = {
-  -readonly [Key in keyof GenerateGraphqlSdlOptions]: GenerateGraphqlSdlOptions[Key];
-};
-
-const addSchemaFirstOptions = (
-  generateOptions: WritableGenerateGraphqlSdlOptions,
+const toGenerateOptions = (
+  cwd: string,
   options: GraphqlPluginOptions,
-): void => {
-  if (options.mode !== undefined) generateOptions.mode = options.mode;
-  if (options.schema !== undefined) generateOptions.schema = options.schema;
-  if (options.runtimeModule !== undefined) generateOptions.runtimeModule = options.runtimeModule;
-  if (options.resolverChecks !== undefined) generateOptions.resolverChecks = options.resolverChecks;
-};
-
-const addCodeFirstOptions = (
-  generateOptions: WritableGenerateGraphqlSdlOptions,
-  options: GraphqlPluginOptions,
-): void => {
-  if (options.tsconfig !== undefined) generateOptions.tsconfig = options.tsconfig;
-  if (options.schemaAdapter !== undefined) generateOptions.schemaAdapter = options.schemaAdapter;
-  if (options.schemaResolver !== undefined) generateOptions.schemaResolver = options.schemaResolver;
-  if (options.scalarResolver !== undefined) generateOptions.scalarResolver = options.scalarResolver;
-};
-
-const addGenerateOptions = (
-  generateOptions: WritableGenerateGraphqlSdlOptions,
-  options: GraphqlPluginOptions,
-): void => {
-  addSchemaFirstOptions(generateOptions, options);
-  addCodeFirstOptions(generateOptions, options);
-};
-
-const buildGenerateOptions = (options: GraphqlPluginOptions): GenerateGraphqlSdlOptions => {
-  const generateOptions: WritableGenerateGraphqlSdlOptions = {
-    distDir: options.outDir ?? './dist',
-  };
-  addGenerateOptions(generateOptions, options);
-  return generateOptions;
-};
+): GenerateGraphqlSdlOptions => ({
+  cwd,
+  ...toSdlOptions(options),
+  ...(options.mode !== undefined && { mode: options.mode }),
+  ...(options.schema !== undefined && { schema: options.schema }),
+  ...(options.resolverChecks !== undefined && { resolverChecks: options.resolverChecks }),
+});
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
 export const graphqlPlugin = (options: GraphqlPluginOptions = {}): ZeltPlugin<HttpStaticApp> => ({
   name: 'graphql',
   async preBuild(ctx) {
     const app = await ctx.loadStaticApp();
-    await generateGraphqlSdl(app.http, buildGenerateOptions(options));
+    const { contributions } = await generateGraphqlSdl(
+      app.http,
+      toGenerateOptions(ctx.cwd, options),
+    );
+    return contributions;
   },
 });

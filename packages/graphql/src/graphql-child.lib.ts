@@ -9,35 +9,27 @@ import { Controller, http, Post, request } from '@zeltjs/core';
 
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { setGraphqlControllerMetadata } from './graphql-metadata.lib';
-import type {
-  GeneratedGraphqlRuntime,
-  GraphqlRuntimeLoader,
-  GraphqlRuntimeSource,
-} from './graphql-runtime.lib';
+import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import {
   createGraphqlExecutor,
   getGraphqlRuntimeState,
-  loadGeneratedGraphqlRuntime,
+  parseGraphqlPrebuiltEntry,
   parseGraphqlRequestPayload,
   setGraphqlRuntimeState,
 } from './graphql-runtime.lib';
+import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
-type GraphqlBaseOptions = {
+export type GraphqlOptions = {
   readonly path: string;
   readonly resolvers: readonly GraphqlResolverClass[];
-  /** Build-time output path consumed by graphqlPlugin(). */
-  readonly runtimeModule?: string;
 };
 
-export type GraphqlOptions = GraphqlBaseOptions &
-  (
-    | { readonly runtime: GeneratedGraphqlRuntime; readonly runtimeLoader?: never }
-    | { readonly runtime?: never; readonly runtimeLoader: GraphqlRuntimeLoader }
-    /** @deprecated Prefer runtime or runtimeLoader for portable runtime loading. */
-    | { readonly runtime?: never; readonly runtimeLoader?: never; readonly runtimeModule: string }
-  );
-
 export type GraphqlChildOptions = HttpMountableFeatureModule;
+
+const toObject = (value: unknown): object | undefined => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  return value;
+};
 
 /** @throws {Error} */
 const createResolverLookup = (instances: ReadonlyMap<string, object>) => {
@@ -74,8 +66,8 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
     const GraphqlEndpointController = this.createController();
     this.controller = GraphqlEndpointController;
     setGraphqlControllerMetadata(GraphqlEndpointController, {
+      path: options.path,
       resolvers: options.resolvers,
-      ...(options.runtimeModule !== undefined && { runtimeModule: options.runtimeModule }),
     });
   }
 
@@ -102,7 +94,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
   readonly realize = async (
     runtimeContext: ServiceResolver,
   ): Promise<HttpMountableCapabilities> => {
-    const generatedRuntime = await loadGeneratedGraphqlRuntime(this.runtimeSource());
+    const generatedRuntime = await this.resolveGraphqlRuntime(runtimeContext);
     const resolverInstances = new Map<string, object>();
     for (const resolver of this.options.resolvers) {
       resolverInstances.set(resolver.name, await runtimeContext.get(resolver));
@@ -121,10 +113,32 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
     return http({ path: this.path, controllers: [this.controller] }).realize(runtimeContext);
   };
 
-  private runtimeSource(): GraphqlRuntimeSource {
-    if (this.options.runtime) return this.options.runtime;
-    if (this.options.runtimeLoader) return this.options.runtimeLoader;
-    return this.options.runtimeModule;
+  /** @throws {Error} */
+  private async resolveGraphqlRuntime(
+    runtimeContext: ServiceResolver,
+  ): Promise<GeneratedGraphqlRuntime> {
+    const prebuilt = runtimeContext.prebuilt;
+    if (!prebuilt) {
+      throw new Error(
+        'GraphQL requires a prebuilt module. Run `zelt build` and pass it to the adapter: onNode(app, { prebuilt: zeltPrebuilt })',
+      );
+    }
+    const graphqlFeature = toObject(prebuilt.features['graphql']);
+    const entry = parseGraphqlPrebuiltEntry(
+      graphqlFeature ? Reflect.get(graphqlFeature, this.path) : undefined,
+    );
+    if (!entry) {
+      throw new Error(
+        `GraphQL prebuilt entry missing for path "${this.path}". Run \`zelt build\` to generate it.`,
+      );
+    }
+    const expectedHash = await computeGraphqlPrebuiltHash(this.path, this.options.resolvers);
+    if (entry.resolversHash !== expectedHash) {
+      throw new Error(
+        `GraphQL prebuilt entry for path "${this.path}" is stale. Run \`zelt build\` again.`,
+      );
+    }
+    return entry.runtime;
   }
 
   /** @throws {E | Error} */
@@ -134,9 +148,8 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
       async handle(req = request()): Promise<Response> {
         const state = getGraphqlRuntimeState(this);
         if (!state) {
-          return Response.json(
-            { errors: [{ message: 'GraphQL generated runtime is not configured.' }] },
-            { status: 501 },
+          throw new Error(
+            'GraphQL runtime state missing after realize(); this is a bug in @zeltjs/graphql.',
           );
         }
 

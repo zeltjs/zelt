@@ -77,3 +77,25 @@ export const isZeltMultipleBuildHooksError = (
   err: unknown,
 ): err is InstanceType<typeof ZeltMultipleBuildHooksError> =>
   err instanceof ZeltMultipleBuildHooksError;
+
+export const ZeltInvalidPrebuiltContributionError = defineError(
+  'ZeltInvalidPrebuiltContributionError',
+  (ctx: { field: string; value: string }) =>
+    `Invalid prebuilt contribution ${ctx.field}: ${JSON.stringify(ctx.value)}`,
+);
+
+export const isZeltInvalidPrebuiltContributionError = (
+  err: unknown,
+): err is InstanceType<typeof ZeltInvalidPrebuiltContributionError> =>
+  err instanceof ZeltInvalidPrebuiltContributionError;
+
+export const ZeltDuplicatePrebuiltContributionError = defineError(
+  'ZeltDuplicatePrebuiltContributionError',
+  (ctx: { feature: string; key: string }) =>
+    `Duplicate prebuilt contribution for feature ${JSON.stringify(ctx.feature)} key ${JSON.stringify(ctx.key)}`,
+);
+
+export const isZeltDuplicatePrebuiltContributionError = (
+  err: unknown,
+): err is InstanceType<typeof ZeltDuplicatePrebuiltContributionError> =>
+  err instanceof ZeltDuplicatePrebuiltContributionError;

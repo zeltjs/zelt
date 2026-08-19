@@ -3,7 +3,7 @@ import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createGraphqlSchemaFirstApp } from '../src/app';
-import { prepareGeneratedRuntime, resolverChecksPath, runtimeModulePath } from './generated';
+import { prepareZeltPrebuilt, resolverChecksPath, runtimeFilePath } from './generated';
 
 type AppRuntime = Awaited<
   ReturnType<ReturnType<typeof createGraphqlSchemaFirstApp>['createRuntime']>
@@ -20,8 +20,8 @@ describe('GraphQL schema-first app', () => {
   let runtime: AppRuntime;
 
   beforeAll(async () => {
-    await prepareGeneratedRuntime();
-    runtime = await onTest(createGraphqlSchemaFirstApp());
+    const zeltPrebuilt = await prepareZeltPrebuilt();
+    runtime = await onTest(createGraphqlSchemaFirstApp(), { prebuilt: zeltPrebuilt });
   });
 
   afterAll(async () => {
@@ -29,8 +29,8 @@ describe('GraphQL schema-first app', () => {
   });
 
   it('runs a schema-first resolver through the generated GraphQL runtime over HTTP', async () => {
-    await expect(readFile(runtimeModulePath, 'utf8')).resolves.toContain(
-      'export const graphqlRuntime',
+    await expect(readFile(runtimeFilePath, 'utf8')).resolves.toContain(
+      'export const graphqlPrebuilt',
     );
     await expect(readFile(resolverChecksPath, 'utf8')).resolves.toContain(
       'Gql.Query.product.Result',

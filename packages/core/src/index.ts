@@ -51,6 +51,7 @@ export type {
   SchedulerCapabilities,
   ServiceResolver,
   StaticNamespacedCaps,
+  ZeltPrebuilt,
 } from './features';
 // Feature factories
 export {

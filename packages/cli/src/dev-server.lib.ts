@@ -6,6 +6,7 @@ import consola from 'consola';
 import type { CliRuntime } from './cli-runtime.lib';
 import type { DevConfig, ZeltConfig } from './config/config.types';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
+import { writePrebuiltModule } from './prebuilt-writer.lib';
 import type { WatcherHandle } from './watcher.lib';
 import { createWatcher } from './watcher.lib';
 
@@ -78,11 +79,12 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
   return child;
 };
 
-/** @throws {ZeltMultipleBuildHooksError} */
+/** @throws {ZeltMultipleBuildHooksError | ZeltDuplicatePrebuiltContributionError | ZeltInvalidPrebuiltContributionError} */
 const runHooks = async (cwd: string, config: ZeltConfig): Promise<void> => {
   const hookOptions = { cwd, config, loadStaticApp: async () => config.app() };
 
-  await runPreBuildHooks(hookOptions);
+  const contributions = await runPreBuildHooks(hookOptions);
+  await writePrebuiltModule(cwd, contributions);
 
   let success = true;
 

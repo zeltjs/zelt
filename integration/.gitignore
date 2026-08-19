@@ -10,3 +10,4 @@
 
 # Generated integration build artifacts
 */src/generated/
+*/.zelt/

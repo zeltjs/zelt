@@ -1,37 +1,50 @@
-import { mkdir, readFile, rm } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { readFile, rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { generateGraphqlSdl } from '@zeltjs/graphql/codegen';
+import { writePrebuiltModule } from '@zeltjs/cli';
+import type { ZeltPrebuilt } from '@zeltjs/core';
+import { graphqlPlugin } from '@zeltjs/graphql/codegen';
 import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { createGraphqlDogfoodingApp, graphqlRuntimeModule } from '../src/app';
+import { createGraphqlDogfoodingApp } from '../src/app';
 
-const tsconfig = resolve(__dirname, '../tsconfig.json');
-const runtimeModulePath = resolve(__dirname, '..', graphqlRuntimeModule);
-const generatedDir = dirname(runtimeModulePath);
+const cwd = resolve(__dirname, '..');
+const tsconfig = resolve(cwd, 'tsconfig.json');
+const zeltDir = resolve(cwd, '.zelt');
+const runtimeFilePath = resolve(zeltDir, 'graphql/graphql.runtime.ts');
+const sdlFilePath = resolve(zeltDir, 'graphql/graphql.runtime.graphql');
 
-const prepareGeneratedRuntime = async (): Promise<void> => {
-  await rm(generatedDir, { recursive: true, force: true });
-  await mkdir(generatedDir, { recursive: true });
+let zeltPrebuilt: ZeltPrebuilt;
+
+const preparePrebuilt = async (): Promise<void> => {
+  await rm(zeltDir, { recursive: true, force: true });
 
   const app = createGraphqlDogfoodingApp();
-  await generateGraphqlSdl(app.http, {
-    distDir: generatedDir,
+  const plugin = graphqlPlugin({
     tsconfig,
     schemaAdapter: valibotAdapter,
     schemaResolver: (modulePath: string) => import(/* @vite-ignore */ modulePath),
   });
+  const contributions =
+    (await plugin.preBuild?.({ cwd, build: {}, loadStaticApp: async () => app })) ?? [];
+  await writePrebuiltModule(cwd, contributions);
+
+  const prebuiltModule = (await import(
+    /* @vite-ignore */ pathToFileURL(resolve(zeltDir, 'prebuilt.ts')).href
+  )) as { readonly zeltPrebuilt: ZeltPrebuilt };
+  zeltPrebuilt = prebuiltModule.zeltPrebuilt;
 };
 
 describe('GraphQL dogfooding app', () => {
-  beforeAll(prepareGeneratedRuntime);
+  beforeAll(preparePrebuilt);
 
   it('runs a storefront workflow through generated GraphQL runtime over HTTP', async () => {
-    await expect(readFile(runtimeModulePath, 'utf8')).resolves.toContain(
-      'export const graphqlRuntime',
+    await expect(readFile(runtimeFilePath, 'utf8')).resolves.toContain(
+      'export const graphqlPrebuilt',
     );
-    const schema = await readFile(runtimeModulePath.replace(/\.js$/, '.graphql'), 'utf8');
+    const schema = await readFile(sdlFilePath, 'utf8');
     expect(schema).toContain('type Query');
     expect(schema).toContain('type Mutation');
     expect(schema).toContain('product(id: String!): ProductPublic');
@@ -43,7 +56,7 @@ describe('GraphQL dogfooding app', () => {
     expect(schema).toContain('union CatalogSearchResult = ProductPublic | CategoryPublic');
 
     const app = createGraphqlDogfoodingApp();
-    const runtime = await app.createRuntime();
+    const runtime = await app.createRuntime({ prebuilt: zeltPrebuilt });
 
     const health = await runtime.http.request('/api/health');
     await expect(health.json()).resolves.toEqual({
@@ -245,7 +258,7 @@ describe('GraphQL dogfooding app', () => {
 
   it('validates field args through args on queries and mutations', async () => {
     const app = createGraphqlDogfoodingApp();
-    const runtime = await app.createRuntime();
+    const runtime = await app.createRuntime({ prebuilt: zeltPrebuilt });
 
     const found = await postGraphql(runtime, `{ product(id: "p_lamp") { id name priceCents } }`);
     expect(found.status).toBe(200);

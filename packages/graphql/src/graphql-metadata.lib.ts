@@ -12,8 +12,8 @@ export type GraphqlOperationMetadata = {
 };
 
 export type GraphqlControllerMetadata = {
+  readonly path: string;
   readonly resolvers: readonly GraphqlResolverClass[];
-  readonly runtimeModule?: string;
 };
 
 const resolverMetadata = new WeakMap<object, GraphqlResolverMetadata>();

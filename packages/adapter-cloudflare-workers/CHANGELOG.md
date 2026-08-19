@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* **adapter-cloudflare-workers:** `onCloudflareWorkers()` accepts a
+  `prebuilt` option (`ZeltPrebuilt`) and threads it through to the runtime's
+  `ServiceResolver.prebuilt`. The entry file's static `import` of the
+  generated `.zelt/prebuilt` module works unmodified under the `wrangler`
+  bundle, since there is no filesystem fallback to account for.
+
 ## [0.5.0](https://github.com/zeltjs/zelt/compare/adapter-cloudflare-workers-v0.4.0...adapter-cloudflare-workers-v0.5.0) (2026-05-17)
 
 

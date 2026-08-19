@@ -4,6 +4,7 @@ import type {
   FeatureApp,
   FeatureReadyCapabilities,
   RuntimeApp,
+  ZeltPrebuilt,
 } from '@zeltjs/core';
 import { HttpFeature } from '@zeltjs/core';
 
@@ -17,6 +18,7 @@ export type { ServerHandle } from './listen.lib';
 export type NodeAppOptions = {
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
+  readonly prebuilt?: ZeltPrebuilt;
 };
 
 export type { ExecResult } from '@zeltjs/core';
@@ -87,6 +89,7 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
 ): Promise<NodeApp> {
   const readyApp = await app.createRuntime({
     ...(options.configs === undefined ? {} : { configs: options.configs }),
+    ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
     warmup: options.warmup ?? true,
   });

@@ -18,6 +18,7 @@ import { runCommandBuild } from './command-build.lib';
 import type { BuildConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
+import { writePrebuiltModule } from './prebuilt-writer.lib';
 import { buildTsdownCommand } from './tsdown.lib';
 
 type BuildArgs = {
@@ -77,7 +78,7 @@ const runDefaultBuild = async (
   consola.success('Build completed');
 };
 
-/** @throws {ZeltNoEntryError | ZeltBuildCommandConflictError | ZeltBuildError | ZeltMultipleBuildHooksError | ZeltConfigLoadError | {} | null} */
+/** @throws {ZeltNoEntryError | ZeltBuildCommandConflictError | ZeltBuildError | ZeltMultipleBuildHooksError | ZeltConfigLoadError | ZeltDuplicatePrebuiltContributionError | ZeltInvalidPrebuiltContributionError | {} | null} */
 export const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
   const configFile = typedArgs.config;
   const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
@@ -88,7 +89,8 @@ export const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void>
 
   const hookOptions = { cwd, config, loadStaticApp: async () => config.app() };
 
-  await runPreBuildHooks(hookOptions);
+  const contributions = await runPreBuildHooks(hookOptions);
+  await writePrebuiltModule(cwd, contributions);
 
   let success = true;
   let buildError: unknown;

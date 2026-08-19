@@ -7,11 +7,6 @@ import { StorefrontResolver } from './graphql/storefront.resolver';
 import { StorefrontFieldsResolver } from './graphql/storefront-fields.resolver';
 import { StorefrontMutationResolver } from './graphql/storefront-mutation.resolver';
 
-export const graphqlRuntimeModule = 'src/generated/graphql-runtime.js';
-const graphqlRuntimeImport = './generated/graphql-runtime.js';
-
-const loadGraphqlRuntime = (): Promise<unknown> => import(/* @vite-ignore */ graphqlRuntimeImport);
-
 export const createGraphqlDogfoodingApp = () =>
   createApp([
     http({
@@ -29,8 +24,6 @@ export const createGraphqlDogfoodingApp = () =>
                 OrderFieldsResolver,
                 StorefrontMutationResolver,
               ],
-              runtimeLoader: loadGraphqlRuntime,
-              runtimeModule: graphqlRuntimeModule,
             }),
           ],
         }),

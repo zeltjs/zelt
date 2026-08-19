@@ -5,6 +5,7 @@ export type {
   GenerateGraphqlSdlOptions,
   GenerateGraphqlSdlResult,
   GraphqlPluginOptions,
+  GraphqlPrebuiltContribution,
 } from './graphql-plugin.lib';
 export { generateGraphqlSdl, graphqlPlugin } from './graphql-plugin.lib';
 export type { GenerateSdlOptions } from './graphql-sdl-generator.lib';

@@ -14,13 +14,16 @@ GraphQL support is built around a shared runtime manifest:
 - runtime metadata such as enum, scalar, and union mappings
 
 The executor consumes the runtime manifest. Code-first and schema-first are
-frontends that produce the same manifest.
+frontends that produce the same manifest, which is delivered to the running
+app as a prebuilt module rather than loaded by the app itself.
 
 ```text
 Code-first:
   Resolver code + args(schema)
-    -> generated schema.graphql
-    -> generated graphql-runtime.js
+    -> zelt build / zelt dev
+    -> .zelt/graphql/<path>.runtime.ts (graphqlPrebuilt) + sibling .graphql
+    -> .zelt/prebuilt.ts (zeltPrebuilt)
+    -> entry imports zeltPrebuilt -> adapter(app, { prebuilt })
     -> /graphql runtime
 
 Schema-first:
@@ -28,7 +31,10 @@ Schema-first:
     -> zelt graphql codegen
     -> generated typed helpers
     -> resolver code
-    -> generated graphql-runtime.js
+    -> zelt build / zelt dev
+    -> .zelt/graphql/<path>.runtime.ts (graphqlPrebuilt) + sibling .graphql
+    -> .zelt/prebuilt.ts (zeltPrebuilt)
+    -> entry imports zeltPrebuilt -> adapter(app, { prebuilt })
     -> /graphql runtime
 ```
 
@@ -45,6 +51,10 @@ Supported experimental app-authoring APIs:
 - `gqlScalar()`
 - `GqlOutput`
 
+`graphql({ path, resolvers })` only declares the endpoint; it never references
+generated output. The generated runtime is supplied separately, through the
+adapter's `prebuilt` option (see Build flow below).
+
 Generated-code APIs are exported for schema-first helpers only:
 
 - `readGraphqlArgs()`
@@ -53,6 +63,12 @@ Generated-code APIs are exported for schema-first helpers only:
 Build-time APIs such as `graphqlPlugin()`, `generateGraphqlSdl()`,
 `generateSdlForResolvers()`, schema-first codegen, metadata inspection, and
 type conversion are exported from `@zeltjs/graphql/codegen` only.
+
+Runtime integration APIs used by adapters and framework internals — including
+`createGraphqlExecutor()`, `executeGraphqlRequest()`, `GraphqlRuntimeManifest`,
+`GeneratedGraphqlRuntime`, `GraphqlPrebuiltEntry`, and
+`computeGraphqlPrebuiltHash()` — remain on `@zeltjs/graphql`. Application code
+does not normally need them.
 
 ## Code-first
 
@@ -84,8 +100,6 @@ export const app = createApp([
       graphql({
         path: '/graphql',
         resolvers: [ProductResolver],
-        runtimeLoader: () => import('./dist/graphql-runtime.js'),
-        runtimeModule: './dist/graphql-runtime.js',
       }),
     ],
   }),
@@ -142,35 +156,75 @@ should come from generated helpers, not handwritten generic arguments.
 
 ## Build flow
 
-GraphQL endpoints require a generated runtime manifest. `runtimeModule` is the
-codegen output path; `runtimeLoader` is the portable runtime loading hook.
+Only the platform entry file imports generated output. The app definition is
+always evaluable with zero generated files, so building an app for the first
+time never hits a chicken-and-egg problem.
 
 ```ts no-check
 import { graphqlPlugin } from '@zeltjs/graphql/codegen';
 ```
 
-Code-first:
+Register the plugin in `zelt.config.ts`:
+
+```ts no-check
+import { defineConfig } from '@zeltjs/cli';
+import { graphqlPlugin } from '@zeltjs/graphql/codegen';
+
+export default defineConfig({
+  app: () => import('./src/app').then((m) => m.app),
+  plugins: [graphqlPlugin()],
+  build: { entry: './src/node.ts' },
+  dev: { entry: './src/node.ts' },
+});
+```
+
+`zelt build` and `zelt dev` then run two generation steps automatically:
+
+1. Each registered `graphqlPlugin()` writes `.zelt/graphql/<sanitized-path>.runtime.ts`
+   (`export const graphqlPrebuilt = { runtime, resolversHash }`) and a sibling
+   `.graphql` SDL file, one pair per `graphql({ path, resolvers })` endpoint.
+2. The CLI collects every plugin's contributions and writes `.zelt/prebuilt.ts`
+   (`export const zeltPrebuilt: ZeltPrebuilt`), which re-exports each generated
+   module under its feature key. This file is always generated, even when no
+   plugin contributes anything.
+
+The platform entry file statically imports `zeltPrebuilt` and passes it to the
+adapter:
+
+```ts no-check
+import { onNode } from '@zeltjs/adapter-node';
+import { app } from './app';
+import { zeltPrebuilt } from '../.zelt/prebuilt';
+
+const nodeApp = await onNode(app, { prebuilt: zeltPrebuilt });
+```
+
+Every adapter (`onNode`, `onBun`, `onCloudflareWorkers`, `onElectron`,
+`onLambda`) accepts the same `prebuilt` option. Because the entry file uses
+only a static `import`, this works unmodified under bundlers that require
+static imports, such as the Cloudflare Workers `wrangler` bundle — there is no
+filesystem fallback on any platform.
+
+### Code-first
 
 1. Write resolvers.
-2. Configure `graphql({ runtimeModule, runtimeLoader })`.
-3. Run `zelt build` or `graphqlPlugin()`.
-4. The plugin generates `graphql-runtime.js` and a sibling `.graphql` file.
-5. The caller-supplied loader loads the generated module.
+2. Configure `graphql({ path, resolvers })`.
+3. Add `graphqlPlugin()` to `plugins` in `zelt.config.ts`.
+4. Run `zelt build` or `zelt dev`.
+5. The platform entry file imports `zeltPrebuilt` from `../.zelt/prebuilt` and
+   passes it to the adapter.
 
-Schema-first:
+### Schema-first
 
 1. Write `schema.graphql`.
 2. Run `zelt graphql codegen --schema ... --out ...`.
 3. Write resolvers using generated `Gql` helpers.
-4. Configure `graphql({ runtimeModule, runtimeLoader })`.
-5. Run `zelt build` or `graphqlPlugin({ mode: 'schema-first', ... })`.
-6. The plugin generates `graphql-runtime.js` and a sibling `.graphql` file.
-7. The caller-supplied loader loads the generated module.
-
-Move generation imports from `@zeltjs/graphql` to
-`@zeltjs/graphql/codegen`. String-only `runtimeModule` loading remains for
-compatibility, but the string is passed directly to `import()` and is not
-resolved against the Node working directory.
+4. Configure `graphql({ path, resolvers })`.
+5. Add `graphqlPlugin({ mode: 'schema-first', schema: '...' })` to `plugins`
+   in `zelt.config.ts`.
+6. Run `zelt build` or `zelt dev`.
+7. The platform entry file imports `zeltPrebuilt` from `../.zelt/prebuilt` and
+   passes it to the adapter.
 
 Automatic schema-first codegen during `zelt dev` is not part of this release
 boundary. Use `zelt graphql codegen` explicitly for now.
@@ -181,6 +235,18 @@ resolver method's return type is assignable to the corresponding generated
 `Gql.Query`/`Gql.Mutation` result type.
 
 ## Current limitations
+
+GraphQL requires the prebuilt module. If it is missing, if the endpoint's
+prebuilt entry is missing, or if the entry file does not import `zeltPrebuilt`,
+the endpoint throws at startup — there is no silent fallback on any platform.
+
+Each prebuilt entry carries a `resolversHash` fingerprint (SHA-256 over the
+endpoint path and the sorted resolver class names), recomputed at startup and
+checked against the value baked into the prebuilt module. A mismatch throws
+and tells you to rerun `zelt build`. v1 only fingerprints the endpoint path and
+resolver class names — changes to resolver method signatures, argument types,
+or return types are not detected and still require rerunning `zelt build`
+manually.
 
 ### Code-first
 

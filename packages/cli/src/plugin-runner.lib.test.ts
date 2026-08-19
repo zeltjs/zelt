@@ -60,14 +60,39 @@ describe('runPreBuildHooks', () => {
     const config: ZeltConfig = { ...createBaseConfig(), plugins: [] };
     await expect(
       runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual([]);
   });
 
   it('handles undefined plugins', async () => {
     const config: ZeltConfig = { ...createBaseConfig() };
     await expect(
       runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual([]);
+  });
+
+  it('collects prebuilt contributions returned by preBuild hooks', async () => {
+    const plugin1: ZeltPlugin = {
+      name: 'plugin1',
+      preBuild: async () => [
+        { feature: 'graphql', key: '/graphql', importPath: './graphql/g', exportName: 'g' },
+      ],
+    };
+
+    const plugin2: ZeltPlugin = {
+      name: 'plugin2',
+      preBuild: async () => undefined,
+    };
+
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin1, plugin2] };
+    const contributions = await runPreBuildHooks({
+      cwd: '/test',
+      config,
+      loadStaticApp: createLoadStaticApp(),
+    });
+
+    expect(contributions).toEqual([
+      { feature: 'graphql', key: '/graphql', importPath: './graphql/g', exportName: 'g' },
+    ]);
   });
 
   it('passes correct context to plugin', async () => {

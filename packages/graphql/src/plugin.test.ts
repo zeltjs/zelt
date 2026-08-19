@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { generateGraphqlSdl, graphqlPlugin } from './graphql-plugin.lib';
 import type { GqlOutput } from './index';
-import { gqlScalar, graphql, Query, Resolver } from './index';
+import { computeGraphqlPrebuiltHash, gqlScalar, graphql, Query, Resolver } from './index';
 
 type ViewerPublic = {
   readonly id: string;
@@ -36,93 +36,153 @@ class PluginScalarResolver {
   }
 }
 
+const importFresh = async (path: string): Promise<Record<string, unknown>> =>
+  import(/* @vite-ignore */ `${pathToFileURL(path).href}?t=${Date.now()}-${Math.random()}`);
+
 describe('generateGraphqlSdl', () => {
-  it('discovers GraphQL controller markers from app.http.getControllers()', async () => {
-    const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-'));
-    const runtimeModule = join(outDir, 'viewer-runtime.js');
-    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver], runtimeModule });
+  it('writes the runtime and SDL under <cwd>/.zelt/graphql/, sanitizing the path into a filename', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-'));
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
 
     const result = await generateGraphqlSdl(
       { getControllers: () => child.blueprint().getControllers() },
-      { distDir: outDir, tsconfig: resolve(__dirname, '../tsconfig.json') },
+      { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
     );
 
-    const schema = await readFile(runtimeModule.replace(/\.js$/, '.graphql'), 'utf8');
     expect(result.changed).toBe(true);
-    expect(schema).toContain(`type Query {
+    const runtimeFile = resolve(cwd, '.zelt/graphql/graphql.runtime.ts');
+    const sdlFile = resolve(cwd, '.zelt/graphql/graphql.runtime.graphql');
+    await expect(readFile(sdlFile, 'utf8')).resolves.toContain(`type Query {
   viewer: ViewerPublic!
 }`);
+    await expect(readFile(runtimeFile, 'utf8')).resolves.toContain('export const graphqlPrebuilt');
+  });
+
+  it('sanitizes nested paths into double-underscore filenames', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-nested-'));
+    const child = graphql({ path: '/api/v1/graphql', resolvers: [ViewerResolver] });
+
+    await generateGraphqlSdl(
+      { getControllers: () => child.blueprint().getControllers() },
+      { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
+    );
+
+    await expect(
+      readFile(resolve(cwd, '.zelt/graphql/api__v1__graphql.runtime.ts'), 'utf8'),
+    ).resolves.toContain('export const graphqlPrebuilt');
+  });
+
+  it('returns a PrebuiltContribution pointing at the generated module', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-contribution-'));
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
+
+    const result = await generateGraphqlSdl(
+      { getControllers: () => child.blueprint().getControllers() },
+      { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
+    );
+
+    expect(result.contributions).toEqual([
+      {
+        feature: 'graphql',
+        key: '/graphql',
+        importPath: './graphql/graphql.runtime',
+        exportName: 'graphqlPrebuilt',
+      },
+    ]);
+  });
+
+  it('embeds a resolversHash that matches computeGraphqlPrebuiltHash for the endpoint', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-hash-'));
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
+
+    await generateGraphqlSdl(
+      { getControllers: () => child.blueprint().getControllers() },
+      { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
+    );
+
+    const runtimeFile = resolve(cwd, '.zelt/graphql/graphql.runtime.ts');
+    const imported = await importFresh(runtimeFile);
+    const expectedHash = await computeGraphqlPrebuiltHash('/graphql', [ViewerResolver]);
+    expect((imported['graphqlPrebuilt'] as { resolversHash: string }).resolversHash).toBe(
+      expectedHash,
+    );
+  });
+
+  it('generates a runtime module with schema SDL and resolver bindings', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-runtime-'));
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
+
+    await generateGraphqlSdl(
+      { getControllers: () => child.blueprint().getControllers() },
+      { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
+    );
+
+    const runtimeFile = resolve(cwd, '.zelt/graphql/graphql.runtime.ts');
+    const generated = await readFile(runtimeFile, 'utf8');
+    expect(generated).toContain('"schemaSdl"');
+    expect(generated).toContain('"ViewerResolver"');
+    expect(generated).toContain('"viewer"');
+
+    const imported = await importFresh(runtimeFile);
+    expect(imported['graphqlPrebuilt']).toMatchObject({
+      runtime: {
+        bindings: { Query: { viewer: { resolver: 'ViewerResolver', method: 'viewer' } } },
+      },
+    });
+  });
+
+  it('generates runtime module imports for scalar codecs', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-runtime-scalar-'));
+    const child = graphql({ path: '/graphql', resolvers: [PluginScalarResolver] });
+
+    await generateGraphqlSdl(
+      { getControllers: () => child.blueprint().getControllers() },
+      { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
+    );
+
+    const runtimeFile = resolve(cwd, '.zelt/graphql/graphql.runtime.ts');
+    const generated = await readFile(runtimeFile, 'utf8');
+    expect(generated).toContain('PluginMoneyScalar');
+    expect(generated).toContain('scalars');
+
+    const imported = await importFresh(runtimeFile);
+    expect(imported['graphqlPrebuilt']).toMatchObject({
+      runtime: { scalars: { Money: PluginMoneyScalar } },
+    });
   });
 });
 
 describe('graphqlPlugin', () => {
-  it('generates schema.graphql during preBuild', async () => {
-    const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-plugin-'));
-    const runtimeModule = join(outDir, 'viewer-runtime.js');
-    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver], runtimeModule });
-    const plugin = graphqlPlugin({ outDir, tsconfig: resolve(__dirname, '../tsconfig.json') });
+  it('generates the prebuilt module during preBuild and returns its contribution', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-plugin-'));
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
+    const plugin = graphqlPlugin({ tsconfig: resolve(__dirname, '../tsconfig.json') });
 
-    await plugin.preBuild?.({
-      cwd: process.cwd(),
+    const contributions = await plugin.preBuild?.({
+      cwd,
       build: {},
       loadStaticApp: async () => ({
         http: { getControllers: () => child.blueprint().getControllers() },
       }),
     });
 
-    await expect(readFile(runtimeModule.replace(/\.js$/, '.graphql'), 'utf8')).resolves.toContain(
-      'type ViewerPublic',
-    );
+    expect(contributions).toEqual([
+      {
+        feature: 'graphql',
+        key: '/graphql',
+        importPath: './graphql/graphql.runtime',
+        exportName: 'graphqlPrebuilt',
+      },
+    ]);
+    await expect(
+      readFile(resolve(cwd, '.zelt/graphql/graphql.runtime.graphql'), 'utf8'),
+    ).resolves.toContain('type ViewerPublic');
   });
 
-  it('generates a runtime helper with schema SDL and resolver bindings', async () => {
-    const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-runtime-'));
-    const runtimeModule = join(outDir, 'viewer-runtime.js');
-    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver], runtimeModule });
-
-    await generateGraphqlSdl(
-      { getControllers: () => child.blueprint().getControllers() },
-      { distDir: outDir, tsconfig: resolve(__dirname, '../tsconfig.json') },
-    );
-
-    const generated = await readFile(runtimeModule, 'utf8');
-    expect(generated).toContain('export const graphqlRuntime');
-    expect(generated).toContain('"schemaSdl"');
-    expect(generated).toContain('"ViewerResolver"');
-    expect(generated).toContain('"viewer"');
-  });
-
-  it('generates runtime helper imports for scalar codecs', async () => {
-    const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-runtime-scalar-'));
-    const runtimeModule = join(outDir, 'scalar-runtime.js');
-    const child = graphql({
-      path: '/graphql',
-      resolvers: [PluginScalarResolver],
-      runtimeModule,
-    });
-
-    await generateGraphqlSdl(
-      { getControllers: () => child.blueprint().getControllers() },
-      { distDir: outDir, tsconfig: resolve(__dirname, '../tsconfig.json') },
-    );
-
-    const generated = await readFile(runtimeModule, 'utf8');
-    expect(generated).toContain('PluginMoneyScalar');
-    expect(generated).toContain('scalars');
-
-    const imported: { readonly graphqlRuntime?: unknown } = await import(
-      /* @vite-ignore */ `${pathToFileURL(runtimeModule).href}?t=${Date.now()}`
-    );
-    expect(imported.graphqlRuntime).toMatchObject({
-      scalars: { Money: PluginMoneyScalar },
-    });
-  });
-
-  it('generates a schema-first runtime helper from SDL and resolver bindings', async () => {
-    const outDir = await mkdtemp(join(tmpdir(), 'zelt-graphql-schema-first-'));
-    const schema = join(outDir, 'schema.graphql');
-    const runtimeModule = join(outDir, 'schema-first-runtime.js');
-    const resolverChecks = join(outDir, 'graphql-resolver-checks.ts');
+  it('generates a schema-first prebuilt module from SDL and resolver bindings', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-schema-first-'));
+    const schema = join(cwd, 'schema.graphql');
+    const resolverChecks = join(cwd, 'graphql-resolver-checks.ts');
     await writeFile(
       schema,
       `type Query {
@@ -135,11 +195,10 @@ type ViewerPublic {
 `,
       'utf8',
     );
-    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver], runtimeModule });
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
     const plugin = graphqlPlugin({
       mode: 'schema-first',
       schema,
-      runtimeModule,
       resolverChecks: {
         out: resolverChecks,
         gqlTypesImport: './graphql',
@@ -147,23 +206,32 @@ type ViewerPublic {
       tsconfig: resolve(__dirname, '../tsconfig.json'),
     });
 
-    await plugin.preBuild?.({
-      cwd: process.cwd(),
+    const contributions = await plugin.preBuild?.({
+      cwd,
       build: {},
       loadStaticApp: async () => ({
         http: { getControllers: () => child.blueprint().getControllers() },
       }),
     });
 
-    const generated = await readFile(runtimeModule, 'utf8');
-    expect(generated).toContain('export const graphqlRuntime');
+    expect(contributions).toEqual([
+      {
+        feature: 'graphql',
+        key: '/graphql',
+        importPath: './graphql/graphql.runtime',
+        exportName: 'graphqlPrebuilt',
+      },
+    ]);
+
+    const runtimeFile = resolve(cwd, '.zelt/graphql/graphql.runtime.ts');
+    const generated = await readFile(runtimeFile, 'utf8');
     expect(generated).toContain('"schemaSdl"');
     expect(generated).toContain('viewer: ViewerPublic\\n');
     expect(generated).toContain('"ViewerResolver"');
     expect(generated).toContain('"viewer"');
-    await expect(readFile(runtimeModule.replace(/\.js$/, '.graphql'), 'utf8')).resolves.toContain(
-      'type Query',
-    );
+    await expect(
+      readFile(resolve(cwd, '.zelt/graphql/graphql.runtime.graphql'), 'utf8'),
+    ).resolves.toContain('type Query');
     await expect(readFile(resolverChecks, 'utf8')).resolves.toContain('Gql.Query.viewer.Result');
   });
 });

@@ -1,3 +1,4 @@
+import type { ZeltPrebuilt } from '@zeltjs/core';
 import {
   Config,
   Controller,
@@ -181,6 +182,20 @@ describe('onCloudflareWorkers', () => {
     });
     const env = await workersApp.get(EnvAdaptor);
     expect(env.get('CF_ENV')).toBe('test-override');
+  });
+
+  it('passes prebuilt to createRuntime()', async () => {
+    const app = createApp([http({ controllers: [HelloController] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
+    const prebuilt: ZeltPrebuilt = { version: 1, features: {} };
+
+    await onCloudflareWorkers(app, { prebuilt });
+
+    expect(readySpy).toHaveBeenCalledWith({
+      prebuilt,
+      fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
+      warmup: false,
+    });
   });
 
   it('provides get() to retrieve dependencies from container', async () => {

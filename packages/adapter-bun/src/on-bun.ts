@@ -5,6 +5,7 @@ import type {
   FeatureApp,
   FeatureReadyCapabilities,
   RuntimeApp,
+  ZeltPrebuilt,
 } from '@zeltjs/core';
 import { HttpFeature } from '@zeltjs/core';
 
@@ -24,6 +25,7 @@ export type ServerHandle = {
 export type BunAppOptions = {
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
+  readonly prebuilt?: ZeltPrebuilt;
 };
 
 export type { ExecResult } from '@zeltjs/core';
@@ -133,6 +135,7 @@ export async function onBun<const F extends readonly ConfiguredFeature[]>(
 ): Promise<BunApp> {
   const readyApp = await app.createRuntime({
     ...(options.configs === undefined ? {} : { configs: options.configs }),
+    ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
     warmup: options.warmup ?? true,
   });

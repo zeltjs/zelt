@@ -31,13 +31,13 @@ export type {
   GeneratedGraphqlBinding,
   GeneratedGraphqlRuntime,
   GraphqlExecutor,
+  GraphqlPrebuiltEntry,
   GraphqlRequestPayload,
-  GraphqlRuntimeLoader,
   GraphqlRuntimeManifest,
-  GraphqlRuntimeSource,
 } from './graphql-runtime.lib';
 export {
   createGraphqlExecutor,
   executeGraphqlRequest,
   graphqlRequestPayloadSchema,
 } from './graphql-runtime.lib';
+export { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';

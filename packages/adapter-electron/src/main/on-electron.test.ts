@@ -1,4 +1,4 @@
-import type { ConfiguredFeature } from '@zeltjs/core';
+import type { ConfiguredFeature, ZeltPrebuilt } from '@zeltjs/core';
 import { Controller, createApp, Get, http } from '@zeltjs/core';
 import type { IpcMainInvokeEvent } from 'electron';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -86,6 +86,18 @@ const createCleanupFeature = (
   blueprint: () => ({}),
   realize: (resolver) => {
     resolver.registerShutdown(callback);
+    return {};
+  },
+});
+
+const createPrebuiltObservingFeature = (
+  onRealize: (prebuilt: ZeltPrebuilt | undefined) => void,
+): ConfiguredFeature<'prebuiltObserver', Record<never, never>> => ({
+  key: 'prebuiltObserver',
+  featureClasses: () => [],
+  blueprint: () => ({}),
+  realize: (resolver) => {
+    onRealize(resolver.prebuilt);
     return {};
   },
 });
@@ -191,6 +203,27 @@ describe('onElectron', () => {
       void onElectron(createMultiFeatureApp(), { ipcFeature: 'nope' });
     };
     void _assertIpcFeatureMustMatchConfiguredKeys;
+  });
+
+  describe('prebuilt option', () => {
+    it('forwards prebuilt to createRuntime() so features observe it during realize', async () => {
+      const prebuilt: ZeltPrebuilt = { version: 1, features: {} };
+      let observedPrebuilt: ZeltPrebuilt | undefined;
+      const app = createApp([
+        http({ controllers: [HttpOnlyController] }),
+        createPrebuiltObservingFeature((value) => {
+          observedPrebuilt = value;
+        }),
+      ]);
+
+      const electronApp = await onElectron(app, { prebuilt });
+
+      try {
+        expect(observedPrebuilt).toBe(prebuilt);
+      } finally {
+        await electronApp.shutdown();
+      }
+    });
   });
 
   describe('shutdown', () => {

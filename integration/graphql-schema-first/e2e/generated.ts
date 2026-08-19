@@ -1,31 +1,40 @@
-import { mkdir, rm } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { generateGraphqlSdl } from '@zeltjs/graphql/codegen';
+import { writePrebuiltModule } from '@zeltjs/cli';
+import type { ZeltPrebuilt } from '@zeltjs/core';
+import { graphqlPlugin } from '@zeltjs/graphql/codegen';
 
-import { createGraphqlSchemaFirstApp, graphqlRuntimeModule } from '../src/app';
+import { createGraphqlSchemaFirstApp } from '../src/app';
 
-export const tsconfig = resolve(__dirname, '../tsconfig.json');
-export const schema = resolve(__dirname, '../src/graphql/schema.graphql');
-export const runtimeModulePath = resolve(__dirname, '..', graphqlRuntimeModule);
-export const generatedDir = dirname(runtimeModulePath);
-export const resolverChecksPath = resolve(generatedDir, 'graphql-resolver-checks.ts');
+export const cwd = resolve(__dirname, '..');
+export const tsconfig = resolve(cwd, 'tsconfig.json');
+export const schema = resolve(cwd, 'src/graphql/schema.graphql');
+const zeltDir = resolve(cwd, '.zelt');
+export const runtimeFilePath = resolve(zeltDir, 'graphql/graphql.runtime.ts');
+export const resolverChecksPath = resolve(cwd, 'src/generated/graphql-resolver-checks.ts');
 
-export const prepareGeneratedRuntime = async (): Promise<void> => {
-  await rm(runtimeModulePath, { force: true });
+export const prepareZeltPrebuilt = async (): Promise<ZeltPrebuilt> => {
+  await rm(zeltDir, { recursive: true, force: true });
   await rm(resolverChecksPath, { force: true });
-  await mkdir(generatedDir, { recursive: true });
 
   const app = createGraphqlSchemaFirstApp();
-  await generateGraphqlSdl(app.http, {
+  const plugin = graphqlPlugin({
     mode: 'schema-first',
     schema,
-    runtimeModule: runtimeModulePath,
+    tsconfig,
     resolverChecks: {
       out: resolverChecksPath,
       gqlTypesImport: './graphql',
     },
-    distDir: generatedDir,
-    tsconfig,
   });
+  const contributions =
+    (await plugin.preBuild?.({ cwd, build: {}, loadStaticApp: async () => app })) ?? [];
+  await writePrebuiltModule(cwd, contributions);
+
+  const prebuiltModule = (await import(
+    /* @vite-ignore */ pathToFileURL(resolve(zeltDir, 'prebuilt.ts')).href
+  )) as { readonly zeltPrebuilt: ZeltPrebuilt };
+  return prebuiltModule.zeltPrebuilt;
 };

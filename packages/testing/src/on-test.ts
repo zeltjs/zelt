@@ -1,4 +1,10 @@
-import type { ConfigClass, ConfiguredFeature, FeatureApp, RuntimeApp } from '@zeltjs/core';
+import type {
+  ConfigClass,
+  ConfiguredFeature,
+  FeatureApp,
+  RuntimeApp,
+  ZeltPrebuilt,
+} from '@zeltjs/core';
 
 import { getTestDefaults } from './global-config.lib';
 import { registerShutdown } from './shutdown-registry.lib';
@@ -7,6 +13,7 @@ type AnyConfigClass = ConfigClass<object>;
 
 type OnTestOptions = {
   readonly configs?: readonly AnyConfigClass[];
+  readonly prebuilt?: ZeltPrebuilt;
 };
 
 export const onTest = async <const F extends readonly ConfiguredFeature[]>(
@@ -16,7 +23,10 @@ export const onTest = async <const F extends readonly ConfiguredFeature[]>(
   const defaults = getTestDefaults();
   const allConfigs = [...defaults.configs, ...(options.configs ?? [])];
 
-  const readyApp = await app.createRuntime({ configs: allConfigs });
+  const readyApp = await app.createRuntime({
+    configs: allConfigs,
+    ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
+  });
   registerShutdown(readyApp.shutdown.bind(readyApp));
 
   return readyApp;

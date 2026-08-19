@@ -10,6 +10,7 @@ export type {
   RuntimeShutdownCallback,
   ServiceResolver,
   StaticNamespacedCaps,
+  ZeltPrebuilt,
 } from '../app';
 export { Feature } from '../app';
 export type { CommandCapabilities } from './command/command.feature';

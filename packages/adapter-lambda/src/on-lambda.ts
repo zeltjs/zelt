@@ -4,6 +4,7 @@ import type {
   CreateRuntimeOptions,
   HttpCapabilities,
   RuntimeApp,
+  ZeltPrebuilt,
 } from '@zeltjs/core';
 import type {
   APIGatewayProxyEvent,
@@ -18,6 +19,7 @@ import { LambdaEnvAdaptor } from './lambda-env.adaptor';
 export type LambdaAppOptions = {
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
+  readonly prebuilt?: ZeltPrebuilt;
 };
 
 export type LambdaHandlerV2 = (
@@ -202,6 +204,7 @@ export const onLambda = async (
 ): Promise<LambdaApp> => {
   const readyApp = await app.createRuntime({
     ...(options.configs === undefined ? {} : { configs: options.configs }),
+    ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [LambdaEnvAdaptor],
     warmup: options.warmup ?? false,
   });
