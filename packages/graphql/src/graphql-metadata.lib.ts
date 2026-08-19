@@ -12,6 +12,7 @@ export type GraphqlOperationMetadata = {
 };
 
 export type GraphqlControllerMetadata = {
+  readonly key: string;
   readonly path: string;
   readonly resolvers: readonly GraphqlResolverClass[];
 };

@@ -19,9 +19,15 @@ import {
 } from './graphql-runtime.lib';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
+// The default key ('graphql') mirrors HTTP_FEATURE_KEY in
+// packages/core/src/features/http/http.feature.ts: a single unnamed instance
+// is the common case, and multiple endpoints disambiguate via `name`.
+export const GRAPHQL_FEATURE_KEY = 'graphql' as const;
+
 export type GraphqlOptions = {
   readonly path: string;
   readonly resolvers: readonly GraphqlResolverClass[];
+  readonly name?: string;
 };
 
 export type GraphqlChildOptions = HttpMountableFeatureModule;
@@ -57,15 +63,18 @@ const applyLegacyMethodDecorator = (
 
 export class GraphqlHttpFeature implements HttpMountableFeatureModule {
   readonly path: string;
+  readonly key: string;
   private readonly controller: ControllerClass;
 
   /** @throws {E | Error} */
   constructor(private readonly options: GraphqlOptions) {
     this.path = options.path;
+    this.key = options.name ?? GRAPHQL_FEATURE_KEY;
     this.validateUniqueResolverNames(options.resolvers);
     const GraphqlEndpointController = this.createController();
     this.controller = GraphqlEndpointController;
     setGraphqlControllerMetadata(GraphqlEndpointController, {
+      key: this.key,
       path: options.path,
       resolvers: options.resolvers,
     });
@@ -123,21 +132,21 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
         'GraphQL requires a prebuilt module. Run `zelt build` and pass it to the adapter: onNode(app, { prebuilt: zeltPrebuilt })',
       );
     }
-    const expectedHash = await computeGraphqlPrebuiltHash(this.path, this.options.resolvers);
-    const graphqlFeature = toObject(prebuilt.features['graphql']);
+    const graphqlFeature = toObject(prebuilt.features[GRAPHQL_FEATURE_KEY]);
     const entry = parseGraphqlPrebuiltEntry(
-      graphqlFeature ? Reflect.get(graphqlFeature, `${this.path}#${expectedHash}`) : undefined,
+      graphqlFeature ? Reflect.get(graphqlFeature, this.key) : undefined,
     );
     if (!entry) {
       throw new Error(
-        `No GraphQL prebuilt entry for path "${this.path}" with the current resolver set. Run \`zelt build\` (the prebuilt may be stale).`,
+        `No GraphQL prebuilt entry for key "${this.key}". It may not have been generated yet, or the prebuilt is stale. Run \`zelt build\`.`,
       );
     }
-    // The lookup key already encodes expectedHash; this guards hand-written
-    // prebuilt modules where the key and the embedded resolversHash disagree.
+    // The lookup key identifies the endpoint; resolversHash guards against
+    // the resolver set having changed since the entry was generated.
+    const expectedHash = await computeGraphqlPrebuiltHash(this.path, this.options.resolvers);
     if (entry.resolversHash !== expectedHash) {
       throw new Error(
-        `GraphQL prebuilt entry for path "${this.path}" is stale. Run \`zelt build\` again.`,
+        `GraphQL prebuilt entry for key "${this.key}" is stale. Run \`zelt build\` again.`,
       );
     }
     return entry.runtime;

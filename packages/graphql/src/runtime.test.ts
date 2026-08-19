@@ -437,7 +437,7 @@ const toGraphqlPrebuilt = async (
     version: 1,
     features: {
       graphql: {
-        [`${path}#${resolversHash}`]: {
+        graphql: {
           runtime: runtimeManifest,
           resolversHash,
         },

@@ -3,8 +3,12 @@ import type { GraphqlResolverClass } from './graphql-metadata.lib';
 const toHex = (bytes: ArrayBuffer): string =>
   [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 
-// v1 only fingerprints the endpoint path and resolver class names; resolver
-// method signatures, argument types, and return types are not detected.
+// Identity (the prebuilt lookup key) comes from graphql()'s `name`, not this
+// hash. This hash only detects staleness: it is embedded in the generated
+// entry and recomputed from the live resolvers at startup, so a mismatch
+// means the prebuilt module predates the current resolver set. v1 only
+// fingerprints the endpoint path and resolver class names; resolver method
+// signatures, argument types, and return types are not detected.
 export const computeGraphqlPrebuiltHash = async (
   path: string,
   resolvers: readonly GraphqlResolverClass[],

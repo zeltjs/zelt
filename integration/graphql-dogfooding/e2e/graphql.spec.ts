@@ -4,31 +4,21 @@ import { pathToFileURL } from 'node:url';
 
 import { writePrebuiltModule } from '@zeltjs/cli';
 import type { ZeltPrebuilt } from '@zeltjs/core';
-import { computeGraphqlPrebuiltHash } from '@zeltjs/graphql';
 import { graphqlPlugin } from '@zeltjs/graphql/codegen';
 import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { createGraphqlDogfoodingApp } from '../src/app';
-import { OrderFieldsResolver } from '../src/graphql/order-fields.resolver';
-import { StorefrontResolver } from '../src/graphql/storefront.resolver';
-import { StorefrontFieldsResolver } from '../src/graphql/storefront-fields.resolver';
-import { StorefrontMutationResolver } from '../src/graphql/storefront-mutation.resolver';
 
 const cwd = resolve(__dirname, '..');
 const tsconfig = resolve(cwd, 'tsconfig.json');
 const zeltDir = resolve(cwd, '.zelt');
-const graphqlPath = '/graphql';
-const graphqlResolvers = [
-  StorefrontResolver,
-  StorefrontFieldsResolver,
-  OrderFieldsResolver,
-  StorefrontMutationResolver,
-];
+// The dogfooding app mounts graphql() without a `name`, so it uses the
+// default 'graphql' key.
+const runtimeFilePath = resolve(zeltDir, 'graphql/graphql.runtime.ts');
+const sdlFilePath = resolve(zeltDir, 'graphql/graphql.runtime.graphql');
 
 let zeltPrebuilt: ZeltPrebuilt;
-let runtimeFilePath: string;
-let sdlFilePath: string;
 
 const preparePrebuilt = async (): Promise<void> => {
   await rm(zeltDir, { recursive: true, force: true });
@@ -42,10 +32,6 @@ const preparePrebuilt = async (): Promise<void> => {
   const contributions =
     (await plugin.preBuild?.({ cwd, build: {}, loadStaticApp: async () => app })) ?? [];
   await writePrebuiltModule(cwd, contributions);
-
-  const hash = await computeGraphqlPrebuiltHash(graphqlPath, graphqlResolvers);
-  runtimeFilePath = resolve(zeltDir, `graphql/graphql.${hash.slice(0, 8)}.runtime.ts`);
-  sdlFilePath = resolve(zeltDir, `graphql/graphql.${hash.slice(0, 8)}.runtime.graphql`);
 
   const prebuiltModule = (await import(
     /* @vite-ignore */ pathToFileURL(resolve(zeltDir, 'prebuilt.ts')).href

@@ -40,7 +40,7 @@ const importFresh = async (path: string): Promise<Record<string, unknown>> =>
   import(/* @vite-ignore */ `${pathToFileURL(path).href}?t=${Date.now()}-${Math.random()}`);
 
 describe('generateGraphqlSdl', () => {
-  it('writes the runtime and SDL under <cwd>/.zelt/graphql/, sanitizing the path into a filename', async () => {
+  it('writes the runtime and SDL under <cwd>/.zelt/graphql/, keyed by the default `graphql` name', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-'));
     const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
 
@@ -50,30 +50,25 @@ describe('generateGraphqlSdl', () => {
     );
 
     expect(result.changed).toBe(true);
-    const hash = await computeGraphqlPrebuiltHash('/graphql', [ViewerResolver]);
-    const runtimeFile = resolve(cwd, `.zelt/graphql/graphql.${hash.slice(0, 8)}.runtime.ts`);
-    const sdlFile = resolve(cwd, `.zelt/graphql/graphql.${hash.slice(0, 8)}.runtime.graphql`);
+    const runtimeFile = resolve(cwd, `.zelt/graphql/graphql.runtime.ts`);
+    const sdlFile = resolve(cwd, `.zelt/graphql/graphql.runtime.graphql`);
     await expect(readFile(sdlFile, 'utf8')).resolves.toContain(`type Query {
   viewer: ViewerPublic!
 }`);
     await expect(readFile(runtimeFile, 'utf8')).resolves.toContain('export const graphqlPrebuilt');
   });
 
-  it('sanitizes nested paths into double-underscore filenames', async () => {
+  it('sanitizes a `name` with slashes into a double-underscore filename', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-nested-'));
-    const child = graphql({ path: '/api/v1/graphql', resolvers: [ViewerResolver] });
+    const child = graphql({ path: '/api/v1/graphql', resolvers: [ViewerResolver], name: 'api/v1' });
 
     await generateGraphqlSdl(
       { getControllers: () => child.blueprint().getControllers() },
       { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
     );
 
-    const hash = await computeGraphqlPrebuiltHash('/api/v1/graphql', [ViewerResolver]);
     await expect(
-      readFile(
-        resolve(cwd, `.zelt/graphql/api__v1__graphql.${hash.slice(0, 8)}.runtime.ts`),
-        'utf8',
-      ),
+      readFile(resolve(cwd, `.zelt/graphql/api__v1.runtime.ts`), 'utf8'),
     ).resolves.toContain('export const graphqlPrebuilt');
   });
 
@@ -86,22 +81,24 @@ describe('generateGraphqlSdl', () => {
       { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
     );
 
-    const hash = await computeGraphqlPrebuiltHash('/graphql', [ViewerResolver]);
-    const baseName = `graphql.${hash.slice(0, 8)}.runtime`;
     expect(result.contributions).toEqual([
       {
         feature: 'graphql',
-        key: `/graphql#${hash}`,
-        importPath: `./graphql/${baseName}`,
+        key: 'graphql',
+        importPath: `./graphql/graphql.runtime`,
         exportName: 'graphqlPrebuilt',
       },
     ]);
   });
 
-  it('lets two endpoints that mount the same path with different resolvers coexist', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-collision-'));
-    const viewerChild = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
-    const scalarChild = graphql({ path: '/graphql', resolvers: [PluginScalarResolver] });
+  it('lets two endpoints coexist when each is given a distinct `name`', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-distinct-name-'));
+    const viewerChild = graphql({ path: '/graphql', resolvers: [ViewerResolver], name: 'viewer' });
+    const scalarChild = graphql({
+      path: '/graphql',
+      resolvers: [PluginScalarResolver],
+      name: 'scalar',
+    });
 
     const result = await generateGraphqlSdl(
       {
@@ -113,13 +110,49 @@ describe('generateGraphqlSdl', () => {
       { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
     );
 
-    const viewerHash = await computeGraphqlPrebuiltHash('/graphql', [ViewerResolver]);
-    const scalarHash = await computeGraphqlPrebuiltHash('/graphql', [PluginScalarResolver]);
     expect(result.contributions).toHaveLength(2);
     expect(result.contributions.map((c) => c.key)).toEqual(
-      expect.arrayContaining([`/graphql#${viewerHash}`, `/graphql#${scalarHash}`]),
+      expect.arrayContaining(['viewer', 'scalar']),
     );
     expect(result.contributions[0]?.importPath).not.toBe(result.contributions[1]?.importPath);
+  });
+
+  it('throws a graphql-specific error when two endpoints share the default key', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-key-collision-'));
+    const viewerChild = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
+    const scalarChild = graphql({ path: '/other-graphql', resolvers: [PluginScalarResolver] });
+
+    await expect(
+      generateGraphqlSdl(
+        {
+          getControllers: () => [
+            ...viewerChild.blueprint().getControllers(),
+            ...scalarChild.blueprint().getControllers(),
+          ],
+        },
+        { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
+      ),
+    ).rejects.toThrow(
+      /GraphQL endpoints share the key "graphql"\. Pass a distinct `name` to each graphql\(\) to disambiguate\./,
+    );
+  });
+
+  it('does not throw when the same graphql() instance is mounted more than once', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-same-instance-'));
+    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
+
+    const result = await generateGraphqlSdl(
+      {
+        getControllers: () => [
+          ...child.blueprint().getControllers(),
+          ...child.blueprint().getControllers(),
+        ],
+      },
+      { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
+    );
+
+    expect(result.contributions).toHaveLength(2);
+    expect(result.contributions[0]).toEqual(result.contributions[1]);
   });
 
   it('embeds a resolversHash that matches computeGraphqlPrebuiltHash for the endpoint', async () => {
@@ -203,12 +236,11 @@ describe('graphqlPlugin', () => {
       }),
     });
 
-    const hash = await computeGraphqlPrebuiltHash('/graphql', [ViewerResolver]);
-    const baseName = `graphql.${hash.slice(0, 8)}.runtime`;
+    const baseName = 'graphql.runtime';
     expect(contributions).toEqual([
       {
         feature: 'graphql',
-        key: `/graphql#${hash}`,
+        key: 'graphql',
         importPath: `./graphql/${baseName}`,
         exportName: 'graphqlPrebuilt',
       },
@@ -253,12 +285,11 @@ type ViewerPublic {
       }),
     });
 
-    const hash = await computeGraphqlPrebuiltHash('/graphql', [ViewerResolver]);
-    const baseName = `graphql.${hash.slice(0, 8)}.runtime`;
+    const baseName = 'graphql.runtime';
     expect(contributions).toEqual([
       {
         feature: 'graphql',
-        key: `/graphql#${hash}`,
+        key: 'graphql',
         importPath: `./graphql/${baseName}`,
         exportName: 'graphqlPrebuilt',
       },

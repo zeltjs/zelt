@@ -61,6 +61,19 @@ describe('graphql HTTP child helper', () => {
     });
 
     expect(getGraphqlControllerMetadata(controller)).toEqual({
+      key: 'graphql',
+      path: '/graphql',
+      resolvers: [UserResolver],
+    });
+  });
+
+  it('uses the explicit `name` as the key instead of the default', () => {
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver], name: 'storefront' });
+    const controller = child.blueprint().getControllers()[0];
+    if (!controller) throw new Error('missing controller');
+
+    expect(getGraphqlControllerMetadata(controller)).toEqual({
+      key: 'storefront',
       path: '/graphql',
       resolvers: [UserResolver],
     });
@@ -123,23 +136,22 @@ describe('graphql realize() prebuilt requirements', () => {
     );
   });
 
-  it('throws when the prebuilt module has no entry for this path', async () => {
+  it('throws when the prebuilt module has no entry for this key', async () => {
     const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
     const prebuilt: ZeltPrebuilt = { version: 1, features: { graphql: {} } };
 
     await expect(child.realize(createServiceResolver(prebuilt))).rejects.toThrow(
-      /no graphql prebuilt entry/i,
+      /no graphql prebuilt entry for key "graphql"/i,
     );
   });
 
   it('throws when the prebuilt entry hash no longer matches the resolvers', async () => {
     const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
-    const expectedHash = await computeGraphqlPrebuiltHash('/graphql', [UserResolver]);
     const prebuilt: ZeltPrebuilt = {
       version: 1,
       features: {
         graphql: {
-          [`/graphql#${expectedHash}`]: {
+          graphql: {
             runtime: {
               schemaSdl: `type Query {\n  user: UserPublic\n}\n\ntype UserPublic {\n  id: String!\n}\n`,
               bindings: { Query: { user: { resolver: 'UserResolver', method: 'user' } } },
@@ -153,13 +165,13 @@ describe('graphql realize() prebuilt requirements', () => {
     await expect(child.realize(createServiceResolver(prebuilt))).rejects.toThrow(/stale/i);
   });
 
-  it('executes requests using the prebuilt runtime when path and resolvers match', async () => {
+  it('executes requests using the prebuilt runtime when the key matches', async () => {
     const resolversHash = await computeGraphqlPrebuiltHash('/graphql', [UserResolver]);
     const prebuilt: ZeltPrebuilt = {
       version: 1,
       features: {
         graphql: {
-          [`/graphql#${resolversHash}`]: {
+          graphql: {
             runtime: {
               schemaSdl: `type Query {\n  user: UserPublic\n}\n\ntype UserPublic {\n  id: String!\n  name: String!\n}\n`,
               bindings: { Query: { user: { resolver: 'UserResolver', method: 'user' } } },
@@ -186,5 +198,38 @@ describe('graphql realize() prebuilt requirements', () => {
     await expect(response.json()).resolves.toEqual({
       data: { user: { id: '1', name: 'Ada' } },
     });
+  });
+
+  it('looks up the prebuilt entry under the explicit `name` when one is given', async () => {
+    const resolversHash = await computeGraphqlPrebuiltHash('/graphql', [UserResolver]);
+    const prebuilt: ZeltPrebuilt = {
+      version: 1,
+      features: {
+        graphql: {
+          storefront: {
+            runtime: {
+              schemaSdl: `type Query {\n  user: UserPublic\n}\n\ntype UserPublic {\n  id: String!\n}\n`,
+              bindings: { Query: { user: { resolver: 'UserResolver', method: 'user' } } },
+            },
+            resolversHash,
+          },
+        },
+      },
+    };
+
+    const app = createApp([
+      http({
+        controllers: [],
+        children: [graphql({ path: '/graphql', resolvers: [UserResolver], name: 'storefront' })],
+      }),
+    ]);
+    const running = await app.createRuntime({ prebuilt });
+    const response = await running.http.request('/graphql', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: '{ user { id } }' }),
+    });
+
+    await expect(response.json()).resolves.toEqual({ data: { user: { id: '1' } } });
   });
 });

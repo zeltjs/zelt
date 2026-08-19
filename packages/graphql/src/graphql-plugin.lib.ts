@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 import type { PrebuiltContribution, ZeltPlugin } from '@zeltjs/cli';
 import type { ControllerClass, HttpStaticCapabilities } from '@zeltjs/core';
+import { GRAPHQL_FEATURE_KEY } from './graphql-child.lib';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { getGraphqlControllerMetadata } from './graphql-metadata.lib';
 import type { GraphqlRuntimeManifest } from './graphql-runtime.lib';
@@ -59,6 +60,7 @@ const writeIfChanged = async (path: string, content: string): Promise<boolean> =
 };
 
 type GraphqlEndpoint = {
+  readonly key: string;
   readonly path: string;
   readonly resolvers: readonly NonNullable<
     ReturnType<typeof getGraphqlControllerMetadata>
@@ -72,7 +74,7 @@ const collectGraphqlEndpoints = (
   for (const controller of controllers) {
     const metadata = getGraphqlControllerMetadata(controller);
     if (!metadata) continue;
-    endpoints.push({ path: metadata.path, resolvers: metadata.resolvers });
+    endpoints.push({ key: metadata.key, path: metadata.path, resolvers: metadata.resolvers });
   }
   return endpoints;
 };
@@ -138,11 +140,49 @@ const buildPrebuiltModule = (runtime: GraphqlRuntimeManifest, resolversHash: str
 };\n`;
 };
 
-// GraphQL endpoint paths become filenames: '/graphql' -> 'graphql',
-// '/api/v1/graphql' -> 'api__v1__graphql'.
-const sanitizeGraphqlPath = (path: string): string => {
-  const trimmed = path.replace(/^\/+|\/+$/g, '').replace(/\//g, '__');
-  return trimmed.length > 0 ? trimmed : 'graphql';
+// GraphQL endpoint keys become filenames: 'graphql' -> 'graphql', a `name`
+// of 'api/v1' -> 'api__v1'. Keys don't normally contain '/', but it's
+// stripped defensively in case one ever does.
+const sanitizeGraphqlKey = (key: string): string => {
+  const trimmed = key.replace(/^\/+|\/+$/g, '').replace(/\//g, '__');
+  return trimmed.length > 0 ? trimmed : GRAPHQL_FEATURE_KEY;
+};
+
+// Two endpoints sharing a key is only valid when they are the same
+// declaration mounted twice (e.g. the same graphql() instance reused across
+// children arrays); the cli's prebuilt writer already dedupes that case by
+// contribution equality. Any other same-key collision is a configuration
+// mistake, so it is rejected here with a graphql-specific, actionable
+// message instead of surfacing as a generic duplicate-contribution error.
+const isSameGraphqlEndpoint = (a: GraphqlEndpoint, b: GraphqlEndpoint): boolean =>
+  a.path === b.path &&
+  a.resolvers.length === b.resolvers.length &&
+  a.resolvers.every((resolver, index) => resolver === b.resolvers[index]);
+
+/** @throws {Error} */
+const assertUniqueGraphqlEndpointKeys = (endpoints: readonly GraphqlEndpoint[]): void => {
+  const byKey = new Map<string, GraphqlEndpoint>();
+  const filenameOwners = new Map<string, string>();
+  for (const endpoint of endpoints) {
+    const existingByKey = byKey.get(endpoint.key);
+    if (existingByKey === undefined) {
+      byKey.set(endpoint.key, endpoint);
+    } else if (!isSameGraphqlEndpoint(existingByKey, endpoint)) {
+      throw new Error(
+        `GraphQL endpoints share the key "${endpoint.key}". Pass a distinct \`name\` to each graphql() to disambiguate.`,
+      );
+    }
+
+    const filename = sanitizeGraphqlKey(endpoint.key);
+    const filenameOwner = filenameOwners.get(filename);
+    if (filenameOwner === undefined) {
+      filenameOwners.set(filename, endpoint.key);
+    } else if (filenameOwner !== endpoint.key) {
+      throw new Error(
+        `GraphQL endpoints "${filenameOwner}" and "${endpoint.key}" both sanitize to the filename "${filename}". Pass a distinct \`name\` to each graphql() to disambiguate.`,
+      );
+    }
+  }
 };
 
 const graphqlOutDir = (cwd: string): string => resolve(cwd, '.zelt', 'graphql');
@@ -160,11 +200,7 @@ const writeGraphqlEndpointModule = async (
   const outDir = graphqlOutDir(cwd);
   await mkdir(outDir, { recursive: true });
   const resolversHash = await computeGraphqlPrebuiltHash(endpoint.path, endpoint.resolvers);
-  // The hash is part of the filename (and the prebuilt key below) so two
-  // endpoints that sanitize to the same base name - either because they
-  // share a path mounted under different parents, or because their paths
-  // collide after sanitization - never overwrite each other's module.
-  const baseName = `${sanitizeGraphqlPath(endpoint.path)}.${resolversHash.slice(0, 8)}.runtime`;
+  const baseName = `${sanitizeGraphqlKey(endpoint.key)}.runtime`;
   const runtimeFilePath = resolve(outDir, `${baseName}.ts`);
   const sdlFilePath = resolve(outDir, `${baseName}.graphql`);
   const runtimeChanged = await writeIfChanged(
@@ -175,8 +211,8 @@ const writeGraphqlEndpointModule = async (
   return {
     changed: runtimeChanged || sdlChanged,
     contribution: {
-      feature: 'graphql',
-      key: `${endpoint.path}#${resolversHash}`,
+      feature: GRAPHQL_FEATURE_KEY,
+      key: endpoint.key,
       importPath: `./graphql/${baseName}`,
       exportName: 'graphqlPrebuilt',
     },
@@ -280,6 +316,7 @@ export const generateGraphqlSdl = async (
   options: GenerateGraphqlSdlOptions,
 ): Promise<GenerateGraphqlSdlResult> => {
   const endpoints = collectGraphqlEndpoints(app.getControllers());
+  assertUniqueGraphqlEndpointKeys(endpoints);
   const result =
     options.mode === 'schema-first' || options.schema !== undefined
       ? await generateSchemaFirstEndpoints(endpoints, options)
