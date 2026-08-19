@@ -159,10 +159,14 @@ const writeGraphqlEndpointModule = async (
 ): Promise<WriteEndpointModuleResult> => {
   const outDir = graphqlOutDir(cwd);
   await mkdir(outDir, { recursive: true });
-  const baseName = `${sanitizeGraphqlPath(endpoint.path)}.runtime`;
+  const resolversHash = await computeGraphqlPrebuiltHash(endpoint.path, endpoint.resolvers);
+  // The hash is part of the filename (and the prebuilt key below) so two
+  // endpoints that sanitize to the same base name - either because they
+  // share a path mounted under different parents, or because their paths
+  // collide after sanitization - never overwrite each other's module.
+  const baseName = `${sanitizeGraphqlPath(endpoint.path)}.${resolversHash.slice(0, 8)}.runtime`;
   const runtimeFilePath = resolve(outDir, `${baseName}.ts`);
   const sdlFilePath = resolve(outDir, `${baseName}.graphql`);
-  const resolversHash = await computeGraphqlPrebuiltHash(endpoint.path, endpoint.resolvers);
   const runtimeChanged = await writeIfChanged(
     runtimeFilePath,
     buildPrebuiltModule(runtime, resolversHash),
@@ -172,7 +176,7 @@ const writeGraphqlEndpointModule = async (
     changed: runtimeChanged || sdlChanged,
     contribution: {
       feature: 'graphql',
-      key: endpoint.path,
+      key: `${endpoint.path}#${resolversHash}`,
       importPath: `./graphql/${baseName}`,
       exportName: 'graphqlPrebuilt',
     },

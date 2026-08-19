@@ -128,17 +128,18 @@ describe('graphql realize() prebuilt requirements', () => {
     const prebuilt: ZeltPrebuilt = { version: 1, features: { graphql: {} } };
 
     await expect(child.realize(createServiceResolver(prebuilt))).rejects.toThrow(
-      /prebuilt entry missing/i,
+      /no graphql prebuilt entry/i,
     );
   });
 
   it('throws when the prebuilt entry hash no longer matches the resolvers', async () => {
     const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
+    const expectedHash = await computeGraphqlPrebuiltHash('/graphql', [UserResolver]);
     const prebuilt: ZeltPrebuilt = {
       version: 1,
       features: {
         graphql: {
-          '/graphql': {
+          [`/graphql#${expectedHash}`]: {
             runtime: {
               schemaSdl: `type Query {\n  user: UserPublic\n}\n\ntype UserPublic {\n  id: String!\n}\n`,
               bindings: { Query: { user: { resolver: 'UserResolver', method: 'user' } } },
@@ -158,7 +159,7 @@ describe('graphql realize() prebuilt requirements', () => {
       version: 1,
       features: {
         graphql: {
-          '/graphql': {
+          [`/graphql#${resolversHash}`]: {
             runtime: {
               schemaSdl: `type Query {\n  user: UserPublic\n}\n\ntype UserPublic {\n  id: String!\n  name: String!\n}\n`,
               bindings: { Query: { user: { resolver: 'UserResolver', method: 'user' } } },

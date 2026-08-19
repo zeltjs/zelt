@@ -431,17 +431,20 @@ const toGraphqlPrebuilt = async (
   path: string,
   resolvers: readonly (new (...args: never[]) => object)[],
   runtimeManifest: GeneratedGraphqlRuntime,
-): Promise<ZeltPrebuilt> => ({
-  version: 1,
-  features: {
-    graphql: {
-      [path]: {
-        runtime: runtimeManifest,
-        resolversHash: await computeGraphqlPrebuiltHash(path, resolvers),
+): Promise<ZeltPrebuilt> => {
+  const resolversHash = await computeGraphqlPrebuiltHash(path, resolvers);
+  return {
+    version: 1,
+    features: {
+      graphql: {
+        [`${path}#${resolversHash}`]: {
+          runtime: runtimeManifest,
+          resolversHash,
+        },
       },
     },
-  },
-});
+  };
+};
 
 describe('graphql HTTP runtime', () => {
   it('resolves the generated runtime from the prebuilt module during HTTP runtime creation, then handles requests', async () => {

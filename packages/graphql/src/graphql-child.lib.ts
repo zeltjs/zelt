@@ -123,16 +123,18 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
         'GraphQL requires a prebuilt module. Run `zelt build` and pass it to the adapter: onNode(app, { prebuilt: zeltPrebuilt })',
       );
     }
+    const expectedHash = await computeGraphqlPrebuiltHash(this.path, this.options.resolvers);
     const graphqlFeature = toObject(prebuilt.features['graphql']);
     const entry = parseGraphqlPrebuiltEntry(
-      graphqlFeature ? Reflect.get(graphqlFeature, this.path) : undefined,
+      graphqlFeature ? Reflect.get(graphqlFeature, `${this.path}#${expectedHash}`) : undefined,
     );
     if (!entry) {
       throw new Error(
-        `GraphQL prebuilt entry missing for path "${this.path}". Run \`zelt build\` to generate it.`,
+        `No GraphQL prebuilt entry for path "${this.path}" with the current resolver set. Run \`zelt build\` (the prebuilt may be stale).`,
       );
     }
-    const expectedHash = await computeGraphqlPrebuiltHash(this.path, this.options.resolvers);
+    // The lookup key already encodes expectedHash; this guards hand-written
+    // prebuilt modules where the key and the embedded resolversHash disagree.
     if (entry.resolversHash !== expectedHash) {
       throw new Error(
         `GraphQL prebuilt entry for path "${this.path}" is stale. Run \`zelt build\` again.`,

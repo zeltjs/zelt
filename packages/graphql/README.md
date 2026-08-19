@@ -22,7 +22,7 @@ app as a prebuilt module rather than loaded by the app itself.
 Code-first:
   Resolver code + args(schema)
     -> zelt build / zelt dev
-    -> .zelt/graphql/<path>.runtime.ts (graphqlPrebuilt) + sibling .graphql
+    -> .zelt/graphql/<path>.<hash>.runtime.ts (graphqlPrebuilt) + sibling .graphql
     -> .zelt/prebuilt.ts (zeltPrebuilt)
     -> entry imports zeltPrebuilt -> adapter(app, { prebuilt })
     -> /graphql runtime
@@ -33,7 +33,7 @@ Schema-first:
     -> generated typed helpers
     -> resolver code
     -> zelt build / zelt dev
-    -> .zelt/graphql/<path>.runtime.ts (graphqlPrebuilt) + sibling .graphql
+    -> .zelt/graphql/<path>.<hash>.runtime.ts (graphqlPrebuilt) + sibling .graphql
     -> .zelt/prebuilt.ts (zeltPrebuilt)
     -> entry imports zeltPrebuilt -> adapter(app, { prebuilt })
     -> /graphql runtime
@@ -205,13 +205,18 @@ export default defineConfig({
 
 `zelt build` and `zelt dev` then run two generation steps automatically:
 
-1. Each registered `graphqlPlugin()` writes `.zelt/graphql/<sanitized-path>.runtime.ts`
+1. Each registered `graphqlPlugin()` writes
+   `.zelt/graphql/<sanitized-path>.<hash>.runtime.ts`
    (`export const graphqlPrebuilt = { runtime, resolversHash }`) and a sibling
    `.graphql` SDL file, one pair per `graphql({ path, resolvers })` endpoint.
+   `<hash>` is the first 8 characters of the endpoint's `resolversHash` (see
+   below), so two endpoints that sanitize to the same filename — for example
+   the same local `path` mounted under different parents, or paths that
+   collide after sanitization — never overwrite each other's module.
 2. The CLI collects every plugin's contributions and writes `.zelt/prebuilt.ts`
    (`export const zeltPrebuilt: ZeltPrebuilt`), which re-exports each generated
-   module under its feature key. This file is always generated, even when no
-   plugin contributes anything.
+   module under a `<path>#<resolversHash>` feature key. This file is always
+   generated, even when no plugin contributes anything.
 
 The platform entry file statically imports `zeltPrebuilt` and passes it to the
 adapter:
@@ -265,13 +270,17 @@ GraphQL requires the prebuilt module. If it is missing, if the endpoint's
 prebuilt entry is missing, or if the entry file does not import `zeltPrebuilt`,
 the endpoint throws at startup — there is no silent fallback on any platform.
 
-Each prebuilt entry carries a `resolversHash` fingerprint (SHA-256 over the
-endpoint path and the sorted resolver class names), recomputed at startup and
-checked against the value baked into the prebuilt module. A mismatch throws
-and tells you to rerun `zelt build`. v1 only fingerprints the endpoint path and
-resolver class names — changes to resolver method signatures, argument types,
-or return types are not detected and still require rerunning `zelt build`
-manually.
+Each endpoint is looked up in the prebuilt module by `<path>#<resolversHash>`,
+where `resolversHash` is a SHA-256 fingerprint (over the endpoint path and the
+sorted resolver class names) recomputed at startup from the running
+`graphql({ path, resolvers })` declaration. If no entry exists under that key —
+because the prebuilt is missing the endpoint or is stale relative to the
+current resolvers — startup throws and tells you to rerun `zelt build`. The
+entry's own `resolversHash` field is checked again after lookup as a defense
+against hand-written prebuilt modules. v1 only fingerprints the endpoint path
+and resolver class names — changes to resolver method signatures, argument
+types, or return types are not detected and still require rerunning
+`zelt build` manually.
 
 ### Code-first
 

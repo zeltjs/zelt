@@ -104,12 +104,23 @@ describe('writePrebuiltModule', () => {
     expect(contentOrder1.indexOf('graphql:')).toBeLessThan(contentOrder1.indexOf('openapi:'));
   });
 
-  it('throws on duplicate (feature, key) contributions', async () => {
-    const duplicate: PrebuiltContribution = { ...graphqlContribution };
+  it('throws on duplicate (feature, key) contributions with differing fields', async () => {
+    const duplicate: PrebuiltContribution = { ...graphqlContribution, exportName: 'otherExport' };
 
     await expect(writePrebuiltModule(testDir, [graphqlContribution, duplicate])).rejects.toThrow(
       /duplicate/i,
     );
+  });
+
+  it('dedupes fully identical (feature, key) contributions into a single entry', async () => {
+    const identical: PrebuiltContribution = { ...graphqlContribution };
+
+    const result = await writePrebuiltModule(testDir, [graphqlContribution, identical]);
+
+    expect(result).toEqual({ changed: true });
+    const content = await readFile(outPath, 'utf8');
+    expect(content.match(/graphqlPrebuilt as p0/g)).toHaveLength(1);
+    expect(content).not.toContain('p1');
   });
 
   it('throws on an invalid exportName that is not a valid JS identifier', async () => {
@@ -181,5 +192,19 @@ describe('writePrebuiltModule', () => {
     await writePrebuiltModule(testDir, []);
 
     await expect(readFile(join(testDir, '.zelt', 'other.txt'), 'utf8')).resolves.toBe('keep-me');
+  });
+
+  it('never emits a NUL byte in the generated module, including for duplicate keys', async () => {
+    await writePrebuiltModule(testDir, [graphqlContribution, { ...graphqlContribution }]);
+
+    const content = await readFile(outPath);
+    expect(content.includes(0)).toBe(false);
+  });
+});
+
+describe('prebuilt-writer.lib.ts source', () => {
+  it('contains no NUL bytes (git must not treat it as a binary file)', async () => {
+    const source = await readFile(join(__dirname, 'prebuilt-writer.lib.ts'));
+    expect(source.includes(0)).toBe(false);
   });
 });
