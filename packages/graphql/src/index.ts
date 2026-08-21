@@ -20,6 +20,7 @@ export { Mutation, Query, ResolveField, Resolver } from './graphql.decorator';
 export type { GraphqlChildOptions, GraphqlOptions } from './graphql-child.lib';
 export { graphql } from './graphql-child.lib';
 export type {
+  GqlSchemaRef,
   GraphqlOperationKind,
   GraphqlOperationMetadata,
   GraphqlResolverClass,

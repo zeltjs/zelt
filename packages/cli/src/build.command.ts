@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
@@ -17,6 +19,7 @@ import { nodeCliRuntime } from './cli-runtime.lib';
 import { runCommandBuild } from './command-build.lib';
 import type { BuildConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
+import { sweepStaleOutputs } from './outputs-ledger.lib';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 import { writePrebuiltModule } from './prebuilt-writer.lib';
 import { buildTsdownCommand } from './tsdown.lib';
@@ -87,10 +90,26 @@ export const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void>
 
   assertBuildImplementation(buildConfig, buildHookPluginNames);
 
-  const hookOptions = { cwd, config, loadStaticApp: async () => config.app() };
+  const generatedFiles: string[] = [];
+  const hookOptions = {
+    cwd,
+    config,
+    loadStaticApp: async () => config.app(),
+    registerGeneratedFile: (path: string) => {
+      generatedFiles.push(path);
+    },
+  };
 
   const contributions = await runPreBuildHooks(hookOptions);
   await writePrebuiltModule(cwd, contributions);
+  generatedFiles.push(join(cwd, '.zelt', 'prebuilt.ts'));
+
+  const sweepResult = await sweepStaleOutputs(cwd, generatedFiles);
+  for (const skipped of sweepResult.skipped) {
+    consola.warn(
+      `Kept stale output "${skipped}": it no longer matches any plugin's output but is missing the generated-file marker, so it was not deleted.`,
+    );
+  }
 
   let success = true;
   let buildError: unknown;

@@ -1,19 +1,25 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
+import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-
 import type { PrebuiltContribution, ZeltPlugin } from '@zeltjs/cli';
+import { GENERATED_FILE_HEADER_MARKER } from '@zeltjs/cli';
 import type { ControllerClass, HttpStaticCapabilities } from '@zeltjs/core';
 import { GRAPHQL_FEATURE_KEY } from './graphql-child.lib';
-import type { GraphqlResolverClass } from './graphql-metadata.lib';
+import {
+  computeSchemaSdlHash,
+  findGraphqlCodegenManifestEntryBySdlHash,
+} from './graphql-codegen-manifest.lib';
+import type { GqlSchemaRef } from './graphql-metadata.lib';
 import { getGraphqlControllerMetadata } from './graphql-metadata.lib';
 import type { GraphqlRuntimeManifest } from './graphql-runtime.lib';
 import type { GenerateSdlOptions } from './graphql-sdl-generator.lib';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
-import type { GenerateSchemaFirstResolverChecksOptions } from './schema-first-resolver-checks.lib';
-import { generateSchemaFirstResolverChecks } from './schema-first-resolver-checks.lib';
+import {
+  generateSchemaFirstResolverChecks,
+  toResolverChecksImportSpecifier,
+} from './schema-first-resolver-checks.lib';
 import { generateSchemaFirstGraphqlRuntimeForResolvers } from './schema-first-runtime.lib';
 
 type HttpStaticApp = {
@@ -23,12 +29,6 @@ type HttpStaticApp = {
 export type GraphqlPrebuiltContribution = PrebuiltContribution;
 
 export type GraphqlPluginOptions = {
-  readonly mode?: 'code-first' | 'schema-first';
-  readonly schema?: string;
-  readonly resolverChecks?: Pick<
-    GenerateSchemaFirstResolverChecksOptions,
-    'out' | 'gqlTypesImport'
-  >;
   readonly tsconfig?: string;
   readonly schemaAdapter?: GenerateSdlOptions['schemaAdapter'];
   readonly schemaResolver?: GenerateSdlOptions['schemaResolver'];
@@ -37,17 +37,16 @@ export type GraphqlPluginOptions = {
 
 export type GenerateGraphqlSdlOptions = GenerateSdlOptions & {
   readonly cwd: string;
-  readonly mode?: 'code-first' | 'schema-first';
-  readonly schema?: string;
-  readonly resolverChecks?: Pick<
-    GenerateSchemaFirstResolverChecksOptions,
-    'out' | 'gqlTypesImport'
-  >;
 };
 
 export type GenerateGraphqlSdlResult = {
   readonly changed: boolean;
   readonly contributions: readonly GraphqlPrebuiltContribution[];
+  // Absolute paths of every runtime module, SDL file, and resolverChecks
+  // file this run wrote or verified unchanged — passed to the build's
+  // output ledger so a later run can prune files an endpoint stops
+  // producing (see `registerGeneratedFile` on `BuildContext`).
+  readonly generatedFiles: readonly string[];
 };
 
 const writeIfChanged = async (path: string, content: string): Promise<boolean> => {
@@ -59,12 +58,16 @@ const writeIfChanged = async (path: string, content: string): Promise<boolean> =
   return true;
 };
 
+// Each endpoint forms its own line from schema (or resolver code) through to
+// the generated runtime module: `schema` present selects schema-first,
+// absent selects code-first. Lines never mix resolvers across endpoints.
 type GraphqlEndpoint = {
   readonly key: string;
   readonly path: string;
   readonly resolvers: readonly NonNullable<
     ReturnType<typeof getGraphqlControllerMetadata>
   >['resolvers'][number][];
+  readonly schema?: GqlSchemaRef;
 };
 
 const collectGraphqlEndpoints = (
@@ -74,7 +77,12 @@ const collectGraphqlEndpoints = (
   for (const controller of controllers) {
     const metadata = getGraphqlControllerMetadata(controller);
     if (!metadata) continue;
-    endpoints.push({ key: metadata.key, path: metadata.path, resolvers: metadata.resolvers });
+    endpoints.push({
+      key: metadata.key,
+      path: metadata.path,
+      resolvers: metadata.resolvers,
+      ...(metadata.schema !== undefined && { schema: metadata.schema }),
+    });
   }
   return endpoints;
 };
@@ -131,22 +139,20 @@ const buildRuntimeLiteral = (runtime: GraphqlRuntimeManifest): string => {
   return `${trimmed},\n${scalarLiteral}\n}`;
 };
 
+const GRAPHQL_GENERATED_TS_HEADER = `// ${GENERATED_FILE_HEADER_MARKER}`;
+const GRAPHQL_GENERATED_SDL_HEADER = `# ${GENERATED_FILE_HEADER_MARKER}`;
+
 const buildPrebuiltModule = (runtime: GraphqlRuntimeManifest, resolversHash: string): string => {
   const imports = buildScalarImports(runtime);
   const runtimeLiteral = buildRuntimeLiteral(runtime);
-  return `${imports}export const graphqlPrebuilt = {
+  return `${GRAPHQL_GENERATED_TS_HEADER}\n${imports}export const graphqlPrebuilt = {
   "runtime": ${runtimeLiteral},
   "resolversHash": ${JSON.stringify(resolversHash)}
 };\n`;
 };
 
-// GraphQL endpoint keys become filenames: 'graphql' -> 'graphql', a `name`
-// of 'api/v1' -> 'api__v1'. Keys don't normally contain '/', but it's
-// stripped defensively in case one ever does.
-const sanitizeGraphqlKey = (key: string): string => {
-  const trimmed = key.replace(/^\/+|\/+$/g, '').replace(/\//g, '__');
-  return trimmed.length > 0 ? trimmed : GRAPHQL_FEATURE_KEY;
-};
+const buildSdlFileContent = (schemaSdl: string): string =>
+  `${GRAPHQL_GENERATED_SDL_HEADER}\n\n${schemaSdl}`;
 
 // Two endpoints sharing a key is only valid when they are the same
 // declaration mounted twice (e.g. the same graphql() instance reused across
@@ -156,13 +162,18 @@ const sanitizeGraphqlKey = (key: string): string => {
 // message instead of surfacing as a generic duplicate-contribution error.
 const isSameGraphqlEndpoint = (a: GraphqlEndpoint, b: GraphqlEndpoint): boolean =>
   a.path === b.path &&
+  a.schema === b.schema &&
   a.resolvers.length === b.resolvers.length &&
   a.resolvers.every((resolver, index) => resolver === b.resolvers[index]);
 
 /** @throws {Error} */
 const assertUniqueGraphqlEndpointKeys = (endpoints: readonly GraphqlEndpoint[]): void => {
   const byKey = new Map<string, GraphqlEndpoint>();
-  const filenameOwners = new Map<string, string>();
+  // `name` is validated to a filesystem-safe identifier at graphql() call
+  // time, so the key doubles as the generated filename directly; only a
+  // case-only collision (e.g. 'Admin' vs 'admin') can still clash, since
+  // most filesystems treat those as the same path.
+  const byLowercaseKey = new Map<string, string>();
   for (const endpoint of endpoints) {
     const existingByKey = byKey.get(endpoint.key);
     if (existingByKey === undefined) {
@@ -173,13 +184,13 @@ const assertUniqueGraphqlEndpointKeys = (endpoints: readonly GraphqlEndpoint[]):
       );
     }
 
-    const filename = sanitizeGraphqlKey(endpoint.key);
-    const filenameOwner = filenameOwners.get(filename);
-    if (filenameOwner === undefined) {
-      filenameOwners.set(filename, endpoint.key);
-    } else if (filenameOwner !== endpoint.key) {
+    const lowercaseKey = endpoint.key.toLowerCase();
+    const owner = byLowercaseKey.get(lowercaseKey);
+    if (owner === undefined) {
+      byLowercaseKey.set(lowercaseKey, endpoint.key);
+    } else if (owner !== endpoint.key) {
       throw new Error(
-        `GraphQL endpoints "${filenameOwner}" and "${endpoint.key}" both sanitize to the filename "${filename}". Pass a distinct \`name\` to each graphql() to disambiguate.`,
+        `GraphQL endpoints "${owner}" and "${endpoint.key}" share the key "${lowercaseKey}" case-insensitively. Pass a distinct \`name\` to each graphql() to disambiguate.`,
       );
     }
   }
@@ -187,11 +198,21 @@ const assertUniqueGraphqlEndpointKeys = (endpoints: readonly GraphqlEndpoint[]):
 
 const graphqlOutDir = (cwd: string): string => resolve(cwd, '.zelt', 'graphql');
 
+/** @throws {Error} */
+const assertWithinOutDir = (outDir: string, filePath: string): void => {
+  const rel = relative(outDir, filePath);
+  if (rel === '..' || rel.startsWith(`..${sep}`)) {
+    throw new Error(`GraphQL generated file path escapes the output directory: ${filePath}`);
+  }
+};
+
 type WriteEndpointModuleResult = {
   readonly changed: boolean;
   readonly contribution: GraphqlPrebuiltContribution;
+  readonly generatedFiles: readonly string[];
 };
 
+/** @throws {Error} */
 const writeGraphqlEndpointModule = async (
   cwd: string,
   endpoint: GraphqlEndpoint,
@@ -200,14 +221,16 @@ const writeGraphqlEndpointModule = async (
   const outDir = graphqlOutDir(cwd);
   await mkdir(outDir, { recursive: true });
   const resolversHash = await computeGraphqlPrebuiltHash(endpoint.path, endpoint.resolvers);
-  const baseName = `${sanitizeGraphqlKey(endpoint.key)}.runtime`;
+  const baseName = `${endpoint.key}.runtime`;
   const runtimeFilePath = resolve(outDir, `${baseName}.ts`);
   const sdlFilePath = resolve(outDir, `${baseName}.graphql`);
+  assertWithinOutDir(outDir, runtimeFilePath);
+  assertWithinOutDir(outDir, sdlFilePath);
   const runtimeChanged = await writeIfChanged(
     runtimeFilePath,
     buildPrebuiltModule(runtime, resolversHash),
   );
-  const sdlChanged = await writeIfChanged(sdlFilePath, runtime.schemaSdl);
+  const sdlChanged = await writeIfChanged(sdlFilePath, buildSdlFileContent(runtime.schemaSdl));
   return {
     changed: runtimeChanged || sdlChanged,
     contribution: {
@@ -216,6 +239,7 @@ const writeGraphqlEndpointModule = async (
       importPath: `./graphql/${baseName}`,
       exportName: 'graphqlPrebuilt',
     },
+    generatedFiles: [runtimeFilePath, sdlFilePath],
   };
 };
 
@@ -233,81 +257,152 @@ const toSdlOptions = (options: SdlAdapterOptions): GenerateSdlOptions => ({
   ...(options.scalarResolver !== undefined && { scalarResolver: options.scalarResolver }),
 });
 
-type GenerateEndpointsResult = {
-  readonly changed: boolean;
-  readonly contributions: readonly GraphqlPrebuiltContribution[];
-};
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const generateRuntimeForEndpoint = (
+  endpoint: GraphqlEndpoint,
+  options: GenerateGraphqlSdlOptions,
+): Promise<GraphqlRuntimeManifest> =>
+  endpoint.schema
+    ? generateSchemaFirstGraphqlRuntimeForResolvers(endpoint.resolvers, {
+        schemaSdl: endpoint.schema.sdl,
+        ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
+      })
+    : generateGraphqlRuntimeForResolvers(endpoint.resolvers, toSdlOptions(options));
 
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
 const writeGraphqlEndpointModules = async (
-  cwd: string,
   endpoints: readonly GraphqlEndpoint[],
-  runtimeFor: (endpoint: GraphqlEndpoint) => Promise<GraphqlRuntimeManifest>,
-): Promise<GenerateEndpointsResult> => {
+  options: GenerateGraphqlSdlOptions,
+): Promise<GenerateGraphqlSdlResult> => {
   let changed = false;
   const contributions: GraphqlPrebuiltContribution[] = [];
+  const generatedFiles: string[] = [];
   for (const endpoint of endpoints) {
-    const runtime = await runtimeFor(endpoint);
-    const result = await writeGraphqlEndpointModule(cwd, endpoint, runtime);
+    const runtime = await generateRuntimeForEndpoint(endpoint, options);
+    const result = await writeGraphqlEndpointModule(options.cwd, endpoint, runtime);
     changed = changed || result.changed;
     contributions.push(result.contribution);
+    generatedFiles.push(...result.generatedFiles);
   }
-  return { changed, contributions };
+  return { changed, contributions, generatedFiles };
+};
+
+type SchemaFirstGraphqlEndpoint = GraphqlEndpoint & { readonly schema: GqlSchemaRef };
+
+const collectSchemaFirstEndpoints = (
+  endpoints: readonly GraphqlEndpoint[],
+): readonly SchemaFirstGraphqlEndpoint[] =>
+  endpoints.flatMap((endpoint) =>
+    endpoint.schema !== undefined ? [{ ...endpoint, schema: endpoint.schema }] : [],
+  );
+
+/** @throws {Error} */
+const resolveCodegenHelperPath = async (
+  endpoint: SchemaFirstGraphqlEndpoint,
+  cwd: string,
+): Promise<string> => {
+  const sdlHash = await computeSchemaSdlHash(endpoint.schema.sdl);
+  const result = await findGraphqlCodegenManifestEntryBySdlHash(cwd, sdlHash);
+  if (result.kind === 'missing') {
+    throw new Error(
+      `No GraphQL codegen manifest entry found for the schema of GraphQL endpoint "${endpoint.key}". Run \`zelt graphql codegen --schema <path-to-schema> --out <path-to-helper>\` first.`,
+    );
+  }
+  if (result.kind === 'ambiguous') {
+    throw new Error(
+      `Multiple GraphQL codegen helpers share the same schema as GraphQL endpoint "${endpoint.key}": ${result.entries
+        .map((entry) => entry.helperPath)
+        .join(', ')}. Each schema-first schema must be codegen'd to exactly one helper.`,
+    );
+  }
+  return result.entry.helperPath;
+};
+
+const resolverChecksOutPath = (
+  helperPath: string,
+  endpointKey: string,
+  needsSuffix: boolean,
+): string => {
+  const ext = extname(helperPath);
+  const base = helperPath.slice(0, helperPath.length - ext.length);
+  const suffix = needsSuffix ? `.${endpointKey}` : '';
+  return `${base}${suffix}.resolver-checks.ts`;
+};
+
+type ResolvedSchemaFirstEndpoint = {
+  readonly endpoint: SchemaFirstGraphqlEndpoint;
+  readonly helperPath: string;
+};
+
+const countByHelperPath = (
+  resolved: readonly ResolvedSchemaFirstEndpoint[],
+): ReadonlyMap<string, number> => {
+  const counts = new Map<string, number>();
+  for (const { helperPath } of resolved) {
+    counts.set(helperPath, (counts.get(helperPath) ?? 0) + 1);
+  }
+  return counts;
+};
+
+type ResolverChecksGenerationResult = {
+  readonly changed: boolean;
+  readonly out: string;
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
-const generateCodeFirstEndpoints = (
-  endpoints: readonly GraphqlEndpoint[],
+const generateResolverChecksForResolvedEndpoint = async (
+  resolved: ResolvedSchemaFirstEndpoint,
+  needsSuffix: boolean,
   options: GenerateGraphqlSdlOptions,
-): Promise<GenerateEndpointsResult> =>
-  writeGraphqlEndpointModules(options.cwd, endpoints, (endpoint) =>
-    generateGraphqlRuntimeForResolvers(endpoint.resolvers, toSdlOptions(options)),
-  );
-
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
-const generateResolverChecksIfRequested = async (
-  schemaSdl: string,
-  resolvers: readonly GraphqlResolverClass[],
-  options: GenerateGraphqlSdlOptions,
-): Promise<boolean> => {
-  if (!options.resolverChecks) return false;
+): Promise<ResolverChecksGenerationResult> => {
+  const out = resolverChecksOutPath(resolved.helperPath, resolved.endpoint.key, needsSuffix);
   const result = await generateSchemaFirstResolverChecks({
-    schemaSdl,
-    resolvers,
-    out: options.resolverChecks.out,
-    gqlTypesImport: options.resolverChecks.gqlTypesImport,
+    schemaSdl: resolved.endpoint.schema.sdl,
+    resolvers: resolved.endpoint.resolvers,
+    out,
+    gqlTypesImport: toResolverChecksImportSpecifier(out, resolved.helperPath),
     ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
   });
-  return result.changed;
+  return { changed: result.changed, out: resolve(out) };
 };
 
+type ResolverChecksGenerationSummary = {
+  readonly changed: boolean;
+  readonly generatedFiles: readonly string[];
+};
+
+// resolverChecks generation has no configuration: every schema-first
+// endpoint gets a check file next to the codegen helper its schema hashes
+// to, discovered via <cwd>/.zelt/graphql-codegen.json.
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
-const generateSchemaFirstEndpoints = async (
+const generateResolverChecksForSchemaFirstEndpoints = async (
   endpoints: readonly GraphqlEndpoint[],
   options: GenerateGraphqlSdlOptions,
-): Promise<GenerateEndpointsResult> => {
-  if (!options.schema) {
-    throw new Error('schema-first graphqlPlugin requires schema.');
+): Promise<ResolverChecksGenerationSummary> => {
+  const schemaFirstEndpoints = collectSchemaFirstEndpoints(endpoints);
+  if (schemaFirstEndpoints.length === 0) return { changed: false, generatedFiles: [] };
+
+  const resolved = await Promise.all(
+    schemaFirstEndpoints.map(async (endpoint) => ({
+      endpoint,
+      helperPath: await resolveCodegenHelperPath(endpoint, options.cwd),
+    })),
+  );
+  const helperPathCounts = countByHelperPath(resolved);
+
+  let changed = false;
+  const generatedFiles: string[] = [];
+  for (const entry of resolved) {
+    const needsSuffix = (helperPathCounts.get(entry.helperPath) ?? 0) > 1;
+    const entryResult = await generateResolverChecksForResolvedEndpoint(
+      entry,
+      needsSuffix,
+      options,
+    );
+    changed = changed || entryResult.changed;
+    generatedFiles.push(entryResult.out);
   }
-  const schemaSdl = await readFile(resolve(options.schema), 'utf8');
-  const allResolvers = endpoints.flatMap((endpoint) => endpoint.resolvers);
-  const runtime = await generateSchemaFirstGraphqlRuntimeForResolvers(allResolvers, {
-    schemaSdl,
-    ...(options.tsconfig !== undefined && { tsconfig: options.tsconfig }),
-  });
-
-  const written = await writeGraphqlEndpointModules(options.cwd, endpoints, () =>
-    Promise.resolve(runtime),
-  );
-  const resolverChecksChanged = await generateResolverChecksIfRequested(
-    schemaSdl,
-    allResolvers,
-    options,
-  );
-
-  return {
-    changed: written.changed || resolverChecksChanged,
-    contributions: written.contributions,
-  };
+  return { changed, generatedFiles };
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -317,11 +412,15 @@ export const generateGraphqlSdl = async (
 ): Promise<GenerateGraphqlSdlResult> => {
   const endpoints = collectGraphqlEndpoints(app.getControllers());
   assertUniqueGraphqlEndpointKeys(endpoints);
-  const result =
-    options.mode === 'schema-first' || options.schema !== undefined
-      ? await generateSchemaFirstEndpoints(endpoints, options)
-      : await generateCodeFirstEndpoints(endpoints, options);
-  return { changed: result.changed, contributions: result.contributions };
+
+  const written = await writeGraphqlEndpointModules(endpoints, options);
+  const resolverChecks = await generateResolverChecksForSchemaFirstEndpoints(endpoints, options);
+
+  return {
+    changed: written.changed || resolverChecks.changed,
+    contributions: written.contributions,
+    generatedFiles: [...written.generatedFiles, ...resolverChecks.generatedFiles],
+  };
 };
 
 const toGenerateOptions = (
@@ -330,9 +429,6 @@ const toGenerateOptions = (
 ): GenerateGraphqlSdlOptions => ({
   cwd,
   ...toSdlOptions(options),
-  ...(options.mode !== undefined && { mode: options.mode }),
-  ...(options.schema !== undefined && { schema: options.schema }),
-  ...(options.resolverChecks !== undefined && { resolverChecks: options.resolverChecks }),
 });
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
@@ -340,10 +436,11 @@ export const graphqlPlugin = (options: GraphqlPluginOptions = {}): ZeltPlugin<Ht
   name: 'graphql',
   async preBuild(ctx) {
     const app = await ctx.loadStaticApp();
-    const { contributions } = await generateGraphqlSdl(
+    const { contributions, generatedFiles } = await generateGraphqlSdl(
       app.http,
       toGenerateOptions(ctx.cwd, options),
     );
+    for (const file of generatedFiles) ctx.registerGeneratedFile(file);
     return contributions;
   },
 });

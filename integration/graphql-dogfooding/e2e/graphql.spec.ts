@@ -29,8 +29,15 @@ const preparePrebuilt = async (): Promise<void> => {
     schemaAdapter: valibotAdapter,
     schemaResolver: (modulePath: string) => import(/* @vite-ignore */ modulePath),
   });
+  // This helper wipes `.zelt/` above itself, so it doesn't need the output
+  // ledger a real `zelt build` runs through `registerGeneratedFile`.
   const contributions =
-    (await plugin.preBuild?.({ cwd, build: {}, loadStaticApp: async () => app })) ?? [];
+    (await plugin.preBuild?.({
+      cwd,
+      build: {},
+      loadStaticApp: async () => app,
+      registerGeneratedFile: () => {},
+    })) ?? [];
   await writePrebuiltModule(cwd, contributions);
 
   const prebuiltModule = (await import(

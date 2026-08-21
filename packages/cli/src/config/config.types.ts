@@ -59,6 +59,10 @@ export type BuildContext<TStaticApp extends object = object> = {
   readonly cwd: string;
   readonly build: BuildConfig;
   readonly loadStaticApp: () => Promise<TStaticApp>;
+  // preBuild hooks call this with the absolute path of every file they
+  // write, so a later build can prune outputs a plugin no longer produces
+  // (e.g. after a graphql() endpoint is removed from the app).
+  readonly registerGeneratedFile: (path: string) => void;
 };
 
 export type BuildResult = {

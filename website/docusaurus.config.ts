@@ -72,6 +72,7 @@ const config: Config = {
   onBrokenLinks: 'throw',
 
   markdown: {
+    mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: 'warn',
     },
@@ -209,6 +210,7 @@ const config: Config = {
   ],
 
   themes: [
+    '@docusaurus/theme-mermaid',
     [
       '@easyops-cn/docusaurus-search-local',
       {
@@ -224,6 +226,26 @@ const config: Config = {
 
   themeConfig: {
     image: 'img/zelt-social-card.png',
+    mermaid: {
+      theme: { light: 'neutral', dark: 'dark' },
+      options: {
+        fontSize: 16,
+        flowchart: {
+          nodeSpacing: 55,
+          rankSpacing: 60,
+          padding: 14,
+        },
+        themeVariables: {
+          primaryColor: '#f8fafc',
+          primaryBorderColor: '#334155',
+          primaryTextColor: '#1e293b',
+          lineColor: '#334155',
+          clusterBkg: '#eef2f7',
+          clusterBorder: '#cbd5e1',
+          fontSize: '16px',
+        },
+      },
+    },
     colorMode: {
       respectPrefersColorScheme: true,
     },

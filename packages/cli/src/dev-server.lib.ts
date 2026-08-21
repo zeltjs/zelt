@@ -1,10 +1,12 @@
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
+import { join } from 'node:path';
 
 import consola from 'consola';
 
 import type { CliRuntime } from './cli-runtime.lib';
 import type { DevConfig, ZeltConfig } from './config/config.types';
+import { sweepStaleOutputs } from './outputs-ledger.lib';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 import { writePrebuiltModule } from './prebuilt-writer.lib';
 import type { WatcherHandle } from './watcher.lib';
@@ -81,10 +83,26 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
 
 /** @throws {ZeltMultipleBuildHooksError | ZeltDuplicatePrebuiltContributionError | ZeltInvalidPrebuiltContributionError} */
 const runHooks = async (cwd: string, config: ZeltConfig): Promise<void> => {
-  const hookOptions = { cwd, config, loadStaticApp: async () => config.app() };
+  const generatedFiles: string[] = [];
+  const hookOptions = {
+    cwd,
+    config,
+    loadStaticApp: async () => config.app(),
+    registerGeneratedFile: (path: string) => {
+      generatedFiles.push(path);
+    },
+  };
 
   const contributions = await runPreBuildHooks(hookOptions);
   await writePrebuiltModule(cwd, contributions);
+  generatedFiles.push(join(cwd, '.zelt', 'prebuilt.ts'));
+
+  const sweepResult = await sweepStaleOutputs(cwd, generatedFiles);
+  for (const skipped of sweepResult.skipped) {
+    consola.warn(
+      `Kept stale output "${skipped}": it no longer matches any plugin's output but is missing the generated-file marker, so it was not deleted.`,
+    );
+  }
 
   let success = true;
 

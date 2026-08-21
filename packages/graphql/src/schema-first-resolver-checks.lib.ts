@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 
+import { GENERATED_FILE_HEADER_MARKER } from '@zeltjs/cli';
 import type { ClassMetadata, MethodInfo } from '@zeltjs/decorator-metadata/inspect';
 import { getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
 import type { ObjectTypeDefinitionNode } from 'graphql';
@@ -108,7 +109,10 @@ const toAliasPart = (name: string): string => {
   return sanitized.replace(/^[0-9]/, '_$&');
 };
 
-const toImportSpecifier = (fromFile: string, toFile: string): string => {
+// Exported so callers that generate the `out` path themselves (e.g. the
+// resolverChecks auto-wiring in graphql-plugin.lib.ts) can derive the same
+// relative import specifier without duplicating this logic.
+export const toResolverChecksImportSpecifier = (fromFile: string, toFile: string): string => {
   const raw = relative(dirname(resolve(fromFile)), resolve(toFile))
     .replaceAll('\\', '/')
     .replace(/\.[cm]?[tj]sx?$/, '');
@@ -204,7 +208,7 @@ const renderImports = (
       .map(([sourceFile, names]) => {
         const importedNames = [...names].sort().join(', ');
         return `import type { ${importedNames} } from ${quoteTsString(
-          toImportSpecifier(options.out, sourceFile),
+          toResolverChecksImportSpecifier(options.out, sourceFile),
         )};`;
       }),
   ];
@@ -267,6 +271,7 @@ export const renderSchemaFirstResolverChecks = async (
 ): Promise<string> => {
   const checks = await collectResolverChecks(options);
   const parts = [
+    `// ${GENERATED_FILE_HEADER_MARKER}`,
     ...renderImports(checks, options),
     '',
     ...renderPreamble(),

@@ -13,12 +13,14 @@ export type RunPluginHooksOptions = {
   readonly cwd: string;
   readonly config: ZeltConfig;
   readonly loadStaticApp: () => Promise<object>;
+  readonly registerGeneratedFile: (path: string) => void;
 };
 
 const createBuildContext = (options: RunPluginHooksOptions): BuildContext => ({
   cwd: options.cwd,
   build: options.config.build ?? {},
   loadStaticApp: options.loadStaticApp,
+  registerGeneratedFile: options.registerGeneratedFile,
 });
 
 export const runPreBuildHooks = async (

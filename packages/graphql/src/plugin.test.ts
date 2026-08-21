@@ -4,9 +4,11 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+import { readGraphqlCodegenManifest } from './graphql-codegen-manifest.lib';
 import { generateGraphqlSdl, graphqlPlugin } from './graphql-plugin.lib';
 import type { GqlOutput } from './index';
-import { computeGraphqlPrebuiltHash, gqlScalar, graphql, Query, Resolver } from './index';
+import { computeGraphqlPrebuiltHash, gqlScalar, graphql, Mutation, Query, Resolver } from './index';
+import { generateSchemaFirstCodegen } from './schema-first-codegen.lib';
 
 type ViewerPublic = {
   readonly id: string;
@@ -58,9 +60,9 @@ describe('generateGraphqlSdl', () => {
     await expect(readFile(runtimeFile, 'utf8')).resolves.toContain('export const graphqlPrebuilt');
   });
 
-  it('sanitizes a `name` with slashes into a double-underscore filename', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-nested-'));
-    const child = graphql({ path: '/api/v1/graphql', resolvers: [ViewerResolver], name: 'api/v1' });
+  it('uses a hyphenated `name` as the filename verbatim', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-hyphen-'));
+    const child = graphql({ path: '/api/v1/graphql', resolvers: [ViewerResolver], name: 'api-v1' });
 
     await generateGraphqlSdl(
       { getControllers: () => child.blueprint().getControllers() },
@@ -68,7 +70,7 @@ describe('generateGraphqlSdl', () => {
     );
 
     await expect(
-      readFile(resolve(cwd, `.zelt/graphql/api__v1.runtime.ts`), 'utf8'),
+      readFile(resolve(cwd, `.zelt/graphql/api-v1.runtime.ts`), 'utf8'),
     ).resolves.toContain('export const graphqlPrebuilt');
   });
 
@@ -134,6 +136,30 @@ describe('generateGraphqlSdl', () => {
       ),
     ).rejects.toThrow(
       /GraphQL endpoints share the key "graphql"\. Pass a distinct `name` to each graphql\(\) to disambiguate\./,
+    );
+  });
+
+  it('throws when two endpoint names only differ by case', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-case-collision-'));
+    const adminChild = graphql({ path: '/admin', resolvers: [ViewerResolver], name: 'Admin' });
+    const otherChild = graphql({
+      path: '/other-admin',
+      resolvers: [PluginScalarResolver],
+      name: 'admin',
+    });
+
+    await expect(
+      generateGraphqlSdl(
+        {
+          getControllers: () => [
+            ...adminChild.blueprint().getControllers(),
+            ...otherChild.blueprint().getControllers(),
+          ],
+        },
+        { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
+      ),
+    ).rejects.toThrow(
+      /GraphQL endpoints "Admin" and "admin" share the key "admin" case-insensitively\. Pass a distinct `name` to each graphql\(\) to disambiguate\./,
     );
   });
 
@@ -231,6 +257,7 @@ describe('graphqlPlugin', () => {
     const contributions = await plugin.preBuild?.({
       cwd,
       build: {},
+      registerGeneratedFile: () => {},
       loadStaticApp: async () => ({
         http: { getControllers: () => child.blueprint().getControllers() },
       }),
@@ -250,36 +277,32 @@ describe('graphqlPlugin', () => {
     ).resolves.toContain('type ViewerPublic');
   });
 
-  it('generates a schema-first prebuilt module from SDL and resolver bindings', async () => {
+  it('generates a schema-first prebuilt module from SDL and resolver bindings, plus resolverChecks next to the codegen helper', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-schema-first-'));
-    const schema = join(cwd, 'schema.graphql');
-    const resolverChecks = join(cwd, 'graphql-resolver-checks.ts');
-    await writeFile(
-      schema,
-      `type Query {
+    const schemaPath = join(cwd, 'schema.graphql');
+    const schemaSdl = `type Query {
   viewer: ViewerPublic
 }
 
 type ViewerPublic {
   id: String!
 }
-`,
-      'utf8',
-    );
-    const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
-    const plugin = graphqlPlugin({
-      mode: 'schema-first',
-      schema,
-      resolverChecks: {
-        out: resolverChecks,
-        gqlTypesImport: './graphql',
-      },
-      tsconfig: resolve(__dirname, '../tsconfig.json'),
+`;
+    await writeFile(schemaPath, schemaSdl, 'utf8');
+    const helperPath = join(cwd, 'graphql-generated.ts');
+    await generateSchemaFirstCodegen({ schema: schemaPath, out: helperPath, cwd });
+
+    const child = graphql({
+      path: '/graphql',
+      resolvers: [ViewerResolver],
+      schema: { sdl: schemaSdl },
     });
+    const plugin = graphqlPlugin({ tsconfig: resolve(__dirname, '../tsconfig.json') });
 
     const contributions = await plugin.preBuild?.({
       cwd,
       build: {},
+      registerGeneratedFile: () => {},
       loadStaticApp: async () => ({
         http: { getControllers: () => child.blueprint().getControllers() },
       }),
@@ -304,6 +327,301 @@ type ViewerPublic {
     await expect(
       readFile(resolve(cwd, `.zelt/graphql/${baseName}.graphql`), 'utf8'),
     ).resolves.toContain('type Query');
-    await expect(readFile(resolverChecks, 'utf8')).resolves.toContain('Gql.Query.viewer.Result');
+
+    const resolverChecksPath = join(cwd, 'graphql-generated.resolver-checks.ts');
+    const resolverChecksContent = await readFile(resolverChecksPath, 'utf8');
+    expect(resolverChecksContent).toContain('Gql.Query.viewer.Result');
+    expect(resolverChecksContent).toContain("from './graphql-generated'");
+  });
+
+  it('keeps two schema-first lines independent: each endpoint binds only its own schema and resolvers', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-two-lines-'));
+
+    const schemaAPath = join(cwd, 'schema-a.graphql');
+    const schemaASdl = `type Query {
+  viewer: ViewerPublic
+}
+
+type ViewerPublic {
+  id: String!
+}
+`;
+    await writeFile(schemaAPath, schemaASdl, 'utf8');
+    const helperAPath = join(cwd, 'graphql-a.ts');
+    await generateSchemaFirstCodegen({ schema: schemaAPath, out: helperAPath, cwd });
+
+    const schemaBPath = join(cwd, 'schema-b.graphql');
+    const schemaBSdl = `type Query {
+  pluginPrice: PluginPricePublic
+}
+
+type PluginPricePublic {
+  amount: Float!
+}
+`;
+    await writeFile(schemaBPath, schemaBSdl, 'utf8');
+    const helperBPath = join(cwd, 'graphql-b.ts');
+    await generateSchemaFirstCodegen({ schema: schemaBPath, out: helperBPath, cwd });
+
+    const childA = graphql({
+      path: '/graphql-a',
+      resolvers: [ViewerResolver],
+      name: 'lineA',
+      schema: { sdl: schemaASdl },
+    });
+    const childB = graphql({
+      path: '/graphql-b',
+      resolvers: [PluginScalarResolver],
+      name: 'lineB',
+      schema: { sdl: schemaBSdl },
+    });
+    const plugin = graphqlPlugin({ tsconfig: resolve(__dirname, '../tsconfig.json') });
+
+    await plugin.preBuild?.({
+      cwd,
+      build: {},
+      registerGeneratedFile: () => {},
+      loadStaticApp: async () => ({
+        http: {
+          getControllers: () => [
+            ...childA.blueprint().getControllers(),
+            ...childB.blueprint().getControllers(),
+          ],
+        },
+      }),
+    });
+
+    const runtimeA = await readFile(resolve(cwd, '.zelt/graphql/lineA.runtime.ts'), 'utf8');
+    expect(runtimeA).toContain('"ViewerResolver"');
+    expect(runtimeA).not.toContain('PluginScalarResolver');
+
+    const runtimeB = await readFile(resolve(cwd, '.zelt/graphql/lineB.runtime.ts'), 'utf8');
+    expect(runtimeB).toContain('PluginScalarResolver');
+    expect(runtimeB).not.toContain('ViewerResolver');
+
+    await expect(readFile(join(cwd, 'graphql-a.resolver-checks.ts'), 'utf8')).resolves.toContain(
+      'ViewerResolver',
+    );
+    await expect(readFile(join(cwd, 'graphql-b.resolver-checks.ts'), 'utf8')).resolves.toContain(
+      'PluginScalarResolver',
+    );
+  });
+
+  it('supports a code-first endpoint and a schema-first endpoint coexisting in the same app', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-mixed-'));
+
+    const schemaPath = join(cwd, 'schema.graphql');
+    const schemaSdl = `type Query {
+  viewer: ViewerPublic
+}
+
+type ViewerPublic {
+  id: String!
+}
+`;
+    await writeFile(schemaPath, schemaSdl, 'utf8');
+    const helperPath = join(cwd, 'graphql-generated.ts');
+    await generateSchemaFirstCodegen({ schema: schemaPath, out: helperPath, cwd });
+
+    const schemaFirstChild = graphql({
+      path: '/graphql-schema-first',
+      resolvers: [ViewerResolver],
+      name: 'schemaFirst',
+      schema: { sdl: schemaSdl },
+    });
+    const codeFirstChild = graphql({
+      path: '/graphql-code-first',
+      resolvers: [PluginScalarResolver],
+      name: 'codeFirst',
+    });
+    const plugin = graphqlPlugin({ tsconfig: resolve(__dirname, '../tsconfig.json') });
+
+    const contributions = await plugin.preBuild?.({
+      cwd,
+      build: {},
+      registerGeneratedFile: () => {},
+      loadStaticApp: async () => ({
+        http: {
+          getControllers: () => [
+            ...schemaFirstChild.blueprint().getControllers(),
+            ...codeFirstChild.blueprint().getControllers(),
+          ],
+        },
+      }),
+    });
+
+    expect(contributions).toHaveLength(2);
+    await expect(
+      readFile(resolve(cwd, '.zelt/graphql/schemaFirst.runtime.graphql'), 'utf8'),
+    ).resolves.toContain('type Query');
+    await expect(
+      readFile(resolve(cwd, '.zelt/graphql/codeFirst.runtime.graphql'), 'utf8'),
+    ).resolves.toContain('type Query');
+    await expect(
+      readFile(join(cwd, 'graphql-generated.resolver-checks.ts'), 'utf8'),
+    ).resolves.toContain('ViewerResolver');
+  });
+
+  it('fails with an actionable error when no codegen manifest entry matches the schema', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-missing-manifest-'));
+    const schemaSdl = `type Query {
+  viewer: ViewerPublic
+}
+
+type ViewerPublic {
+  id: String!
+}
+`;
+    const child = graphql({
+      path: '/graphql',
+      resolvers: [ViewerResolver],
+      schema: { sdl: schemaSdl },
+    });
+    const plugin = graphqlPlugin({ tsconfig: resolve(__dirname, '../tsconfig.json') });
+
+    await expect(
+      plugin.preBuild?.({
+        cwd,
+        build: {},
+        registerGeneratedFile: () => {},
+        loadStaticApp: async () => ({
+          http: { getControllers: () => child.blueprint().getControllers() },
+        }),
+      }),
+    ).rejects.toThrow(/zelt graphql codegen/);
+  });
+
+  it('fails when two codegen helpers share the same sdlHash (ambiguous manifest match)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-ambiguous-manifest-'));
+    const schemaPath = join(cwd, 'schema.graphql');
+    const schemaSdl = `type Query {
+  viewer: ViewerPublic
+}
+
+type ViewerPublic {
+  id: String!
+}
+`;
+    await writeFile(schemaPath, schemaSdl, 'utf8');
+    await generateSchemaFirstCodegen({ schema: schemaPath, out: join(cwd, 'helper-1.ts'), cwd });
+    await generateSchemaFirstCodegen({ schema: schemaPath, out: join(cwd, 'helper-2.ts'), cwd });
+
+    const child = graphql({
+      path: '/graphql',
+      resolvers: [ViewerResolver],
+      schema: { sdl: schemaSdl },
+    });
+    const plugin = graphqlPlugin({ tsconfig: resolve(__dirname, '../tsconfig.json') });
+
+    await expect(
+      plugin.preBuild?.({
+        cwd,
+        build: {},
+        registerGeneratedFile: () => {},
+        loadStaticApp: async () => ({
+          http: { getControllers: () => child.blueprint().getControllers() },
+        }),
+      }),
+    ).rejects.toThrow(/helper-1\.ts.*helper-2\.ts|helper-2\.ts.*helper-1\.ts/s);
+  });
+
+  it('rejects a schema-first line missing a root Query/Mutation binding, scoped to that line only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-missing-binding-'));
+    const schemaSdl = `type Query {
+  viewer: ViewerPublic
+  other: ViewerPublic
+}
+
+type ViewerPublic {
+  id: String!
+}
+`;
+    const schemaPath = join(cwd, 'schema.graphql');
+    await writeFile(schemaPath, schemaSdl, 'utf8');
+    await generateSchemaFirstCodegen({
+      schema: schemaPath,
+      out: join(cwd, 'graphql-generated.ts'),
+      cwd,
+    });
+
+    const child = graphql({
+      path: '/graphql',
+      resolvers: [ViewerResolver],
+      schema: { sdl: schemaSdl },
+    });
+    const plugin = graphqlPlugin({ tsconfig: resolve(__dirname, '../tsconfig.json') });
+
+    await expect(
+      plugin.preBuild?.({
+        cwd,
+        build: {},
+        registerGeneratedFile: () => {},
+        loadStaticApp: async () => ({
+          http: { getControllers: () => child.blueprint().getControllers() },
+        }),
+      }),
+    ).rejects.toThrow('Schema-first resolver binding missing for Query.other');
+  });
+
+  // Invalid `name` values (slashes, backslashes, dots-only, reserved Windows
+  // device names, ...) are now rejected by graphql() itself at construction
+  // time — see graphql-child.test.ts — so they can no longer reach here.
+});
+
+describe('graphql codegen manifest recording via generateSchemaFirstCodegen', () => {
+  it('is recorded deterministically and can be looked up by resolverChecks generation', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-manifest-lookup-'));
+    const schemaPath = join(cwd, 'schema.graphql');
+    const schemaSdl = `type Mutation {
+  createUser: UserPublic
+}
+
+type Query {
+  user: UserPublic
+}
+
+type UserPublic {
+  id: String!
+}
+`;
+    await writeFile(schemaPath, schemaSdl, 'utf8');
+    const helperPath = join(cwd, 'graphql-generated.ts');
+    await generateSchemaFirstCodegen({ schema: schemaPath, out: helperPath, cwd });
+
+    const entries = await readGraphqlCodegenManifest(cwd);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.helperPath).toBe(resolve(helperPath));
+
+    @Resolver()
+    class UserResolver {
+      @Query()
+      user(): { readonly id: string } {
+        return { id: '1' };
+      }
+
+      @Mutation()
+      createUser(): { readonly id: string } {
+        return { id: '2' };
+      }
+    }
+
+    const child = graphql({
+      path: '/graphql',
+      resolvers: [UserResolver],
+      schema: { sdl: schemaSdl },
+    });
+    const plugin = graphqlPlugin({ tsconfig: resolve(__dirname, '../tsconfig.json') });
+    await plugin.preBuild?.({
+      cwd,
+      build: {},
+      registerGeneratedFile: () => {},
+      loadStaticApp: async () => ({
+        http: { getControllers: () => child.blueprint().getControllers() },
+      }),
+    });
+
+    await expect(
+      readFile(join(cwd, 'graphql-generated.resolver-checks.ts'), 'utf8'),
+    ).resolves.toContain('UserResolver');
   });
 });

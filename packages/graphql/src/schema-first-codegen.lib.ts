@@ -9,6 +9,11 @@ import type {
 } from 'graphql';
 import { Kind, parse } from 'graphql';
 
+import {
+  computeSchemaSdlHash,
+  upsertGraphqlCodegenManifestEntry,
+} from './graphql-codegen-manifest.lib';
+
 const BUILTIN_SCALARS = new Map<string, string>([
   ['ID', 'string'],
   ['String', 'string'],
@@ -20,6 +25,7 @@ const BUILTIN_SCALARS = new Map<string, string>([
 export type SchemaFirstCodegenOptions = {
   readonly schema: string;
   readonly out: string;
+  readonly cwd: string;
 };
 
 export type SchemaFirstCodegenResult = {
@@ -186,6 +192,10 @@ export const renderSchemaFirstCodegen = (schemaSdl: string): string => {
     "import type { StandardSchemaV1 } from '@zeltjs/graphql';",
     "import { readGraphqlArgs, validateGraphqlArgs } from '@zeltjs/graphql';",
     '',
+    // GqlSchemaRef-compatible: graphql() endpoints pass this export as their
+    // `schema` option to opt into the schema-first line.
+    `export const schema = { sdl: ${JSON.stringify(schemaSdl)} } as const;`,
+    '',
     'export namespace Gql {',
     renderOperationNamespace('Query', query, index),
     renderOperationNamespace('Mutation', mutation, index),
@@ -206,5 +216,14 @@ export const generateSchemaFirstCodegen = async (
   const schemaSdl = await readFile(schemaPath, 'utf8');
   const generated = renderSchemaFirstCodegen(schemaSdl);
   await mkdir(dirname(outPath), { recursive: true });
-  return { changed: await writeIfChanged(outPath, generated) };
+  const changed = await writeIfChanged(outPath, generated);
+  // Recorded on every run (not just when the helper changed) so the
+  // manifest always reflects the current schema/helper pairing that
+  // resolverChecks generation looks up later.
+  await upsertGraphqlCodegenManifestEntry(options.cwd, {
+    sdlHash: await computeSchemaSdlHash(schemaSdl),
+    schemaPath,
+    helperPath: outPath,
+  });
+  return { changed };
 };

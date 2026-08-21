@@ -17,7 +17,14 @@ export class GenerateCommand {
     const { config: configFile } = parsedArgs;
     const cwd = this.cli.cwd();
     const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
-    await runPreBuildHooks({ cwd, config, loadStaticApp: async () => config.app() });
+    // This command only regenerates the hono client; it doesn't run a full
+    // build, so it has no output ledger to prune against.
+    await runPreBuildHooks({
+      cwd,
+      config,
+      loadStaticApp: async () => config.app(),
+      registerGeneratedFile: () => {},
+    });
     this.logger.info('Generated from zelt config');
   }
 }

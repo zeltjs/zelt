@@ -78,6 +78,71 @@ describe('graphql HTTP child helper', () => {
       resolvers: [UserResolver],
     });
   });
+
+  it('carries a `schema` ref through to controller metadata when given', () => {
+    const schema = { sdl: 'type Query { user: UserPublic }' };
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver], schema });
+    const controller = child.blueprint().getControllers()[0];
+    if (!controller) throw new Error('missing controller');
+
+    expect(getGraphqlControllerMetadata(controller)).toEqual({
+      key: 'graphql',
+      path: '/graphql',
+      resolvers: [UserResolver],
+      schema,
+    });
+  });
+
+  it('accepts a `name` made only of letters, digits, underscores, and hyphens', () => {
+    expect(() =>
+      graphql({ path: '/graphql', resolvers: [UserResolver], name: 'api-v1_2' }),
+    ).not.toThrow();
+  });
+
+  it('rejects a `name` containing a slash', () => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: 'api/v1' })).toThrow(
+      /Invalid GraphQL endpoint name "api\/v1"/,
+    );
+  });
+
+  it('rejects a `name` containing a backslash', () => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: 'api\\v1' })).toThrow(
+      /Invalid GraphQL endpoint name/,
+    );
+  });
+
+  it('rejects a `name` made only of dots', () => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: '..' })).toThrow(
+      /Invalid GraphQL endpoint name/,
+    );
+  });
+
+  it('rejects an empty `name`', () => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: '' })).toThrow(
+      /Invalid GraphQL endpoint name/,
+    );
+  });
+
+  it.each([
+    'con',
+    'PRN',
+    'Aux',
+    'nul',
+    'com1',
+    'COM9',
+    'lpt1',
+    'LPT9',
+  ])('rejects the reserved Windows device name %s regardless of case', (reserved) => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: reserved })).toThrow(
+      /reserved Windows device name/,
+    );
+  });
+
+  it('does not treat a reserved name as a substring match (e.g. `console`)', () => {
+    expect(() =>
+      graphql({ path: '/graphql', resolvers: [UserResolver], name: 'console' }),
+    ).not.toThrow();
+  });
 });
 
 describe('resolver name collision detection', () => {

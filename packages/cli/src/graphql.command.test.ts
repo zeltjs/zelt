@@ -24,7 +24,7 @@ describe('zelt graphql codegen', () => {
       },
     );
 
-    expect(calls).toEqual([{ schema, out }]);
+    expect(calls).toEqual([{ schema, out, cwd: dir }]);
     await expect(readFile(out, 'utf8')).resolves.toBe('// generated\n');
   });
 });

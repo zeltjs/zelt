@@ -54,15 +54,25 @@ Application code may use these APIs directly:
 - `gqlScalar()`
 - `GqlOutput`
 
-`graphql({ path, resolvers })` only declares the endpoint; it never references
-generated output. The generated runtime is supplied separately, through the
-adapter's `prebuilt` option (see Build flow below).
+`graphql({ path, resolvers, schema? })` declares the endpoint. Whether the
+endpoint is code-first or schema-first is decided per endpoint, by whether
+`schema` is passed: omit it for code-first, or pass the `schema` export from
+a `zelt graphql codegen`-generated helper for schema-first. Either way,
+`graphql()` never references the generated runtime directly — that is
+supplied separately, through the adapter's `prebuilt` option (see Build flow
+below).
 
 Each endpoint has an identity key: `graphql({ path, resolvers, name })` — an
 optional `name`, defaulting to `'graphql'` when omitted, same convention as
 `http()`'s `name` option. The key namespaces the endpoint's prebuilt entry and
 generated filename. Mounting more than one `graphql()` requires a distinct
-`name` per endpoint; two endpoints sharing a key is a build-time error.
+`name` per endpoint; two endpoints sharing a key is a build-time error. `name`
+must match `/^[A-Za-z0-9_-]+$/` and cannot be a reserved Windows device name
+(`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`9`, `LPT1`-`9`); `graphql()` throws
+immediately for an invalid `name`. Any mix of endpoints — multiple
+schema-first lines, multiple code-first lines, or both together — can coexist
+in the same app; each line binds only its own schema (or resolver-derived
+SDL) and resolvers.
 
 Build-time APIs such as `graphqlPlugin()`, `generateGraphqlSdl()`, and
 `generateSdlForResolvers()` are exported only from `@zeltjs/graphql/codegen`.
@@ -155,6 +165,12 @@ type Product {
 zelt graphql codegen --schema src/graphql/schema.graphql --out src/generated/graphql.ts
 ```
 
+This writes `src/generated/graphql.ts` with a `Gql` namespace of typed helpers
+and a `schema` export (`{ sdl }`) that identifies this schema. It also upserts
+an entry into `<cwd>/.zelt/graphql-codegen.json`, pairing the schema's content
+hash with this helper's path — `graphqlPlugin()` uses that pairing later to
+find where to write resolverChecks for an endpoint (see Build flow below).
+
 Resolvers use generated `Gql` helpers:
 
 ```ts
@@ -169,6 +185,43 @@ class ProductResolver {
   }
 }
 ```
+
+Pass the helper's `schema` export to `graphql()` to bind this endpoint to it:
+
+```ts
+import { createApp, http } from '@zeltjs/core';
+import { graphql } from '@zeltjs/graphql';
+import { schema } from './generated/graphql';
+import { ProductResolver } from './graphql/product.resolver';
+
+export const app = createApp([
+  http({
+    children: [
+      graphql({
+        path: '/graphql',
+        resolvers: [ProductResolver],
+        schema,
+      }),
+    ],
+  }),
+]);
+```
+
+Each schema-first `graphql()` endpoint is paired with its schema this way —
+in application code, not through plugin configuration. Because the pairing
+lives at the `graphql()` call site, an app can mount several schema-first
+lines (or mix schema-first and code-first lines) side by side, each with its
+own `name`:
+
+```ts
+graphql({ name: 'storefront', path: '/graphql', resolvers: [...], schema: storefrontSchema }),
+graphql({ name: 'admin', path: '/admin/graphql', resolvers: [...], schema: adminSchema }),
+```
+
+`storefrontSchema` and `adminSchema` come from two separate `zelt graphql
+codegen` runs, each with its own `--out`. The two lines never share resolvers
+or schema — a query sent to `/graphql` only sees the storefront schema's
+fields, and a query sent to `/admin/graphql` only sees the admin schema's.
 
 Additional runtime validation can be layered onto generated helpers:
 
@@ -239,6 +292,10 @@ only a static `import`, this works unmodified under bundlers that require
 static imports, such as the Cloudflare Workers `wrangler` bundle — there is no
 filesystem fallback on any platform.
 
+A single `graphqlPlugin()` handles every endpoint in the app — code-first,
+schema-first, or a mix — because each endpoint carries its own line (see
+API boundary above). There is no `mode` option to choose between them.
+
 ### Code-first
 
 1. Write resolvers.
@@ -253,20 +310,30 @@ filesystem fallback on any platform.
 1. Write `schema.graphql`.
 2. Run `zelt graphql codegen --schema ... --out ...`.
 3. Write resolvers using generated `Gql` helpers.
-4. Configure `graphql({ path, resolvers })`.
-5. Add `graphqlPlugin({ mode: 'schema-first', schema: '...' })` to `plugins`
-   in `zelt.config.ts`.
+4. Configure `graphql({ path, resolvers, schema })`, passing the helper's
+   `schema` export.
+5. Add `graphqlPlugin()` to `plugins` in `zelt.config.ts` (same as code-first
+   — no schema-first-specific options).
 6. Run `zelt build` or `zelt dev`.
 7. The platform entry file imports `zeltPrebuilt` from `../.zelt/prebuilt` and
    passes it to the adapter.
 
-Automatic schema-first codegen during `zelt dev` is not part of this release
-boundary. Use `zelt graphql codegen` explicitly for now.
+Repeat steps 1-4 with a different `--out` and a distinct `name` per endpoint
+to add another schema-first line.
 
-Pass `resolverChecks: { out, gqlTypesImport }` to `graphqlPlugin()` in
-schema-first mode to additionally generate a type-check file that asserts each
-resolver method's return type is assignable to the corresponding generated
-`Gql.Query`/`Gql.Mutation` result type.
+Automatic schema-first codegen during `zelt dev` is not part of this release
+boundary. Run `zelt graphql codegen` explicitly whenever `schema.graphql`
+changes, before `zelt build`/`zelt dev` — a missing or stale codegen manifest
+entry (`<cwd>/.zelt/graphql-codegen.json`) fails the build with an error
+telling you to rerun it.
+
+Every schema-first endpoint automatically gets a type-check file asserting
+each resolver method's return type is assignable to the corresponding
+generated `Gql.Query`/`Gql.Mutation` result type. It is written next to the
+codegen helper the endpoint's schema hashes to (`<helper>.resolver-checks.ts`,
+or `<helper>.<name>.resolver-checks.ts` when two endpoints share a helper) —
+there is no configuration for this; `graphqlPlugin()` discovers the pairing
+through the codegen manifest.
 
 ## Current limitations
 
