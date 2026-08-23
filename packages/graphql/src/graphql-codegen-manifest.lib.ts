@@ -45,13 +45,22 @@ const parseManifestEntry = (value: unknown): GraphqlCodegenManifestEntry | undef
   return { sdlHash, schemaPath, helperPath };
 };
 
+/** @throws {Error} */
 export const readGraphqlCodegenManifest = async (
   cwd: string,
 ): Promise<readonly GraphqlCodegenManifestEntry[]> => {
   const path = manifestPath(cwd);
   if (!existsSync(path)) return [];
   const raw = await readFile(path, 'utf8');
-  const parsed: unknown = JSON.parse(raw);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (cause) {
+    throw new Error(
+      `${path} is corrupt (invalid JSON). Delete it and re-run \`zelt graphql codegen\`.`,
+      { cause },
+    );
+  }
   if (!Array.isArray(parsed)) return [];
   return parsed.flatMap((entry) => {
     const parsedEntry = parseManifestEntry(entry);
@@ -144,6 +153,7 @@ export const upsertGraphqlCodegenManifestEntry = async (
   });
 };
 
+/** @throws {Error} */
 export const findGraphqlCodegenManifestEntryBySdlHash = async (
   cwd: string,
   sdlHash: string,

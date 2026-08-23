@@ -7,6 +7,7 @@ import { match } from 'ts-pattern';
 import type {
   ZeltBuildError,
   ZeltConfigLoadError,
+  ZeltCorruptOutputsLedgerError,
   ZeltDuplicatePrebuiltContributionError,
   ZeltInvalidPrebuiltContributionError,
 } from './cli.errors';
@@ -14,6 +15,7 @@ import {
   isZeltBuildCommandConflictError,
   isZeltBuildError,
   isZeltConfigLoadError,
+  isZeltCorruptOutputsLedgerError,
   isZeltDuplicatePrebuiltContributionError,
   isZeltInvalidPrebuiltContributionError,
   isZeltMultipleBuildHooksError,
@@ -45,6 +47,7 @@ const RUN_BUILD_ERROR_GUARDS = [
   isZeltMultipleBuildHooksError,
   isZeltInvalidPrebuiltContributionError,
   isZeltDuplicatePrebuiltContributionError,
+  isZeltCorruptOutputsLedgerError,
 ] as const;
 
 const isRunBuildError = (error: unknown): error is RunBuildError =>
@@ -57,7 +60,8 @@ type RunBuildError =
   | InstanceType<typeof ZeltNoEntryError>
   | InstanceType<typeof ZeltMultipleBuildHooksError>
   | InstanceType<typeof ZeltInvalidPrebuiltContributionError>
-  | InstanceType<typeof ZeltDuplicatePrebuiltContributionError>;
+  | InstanceType<typeof ZeltDuplicatePrebuiltContributionError>
+  | InstanceType<typeof ZeltCorruptOutputsLedgerError>;
 
 const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefined) => ({
   ...buildConfig,
@@ -103,7 +107,7 @@ const runDefaultBuild = async (
   consola.success('Build completed');
 };
 
-/** @throws {ZeltNoEntryError | ZeltBuildCommandConflictError | ZeltBuildError | ZeltMultipleBuildHooksError | ZeltConfigLoadError | ZeltDuplicatePrebuiltContributionError | ZeltInvalidPrebuiltContributionError | {} | null} */
+/** @throws {ZeltNoEntryError | ZeltBuildCommandConflictError | ZeltBuildError | ZeltMultipleBuildHooksError | ZeltConfigLoadError | ZeltDuplicatePrebuiltContributionError | ZeltInvalidPrebuiltContributionError | ZeltCorruptOutputsLedgerError | {} | null} */
 export const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
   const configFile = typedArgs.config;
   const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
@@ -177,6 +181,9 @@ const handleError = (error: RunBuildError): void => {
       consola.error(e.message);
     })
     .when(isZeltDuplicatePrebuiltContributionError, (e) => {
+      consola.error(e.message);
+    })
+    .when(isZeltCorruptOutputsLedgerError, (e) => {
       consola.error(e.message);
     })
     .otherwise(() => {});

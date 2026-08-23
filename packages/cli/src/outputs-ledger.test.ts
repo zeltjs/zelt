@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { isZeltCorruptOutputsLedgerError } from './cli.errors';
 import { GENERATED_FILE_HEADER_MARKER, sweepStaleOutputs } from './outputs-ledger.lib';
 
 describe('sweepStaleOutputs', () => {
@@ -128,5 +129,12 @@ describe('sweepStaleOutputs', () => {
         join('src', 'generated', 'admin.resolver-checks.ts'),
       ].sort(),
     );
+  });
+
+  it('throws ZeltCorruptOutputsLedgerError instead of silently treating a corrupt ledger as empty', async () => {
+    await mkdir(join(cwd, '.zelt'), { recursive: true });
+    await writeFile(ledgerFile(), '{not valid json', 'utf8');
+
+    await expect(sweepStaleOutputs(cwd, [])).rejects.toSatisfy(isZeltCorruptOutputsLedgerError);
   });
 });

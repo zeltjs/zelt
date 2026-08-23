@@ -99,3 +99,14 @@ export const isZeltDuplicatePrebuiltContributionError = (
   err: unknown,
 ): err is InstanceType<typeof ZeltDuplicatePrebuiltContributionError> =>
   err instanceof ZeltDuplicatePrebuiltContributionError;
+
+export const ZeltCorruptOutputsLedgerError = defineError(
+  'ZeltCorruptOutputsLedgerError',
+  (ctx: { path: string }) =>
+    `${ctx.path} is corrupt (invalid JSON). Delete it and re-run \`zelt build\`.`,
+);
+
+export const isZeltCorruptOutputsLedgerError = (
+  err: unknown,
+): err is InstanceType<typeof ZeltCorruptOutputsLedgerError> =>
+  err instanceof ZeltCorruptOutputsLedgerError;

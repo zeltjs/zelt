@@ -1,6 +1,8 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
+
+import { ZeltCorruptOutputsLedgerError } from './cli.errors';
 
 // Substring shared by every zelt-generated file's header comment, regardless
 // of comment syntax (`//`, `#`, ...). sweepStaleOutputs uses its presence as
@@ -19,20 +21,31 @@ const NEVER_SWEEP_RELATIVE_PATHS: ReadonlySet<string> = new Set([
 
 const ledgerPath = (cwd: string): string => resolve(cwd, LEDGER_RELATIVE_PATH);
 
+/** @throws {ZeltCorruptOutputsLedgerError} */
 const readLedger = async (cwd: string): Promise<readonly string[]> => {
   const path = ledgerPath(cwd);
   if (!existsSync(path)) return [];
   const raw = await readFile(path, 'utf8');
-  const parsed: unknown = JSON.parse(raw);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (cause) {
+    throw new ZeltCorruptOutputsLedgerError({ path }, cause);
+  }
   if (!Array.isArray(parsed)) return [];
   return parsed.flatMap((entry) => (typeof entry === 'string' ? [entry] : []));
 };
 
+// Writing to a temp file in the same directory then renaming makes the
+// update atomic from readers' perspective: a crash mid-write can only ever
+// leave behind an orphaned temp file, never a truncated/corrupt ledger.
 const writeLedger = async (cwd: string, relativePaths: readonly string[]): Promise<void> => {
   const path = ledgerPath(cwd);
   await mkdir(dirname(path), { recursive: true });
   const sorted = [...relativePaths].sort();
-  await writeFile(path, `${JSON.stringify(sorted, null, 2)}\n`, 'utf8');
+  const tmpPath = `${path}.${globalThis.crypto.randomUUID()}.tmp`;
+  await writeFile(tmpPath, `${JSON.stringify(sorted, null, 2)}\n`, 'utf8');
+  await rename(tmpPath, path);
 };
 
 const isWithinZeltDir = (cwd: string, absolutePath: string): boolean => {
@@ -48,7 +61,7 @@ export type SweepStaleOutputsResult = {
   readonly skipped: readonly string[];
 };
 
-/** @throws {Error} */
+/** @throws {ZeltCorruptOutputsLedgerError} */
 export const sweepStaleOutputs = async (
   cwd: string,
   currentOutputs: readonly string[],

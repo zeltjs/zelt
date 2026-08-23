@@ -81,7 +81,7 @@ const startProcess = (cwd: string, entry: string): ChildProcess => {
   return child;
 };
 
-/** @throws {ZeltMultipleBuildHooksError | ZeltDuplicatePrebuiltContributionError | ZeltInvalidPrebuiltContributionError} */
+/** @throws {ZeltMultipleBuildHooksError | ZeltDuplicatePrebuiltContributionError | ZeltInvalidPrebuiltContributionError | ZeltCorruptOutputsLedgerError} */
 const runHooks = async (cwd: string, config: ZeltConfig): Promise<void> => {
   const generatedFiles: string[] = [];
   const hookOptions = {

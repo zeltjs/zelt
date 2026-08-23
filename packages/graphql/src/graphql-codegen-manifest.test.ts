@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -90,6 +90,16 @@ describe('graphql codegen manifest', () => {
   it('returns an empty list when no manifest exists yet', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-codegen-manifest-missing-'));
     await expect(readGraphqlCodegenManifest(cwd)).resolves.toEqual([]);
+  });
+
+  it('throws a clear error instead of silently treating a corrupt manifest as empty', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-codegen-manifest-corrupt-'));
+    await mkdir(resolve(cwd, '.zelt'), { recursive: true });
+    await writeFile(resolve(cwd, '.zelt', 'graphql-codegen.json'), '{not valid json', 'utf8');
+
+    await expect(readGraphqlCodegenManifest(cwd)).rejects.toThrow(
+      /graphql-codegen\.json is corrupt.*zelt graphql codegen/,
+    );
   });
 
   it('keeps every entry when many upserts for distinct helperPaths run concurrently', async () => {
