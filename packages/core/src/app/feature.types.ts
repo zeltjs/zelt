@@ -7,7 +7,7 @@ import type {
 export type ServiceResolver = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly registerShutdown: RegisterRuntimeShutdown;
-  readonly prebuilt: ZeltPrebuilt | undefined;
+  readonly prebuilt?: ZeltPrebuilt | undefined;
 };
 
 export type ZeltPrebuilt = {
