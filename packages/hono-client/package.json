@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/hono-client",
   "version": "0.0.0",
+  "description": "Type-safe Hono client generator for Zelt applications",
   "type": "module",
   "license": "MIT",
   "repository": {

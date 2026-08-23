@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/graphql",
   "version": "0.0.0",
+  "description": "GraphQL support for Zelt applications",
   "type": "module",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/redis",
   "version": "0.0.0",
+  "description": "Redis integration for Zelt applications",
   "type": "module",
   "license": "MIT",
   "repository": {

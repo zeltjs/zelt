@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/auth-jwt",
   "version": "0.0.0",
+  "description": "JWT authentication middleware for Zelt applications",
   "type": "module",
   "license": "MIT",
   "repository": {

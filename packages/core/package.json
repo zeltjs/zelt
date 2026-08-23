@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/core",
   "version": "0.0.0",
+  "description": "Core TypeScript application framework with built-in dependency injection for the Zelt framework",
   "type": "module",
   "license": "MIT",
   "repository": {

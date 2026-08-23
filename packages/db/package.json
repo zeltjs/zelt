@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/db",
   "version": "0.0.0",
+  "description": "ORM-agnostic database abstraction with transaction propagation for Zelt applications",
   "type": "module",
   "license": "MIT",
   "repository": {

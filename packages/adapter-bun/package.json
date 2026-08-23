@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/adapter-bun",
   "version": "0.0.0",
+  "description": "Bun adapter for the Zelt framework",
   "type": "module",
   "license": "MIT",
   "repository": {

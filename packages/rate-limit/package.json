@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/rate-limit",
   "version": "0.0.0",
+  "description": "Rate limiting middleware for Zelt applications",
   "type": "module",
   "license": "MIT",
   "repository": {

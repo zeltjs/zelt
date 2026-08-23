@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/testing",
   "version": "0.0.0",
+  "description": "Testing utilities for Zelt applications",
   "type": "module",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/adapter-cloudflare-workers",
   "version": "0.0.0",
+  "description": "Cloudflare Workers adapter for the Zelt framework",
   "type": "module",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/validator-valibot",
   "version": "0.0.0",
+  "description": "Valibot OpenAPI schema adapter for Zelt applications",
   "type": "module",
   "license": "MIT",
   "repository": {
