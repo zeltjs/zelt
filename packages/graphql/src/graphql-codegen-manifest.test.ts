@@ -91,6 +91,23 @@ describe('graphql codegen manifest', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-codegen-manifest-missing-'));
     await expect(readGraphqlCodegenManifest(cwd)).resolves.toEqual([]);
   });
+
+  it('keeps every entry when many upserts for distinct helperPaths run concurrently', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-codegen-manifest-concurrent-'));
+    const entries = Array.from({ length: 10 }, (_, index) => ({
+      sdlHash: `hash-${index}`,
+      schemaPath: resolve(cwd, `schema-${index}.graphql`),
+      helperPath: resolve(cwd, `generated-${index}.ts`),
+    }));
+
+    await Promise.all(entries.map((entry) => upsertGraphqlCodegenManifestEntry(cwd, entry)));
+
+    const stored = await readGraphqlCodegenManifest(cwd);
+    expect(new Set(stored.map((entry) => entry.helperPath))).toEqual(
+      new Set(entries.map((entry) => entry.helperPath)),
+    );
+    expect(stored).toHaveLength(entries.length);
+  });
 });
 
 describe('findGraphqlCodegenManifestEntryBySdlHash', () => {

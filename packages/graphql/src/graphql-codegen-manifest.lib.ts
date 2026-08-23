@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 export type GraphqlCodegenManifestEntry = {
@@ -59,18 +59,89 @@ export const readGraphqlCodegenManifest = async (
   });
 };
 
+const manifestLockPath = (cwd: string): string => `${manifestPath(cwd)}.lock`;
+
+// mkdir() without `recursive` fails with EEXIST if the target already exists,
+// which makes directory creation an atomic test-and-set usable as a mutex
+// across processes (e.g. parallel `zelt graphql codegen` runs under turbo).
+const LOCK_ACQUIRE_TIMEOUT_MS = 5_000;
+const LOCK_RETRY_DELAY_MS = 20;
+// A process that crashes while holding the lock leaves the directory behind
+// forever; reclaim it after this long instead of deadlocking every future upsert.
+const LOCK_STALE_MS = 10_000;
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolveTimer) => setTimeout(resolveTimer, ms));
+
+const isEexist = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  const code: unknown = Reflect.get(error, 'code');
+  return code === 'EEXIST';
+};
+
+/** @throws {Error} */
+const acquireManifestLock = async (cwd: string): Promise<void> => {
+  const lockPath = manifestLockPath(cwd);
+  const startedAt = Date.now();
+  for (;;) {
+    try {
+      await mkdir(lockPath);
+      return;
+    } catch (error) {
+      if (!isEexist(error)) throw error;
+      const lockStat = await stat(lockPath).catch(() => undefined);
+      if (lockStat && Date.now() - lockStat.mtimeMs > LOCK_STALE_MS) {
+        await rm(lockPath, { recursive: true, force: true }).catch(() => undefined);
+        continue;
+      }
+      if (Date.now() - startedAt > LOCK_ACQUIRE_TIMEOUT_MS) {
+        throw new Error(
+          `Timed out after ${LOCK_ACQUIRE_TIMEOUT_MS}ms waiting for graphql codegen manifest lock at ${lockPath}`,
+        );
+      }
+      await sleep(LOCK_RETRY_DELAY_MS);
+    }
+  }
+};
+
+const releaseManifestLock = async (cwd: string): Promise<void> => {
+  await rm(manifestLockPath(cwd), { recursive: true, force: true });
+};
+
+/** @throws {Error} */
+const withGraphqlCodegenManifestLock = async <T>(cwd: string, fn: () => Promise<T>): Promise<T> => {
+  await acquireManifestLock(cwd);
+  try {
+    return await fn();
+  } finally {
+    await releaseManifestLock(cwd);
+  }
+};
+
+// Writing to a temp file in the same directory then renaming makes the
+// update atomic from readers' perspective: a crash mid-write can only ever
+// leave behind an orphaned temp file, never a truncated/corrupt manifest.
+const writeManifestFileAtomic = async (path: string, contents: string): Promise<void> => {
+  const tmpPath = `${path}.${globalThis.crypto.randomUUID()}.tmp`;
+  await writeFile(tmpPath, contents, 'utf8');
+  await rename(tmpPath, path);
+};
+
+/** @throws {Error} */
 export const upsertGraphqlCodegenManifestEntry = async (
   cwd: string,
   entry: GraphqlCodegenManifestEntry,
 ): Promise<void> => {
-  const existing = await readGraphqlCodegenManifest(cwd);
-  const next = [
-    ...existing.filter((candidate) => candidate.helperPath !== entry.helperPath),
-    entry,
-  ].sort((a, b) => a.helperPath.localeCompare(b.helperPath));
   const path = manifestPath(cwd);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  await withGraphqlCodegenManifestLock(cwd, async () => {
+    const existing = await readGraphqlCodegenManifest(cwd);
+    const next = [
+      ...existing.filter((candidate) => candidate.helperPath !== entry.helperPath),
+      entry,
+    ].sort((a, b) => a.helperPath.localeCompare(b.helperPath));
+    await writeManifestFileAtomic(path, `${JSON.stringify(next, null, 2)}\n`);
+  });
 };
 
 export const findGraphqlCodegenManifestEntryBySdlHash = async (
