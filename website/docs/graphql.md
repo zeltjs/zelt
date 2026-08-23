@@ -215,9 +215,13 @@ should come from generated helpers, not handwritten generic arguments.
 
 ## Build flow
 
-Only the platform entry file imports generated output. The app definition is
-always evaluable with zero generated files, so building an app for the first
-time never hits a chicken-and-egg problem.
+Only the platform entry file imports build-generated runtime output —
+everything under `.zelt/`. The app definition never imports it, so building
+an app for the first time never hits a chicken-and-egg problem there.
+Schema-first apps do import generated code (the typed helpers `zelt graphql
+codegen` writes to `src/generated/graphql.ts`), but codegen runs directly
+from `schema.graphql` and doesn't require evaluating the app, so no
+chicken-and-egg problem arises there either.
 
 ```ts no-check
 import { graphqlPlugin } from '@zeltjs/graphql/codegen';
@@ -242,11 +246,11 @@ export default defineConfig({
 1. Each registered `graphqlPlugin()` writes `.zelt/graphql/<key>.runtime.ts`
    (`export const graphqlPrebuilt = { runtime, resolversHash }`) and a sibling
    `.graphql` SDL file, one pair per `graphql({ path, resolvers })` endpoint.
-   `<key>` is the endpoint's sanitized key (its `name`, or `graphql` when
+   `<key>` is the endpoint's validated key (its `name`, or `graphql` when
    omitted; see above), so two `graphql()` endpoints only collide if they
    share a key — pass a distinct `name` to each to disambiguate.
 2. The CLI collects every plugin's contributions and writes `.zelt/prebuilt.ts`
-   (`export const zeltPrebuilt: ZeltPrebuilt`), which re-exports each generated
+   (`export const zeltPrebuilt = {...} satisfies ZeltPrebuilt`), which re-exports each generated
    module under its key, namespaced under the `graphql` feature. This file is
    always generated, even when no plugin contributes anything.
 

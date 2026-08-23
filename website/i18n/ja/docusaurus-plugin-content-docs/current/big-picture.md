@@ -50,9 +50,13 @@ flowchart TD
 型が、素のデータとして手に入ったものです。
 
 pluginはblueprintを消費して派生物を作ります: GraphQLスキーマと実行可能runtime、
-OpenAPI文書、型付きクライアント。源はひとつ、派生は多数 — どれもコードからズレる
-ことができず、appから何かを消せば次のbuildでその派生物も消えます。
-そしてpluginはあくまでoptionです — ひとつも無くてもアプリはそのまま動きます。
+OpenAPI文書、型付きクライアント。源はひとつ、派生は多数 — build時や起動時に
+コードと突き合わされますが、検出できるのは構成レベルのズレ(エンドポイントの
+pathやresolver構成の変化)のみで、resolverのメソッドシグネチャのような深い
+ズレは検出対象外です。appから何かを消せば次のbuildでその派生物も消えます。
+そしてpluginが必須になるのは、そのpluginに依存するfeatureを使う場合だけです
+— 例えば `graphql()` エンドポイントは `graphqlPlugin()` と `zelt build` が
+なければ動きません。
 
 最後にbundle(Nodeならtsdown、Workersならwrangler)がentryごと束ねて `dist/` を
 作ります。
