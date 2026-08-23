@@ -181,6 +181,25 @@ describe('generateGraphqlSdl', () => {
     expect(result.contributions[0]).toEqual(result.contributions[1]);
   });
 
+  it('does not throw when two separately declared graphql() calls resolve to the same config', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-same-config-'));
+    const childA = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
+    const childB = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
+
+    const result = await generateGraphqlSdl(
+      {
+        getControllers: () => [
+          ...childA.blueprint().getControllers(),
+          ...childB.blueprint().getControllers(),
+        ],
+      },
+      { cwd, tsconfig: resolve(__dirname, '../tsconfig.json') },
+    );
+
+    expect(result.contributions).toHaveLength(2);
+    expect(result.contributions[0]).toEqual(result.contributions[1]);
+  });
+
   it('embeds a resolversHash that matches computeGraphqlPrebuiltHash for the endpoint', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-hash-'));
     const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });
