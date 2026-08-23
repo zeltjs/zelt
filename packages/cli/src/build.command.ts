@@ -4,11 +4,18 @@ import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
 
-import type { ZeltBuildError, ZeltConfigLoadError } from './cli.errors';
+import type {
+  ZeltBuildError,
+  ZeltConfigLoadError,
+  ZeltDuplicatePrebuiltContributionError,
+  ZeltInvalidPrebuiltContributionError,
+} from './cli.errors';
 import {
   isZeltBuildCommandConflictError,
   isZeltBuildError,
   isZeltConfigLoadError,
+  isZeltDuplicatePrebuiltContributionError,
+  isZeltInvalidPrebuiltContributionError,
   isZeltMultipleBuildHooksError,
   isZeltNoEntryError,
   ZeltBuildCommandConflictError,
@@ -30,12 +37,27 @@ type BuildArgs = {
   readonly outDir?: string;
 };
 
+const RUN_BUILD_ERROR_GUARDS = [
+  isZeltConfigLoadError,
+  isZeltBuildError,
+  isZeltBuildCommandConflictError,
+  isZeltNoEntryError,
+  isZeltMultipleBuildHooksError,
+  isZeltInvalidPrebuiltContributionError,
+  isZeltDuplicatePrebuiltContributionError,
+] as const;
+
+const isRunBuildError = (error: unknown): error is RunBuildError =>
+  RUN_BUILD_ERROR_GUARDS.some((guard) => guard(error));
+
 type RunBuildError =
   | InstanceType<typeof ZeltConfigLoadError>
   | InstanceType<typeof ZeltBuildCommandConflictError>
   | InstanceType<typeof ZeltBuildError>
   | InstanceType<typeof ZeltNoEntryError>
-  | InstanceType<typeof ZeltMultipleBuildHooksError>;
+  | InstanceType<typeof ZeltMultipleBuildHooksError>
+  | InstanceType<typeof ZeltInvalidPrebuiltContributionError>
+  | InstanceType<typeof ZeltDuplicatePrebuiltContributionError>;
 
 const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefined) => ({
   ...buildConfig,
@@ -151,6 +173,12 @@ const handleError = (error: RunBuildError): void => {
     .when(isZeltMultipleBuildHooksError, (e) => {
       consola.error(e.message);
     })
+    .when(isZeltInvalidPrebuiltContributionError, (e) => {
+      consola.error(e.message);
+    })
+    .when(isZeltDuplicatePrebuiltContributionError, (e) => {
+      consola.error(e.message);
+    })
     .otherwise(() => {});
 };
 
@@ -183,13 +211,7 @@ export const buildCommand = defineCommand({
     try {
       await runBuild(cwd, typedArgs);
     } catch (error) {
-      if (
-        isZeltConfigLoadError(error) ||
-        isZeltBuildError(error) ||
-        isZeltBuildCommandConflictError(error) ||
-        isZeltNoEntryError(error) ||
-        isZeltMultipleBuildHooksError(error)
-      ) {
+      if (isRunBuildError(error)) {
         handleError(error);
       } else {
         throw error;
