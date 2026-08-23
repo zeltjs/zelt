@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/adapter-lambda",
   "version": "0.0.0",
+  "description": "AWS Lambda adapter for the Zelt framework",
   "type": "module",
   "license": "MIT",
   "repository": {

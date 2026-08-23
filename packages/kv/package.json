@@ -1,6 +1,7 @@
 {
   "name": "@zeltjs/kv",
   "version": "0.0.0",
+  "description": "Key-value store abstraction for Zelt applications",
   "type": "module",
   "license": "MIT",
   "repository": {
