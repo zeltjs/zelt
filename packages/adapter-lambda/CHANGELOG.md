@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* **adapter-lambda:** `onLambda()` accepts a `prebuilt` option (`ZeltPrebuilt`)
+  and threads it through to the runtime's `ServiceResolver.prebuilt`, so
+  feature modules such as `@zeltjs/graphql` can read their generated runtime
+  without loading it themselves.
+
 ## [0.5.0](https://github.com/zeltjs/zelt/compare/adapter-lambda-v0.4.0...adapter-lambda-v0.5.0) (2026-05-17)
 
 

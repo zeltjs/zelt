@@ -4,6 +4,7 @@ import type {
   CreateRuntimeOptions,
   HttpCapabilities,
   RuntimeApp,
+  ZeltPrebuilt,
 } from '@zeltjs/core';
 import { runWithCloudflareRuntimeContext } from './cloudflare-runtime-context.lib';
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
@@ -12,6 +13,7 @@ import { CloudflareWorkersWaitUntilAdaptor } from './cloudflare-workers-wait-unt
 export type CloudflareWorkersOptions = {
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
+  readonly prebuilt?: ZeltPrebuilt;
 };
 
 type HttpRuntimeApp = RuntimeApp<readonly ConfiguredFeature[]> & {
@@ -34,6 +36,7 @@ export const onCloudflareWorkers = async (
 ): Promise<CloudflareWorkersApp> => {
   const readyApp = await app.createRuntime({
     ...(options.configs === undefined ? {} : { configs: options.configs }),
+    ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
     warmup: options.warmup ?? false,
   });

@@ -4,7 +4,7 @@ import { Feature } from '../features';
 import { Injectable, ZeltLifecycleStateError } from '../kernel';
 import type { RuntimeApp } from './create-app.lib';
 import { createApp } from './create-app.lib';
-import type { ConfiguredFeature, ServiceResolver } from './feature.types';
+import type { ConfiguredFeature, ServiceResolver, ZeltPrebuilt } from './feature.types';
 
 const createStubFeature = <TKey extends string, TCaps extends object>(
   key: TKey,
@@ -366,5 +366,47 @@ describe('createApp', () => {
     expect(() => createApp([createEmptyFeature(key)])).toThrow(
       new RegExp(`Reserved feature namespace: ${key}`),
     );
+  });
+
+  it('createRuntime({ prebuilt }) delivers the value to resolver.prebuilt in realize()', async () => {
+    const prebuilt: ZeltPrebuilt = { version: 1, features: { graphql: { schema: 'type Query' } } };
+    let seenPrebuilt: ZeltPrebuilt | undefined;
+    const feature: ConfiguredFeature<'prebuiltReader', Record<never, never>> = {
+      key: 'prebuiltReader',
+      featureClasses: () => [],
+      blueprint: () => ({}),
+      realize: (resolver) => {
+        seenPrebuilt = resolver.prebuilt;
+        return {};
+      },
+    };
+    const app = createApp([feature]);
+    const readyApp = await app.createRuntime({ prebuilt });
+
+    expect(seenPrebuilt).toEqual(prebuilt);
+
+    await readyApp.shutdown();
+  });
+
+  it('createRuntime() leaves resolver.prebuilt undefined when prebuilt is not provided', async () => {
+    let seenPrebuilt: ZeltPrebuilt | undefined = {
+      version: 1,
+      features: { shouldBeOverwritten: true },
+    };
+    const feature: ConfiguredFeature<'prebuiltReader', Record<never, never>> = {
+      key: 'prebuiltReader',
+      featureClasses: () => [],
+      blueprint: () => ({}),
+      realize: (resolver) => {
+        seenPrebuilt = resolver.prebuilt;
+        return {};
+      },
+    };
+    const app = createApp([feature]);
+    const readyApp = await app.createRuntime();
+
+    expect(seenPrebuilt).toBeUndefined();
+
+    await readyApp.shutdown();
   });
 });

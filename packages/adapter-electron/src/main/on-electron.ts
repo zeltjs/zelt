@@ -6,6 +6,7 @@ import type {
   FeatureApp,
   FeatureReadyCapabilities,
   RuntimeApp,
+  ZeltPrebuilt,
 } from '@zeltjs/core';
 import { HTTP_FEATURE_KEY, HttpFeature } from '@zeltjs/core';
 
@@ -22,6 +23,7 @@ type IpcChannel = `http://${string}` | `https://${string}`;
 export type ElectronAppOptions<TIpcFeature extends string = string> = {
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
+  readonly prebuilt?: ZeltPrebuilt;
   readonly ipcChannel?: IpcChannel;
   readonly ipcFeature?: TIpcFeature;
 };
@@ -116,6 +118,7 @@ export async function onElectron<const F extends readonly ConfiguredFeature[]>(
 ): Promise<OnElectronApp> {
   const readyApp = await app.createRuntime({
     ...(options.configs === undefined ? {} : { configs: options.configs }),
+    ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [ElectronEnvAdaptor],
     warmup: options.warmup ?? true,
   });

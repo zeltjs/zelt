@@ -1,3 +1,4 @@
+import type { ConfiguredFeature, ZeltPrebuilt } from '@zeltjs/core';
 import { Config, Controller, createApp, Get, http, inject } from '@zeltjs/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -83,5 +84,24 @@ describe('onTest', () => {
     const body: { url: string } = await res.json();
 
     expect(body.url).toBe('inline://db');
+  });
+
+  it('forwards the prebuilt option to resolver.prebuilt in realize()', async () => {
+    const prebuilt: ZeltPrebuilt = { version: 1, features: { graphql: { schema: 'type Query' } } };
+    let seenPrebuilt: ZeltPrebuilt | undefined;
+    const feature: ConfiguredFeature<'prebuiltReader', Record<never, never>> = {
+      key: 'prebuiltReader',
+      featureClasses: () => [],
+      blueprint: () => ({}),
+      realize: (resolver) => {
+        seenPrebuilt = resolver.prebuilt;
+        return {};
+      },
+    };
+    const app = createApp([feature]);
+
+    await onTest(app, { prebuilt });
+
+    expect(seenPrebuilt).toEqual(prebuilt);
   });
 });

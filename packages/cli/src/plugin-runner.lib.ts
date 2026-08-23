@@ -1,32 +1,49 @@
 import consola from 'consola';
 
 import { ZeltMultipleBuildHooksError } from './cli.errors';
-import type { BuildContext, BuildResult, ZeltConfig, ZeltPlugin } from './config/config.types';
+import type {
+  BuildContext,
+  BuildResult,
+  PrebuiltContribution,
+  ZeltConfig,
+  ZeltPlugin,
+} from './config/config.types';
 
 export type RunPluginHooksOptions = {
   readonly cwd: string;
   readonly config: ZeltConfig;
   readonly loadStaticApp: () => Promise<object>;
+  readonly registerGeneratedFile: (path: string) => void;
 };
 
 const createBuildContext = (options: RunPluginHooksOptions): BuildContext => ({
   cwd: options.cwd,
   build: options.config.build ?? {},
   loadStaticApp: options.loadStaticApp,
+  registerGeneratedFile: options.registerGeneratedFile,
 });
 
-export const runPreBuildHooks = async (options: RunPluginHooksOptions): Promise<void> => {
+export const runPreBuildHooks = async (
+  options: RunPluginHooksOptions,
+): Promise<readonly PrebuiltContribution[]> => {
   const { config } = options;
   const plugins: readonly ZeltPlugin[] = config.plugins ?? [];
+
+  const contributions: PrebuiltContribution[] = [];
 
   for (const plugin of plugins) {
     if (plugin.preBuild !== undefined) {
       consola.info(`[${plugin.name}] Running preBuild hook...`);
       const context = createBuildContext(options);
-      await plugin.preBuild(context);
+      const result = await plugin.preBuild(context);
+      if (result !== undefined) {
+        contributions.push(...result);
+      }
       consola.success(`[${plugin.name}] preBuild completed`);
     }
   }
+
+  return contributions;
 };
 
 export type RunBuildHookResult = {

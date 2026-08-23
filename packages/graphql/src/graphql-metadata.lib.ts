@@ -1,5 +1,12 @@
 export type GraphqlResolverClass = new (...args: never[]) => object;
 
+// Presence of `schema` distinguishes a schema-first line from a code-first
+// one at the endpoint level: each graphql() endpoint independently opts into
+// schema-first by passing the generated codegen helper's `schema` export.
+export type GqlSchemaRef = {
+  readonly sdl: string;
+};
+
 export type GraphqlResolverMetadata = {
   kind: 'resolver';
 };
@@ -12,8 +19,10 @@ export type GraphqlOperationMetadata = {
 };
 
 export type GraphqlControllerMetadata = {
+  readonly key: string;
+  readonly path: string;
   readonly resolvers: readonly GraphqlResolverClass[];
-  readonly runtimeModule?: string;
+  readonly schema?: GqlSchemaRef;
 };
 
 const resolverMetadata = new WeakMap<object, GraphqlResolverMetadata>();

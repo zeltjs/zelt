@@ -16,6 +16,7 @@ type GraphqlCodegenArgs = {
 type GraphqlCodegenOptions = {
   readonly schema: string;
   readonly out: string;
+  readonly cwd: string;
 };
 
 type GraphqlCodegenResult = {
@@ -86,6 +87,7 @@ export const runGraphqlCodegen = async (
   return codegen({
     schema: resolve(cwd, args.schema),
     out: resolve(cwd, args.out),
+    cwd,
   });
 };
 

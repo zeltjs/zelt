@@ -5,6 +5,7 @@ import type { ZeltConfig, ZeltPlugin } from './config/config.types';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
 
 const createLoadStaticApp = () => vi.fn().mockResolvedValue({ http: { getControllers: vi.fn() } });
+const noopRegisterGeneratedFile = () => {};
 
 const createBaseConfig = (): ZeltConfig => ({
   app: () => ({ http: {} }),
@@ -30,7 +31,12 @@ describe('runPreBuildHooks', () => {
     };
 
     const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin1, plugin2] };
-    await runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() });
+    await runPreBuildHooks({
+      cwd: '/test',
+      config,
+      loadStaticApp: createLoadStaticApp(),
+      registerGeneratedFile: noopRegisterGeneratedFile,
+    });
 
     expect(order).toEqual(['plugin1', 'plugin2']);
   });
@@ -51,7 +57,12 @@ describe('runPreBuildHooks', () => {
       ...createBaseConfig(),
       plugins: [pluginWithoutHook, pluginWithHook],
     };
-    await runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() });
+    await runPreBuildHooks({
+      cwd: '/test',
+      config,
+      loadStaticApp: createLoadStaticApp(),
+      registerGeneratedFile: noopRegisterGeneratedFile,
+    });
 
     expect(called).toHaveBeenCalledOnce();
   });
@@ -59,15 +70,51 @@ describe('runPreBuildHooks', () => {
   it('handles empty plugins array', async () => {
     const config: ZeltConfig = { ...createBaseConfig(), plugins: [] };
     await expect(
-      runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() }),
-    ).resolves.toBeUndefined();
+      runPreBuildHooks({
+        cwd: '/test',
+        config,
+        loadStaticApp: createLoadStaticApp(),
+        registerGeneratedFile: noopRegisterGeneratedFile,
+      }),
+    ).resolves.toEqual([]);
   });
 
   it('handles undefined plugins', async () => {
     const config: ZeltConfig = { ...createBaseConfig() };
     await expect(
-      runPreBuildHooks({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() }),
-    ).resolves.toBeUndefined();
+      runPreBuildHooks({
+        cwd: '/test',
+        config,
+        loadStaticApp: createLoadStaticApp(),
+        registerGeneratedFile: noopRegisterGeneratedFile,
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it('collects prebuilt contributions returned by preBuild hooks', async () => {
+    const plugin1: ZeltPlugin = {
+      name: 'plugin1',
+      preBuild: async () => [
+        { feature: 'graphql', key: '/graphql', importPath: './graphql/g', exportName: 'g' },
+      ],
+    };
+
+    const plugin2: ZeltPlugin = {
+      name: 'plugin2',
+      preBuild: async () => undefined,
+    };
+
+    const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin1, plugin2] };
+    const contributions = await runPreBuildHooks({
+      cwd: '/test',
+      config,
+      loadStaticApp: createLoadStaticApp(),
+      registerGeneratedFile: noopRegisterGeneratedFile,
+    });
+
+    expect(contributions).toEqual([
+      { feature: 'graphql', key: '/graphql', importPath: './graphql/g', exportName: 'g' },
+    ]);
   });
 
   it('passes correct context to plugin', async () => {
@@ -80,12 +127,18 @@ describe('runPreBuildHooks', () => {
     };
 
     const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin] };
-    await runPreBuildHooks({ cwd: '/my/cwd', config, loadStaticApp });
+    await runPreBuildHooks({
+      cwd: '/my/cwd',
+      config,
+      loadStaticApp,
+      registerGeneratedFile: noopRegisterGeneratedFile,
+    });
 
     expect(receivedContext).toHaveBeenCalledWith({
       cwd: '/my/cwd',
       build: config.build,
       loadStaticApp,
+      registerGeneratedFile: noopRegisterGeneratedFile,
     });
   });
 });
@@ -102,6 +155,7 @@ describe('runBuildHook', () => {
       cwd: '/test',
       config,
       loadStaticApp: createLoadStaticApp(),
+      registerGeneratedFile: noopRegisterGeneratedFile,
     });
 
     expect(result).toEqual({ handled: false });
@@ -120,6 +174,7 @@ describe('runBuildHook', () => {
       cwd: '/test',
       config,
       loadStaticApp: createLoadStaticApp(),
+      registerGeneratedFile: noopRegisterGeneratedFile,
     });
 
     expect(buildFn).toHaveBeenCalledOnce();
@@ -140,7 +195,12 @@ describe('runBuildHook', () => {
     const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin1, plugin2] };
 
     await expect(
-      runBuildHook({ cwd: '/test', config, loadStaticApp: createLoadStaticApp() }),
+      runBuildHook({
+        cwd: '/test',
+        config,
+        loadStaticApp: createLoadStaticApp(),
+        registerGeneratedFile: noopRegisterGeneratedFile,
+      }),
     ).rejects.toThrow(ZeltMultipleBuildHooksError);
   });
 
@@ -154,12 +214,18 @@ describe('runBuildHook', () => {
     };
 
     const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin] };
-    await runBuildHook({ cwd: '/my/cwd', config, loadStaticApp });
+    await runBuildHook({
+      cwd: '/my/cwd',
+      config,
+      loadStaticApp,
+      registerGeneratedFile: noopRegisterGeneratedFile,
+    });
 
     expect(buildFn).toHaveBeenCalledWith({
       cwd: '/my/cwd',
       build: config.build,
       loadStaticApp,
+      registerGeneratedFile: noopRegisterGeneratedFile,
     });
   });
 
@@ -169,6 +235,7 @@ describe('runBuildHook', () => {
       cwd: '/test',
       config,
       loadStaticApp: createLoadStaticApp(),
+      registerGeneratedFile: noopRegisterGeneratedFile,
     });
 
     expect(result).toEqual({ handled: false });
@@ -180,6 +247,7 @@ describe('runBuildHook', () => {
       cwd: '/test',
       config,
       loadStaticApp: createLoadStaticApp(),
+      registerGeneratedFile: noopRegisterGeneratedFile,
     });
 
     expect(result).toEqual({ handled: false });
@@ -206,7 +274,12 @@ describe('runPostBuildHooks', () => {
 
     const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin1, plugin2] };
     await runPostBuildHooks(
-      { cwd: '/test', config, loadStaticApp: createLoadStaticApp() },
+      {
+        cwd: '/test',
+        config,
+        loadStaticApp: createLoadStaticApp(),
+        registerGeneratedFile: noopRegisterGeneratedFile,
+      },
       { success: true },
     );
 
@@ -223,10 +296,18 @@ describe('runPostBuildHooks', () => {
 
     const config: ZeltConfig = { ...createBaseConfig(), plugins: [plugin] };
     const loadStaticApp = createLoadStaticApp();
-    await runPostBuildHooks({ cwd: '/test', config, loadStaticApp }, { success: false });
+    await runPostBuildHooks(
+      { cwd: '/test', config, loadStaticApp, registerGeneratedFile: noopRegisterGeneratedFile },
+      { success: false },
+    );
 
     expect(postBuildFn).toHaveBeenCalledWith(
-      { cwd: '/test', build: config.build, loadStaticApp },
+      {
+        cwd: '/test',
+        build: config.build,
+        loadStaticApp,
+        registerGeneratedFile: noopRegisterGeneratedFile,
+      },
       { success: false },
     );
   });
@@ -235,7 +316,12 @@ describe('runPostBuildHooks', () => {
     const config: ZeltConfig = { ...createBaseConfig(), plugins: [] };
     await expect(
       runPostBuildHooks(
-        { cwd: '/test', config, loadStaticApp: createLoadStaticApp() },
+        {
+          cwd: '/test',
+          config,
+          loadStaticApp: createLoadStaticApp(),
+          registerGeneratedFile: noopRegisterGeneratedFile,
+        },
         { success: true },
       ),
     ).resolves.toBeUndefined();
@@ -245,7 +331,12 @@ describe('runPostBuildHooks', () => {
     const config: ZeltConfig = { ...createBaseConfig() };
     await expect(
       runPostBuildHooks(
-        { cwd: '/test', config, loadStaticApp: createLoadStaticApp() },
+        {
+          cwd: '/test',
+          config,
+          loadStaticApp: createLoadStaticApp(),
+          registerGeneratedFile: noopRegisterGeneratedFile,
+        },
         { success: true },
       ),
     ).resolves.toBeUndefined();
@@ -268,7 +359,12 @@ describe('runPostBuildHooks', () => {
       plugins: [pluginWithoutHook, pluginWithHook],
     };
     await runPostBuildHooks(
-      { cwd: '/test', config, loadStaticApp: createLoadStaticApp() },
+      {
+        cwd: '/test',
+        config,
+        loadStaticApp: createLoadStaticApp(),
+        registerGeneratedFile: noopRegisterGeneratedFile,
+      },
       { success: true },
     );
 

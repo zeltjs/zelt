@@ -20,6 +20,7 @@ export { Mutation, Query, ResolveField, Resolver } from './graphql.decorator';
 export type { GraphqlChildOptions, GraphqlOptions } from './graphql-child.lib';
 export { graphql } from './graphql-child.lib';
 export type {
+  GqlSchemaRef,
   GraphqlOperationKind,
   GraphqlOperationMetadata,
   GraphqlResolverClass,
@@ -31,13 +32,13 @@ export type {
   GeneratedGraphqlBinding,
   GeneratedGraphqlRuntime,
   GraphqlExecutor,
+  GraphqlPrebuiltEntry,
   GraphqlRequestPayload,
-  GraphqlRuntimeLoader,
   GraphqlRuntimeManifest,
-  GraphqlRuntimeSource,
 } from './graphql-runtime.lib';
 export {
   createGraphqlExecutor,
   executeGraphqlRequest,
   graphqlRequestPayloadSchema,
 } from './graphql-runtime.lib';
+export { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';

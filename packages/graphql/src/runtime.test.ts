@@ -1,13 +1,18 @@
-import { writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import type { ZeltPrebuilt } from '@zeltjs/core';
 import { createApp, http } from '@zeltjs/core';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
-import { args, gqlScalar, graphql, Query, ResolveField, Resolver } from './index';
+import {
+  args,
+  computeGraphqlPrebuiltHash,
+  gqlScalar,
+  graphql,
+  Query,
+  ResolveField,
+  Resolver,
+} from './index';
 
 type ViewerPublic = {
   readonly id: string;
@@ -422,35 +427,39 @@ enum StockStatus {
   });
 });
 
-describe('graphql HTTP runtime', () => {
-  it('loads generated runtime module during HTTP runtime creation, then handles requests', async () => {
-    const runtimeModulePath = join(
-      tmpdir(),
-      `zelt-graphql-runtime-${Date.now()}-${Math.random()}.mjs`,
-    );
-    await writeFile(
-      runtimeModulePath,
-      `globalThis.__zeltGraphqlRuntimeEvents?.push('loaded');\nexport const graphqlRuntime = ${JSON.stringify(runtime)};\n`,
-      'utf8',
-    );
+const toGraphqlPrebuilt = async (
+  path: string,
+  resolvers: readonly (new (...args: never[]) => object)[],
+  runtimeManifest: GeneratedGraphqlRuntime,
+): Promise<ZeltPrebuilt> => {
+  const resolversHash = await computeGraphqlPrebuiltHash(path, resolvers);
+  return {
+    version: 1,
+    features: {
+      graphql: {
+        graphql: {
+          runtime: runtimeManifest,
+          resolversHash,
+        },
+      },
+    },
+  };
+};
 
+describe('graphql HTTP runtime', () => {
+  it('resolves the generated runtime from the prebuilt module during HTTP runtime creation, then handles requests', async () => {
     const events: string[] = [];
     Reflect.set(globalThis, '__zeltGraphqlRuntimeEvents', events);
     const app = createApp([
       http({
         controllers: [],
-        children: [
-          graphql({
-            path: '/graphql',
-            resolvers: [RuntimeViewerResolver],
-            runtimeLoader: () => import(/* @vite-ignore */ pathToFileURL(runtimeModulePath).href),
-          }),
-        ],
+        children: [graphql({ path: '/graphql', resolvers: [RuntimeViewerResolver] })],
       }),
     ]);
 
-    const running = await app.createRuntime();
-    expect(events).toEqual(['loaded', 'resolver']);
+    const prebuilt = await toGraphqlPrebuilt('/graphql', [RuntimeViewerResolver], runtime);
+    const running = await app.createRuntime({ prebuilt });
+    expect(events).toEqual(['resolver']);
 
     const response = await running.http.request('/graphql', {
       method: 'POST',
@@ -479,19 +488,10 @@ describe('graphql HTTP runtime', () => {
   });
 
   it('keeps GraphQL execution state isolated between runtimes of the same app', async () => {
-    const runtimeModulePath = join(
-      tmpdir(),
-      `zelt-graphql-runtime-iso-${Date.now()}-${Math.random()}.mjs`,
-    );
     const isolationRuntime = {
       schemaSdl: `type Query {\n  seq: Float!\n}\n`,
       bindings: { Query: { seq: { resolver: 'SeqResolver', method: 'seq' } } },
     } satisfies GeneratedGraphqlRuntime;
-    await writeFile(
-      runtimeModulePath,
-      `export const graphqlRuntime = ${JSON.stringify(isolationRuntime)};\n`,
-      'utf8',
-    );
 
     let instanceSeq = 0;
     @Resolver()
@@ -507,18 +507,13 @@ describe('graphql HTTP runtime', () => {
     const app = createApp([
       http({
         controllers: [],
-        children: [
-          graphql({
-            path: '/graphql',
-            resolvers: [SeqResolver],
-            runtimeLoader: () => import(/* @vite-ignore */ pathToFileURL(runtimeModulePath).href),
-          }),
-        ],
+        children: [graphql({ path: '/graphql', resolvers: [SeqResolver] })],
       }),
     ]);
 
-    const first = await app.createRuntime();
-    const second = await app.createRuntime();
+    const prebuilt = await toGraphqlPrebuilt('/graphql', [SeqResolver], isolationRuntime);
+    const first = await app.createRuntime({ prebuilt });
+    const second = await app.createRuntime({ prebuilt });
 
     const querySeq = async (runtime: typeof first): Promise<unknown> => {
       const response = await runtime.http.request('/graphql', {

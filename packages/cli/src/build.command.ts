@@ -1,12 +1,23 @@
+import { join } from 'node:path';
+
 import { defineCommand } from 'citty';
 import consola from 'consola';
 import { match } from 'ts-pattern';
 
-import type { ZeltBuildError, ZeltConfigLoadError } from './cli.errors';
+import type {
+  ZeltBuildError,
+  ZeltConfigLoadError,
+  ZeltCorruptOutputsLedgerError,
+  ZeltDuplicatePrebuiltContributionError,
+  ZeltInvalidPrebuiltContributionError,
+} from './cli.errors';
 import {
   isZeltBuildCommandConflictError,
   isZeltBuildError,
   isZeltConfigLoadError,
+  isZeltCorruptOutputsLedgerError,
+  isZeltDuplicatePrebuiltContributionError,
+  isZeltInvalidPrebuiltContributionError,
   isZeltMultipleBuildHooksError,
   isZeltNoEntryError,
   ZeltBuildCommandConflictError,
@@ -17,7 +28,9 @@ import { nodeCliRuntime } from './cli-runtime.lib';
 import { runCommandBuild } from './command-build.lib';
 import type { BuildConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
+import { sweepStaleOutputs } from './outputs-ledger.lib';
 import { runBuildHook, runPostBuildHooks, runPreBuildHooks } from './plugin-runner.lib';
+import { writePrebuiltModule } from './prebuilt-writer.lib';
 import { buildTsdownCommand } from './tsdown.lib';
 
 type BuildArgs = {
@@ -26,12 +39,29 @@ type BuildArgs = {
   readonly outDir?: string;
 };
 
+const RUN_BUILD_ERROR_GUARDS = [
+  isZeltConfigLoadError,
+  isZeltBuildError,
+  isZeltBuildCommandConflictError,
+  isZeltNoEntryError,
+  isZeltMultipleBuildHooksError,
+  isZeltInvalidPrebuiltContributionError,
+  isZeltDuplicatePrebuiltContributionError,
+  isZeltCorruptOutputsLedgerError,
+] as const;
+
+const isRunBuildError = (error: unknown): error is RunBuildError =>
+  RUN_BUILD_ERROR_GUARDS.some((guard) => guard(error));
+
 type RunBuildError =
   | InstanceType<typeof ZeltConfigLoadError>
   | InstanceType<typeof ZeltBuildCommandConflictError>
   | InstanceType<typeof ZeltBuildError>
   | InstanceType<typeof ZeltNoEntryError>
-  | InstanceType<typeof ZeltMultipleBuildHooksError>;
+  | InstanceType<typeof ZeltMultipleBuildHooksError>
+  | InstanceType<typeof ZeltInvalidPrebuiltContributionError>
+  | InstanceType<typeof ZeltDuplicatePrebuiltContributionError>
+  | InstanceType<typeof ZeltCorruptOutputsLedgerError>;
 
 const resolveBuildConfig = (args: BuildArgs, buildConfig: BuildConfig | undefined) => ({
   ...buildConfig,
@@ -77,7 +107,7 @@ const runDefaultBuild = async (
   consola.success('Build completed');
 };
 
-/** @throws {ZeltNoEntryError | ZeltBuildCommandConflictError | ZeltBuildError | ZeltMultipleBuildHooksError | ZeltConfigLoadError | {} | null} */
+/** @throws {ZeltNoEntryError | ZeltBuildCommandConflictError | ZeltBuildError | ZeltMultipleBuildHooksError | ZeltConfigLoadError | ZeltDuplicatePrebuiltContributionError | ZeltInvalidPrebuiltContributionError | ZeltCorruptOutputsLedgerError | {} | null} */
 export const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void> => {
   const configFile = typedArgs.config;
   const config = await loadZeltConfig(configFile !== undefined ? { cwd, configFile } : { cwd });
@@ -86,9 +116,26 @@ export const runBuild = async (cwd: string, typedArgs: BuildArgs): Promise<void>
 
   assertBuildImplementation(buildConfig, buildHookPluginNames);
 
-  const hookOptions = { cwd, config, loadStaticApp: async () => config.app() };
+  const generatedFiles: string[] = [];
+  const hookOptions = {
+    cwd,
+    config,
+    loadStaticApp: async () => config.app(),
+    registerGeneratedFile: (path: string) => {
+      generatedFiles.push(path);
+    },
+  };
 
-  await runPreBuildHooks(hookOptions);
+  const contributions = await runPreBuildHooks(hookOptions);
+  await writePrebuiltModule(cwd, contributions);
+  generatedFiles.push(join(cwd, '.zelt', 'prebuilt.ts'));
+
+  const sweepResult = await sweepStaleOutputs(cwd, generatedFiles);
+  for (const skipped of sweepResult.skipped) {
+    consola.warn(
+      `Kept stale output "${skipped}": it no longer matches any plugin's output but is missing the generated-file marker, so it was not deleted.`,
+    );
+  }
 
   let success = true;
   let buildError: unknown;
@@ -130,6 +177,15 @@ const handleError = (error: RunBuildError): void => {
     .when(isZeltMultipleBuildHooksError, (e) => {
       consola.error(e.message);
     })
+    .when(isZeltInvalidPrebuiltContributionError, (e) => {
+      consola.error(e.message);
+    })
+    .when(isZeltDuplicatePrebuiltContributionError, (e) => {
+      consola.error(e.message);
+    })
+    .when(isZeltCorruptOutputsLedgerError, (e) => {
+      consola.error(e.message);
+    })
     .otherwise(() => {});
 };
 
@@ -162,13 +218,7 @@ export const buildCommand = defineCommand({
     try {
       await runBuild(cwd, typedArgs);
     } catch (error) {
-      if (
-        isZeltConfigLoadError(error) ||
-        isZeltBuildError(error) ||
-        isZeltBuildCommandConflictError(error) ||
-        isZeltNoEntryError(error) ||
-        isZeltMultipleBuildHooksError(error)
-      ) {
+      if (isRunBuildError(error)) {
         handleError(error);
       } else {
         throw error;

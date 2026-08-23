@@ -39,9 +39,18 @@ export type BuildTimeView<TApp extends object> = TApp extends RuntimeCapable
   ? Omit<TApp, 'createRuntime'>
   : TApp;
 
+export type PrebuiltContribution = {
+  readonly feature: string;
+  readonly key: string;
+  readonly importPath: string;
+  readonly exportName: string;
+};
+
 export type ZeltPlugin<TStaticApp extends object = object> = {
   readonly name: string;
-  readonly preBuild?: (context: BuildContext<TStaticApp>) => Promise<void>;
+  readonly preBuild?: (
+    context: BuildContext<TStaticApp>,
+  ) => Promise<undefined | readonly PrebuiltContribution[]>;
   readonly build?: (context: BuildContext<TStaticApp>) => Promise<void>;
   readonly postBuild?: (context: BuildContext<TStaticApp>, result: BuildResult) => Promise<void>;
 };
@@ -50,6 +59,10 @@ export type BuildContext<TStaticApp extends object = object> = {
   readonly cwd: string;
   readonly build: BuildConfig;
   readonly loadStaticApp: () => Promise<TStaticApp>;
+  // preBuild hooks call this with the absolute path of every file they
+  // write, so a later build can prune outputs a plugin no longer produces
+  // (e.g. after a graphql() endpoint is removed from the app).
+  readonly registerGeneratedFile: (path: string) => void;
 };
 
 export type BuildResult = {

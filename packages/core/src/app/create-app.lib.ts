@@ -20,6 +20,7 @@ import type {
   RuntimeShutdownCallback,
   ServiceResolver,
   StaticNamespacedCaps,
+  ZeltPrebuilt,
 } from './feature.types';
 import { attachContainer } from './override.lib';
 
@@ -31,6 +32,7 @@ export type CreateRuntimeOptions = {
   readonly configs?: readonly ConfigClass<object>[];
   readonly fallbackConfigs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
+  readonly prebuilt?: ZeltPrebuilt;
 };
 
 export type App<F extends readonly ConfiguredFeature[]> = {
@@ -208,7 +210,11 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   runtime.applyRegisteredConfigs();
 
   const readyResult = await runtime.ready();
-  const resolver: ServiceResolver = { ...readyResult, registerShutdown };
+  const resolver: ServiceResolver = {
+    ...readyResult,
+    registerShutdown,
+    prebuilt: runtimeOptions?.prebuilt,
+  };
   const caps = await realizeNamespacedCapabilities(resolver, features);
 
   if (runtimeOptions?.warmup) {

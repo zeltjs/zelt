@@ -1,22 +1,26 @@
 import { createApp, http } from '@zeltjs/core';
 import { graphql } from '@zeltjs/graphql';
 
+import { schema as adminSchema } from './generated/admin';
+import { schema as storefrontSchema } from './generated/graphql';
+import { AdminResolver } from './graphql/admin.resolver';
 import { StorefrontResolver } from './graphql/storefront.resolver';
-
-export const graphqlRuntimeModule = 'src/generated/graphql-runtime.js';
-const graphqlRuntimeImport = './generated/graphql-runtime.js';
-
-const loadGraphqlRuntime = (): Promise<unknown> => import(/* @vite-ignore */ graphqlRuntimeImport);
 
 export const createGraphqlSchemaFirstApp = () =>
   createApp([
     http({
       children: [
         graphql({
+          name: 'storefront',
           path: '/graphql',
           resolvers: [StorefrontResolver],
-          runtimeLoader: loadGraphqlRuntime,
-          runtimeModule: graphqlRuntimeModule,
+          schema: storefrontSchema,
+        }),
+        graphql({
+          name: 'admin',
+          path: '/admin/graphql',
+          resolvers: [AdminResolver],
+          schema: adminSchema,
         }),
       ],
     }),

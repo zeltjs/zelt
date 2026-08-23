@@ -44,9 +44,10 @@ export type GeneratedGraphqlRuntime = {
 
 export type GraphqlRuntimeManifest = GeneratedGraphqlRuntime;
 
-export type GraphqlRuntimeLoader = () => unknown | Promise<unknown>;
-
-export type GraphqlRuntimeSource = GeneratedGraphqlRuntime | GraphqlRuntimeLoader | string;
+export type GraphqlPrebuiltEntry = {
+  readonly runtime: GeneratedGraphqlRuntime;
+  readonly resolversHash: string;
+};
 
 export type GraphqlRequestPayload = {
   readonly query: string;
@@ -300,29 +301,14 @@ export const parseGraphqlRequestPayload = (value: unknown): GraphqlRequestPayloa
   };
 };
 
-/** @throws {Error} */
-export const loadGeneratedGraphqlRuntime = async (
-  source: GraphqlRuntimeSource,
-): Promise<GeneratedGraphqlRuntime> => {
-  const loaded: unknown =
-    typeof source === 'function'
-      ? await source()
-      : typeof source === 'string'
-        ? await import(source)
-        : source;
-  const loadedObject = toObject(loaded);
-  const runtime =
-    parseGeneratedGraphqlRuntime(loaded) ??
-    (loadedObject
-      ? parseGeneratedGraphqlRuntime(readProperty(loadedObject, 'graphqlRuntime'))
-      : undefined);
-  if (!runtime) {
-    const sourceLabel = typeof source === 'string' ? `: ${source}` : '';
-    throw new Error(
-      `GraphQL runtime source must be a manifest or export graphqlRuntime${sourceLabel}`,
-    );
-  }
-  return runtime;
+export const parseGraphqlPrebuiltEntry = (value: unknown): GraphqlPrebuiltEntry | undefined => {
+  const record = toObject(value);
+  if (!record) return undefined;
+  const runtime = parseGeneratedGraphqlRuntime(readProperty(record, 'runtime'));
+  if (!runtime) return undefined;
+  const resolversHash = readProperty(record, 'resolversHash');
+  if (typeof resolversHash !== 'string') return undefined;
+  return { runtime, resolversHash };
 };
 
 /** @throws {Error} */

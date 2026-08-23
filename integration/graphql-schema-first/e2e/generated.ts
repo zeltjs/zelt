@@ -1,31 +1,54 @@
-import { mkdir, rm } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { generateGraphqlSdl } from '@zeltjs/graphql/codegen';
+import { writePrebuiltModule } from '@zeltjs/cli';
+import type { ZeltPrebuilt } from '@zeltjs/core';
+import { graphqlPlugin } from '@zeltjs/graphql/codegen';
 
-import { createGraphqlSchemaFirstApp, graphqlRuntimeModule } from '../src/app';
+import { createGraphqlSchemaFirstApp } from '../src/app';
 
-export const tsconfig = resolve(__dirname, '../tsconfig.json');
-export const schema = resolve(__dirname, '../src/graphql/schema.graphql');
-export const runtimeModulePath = resolve(__dirname, '..', graphqlRuntimeModule);
-export const generatedDir = dirname(runtimeModulePath);
-export const resolverChecksPath = resolve(generatedDir, 'graphql-resolver-checks.ts');
+export const cwd = resolve(__dirname, '..');
+export const tsconfig = resolve(cwd, 'tsconfig.json');
+const zeltDir = resolve(cwd, '.zelt');
 
-export const prepareGeneratedRuntime = async (): Promise<void> => {
-  await rm(runtimeModulePath, { force: true });
-  await rm(resolverChecksPath, { force: true });
-  await mkdir(generatedDir, { recursive: true });
+// Each schema-first line's resolverChecks file is generated next to the
+// codegen helper its schema hashes to: the storefront line pairs with
+// src/generated/graphql.ts, the admin line with src/generated/admin.ts.
+export const storefrontRuntimeFilePath = resolve(zeltDir, 'graphql/storefront.runtime.ts');
+export const adminRuntimeFilePath = resolve(zeltDir, 'graphql/admin.runtime.ts');
+export const storefrontResolverChecksPath = resolve(
+  cwd,
+  'src/generated/graphql.resolver-checks.ts',
+);
+export const adminResolverChecksPath = resolve(cwd, 'src/generated/admin.resolver-checks.ts');
+
+export const prepareZeltPrebuilt = async (): Promise<ZeltPrebuilt> => {
+  // Only the generated runtime output is cleared. `.zelt/graphql-codegen.json`
+  // must survive: it's the manifest `zelt graphql codegen` just wrote during
+  // prepare:integration, and resolverChecks generation looks up each
+  // schema-first endpoint's helper through it.
+  await rm(resolve(zeltDir, 'graphql'), { recursive: true, force: true });
+  await rm(resolve(zeltDir, 'prebuilt.ts'), { force: true });
+  await rm(storefrontResolverChecksPath, { force: true });
+  await rm(adminResolverChecksPath, { force: true });
 
   const app = createGraphqlSchemaFirstApp();
-  await generateGraphqlSdl(app.http, {
-    mode: 'schema-first',
-    schema,
-    runtimeModule: runtimeModulePath,
-    resolverChecks: {
-      out: resolverChecksPath,
-      gqlTypesImport: './graphql',
-    },
-    distDir: generatedDir,
-    tsconfig,
-  });
+  const plugin = graphqlPlugin({ tsconfig });
+  // This helper resets `.zelt/graphql/` and the resolverChecks paths above
+  // itself (see the `rm` calls above), so it doesn't need the output ledger
+  // that a real `zelt build` runs through `registerGeneratedFile`.
+  const contributions =
+    (await plugin.preBuild?.({
+      cwd,
+      build: {},
+      loadStaticApp: async () => app,
+      registerGeneratedFile: () => {},
+    })) ?? [];
+  await writePrebuiltModule(cwd, contributions);
+
+  const prebuiltModule = (await import(
+    /* @vite-ignore */ pathToFileURL(resolve(zeltDir, 'prebuilt.ts')).href
+  )) as { readonly zeltPrebuilt: ZeltPrebuilt };
+  return prebuiltModule.zeltPrebuilt;
 };

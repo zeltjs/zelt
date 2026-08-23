@@ -6,6 +6,11 @@
 
 * **core:** add `createContextStorage()` for typed asynchronous context shared by
   framework integrations. Existing application APIs require no migration.
+* **core:** add `ZeltPrebuilt` type and `prebuilt` option on
+  `CreateRuntimeOptions`. Adapters thread `prebuilt` through to
+  `ServiceResolver.prebuilt`, letting feature modules (such as
+  `@zeltjs/graphql`) look up their generated runtime by feature key instead of
+  loading it themselves.
 
 ### ⚠ BREAKING CHANGES
 

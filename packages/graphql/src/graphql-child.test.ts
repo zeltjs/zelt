@@ -1,9 +1,12 @@
+import type { ServiceResolver, ZeltPrebuilt } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
 import { getClassMetadata } from '@zeltjs/decorator-metadata';
 import { describe, expect, it } from 'vitest';
 
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { getGraphqlControllerMetadata, getResolverMetadata } from './graphql-metadata.lib';
 import { graphql, Mutation, Query, ResolveField, Resolver } from './index';
+import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
 type UserPublic = {
   readonly id: string;
@@ -28,16 +31,21 @@ class UserResolver {
   }
 }
 
+const createServiceResolver = (
+  prebuilt: ZeltPrebuilt | undefined,
+  instances: ReadonlyMap<object, object> = new Map(),
+): ServiceResolver => ({
+  get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => {
+    const instance = instances.get(cls);
+    return (instance ?? new cls()) as T;
+  },
+  registerShutdown: (callback) => async () => callback(),
+  prebuilt,
+});
+
 describe('graphql HTTP child helper', () => {
   it('returns an HTTP-mountable feature module with a GraphQL controller', () => {
-    const runtimeModule = './dist/graphql-runtime.js';
-    const runtimeLoader = async () => ({ graphqlRuntime: {} });
-    const child = graphql({
-      path: '/graphql',
-      resolvers: [UserResolver],
-      runtimeLoader,
-      runtimeModule,
-    });
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
 
     expect(child.path).toBe('/graphql');
     expect(child.blueprint().getControllers()).toHaveLength(1);
@@ -53,16 +61,88 @@ describe('graphql HTTP child helper', () => {
     });
 
     expect(getGraphqlControllerMetadata(controller)).toEqual({
+      key: 'graphql',
+      path: '/graphql',
       resolvers: [UserResolver],
-      runtimeModule,
     });
   });
 
-  const _assertRuntimeSourceRequired = (): void => {
-    // @ts-expect-error runtimeLoader or runtime is required for GraphQL HTTP endpoints.
-    graphql({ path: '/graphql', resolvers: [UserResolver] });
-  };
-  void _assertRuntimeSourceRequired;
+  it('uses the explicit `name` as the key instead of the default', () => {
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver], name: 'storefront' });
+    const controller = child.blueprint().getControllers()[0];
+    if (!controller) throw new Error('missing controller');
+
+    expect(getGraphqlControllerMetadata(controller)).toEqual({
+      key: 'storefront',
+      path: '/graphql',
+      resolvers: [UserResolver],
+    });
+  });
+
+  it('carries a `schema` ref through to controller metadata when given', () => {
+    const schema = { sdl: 'type Query { user: UserPublic }' };
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver], schema });
+    const controller = child.blueprint().getControllers()[0];
+    if (!controller) throw new Error('missing controller');
+
+    expect(getGraphqlControllerMetadata(controller)).toEqual({
+      key: 'graphql',
+      path: '/graphql',
+      resolvers: [UserResolver],
+      schema,
+    });
+  });
+
+  it('accepts a `name` made only of letters, digits, underscores, and hyphens', () => {
+    expect(() =>
+      graphql({ path: '/graphql', resolvers: [UserResolver], name: 'api-v1_2' }),
+    ).not.toThrow();
+  });
+
+  it('rejects a `name` containing a slash', () => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: 'api/v1' })).toThrow(
+      /Invalid GraphQL endpoint name "api\/v1"/,
+    );
+  });
+
+  it('rejects a `name` containing a backslash', () => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: 'api\\v1' })).toThrow(
+      /Invalid GraphQL endpoint name/,
+    );
+  });
+
+  it('rejects a `name` made only of dots', () => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: '..' })).toThrow(
+      /Invalid GraphQL endpoint name/,
+    );
+  });
+
+  it('rejects an empty `name`', () => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: '' })).toThrow(
+      /Invalid GraphQL endpoint name/,
+    );
+  });
+
+  it.each([
+    'con',
+    'PRN',
+    'Aux',
+    'nul',
+    'com1',
+    'COM9',
+    'lpt1',
+    'LPT9',
+  ])('rejects the reserved Windows device name %s regardless of case', (reserved) => {
+    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: reserved })).toThrow(
+      /reserved Windows device name/,
+    );
+  });
+
+  it('does not treat a reserved name as a substring match (e.g. `console`)', () => {
+    expect(() =>
+      graphql({ path: '/graphql', resolvers: [UserResolver], name: 'console' }),
+    ).not.toThrow();
+  });
 });
 
 describe('resolver name collision detection', () => {
@@ -82,13 +162,9 @@ describe('resolver name collision detection', () => {
     const resolverA = makeResolver('DuplicateName');
     const resolverB = makeResolver('DuplicateName');
 
-    expect(() =>
-      graphql({
-        path: '/graphql',
-        resolvers: [resolverA, resolverB],
-        runtime: { schemaSdl: '', bindings: {} },
-      }),
-    ).toThrow(/duplicate.*resolver.*DuplicateName/i);
+    expect(() => graphql({ path: '/graphql', resolvers: [resolverA, resolverB] })).toThrow(
+      /duplicate.*resolver.*DuplicateName/i,
+    );
   });
 });
 
@@ -113,5 +189,112 @@ describe('GraphQL resolver decorators', () => {
         }),
       ]),
     );
+  });
+});
+
+describe('graphql realize() prebuilt requirements', () => {
+  it('throws when the runtime resolver has no prebuilt module', async () => {
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
+
+    await expect(child.realize(createServiceResolver(undefined))).rejects.toThrow(
+      /requires a prebuilt module/i,
+    );
+  });
+
+  it('throws when the prebuilt module has no entry for this key', async () => {
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
+    const prebuilt: ZeltPrebuilt = { version: 1, features: { graphql: {} } };
+
+    await expect(child.realize(createServiceResolver(prebuilt))).rejects.toThrow(
+      /no graphql prebuilt entry for key "graphql"/i,
+    );
+  });
+
+  it('throws when the prebuilt entry hash no longer matches the resolvers', async () => {
+    const child = graphql({ path: '/graphql', resolvers: [UserResolver] });
+    const prebuilt: ZeltPrebuilt = {
+      version: 1,
+      features: {
+        graphql: {
+          graphql: {
+            runtime: {
+              schemaSdl: `type Query {\n  user: UserPublic\n}\n\ntype UserPublic {\n  id: String!\n}\n`,
+              bindings: { Query: { user: { resolver: 'UserResolver', method: 'user' } } },
+            },
+            resolversHash: 'stale-hash',
+          },
+        },
+      },
+    };
+
+    await expect(child.realize(createServiceResolver(prebuilt))).rejects.toThrow(/stale/i);
+  });
+
+  it('executes requests using the prebuilt runtime when the key matches', async () => {
+    const resolversHash = await computeGraphqlPrebuiltHash('/graphql', [UserResolver]);
+    const prebuilt: ZeltPrebuilt = {
+      version: 1,
+      features: {
+        graphql: {
+          graphql: {
+            runtime: {
+              schemaSdl: `type Query {\n  user: UserPublic\n}\n\ntype UserPublic {\n  id: String!\n  name: String!\n}\n`,
+              bindings: { Query: { user: { resolver: 'UserResolver', method: 'user' } } },
+            },
+            resolversHash,
+          },
+        },
+      },
+    };
+
+    const app = createApp([
+      http({
+        controllers: [],
+        children: [graphql({ path: '/graphql', resolvers: [UserResolver] })],
+      }),
+    ]);
+    const running = await app.createRuntime({ prebuilt });
+    const response = await running.http.request('/graphql', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: '{ user { id name } }' }),
+    });
+
+    await expect(response.json()).resolves.toEqual({
+      data: { user: { id: '1', name: 'Ada' } },
+    });
+  });
+
+  it('looks up the prebuilt entry under the explicit `name` when one is given', async () => {
+    const resolversHash = await computeGraphqlPrebuiltHash('/graphql', [UserResolver]);
+    const prebuilt: ZeltPrebuilt = {
+      version: 1,
+      features: {
+        graphql: {
+          storefront: {
+            runtime: {
+              schemaSdl: `type Query {\n  user: UserPublic\n}\n\ntype UserPublic {\n  id: String!\n}\n`,
+              bindings: { Query: { user: { resolver: 'UserResolver', method: 'user' } } },
+            },
+            resolversHash,
+          },
+        },
+      },
+    };
+
+    const app = createApp([
+      http({
+        controllers: [],
+        children: [graphql({ path: '/graphql', resolvers: [UserResolver], name: 'storefront' })],
+      }),
+    ]);
+    const running = await app.createRuntime({ prebuilt });
+    const response = await running.http.request('/graphql', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: '{ user { id } }' }),
+    });
+
+    await expect(response.json()).resolves.toEqual({ data: { user: { id: '1' } } });
   });
 });

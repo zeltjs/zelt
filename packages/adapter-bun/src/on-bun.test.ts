@@ -1,4 +1,4 @@
-import type { HttpModuleOptions } from '@zeltjs/core';
+import type { HttpModuleOptions, ZeltPrebuilt } from '@zeltjs/core';
 import {
   Command,
   Config,
@@ -279,6 +279,22 @@ describe('onBun return types', () => {
     });
     const env = await bunApp.get(EnvAdaptor);
     expect(env.get('BUN_ENV')).toBe('test-override');
+
+    await bunApp.shutdown();
+  });
+
+  it('passes prebuilt to createRuntime()', async () => {
+    const app = createApp([http({ controllers: [] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
+    const prebuilt: ZeltPrebuilt = { version: 1, features: {} };
+
+    const bunApp = await onBun(app, { prebuilt });
+
+    expect(readySpy).toHaveBeenCalledWith({
+      prebuilt,
+      fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
+      warmup: true,
+    });
 
     await bunApp.shutdown();
   });

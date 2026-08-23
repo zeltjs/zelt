@@ -3,6 +3,7 @@ import type {
   HttpCapabilities,
   HttpModuleOptions,
   SchedulerCapabilities,
+  ZeltPrebuilt,
 } from '@zeltjs/core';
 import {
   args,
@@ -415,6 +416,20 @@ describe('onNode with HTTP', () => {
     });
     const env = await nodeApp.get(EnvAdaptor);
     expect(env.get('NODE_ENV')).toBe('test-override');
+  });
+
+  it('passes prebuilt to createRuntime()', async () => {
+    const app = createApp([http({ controllers: [] })]);
+    const readySpy = vi.spyOn(app, 'createRuntime');
+    const prebuilt: ZeltPrebuilt = { version: 1, features: {} };
+
+    nodeApp = await onNode(app, { prebuilt });
+
+    expect(readySpy).toHaveBeenCalledWith({
+      prebuilt,
+      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
+      warmup: true,
+    });
   });
 
   it('works without explicit EnvAdaptor in configs', async () => {
