@@ -2,6 +2,7 @@ export { getClassMetadata } from '../runtime/index';
 export { getClassSource, resolveClassSource } from './class-source.lib';
 export { getDependencies, getDependenciesFromSource } from './get-dependencies.lib';
 export { getDependencySources } from './get-dependency-sources.lib';
+export { getPublicMethodSignatures } from './get-public-method-signatures.lib';
 export { getTypeMetadata } from './get-type-metadata.lib';
 export type {
   ClassMetadata,
@@ -16,6 +17,7 @@ export type {
   MethodInfo,
   ParamInfo,
   PropertyInfo,
+  PublicMethodSignature,
   TypedPropertyInfo,
   TypeInfo,
 } from './inspect.types';

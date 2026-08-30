@@ -10,9 +10,8 @@ import {
   UseMiddleware,
 } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
-
-import { requireUser } from '../auth/current-user.lib';
-import { OrderService } from './order.service';
+import { OrderService } from '../../usecase/order.service';
+import { requireUser } from './current-user.lib';
 
 @UseMiddleware(JwtMiddleware)
 @Controller('/api/orders')

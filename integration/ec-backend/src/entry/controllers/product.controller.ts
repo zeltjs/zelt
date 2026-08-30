@@ -12,8 +12,8 @@ import {
   UseMiddleware,
 } from '@zeltjs/core';
 import { HTTPException } from 'hono/http-exception';
-import { CreateProductSchema, UpdateProductSchema } from './product.schema';
-import { ProductService } from './product.service';
+import { CreateProductSchema, UpdateProductSchema } from '../../domain/product.schema';
+import { ProductService } from '../../usecase/product.service';
 
 @Controller('/api/products')
 export class ProductController {

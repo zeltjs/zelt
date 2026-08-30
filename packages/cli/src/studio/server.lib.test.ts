@@ -10,7 +10,7 @@ import { startStudioServer } from './server.lib';
 
 const okResult: AnalyzeResult = {
   ok: true,
-  graph: { version: 1, nodes: [], edges: [] },
+  graph: { version: 2, nodes: [], edges: [] },
 };
 
 let server: StudioServer | undefined;
@@ -128,6 +128,21 @@ describe('startStudioServer', () => {
     expect(res.status).toBe(403);
     // 起動時の1回のみ。Origin 拒否で analyzeOnce() が呼ばれていない
     expect(calls).toBe(1);
+  });
+
+  it('allows POST /api/reload with a foreign Origin when the x-zelt-studio header is present', async () => {
+    // ポートフォワード経由（Origin が localhost 以外）でも、preflight を要求する
+    // カスタムヘッダ付きなら正規 UI からのリクエストとして通る
+    server = await startStudioServer({
+      port: 0,
+      staticDir: makeStaticDir(),
+      analyze: () => Promise.resolve(okResult),
+    });
+    const res = await fetch(`${server.url}/api/reload`, {
+      method: 'POST',
+      headers: { Origin: 'https://forwarded-4400.example.dev', 'x-zelt-studio': 'reload' },
+    });
+    expect(res.status).toBe(200);
   });
 
   it('allows POST /api/reload with a same-origin localhost Origin', async () => {

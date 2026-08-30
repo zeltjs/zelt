@@ -1,10 +1,9 @@
 import { Injectable, inject } from '@zeltjs/core';
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
-
-import { DrizzleService } from '../db/drizzle.service';
-import type { NewProduct, Product } from '../db/schema';
-import { products } from '../db/schema';
-import type { CreateProductInput, UpdateProductInput } from './product.schema';
+import type { CreateProductInput, UpdateProductInput } from '../domain/product.schema';
+import { DrizzleService } from '../infra/db/drizzle.service';
+import type { NewProduct, Product } from '../infra/db/schema';
+import { products } from '../infra/db/schema';
 
 @Injectable()
 export class ProductService {

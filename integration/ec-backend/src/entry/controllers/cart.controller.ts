@@ -10,10 +10,9 @@ import {
   request,
   UseMiddleware,
 } from '@zeltjs/core';
-
-import { requireUser } from '../auth/current-user.lib';
-import { AddToCartSchema, UpdateCartItemSchema } from './cart.schema';
-import { CartService } from './cart.service';
+import { AddToCartSchema, UpdateCartItemSchema } from '../../domain/cart.schema';
+import { CartService } from '../../usecase/cart.service';
+import { requireUser } from './current-user.lib';
 
 @UseMiddleware(JwtMiddleware)
 @Controller('/api/cart')

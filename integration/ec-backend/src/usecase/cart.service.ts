@@ -3,7 +3,7 @@ import type { KVStore } from '@zeltjs/kv';
 import { MemoryKVAdaptor } from '@zeltjs/kv';
 import { HTTPException } from 'hono/http-exception';
 
-import { ProductService } from '../product/product.service';
+import { ProductService } from './product.service';
 
 type CartItem = {
   readonly productId: number;

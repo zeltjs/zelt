@@ -45,8 +45,10 @@ export const seedAdmin = async (app: TestApp): Promise<string> => {
   });
 
   // Directly update role via drizzle
-  const drizzle = await app.get((await import('../../src/db/drizzle.service')).DrizzleService);
-  const { users } = await import('../../src/db/schema');
+  const drizzle = await app.get(
+    (await import('../../src/infra/db/drizzle.service')).DrizzleService,
+  );
+  const { users } = await import('../../src/infra/db/schema');
   const { eq } = await import('drizzle-orm');
   drizzle.db.update(users).set({ role: 'admin' }).where(eq(users.email, 'admin@example.com')).run();
 

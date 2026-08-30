@@ -2,7 +2,7 @@ import type { JwtPayload, ResolveUserResult } from '@zeltjs/auth-jwt';
 import { JwtConfig } from '@zeltjs/auth-jwt';
 import { Config } from '@zeltjs/core';
 
-import type { EcUser } from './current-user.lib';
+import type { EcUser } from '../domain/user.types';
 
 @Config
 export class EcJwtConfig extends JwtConfig {

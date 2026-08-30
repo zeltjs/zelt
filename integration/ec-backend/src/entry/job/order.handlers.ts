@@ -2,7 +2,7 @@ import type { Lifecycle } from '@zeltjs/core';
 import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus';
 
-import './order.events';
+import '../../domain/order.events';
 
 @Injectable()
 export class OrderHandlers implements Lifecycle {
