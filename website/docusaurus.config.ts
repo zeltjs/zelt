@@ -73,6 +73,11 @@ const config: Config = {
 
   markdown: {
     mermaid: true,
+    // future.v4 disables mdx1Compat wholesale; {#id} heading IDs are still
+    // required for stable anchors in ja translations (docusaurus i18n convention)
+    mdx1Compat: {
+      headingIds: true,
+    },
     hooks: {
       onBrokenMarkdownLinks: 'warn',
     },

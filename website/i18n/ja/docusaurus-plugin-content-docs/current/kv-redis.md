@@ -1,25 +1,25 @@
 ---
 ---
 
-# Redis KV Driver
+# Redis KVドライバ
 
-`@zeltjs/kv` は `@zeltjs/kv/adaptor-redis` エントリポイント経由で Redis バックエンドを提供します。`RedisKVAdaptor` は [ioredis](https://github.com/redis/ioredis) を用いて `AtomicKVAdaptor` を実装し、`incr` や `setnx` などのアトミック操作をサポートします。
+`@zeltjs/kv` は `@zeltjs/kv/adaptor-redis` エントリポイント経由でRedisバックエンドを提供します。`RedisKVAdaptor` は [ioredis](https://github.com/redis/ioredis) の上に `AtomicKVAdaptor` を実装し、`incr` や `setnx` などのatomic操作をサポートします。
 
-## インストール
+## インストール {#installation}
 
 ```bash
 pnpm add @zeltjs/kv @zeltjs/redis
 ```
 
-peer dependency:
+Peer dependency:
 
 ```bash
 pnpm add @zeltjs/core
 ```
 
-## 基本的なセットアップ
+## 基本的なセットアップ {#basic-setup}
 
-`RedisKVAdaptor` を inject し、namespace 化したストアを作成します。`namespace()` は `AtomicKVStore` をそのまま返し、`get()` は値（キーが存在しない場合は `undefined`）に解決されます。unwrap が必要な result ラッパーはありません:
+`RedisKVAdaptor` をinjectして、namespace化されたストアを作成します。`namespace()` は `AtomicKVStore` を直接返し、`get()` は値(キーが存在しない場合は `undefined`)に解決されます — unwrapが必要なresultラッパーはありません:
 
 ```typescript twoslash
 import { Injectable, inject } from '@zeltjs/core';
@@ -44,7 +44,7 @@ export class CacheService {
 }
 ```
 
-アプリ生成時に `RedisConfig` と `RedisKVAdaptor` を登録します。`RedisConfig` が接続設定を提供し（`RedisKVAdaptor` が依存する `RedisService` が利用します）、依存は自動的に解決されるため、`injectables` には `RedisKVAdaptor` を挙げるだけで十分です:
+アプリ作成時に `RedisConfig` と `RedisKVAdaptor` を登録します。`RedisConfig` が接続設定を提供し(`RedisKVAdaptor` が依存する `RedisService` がそれを利用します)、依存関係は自動的に解決されるので、`injectables` に `RedisKVAdaptor` を挙げるだけで十分です:
 
 ```typescript twoslash
 import { createApp, Controller, Get, http } from '@zeltjs/core';
@@ -59,11 +59,11 @@ const app = createApp([http({
   })], { configs: [RedisConfig] });
 ```
 
-デフォルトでは、`RedisConfig` は接続 URL を環境変数 `REDIS_URL` から読み取り、未設定時は `redis://localhost:6379` にフォールバックします。
+デフォルトでは、`RedisConfig` は接続URLを環境変数 `REDIS_URL` から読み取り、未設定時は `redis://localhost:6379` にフォールバックします。
 
-## カスタム設定
+## カスタム設定 {#custom-configuration}
 
-`RedisConfig` を継承して接続設定をカスタマイズできます。`options` getter は ioredis の `RedisOptions` を返します:
+`RedisConfig` を継承して接続設定をカスタマイズします。`options` getterはioredisの `RedisOptions` を返します:
 
 ```typescript twoslash
 import { Config } from '@zeltjs/core';
@@ -84,7 +84,7 @@ class CustomRedisConfig extends RedisConfig {
 }
 ```
 
-デフォルトの代わりにカスタム config を登録します:
+デフォルトの代わりにカスタムconfigを登録します:
 
 ```typescript twoslash
 import { createApp, Config, Controller, Get, http } from '@zeltjs/core';
@@ -104,32 +104,32 @@ const app = createApp([http({
   })], { configs: [CustomRedisConfig] });
 ```
 
-## API リファレンス
+## APIリファレンス {#api-reference}
 
-### RedisKVAdaptor
-
-| メソッド | 説明 |
-|--------|-------------|
-| `namespace(prefix)` | namespace 化された `AtomicKVStore` を返す |
-
-`RedisKVAdaptor` はアプリケーションのライフサイクルに参加します。ioredis の接続は `RedisService` が保持し、シャットダウン時に自動的に切断されます（[グレースフルシャットダウン](#グレースフルシャットダウン)を参照）。
-
-### AtomicKVStore のメソッド
+### RedisKVAdaptor {#rediskvadaptor}
 
 | メソッド | 説明 |
 |--------|-------------|
-| `get<T>(key)` | 値を取得（存在しない場合は `undefined`） |
-| `set<T>(key, value, opts?)` | TTL 任意指定で値を保存 |
-| `del(key)` | キーを削除 |
-| `has(key)` | キーの存在確認 |
-| `expire(key, ttlSec)` | 既存キーの TTL を更新 |
-| `incr(key, by?, opts?)` | アトミックなインクリメント |
-| `setnx<T>(key, value, opts?)` | 存在しない場合のみ set |
-| `namespace(prefix)` | ネストした namespace を作成 |
+| `namespace(prefix)` | namespace化された `AtomicKVStore` を返す |
 
-## 本番環境のセットアップ
+`RedisKVAdaptor` はアプリケーションのライフサイクルに参加します。基盤となるioredis接続は `RedisService` が保持しており、シャットダウン時に自動的に切断されます([グレースフルシャットダウン](#graceful-shutdown)を参照)。
 
-本番デプロイでは、接続プールとリトライ動作を設定します:
+### AtomicKVStoreのメソッド {#atomickvstore-methods}
+
+| メソッド | 説明 |
+|--------|-------------|
+| `get<T>(key)` | 値を取得する。存在しない場合は `undefined` |
+| `set<T>(key, value, opts?)` | 値をオプションのTTL付きで保存する |
+| `del(key)` | キーを削除する |
+| `has(key)` | キーが存在するか確認する |
+| `expire(key, ttlSec)` | 既存のキーのTTLを更新する |
+| `incr(key, by?, opts?)` | atomicなインクリメント |
+| `setnx<T>(key, value, opts?)` | 存在しない場合のみsetする |
+| `namespace(prefix)` | ネストしたnamespaceを作成する |
+
+## 本番環境のセットアップ {#production-setup}
+
+本番デプロイでは、接続プーリングとリトライ動作を設定します:
 
 ```typescript twoslash
 import { Config } from '@zeltjs/core';
@@ -150,11 +150,11 @@ class ProductionRedisConfig extends RedisConfig {
 }
 ```
 
-### グレースフルシャットダウン
+### グレースフルシャットダウン {#graceful-shutdown}
 
-Redis を手動で切断する必要はありません。`RedisService` がライフサイクルマネージャに自身を登録するため、アプリケーションのシャットダウン時に ioredis クライアントが自動的に切断されます。
+Redisを手動で切断する必要はありません。`RedisService` がライフサイクルマネージャに自身を登録するため、アプリケーションのシャットダウン時にioredisクライアントが自動的に切断されます。
 
-`@zeltjs/adapter-node` を使う場合、`onNode` が `SIGINT`/`SIGTERM` ハンドラを登録してこのシャットダウンをトリガーします。`handle.shutdown()` でも同様です:
+`@zeltjs/adapter-node` を使う場合、`onNode` がこのシャットダウンをトリガーする `SIGINT`/`SIGTERM` ハンドラをインストールし、`handle.shutdown()` も同じことを行います:
 
 ```typescript twoslash
 import { createApp, Controller, Get, http } from '@zeltjs/core';
@@ -169,6 +169,6 @@ const nodeApp = await onNode(app);
 // ---cut---
 const handle = await nodeApp.http.listen({ port: 3000 });
 
-// Disconnects the server and runs lifecycle shutdown (Redis included)
+// サーバーを切断し、ライフサイクルのシャットダウン(Redisを含む)を実行する
 await handle.shutdown();
 ```

@@ -3,11 +3,11 @@
 
 # Configuration
 
-Zelt provides a type-safe configuration system using the `@Config` decorator and `inject()` helper.
+Zeltは、`@Config`デコレータと`inject()`ヘルパーを使った型安全な設定システムを提供します。
 
-## Defining Configuration
+## Defining Configuration {#defining-configuration}
 
-Use the `@Config` decorator to define a configuration class. Each config class must have a static `Token` property:
+設定クラスを定義するには`@Config`デコレータを使います。各configクラスは静的な`Token`プロパティを持つ必要があります:
 
 ```typescript
 import { Config, Env, inject } from '@zeltjs/core';
@@ -32,9 +32,9 @@ export class DatabaseConfig {
 }
 ```
 
-## Using Configuration
+## Using Configuration {#using-configuration}
 
-Inject configuration into services or controllers using `inject()`:
+`inject()`を使って、serviceやcontrollerへ設定を注入します:
 
 ```typescript
 import { Injectable, inject, Config, Env } from '@zeltjs/core';
@@ -58,9 +58,9 @@ export class DatabaseService {
 }
 ```
 
-## Registering Configuration
+## Registering Configuration {#registering-configuration}
 
-Register config classes when creating the app:
+アプリ作成時にconfigクラスを登録します:
 
 ```typescript
 import { createApp, Config, Env, inject, Controller, Get, http } from '@zeltjs/core';
@@ -80,9 +80,9 @@ const app = createApp([http({
   })], { configs: [DatabaseConfig] });
 ```
 
-## Overriding Configuration
+## Overriding Configuration {#overriding-configuration}
 
-Override configuration values for testing by extending the config class:
+configクラスを継承することで、テスト用に設定値をオーバーライドできます:
 
 ```typescript
 import { Config, createApp, Env, inject, http } from '@zeltjs/core';
@@ -107,21 +107,75 @@ export class TestDatabaseConfig extends DatabaseConfig {
   }
 }
 
-// In test setup
+// テストのセットアップ内
 const app = createApp([http({
     controllers: [AppController],
   })], { configs: [TestDatabaseConfig] });
 ```
 
-The `Token` property is inherited from the parent class, so `inject(DatabaseConfig)` will receive the overridden `TestDatabaseConfig` instance.
+`Token`プロパティは親クラスから継承されるため、`inject(DatabaseConfig)`はオーバーライドされた`TestDatabaseConfig`のインスタンスを受け取ります。
 
-## Environment-Based Configuration
+## Abstract Configuration {#abstract-configuration}
 
-`inject(Env)` reads environment variables from the platform-specific source registered by the adapter. No additional setup is needed for the common case.
+デフォルト実装を持たないconfigベースクラスを宣言するには`@Config({ abstract: true })`を使います。これは、意味のあるフォールバック値が存在せず、全ての環境で具体的な値を供給しなければならないconfig契約に便利です:
 
-### Node.js Environment
+```typescript
+import { Config, createApp } from '@zeltjs/core';
 
-When using `onNode()`, `ProcessEnvAdaptor` is registered automatically, so `inject(Env)` reads from `process.env` without any extra config:
+@Config({ abstract: true })
+export abstract class PaymentGatewayConfig {
+  abstract get apiKey(): string;
+}
+
+export class StripeConfig extends PaymentGatewayConfig {
+  override get apiKey() {
+    return 'sk_test_...';
+  }
+}
+// ---cut---
+const app = createApp([], { configs: [StripeConfig] });
+```
+
+abstract configが、それを解決する具象サブクラスなしに登録された場合 — 未登録のまま、`configs`へ直接渡された、あるいはabstractなサブクラスのみで解決された場合のいずれでも — `createRuntime()`(またはそのtokenの最初の`inject()`)は理由`abstract_leaf_without_concrete`とともに`ZeltAppConfigurationError`を投げます。
+
+### Fallback Configuration {#fallback-configuration}
+
+`createRuntime({ fallbackConfigs })`は、他に何もベースconfigを解決しない場合にのみ適用されるconfigサブクラスを登録します。解決の優先順位は、高い方から順に:
+
+1. `createRuntime({ configs })` — runtimeオーバーライド
+2. `createApp([...], { configs })` — ユーザー指定
+3. `createRuntime({ fallbackConfigs })` — フォールバック
+4. ベースconfigクラス自身のデフォルトgetter値
+
+`fallbackConfigs`は、開発専用のデフォルトでabstract configを満たしつつ、本番コードには具体的な`configs`エントリを明示的に渡すことを要求する用途でよく使われます:
+
+```typescript
+import { Config, createApp } from '@zeltjs/core';
+
+@Config({ abstract: true })
+abstract class PaymentGatewayConfig {
+  abstract get apiKey(): string;
+}
+
+class DevPaymentGatewayConfig extends PaymentGatewayConfig {
+  override get apiKey() {
+    return 'sk_test_dev';
+  }
+}
+// ---cut---
+const app = createApp([]);
+const readyApp = await app.createRuntime({
+  fallbackConfigs: [DevPaymentGatewayConfig],
+});
+```
+
+## Environment-Based Configuration {#environment-based-configuration}
+
+`inject(Env)`は、adapterによって登録されたプラットフォーム固有のソースから環境変数を読み取ります。一般的なケースでは追加の設定は不要です。
+
+### Node.js Environment {#nodejs-environment}
+
+`onNode()`を使う場合、`ProcessEnvAdaptor`が自動的に登録されるため、`inject(Env)`は追加の設定なしに`process.env`から読み取ります:
 
 ```typescript
 import { Config, Env, inject, createApp, Controller, Get, http } from '@zeltjs/core';
@@ -152,30 +206,30 @@ const app = createApp([http({
   })], { configs: [DatabaseConfig] });
 ```
 
-### Loading `.env` Files
+### Loading `.env` Files {#loading-env-files}
 
-To load a `.env` file, import `dotenv/config` at the entry point of your application before anything else:
+`.env`ファイルを読み込むには、アプリケーションのエントリポイントの最初に`dotenv/config`をimportします:
 
 ```typescript
 // @errors: 2882
 import 'dotenv/config';
 import { onNode } from '@zeltjs/adapter-node';
-// ...rest of app setup
+// ...アプリのセットアップの続き
 ```
 
-`inject(Env)` will then read the variables populated by dotenv from `process.env`.
+その後、`inject(Env)`はdotenvが`process.env`へ設定した変数を読み取ります。
 
-### Cloudflare Workers Environment
+### Cloudflare Workers Environment {#cloudflare-workers-environment}
 
-For Cloudflare Workers, environment configuration is handled automatically by `onCloudflareWorkers()`. See the [Cloudflare Workers Getting Started guide](./getting-started/cloudflare-workers) for details.
+Cloudflare Workersの場合、環境設定は`onCloudflareWorkers()`によって自動的に処理されます。詳細は[Cloudflare Workers Getting Startedガイド](./getting-started/cloudflare-workers)を参照してください。
 
-## TypeScript Decorator Configuration
+## TypeScript Decorator Configuration {#typescript-decorator-configuration}
 
-Zelt supports both TC39 standard decorators and legacy TypeScript decorators. The framework automatically detects which mode is being used at runtime.
+ZeltはTC39標準デコレータと、レガシーなTypeScriptデコレータの両方をサポートしています。フレームワークは実行時にどちらのモードが使われているかを自動で検出します。
 
-### TC39 Standard Decorators (Recommended)
+### TC39 Standard Decorators (Recommended) {#tc39-standard-decorators-recommended}
 
-For new projects, use TC39 standard decorators. No special TypeScript configuration is needed:
+新規プロジェクトではTC39標準デコレータを使ってください。特別なTypeScript設定は不要です:
 
 ```json
 {
@@ -186,9 +240,9 @@ For new projects, use TC39 standard decorators. No special TypeScript configurat
 }
 ```
 
-### Legacy Decorators
+### Legacy Decorators {#legacy-decorators}
 
-For compatibility with existing codebases, enable legacy decorators:
+既存のコードベースとの互換性のためには、レガシーデコレータを有効にします:
 
 ```json
 {
@@ -200,11 +254,11 @@ For compatibility with existing codebases, enable legacy decorators:
 }
 ```
 
-### Detection Behavior
+### Detection Behavior {#detection-behavior}
 
-Zelt automatically detects the decorator mode based on the runtime context:
+Zeltは実行時のコンテキストに基づいてデコレータのモードを自動検出します:
 
-- **TC39 mode**: Decorator receives a context object with `kind`, `name`, and `metadata` properties
-- **Legacy mode**: Decorator receives `target`, `propertyKey`, and `descriptor` arguments
+- **TC39 mode**: デコレータは`kind`、`name`、`metadata`プロパティを持つcontextオブジェクトを受け取る
+- **Legacy mode**: デコレータは`target`、`propertyKey`、`descriptor`引数を受け取る
 
-Both modes work identically from an API perspective—you don't need to change your code when switching between them.
+どちらのモードもAPIの観点からは同一に動作します — モードを切り替える際にコードを変更する必要はありません。

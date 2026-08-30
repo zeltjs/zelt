@@ -3,11 +3,11 @@
 
 # Request & Response Primitives
 
-Zelt provides functional primitives for accessing request data and building responses. These primitives can be used as default parameters in controller methods.
+Zeltは、リクエストデータへアクセスするための`request()`primitiveと、レスポンスを構築するための`response()`primitiveを提供します。`request()`はcontrollerメソッドのデフォルトパラメータとして使うことができ、リクエストアクセサーを返します。
 
-## Request Primitives
+## Request Primitives {#request-primitives}
 
-### Query Parameters
+### Query Parameters {#query-parameters}
 
 ```typescript
 import { Controller, Get, request, response } from '@zeltjs/core';
@@ -19,18 +19,18 @@ export class SearchController {
     const q = req.queryParam('q');
     const tags = req.queryParams('tag');
     // q: string | undefined
-    // tags: string[] (empty array if not provided)
+    // tags: string[](未指定の場合は空配列)
     return res.json({ query: q, tags });
   }
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `queryParam(name)` | `string \| undefined` | Get a single query parameter |
-| `queryParams(name)` | `string[]` | Get all values for a query parameter |
+| `req.queryParam(name)` | `string \| undefined` | クエリパラメータを1つ取得 |
+| `req.queryParams(name)` | `string[]` | クエリパラメータの全ての値を取得 |
 
-### Headers
+### Headers {#headers}
 
 ```typescript
 import { Controller, Get, request, response } from '@zeltjs/core';
@@ -46,11 +46,11 @@ export class ApiController {
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `header(name)` | `string \| undefined` | Get a request header value |
+| `req.header(name)` | `string \| undefined` | リクエストヘッダーの値を取得 |
 
-### Cookies
+### Cookies {#cookies}
 
 ```typescript
 import { Controller, Get, request, response } from '@zeltjs/core';
@@ -65,11 +65,11 @@ export class SessionController {
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `cookie(name)` | `string \| undefined` | Get a cookie value |
+| `req.cookie(name)` | `string \| undefined` | Cookieの値を取得 |
 
-### URL & Path
+### URL & Path {#url--path}
 
 ```typescript
 import { Controller, Get, request, response } from '@zeltjs/core';
@@ -90,15 +90,37 @@ export class DebugController {
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `url()` | `string` | Full request URL including query string |
-| `path()` | `string` | Request path without query string |
-| `method()` | `string` | HTTP method (GET, POST, etc.) |
+| `req.url()` | `string` | クエリ文字列を含む完全なリクエストURL |
+| `req.path()` | `string` | クエリ文字列を除いたリクエストパス |
+| `req.method()` | `string` | HTTPメソッド(GET、POSTなど) |
 
-### Request Body
+### Client IP {#client-ip}
 
 ```typescript
+import { Controller, Get, request, response } from '@zeltjs/core';
+
+@Controller('/debug')
+export class DebugController {
+  @Get('/ip')
+  clientIp(req = request(), res = response()) {
+    const ip = req.ip();
+    return res.json({ ip });
+  }
+}
+```
+
+| Method | Return Type | Description |
+|----------|-------------|-------------|
+| `req.ip()` | `string \| undefined` | クライアントのIPアドレス |
+
+### Request Body {#request-body}
+
+リクエストボディのtargetは`request()`を呼び出す際に設定します。パースされたボディを読むには`await req.body()`を使います。schemaを渡さない場合、`request()`は内部的なany schemaとデフォルトの`json` targetを使います。
+
+```typescript
+// @noErrors
 import { Controller, Post, request, response } from '@zeltjs/core';
 import * as v from 'valibot';
 
@@ -120,19 +142,17 @@ export class UploadController {
 }
 ```
 
-The request body target is configured when calling `request()`. When no schema is passed, `request()` uses an internal any schema and the default `json` target.
-
-| Type | Return Type | Description |
+| `request()` call | `await req.body()` type | Description |
 |------|-------------|-------------|
-| `request()` | `unknown` | Parsed JSON body with the default any schema |
-| `request(schema)` | schema output | Validated JSON body |
-| `request(schema, { target: 'form' })` | schema output | Validated form data |
+| `request()` | `unknown` | デフォルトのany schemaでパースされたJSONボディ |
+| `request(schema)` | schema output | バリデーション済みのJSONボディ |
+| `request(schema, { target: 'form' })` | schema output | バリデーション済みのフォームデータ |
 
 :::tip
-For validated request bodies with automatic type inference, use [`request()` with a schema](./validation.md) instead.
+自動的な型推論付きでバリデーション済みのリクエストボディを扱うには、代わりに[schemaを渡した`request()`](./validation.md)を使ってください。
 :::
 
-### Path Parameters
+### Path Parameters {#path-parameters}
 
 ```typescript
 import { Controller, Get, request, response } from '@zeltjs/core';
@@ -142,49 +162,21 @@ export class UserController {
   @Get('/:id')
   getUser(req = request(), res = response()) {
     const id = req.pathParam('id');
+    // id: string(未定義の場合は例外を投げる)
     return res.json({ userId: id });
   }
 }
 ```
 
-| Function | Return Type | Description |
+| Method | Return Type | Description |
 |----------|-------------|-------------|
-| `pathParam(name)` | `string` | Get a path parameter (throws if undefined) |
+| `req.pathParam(name)` | `string` | パスパラメータを取得(未定義の場合は例外を投げる) |
 
-## Response Primitives
+## Response Primitives {#response-primitives}
 
-### response()
+### response() {#response}
 
-The `response()` primitive returns a builder for constructing HTTP responses:
-
-```typescript
-import { Controller, Get, request, response } from '@zeltjs/core';
-
-@Controller('/users')
-export class UserController {
-  @Get('/:id')
-  getUser(req = request(), res = response()) {
-    const id = req.pathParam('id');
-    // id: string (throws if not defined)
-    return res.json({ userId: id });
-  }
-}
-```
-
-### Response Methods
-
-| Method | Description |
-|--------|-------------|
-| `json(data, status?, headers?)` | JSON response with optional status code and headers |
-| `text(data, status?)` | Plain text response |
-| `redirect(url, status?)` | HTTP redirect (default: 302) |
-| `body(data, status?)` | Raw body response |
-| `header(name, value)` | Set a response header (chainable) |
-| `stream(cb, onError?)` | Stream binary data |
-| `streamText(cb, onError?)` | Stream text data |
-| `sse(cb, onError?)` | Server-Sent Events stream |
-
-### Setting Cookies
+`response()`primitiveは、HTTPレスポンスを構築するためのbuilderを返します:
 
 ```typescript
 import { Controller, Get, Post, response } from '@zeltjs/core';
@@ -213,25 +205,20 @@ export class ApiController {
 }
 ```
 
-### Cookie Options
+### Response Methods {#response-methods}
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `domain` | `string` | Cookie domain |
-| `expires` | `Date` | Expiration date |
-| `httpOnly` | `boolean` | HTTP-only flag |
-| `maxAge` | `number` | Max age in seconds |
-| `path` | `string` | Cookie path |
-| `secure` | `boolean` | Secure flag |
-| `sameSite` | `'Strict' \| 'Lax' \| 'None'` | SameSite attribute |
+| Method | Description |
+|--------|-------------|
+| `json(data, status?, headers?)` | ステータスコードとヘッダーを任意で指定できるJSONレスポンス |
+| `text(data, status?)` | プレーンテキストレスポンス |
+| `redirect(url, status?)` | HTTPリダイレクト(デフォルト: 302) |
+| `body(data, status?)` | 生のボディレスポンス |
+| `header(name, value)` | レスポンスヘッダーを設定(チェーン可能) |
+| `stream(cb, onError?)` | バイナリデータをストリーム |
+| `streamText(cb, onError?)` | テキストデータをストリーム |
+| `sse(cb, onError?)` | Server-Sent Eventsストリーム |
 
-## Streaming Responses
-
-Zelt provides streaming capabilities for real-time data delivery.
-
-### Basic Streaming
-
-Use `stream()` for binary data or `streamText()` for text data:
+### Setting Cookies {#setting-cookies}
 
 ```typescript
 import { Controller, Post, response } from '@zeltjs/core';
@@ -245,7 +232,7 @@ export class AuthController {
         httpOnly: true,
         secure: true,
         sameSite: 'Strict',
-        maxAge: 60 * 60 * 24, // 1 day
+        maxAge: 60 * 60 * 24, // 1日
       })
       .json({ success: true });
   }
@@ -259,14 +246,25 @@ export class AuthController {
 }
 ```
 
-## Streaming Responses
+### Cookie Options {#cookie-options}
 
-Zelt provides streaming capabilities for real-time data delivery.
+| Option | Type | Description |
+|--------|------|-------------|
+| `domain` | `string` | Cookieのドメイン |
+| `expires` | `Date` | 有効期限 |
+| `httpOnly` | `boolean` | HTTP-onlyフラグ |
+| `maxAge` | `number` | 有効期限(秒) |
+| `path` | `string` | Cookieのパス |
+| `secure` | `boolean` | Secureフラグ |
+| `sameSite` | `'Strict' \| 'Lax' \| 'None'` | SameSite属性 |
 
-### Basic Streaming
+## Streaming Responses {#streaming-responses}
 
-Use `stream()` for binary data or `streamText()` for text data:
+Zeltはリアルタイムデータ配信のためのストリーミング機能を提供します。
 
+### Basic Streaming {#basic-streaming}
+
+バイナリデータには`stream()`、テキストデータには`streamText()`を使います:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -294,9 +292,9 @@ export class StreamController {
 }
 ```
 
-### Server-Sent Events (SSE)
+### Server-Sent Events (SSE) {#server-sent-events-sse}
 
-Use `sse()` for Server-Sent Events:
+Server-Sent Eventsには`sse()`を使います:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -323,20 +321,20 @@ export class EventController {
 }
 ```
 
-### Stream Writer Methods
+### Stream Writer Methods {#stream-writer-methods}
 
 | Method | Description |
 |--------|-------------|
-| `write(input)` | Write `Uint8Array` or `string` to stream |
-| `writeln(input)` | Write string with newline |
-| `writeSSE(message)` | Write SSE message (SSE streams only) |
-| `sleep(ms)` | Pause for specified milliseconds |
-| `pipe(body)` | Pipe a `ReadableStream` |
-| `close()` | Close the stream |
-| `abort()` | Abort the stream |
-| `onAbort(listener)` | Register abort handler |
+| `write(input)` | `Uint8Array`または`string`をストリームへ書き込む |
+| `writeln(input)` | 改行付きで文字列を書き込む |
+| `writeSSE(message)` | SSEメッセージを書き込む(SSEストリームのみ) |
+| `sleep(ms)` | 指定ミリ秒だけ一時停止 |
+| `pipe(body)` | `ReadableStream`をパイプする |
+| `close()` | ストリームを閉じる |
+| `abort()` | ストリームを中断する |
+| `onAbort(listener)` | 中断ハンドラを登録する |
 
-### SSE Message Format
+### SSE Message Format {#sse-message-format}
 
 ```typescript
 type SSEMessage = {
@@ -347,9 +345,9 @@ type SSEMessage = {
 };
 ```
 
-### Error Handling
+### Error Handling {#error-handling}
 
-Streaming methods accept an optional error handler:
+両方のストリーミングメソッドは、任意のエラーハンドラを受け付けます:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -360,7 +358,7 @@ class StreamController {
   streamData(res = response()) {
     return res.stream(
       async (stream) => {
-        // ... stream logic
+        // ... streamロジック
       },
       async (error, stream) => {
         await stream.write(`Error: ${error.message}`);
@@ -371,9 +369,9 @@ class StreamController {
 }
 ```
 
-## Chaining Response Methods
+## Chaining Response Methods {#chaining-response-methods}
 
-Response methods that modify state (`header`, `setCookie`, `deleteCookie`) return the builder, allowing method chaining:
+状態を変更するResponseメソッド(`header`、`setCookie`、`deleteCookie`)はbuilderを返すため、メソッドチェーンが可能です:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -385,7 +383,8 @@ class FileController {
     return res
       .header('Content-Disposition', 'attachment; filename="report.csv"')
       .header('Cache-Control', 'no-cache')
-      .body('id,name\n1,Alice', 200);
+      .setCookie('download_started', 'true')
+      .text('id,name\n1,Alice\n2,Bob');
   }
 }
 ```

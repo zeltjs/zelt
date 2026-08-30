@@ -175,25 +175,15 @@ These types define the structure of error responses:
 
 ## Error Handling Flow
 
-```
-Request
-  │
-  ▼
-Middleware chain
-  │
-  ▼
-Route handler ─── throws HTTPException ──► HTTPException.getResponse()
-  │                                                │
-  │                                                ▼
-  │                                        Custom error response
-  │
-  ├─── throws Error ──► handleError()
-  │                           │
-  │                           ▼
-  │                    500 INTERNAL_ERROR
-  │
-  ▼
-Success response
+```mermaid
+flowchart TD
+  REQ["Request"] --> MW["Middleware chain"]
+  MW --> RH["Route handler"]
+  RH -- "throws HTTPException" --> GETRESP["HTTPException.getResponse()"]
+  GETRESP --> CUSTOM["Custom error response"]
+  RH -- "throws Error" --> HANDLE["handleError()"]
+  HANDLE --> ERR500["500 INTERNAL_ERROR"]
+  RH --> SUCCESS["Success response"]
 ```
 
 ## Custom Error Handlers

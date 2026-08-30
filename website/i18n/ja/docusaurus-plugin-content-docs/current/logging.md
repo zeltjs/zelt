@@ -1,13 +1,13 @@
 ---
 ---
 
-# Logging
+# ロギング
 
-Zelt provides a built-in `Logger` module with structured logging, configurable transports, and context propagation.
+Zeltは、構造化ログ、設定可能なtransport、コンテキスト伝播を備えた組み込みの `Logger` モジュールを提供します。
 
-## Basic Usage
+## 基本的な使い方 {#basic-usage}
 
-Inject the `Logger` into your services or controllers:
+`Logger` をserviceやcontrollerにinjectします:
 
 ```typescript
 import { Injectable, inject, Logger } from '@zeltjs/core';
@@ -20,7 +20,7 @@ export class OrderService {
     this.logger.info(`Processing order: ${orderId}`);
 
     try {
-      // ... process order
+      // ... 注文を処理する
       this.logger.debug('Order validation passed');
     } catch (error) {
       this.logger.error(`Failed to process order: ${orderId}`);
@@ -30,22 +30,22 @@ export class OrderService {
 }
 ```
 
-## Log Levels
+## ログレベル {#log-levels}
 
-The Logger supports four log levels in order of severity:
+Loggerは、深刻度の順に4つのログレベルをサポートします:
 
-| Level   | Method           | Description                     |
+| レベル   | メソッド           | 説明                     |
 | ------- | ---------------- | ------------------------------- |
-| `debug` | `logger.debug()` | Detailed debugging information  |
-| `info`  | `logger.info()`  | General informational messages  |
-| `warn`  | `logger.warn()`  | Warning messages                |
-| `error` | `logger.error()` | Error messages                  |
+| `debug` | `logger.debug()` | 詳細なデバッグ情報  |
+| `info`  | `logger.info()`  | 一般的な情報メッセージ  |
+| `warn`  | `logger.warn()`  | 警告メッセージ                |
+| `error` | `logger.error()` | エラーメッセージ                  |
 
-Messages are only output if their level is equal to or higher than the configured level. For example, with `level: 'info'`, `debug()` messages are suppressed.
+メッセージは、設定されたレベル以上の場合にのみ出力されます。例えば `level: 'info'` の場合、`debug()` メッセージは抑制されます。
 
-## Structured Logging
+## 構造化ログ {#structured-logging}
 
-Pass context as the second argument to include structured data:
+構造化データを含めるには、第2引数としてコンテキストを渡します:
 
 ```typescript
 import { inject, Logger } from '@zeltjs/core';
@@ -53,12 +53,12 @@ const logger = inject(Logger);
 const orderId = '123', userId = '456';
 // ---cut---
 logger.info('Order processed', { orderId, userId, duration: 150 });
-// Output: 13:45:23 INFO  Order processed {"orderId":"123","userId":"456","duration":150}
+// 出力: 13:45:23 INFO  Order processed {"orderId":"123","userId":"456","duration":150}
 ```
 
-## Child Loggers
+## 子Logger {#child-loggers}
 
-Create child loggers with bound context that persists across all log calls:
+すべてのログ呼び出しにわたって永続する、バインドされたコンテキストを持つ子loggerを作成します:
 
 ```typescript
 import { Injectable, inject, Logger } from '@zeltjs/core';
@@ -74,14 +74,14 @@ export class OrderService {
   processOrder(orderId: string) {
     const orderLogger = this.logger.child({ orderId });
     orderLogger.info('Processing started');
-    // Output includes: {"service":"OrderService","orderId":"123"}
+    // 出力に含まれる: {"service":"OrderService","orderId":"123"}
   }
 }
 ```
 
-## Global Context with withLogContext
+## withLogContextによるグローバルコンテキスト {#global-context-with-withlogcontext}
 
-Use `withLogContext` to propagate context across async boundaries using `AsyncLocalStorage`:
+`AsyncLocalStorage` を使ってasyncの境界をまたいでコンテキストを伝播するには `withLogContext` を使います:
 
 ```typescript
 import { withLogContext, Logger, inject } from '@zeltjs/core';
@@ -92,16 +92,16 @@ const logger = inject(Logger);
 
 withLogContext({ requestId: 'abc-123' }, () => {
   logger.info('Request received');
-  // Context is automatically included in all logs within this scope
+  // このスコープ内のすべてのログには自動的にコンテキストが含まれる
   someService.process();
 });
 ```
 
-## Configuration
+## 設定 {#configuration}
 
-### Basic Configuration
+### 基本設定 {#basic-configuration}
 
-Configure the Logger using `LoggerConfig`:
+`LoggerConfig` を使ってLoggerを設定します:
 
 ```typescript
 import {
@@ -136,9 +136,9 @@ export class AppLoggerConfig extends LoggerConfig {
 }
 ```
 
-### Using PrettyFormatter
+### PrettyFormatterの利用 {#using-prettyformatter}
 
-For human-readable output in development, use `PrettyFormatter`:
+開発環境で人間が読みやすい出力にするには、`PrettyFormatter` を使います:
 
 ```typescript
 import {
@@ -170,14 +170,14 @@ export class DevLoggerConfig extends LoggerConfig {
 }
 ```
 
-`PrettyFormatter` outputs colored logs in TTY environments:
+`PrettyFormatter` はTTY環境で色付きのログを出力します:
 
 ```
 13:45:23 INFO  Order processed {"orderId":"123"}
 13:45:23 ERROR Failed to process {"error":"timeout"}
 ```
 
-Register the config when creating the app:
+アプリ作成時にconfigを登録します:
 
 ```typescript
 import { createApp, Config, LoggerConfig, Controller, Get, http } from '@zeltjs/core';
@@ -190,33 +190,33 @@ const app = createApp([http({
   })], { configs: [AppLoggerConfig] });
 ```
 
-## Transports and Formatters
+## TransportとFormatter {#transports-and-formatters}
 
-The Logger uses a pluggable transport/formatter architecture:
+Loggerはpluggableなtransport/formatterアーキテクチャを使用します:
 
-| Component           | Description                                    |
+| コンポーネント           | 説明                                    |
 | ------------------- | ---------------------------------------------- |
-| `ConsoleTransport`  | Writes to stdout/stderr                        |
-| `JsonlFormatter`    | JSON Lines format (one JSON object per line)   |
-| `PrettyFormatter`   | Human-readable format with optional colors     |
+| `ConsoleTransport`  | stdout/stderrへ書き込む                        |
+| `JsonlFormatter`    | JSON Linesフォーマット(1行に1つのJSONオブジェクト)   |
+| `PrettyFormatter`   | 色をオプションとする人間が読みやすいフォーマット     |
 
-### Custom Transport
+### カスタムTransport {#custom-transport}
 
-Implement `LoggerTransport` for custom output destinations:
+カスタム出力先には `LoggerTransport` を実装します:
 
 ```typescript
 import type { LoggerTransport } from '@zeltjs/core';
 
 export class FileTransport implements LoggerTransport {
   write(message: string): void {
-    // Write to file
+    // ファイルに書き込む
   }
 }
 ```
 
-### Custom Formatter
+### カスタムFormatter {#custom-formatter}
 
-Implement `LoggerFormatter` for custom output formats:
+カスタム出力フォーマットには `LoggerFormatter` を実装します:
 
 ```typescript
 import type { LoggerFormatter, LogEntry } from '@zeltjs/core';
@@ -228,9 +228,9 @@ export class CustomFormatter implements LoggerFormatter {
 }
 ```
 
-## Default Behavior
+## デフォルトの挙動 {#default-behavior}
 
-Without custom configuration:
-- Level: `'info'` (debug messages are suppressed)
+カスタム設定がない場合:
+- レベル: `'info'`(debugメッセージは抑制される)
 - Transport: `ConsoleTransport`
 - Formatter: `JsonlFormatter`

@@ -4,19 +4,19 @@ sidebar_position: 2
 
 # User Context
 
-Zelt provides request-scoped functions to access and manage the authenticated user.
+Zeltは、認証済みユーザーへアクセスし管理するための、request-scopedな関数を提供します。
 
-## Core Functions
+## Core Functions {#core-functions}
 
-| Function | Description |
+| 関数 | 説明 |
 |----------|-------------|
-| `setUser(user, roles)` | Set the authenticated user (call in middleware) |
-| `currentUser()` | Get the current user (returns `undefined` if not authenticated) |
-| `currentRoles()` | Get the current user's roles (returns `[]` if not authenticated) |
+| `setUser(user, roles)` | 認証済みユーザーを設定する(middlewareで呼び出す) |
+| `currentUser()` | 現在のユーザーを取得する(未認証なら `undefined` を返す) |
+| `currentRoles()` | 現在のユーザーのroleを取得する(未認証なら `[]` を返す) |
 
-## Setting the User
+## ユーザーを設定する {#setting-the-user}
 
-Call `setUser()` in your authentication middleware after validating credentials:
+認証情報を検証した後、認証middleware内で `setUser()` を呼び出します。
 
 ```typescript
 import { Middleware, request, setUser, type Next } from '@zeltjs/core';
@@ -41,16 +41,16 @@ export class AuthMiddleware {
 }
 ```
 
-### Parameters
+### Parameters {#parameters}
 
-- **user** — Any object representing the authenticated user
-- **roles** — Array of role strings (e.g., `['admin', 'user']`)
+- **user** — 認証済みユーザーを表す任意のオブジェクト
+- **roles** — role文字列の配列(例: `['admin', 'user']`)
 
-## Accessing the User
+## ユーザーへアクセスする {#accessing-the-user}
 
-### In Route Handlers
+### Route Handler内で {#in-route-handlers}
 
-Use `currentUser()` to access the authenticated user:
+認証済みユーザーへアクセスするには `currentUser()` を使います。
 
 ```typescript
 import { Controller, Get, currentUser, currentRoles } from '@zeltjs/core';
@@ -72,9 +72,9 @@ class ProfileController {
 }
 ```
 
-### With Default Parameters
+### デフォルト引数を使う {#with-default-parameters}
 
-For cleaner handler signatures, use default parameters:
+ハンドラーのシグネチャをすっきりさせるには、デフォルト引数を使います。
 
 ```typescript
 import { Controller, Get, currentUser } from '@zeltjs/core';
@@ -88,13 +88,13 @@ class ProfileController {
 }
 ```
 
-## Type-Safe User Context
+## 型安全なUser Context {#type-safe-user-context}
 
-By default, `currentUser()` returns `Record<string, unknown>`. Extend `RequestContextSchema` via declaration merging to get full type safety:
+デフォルトでは、`currentUser()` は `Record<string, unknown>` を返します。宣言のマージ(declaration merging)を使って `RequestContextSchema` を拡張すると、完全な型安全性が得られます。
 
 ```typescript
 // @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
 import '@zeltjs/core';
 // ---cut---
 declare module '@zeltjs/core' {
@@ -109,11 +109,11 @@ declare module '@zeltjs/core' {
 }
 ```
 
-Now all user-related functions are typed:
+これで、ユーザーに関連するすべての関数に型が付きます。
 
 ```typescript
 // @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
 import '@zeltjs/core';
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
@@ -125,25 +125,25 @@ declare module '@zeltjs/core' {
 import { currentUser, currentRoles, setUser } from '@zeltjs/core';
 
 const user = currentUser();
-// TypeScript knows: user?.id, user?.name, user?.email
+// TypeScriptはuser?.id、user?.name、user?.emailを認識する
 
 const roles = currentRoles();
-// TypeScript knows: roles is ('admin' | 'editor' | 'user')[]
+// TypeScriptはrolesが('admin' | 'editor' | 'user')[]であると認識する
 
 setUser(
   { id: '123', name: 'Alice', email: 'alice@example.com' },
   ['admin', 'user']
 );
-// Type-checked against RequestContextSchema
+// RequestContextSchemaに対して型チェックされる
 ```
 
-### Where to Put the Type Declaration
+### 型宣言をどこに置くか {#where-to-put-the-type-declaration}
 
-Create a `types/zelt.d.ts` file in your project:
+プロジェクトに `types/zelt.d.ts` ファイルを作成します。
 
 ```typescript
 // @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
 // types/zelt.d.ts
 import '@zeltjs/core';
 // ---cut---
@@ -162,7 +162,7 @@ declare module '@zeltjs/core' {
 export {};
 ```
 
-Make sure your `tsconfig.json` includes this file:
+`tsconfig.json` がこのファイルをincludeしていることを確認してください。
 
 ```json
 {
@@ -170,15 +170,15 @@ Make sure your `tsconfig.json` includes this file:
 }
 ```
 
-## User Design Best Practices
+## User設計のBest Practices {#user-design-best-practices}
 
-### Keep It Minimal
+### 最小限に保つ {#keep-it-minimal}
 
-Only include fields you need in handlers. Don't copy the entire database record:
+ハンドラーで必要なフィールドだけを含めます。データベースレコード全体をコピーしないでください。
 
 ```typescript
 // ---cut---
-// ✅ Good — minimal context
+// ✅ Good — 最小限のcontext
 interface RequestContextSchemaGood {
   user: {
     id: string;
@@ -186,28 +186,28 @@ interface RequestContextSchemaGood {
   };
 }
 
-// ❌ Avoid — too much data
+// ❌ Avoid — データが多すぎる
 interface RequestContextSchemaBad {
   user: {
     id: string;
     name: string;
     email: string;
-    passwordHash: string;  // Never include sensitive data
+    passwordHash: string;  // 機微なデータは含めない
     createdAt: Date;
     updatedAt: Date;
     preferences: object;
-    // ... 20 more fields
+    // ...さらに20個のフィールド
   };
 }
 ```
 
-### Fetch Additional Data When Needed
+### 必要な時に追加データを取得する {#fetch-additional-data-when-needed}
 
-Use the user ID to fetch more data in specific handlers:
+特定のハンドラー内で、ユーザーIDを使ってより多くのデータを取得します。
 
 ```typescript
 // @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
 import '@zeltjs/core';
 declare module '@zeltjs/core' {
   interface RequestContextSchema {
@@ -241,24 +241,24 @@ class SettingsController {
 }
 ```
 
-### Consider Role Granularity
+### Roleの粒度を考える {#consider-role-granularity}
 
-Roles should be simple strings. Complex permission logic belongs in services:
+roleはシンプルな文字列にすべきです。複雑な権限ロジックはサービス層に置きます。
 
 ```typescript
 // ---cut---
-// ✅ Good — simple roles
+// ✅ Good — シンプルなrole
 type GoodRoles = ('admin' | 'editor' | 'viewer')[];
 
-// ❌ Avoid — overly specific roles
+// ❌ Avoid — 過度に具体的なrole
 type BadRoles = ('can_edit_posts' | 'can_delete_posts' | 'can_view_analytics')[];
 ```
 
-For fine-grained permissions, check roles in your service layer:
+きめ細かい権限が必要な場合は、サービス層でroleをチェックします。
 
 ```typescript
 // @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
 import '@zeltjs/core';
 declare module '@zeltjs/core' {
   interface RequestContextSchema {

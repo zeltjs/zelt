@@ -2,38 +2,28 @@
 sidebar_label: Bun
 ---
 
-# Bun で始める
+import Prerequisites from './_partials/prerequisites.mdx';
+import FolderStructure from './_partials/folder-structure.mdx';
 
-このガイドでは、Bun 上で Zelt アプリケーションを構築する方法を説明します。
+# Bunではじめる
 
-## 前提条件
+このガイドでは、Bun上でZeltアプリケーションをゼロから構築する手順を説明します。
 
-- [Bun](https://bun.sh/) v1.0 以上
+<Prerequisites />
 
-## インストール
+## インストール {#installation}
 
 ```bash
 bun add @zeltjs/core @zeltjs/adapter-bun
 ```
 
-## プロジェクト構成
+<FolderStructure />
 
-```
-my-app/
-├── src/
-│   ├── app.ts
-│   ├── index.ts
-│   └── controllers/
-│       └── hello.controller.ts
-├── package.json
-└── tsconfig.json
-```
+## Hello World {#hello-world}
 
-## Hello World
+### Step 1: Controllerを作成する {#step-1-create-the-controller}
 
-### Step 1: コントローラーの作成
-
-`src/controllers/hello.controller.ts` を作成します：
+`src/entry/controllers/hello.controller.ts` を作成します:
 
 ```typescript
 // @noErrors
@@ -49,9 +39,9 @@ export class HelloController {
 }
 ```
 
-### Step 2: アプリケーションの作成
+### Step 2: アプリケーションを作成する {#step-2-create-the-application}
 
-`src/app.ts` を作成します：
+`src/app.ts` を作成します:
 
 ```typescript
 // @noErrors
@@ -67,9 +57,9 @@ export const app = createApp([http({
   })]);
 ```
 
-### Step 3: エントリーポイントの作成
+### Step 3: entryを作成する {#step-3-create-the-entry-point}
 
-`src/index.ts` を作成します：
+`src/index.ts` を作成します:
 
 ```typescript
 // @noErrors
@@ -90,28 +80,28 @@ const server = bunApp.http.serve({ port: 3000 });
 console.log(`Server running at http://${server.address.hostname}:${server.address.port}`);
 ```
 
-`onBun()` 関数は Bun ランタイム用にアプリを準備します。以下のオブジェクトを返します：
+`onBun()` 関数はアプリをBunランタイム用に準備します。返されるオブジェクトには以下が含まれます:
 
-- `http.serve(options?)` — `Bun.serve()` を使用して HTTP サーバーを起動
-- `shutdown()` — アプリケーションをグレースフルにシャットダウン
-- `get<T>(Class)` — DI コンテナからサービスを解決
-- `args` — コマンドライン引数 (`Bun.argv.slice(2)`)
+- `serve(options?)` — `Bun.serve()` を使ってHTTPサーバーを起動します
+- `shutdown()` — アプリケーションをgracefulにシャットダウンします
+- `get<T>(Class)` — DIコンテナからserviceを解決します
+- `args` — コマンドライン引数(`Bun.argv.slice(2)`)
 
-### Step 4: サーバーの起動
+### Step 4: サーバーを起動する {#step-4-run-the-server}
 
 ```bash
 bun run src/index.ts
 ```
 
-`http://localhost:3000/hello/world` にアクセスすると：
+`http://localhost:3000/hello/world` にアクセスすると、次のように表示されます:
 
 ```json
 { "message": "Hello, world!" }
 ```
 
-## サーバーオプション
+## サーバーオプション {#server-options}
 
-`http.serve()` メソッドはポートとホスト名のオプションを受け付けます：
+`serve()` メソッドはportとhostnameのオプションを受け取ります:
 
 ```typescript
 // @noErrors
@@ -134,13 +124,13 @@ const server = bunApp.http.serve({
 ```
 
 | オプション | デフォルト | 説明 |
-|-----------|-----------|------|
-| `port` | `3000` | リッスンするポート |
-| `hostname` | `'0.0.0.0'` | バインドするホスト名 |
+|--------|---------|-------------|
+| `port` | `3000` | 待ち受けるport |
+| `hostname` | `'0.0.0.0'` | バインドするhostname |
 
-## コマンドサポート
+## コマンドサポート {#command-support}
 
-アプリにコマンドが含まれている場合、`onBun()` は CLI 実行用の機能を `commands` namespace に保持します：
+アプリにcommandが含まれる場合、`onBun()` はCLI実行のためにcommand機能を `commands` namespaceの下に保持します:
 
 ```typescript
 // @noErrors
@@ -163,14 +153,14 @@ const app = createApp([http({ controllers: [HelloController] }), command([GreetC
 const bunApp = await onBun(app);
 
 const result = await bunApp.commands.execCommand(['greet', 'world']);
-console.log(result.exitCode); // 0 or 1
+console.log(result.exitCode); // 0 または 1
 ```
 
-## ウォームアップオプション
+## Warmupオプション {#warmup-option}
 
-デフォルトでは、`onBun()` は即時初期化（`warmup: true`）を使用します — すべてのコントローラーが起動時に解決されます。
+`onBun()` はデフォルトで即時初期化(`warmup: true`)を使用します — 全controllerが起動時に解決されます。
 
-遅延初期化（最初のリクエストでコントローラーを解決）の場合：
+遅延初期化(controllerは最初のリクエスト時に解決)にするには:
 
 ```typescript
 // @noErrors
@@ -188,13 +178,13 @@ const app = createApp([http({ controllers: [HelloController] })]);
 const bunApp = await onBun(app, { warmup: false });
 ```
 
-| オプション | 動作 | ユースケース |
-|-----------|------|-------------|
-| `warmup: true`（デフォルト） | 起動時にすべてのコントローラーを解決 | 長時間稼働サーバー |
-| `warmup: false` | 最初のリクエストでコントローラーを解決 | コールドスタート最適化 |
+| オプション | 挙動 | 用途 |
+|--------|----------|----------|
+| `warmup: true`(デフォルト) | 全controllerが起動時に解決される | 長時間稼働するサーバー |
+| `warmup: false` | controllerは最初のリクエスト時に解決される | コールドスタートの最適化 |
 
-## 次のステップ
+## 次のステップ {#whats-next}
 
-- [コントローラー](../controllers) — ルート処理と HTTP メソッド
-- [サービス](../services) — ビジネスロジックと依存性注入
-- [コマンド](../command) — CLI コマンド
+- [Controllers](../controllers) — ルーティングとHTTPメソッド
+- [Services](../services) — ビジネスロジックと依存性注入
+- [Commands](../command) — CLIコマンド
