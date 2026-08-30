@@ -23,7 +23,44 @@ html, body, #root { height: 100%; margin: 0; font-family: ui-sans-serif, system-
 .kind-service .badge { background: #e2e8f0; color: #334155; }
 .unresolved { border-style: dashed; border-color: #ef4444; }
 .folder { width: 100%; height: 100%; border: 1px dashed #94a3b8; border-radius: 12px; background: rgba(241, 245, 249, 0.5); }
-.folder-label { display: block; padding: 6px 10px; font-family: ui-monospace, monospace; font-size: 10px; color: #64748b; }
+.folder-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 6px 4px 10px; }
+.folder-label { font-family: ui-monospace, monospace; font-size: 10px; color: #64748b; }
+.folder-collapse-btn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  line-height: 1;
+  padding: 0;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 11px;
+  cursor: pointer;
+}
+.folder-collapse-btn:hover { background: #e2e8f0; }
+/* 折りたたみグループの合成ノード。folder の視覚言語（点線・くすんだ配色）を引き継ぎつつ、
+   card と混同しないよう実線の塗りつぶしにして「1 枚に束ねられた」印象にする */
+.module {
+  width: 240px;
+  height: 80px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px dashed #94a3b8;
+  background: #eef2f7;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.module:hover { background: #e2e8f0; }
+.module-expand { align-self: flex-end; font-size: 11px; color: #64748b; margin-top: -18px; }
+.module strong { font-size: 13px; color: #334155; word-break: break-all; }
+.module small { color: #6b7280; font-size: 10px; }
 /* read-only 表示のため接続ハンドルは不可視化する（エッジ描画自体には Handle が必要） */
 .react-flow__handle { opacity: 0; pointer-events: none; }
 .react-flow__edge.edge-applies-middleware .react-flow__edge-path { stroke: #10b981; stroke-dasharray: 6 4; }

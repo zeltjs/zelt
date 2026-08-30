@@ -1,11 +1,20 @@
 import type { Edge, Node, NodeProps } from '@xyflow/react';
 import { Background, Controls, Handle, Position, ReactFlow } from '@xyflow/react';
 import type { JSX } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import type { DependencyGraph } from '../../src/studio/graph/graph.types';
+import { dirOf } from './collapse.lib';
 import { hideNodeModules } from './graph-filter.lib';
-import type { CardData, FlowNode, GroupData } from './graph-to-flow.lib';
+import type { CardData, FlowNode, GroupData, ModuleData } from './graph-to-flow.lib';
 import { graphToFlow } from './graph-to-flow.lib';
 import { findGraphNode } from './inspector.lib';
 import { InspectorPanel } from './inspector-panel';
@@ -13,8 +22,11 @@ import { applyStudioNodeChanges } from './node-changes.lib';
 import type { PositionScope } from './positions.lib';
 import { loadPositions, savePosition } from './positions.lib';
 import {
+  defaultCollapsedDirs,
+  loadCollapsedDirs,
   loadGroupByFolder,
   loadHideNodeModules,
+  saveCollapsedDirs,
   saveGroupByFolder,
   saveHideNodeModules,
 } from './settings.lib';
@@ -34,14 +46,64 @@ const CardNode = ({ data }: NodeProps<Node<CardData, 'card'>>): JSX.Element => (
   </div>
 );
 
-// フォルダは表示上のグルーピング枠のみで、エッジは card 間にしか引かれないため Handle 不要
-const FolderNode = ({ data }: NodeProps<Node<GroupData, 'folder'>>): JSX.Element => (
-  <div className="folder">
-    <span className="folder-label">{data.label}</span>
-  </div>
-);
+// nodeTypes はモジュールスコープで一度だけ定義する必要がある（毎レンダー再生成すると
+// React Flow が custom node を再マウントする）ため、折りたたみトグルは props でなく
+// context 経由で FolderNode/ModuleNode に注入する
+const CollapseToggleContext = createContext<(dir: string) => void>(() => {});
 
-const nodeTypes = { card: CardNode, folder: FolderNode };
+// メンバーはクラス単位のため "1 class" / "N classes" で表記する
+const classCountLabel = (count: number): string => `${count} ${count === 1 ? 'class' : 'classes'}`;
+
+// フォルダは表示上のグルーピング枠。エッジは card 間にしか引かれないため Handle 不要。
+// data.label は pnpm ハッシュ等を短縮した表示用文字列のため、折りたたみ操作は data.dir（フルパス、collapsedDirs のキー）で行う
+const FolderNode = ({ data }: NodeProps<Node<GroupData, 'folder'>>): JSX.Element => {
+  const toggleCollapsed = useContext(CollapseToggleContext);
+  return (
+    <div className="folder">
+      <div className="folder-header">
+        <span className="folder-label" title={data.dir}>
+          {data.label}
+        </span>
+        <button
+          type="button"
+          className="folder-collapse-btn"
+          title={`Collapse ${data.dir}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleCollapsed(data.dir);
+          }}
+        >
+          −
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// 折りたたみグループの合成ノード。エッジがここへ束ねられるため card と同じく Handle が要る。
+// 表示は短縮ラベルのみなので、フルパスは title（ホバー）で確認できるようにする
+const ModuleNode = ({ data }: NodeProps<Node<ModuleData, 'module'>>): JSX.Element => {
+  const toggleCollapsed = useContext(CollapseToggleContext);
+  return (
+    <button
+      type="button"
+      className="module"
+      title={data.dir}
+      onClick={(event) => {
+        event.stopPropagation();
+        toggleCollapsed(data.dir);
+      }}
+    >
+      <Handle type="target" position={Position.Top} />
+      <span className="module-expand">+</span>
+      <strong>{data.label}</strong>
+      <small>{classCountLabel(data.memberCount)}</small>
+      <Handle type="source" position={Position.Bottom} />
+    </button>
+  );
+};
+
+const nodeTypes = { card: CardNode, folder: FolderNode, module: ModuleNode };
 
 // reload のカスタムヘッダは cross-site だと CORS preflight を通過できないため、
 // サーバ側の CSRF 判定（same-origin の証明）に使われる
@@ -72,6 +134,36 @@ const useToggleSetting = (
     [save],
   );
   return [value, toggle];
+};
+
+// 保存値が無い初回だけ、到着したグラフの dir 一覧から node_modules 系を自動折りたたみする。
+// 一度でも保存されていれば（空集合＝全展開を含め）以後はユーザーの選択を優先する
+const useCollapsedDirs = (
+  graph: DependencyGraph | undefined,
+): [ReadonlySet<string>, (dir: string) => void] => {
+  const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(
+    () => loadCollapsedDirs() ?? new Set(),
+  );
+  const hasAppliedDefault = useRef(loadCollapsedDirs() !== undefined);
+
+  useEffect(() => {
+    if (hasAppliedDefault.current || graph === undefined) return;
+    const dirs = Array.from(new Set(graph.nodes.map((node) => dirOf(node.filePath))));
+    setCollapsedDirs(defaultCollapsedDirs(dirs));
+    hasAppliedDefault.current = true;
+  }, [graph]);
+
+  const toggleDir = useCallback((dir: string) => {
+    setCollapsedDirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(dir)) next.delete(dir);
+      else next.add(dir);
+      saveCollapsedDirs(next);
+      return next;
+    });
+  }, []);
+
+  return [collapsedDirs, toggleDir];
 };
 
 const useGraphFetch = () => {
@@ -129,16 +221,18 @@ const useStudioGraph = () => {
     () => (graph === undefined ? undefined : hideModules ? hideNodeModules(graph) : graph),
     [graph, hideModules],
   );
+  const [collapsedDirs, toggleCollapsedDir] = useCollapsedDirs(filteredGraph);
 
-  // フィルタ/グルーピングトグル変更後に nodes/edges を再導出する
+  // フィルタ/グルーピング/折りたたみトグル変更後に nodes/edges を再導出する
   useEffect(() => {
     if (filteredGraph === undefined) return;
     const flow = graphToFlow(filteredGraph, loadPositions(positionScope), {
       grouped: groupByFolder,
+      collapsedDirs,
     });
     setNodes(flow.nodes);
     setEdges(flow.edges);
-  }, [filteredGraph, groupByFolder, positionScope]);
+  }, [filteredGraph, groupByFolder, positionScope, collapsedDirs]);
 
   return {
     nodes,
@@ -153,6 +247,7 @@ const useStudioGraph = () => {
     toggleGroupByFolder,
     positionScope,
     filteredGraph,
+    toggleCollapsedDir,
   };
 };
 
@@ -236,6 +331,7 @@ export const App = (): JSX.Element => {
     toggleGroupByFolder,
     positionScope,
     filteredGraph,
+    toggleCollapsedDir,
   } = useStudioGraph();
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   // フィルタ/リロードで消えたノードは自動的にパネルも消える（selectedId 自体はクリアしない）
@@ -255,14 +351,16 @@ export const App = (): JSX.Element => {
         onToggleGroupByFolder={toggleGroupByFolder}
       />
       {error !== undefined && <pre className="error">{error}</pre>}
-      <GraphCanvas
-        nodes={nodes}
-        edges={edges}
-        setNodes={setNodes}
-        positionScope={positionScope}
-        onSelect={setSelectedId}
-        onDeselect={() => setSelectedId(undefined)}
-      />
+      <CollapseToggleContext.Provider value={toggleCollapsedDir}>
+        <GraphCanvas
+          nodes={nodes}
+          edges={edges}
+          setNodes={setNodes}
+          positionScope={positionScope}
+          onSelect={setSelectedId}
+          onDeselect={() => setSelectedId(undefined)}
+        />
+      </CollapseToggleContext.Provider>
       {selectedNode !== undefined && (
         <InspectorPanel node={selectedNode} onClose={() => setSelectedId(undefined)} />
       )}

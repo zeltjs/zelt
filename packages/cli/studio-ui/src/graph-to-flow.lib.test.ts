@@ -132,6 +132,91 @@ describe('graphToFlow', () => {
     });
   });
 
+  describe('collapsed groups (grouped: true, collapsedDirs)', () => {
+    it('replaces member cards of a collapsed dir with a single module node reusing the folder id', () => {
+      const flow = graphToFlow(graph, {}, { grouped: true, collapsedDirs: new Set(['src/foo']) });
+
+      expect(flow.nodes.some((n) => n.id === 'src/foo/a.ts#A')).toBe(false);
+      expect(flow.nodes.some((n) => n.id === 'src/foo/c.ts#C')).toBe(false);
+      const moduleNode = flow.nodes.find((n) => n.id === 'folder:src/foo');
+      expect(moduleNode?.type).toBe('module');
+      expect(moduleNode?.data).toEqual(
+        expect.objectContaining({ label: 'src/foo', memberCount: 2 }),
+      );
+
+      // 折りたたまれていない dir は従来どおり folder subflow + card のまま
+      expect(flow.nodes.find((n) => n.id === 'folder:src/bar')?.type).toBe('folder');
+      expect(flow.nodes.some((n) => n.id === 'src/bar/b.ts#B')).toBe(true);
+    });
+
+    it('reuses saved positions keyed by the folder id for the module node', () => {
+      const flow = graphToFlow(
+        graph,
+        { 'folder:src/foo': { x: 321, y: 654 } },
+        { grouped: true, collapsedDirs: new Set(['src/foo']) },
+      );
+
+      const moduleNode = flow.nodes.find((n) => n.id === 'folder:src/foo');
+      expect(moduleNode?.position).toEqual({ x: 321, y: 654 });
+    });
+
+    it('routes edges through the collapsed group id and aggregates parallel edges with a count', () => {
+      const flow = graphToFlow(graph, {}, { grouped: true, collapsedDirs: new Set(['src/foo']) });
+
+      // a->c (共に src/foo) は自己ループとして消え、a->b は folder:src/foo -> B に丸め込まれる
+      expect(flow.edges).toHaveLength(1);
+      expect(flow.edges[0]).toEqual(
+        expect.objectContaining({ source: 'folder:src/foo', target: 'src/bar/b.ts#B' }),
+      );
+    });
+
+    it('is unaffected by collapsedDirs in flat mode', () => {
+      const flow = graphToFlow(graph, {}, { grouped: false, collapsedDirs: new Set(['src/foo']) });
+
+      expect(flow.nodes.some((n) => n.type === 'folder' || n.type === 'module')).toBe(false);
+      expect(flow.nodes).toHaveLength(3);
+    });
+
+    it('defaults to no collapse when collapsedDirs is omitted', () => {
+      const withOption = graphToFlow(graph, {}, { grouped: true });
+      expect(withOption.nodes.some((n) => n.type === 'module')).toBe(false);
+    });
+
+    it('shortens a pnpm-hashed dir to the package name for both module and folder header labels, keeping the full dir separately', () => {
+      const pnpmDir =
+        'node_modules/.pnpm/@zeltjs+rate-limit@file+..+..+packages+rate-limit_hash/node_modules/@zeltjs/rate-limit/dist';
+      const pnpmGraph: DependencyGraph = {
+        version: 2,
+        nodes: [
+          {
+            id: `${pnpmDir}/index.ts#R`,
+            className: 'R',
+            filePath: `${pnpmDir}/index.ts`,
+            kind: 'service',
+          },
+          { id: 'src/a.ts#A', className: 'A', filePath: 'src/a.ts', kind: 'controller' },
+        ],
+        edges: [],
+      };
+
+      const collapsedFlow = graphToFlow(
+        pnpmGraph,
+        {},
+        { grouped: true, collapsedDirs: new Set([pnpmDir]) },
+      );
+      const moduleNode = collapsedFlow.nodes.find((n) => n.id === `folder:${pnpmDir}`);
+      expect(moduleNode?.data).toEqual(
+        expect.objectContaining({ label: '@zeltjs/rate-limit', dir: pnpmDir, memberCount: 1 }),
+      );
+
+      const expandedFlow = graphToFlow(pnpmGraph, {}, { grouped: true, collapsedDirs: new Set() });
+      const folderNode = expandedFlow.nodes.find((n) => n.id === `folder:${pnpmDir}`);
+      expect(folderNode?.data).toEqual(
+        expect.objectContaining({ label: '@zeltjs/rate-limit', dir: pnpmDir }),
+      );
+    });
+  });
+
   it('maps edge kind into id and className', () => {
     const graph: DependencyGraph = {
       version: 2,

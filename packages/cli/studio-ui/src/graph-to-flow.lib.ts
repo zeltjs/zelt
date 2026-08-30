@@ -3,6 +3,8 @@ import dagre from '@dagrejs/dagre';
 import type { Edge, Node } from '@xyflow/react';
 
 import type { DependencyGraph, GraphEdge, GraphNode } from '../../src/studio/graph/graph.types';
+import type { AggregatedEdge } from './collapse.lib';
+import { collapseView, dirOf, displayDirLabel, groupIdOf } from './collapse.lib';
 
 export type SavedPositions = Readonly<Record<string, { readonly x: number; readonly y: number }>>;
 
@@ -13,24 +15,25 @@ export type CardData = {
   readonly unresolved: boolean;
 };
 
-export type GroupData = { readonly label: string };
+// label は表示用に短縮済み（displayDirLabel）、dir は折りたたみ操作やツールチップ用のフルパス
+export type GroupData = { readonly label: string; readonly dir: string };
 
-export type FlowNode = Node<CardData, 'card'> | Node<GroupData, 'folder'>;
+// 折りたたみグループを表す合成ノード。id はグループと共通の folder:<dir> のため positions が引き継がれる
+export type ModuleData = {
+  readonly label: string;
+  readonly dir: string;
+  readonly memberCount: number;
+};
+
+export type FlowNode =
+  | Node<CardData, 'card'>
+  | Node<GroupData, 'folder'>
+  | Node<ModuleData, 'module'>;
 
 const NODE_WIDTH = 240;
 const NODE_HEIGHT = 80;
 const GROUP_PADDING = 24;
 const GROUP_HEADER = 32;
-
-// filePath はファイル単位、グループはディレクトリ単位。"(unknown)" は
-// スラッシュを含まないため自身がグループ key になり、まとまって表示される
-const dirOf = (filePath: string): string => {
-  const parts = filePath.split('/');
-  return parts.length > 1 ? parts.slice(0, -1).join('/') : filePath;
-};
-
-// card node の id（クラス由来の任意文字列）と衝突しないよう prefix する
-const groupIdOf = (dir: string): string => `folder:${dir}`;
 
 type Point = { readonly x: number; readonly y: number };
 type Size = { readonly width: number; readonly height: number };
@@ -154,12 +157,109 @@ const edgesOf = (graph: DependencyGraph): Edge[] =>
     className: `edge-${edge.kind}`,
   }));
 
+// count>1 は折りたたみで束ねられた元エッジ本数。ラベルは集約が起きたときだけ出す
+const aggregatedEdgesToFlow = (edges: readonly AggregatedEdge[]): Edge[] =>
+  edges.map((edge) => ({
+    id: `${edge.from}->${edge.to}#${edge.kind}`,
+    source: edge.from,
+    target: edge.to,
+    animated: false,
+    className: `edge-${edge.kind}`,
+    label: edge.count > 1 ? `×${edge.count}` : undefined,
+  }));
+
+// 折りたたみグループはメンバーを内部レイアウトしないため、固定サイズの単一ノードとして扱う
+const collapsedGroupSizesOf = (
+  expandedGroupSizes: ReadonlyMap<string, Size>,
+  collapsedDirIds: ReadonlySet<string>,
+): Map<string, Size> => {
+  const sizes = new Map(expandedGroupSizes);
+  for (const dir of collapsedDirIds) sizes.set(dir, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  return sizes;
+};
+
+const positionOf = (
+  id: string,
+  saved: SavedPositions,
+  groupLayout: ReadonlyMap<string, Point>,
+): Point => saved[id] ?? groupLayout.get(id) ?? { x: 0, y: 0 };
+
+const groupNodesOf = (
+  expandedDirIds: ReadonlyMap<string, string[]>,
+  groupSizes: ReadonlyMap<string, Size>,
+  saved: SavedPositions,
+  groupLayout: ReadonlyMap<string, Point>,
+): FlowNode[] =>
+  Array.from(expandedDirIds.keys()).map((dir) => {
+    const id = groupIdOf(dir);
+    const size = groupSizes.get(dir) ?? { width: NODE_WIDTH, height: NODE_HEIGHT };
+    return {
+      id,
+      type: 'folder',
+      position: positionOf(id, saved, groupLayout),
+      data: { label: displayDirLabel(dir), dir },
+      style: { width: size.width, height: size.height },
+    };
+  });
+
+// id はグループと共通の folder:<dir> を再利用するため、展開時の座標がそのまま引き継がれる
+const moduleNodesOf = (
+  collapsedDirIds: ReadonlySet<string>,
+  nodeIdsByDir: ReadonlyMap<string, string[]>,
+  groupSizes: ReadonlyMap<string, Size>,
+  saved: SavedPositions,
+  groupLayout: ReadonlyMap<string, Point>,
+): FlowNode[] =>
+  Array.from(collapsedDirIds).map((dir) => {
+    const id = groupIdOf(dir);
+    const size = groupSizes.get(dir) ?? { width: NODE_WIDTH, height: NODE_HEIGHT };
+    return {
+      id,
+      type: 'module',
+      position: positionOf(id, saved, groupLayout),
+      data: { label: displayDirLabel(dir), dir, memberCount: nodeIdsByDir.get(dir)?.length ?? 0 },
+      style: { width: size.width, height: size.height },
+    };
+  });
+
+// 折りたたみ dir 所属ノードは module ノードに丸め込まれるため描画しない
+const cardNodesOf = (
+  nodes: readonly GraphNode[],
+  collapsedDirIds: ReadonlySet<string>,
+  dirById: ReadonlyMap<string, string>,
+  relativePositions: ReadonlyMap<string, Point>,
+): FlowNode[] =>
+  nodes
+    .filter((node) => !collapsedDirIds.has(dirById.get(node.id) ?? dirOf(node.filePath)))
+    .map((node) => ({
+      id: node.id,
+      type: 'card',
+      position: relativePositions.get(node.id) ?? { x: 0, y: 0 },
+      parentId: groupIdOf(dirById.get(node.id) ?? dirOf(node.filePath)),
+      extent: 'parent',
+      data: cardDataOf(node),
+    }));
+
 const graphToFlowGrouped = (
   graph: DependencyGraph,
   saved: SavedPositions,
+  collapsedDirs: ReadonlySet<string>,
 ): { nodes: FlowNode[]; edges: Edge[] } => {
   const { nodeIdsByDir, dirById } = groupMembership(graph.nodes);
-  const { relativePositions, groupSizes } = layoutGroupMembers(nodeIdsByDir, graph.edges, saved);
+  // 存在しない dir 名は nodeIdsByDir に無いため、ここで自然に無視される
+  const collapsedDirIds = new Set(
+    Array.from(nodeIdsByDir.keys()).filter((dir) => collapsedDirs.has(dir)),
+  );
+  const expandedDirIds = new Map(
+    Array.from(nodeIdsByDir.entries()).filter(([dir]) => !collapsedDirIds.has(dir)),
+  );
+
+  const { relativePositions, groupSizes: expandedGroupSizes } = layoutGroupMembers(
+    expandedDirIds,
+    graph.edges,
+    saved,
+  );
+  const groupSizes = collapsedGroupSizesOf(expandedGroupSizes, collapsedDirIds);
 
   const groupEdges = groupEdgesOf(graph.edges, dirById);
   const groupSizesById = new Map(
@@ -168,27 +268,15 @@ const graphToFlowGrouped = (
   const groupLayout = runDagre(groupSizesById, groupEdges, { nodesep: 60, ranksep: 120 });
 
   // React Flow は parent node が配列内で child より前に来る必要がある
-  const groupNodes: FlowNode[] = Array.from(nodeIdsByDir.keys()).map((dir) => {
-    const id = groupIdOf(dir);
-    const size = groupSizes.get(dir) ?? { width: NODE_WIDTH, height: NODE_HEIGHT };
-    return {
-      id,
-      type: 'folder',
-      position: saved[id] ?? groupLayout.get(id) ?? { x: 0, y: 0 },
-      data: { label: dir },
-      style: { width: size.width, height: size.height },
-    };
-  });
-  const cardNodes: FlowNode[] = graph.nodes.map((node) => ({
-    id: node.id,
-    type: 'card',
-    position: relativePositions.get(node.id) ?? { x: 0, y: 0 },
-    parentId: groupIdOf(dirById.get(node.id) ?? dirOf(node.filePath)),
-    extent: 'parent',
-    data: cardDataOf(node),
-  }));
+  const groupNodes = groupNodesOf(expandedDirIds, groupSizes, saved, groupLayout);
+  const moduleNodes = moduleNodesOf(collapsedDirIds, nodeIdsByDir, groupSizes, saved, groupLayout);
+  const cardNodes = cardNodesOf(graph.nodes, collapsedDirIds, dirById, relativePositions);
 
-  return { nodes: [...groupNodes, ...cardNodes], edges: edgesOf(graph) };
+  const collapsed = collapseView(graph, collapsedDirs);
+  return {
+    nodes: [...groupNodes, ...moduleNodes, ...cardNodes],
+    edges: aggregatedEdgesToFlow(collapsed.edges),
+  };
 };
 
 // グルーピング導入前と同じフラット表示: グループ枠は作らず、全ノードを 1 回の dagre で配置する
@@ -211,11 +299,17 @@ const graphToFlowFlat = (
   return { nodes, edges: edgesOf(graph) };
 };
 
-export type GraphToFlowOptions = { readonly grouped: boolean };
+export type GraphToFlowOptions = {
+  readonly grouped: boolean;
+  // flat モードでは折りたたみ表示自体が存在しないため無視される
+  readonly collapsedDirs?: ReadonlySet<string>;
+};
 
 export const graphToFlow = (
   graph: DependencyGraph,
   saved: SavedPositions,
   options: GraphToFlowOptions,
 ): { nodes: FlowNode[]; edges: Edge[] } =>
-  options.grouped ? graphToFlowGrouped(graph, saved) : graphToFlowFlat(graph, saved);
+  options.grouped
+    ? graphToFlowGrouped(graph, saved, options.collapsedDirs ?? new Set())
+    : graphToFlowFlat(graph, saved);
