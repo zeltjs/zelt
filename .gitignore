@@ -14,7 +14,5 @@ lefthook-local.yml
 .codepolicy/
 .throw-trace/
 plans/*.md
-# 設計spec(承認済み設計の記録)は追跡する。plans等の一時成果物は除外のまま
-docs/superpowers/*
-!docs/superpowers/specs/
+docs/superpowers/
 .claude/settings.local.json
