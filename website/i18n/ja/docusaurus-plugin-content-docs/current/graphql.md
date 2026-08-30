@@ -15,24 +15,24 @@ GraphQLサポートは、共有のruntime manifestを中心に構築されてい
 executorはruntime manifestを消費します。Code-firstとSchema-firstは同じmanifestを生成するフロントエンドであり、そのmanifestはアプリ自身がロードするのではなく、prebuiltモジュールとして実行中のアプリへ届けられます。
 
 ```mermaid
-flowchart TD
+flowchart LR
   subgraph CF["Code-first"]
-    CF1["Resolverコード + args(schema)"] --> CF2["zelt build / zelt dev"]
+    CFR["resolvers<br/>(args()でスキーマ定義)"]
   end
-
   subgraph SF["Schema-first"]
-    SF1["schema.graphql"] --> SF2["zelt graphql codegen"]
-    SF2 --> SF3["生成された型付きhelper"]
-    SF3 --> SF4["resolverコード"]
-    SF4 --> SF5["zelt build / zelt dev"]
+    SFS["schema.graphql"] -- "zelt graphql codegen" --> SFH["型付きヘルパー"]
+    SFR["resolvers"] -. "import" .-> SFH
   end
-
-  CF2 --> RT[".zelt/graphql/&lt;key&gt;.runtime.ts<br/>(graphqlPrebuilt) + 対になる .graphql"]
-  SF5 --> RT
-  RT --> PB[".zelt/prebuilt.ts<br/>(zeltPrebuilt)"]
-  PB --> ENTRY["entryがzeltPrebuiltをimport<br/>-> adapter(app, { prebuilt })"]
-  ENTRY --> RUNTIME["/graphql runtime"]
+  CFR -- "zelt build / dev" --> GRT["生成されたGraphQLランタイム"]
+  SFR -- "zelt build / dev" --> GRT
+  GRT -- "アプリ起動" --> EP(["/graphql"])
+  classDef sot fill:#f8fafc,stroke:#334155,stroke-width:2px
+  classDef gen fill:#eef2f7,stroke:#cbd5e1,stroke-dasharray:5 5
+  class CFR,SFS,SFR sot
+  class SFH,GRT gen
 ```
+
+実線のノードはあなたが編集する正(source of truth)、点線のノードはコマンドが作る生成物です。正を変更したら、そこから出るエッジのコマンドを再実行してください — 古い生成物のまま進めると型エラーやビルドエラーとして現れます。
 
 ## API boundary {#api-boundary}
 

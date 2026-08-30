@@ -18,24 +18,26 @@ frontends that produce the same manifest, which is delivered to the running
 app as a prebuilt module rather than loaded by the app itself.
 
 ```mermaid
-flowchart TD
+flowchart LR
   subgraph CF["Code-first"]
-    CF1["Resolver code + args(schema)"] --> CF2["zelt build / zelt dev"]
+    CFR["resolvers<br/>(args() schemas)"]
   end
-
   subgraph SF["Schema-first"]
-    SF1["schema.graphql"] --> SF2["zelt graphql codegen"]
-    SF2 --> SF3["generated typed helpers"]
-    SF3 --> SF4["resolver code"]
-    SF4 --> SF5["zelt build / zelt dev"]
+    SFS["schema.graphql"] -- "zelt graphql codegen" --> SFH["typed helpers"]
+    SFR["resolvers"] -. "import" .-> SFH
   end
-
-  CF2 --> RT[".zelt/graphql/&lt;key&gt;.runtime.ts<br/>(graphqlPrebuilt) + sibling .graphql"]
-  SF5 --> RT
-  RT --> PB[".zelt/prebuilt.ts<br/>(zeltPrebuilt)"]
-  PB --> ENTRY["entry imports zeltPrebuilt<br/>-> adapter(app, { prebuilt })"]
-  ENTRY --> RUNTIME["/graphql runtime"]
+  CFR -- "zelt build / dev" --> GRT["generated GraphQL runtime"]
+  SFR -- "zelt build / dev" --> GRT
+  GRT -- "app start" --> EP(["/graphql"])
+  classDef sot fill:#f8fafc,stroke:#334155,stroke-width:2px
+  classDef gen fill:#eef2f7,stroke:#cbd5e1,stroke-dasharray:5 5
+  class CFR,SFS,SFR sot
+  class SFH,GRT gen
 ```
+
+Solid nodes are sources you edit; dashed nodes are generated. When you change
+a source, rerun the command on its outgoing edge — stale generated output
+surfaces as type or build errors.
 
 ## API boundary
 
