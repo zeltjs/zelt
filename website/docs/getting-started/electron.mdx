@@ -31,8 +31,8 @@ sequenceDiagram
   participant Preload
   participant Main as Main (Zelt app)
 
-  Renderer->>Preload: ipcFetch()
-  Preload->>Main: IPC
+  Renderer->>Preload: ipcFetch(request)
+  Preload->>Main: invoke over the IPC channel
   Main-->>Preload: Response
   Preload-->>Renderer: Response
 ```

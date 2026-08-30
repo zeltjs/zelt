@@ -29,20 +29,22 @@ Zeltは複数の認証戦略をサポートしています。あなたのアー�
 
 ```mermaid
 flowchart TD
-  ROOT{"クライアントはサーバーサイド<br/>レンダリングを行うブラウザか?"}
-  ROOT -- "はい" --> SESSIONS["Sessions<br/>(cookieベース、CSRF対応は自動)"]
-  ROOT -- "いいえ" --> BRANCH{" "}
-  BRANCH -- "SPAまたはモバイルアプリ?" --> JWT["JWT<br/>(ステートレス、スケーラブル)"]
-  BRANCH -- "サーバー間のAPI連携?" --> CUSTOM["Custom<br/>(APIキー、mTLS)"]
+  Q1{"サーバーサイドレンダリングを<br/>行うブラウザクライアント?"}
+  Q1 -- "はい" --> SESSIONS["Sessions<br/>(cookieベース、CSRF対応は自動)"]
+  Q1 -- "いいえ" --> Q2{"SPAまたはモバイルアプリ?"}
+  Q2 -- "はい" --> JWT["JWT<br/>(ステートレス、スケーラブル)"]
+  Q2 -- "いいえ — サーバー間API" --> CUSTOM["Custom<br/>(APIキー、mTLS)"]
 ```
 
 ## 認証の流れ {#authentication-flow}
 
 ```mermaid
 flowchart TD
-  REQ["Request"] --> AM["Authentication Middleware<br/>• 認証情報を取り出す<br/>• 検証する(JWT/Session など)<br/>• setUser(user, roles)"]
-  AM --> AC["@Authorized() Check<br/>• userが無ければ → 401<br/>• roleが不足なら → 403<br/>• OKなら → 続行"]
-  AC --> RH["Route Handler"]
+  REQ["Request"] --> AM["認証Middleware<br/>(認証情報を検証し setUser)"]
+  AM --> AC{"@Authorized() チェック"}
+  AC -- "userなし" --> E401["401"]
+  AC -- "role不足" --> E403["403"]
+  AC -- "OK" --> RH["Route Handler"]
   RH --> RES["Response"]
 ```
 

@@ -290,15 +290,16 @@ optionsパラメータは実行時にmiddlewareの`use()`メソッドへ渡さ�
 ## Request Flow {#request-flow}
 
 ```mermaid
-flowchart TD
-  REQ["リクエスト"] --> GB["グローバルMiddleware<br/>(next前)"]
-  GB --> CB["Controller Middleware<br/>(next前)"]
-  CB --> MB["メソッドMiddleware<br/>(next前)"]
-  MB --> RH["ルートハンドラ"]
-  RH --> MA["メソッドMiddleware<br/>(next後)"]
-  MA --> CA["Controller Middleware<br/>(next後)"]
-  CA --> GA["グローバルMiddleware<br/>(next後)"]
-  GA --> RES["レスポンス"]
+flowchart LR
+  REQ["Request"] --> G
+  subgraph G["グローバルMiddleware"]
+    subgraph C["Controller Middleware"]
+      subgraph M["メソッドMiddleware"]
+        RH["Route Handler"]
+      end
+    end
+  end
+  G --> RES["Response"]
 ```
 
 Middlewareは`await next()`の前後どちらにロジックを置くかによって、ルートハンドラの前後両方を処理できます。
