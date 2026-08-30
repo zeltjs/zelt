@@ -20,6 +20,10 @@ export const isAppLike = (value: unknown): value is AppLike => {
   return Array.isArray(record.features);
 };
 
+// filePath は stack trace 由来で、Windows では `\` 区切りになりうる。UI 側は
+// split('/') 前提のため、グラフ JSON を生成するここで posix 区切りに正準化する
+export const toPosixPath = (filePath: string): string => filePath.replaceAll('\\', '/');
+
 const decoratorNameOf = (prop: object): readonly string[] => {
   const record: { decorator?: unknown } = prop;
   return typeof record.decorator === 'string' ? [record.decorator] : [];

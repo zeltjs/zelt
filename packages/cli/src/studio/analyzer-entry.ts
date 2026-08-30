@@ -24,6 +24,7 @@ import {
   extractMiddlewareRefs,
   extractRoutes,
   isAppLike,
+  toPosixPath,
 } from './analyzer.lib';
 import { GRAPH_MARKER } from './analyzer-protocol';
 import type {
@@ -156,7 +157,7 @@ const main = async (): Promise<void> => {
     await collectRoots(app),
     createResolveDependencies(tsconfig),
     {
-      formatPath: (filePath) => relative(cwd, filePath),
+      formatPath: (filePath) => toPosixPath(relative(cwd, filePath)),
       resolveContract: createResolveContract(tsconfig),
     },
   );

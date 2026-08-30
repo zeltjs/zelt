@@ -102,9 +102,12 @@ const findClassByExportName = (
   aliases: ExportAliasMaps,
   ts: TypeScriptModule,
 ): TSClassDeclaration | undefined => {
+  // `export { X as default }` は byExport に登録されるが ExportKeyword/DefaultKeyword
+  // 修飾子を持たないため、修飾子ベースの findDefaultExportedClass より先に alias map を見る
+  const aliasedLocal = aliases.byExport.get(exportName);
+  if (aliasedLocal !== undefined) return findClassByName(sourceFile, aliasedLocal, ts);
   if (exportName === 'default') return findDefaultExportedClass(sourceFile, ts);
-  const localName = aliases.byExport.get(exportName) ?? exportName;
-  return findClassByName(sourceFile, localName, ts);
+  return findClassByName(sourceFile, exportName, ts);
 };
 
 // 公開 export 名 (default / alias 含む) からクラス宣言を解決する。

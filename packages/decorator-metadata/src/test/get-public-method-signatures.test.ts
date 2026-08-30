@@ -80,4 +80,19 @@ describe('getPublicMethodSignatures', () => {
     if (!result.isOk()) return;
     expect(result.value).toEqual([{ name: 'ping', params: [], returnType: 'number' }]);
   });
+
+  // export { Local as default } は ExportKeyword/DefaultKeyword 修飾子を持たないため、
+  // 宣言修飾子で default export を探す経路だけでは見つからない（alias map を先に見る必要がある）
+  it('resolves a class default-exported via `export { X as default }`', async () => {
+    const result = await getPublicMethodSignatures(
+      {
+        filePath: resolve(__dirname, './fixtures/signatures/aliased-default-service.ts'),
+        exportName: 'default',
+      },
+      { tsconfig: TSCONFIG },
+    );
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value).toEqual([{ name: 'ping', params: [], returnType: 'boolean' }]);
+  });
 });

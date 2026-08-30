@@ -8,6 +8,7 @@ import {
   extractMiddlewareRefs,
   extractRoutes,
   isAppLike,
+  toPosixPath,
 } from './analyzer.lib';
 
 describe('isAppLike', () => {
@@ -101,6 +102,16 @@ describe('extractMiddlewareRefs', () => {
     };
     // class-level 適用があれば全メソッドに効くため methods は持たない
     expect(extractMiddlewareRefs(meta)).toEqual([{ middleware: MwA }]);
+  });
+});
+
+describe('toPosixPath', () => {
+  it('converts backslash separators to forward slashes', () => {
+    expect(toPosixPath('src\\studio\\analyzer.lib.ts')).toBe('src/studio/analyzer.lib.ts');
+  });
+
+  it('leaves posix paths unchanged', () => {
+    expect(toPosixPath('src/studio/analyzer.lib.ts')).toBe('src/studio/analyzer.lib.ts');
   });
 });
 

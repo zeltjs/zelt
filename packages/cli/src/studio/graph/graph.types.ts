@@ -35,6 +35,7 @@ export type MethodSignature = {
 export type GraphNode = {
   readonly id: string;
   readonly className: string;
+  // 契約: posix 区切り('/')。UI 側が split('/') 前提のため analyzer 側で正準化済み
   readonly filePath: string;
   readonly kind: GraphNodeKind;
   // 起点クラスのみ: 属する feature の key（例: 'http'）。inject で発見した依存ノードには付かない
