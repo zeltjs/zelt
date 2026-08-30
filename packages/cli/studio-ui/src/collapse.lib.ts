@@ -48,6 +48,31 @@ const endpointOf = (
   return dir !== undefined && collapsedDirs.has(dir) ? groupIdOf(dir) : nodeId;
 };
 
+// 丸め込みで両端が同一グループになったエッジのみ自己ループとして除去する。
+// 元から from === to のエッジ(将来のエッジ種別で発生しうる)は表示対象として残す
+const aggregateEdges = (
+  edges: DependencyGraph['edges'],
+  dirById: ReadonlyMap<string, string>,
+  collapsedDirs: ReadonlySet<string>,
+): readonly AggregatedEdge[] => {
+  const aggregated = new Map<string, AggregatedEdge>();
+  for (const edge of edges) {
+    const from = endpointOf(edge.from, dirById, collapsedDirs);
+    const to = endpointOf(edge.to, dirById, collapsedDirs);
+    const remapped = from !== edge.from || to !== edge.to;
+    if (remapped && from === to) continue;
+    const key = `${from}->${to}#${edge.kind}`;
+    const existing = aggregated.get(key);
+    aggregated.set(
+      key,
+      existing
+        ? { ...existing, count: existing.count + 1 }
+        : { from, to, kind: edge.kind, count: 1 },
+    );
+  }
+  return Array.from(aggregated.values());
+};
+
 // dagre レイアウトの外で使う純粋なビュー変換: 折りたたみ dir のノードを単一グループへ集約し、
 // エッジは丸め込み後の (from, to, kind) 単位で集約する。グラフ JSON 自体は変更しない
 export const collapseView = (
@@ -69,21 +94,9 @@ export const collapseView = (
 
   const visibleNodes = graph.nodes.filter((node) => !collapsedDirs.has(dirById.get(node.id) ?? ''));
 
-  // 丸め込み後に両端が同一グループになったエッジは自己ループとして除去する
-  const aggregated = new Map<string, AggregatedEdge>();
-  for (const edge of graph.edges) {
-    const from = endpointOf(edge.from, dirById, collapsedDirs);
-    const to = endpointOf(edge.to, dirById, collapsedDirs);
-    if (from === to) continue;
-    const key = `${from}->${to}#${edge.kind}`;
-    const existing = aggregated.get(key);
-    aggregated.set(
-      key,
-      existing
-        ? { ...existing, count: existing.count + 1 }
-        : { from, to, kind: edge.kind, count: 1 },
-    );
-  }
-
-  return { visibleNodes, collapsedGroups, edges: Array.from(aggregated.values()) };
+  return {
+    visibleNodes,
+    collapsedGroups,
+    edges: aggregateEdges(graph.edges, dirById, collapsedDirs),
+  };
 };

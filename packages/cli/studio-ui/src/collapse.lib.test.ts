@@ -104,6 +104,19 @@ describe('collapseView', () => {
     expect(view.edges).toHaveLength(1);
   });
 
+  it('preserves a pre-existing self-loop when nothing is collapsed', () => {
+    const selfLoopGraph: DependencyGraph = {
+      version: 2,
+      nodes: [{ id: 'src/foo/a.ts#A', className: 'A', filePath: 'src/foo/a.ts', kind: 'service' }],
+      edges: [{ from: 'src/foo/a.ts#A', to: 'src/foo/a.ts#A', kind: 'injects' }],
+    };
+
+    const view = collapseView(selfLoopGraph, new Set());
+    expect(view.edges).toEqual([
+      { from: 'src/foo/a.ts#A', to: 'src/foo/a.ts#A', kind: 'injects', count: 1 },
+    ]);
+  });
+
   it('keeps edges of different kinds separate even between the same endpoints', () => {
     const twoKindGraph: DependencyGraph = {
       version: 2,

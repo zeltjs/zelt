@@ -221,7 +221,10 @@ const useStudioGraph = () => {
     () => (graph === undefined ? undefined : hideModules ? hideNodeModules(graph) : graph),
     [graph, hideModules],
   );
-  const [collapsedDirs, toggleCollapsedDir] = useCollapsedDirs(filteredGraph);
+  // デフォルト折りたたみの算出はフィルタ前の graph から行う。filteredGraph 起点だと
+  // hide node_modules 有効時に node_modules 系 dir がデフォルト集合から漏れ、
+  // フィルタ解除後に全展開で現れてしまう
+  const [collapsedDirs, toggleCollapsedDir] = useCollapsedDirs(graph);
 
   // フィルタ/グルーピング/折りたたみトグル変更後に nodes/edges を再導出する
   useEffect(() => {
