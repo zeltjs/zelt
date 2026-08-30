@@ -9,6 +9,7 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import Layout from '@theme/Layout';
+import MDXContent from '@theme/MDXContent';
 import type { ComponentType, SVGProps } from 'react';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import HeroCode from './_hero-code.mdx';
@@ -81,7 +82,11 @@ function CodeShowcase() {
     <section className="code-showcase">
       <div className="code-showcase__container">
         <h2 className="code-showcase__title">Simple, Intuitive API</h2>
-        <HeroCode />
+        {/* MDXContent supplies the MDXComponents mapping (twoslashblock → TwoslashBlock);
+            rendering the MDX partial bare leaves an unrendered <twoslashblock> element */}
+        <MDXContent>
+          <HeroCode />
+        </MDXContent>
       </div>
     </section>
   );
