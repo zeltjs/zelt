@@ -27,36 +27,23 @@ Zelt supports multiple authentication strategies. Pick the one that fits your ar
 
 ### Decision Guide
 
-```
-Is your client a browser with server-side rendering?
-├── Yes → Sessions (cookie-based, automatic CSRF handling)
-└── No
-    ├── SPA or Mobile app? → JWT (stateless, scalable)
-    └── Machine-to-machine API? → Custom (API keys, mTLS)
+```mermaid
+flowchart TD
+  ROOT{"Is your client a browser with<br/>server-side rendering?"}
+  ROOT -- "Yes" --> SESSIONS["Sessions<br/>(cookie-based, automatic CSRF handling)"]
+  ROOT -- "No" --> BRANCH{" "}
+  BRANCH -- "SPA or Mobile app?" --> JWT["JWT<br/>(stateless, scalable)"]
+  BRANCH -- "Machine-to-machine API?" --> CUSTOM["Custom<br/>(API keys, mTLS)"]
 ```
 
 ## Authentication Flow
 
-```
-Request
-    ↓
-┌─────────────────────────────┐
-│ Authentication Middleware   │
-│ • Extract credentials       │
-│ • Verify (JWT/Session/etc)  │
-│ • setUser(user, roles)      │
-└─────────────────────────────┘
-    ↓
-┌─────────────────────────────┐
-│ @Authorized() Check         │
-│ • No user? → 401            │
-│ • Missing role? → 403       │
-│ • OK → Continue             │
-└─────────────────────────────┘
-    ↓
-Route Handler
-    ↓
-Response
+```mermaid
+flowchart TD
+  REQ["Request"] --> AM["Authentication Middleware<br/>• Extract credentials<br/>• Verify (JWT/Session/etc)<br/>• setUser(user, roles)"]
+  AM --> AC["@Authorized() Check<br/>• No user? → 401<br/>• Missing role? → 403<br/>• OK → Continue"]
+  AC --> RH["Route Handler"]
+  RH --> RES["Response"]
 ```
 
 ## Quick Start

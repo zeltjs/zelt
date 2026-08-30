@@ -1,0 +1,22 @@
+## プロジェクト構成 {#project-structure}
+
+```
+my-app/
+├── src/
+│   ├── entry/
+│   │   ├── controllers/    # HTTPエンドポイント
+│   │   └── commands/       # CLIコマンド
+│   ├── services/           # ビジネスロジック
+│   ├── configs/            # 設定クラス
+│   ├── app.ts              # アプリケーション定義
+│   ├── cli.ts              # CLIエントリポイント
+│   └── main.ts             # HTTPサーバーエントリポイント
+├── package.json
+└── tsconfig.json
+```
+
+| ディレクトリ | 用途 |
+|-----------|---------|
+| `entry/` | 外部向けエントリポイント(HTTP、CLI) |
+| `services/` | ビジネスロジック、DIで注入される |
+| `configs/` | 環境変数と設定 |

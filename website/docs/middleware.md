@@ -289,24 +289,16 @@ The options parameter is passed to the middleware's `use()` method at runtime.
 
 ## Request Flow
 
-```
-Request
-    ↓
-Global Middleware (before next)
-    ↓
-Controller Middleware (before next)
-    ↓
-Method Middleware (before next)
-    ↓
-Route Handler
-    ↓
-Method Middleware (after next)
-    ↓
-Controller Middleware (after next)
-    ↓
-Global Middleware (after next)
-    ↓
-Response
+```mermaid
+flowchart TD
+  REQ["Request"] --> GB["Global Middleware<br/>(before next)"]
+  GB --> CB["Controller Middleware<br/>(before next)"]
+  CB --> MB["Method Middleware<br/>(before next)"]
+  MB --> RH["Route Handler"]
+  RH --> MA["Method Middleware<br/>(after next)"]
+  MA --> CA["Controller Middleware<br/>(after next)"]
+  CA --> GA["Global Middleware<br/>(after next)"]
+  GA --> RES["Response"]
 ```
 
 Middleware can process both before and after the route handler by placing logic before or after `await next()`.

@@ -8,20 +8,23 @@ The Electron adapter replaces HTTP sockets with Electron's IPC mechanism. Standa
 
 ## How It Works
 
-```
-Renderer                    Preload                     Main
-────────                    ───────                     ────
-ipcFetch(req)
-  → toIpcRequest(req)
-    → globalThis[channel](payload)
-                            ipcRenderer.invoke(channel, payload)
-                                                        ipcMain.handle(channel, payload)
-                                                          → toRequest(payload)
-                                                          → app.fetch(request)
-                                                          → toIpcResponse(response)
-                            ← IpcFetchResponse
-  ← toResponse(payload)
-  ← Response
+```mermaid
+sequenceDiagram
+  participant Renderer
+  participant Preload
+  participant Main
+
+  Renderer->>Renderer: ipcFetch(req)
+  Renderer->>Renderer: toIpcRequest(req)
+  Renderer->>Preload: globalThis[channel](payload)
+  Preload->>Main: ipcRenderer.invoke(channel, payload)
+  Main->>Main: ipcMain.handle(channel, payload)
+  Main->>Main: toRequest(payload)
+  Main->>Main: app.fetch(request)
+  Main->>Main: toIpcResponse(response)
+  Main-->>Preload: IpcFetchResponse
+  Preload-->>Renderer: toResponse(payload)
+  Renderer-->>Renderer: Response
 ```
 
 Text content (JSON, HTML, XML) is serialized as strings; binary content as `ArrayBuffer`.

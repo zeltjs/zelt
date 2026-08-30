@@ -1,0 +1,18 @@
+{
+  "title": {
+    "message": "ZeltJS",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "Zelt Logo",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.Docs": {
+    "message": "ドキュメント",
+    "description": "Navbar item with label Docs"
+  },
+  "item.label.Examples": {
+    "message": "サンプル",
+    "description": "Navbar item with label Examples"
+  }
+}

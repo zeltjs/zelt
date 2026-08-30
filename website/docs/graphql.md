@@ -17,25 +17,24 @@ The executor consumes the runtime manifest. Code-first and schema-first are
 frontends that produce the same manifest, which is delivered to the running
 app as a prebuilt module rather than loaded by the app itself.
 
-```text
-Code-first:
-  Resolver code + args(schema)
-    -> zelt build / zelt dev
-    -> .zelt/graphql/<key>.runtime.ts (graphqlPrebuilt) + sibling .graphql
-    -> .zelt/prebuilt.ts (zeltPrebuilt)
-    -> entry imports zeltPrebuilt -> adapter(app, { prebuilt })
-    -> /graphql runtime
+```mermaid
+flowchart TD
+  subgraph CF["Code-first"]
+    CF1["Resolver code + args(schema)"] --> CF2["zelt build / zelt dev"]
+  end
 
-Schema-first:
-  schema.graphql
-    -> zelt graphql codegen
-    -> generated typed helpers
-    -> resolver code
-    -> zelt build / zelt dev
-    -> .zelt/graphql/<key>.runtime.ts (graphqlPrebuilt) + sibling .graphql
-    -> .zelt/prebuilt.ts (zeltPrebuilt)
-    -> entry imports zeltPrebuilt -> adapter(app, { prebuilt })
-    -> /graphql runtime
+  subgraph SF["Schema-first"]
+    SF1["schema.graphql"] --> SF2["zelt graphql codegen"]
+    SF2 --> SF3["generated typed helpers"]
+    SF3 --> SF4["resolver code"]
+    SF4 --> SF5["zelt build / zelt dev"]
+  end
+
+  CF2 --> RT[".zelt/graphql/&lt;key&gt;.runtime.ts<br/>(graphqlPrebuilt) + sibling .graphql"]
+  SF5 --> RT
+  RT --> PB[".zelt/prebuilt.ts<br/>(zeltPrebuilt)"]
+  PB --> ENTRY["entry imports zeltPrebuilt<br/>-> adapter(app, { prebuilt })"]
+  ENTRY --> RUNTIME["/graphql runtime"]
 ```
 
 ## API boundary

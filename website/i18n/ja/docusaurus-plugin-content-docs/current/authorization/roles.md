@@ -4,11 +4,11 @@ sidebar_position: 1
 
 # Roles
 
-Roles are the foundation of Zelt's authorization system. They define what a user can do.
+RoleはZeltの認可システムの基盤です。ユーザーが何をできるかを定義します。
 
-## What is a Role?
+## Roleとは何か? {#what-is-a-role}
 
-A role is a simple string that represents a permission level or capability:
+roleは、権限レベルや能力を表すシンプルな文字列です。
 
 ```typescript
 const adminRoles = ['admin', 'editor', 'viewer'];
@@ -16,7 +16,7 @@ const teamRoles = ['owner', 'member', 'guest'];
 const permissionRoles = ['read:users', 'write:users', 'delete:users'];
 ```
 
-Roles are assigned during authentication via `setUser()`:
+roleは、認証時に `setUser()` を通じて割り当てられます。
 
 ```typescript
 import { setUser } from '@zeltjs/core';
@@ -24,17 +24,17 @@ declare const user: { id: string; name: string };
 // ---cut---
 setUser(
   { id: user.id, name: user.name },
-  ['admin', 'user']  // ← roles
+  ['admin', 'user']  // ← role
 );
 ```
 
-## Defining Role Types
+## Role Typeを定義する {#defining-role-types}
 
-Use `RequestContextSchema` to type your roles:
+`RequestContextSchema` を使ってroleを型付けします。
 
 ```typescript
 // @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
+// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
 import '@zeltjs/core';
 // ---cut---
 declare module '@zeltjs/core' {
@@ -45,16 +45,16 @@ declare module '@zeltjs/core' {
 }
 ```
 
-This provides:
-- Autocomplete when calling `setUser()`
-- Type checking in `@Authorized(['...'])`
-- Type-safe `currentRoles()` return value
+これにより次が得られます。
+- `setUser()` 呼び出し時の自動補完
+- `@Authorized(['...'])` での型チェック
+- 型安全な `currentRoles()` の戻り値
 
-## Role Design Patterns
+## Role設計パターン {#role-design-patterns}
 
-### Hierarchical Roles
+### Hierarchical Roles {#hierarchical-roles}
 
-Define roles that imply other roles:
+他のroleを包含するroleを定義します。
 
 ```typescript
 import { setUser } from '@zeltjs/core';
@@ -68,13 +68,13 @@ const roleHierarchy: Record<Role, Role[]> = {
   viewer: ['viewer'],
 };
 
-// When setting user, expand roles
+// userを設定する際、roleを展開する
 setUser(user, roleHierarchy[user.primaryRole]);
 ```
 
-### Resource-Scoped Roles
+### Resource-Scoped Roles {#resource-scoped-roles}
 
-Include resource context in role names:
+role名にリソースのcontextを含めます。
 
 ```typescript
 import { setUser } from '@zeltjs/core';
@@ -86,13 +86,13 @@ type Role =
   | `project:${string}:member`
   | `team:${string}:admin`;
 
-// User is owner of project-123, member of team-456
+// userはproject-123のowner、team-456のmember
 setUser(user, ['project:123:owner', 'team:456:admin']);
 ```
 
-### Permission-Based Roles
+### Permission-Based Roles {#permission-based-roles}
 
-Use fine-grained permission strings:
+きめ細かい権限文字列を使います。
 
 ```typescript
 type Permission = 
@@ -102,7 +102,7 @@ type Permission =
   | 'read:posts'
   | 'write:posts';
 
-// Roles map to permissions
+// roleはpermissionにマッピングされる
 const rolePermissions: Record<string, Permission[]> = {
   admin: ['read:users', 'write:users', 'delete:users', 'read:posts', 'write:posts'],
   editor: ['read:users', 'read:posts', 'write:posts'],
@@ -110,11 +110,11 @@ const rolePermissions: Record<string, Permission[]> = {
 };
 ```
 
-## Where Roles Come From
+## Roleはどこから来るのか {#where-roles-come-from}
 
-### Database
+### Database {#database}
 
-Store roles with the user record:
+roleをユーザーレコードと一緒に保存します。
 
 ```typescript
 import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
@@ -149,9 +149,9 @@ class AuthMiddleware {
 }
 ```
 
-### JWT Claims
+### JWT Claims {#jwt-claims}
 
-Include roles in the JWT payload:
+JWTのpayloadにroleを含めます。
 
 ```typescript
 import { Controller, Post, Config, inject } from '@zeltjs/core';
@@ -184,9 +184,9 @@ class MyJwtConfig extends JwtConfig {
 }
 ```
 
-### Session Data
+### Session Data {#session-data}
 
-Store roles in the session:
+roleをセッションに保存します。
 
 ```typescript
 import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
@@ -229,9 +229,9 @@ class SessionAuthMiddleware {
 }
 ```
 
-### External Service
+### External Service {#external-service}
 
-Fetch roles from an identity provider:
+identity providerからroleを取得します。
 
 ```typescript
 import { Middleware, Injectable, inject, setUser, type RequestContext, type Next } from '@zeltjs/core';
@@ -268,11 +268,11 @@ class ExternalAuthMiddleware {
 }
 ```
 
-## Role Assignment Strategies
+## Role割り当ての戦略 {#role-assignment-strategies}
 
-### Static Assignment
+### Static Assignment {#static-assignment}
 
-Roles are set once and rarely change:
+roleは一度設定されると、めったに変わりません。
 
 ```typescript
 import { Controller, Authorized, Post, Injectable, inject } from '@zeltjs/core';
@@ -301,9 +301,9 @@ class UserRolesController {
 }
 ```
 
-### Dynamic Assignment
+### Dynamic Assignment {#dynamic-assignment}
 
-Roles are computed based on context:
+roleはcontextに応じて計算されます。
 
 ```typescript
 import { Middleware, Injectable, inject, setUser, currentUser, type RequestContext, type Next } from '@zeltjs/core';
@@ -346,9 +346,9 @@ class ProjectRolesMiddleware {
 }
 ```
 
-### Time-Based Roles
+### Time-Based Roles {#time-based-roles}
 
-Roles expire or activate based on time:
+roleが時間に応じて失効・有効化されます。
 
 ```typescript
 import { setUser } from '@zeltjs/core';
@@ -372,9 +372,9 @@ const roles = user.roles.filter(role => {
 setUser(user, roles);
 ```
 
-## Accessing Roles
+## Roleへアクセスする {#accessing-roles}
 
-### In Handlers
+### Handler内で {#in-handlers}
 
 ```typescript
 import { Controller, currentRoles, Get } from '@zeltjs/core';
@@ -393,7 +393,7 @@ class AppController {
 }
 ```
 
-### In Services
+### Service内で {#in-services}
 
 ```typescript
 import { currentRoles, currentUser } from '@zeltjs/core';
@@ -412,11 +412,11 @@ class PostService {
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Keep Roles Simple
+### Roleをシンプルに保つ {#keep-roles-simple}
 
-Use flat strings, not nested objects:
+ネストしたオブジェクトではなく、フラットな文字列を使います。
 
 ```typescript
 // ✅ Good
@@ -426,9 +426,9 @@ const goodRoles = ['admin', 'editor', 'viewer'];
 const badRoles = [{ name: 'admin', level: 10, permissions: [] }];
 ```
 
-### Use Roles for Coarse Access
+### Roleは粗いアクセス制御に使う {#use-roles-for-coarse-access}
 
-Roles answer "can this user access this feature area?" not "can this user edit this specific record?":
+roleが答えるのは「このユーザーはこの機能領域にアクセスできるか?」であり、「このユーザーはこの特定のレコードを編集できるか?」ではありません。
 
 ```typescript
 import { Controller, Authorized, Get } from '@zeltjs/core';
@@ -445,9 +445,9 @@ class AdminController {
 // → Handle in service logic instead
 ```
 
-### Avoid Role Explosion
+### Roleの爆発を避ける {#avoid-role-explosion}
 
-Don't create roles for every action:
+すべての操作ごとにroleを作らないでください。
 
 ```typescript
 // ❌ Too many roles
@@ -457,9 +457,9 @@ const tooManyRoles = ['can_view_users', 'can_create_users', 'can_edit_users', 'c
 const meaningfulRoles = ['admin', 'user_manager', 'viewer'];
 ```
 
-### Document Your Roles
+### Roleを文書化する {#document-your-roles}
 
-Maintain a central reference:
+中央のリファレンスを維持します。
 
 ```typescript
 /**
