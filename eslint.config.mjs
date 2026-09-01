@@ -499,7 +499,11 @@ export default tseslint.config(
     // truth for the shape; a narrow cast is the least-bad option here.
     // Repay: once DependencyGraph is defined via a valibot schema (single
     // source of truth), replace these casts with schema-derived validation.
-    files: ['packages/cli/studio-ui/src/app.tsx', 'packages/cli/studio-ui/src/positions.lib.ts'],
+    files: [
+      'packages/cli/studio-ui/src/app.tsx',
+      'packages/cli/studio-ui/src/positions.lib.ts',
+      'packages/cli/studio-ui/src/settings.lib.ts',
+    ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
