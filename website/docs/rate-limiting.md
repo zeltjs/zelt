@@ -28,16 +28,8 @@ export class ApiController {
 Rate limiting keys determine how requests are grouped. Use static strings or functions:
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
 import { Controller, Get, currentUser, request } from '@zeltjs/core';
 import { RateLimit } from '@zeltjs/rate-limit';
-
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string };
-  }
-}
 // ---cut---
 @Controller('/api')
 class ApiController {

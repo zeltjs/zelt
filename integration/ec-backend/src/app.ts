@@ -1,7 +1,6 @@
 import { createApp, http } from '@zeltjs/core';
 import { eventbus, MemoryEventBusAdaptor } from '@zeltjs/eventbus';
 
-import './context-schema';
 import { AuthController } from './auth/auth.controller';
 import { EcJwtConfig } from './auth/ec-jwt.config';
 import { CartController } from './cart/cart.controller';

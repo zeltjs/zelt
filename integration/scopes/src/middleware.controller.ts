@@ -1,51 +1,43 @@
 import type { Next } from '@zeltjs/core';
-import {
-  Controller,
-  Get,
-  getContext,
-  Middleware,
-  request,
-  setContext,
-  UseMiddleware,
-} from '@zeltjs/core';
+import { Controller, Get, Middleware, request, resultOf, UseMiddleware } from '@zeltjs/core';
 
-import './context-schema';
+type RequestIdentity = {
+  requestId: string;
+  chain: string[];
+};
 
-// Assigns a per-request id from query (?id=...) and initializes context buckets
-// used by subsequent middlewares and the handler.
+// Assigns a per-request id from query (?id=...) and provides an empty chain
+// bucket that downstream middlewares append to. Demonstrates providing a
+// value to the rest of the chain via `next(value)`.
 @Middleware
 export class AssignIdMiddleware {
-  async use(next: Next, req = request()): Promise<Response | undefined> {
+  async use(next: Next<RequestIdentity>, req = request()): Promise<Response | undefined> {
     const id = req.queryParam('id') ?? 'anonymous';
-    setContext('requestId', id);
-    setContext('middlewareChain', []);
-    await next();
+    await next({ requestId: id, chain: [] });
     return undefined;
   }
 }
 
 // Class middleware: appends a tag to the chain. Demonstrates that multiple
-// middlewares can read+write the same context bucket without leaking across
-// requests because storage is request-scoped (AsyncLocalStorage).
+// middlewares can read the same upstream result (via resultOf) and mutate
+// the shared array without leaking across requests, because the store is
+// request-scoped (AsyncLocalStorage).
 @Middleware
 export class AppendStageOneMiddleware {
-  async use(next: Next): Promise<Response | undefined> {
-    const chain = getContext('middlewareChain') ?? [];
-    setContext('middlewareChain', [...chain, 'stage-one']);
-    setContext('middlewareTag', 'stage-one');
-    await next();
+  async use(next: Next<string>): Promise<Response | undefined> {
+    const { chain } = resultOf(AssignIdMiddleware);
+    chain.push('stage-one');
+    await next('stage-one');
     return undefined;
   }
 }
 
 @Middleware
 export class AppendStageTwoMiddleware {
-  async use(next: Next): Promise<Response | undefined> {
-    const chain = getContext('middlewareChain') ?? [];
-    setContext('middlewareChain', [...chain, 'stage-two']);
-    // Overwrite the tag to verify the latest middleware's value wins.
-    setContext('middlewareTag', 'stage-two');
-    await next();
+  async use(next: Next<string>): Promise<Response | undefined> {
+    const { chain } = resultOf(AssignIdMiddleware);
+    chain.push('stage-two');
+    await next('stage-two');
     return undefined;
   }
 }
@@ -70,23 +62,24 @@ export class MiddlewareController {
   @Get('/context')
   read(req = request()) {
     const id = req.queryParam('id');
-    // Reading via getContext proves that values written by middleware are
-    // visible to the controller within the same request.
+    const { requestId, chain } = resultOf(AssignIdMiddleware);
     return {
       idFromQuery: id,
-      requestId: getContext('requestId'),
-      middlewareTag: getContext('middlewareTag'),
-      middlewareChain: getContext('middlewareChain'),
+      requestId,
+      // The last middleware in the chain provides the tag the handler reads.
+      middlewareTag: resultOf(AppendStageTwoMiddleware),
+      middlewareChain: chain,
     };
   }
 
   @Get('/fail-safe')
   @UseMiddleware(ConditionalFailMiddleware)
   failSafe() {
+    const { requestId, chain } = resultOf(AssignIdMiddleware);
     return {
-      requestId: getContext('requestId'),
-      middlewareTag: getContext('middlewareTag'),
-      middlewareChain: getContext('middlewareChain'),
+      requestId,
+      middlewareTag: resultOf(AppendStageTwoMiddleware),
+      middlewareChain: chain,
     };
   }
 }

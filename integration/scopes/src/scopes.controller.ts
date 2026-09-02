@@ -1,8 +1,30 @@
-import { Controller, Get, inject, request } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
+import {
+  Controller,
+  Get,
+  inject,
+  Middleware,
+  request,
+  resultOf,
+  UseMiddleware,
+} from '@zeltjs/core';
 
-import './context-schema';
 import { CounterService } from './counter.service';
+import type { RequestState } from './request-id.service';
 import { RequestIdService } from './request-id.service';
+
+// Provides a fresh, mutable per-request state bucket. Demonstrates the
+// "counter/trace" shape: a middleware allocates a mutable object and hands
+// it downstream via `next(value)`; the handler reads it via resultOf() and
+// passes it explicitly to the singleton service instead of the service
+// reaching into request-scoped storage itself.
+@Middleware
+export class RequestStateMiddleware {
+  async use(next: Next<RequestState>): Promise<Response | undefined> {
+    await next({ counter: 0, trace: [] });
+    return undefined;
+  }
+}
 
 @Controller('/scopes')
 export class ScopesController {
@@ -26,33 +48,35 @@ export class ScopesController {
   }
 
   @Get('/request')
+  @UseMiddleware(RequestStateMiddleware)
   request(req = request()) {
-    const id = req.header('X-Request-Id');
-    this.requestIds.assign(id ?? 'anonymous');
-    const first = this.requestIds.tick('begin');
-    const second = this.requestIds.tick('end');
+    const id = req.header('X-Request-Id') ?? 'anonymous';
+    const state = resultOf(RequestStateMiddleware);
+    const first = this.requestIds.tick(state, 'begin');
+    const second = this.requestIds.tick(state, 'end');
     return {
-      requestId: this.requestIds.current(),
+      requestId: id,
       tickValues: [first, second],
-      trace: this.requestIds.trace(),
+      trace: state.trace,
       requestIdServiceConstructorCalls: RequestIdService.constructorCalls,
     };
   }
 
   @Get('/overlap')
+  @UseMiddleware(RequestStateMiddleware)
   async overlap(req = request()) {
-    const id = req.queryParam('id');
+    const id = req.queryParam('id') ?? 'missing';
     const delay = req.queryParam('delay');
-    this.requestIds.assign(id ?? 'missing');
-    this.requestIds.tick('start');
+    const state = resultOf(RequestStateMiddleware);
+    this.requestIds.tick(state, 'start');
     const ms = Number(delay ?? '0');
     if (ms > 0) {
       await new Promise<void>((resolve) => setTimeout(resolve, ms));
     }
-    this.requestIds.tick('after-delay');
+    this.requestIds.tick(state, 'after-delay');
     return {
-      requestId: this.requestIds.current(),
-      trace: this.requestIds.trace(),
+      requestId: id,
+      trace: state.trace,
     };
   }
 }

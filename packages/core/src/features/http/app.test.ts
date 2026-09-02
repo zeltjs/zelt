@@ -15,7 +15,7 @@ import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-head
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
 import { registerAfterResponseCallback } from './request';
-import { getContext, request, setContext } from './request/injection';
+import { request, resultOf } from './request/injection';
 import { response } from './response';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
@@ -41,13 +41,6 @@ const createStandardSchema = <Output>({
 const passthroughFormSchema = createStandardSchema<unknown>({
   validate: (value) => ({ value }),
 });
-
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    configValue: string;
-    requestId: string;
-  }
-}
 
 @injectable()
 class Greeter {
@@ -129,13 +122,21 @@ describe('createApp() — fetch', () => {
   it('isolates request helpers when another request is processed inside a request', async () => {
     let fetchInner: () => Promise<Response>;
 
+    @Middleware
+    class TagMiddleware {
+      async use(next: Next<string>, req = request()): Promise<Response | undefined> {
+        await next(req.path().includes('outer') ? 'outer' : 'inner');
+        return undefined;
+      }
+    }
+
     @Controller('/inner-context')
     class InnerContextController {
       @Post('/')
       async get(req = request()) {
         return {
           body: await req.body(),
-          requestId: getContext('requestId') ?? null,
+          requestId: resultOf(TagMiddleware),
           url: req.url(),
         };
       }
@@ -145,16 +146,15 @@ describe('createApp() — fetch', () => {
     class OuterContextController {
       @Post('/')
       async get(req = request()) {
-        setContext('requestId', 'outer');
         const outerBefore = {
           body: await req.body(),
-          requestId: getContext('requestId'),
+          requestId: resultOf(TagMiddleware),
           url: req.url(),
         };
         const res = await fetchInner();
         const outerAfter = {
           body: await req.body(),
-          requestId: getContext('requestId'),
+          requestId: resultOf(TagMiddleware),
           url: req.url(),
         };
         return { inner: await res.json(), outerAfter, outerBefore };
@@ -162,7 +162,10 @@ describe('createApp() — fetch', () => {
     }
 
     const app = createApp([
-      http({ controllers: [OuterContextController, InnerContextController] }),
+      http({
+        controllers: [OuterContextController, InnerContextController],
+        middlewares: [TagMiddleware],
+      }),
     ]);
     const readyApp = await app.createRuntime();
     fetchInner = () =>
@@ -186,7 +189,7 @@ describe('createApp() — fetch', () => {
     expect(await res.json()).toEqual({
       inner: {
         body: { scope: 'inner' },
-        requestId: null,
+        requestId: 'inner',
         url: 'https://example.com/inner-context/',
       },
       outerAfter: {
@@ -722,9 +725,8 @@ describe('middleware', () => {
     class DIMiddleware {
       constructor(private config = inject(ConfigService)) {}
 
-      async use(next: Next): Promise<Response | undefined> {
-        setContext('configValue', this.config.getValue());
-        await next();
+      async use(next: Next<string>): Promise<Response | undefined> {
+        await next(this.config.getValue());
         return undefined;
       }
     }
@@ -734,7 +736,7 @@ describe('middleware', () => {
     class TestController {
       @Get('/')
       get() {
-        return { value: getContext('configValue') };
+        return { value: resultOf(DIMiddleware) };
       }
     }
 
@@ -745,12 +747,11 @@ describe('middleware', () => {
     expect(await res.json()).toEqual({ value: 'injected-value' });
   });
 
-  it('middleware can set context values accessible in handler via getContext()', async () => {
+  it('middleware can pass a typed result to the handler via resultOf()', async () => {
     @Middleware
     class SetUserMiddleware {
-      async use(next: Next): Promise<Response | undefined> {
-        setContext('user', { id: 123, name: 'alice' });
-        await next();
+      async use(next: Next<{ id: number; name: string }>): Promise<Response | undefined> {
+        await next({ id: 123, name: 'alice' });
         return undefined;
       }
     }
@@ -759,8 +760,8 @@ describe('middleware', () => {
     class TestController {
       @Get('/')
       get() {
-        const user = getContext('user') as { id: number; name: string } | undefined;
-        return { userId: user?.id, userName: user?.name };
+        const user = resultOf(SetUserMiddleware);
+        return { userId: user.id, userName: user.name };
       }
     }
 

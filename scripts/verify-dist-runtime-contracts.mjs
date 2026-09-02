@@ -7,6 +7,9 @@ import { pathToFileURL } from 'node:url';
 const ALL_NODE_BUILTINS = 'all';
 
 const ENTRYPOINT_POLICIES = {
+  // '.' is the Electron main-process entry; it owns request-scoped state via
+  // AsyncLocalStorage. preload/renderer subpaths stay on the default (no builtins).
+  '@zeltjs/adapter-electron': { nodeBuiltins: ['async_hooks'] },
   '@zeltjs/adapter-node': { nodeBuiltins: ALL_NODE_BUILTINS },
   '@zeltjs/cli': {
     nodeBuiltins: ALL_NODE_BUILTINS,

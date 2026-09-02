@@ -105,6 +105,7 @@ export type {
 } from './features/http/http.types';
 export { fromHonoMiddleware } from './features/http/middleware';
 // HTTP primitives
+export type { AuthRoles, AuthUser } from './features/http/middleware/auth';
 export { currentRoles, currentUser, setUser } from './features/http/middleware/auth';
 // HTTP decorators
 export { Authorized } from './features/http/middleware/auth/authorized.decorator';
@@ -133,14 +134,10 @@ export {
   ValidationFailedException,
 } from './features/http/request';
 export type {
+  MiddlewareResultOf,
   ParsedBody,
-  RequestContextSchema,
 } from './features/http/request/injection';
-export {
-  getContext,
-  request,
-  setContext,
-} from './features/http/request/injection';
+export { request, resultOf } from './features/http/request/injection';
 export type {
   ExtractRequestBody,
   HasRequestBody,
@@ -187,6 +184,7 @@ export {
   ZeltEnvError,
   ZeltLifecycleStateError,
   ZeltMiddlewareExecutionError,
+  ZeltMiddlewareResultUnavailableError,
   ZeltNotImplementedError,
   ZeltPluginConfigurationError,
   ZeltRouteConfigurationError,

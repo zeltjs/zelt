@@ -123,65 +123,92 @@ export class ApiController {
 }
 ```
 
-## Context Sharing
-
-Middleware can share data with handlers via `setContext()` and `getContext()`.
-
-### Type-Safe Context
-
-Define your context shape using module augmentation:
+Apply `@SkipMiddleware` to a controller class to exclude middleware from every route in that controller:
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import '@zeltjs/core';
+import { Controller, Get, Middleware, SkipMiddleware, type Next } from '@zeltjs/core';
+
+@Middleware
+class AuthMiddleware { async use(next: Next) { await next(); return undefined; } }
 // ---cut---
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: number; name: string };
+@SkipMiddleware(AuthMiddleware)
+@Controller('/public')
+export class PublicController {
+  @Get('/health')
+  health() {
+    return { status: 'ok' };
+  }
+
+  @Get('/version')
+  version() {
+    return { version: '1.0.0' };
   }
 }
 ```
 
-### Setting Context in Middleware
+Class-level and method-level skip declarations are combined. If a controller skips `AuthMiddleware` and a method skips `LoggingMiddleware`, that method skips both.
+
+More specific middleware attachment wins over a class-level skip. If a controller has `@SkipMiddleware(AuthMiddleware)` but one method also has `@UseMiddleware(AuthMiddleware)`, `AuthMiddleware` runs for that method. If the same method has both `@UseMiddleware(AuthMiddleware)` and `@SkipMiddleware(AuthMiddleware)`, the method-level skip wins.
+
+`CorsMiddleware` and `SecureHeadersMiddleware` are auto-registered on every HTTP app. See the HTTP Security documentation for their defaults, configuration options, skip examples, and CORS preflight behavior.
+
+## Middleware Results
+
+middlewareは、後続のコードに型付きの値を提供できます。値の提供には `Next<T>` 型と `next(value)` を、読み取りには `resultOf(M)` を使います。文字列キーやmodule augmentationを管理する必要はありません。
+
+### Providing a Value
+
+値を提供するmiddlewareは、それを `Next<T>` に宣言し、`next(value)` に渡します。
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import { Middleware, request, setContext, type Next } from '@zeltjs/core';
+import { Middleware, request, type Next } from '@zeltjs/core';
 
-declare function verifyToken(token: string | undefined): Promise<{ id: number; name: string }>;
-declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+declare function verifyToken(token: string): Promise<{ id: number; name: string } | null>;
 // ---cut---
 @Middleware
 export class AuthMiddleware {
-  async use(next: Next, req = request()): Promise<Response | undefined> {
+  async use(next: Next<{ id: number; name: string }>, req = request()): Promise<Response | undefined> {
     const token = req.header('Authorization');
-    const user = await verifyToken(token);
-    setContext('user', user);
-    await next();
+    const user = token ? await verifyToken(token) : null;
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    await next(user);
     return undefined;
   }
 }
 ```
 
-### Reading Context in Handlers
+`Next<T>` は引数を必須とするため、値を渡さずに `next()` を呼び出すと型エラーになります。何も提供しないmiddlewareは、これまでの例のようにそのまま `Next` 型を使い続けます。
+
+### Reading a Value
+
+handler、そして他のmiddlewareも、提供された値をパラメータのデフォルト値として渡す `resultOf(M)` で読み取ります。
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import { Controller, Get, getContext } from '@zeltjs/core';
+import { Controller, Get, Middleware, UseMiddleware, request, resultOf, type Next } from '@zeltjs/core';
 
-declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+@Middleware
+class AuthMiddleware {
+  async use(next: Next<{ id: number; name: string }>, req = request()): Promise<Response | undefined> {
+    await next({ id: 1, name: 'placeholder' });
+    return undefined;
+  }
+}
 // ---cut---
+@UseMiddleware(AuthMiddleware)
 @Controller('/profile')
 export class ProfileController {
   @Get('/')
-  getProfile(user = getContext('user')) {
-    return { id: user?.id, name: user?.name };
+  getProfile(user = resultOf(AuthMiddleware)) {
+    return { id: user.id, name: user.name };
   }
 }
 ```
+
+型は `Next<T>` から推論され、`null` や `undefined` を含むことはありません。`AuthMiddleware` は `next(user)` を呼ぶ前に401レスポンスで短絡するため、handlerが実行される時点で値の存在は保証されています。middlewareが他のmiddlewareの値を読み取る場合も、自身の `use()` メソッドのパラメータのデフォルト値として同じ方法で読み取ります。
+
+### Reading Requires the Middleware
+
+ルートに適用されていないmiddlewareに対して `resultOf(M)` を呼び出すと、そのmiddleware名を含むエラーが即座にスローされます。黙って `undefined` が返ることはありません。middlewareをルートに適用する方法自体は従来どおりで、controllerやmethodへの `@UseMiddleware`、またはmoduleの `middlewares` を使います。
 
 ## Dependency Injection
 
@@ -325,18 +352,15 @@ class MethodMiddleware {
 
 ## Common Patterns
 
-Middleware is written as classes. Use `request()`, `response()`, `setContext()`, and `getContext()` for framework primitives.
+Middleware is written as classes. Use `request()`, `response()`, and `resultOf()` for framework primitives.
 
 ### Restrict Access
 
 Use class middleware when you need to inject services:
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
 import { Middleware, Injectable, inject, currentUser, type Next } from '@zeltjs/core';
 
-declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
 @Injectable() class AuthService { isAdmin(user: unknown) { return false; } }
 // ---cut---
 @Middleware
@@ -365,6 +389,21 @@ import { Middleware, response, type Next } from '@zeltjs/core';
 class PoweredByMiddleware {
   async use(next: Next, res = response()) {
     res.header('X-Powered-By', 'zelt');
+    await next();
+  }
+}
+```
+
+Use `{ type: 'append' }` when multiple values for the same header should be preserved:
+
+```typescript
+import { Middleware, response, type Next } from '@zeltjs/core';
+// ---cut---
+@Middleware
+class CacheTagMiddleware {
+  async use(next: Next, res = response()) {
+    res.header('Cache-Tag', 'api');
+    res.header('Cache-Tag', 'users', { type: 'append' });
     await next();
   }
 }
