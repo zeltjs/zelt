@@ -8,7 +8,7 @@ import { handleExport, resolvePort, serveStudio } from './studio.command';
 
 const okResult: AnalyzeResult = {
   ok: true,
-  graph: { version: 1, nodes: [], edges: [] },
+  graph: { version: 2, nodes: [], edges: [] },
 };
 
 const errorResult: AnalyzeResult = { ok: false, errorOutput: 'boom' };

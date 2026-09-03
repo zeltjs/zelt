@@ -8,20 +8,17 @@ The Electron adapter replaces HTTP sockets with Electron's IPC mechanism. Standa
 
 ## How It Works
 
-```
-Renderer                    Preload                     Main
-────────                    ───────                     ────
-ipcFetch(req)
-  → toIpcRequest(req)
-    → globalThis[channel](payload)
-                            ipcRenderer.invoke(channel, payload)
-                                                        ipcMain.handle(channel, payload)
-                                                          → toRequest(payload)
-                                                          → app.fetch(request)
-                                                          → toIpcResponse(response)
-                            ← IpcFetchResponse
-  ← toResponse(payload)
-  ← Response
+```mermaid
+sequenceDiagram
+  participant R as Renderer
+  participant P as Preload
+  participant M as Main (Zelt app)
+
+  R->>P: ipcFetch(request)
+  P->>M: invoke over the IPC channel
+  M->>M: app.fetch(request)
+  M-->>P: Response
+  P-->>R: Response
 ```
 
 Text content (JSON, HTML, XML) is serialized as strings; binary content as `ArrayBuffer`.

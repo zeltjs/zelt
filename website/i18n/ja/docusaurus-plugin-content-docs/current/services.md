@@ -3,11 +3,11 @@
 
 # Services
 
-Services are classes that handle **business logic** and can be **injected** into controllers or other services. This separation of concerns makes your code more testable and maintainable.
+Serviceは**ビジネスロジック**を扱うクラスで、controllerや他のserviceへ**注入**できます。この関心の分離により、コードのテスタビリティと保守性が高まります。
 
-## Defining Services
+## Defining Services {#defining-services}
 
-A service is a class decorated with `@Injectable()`:
+serviceは`@Injectable()`でデコレートされたクラスです:
 
 ```typescript
 import { Injectable } from '@zeltjs/core';
@@ -33,9 +33,9 @@ export class UserService {
 }
 ```
 
-## Dependency Injection
+## Dependency Injection {#dependency-injection}
 
-Use `inject()` to inject services into controllers:
+controllerへserviceを注入するには`inject()`を使います:
 
 ```typescript
 import { Controller, Get, Post, inject, Injectable } from '@zeltjs/core';
@@ -78,9 +78,9 @@ export class UserController {
 }
 ```
 
-## Service-to-Service Injection
+## Service-to-Service Injection {#service-to-service-injection}
 
-Services can inject other services:
+Serviceは他のserviceを注入できます:
 
 ```typescript
 import { Injectable, inject } from '@zeltjs/core';
@@ -102,13 +102,13 @@ export class UserService {
 }
 ```
 
-## Singleton Scope
+## Singleton Scope {#singleton-scope}
 
-By default, services are **singletons** — the same instance is shared across all injections within the application lifecycle. This is ideal for:
+デフォルトでは、serviceは**singleton**です — アプリケーションのライフサイクル内で、全ての注入先で同じインスタンスが共有されます。これは次のようなケースに最適です:
 
-- Database connections
-- Configuration services
-- Caching services
+- データベース接続
+- 設定service
+- キャッシュservice
 
 ```typescript
 import { Injectable, Env, inject } from '@zeltjs/core';
@@ -128,12 +128,12 @@ export class ConfigService {
 ```
 
 :::tip
-For configuration, prefer using `@Config` classes with `inject()`. See [Configuration](./configuration.md) for details.
+設定には、`inject()`と組み合わせた`@Config`クラスの使用を推奨します。詳細は[Configuration](./configuration.md)を参照してください。
 :::
 
-## Testing with Mock Services
+## Testing with Mock Services {#testing-with-mock-services}
 
-The singleton pattern makes testing straightforward — you can provide mock implementations:
+singletonパターンによりテストが容易になります — モック実装を渡すことができます:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -161,9 +161,9 @@ describe('UserController', () => {
 });
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-1. **Single Responsibility** — Each service should have one clear purpose
-2. **Interface Segregation** — Keep service methods focused and cohesive
-3. **Dependency Injection** — Always inject dependencies rather than creating them directly
-4. **Testability** — Design services to be easily mockable in tests
+1. **Single Responsibility** — 各serviceは明確な単一の目的を持つべき
+2. **Interface Segregation** — serviceのメソッドは焦点を絞り、凝集度を保つ
+3. **Dependency Injection** — 依存は直接生成せず、常に注入する
+4. **Testability** — テストで容易にモック化できるようserviceを設計する

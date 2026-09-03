@@ -27,36 +27,25 @@ Zelt supports multiple authentication strategies. Pick the one that fits your ar
 
 ### Decision Guide
 
-```
-Is your client a browser with server-side rendering?
-├── Yes → Sessions (cookie-based, automatic CSRF handling)
-└── No
-    ├── SPA or Mobile app? → JWT (stateless, scalable)
-    └── Machine-to-machine API? → Custom (API keys, mTLS)
+```mermaid
+flowchart TD
+  Q1{"Browser client with<br/>server-side rendering?"}
+  Q1 -- "Yes" --> SESSIONS["Sessions<br/>(cookie-based, automatic CSRF handling)"]
+  Q1 -- "No" --> Q2{"SPA or mobile app?"}
+  Q2 -- "Yes" --> JWT["JWT<br/>(stateless, scalable)"]
+  Q2 -- "No — machine-to-machine API" --> CUSTOM["Custom<br/>(API keys, mTLS)"]
 ```
 
 ## Authentication Flow
 
-```
-Request
-    ↓
-┌─────────────────────────────┐
-│ Authentication Middleware   │
-│ • Extract credentials       │
-│ • Verify (JWT/Session/etc)  │
-│ • setUser(user, roles)      │
-└─────────────────────────────┘
-    ↓
-┌─────────────────────────────┐
-│ @Authorized() Check         │
-│ • No user? → 401            │
-│ • Missing role? → 403       │
-│ • OK → Continue             │
-└─────────────────────────────┘
-    ↓
-Route Handler
-    ↓
-Response
+```mermaid
+flowchart TD
+  REQ["Request"] --> AM["Authentication Middleware<br/>(verify credentials, setUser)"]
+  AM --> AC{"@Authorized() check"}
+  AC -- "no user" --> E401["401"]
+  AC -- "missing role" --> E403["403"]
+  AC -- "OK" --> RH["Route Handler"]
+  RH --> RES["Response"]
 ```
 
 ## Quick Start

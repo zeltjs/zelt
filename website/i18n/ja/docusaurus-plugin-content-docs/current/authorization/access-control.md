@@ -4,13 +4,13 @@ sidebar_position: 2
 
 # Access Control
 
-The `@Authorized` decorator enforces authentication and role requirements on routes.
+`@Authorized` decoratorは、ルートに対して認証とroleの要件を強制します。
 
-## Basic Usage
+## 基本的な使い方 {#basic-usage}
 
-### Require Authentication
+### 認証を要求する {#require-authentication}
 
-Use `@Authorized()` without arguments to require any authenticated user:
+引数なしで `@Authorized()` を使うと、認証済みユーザーであれば誰でも許可されます。
 
 ```typescript
 import { Controller, Get, Authorized } from '@zeltjs/core';
@@ -25,7 +25,7 @@ class DashboardController {
 }
 ```
 
-If no user is set, returns `401 Unauthorized`:
+userが設定されていない場合、`401 Unauthorized` を返します。
 
 ```json
 {
@@ -34,9 +34,9 @@ If no user is set, returns `401 Unauthorized`:
 }
 ```
 
-### Require Specific Roles
+### 特定のRoleを要求する {#require-specific-roles}
 
-Pass role names to restrict access:
+アクセスを制限するには、role名を渡します。
 
 ```typescript
 import { Controller, Get, Authorized } from '@zeltjs/core';
@@ -51,7 +51,7 @@ class AdminController {
 }
 ```
 
-If the user lacks required roles, returns `403 Forbidden`:
+ユーザーが必要なroleを持っていない場合、`403 Forbidden` を返します。
 
 ```json
 {
@@ -60,11 +60,11 @@ If the user lacks required roles, returns `403 Forbidden`:
 }
 ```
 
-## Role Matching
+## Roleのマッチング {#role-matching}
 
-### OR Logic (Any Role)
+### OR Logic(いずれかのRole) {#or-logic-any-role}
 
-By default, access is granted if the user has **any** of the specified roles:
+デフォルトでは、ユーザーが指定されたroleの**いずれか**を持っていればアクセスが許可されます。
 
 ```typescript
 import { Controller, Authorized, Delete } from '@zeltjs/core';
@@ -74,14 +74,14 @@ class AdminController {
   @Authorized(['admin', 'moderator'])
   @Delete('/posts/:id')
   removePost() {
-    // User needs 'admin' OR 'moderator'
+    // 'admin' OR 'moderator' が必要
   }
 }
 ```
 
-### AND Logic (All Roles)
+### AND Logic(すべてのRole) {#and-logic-all-roles}
 
-For AND logic, use multiple `@Authorized` decorators:
+AND logicにするには、複数の `@Authorized` decoratorを使います。
 
 ```typescript
 import { Controller, Authorized, Get } from '@zeltjs/core';
@@ -92,12 +92,12 @@ class ContentController {
   @Authorized(['premium'])
   @Get('/exclusive-content')
   exclusiveContent() {
-    // User needs 'verified' AND 'premium'
+    // 'verified' AND 'premium' が必要
   }
 }
 ```
 
-Or check in the handler:
+またはハンドラー内でチェックします。
 
 ```typescript
 import { Controller, Authorized, Get, currentRoles } from '@zeltjs/core';
@@ -116,11 +116,11 @@ class ContentController {
 }
 ```
 
-## Decorator Placement
+## Decoratorの配置 {#decorator-placement}
 
-### Method Level
+### Methodレベル {#method-level}
 
-Apply to specific routes:
+特定のルートに適用します。
 
 ```typescript
 import { Controller, Get, Post, Delete, Authorized } from '@zeltjs/core';
@@ -129,26 +129,26 @@ import { Controller, Get, Post, Delete, Authorized } from '@zeltjs/core';
 class PostController {
   @Get('/')
   list() {
-    // Public — no auth required
+    // Public — 認証不要
   }
 
   @Authorized()
   @Post('/')
   create() {
-    // Requires authentication
+    // 認証が必要
   }
 
   @Authorized(['admin'])
   @Delete('/:id')
   delete() {
-    // Requires admin role
+    // admin roleが必要
   }
 }
 ```
 
-### With Other Decorators
+### 他のDecoratorとの併用 {#with-other-decorators}
 
-`@Authorized` works with other method decorators:
+`@Authorized` は他のmethod decoratorと組み合わせて使えます。
 
 ```typescript
 import { Controller, Authorized, Post } from '@zeltjs/core';
@@ -170,16 +170,16 @@ class ApiController {
 }
 ```
 
-## Error Responses
+## エラーレスポンス {#error-responses}
 
-| Status | Code | Condition |
+| ステータス | コード | 条件 |
 |--------|------|-----------|
-| 401 | `UNAUTHORIZED` | No user set (not authenticated) |
-| 403 | `FORBIDDEN` | User lacks required roles |
+| 401 | `UNAUTHORIZED` | userが設定されていない(未認証) |
+| 403 | `FORBIDDEN` | ユーザーが必要なroleを持っていない |
 
-### Customizing Error Messages
+### エラーメッセージをカスタマイズする {#customizing-error-messages}
 
-Handle authorization errors in your error handler:
+エラーハンドラーでauthorizationのエラーを処理します。
 
 ```typescript
 import { createApp, Controller, Get, Authorized, HTTPException, type RequestContext, http } from '@zeltjs/core';
@@ -219,11 +219,11 @@ const app = createApp([http({
   })]);
 ```
 
-## Common Patterns
+## よくあるパターン {#common-patterns}
 
-### Public Routes with Optional Auth
+### 任意認証の公開ルート {#public-routes-with-optional-auth}
 
-Don't use `@Authorized` — check the user manually:
+`@Authorized` を使わず、手動でuserをチェックします。
 
 ```typescript
 import { Controller, Get, Injectable, inject, request, currentUser } from '@zeltjs/core';
@@ -256,9 +256,9 @@ class PostController {
 }
 ```
 
-### Owner-Only Access
+### Owner限定アクセス {#owner-only-access}
 
-Combine `@Authorized` with ownership checks:
+`@Authorized` と所有権チェックを組み合わせます。
 
 ```typescript
 import { Controller, Authorized, Put, Injectable, inject, currentUser, currentRoles } from '@zeltjs/core';
@@ -303,9 +303,9 @@ class PostController {
 }
 ```
 
-### Role Hierarchy
+### Role Hierarchy {#role-hierarchy}
 
-Check for any role in a hierarchy:
+hierarchy内のいずれかのroleをチェックします。
 
 ```typescript
 import { Controller, Authorized, Put, currentRoles } from '@zeltjs/core';
@@ -327,9 +327,9 @@ class PostController {
 }
 ```
 
-### Resource-Scoped Authorization
+### Resource-Scoped Authorization {#resource-scoped-authorization}
 
-For complex scenarios, move logic to a service:
+複雑なシナリオでは、ロジックをサービスへ移します。
 
 ```typescript
 import { Controller, Delete, Authorized, Injectable, inject, request, currentUser, currentRoles } from '@zeltjs/core';
@@ -391,9 +391,9 @@ class PostController {
 }
 ```
 
-## Testing Protected Routes
+## 保護されたルートをテストする {#testing-protected-routes}
 
-### Without Authentication
+### 認証なしの場合 {#without-authentication}
 
 ```typescript
 import { it, expect } from 'vitest';
@@ -415,7 +415,9 @@ it('returns 401 for unauthenticated requests', async () => {
 });
 ```
 
-### With Authentication
+### 認証ありの場合 {#with-authentication}
+
+request context内でuserを注入するmiddlewareを使います — `setUser()` はテストのセットアップ内ではなく、リクエスト処理中に呼び出す必要があります。
 
 ```typescript
 import { it, expect } from 'vitest';
@@ -447,7 +449,7 @@ it('returns data for authenticated users', async () => {
 });
 ```
 
-### Testing Role Requirements
+### Role要件をテストする {#testing-role-requirements}
 
 ```typescript
 import { it, expect } from 'vitest';
@@ -485,14 +487,14 @@ it('allows admin access', async () => {
 });
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-1. **Use `@Authorized()` for protected routes** — Don't manually check `currentUser()` for basic auth requirements
+1. **保護されたルートには `@Authorized()` を使う** — 基本的な認証要件のために、手動で `currentUser()` をチェックしない
 
-2. **Keep role checks coarse** — Use `@Authorized` for feature-level access, services for resource-level logic
+2. **role checkは粗く保つ** — 機能レベルのアクセスには `@Authorized` を、リソースレベルのロジックにはサービスを使う
 
-3. **Fail closed** — When in doubt, deny access; it's easier to grant than revoke
+3. **fail closed(不明な場合は拒否する)** — 迷ったらアクセスを拒否する。付与するより取り消す方が難しい
 
-4. **Log authorization failures** — Track failed access attempts for security monitoring
+4. **authorizationの失敗をログに残す** — セキュリティ監視のためにアクセス失敗の試行を追跡する
 
-5. **Test both paths** — Always test authenticated and unauthenticated scenarios
+5. **両方のパスをテストする** — 認証済み・未認証の両方のシナリオを必ずテストする

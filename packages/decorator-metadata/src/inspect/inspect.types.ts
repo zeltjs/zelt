@@ -62,7 +62,8 @@ export type InspectErrorCode =
   | 'POSITION_INVALID'
   | 'TSCONFIG_ERROR'
   | 'EXPORT_NOT_FOUND'
-  | 'MODULE_LOAD_FAILED';
+  | 'MODULE_LOAD_FAILED'
+  | 'SIGNATURE_NOT_FOUND';
 
 /**
  * 実クラスと静的なソース参照を相互変換するための識別子。
@@ -107,4 +108,16 @@ export type DependencyInfo = {
   readonly moduleSpecifier: string;
   readonly hasConfigDecorator: boolean;
   readonly decorators: readonly string[];
+};
+
+// --- getPublicMethodSignatures types ---
+
+/**
+ * クラスの公開契約 1 メソッド分。型は checker.typeToString の文字列表現
+ * (構造 diff・AI 可読の用途では文字列で足りる。Promise は unwrap しない)。
+ */
+export type PublicMethodSignature = {
+  readonly name: string;
+  readonly params: readonly { readonly name: string; readonly type: string }[];
+  readonly returnType: string;
 };

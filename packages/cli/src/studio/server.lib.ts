@@ -79,10 +79,19 @@ const createAnalyzeOnce = (analyze: () => Promise<AnalyzeResult>): AnalyzeOnce =
 type RequestState = { latest: AnalyzeResult };
 
 // POST /api/reload はユーザーコードを実行する解析を起動するため、simple request
-// （preflight なし）による cross-site 起動を Origin ヘッダで防ぐ。ヘッダ自体が
-// 無いリクエスト（curl 等のブラウザ外クライアント）は既存挙動どおり許可する
-export const isAllowedReloadOrigin = (origin: string | undefined): boolean => {
+// （preflight なし）による cross-site 起動を防ぐ。カスタムヘッダ付き POST は
+// cross-site だと CORS preflight を通過できない（このサーバは preflight を許可しない）
+// ため、ヘッダの存在自体が正規 UI からの same-origin リクエストである証明になり、
+// ポートフォワード等で Origin が localhost 以外になる環境でも reload できる。
+// Origin ヘッダ自体が無いリクエスト（curl 等のブラウザ外クライアント）と
+// loopback Origin は既存挙動どおり許可する
+export const isAllowedReloadRequest = (
+  origin: string | string[] | undefined,
+  reloadHeader: string | string[] | undefined,
+): boolean => {
+  if (reloadHeader !== undefined) return true;
   if (origin === undefined) return true;
+  if (Array.isArray(origin)) return false;
   try {
     // URL.hostname は [::1] を ::1 に正規化する
     const hostname = new URL(origin).hostname;
@@ -107,7 +116,7 @@ const handleRequest = async (
   }
 
   if (req.method === 'POST' && url.pathname === '/api/reload') {
-    if (!isAllowedReloadOrigin(req.headers.origin)) {
+    if (!isAllowedReloadRequest(req.headers.origin, req.headers['x-zelt-studio'])) {
       respondEmpty(res, 403);
       return;
     }

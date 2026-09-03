@@ -3,9 +3,9 @@
 
 # E2E Testing
 
-Test your application's HTTP endpoints end-to-end using Hono's built-in request helper or the type-safe client.
+Honoの組み込みrequest helperまたは型安全なclientを使って、アプリケーションのHTTPエンドポイントをend-to-endでテストします。
 
-## HTTP Testing
+## HTTP Testing {#http-testing}
 
 ```typescript
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
@@ -27,9 +27,9 @@ describe('Hello API', () => {
 });
 ```
 
-## Testing with Type-Safe Client
+## 型安全なClientでのテスト {#testing-with-type-safe-client}
 
-Use the generated `AppType` with Hono's client for fully typed tests. See [OpenAPI & Type Generation](../openapi.md) for how to generate `AppType`.
+生成された `AppType` をHonoのclientとともに使うと、完全に型付けされたテストが書けます。`AppType` の生成方法については [OpenAPI & Type Generation](../openapi.md) を参照してください。
 
 ```typescript
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
@@ -59,9 +59,9 @@ describe('Hello API', () => {
 });
 ```
 
-## Full Application Testing
+## Full Application Testing {#full-application-testing}
 
-For complete E2E tests with real dependencies, call `createRuntime()` with test config overrides and production fallbacks:
+実際の依存関係を使った完全なE2Eテストには、`onTest()` を使って本番用アプリにtest configのoverrideを適用します。
 
 ```typescript
 import { createApp, Controller, Get, Post, response, http } from '@zeltjs/core';
@@ -87,7 +87,7 @@ type AppType = {
   };
 };
 // ---cut---
-// Production app - same as your real application
+// 本番用app - 実際のアプリケーションと同じ
 const app = createApp([http({ controllers: [UserController] })], { configs: [RedisConfig] });
 
 describe('API E2E', () => {
@@ -95,7 +95,7 @@ describe('API E2E', () => {
   let client: AppType;
 
   beforeAll(async () => {
-    // onTest() overrides RedisConfig with RedisTestContainerConfig
+    // onTest()はRedisConfigをRedisTestContainerConfigでoverrideする
     testApp = await onTest(app, {
       configs: [RedisTestContainerConfig],
     });

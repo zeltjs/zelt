@@ -3,15 +3,15 @@
 
 # Integration Testing
 
-For integration tests that require external services like Redis or PostgreSQL, use Testcontainers. Zelt provides pre-configured container configs that integrate with the lifecycle system.
+RedisやPostgreSQLのような外部サービスを必要とするintegration testには、Testcontainersを使います。Zeltは、lifecycleシステムと統合された、事前設定済みのcontainer configを提供します。
 
-## Installation
+## インストール {#installation}
 
 ```bash
 pnpm add -D @zeltjs/testing testcontainers
 ```
 
-## Redis Integration Testing
+## Redis Integration Testing {#redis-integration-testing}
 
 ```typescript
 import { ConfigClass } from '@zeltjs/core';
@@ -36,14 +36,14 @@ describe('CacheService', () => {
 });
 ```
 
-`RedisTestContainerConfig` automatically:
-- Starts a Redis container before tests
-- Provides connection URL to services depending on `RedisConfig`
-- Stops and cleans up the container after tests
+`RedisTestContainerConfig` は自動的に次を行います。
+- テスト前にRedis containerを起動する
+- `RedisConfig` に依存するサービスへ接続URLを提供する
+- テスト後にcontainerを停止・クリーンアップする
 
-## Custom Container Config
+## Custom Container Config {#custom-container-config}
 
-Create your own container config by implementing the `Lifecycle` interface:
+`Lifecycle` interfaceを実装して、独自のcontainer configを作成します。
 
 ```typescript
 import { Config, inject, LifecycleManager, type Lifecycle } from '@zeltjs/core';
@@ -93,9 +93,9 @@ export class PostgresTestContainerConfig implements Lifecycle {
 }
 ```
 
-## Sociable Unit Tests
+## Sociable Unit Tests {#sociable-unit-tests}
 
-Integration tests with Testcontainers are ideal for "Sociable Unit Tests" — testing units that collaborate with real dependencies rather than mocks:
+Testcontainersを使ったintegration testは、モックではなく実際の依存関係と連携するunitをテストする「Sociable Unit Tests」に最適です。
 
 ```typescript
 import { ConfigClass } from '@zeltjs/core';

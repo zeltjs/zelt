@@ -3,22 +3,22 @@
 
 # Scheduler
 
-Zelt provides declarative scheduling decorators for running tasks at specified intervals or cron expressions.
+Zeltは、指定した間隔やcron式でタスクを実行するための宣言的なスケジューリングデコレータを提供します。
 
-## Overview
+## 概要 {#overview}
 
-The scheduler API consists of:
+scheduler APIは以下で構成されます:
 
-- **`@Scheduled`** — Class decorator marking a class as a scheduler
-- **`@Cron(expression)`** — Run at specific cron expression
-- **`@Daily({ hour, minute? })`** — Run once per day
-- **`@Hourly({ minute? })`** — Run once per hour
-- **`@Weekly({ day, hour, minute? })`** — Run once per week
-- **`@Every({ minutes | seconds })`** — Run at fixed intervals
+- **`@Scheduled`** — クラスをschedulerとしてマークするクラスデコレータ
+- **`@Cron(expression)`** — 特定のcron式で実行する
+- **`@Daily({ hour, minute? })`** — 1日1回実行する
+- **`@Hourly({ minute? })`** — 1時間に1回実行する
+- **`@Weekly({ day, hour, minute? })`** — 週に1回実行する
+- **`@Every({ minutes | seconds })`** — 固定間隔で実行する
 
-## Basic Usage
+## 基本的な使い方 {#basic-usage}
 
-### Creating a Scheduler
+### Schedulerの作成 {#creating-a-scheduler}
 
 ```typescript
 import { Scheduled, Cron, Daily, Hourly } from '@zeltjs/core';
@@ -37,9 +37,9 @@ class ReportScheduler {
 }
 ```
 
-### Registering Schedulers
+### Schedulerの登録 {#registering-schedulers}
 
-`scheduler([ReportScheduler])` は、`http({ controllers: [...] })` と同じように `createApp()` に渡す feature 配列へ含めます:
+`scheduler([ReportScheduler])` は、`http({ controllers: [...] })` と同じように `createApp()` に渡すfeature配列へ含めます:
 
 ```typescript
 import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler } from '@zeltjs/core';
@@ -53,9 +53,9 @@ import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler }
 const app = createApp([http({ controllers: [UserController] }), scheduler([ReportScheduler])]);
 ```
 
-### Starting the Scheduler
+### Schedulerの起動 {#starting-the-scheduler}
 
-`scheduler([ReportScheduler])` を `createApp()` の feature 配列に含めた後、`onNode()` と `createRuntime()` が完了したら `schedulers.startScheduler()` を呼び出して scheduled tasks を開始します:
+`scheduler([ReportScheduler])` を `createApp()` のfeature配列に含めた後、`onNode()` と `createRuntime()` が完了したら `schedulers.startScheduler()` を呼び出してscheduled taskを開始します:
 
 ```typescript
 import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler } from '@zeltjs/core';
@@ -73,7 +73,7 @@ const nodeApp = await onNode(app);
 await nodeApp.schedulers.startScheduler();
 ```
 
-`scheduler([ReportScheduler])` を含む app で scheduler を graceful に停止するには:
+`scheduler([ReportScheduler])` を含むappでschedulerをgracefulに停止するには:
 
 ```typescript
 import { createApp, Controller, Get, Scheduled, Daily, Hourly, http, scheduler } from '@zeltjs/core';
@@ -91,17 +91,17 @@ const nodeApp = await onNode(app);
 await nodeApp.schedulers.stopScheduler();
 ```
 
-The scheduler is **not started automatically** when the app becomes ready. This design allows you to:
+schedulerはappがreadyになっても**自動的には起動しません**。この設計により以下が可能です:
 
-- Run HTTP server without scheduled tasks (e.g., during testing)
-- Control scheduler lifecycle independently from the server
-- Conditionally enable scheduling based on environment
+- scheduled taskなしでHTTPサーバーを実行する(テスト時など)
+- schedulerのライフサイクルをサーバーとは独立して制御する
+- 環境に応じて条件付きでschedulingを有効化する
 
-## Decorator Reference
+## デコレータリファレンス {#decorator-reference}
 
-### @Cron
+### @Cron {#cron}
 
-Run at specific cron expression:
+特定のcron式で実行します:
 
 ```typescript
 import { Scheduled, Cron } from '@zeltjs/core';
@@ -110,17 +110,17 @@ import { Scheduled, Cron } from '@zeltjs/core';
 class BackupScheduler {
   @Cron('0 2 * * *')
   async runBackup() {
-    // Runs at 2:00 AM every day
+    // 毎日午前2:00に実行される
   }
 
   @Cron('*/5 * * * *')
   async quickCheck() {
-    // Runs every 5 minutes
+    // 5分ごとに実行される
   }
 }
 ```
 
-With timezone:
+タイムゾーン指定あり:
 
 ```typescript
 import { Scheduled, Cron } from '@zeltjs/core';
@@ -129,14 +129,14 @@ import { Scheduled, Cron } from '@zeltjs/core';
 class TimezoneScheduler {
   @Cron('0 9 * * *', { tz: 'Asia/Tokyo' })
   async morningTask() {
-    // Runs at 9:00 AM JST
+    // 日本標準時の午前9:00に実行される
   }
 }
 ```
 
-### @Daily
+### @Daily {#daily}
 
-Run once per day at specified hour:
+指定した時刻に1日1回実行します:
 
 ```typescript
 import { Scheduled, Daily } from '@zeltjs/core';
@@ -145,24 +145,24 @@ import { Scheduled, Daily } from '@zeltjs/core';
 class DailyTasks {
   @Daily({ hour: 6 })
   async earlyMorning() {
-    // Runs at 6:00 AM
+    // 午前6:00に実行される
   }
 
   @Daily({ hour: 23, minute: 30 })
   async lateNight() {
-    // Runs at 11:30 PM
+    // 午後11:30に実行される
   }
 
   @Daily({ hour: 9, tz: 'America/New_York' })
   async newYorkMorning() {
-    // Runs at 9:00 AM EST/EDT
+    // EST/EDTの午前9:00に実行される
   }
 }
 ```
 
-### @Hourly
+### @Hourly {#hourly}
 
-Run once per hour:
+1時間に1回実行します:
 
 ```typescript
 import { Scheduled, Hourly } from '@zeltjs/core';
@@ -171,19 +171,19 @@ import { Scheduled, Hourly } from '@zeltjs/core';
 class HourlyTasks {
   @Hourly()
   async everyHour() {
-    // Runs at minute 0 of every hour
+    // 毎時0分に実行される
   }
 
   @Hourly({ minute: 30 })
   async halfPast() {
-    // Runs at minute 30 of every hour
+    // 毎時30分に実行される
   }
 }
 ```
 
-### @Weekly
+### @Weekly {#weekly}
 
-Run once per week:
+週に1回実行します:
 
 ```typescript
 import { Scheduled, Weekly } from '@zeltjs/core';
@@ -192,21 +192,21 @@ import { Scheduled, Weekly } from '@zeltjs/core';
 class WeeklyTasks {
   @Weekly({ day: 'monday', hour: 9 })
   async mondayMeeting() {
-    // Runs every Monday at 9:00 AM
+    // 毎週月曜日の午前9:00に実行される
   }
 
   @Weekly({ day: 'friday', hour: 17, minute: 30 })
   async weeklyReport() {
-    // Runs every Friday at 5:30 PM
+    // 毎週金曜日の午後5:30に実行される
   }
 }
 ```
 
-Available days: `'sunday'`, `'monday'`, `'tuesday'`, `'wednesday'`, `'thursday'`, `'friday'`, `'saturday'`
+利用可能な曜日: `'sunday'`、`'monday'`、`'tuesday'`、`'wednesday'`、`'thursday'`、`'friday'`、`'saturday'`
 
-### @Every
+### @Every {#every}
 
-Run at fixed intervals:
+固定間隔で実行します:
 
 ```typescript
 import { Scheduled, Every } from '@zeltjs/core';
@@ -215,19 +215,19 @@ import { Scheduled, Every } from '@zeltjs/core';
 class PollingTasks {
   @Every({ minutes: 5 })
   async pollApi() {
-    // Runs every 5 minutes
+    // 5分ごとに実行される
   }
 
   @Every({ seconds: 30 })
   async frequentCheck() {
-    // Runs every 30 seconds
+    // 30秒ごとに実行される
   }
 }
 ```
 
-## Dependency Injection
+## 依存性の注入 {#dependency-injection}
 
-Schedulers support dependency injection like controllers:
+Schedulerはcontrollerと同様に依存性の注入をサポートします:
 
 ```typescript
 import { Scheduled, Daily, inject, Injectable } from '@zeltjs/core';
@@ -252,9 +252,9 @@ class NotificationScheduler {
 }
 ```
 
-## Node.js Entry Point
+## Node.jsエントリポイント {#nodejs-entry-point}
 
-Node.js applications では、`createApp()` の feature 配列に `http()` と `scheduler()` を含め、`onNode()` の後で明示的に scheduler を開始します:
+Node.jsアプリケーションでは、`createApp()` のfeature配列に `http()` と `scheduler()` を含め、`onNode()` の後で明示的にschedulerを開始します:
 
 ```typescript
 import { onNode } from '@zeltjs/adapter-node';
@@ -266,7 +266,7 @@ const app = createApp([http({ controllers: [] }), scheduler([MyScheduler])]);
 const nodeApp = await onNode(app);
 const handle = await nodeApp.http.listen(3000);
 
-// Start scheduled tasks
+// scheduled taskを開始する
 await nodeApp.schedulers.startScheduler();
 
 process.on('SIGTERM', async () => {
@@ -275,7 +275,7 @@ process.on('SIGTERM', async () => {
 });
 ```
 
-configuration を使う場合も、`scheduler([MyScheduler])` は `http()` と同じ feature 配列に含め、`createRuntime()` 後に条件付きで開始します:
+configurationを使う場合も、`scheduler([MyScheduler])` は `http()` と同じfeature配列に含め、`createRuntime()` 後に条件付きで開始します:
 
 ```typescript
 import { createApp, Config, Env, inject, Scheduled, Daily, http, scheduler } from '@zeltjs/core';
@@ -299,28 +299,28 @@ if (config.enabled) {
 }
 ```
 
-## Cron Expression Format
+## Cron式のフォーマット {#cron-expression-format}
 
-Zelt uses standard cron format with optional seconds:
+Zeltは秒をオプションとする標準的なcron形式を使用します:
 
 ```
-┌──────────── second (optional, 0-59)
-│ ┌────────── minute (0-59)
-│ │ ┌──────── hour (0-23)
-│ │ │ ┌────── day of month (1-31)
-│ │ │ │ ┌──── month (1-12)
-│ │ │ │ │ ┌── day of week (0-6, Sunday=0)
+┌──────────── 秒(オプション、0-59)
+│ ┌────────── 分(0-59)
+│ │ ┌──────── 時(0-23)
+│ │ │ ┌────── 日(1-31)
+│ │ │ │ ┌──── 月(1-12)
+│ │ │ │ │ ┌── 曜日(0-6、日曜日=0)
 │ │ │ │ │ │
 * * * * * *
 ```
 
-Common patterns:
+よく使われるパターン:
 
-| Pattern | Description |
+| パターン | 説明 |
 |---------|-------------|
-| `* * * * *` | Every minute |
-| `0 * * * *` | Every hour |
-| `0 0 * * *` | Every day at midnight |
-| `0 9 * * 1` | Every Monday at 9:00 AM |
-| `*/15 * * * *` | Every 15 minutes |
-| `0 0 1 * *` | First day of every month |
+| `* * * * *` | 毎分 |
+| `0 * * * *` | 毎時 |
+| `0 0 * * *` | 毎日深夜0時 |
+| `0 9 * * 1` | 毎週月曜日9:00 |
+| `*/15 * * * *` | 15分ごと |
+| `0 0 1 * *` | 毎月1日 |

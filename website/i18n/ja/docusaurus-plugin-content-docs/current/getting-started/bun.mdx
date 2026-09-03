@@ -1,0 +1,190 @@
+---
+sidebar_label: Bun
+---
+
+import Prerequisites from './_partials/prerequisites.mdx';
+import FolderStructure from './_partials/folder-structure.mdx';
+
+# Bunではじめる
+
+このガイドでは、Bun上でZeltアプリケーションをゼロから構築する手順を説明します。
+
+<Prerequisites />
+
+## インストール {#installation}
+
+```bash
+bun add @zeltjs/core @zeltjs/adapter-bun
+```
+
+<FolderStructure />
+
+## Hello World {#hello-world}
+
+### Step 1: Controllerを作成する {#step-1-create-the-controller}
+
+`src/entry/controllers/hello.controller.ts` を作成します:
+
+```typescript
+// @noErrors
+import { Controller, Get, request } from '@zeltjs/core';
+// ---cut---
+@Controller('/hello')
+export class HelloController {
+  @Get('/:name')
+  greet(req = request()) {
+    const name = req.pathParam('name');
+    return { message: `Hello, ${name}!` };
+  }
+}
+```
+
+### Step 2: アプリケーションを作成する {#step-2-create-the-application}
+
+`src/app.ts` を作成します:
+
+```typescript
+// @noErrors
+import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
+}
+// ---cut---
+export const app = createApp([http({
+    controllers: [HelloController],
+  })]);
+```
+
+### Step 3: entryを作成する {#step-3-create-the-entry-point}
+
+`src/index.ts` を作成します:
+
+```typescript
+// @noErrors
+import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
+import { onBun } from '@zeltjs/adapter-bun';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp([http({ controllers: [HelloController] })]);
+// ---cut---
+const bunApp = await onBun(app);
+
+const server = bunApp.http.serve({ port: 3000 });
+console.log(`Server running at http://${server.address.hostname}:${server.address.port}`);
+```
+
+`onBun()` 関数はアプリをBunランタイム用に準備します。返されるオブジェクトには以下が含まれます:
+
+- `serve(options?)` — `Bun.serve()` を使ってHTTPサーバーを起動します
+- `shutdown()` — アプリケーションをgracefulにシャットダウンします
+- `get<T>(Class)` — DIコンテナからserviceを解決します
+- `args` — コマンドライン引数(`Bun.argv.slice(2)`)
+
+### Step 4: サーバーを起動する {#step-4-run-the-server}
+
+```bash
+bun run src/index.ts
+```
+
+`http://localhost:3000/hello/world` にアクセスすると、次のように表示されます:
+
+```json
+{ "message": "Hello, world!" }
+```
+
+## サーバーオプション {#server-options}
+
+`serve()` メソッドはportとhostnameのオプションを受け取ります:
+
+```typescript
+// @noErrors
+import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
+import { onBun } from '@zeltjs/adapter-bun';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp([http({ controllers: [HelloController] })]);
+const bunApp = await onBun(app);
+// ---cut---
+const server = bunApp.http.serve({
+  port: 8080,
+  hostname: '127.0.0.1',
+});
+```
+
+| オプション | デフォルト | 説明 |
+|--------|---------|-------------|
+| `port` | `3000` | 待ち受けるport |
+| `hostname` | `'0.0.0.0'` | バインドするhostname |
+
+## コマンドサポート {#command-support}
+
+アプリにcommandが含まれる場合、`onBun()` はCLI実行のためにcommand機能を `commands` namespaceの下に保持します:
+
+```typescript
+// @noErrors
+import { createApp, Command, Arg, Controller, Get, http, command } from '@zeltjs/core';
+import { onBun } from '@zeltjs/adapter-bun';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/') greet() { return { message: 'Hello!' }; }
+}
+
+@Command('greet')
+class GreetCommand {
+  constructor(private name = Arg(0)) {}
+  run() { console.log(`Hello, ${this.name}!`); }
+}
+
+const app = createApp([http({ controllers: [HelloController] }), command([GreetCommand])]);
+// ---cut---
+const bunApp = await onBun(app);
+
+const result = await bunApp.commands.execCommand(['greet', 'world']);
+console.log(result.exitCode); // 0 または 1
+```
+
+## Warmupオプション {#warmup-option}
+
+`onBun()` はデフォルトで即時初期化(`warmup: true`)を使用します — 全controllerが起動時に解決されます。
+
+遅延初期化(controllerは最初のリクエスト時に解決)にするには:
+
+```typescript
+// @noErrors
+import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
+import { onBun } from '@zeltjs/adapter-bun';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp([http({ controllers: [HelloController] })]);
+// ---cut---
+const bunApp = await onBun(app, { warmup: false });
+```
+
+| オプション | 挙動 | 用途 |
+|--------|----------|----------|
+| `warmup: true`(デフォルト) | 全controllerが起動時に解決される | 長時間稼働するサーバー |
+| `warmup: false` | controllerは最初のリクエスト時に解決される | コールドスタートの最適化 |
+
+## 次のステップ {#whats-next}
+
+- [Controllers](../controllers) — ルーティングとHTTPメソッド
+- [Services](../services) — ビジネスロジックと依存性注入
+- [Commands](../command) — CLIコマンド

@@ -1,19 +1,19 @@
 ---
 ---
 
-# Using BullMQ
+# BullMQの利用
 
-[BullMQ](https://docs.bullmq.io/) is a powerful job queue library for Node.js backed by Redis. This guide shows how to integrate BullMQ with Zelt using dependency injection and lifecycle management.
+[BullMQ](https://docs.bullmq.io/) はRedisを基盤とした、Node.js向けの強力なジョブキューライブラリです。このガイドでは、依存性の注入とライフサイクル管理を使ってBullMQをZeltと統合する方法を示します。
 
-## Installation
+## インストール {#installation}
 
 ```bash
 pnpm add bullmq ioredis
 ```
 
-## Basic Setup
+## 基本的なセットアップ {#basic-setup}
 
-Create a service that manages the Redis connection and exposes the BullMQ client:
+Redis接続を管理し、BullMQクライアントを公開するserviceを作成します:
 
 ```typescript
 import { Injectable, inject, Config, Env, LifecycleManager, type Lifecycle } from '@zeltjs/core';
@@ -54,9 +54,9 @@ class BullMQService implements Lifecycle {
 }
 ```
 
-## Creating Queues
+## Queueの作成 {#creating-queues}
 
-Inject `BullMQService` and create queues using the shared connection:
+`BullMQService` をinjectし、共有接続を使ってqueueを作成します:
 
 ```typescript
 import { Injectable, inject } from '@zeltjs/core';
@@ -85,9 +85,9 @@ class EmailService {
 }
 ```
 
-## Creating Workers
+## Workerの作成 {#creating-workers}
 
-Workers process jobs from the queue. Register them with the lifecycle manager for graceful shutdown:
+Workerはqueueからjobを処理します。graceful shutdownのためにlifecycle managerへ登録します:
 
 ```typescript
 import { Injectable, inject, LifecycleManager, type Lifecycle } from '@zeltjs/core';
@@ -135,9 +135,9 @@ class EmailWorker implements Lifecycle {
 }
 ```
 
-## Using in Controllers
+## Controllerでの利用 {#using-in-controllers}
 
-Enqueue jobs from your HTTP controllers:
+HTTP controllerからjobをenqueueします:
 
 ```typescript
 import { Controller, Post, inject } from '@zeltjs/core';
@@ -153,7 +153,7 @@ class UserController {
   async register(req = request(v.object({ email: v.string() }))) {
     const body = await req.body();
 
-    // ... create user
+    // ... ユーザーを作成する
 
     await this.emailService.sendWelcomeEmail(body.email);
 
@@ -162,9 +162,9 @@ class UserController {
 }
 ```
 
-## App Configuration
+## アプリ設定 {#app-configuration}
 
-Register your services in the app:
+serviceをアプリに登録します:
 
 ```typescript
 import { createApp, Config, Env, inject, http } from '@zeltjs/core';
@@ -182,7 +182,7 @@ const app = createApp([http({ controllers: [UserController] })], { configs: [Bul
 export default app;
 ```
 
-To start workers, ensure they are instantiated at startup:
+workerを開始するには、起動時にインスタンス化されるようにします:
 
 ```typescript
 import { createApp, inject, Config, Env, http } from '@zeltjs/core';
@@ -198,14 +198,14 @@ class BullMQConfig {
 // ---cut---
 const app = createApp([http({ controllers: [UserController] })], { configs: [BullMQConfig] });
 
-// Instantiate worker to start processing
+// workerをインスタンス化して処理を開始する
 const readyApp = await app.createRuntime();
 await readyApp.get(EmailWorker);
 ```
 
-## Custom Configuration
+## カスタム設定 {#custom-configuration}
 
-Extend `BullMQConfig` for different environments:
+環境ごとに異なる設定を使うために `BullMQConfig` を継承します:
 
 ```typescript
 import { Config, Env, inject } from '@zeltjs/core';
@@ -230,9 +230,9 @@ class ProductionBullMQConfig extends BullMQConfig {
 }
 ```
 
-## Job Options
+## Jobのオプション {#job-options}
 
-BullMQ supports many job options. Use them directly:
+BullMQは多くのjobオプションをサポートしています。そのまま使ってください:
 
 ```typescript
 import { Queue } from 'bullmq';
@@ -240,18 +240,18 @@ import { Queue } from 'bullmq';
 const queue = new Queue('reports', { connection: { host: 'localhost', port: 6379 } });
 // ---cut---
 await queue.add('report', { userId: 123 }, {
-  delay: 60000,                    // Delay 1 minute
-  attempts: 5,                     // Retry 5 times
+  delay: 60000,                    // 1分遅延させる
+  attempts: 5,                     // 5回リトライする
   backoff: { type: 'exponential', delay: 2000 },
-  priority: 1,                     // Higher priority
-  removeOnComplete: 100,           // Keep last 100 completed
-  removeOnFail: 50,                // Keep last 50 failed
+  priority: 1,                     // 優先度を上げる
+  removeOnComplete: 100,           // 完了済みを直近100件保持する
+  removeOnFail: 50,                // 失敗を直近50件保持する
 });
 ```
 
-## Scheduled Jobs
+## スケジュールされたJob {#scheduled-jobs}
 
-For recurring jobs, use BullMQ's repeat feature:
+繰り返し実行されるjobには、BullMQのrepeat機能を使います:
 
 ```typescript
 import { Queue } from 'bullmq';
@@ -260,19 +260,19 @@ const queue = new Queue('reports', { connection: { host: 'localhost', port: 6379
 // ---cut---
 await queue.add('daily-report', {}, {
   repeat: {
-    pattern: '0 9 * * *',          // Every day at 9:00
+    pattern: '0 9 * * *',          // 毎日9:00に
     tz: 'Asia/Tokyo',
   },
 });
 ```
 
-## Monitoring
+## モニタリング {#monitoring}
 
-Use [Bull Board](https://github.com/felixmosh/bull-board) or [Arena](https://github.com/bee-queue/arena) to monitor your queues. These integrate directly with BullMQ.
+queueをモニタリングするには [Bull Board](https://github.com/felixmosh/bull-board) や [Arena](https://github.com/bee-queue/arena) を使ってください。これらはBullMQと直接統合します。
 
-## Testing
+## テスト {#testing}
 
-For testing, use a separate Redis instance or mock the queue:
+テストでは、別のRedisインスタンスを使うか、queueをmockします:
 
 ```typescript
 import { describe, it, vi, expect } from 'vitest';
@@ -307,7 +307,7 @@ describe('EmailService', () => {
 });
 ```
 
-For integration tests, use Testcontainers with a test config override:
+integration testでは、テスト用config overrideとともにTestcontainersを使います:
 
 ```typescript
 import { Config, Env, inject } from '@zeltjs/core';
@@ -336,5 +336,5 @@ class TestBullMQConfig extends BullMQConfig {
   }
 }
 
-// Use TestBullMQConfig in your test app setup
+// テストのapp setupでTestBullMQConfigを使う
 ```

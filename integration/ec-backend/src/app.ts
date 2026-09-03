@@ -1,14 +1,14 @@
 import { createApp, http } from '@zeltjs/core';
 import { eventbus, MemoryEventBusAdaptor } from '@zeltjs/eventbus';
 
-import { AuthController } from './auth/auth.controller';
-import { EcJwtConfig } from './auth/ec-jwt.config';
-import { CartController } from './cart/cart.controller';
 import { EcCorsConfig } from './config/ec-cors.config';
-import { LoggingMiddleware } from './middleware/logging.middleware';
-import { OrderController } from './order/order.controller';
-import { OrderHandlers } from './order/order.handlers';
-import { ProductController } from './product/product.controller';
+import { EcJwtConfig } from './config/ec-jwt.config';
+import { AuthController } from './entry/controllers/auth.controller';
+import { CartController } from './entry/controllers/cart.controller';
+import { OrderController } from './entry/controllers/order.controller';
+import { ProductController } from './entry/controllers/product.controller';
+import { OrderHandlers } from './entry/job/order.handlers';
+import { LoggingMiddleware } from './entry/middleware/logging.middleware';
 
 export const createEcApp = () =>
   createApp(

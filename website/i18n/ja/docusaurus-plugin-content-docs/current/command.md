@@ -1,13 +1,13 @@
 ---
 ---
 
-# Commands
+# コマンド
 
-Zelt provides CLI command support with dependency injection through `@zeltjs/core`.
+Zeltは `@zeltjs/core` を通じて、依存性の注入付きのCLIコマンドサポートを提供します。
 
-## Creating a Command
+## Commandの作成 {#creating-a-command}
 
-Use the `@Command` decorator with `cliSchema()` and `args()` for type-safe CLI commands:
+型安全なCLIコマンドのために、`@Command` デコレータを `cliSchema()` と `args()` とともに使います:
 
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
@@ -27,9 +27,9 @@ export class GreetCommand {
 }
 ```
 
-## Configuration
+## 設定 {#configuration}
 
-Create a `src/cli.ts` entry point for your CLI:
+CLI用の `src/cli.ts` エントリポイントを作成します:
 
 ```typescript
 import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
@@ -46,7 +46,7 @@ const nodeApp = await onNode(app);
 await nodeApp.commands.execCommand([...nodeApp.args]);
 ```
 
-Then configure `cli.entry` in your `zelt.config.ts`:
+次に、`zelt.config.ts` で `cli.entry` を設定します:
 
 ```typescript
 // @filename: src/app.ts
@@ -63,23 +63,23 @@ export default defineConfig({
 });
 ```
 
-## Running Commands
+## Commandの実行 {#running-commands}
 
-Use `zelt run` to execute commands:
+コマンドを実行するには `zelt run` を使います:
 
 ```bash
-# Run a command
+# コマンドを実行する
 zelt run greet Alice
 
-# With custom config
+# カスタムconfigを使う
 zelt run -c ./config/zelt.config.ts greet Alice
 ```
 
-## Schema Definition
+## スキーマ定義 {#schema-definition}
 
-The `cliSchema()` function defines typed arguments and options:
+`cliSchema()` 関数は、型付きの引数とオプションを定義します:
 
-### Positional Arguments
+### 位置引数 {#positional-arguments}
 
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
@@ -99,7 +99,7 @@ export class CopyCommand {
 }
 ```
 
-### Options (Flags)
+### オプション(フラグ) {#options-flags}
 
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
@@ -123,12 +123,12 @@ export class BuildCommand {
 ```
 
 ```bash
-# Usage
+# 使い方
 zelt run build --watch --outDir=out
 zelt run build -w -o out
 ```
 
-### Combined Arguments and Options
+### 引数とオプションの組み合わせ {#combined-arguments-and-options}
 
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
@@ -157,16 +157,16 @@ export class DeployCommand {
 }
 ```
 
-## Schema Types
+## スキーマの型 {#schema-types}
 
-### Argument Types
+### 引数の型 {#argument-types}
 
-| Type | Description |
+| 型 | 説明 |
 |------|-------------|
-| `string` | String value |
-| `number` | Numeric value (automatically parsed) |
+| `string` | 文字列値 |
+| `number` | 数値(自動的にパースされる) |
 
-Arguments can be marked as optional:
+引数はoptionalとしてマークできます:
 
 ```typescript
 import { cliSchema } from '@zeltjs/core';
@@ -179,15 +179,15 @@ const schema = cliSchema({
 });
 ```
 
-### Option Types
+### オプションの型 {#option-types}
 
-| Type | Description |
+| 型 | 説明 |
 |------|-------------|
-| `string` | String option |
-| `number` | Numeric option (automatically parsed) |
-| `boolean` | Boolean flag |
+| `string` | 文字列オプション |
+| `number` | 数値オプション(自動的にパースされる) |
+| `boolean` | 真偽値フラグ |
 
-Options can have defaults:
+オプションにはデフォルト値を設定できます:
 
 ```typescript
 import { cliSchema } from '@zeltjs/core';
@@ -195,18 +195,18 @@ import { cliSchema } from '@zeltjs/core';
 const schema = cliSchema({
   options: [
     { name: 'port', type: 'number', default: 3000 },
-    { name: 'verbose', type: 'boolean' },  // defaults to false
+    { name: 'verbose', type: 'boolean' },  // デフォルトはfalse
   ],
 });
 ```
 
-## Transient Scope
+## Transientスコープ {#transient-scope}
 
-Commands are registered as **transient** — a new instance is created for each execution. This ensures:
+Commandは **transient** として登録されます — 実行のたびに新しいインスタンスが作成されます。これにより以下が保証されます:
 
-- Clean state for each command run
-- No shared mutable state between executions
-- Dependencies injected via `inject()` remain singletons
+- コマンド実行ごとにクリーンな状態
+- 実行間で共有される可変状態がない
+- `inject()` を通じて注入された依存関係はsingletonのまま
 
 ```typescript
 import { Command, inject } from '@zeltjs/core';
@@ -214,9 +214,9 @@ declare class DatabaseService {}
 // ---cut---
 @Command({ name: 'process' })
 export class ProcessCommand {
-  private startTime = Date.now(); // Fresh for each execution
+  private startTime = Date.now(); // 実行のたびに新しくなる
 
-  constructor(private db = inject(DatabaseService)) {} // Singleton, shared
+  constructor(private db = inject(DatabaseService)) {} // singletonで共有される
 
   run() {
     console.log(`Started at: ${this.startTime}`);
@@ -224,9 +224,9 @@ export class ProcessCommand {
 }
 ```
 
-## Dependency Injection
+## 依存性の注入 {#dependency-injection}
 
-Commands support dependency injection:
+Commandは依存性の注入をサポートします:
 
 ```typescript
 import { Command, cliSchema, args, inject } from '@zeltjs/core';
@@ -252,9 +252,9 @@ export class MigrateCommand {
 }
 ```
 
-## Programmatic Execution
+## プログラムからの実行 {#programmatic-execution}
 
-Commands can be executed programmatically using `onNode()`:
+Commandは `onNode()` を使ってプログラムから実行できます:
 
 ```typescript
 import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
@@ -272,9 +272,9 @@ const result = await nodeApp.commands.execCommand(['migrate', '--force']);
 console.log(`Exit code: ${result.exitCode}`);
 ```
 
-## Async Commands
+## Async Command {#async-commands}
 
-Commands can be async:
+Commandはasyncにできます:
 
 ```typescript
 import { Command } from '@zeltjs/core';

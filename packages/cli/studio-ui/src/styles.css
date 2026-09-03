@@ -1,7 +1,8 @@
 html, body, #root { height: 100%; margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; }
-.studio { display: flex; flex-direction: column; height: 100%; }
+.studio { position: relative; display: flex; flex-direction: column; height: 100%; }
 .studio header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid #e5e7eb; }
 .studio header h1 { font-size: 16px; margin: 0; }
+.studio header .toggle { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #374151; cursor: pointer; }
 .studio .error { background: #fef2f2; color: #991b1b; padding: 12px 16px; margin: 0; overflow: auto; max-height: 40%; }
 .react-flow { flex: 1; }
 .card { width: 240px; padding: 10px 12px; border-radius: 8px; border: 1px solid #d1d5db; background: #ffffff; display: flex; flex-direction: column; gap: 2px; }
@@ -21,5 +22,82 @@ html, body, #root { height: 100%; margin: 0; font-family: ui-sans-serif, system-
 .kind-service { border-color: #64748b; }
 .kind-service .badge { background: #e2e8f0; color: #334155; }
 .unresolved { border-style: dashed; border-color: #ef4444; }
+.folder { width: 100%; height: 100%; border: 1px dashed #94a3b8; border-radius: 12px; background: rgba(241, 245, 249, 0.5); }
+.folder-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 6px 4px 10px; }
+.folder-label { font-family: ui-monospace, monospace; font-size: 10px; color: #64748b; }
+.folder-collapse-btn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  line-height: 1;
+  padding: 0;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 11px;
+  cursor: pointer;
+}
+.folder-collapse-btn:hover { background: #e2e8f0; }
+/* 折りたたみグループの合成ノード。folder の視覚言語（点線・くすんだ配色）を引き継ぎつつ、
+   card と混同しないよう実線の塗りつぶしにして「1 枚に束ねられた」印象にする */
+.module {
+  width: 240px;
+  height: 80px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px dashed #94a3b8;
+  background: #eef2f7;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.module:hover { background: #e2e8f0; }
+.module-expand { align-self: flex-end; font-size: 11px; color: #64748b; margin-top: -18px; }
+.module strong { font-size: 13px; color: #334155; word-break: break-all; }
+.module small { color: #6b7280; font-size: 10px; }
 /* read-only 表示のため接続ハンドルは不可視化する（エッジ描画自体には Handle が必要） */
 .react-flow__handle { opacity: 0; pointer-events: none; }
+.react-flow__edge.edge-applies-middleware .react-flow__edge-path { stroke: #10b981; stroke-dasharray: 6 4; }
+.inspector {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  width: 320px;
+  max-height: calc(100% - 80px);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+  font-size: 13px;
+}
+.inspector header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inspector header button {
+  margin-left: auto;
+}
+.inspector h3 {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+.inspector ul {
+  margin: 0;
+  padding-left: 16px;
+}
+.inspector code {
+  font-size: 12px;
+}
+

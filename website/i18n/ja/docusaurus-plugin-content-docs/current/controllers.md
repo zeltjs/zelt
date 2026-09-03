@@ -3,11 +3,11 @@
 
 # Controllers
 
-Controllers are responsible for handling incoming **requests** and returning **responses** to the client.
+Controllerは、送られてくる**リクエスト**を処理し、クライアントへ**レスポンス**を返す責務を持ちます。
 
-## Defining Controllers
+## Defining Controllers {#defining-controllers}
 
-A controller is a class decorated with `@Controller()`. The decorator accepts a path prefix that will be prepended to all routes defined in the controller.
+controllerは`@Controller()`でデコレートされたクラスです。このデコレータはパスプレフィックスを受け取り、controller内で定義される全てのルートの先頭に付加されます。
 
 ```typescript
 import { Controller, Get, Post, response } from '@zeltjs/core';
@@ -48,9 +48,25 @@ test('UserController.findAll returns users array', () => {
 });
 ```
 
-## HTTP Method Decorators
+## Route Path Rules {#route-path-rules}
 
-Zelt provides decorators for all standard HTTP methods:
+`@Controller`のプレフィックスとメソッドデコレータのパスは結合されて最終的なルートになります。末尾のスラッシュは取り除かれ、メソッドパスの先頭のスラッシュは省略可能です。
+
+| Controller Prefix | Method Path | Final Route |
+|-------------------|-------------|-------------|
+| `'/users'` | `'/'` | `/users` |
+| `'/users'` | `'/:id'` | `/users/:id` |
+| `'/api'` | `'/users'` | `/api/users` |
+| `'/'` | `'/hello'` | `/hello` |
+| `'/api/v1'` | `'/users/:id'` | `/api/v1/users/:id` |
+
+:::tip
+`@Get('/items')`と`@Get('items')`はどちらも同じ結果になります — 先頭のスラッシュが省略されていれば自動で付加されます。
+:::
+
+## HTTP Method Decorators {#http-method-decorators}
+
+Zeltは全ての標準HTTPメソッドに対応するデコレータを提供します:
 
 | Decorator | HTTP Method |
 |-----------|-------------|
@@ -105,9 +121,9 @@ export class ItemController {
 }
 ```
 
-## Route Parameters
+## Route Parameters {#route-parameters}
 
-Use `pathParam()` to extract route parameters:
+`request()`をハンドラのパラメータとして注入し、`req.pathParam()`でルートパラメータを取り出します:
 
 ```typescript
 import { Controller, Get, request } from '@zeltjs/core';
@@ -123,9 +139,11 @@ class ItemController {
 }
 ```
 
-## Request Body Validation
+## Request Body {#request-body}
 
-Use `request()` with a Valibot schema to validate and type the request body:
+### With Validation (Recommended) {#with-validation-recommended}
+
+Valibot schemaを渡した`request()`を使うことで、リクエストボディをバリデーションし型付けできます:
 
 ```typescript
 import { Controller, Post } from '@zeltjs/core';
@@ -143,17 +161,17 @@ class PostController {
   @Post('/')
   async create(req = request(CreatePostBody)) {
     const body = await req.body();
-    // body is fully typed as { title: string; content: string; tags?: string[] }
+    // bodyは { title: string; content: string; tags?: string[] } として完全に型付けされる
     return { id: '1', ...body };
   }
 }
 ```
 
-If validation fails, Zelt automatically returns a 400 response with detailed error information.
+バリデーションが失敗すると、Zeltは詳細なエラー情報とともに自動的に400レスポンスを返します。
 
-## Custom Response Status
+### Without Validation {#without-validation}
 
-Use `response()` to control the HTTP status code:
+バリデーションが不要なケース(任意のJSONを受け入れる場合など)では、`request()`を注入して`req.body()`を使います:
 
 ```typescript
 import { Controller, Post, request } from '@zeltjs/core';
@@ -163,15 +181,21 @@ class WebhookController {
   @Post('/github')
   async handleGithubWebhook(req = request()) {
     const payload = await req.body();
-    // payload is typed as unknown
+    // payloadはunknown型として扱われる
     return { received: true };
   }
 }
 ```
 
-## Registering Controllers
+`request()`やその他のリクエストヘルパーの詳細は[Request & Response Primitives](./primitives.md)を参照してください。
 
-Controllers must be registered in `createApp()`:
+## Returning Responses {#returning-responses}
+
+Controllerメソッドは2種類の戻り方をサポートします:
+
+### Plain Return (Recommended for 200 OK) {#plain-return-recommended-for-200-ok}
+
+値をそのまま返すだけで、Zeltは自動的にステータス200のJSONとしてシリアライズします:
 
 ```typescript
 import { Controller, Get } from '@zeltjs/core';
@@ -180,16 +204,107 @@ import { Controller, Get } from '@zeltjs/core';
 class UserController {
   @Get('/')
   findAll() {
-    return { users: [] }; // → 200 OK, Content-Type: application/json
+    return { users: [] }; // → 200 OK, Content-Type: application/jsonを返す
   }
 
   @Get('/health')
   health() {
-    return 'OK'; // → 200 OK, Content-Type: text/plain
+    return 'OK'; // → 200 OK, Content-Type: text/plainを返す
   }
 }
 ```
 
-## Next Steps
+### response() (For Custom Status Codes or Headers) {#response-for-custom-status-codes-or-headers}
 
-- Learn about [Middleware](./middleware.md) for request/response processing
+200以外のステータスコード、カスタムヘッダー、リダイレクトが必要な場合は`response()`を使います:
+
+```typescript
+import { Controller, Post, Delete, response } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
+import * as v from 'valibot';
+const schema = v.object({ name: v.string() });
+// ---cut---
+@Controller('/users')
+class UserController {
+  @Post('/')
+  async create(req = request(schema), res = response()) {
+    const body = await req.body();
+    return res.json({ id: '1', ...body }, 201); // 201 Createdを返す
+  }
+
+  @Delete('/:id')
+  remove(req = request()) {
+    const id = req.pathParam('id');
+    return new Response(null, { status: 204 }); // 204 No Contentを返す
+  }
+}
+```
+
+### When to Use Which {#when-to-use-which}
+
+| Scenario | Approach |
+|----------|----------|
+| 200でJSONを返す | `return { data }` |
+| カスタムステータス(201、204など)で返す | `response().json(data, status)` |
+| カスタムヘッダーを設定する | `response().header(name, value).json(data)` |
+| リダイレクトする | `response().redirect(url)` |
+| Cookieを設定する | `response().setCookie(name, value).json(data)` |
+| レスポンスをストリームする | `response().stream(cb)` / `response().sse(cb)` |
+
+`response()`の完全なAPIは[Request & Response Primitives](./primitives.md)を参照してください。
+
+## Custom Response Status {#custom-response-status}
+
+HTTPステータスコードを制御するには`response()`を使います:
+
+```typescript
+import { Controller, Post, Delete, response } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
+import * as v from 'valibot';
+const schema = v.object({ name: v.string() });
+// ---cut---
+@Controller('/items')
+class ItemController {
+  @Post('/')
+  async create(req = request(schema), res = response()) {
+    const body = await req.body();
+    const created = { id: '1', ...body };
+    return res.json(created, 201); // 201 Createdを返す
+  }
+
+  @Delete('/:id')
+  remove(req = request()) {
+    const id = req.pathParam('id');
+    // 削除処理を実行する
+    return new Response(null, { status: 204 }); // 204 No Contentを返す
+  }
+}
+```
+
+## Registering Controllers {#registering-controllers}
+
+Controllerは`createApp()`に登録する必要があります:
+
+```typescript
+import { createApp, Controller, Get, Post, response, http } from '@zeltjs/core';
+import { request } from '@zeltjs/core';
+import * as v from 'valibot';
+
+const CreateUserBody = v.object({ name: v.string(), email: v.pipe(v.string(), v.email()) });
+@Controller('/users') class UserController {
+  @Get('/') findAll() { return { users: [] }; }
+  @Get('/:id') findOne(req = request()) { const id = req.pathParam('id'); return { id }; }
+  @Post('/') async create(req = request(CreateUserBody), res = response()) { const body = await req.body(); return res.json({ id: '1', ...body }, 201); }
+}
+@Controller('/posts') class PostController {
+  @Get('/') findAll() { return { posts: [] }; }
+}
+// ---cut---
+export const app = createApp([http({
+    controllers: [UserController, PostController],
+  })]);
+```
+
+## Next Steps {#next-steps}
+
+- リクエスト/レスポンス処理のための[Middleware](./middleware.md)について学ぶ
