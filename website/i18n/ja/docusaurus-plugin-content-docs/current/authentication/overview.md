@@ -81,14 +81,6 @@ const app = createApp([http({
 ### 3. ルートを保護する {#3-protect-routes}
 
 ```typescript
-// @noErrors
-// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
-import '@zeltjs/core';
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { name: string };
-  }
-}
 import { Controller, Get, Authorized, currentUser } from '@zeltjs/core';
 // ---cut---
 @Controller('/dashboard')

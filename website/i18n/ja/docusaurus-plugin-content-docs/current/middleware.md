@@ -152,65 +152,63 @@ export class PublicController {
 
 `CorsMiddleware`と`SecureHeadersMiddleware`は、全てのHTTPアプリで自動的に登録されます。デフォルト設定、設定オプション、skipの例、CORSプリフライトの挙動については[HTTP Security](./http-security.md)を参照してください。
 
-## Context Sharing {#context-sharing}
+## Middleware Results {#middleware-results}
 
-Middlewareは`setContext()`と`getContext()`を通じてハンドラとデータを共有できます。
+middlewareは、後続のコードに型付きの値を提供できます。値の提供には `Next<T>` 型と `next(value)` を、読み取りには `resultOf(M)` を使います。文字列キーやmodule augmentationを管理する必要はありません。
 
-### Type-Safe Context {#type-safe-context}
+### Providing a Value {#providing-a-value}
 
-module augmentationを使ってcontextの形を定義します:
-
-```typescript
-// @noErrors
-// Reason: module augmentationにはTwoslash VFSでは利用できない完全なモジュール解決が必要なため
-import '@zeltjs/core';
-// ---cut---
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: number; name: string };
-  }
-}
-```
-
-### Setting Context in Middleware {#setting-context-in-middleware}
+値を提供するmiddlewareは、それを `Next<T>` に宣言し、`next(value)` に渡します。
 
 ```typescript
-// @noErrors
-// Reason: module augmentationにはTwoslash VFSでは利用できない完全なモジュール解決が必要なため
-import { Middleware, request, setContext, type Next } from '@zeltjs/core';
+import { Middleware, request, type Next } from '@zeltjs/core';
 
-declare function verifyToken(token: string | undefined): Promise<{ id: number; name: string }>;
-declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+declare function verifyToken(token: string): Promise<{ id: number; name: string } | null>;
 // ---cut---
 @Middleware
 export class AuthMiddleware {
-  async use(next: Next, req = request()): Promise<Response | undefined> {
+  async use(next: Next<{ id: number; name: string }>, req = request()): Promise<Response | undefined> {
     const token = req.header('Authorization');
-    const user = await verifyToken(token);
-    setContext('user', user);
-    await next();
+    const user = token ? await verifyToken(token) : null;
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    await next(user);
     return undefined;
   }
 }
 ```
 
-### Reading Context in Handlers {#reading-context-in-handlers}
+`Next<T>` は引数を必須とするため、値を渡さずに `next()` を呼び出すと型エラーになります。何も提供しないmiddlewareは、これまでの例のようにそのまま `Next` 型を使い続けます。
+
+### Reading a Value {#reading-a-value}
+
+handler、そして他のmiddlewareも、提供された値をパラメータのデフォルト値として渡す `resultOf(M)` で読み取ります。
 
 ```typescript
-// @noErrors
-// Reason: module augmentationにはTwoslash VFSでは利用できない完全なモジュール解決が必要なため
-import { Controller, Get, getContext } from '@zeltjs/core';
+import { Controller, Get, Middleware, UseMiddleware, request, resultOf, type Next } from '@zeltjs/core';
 
-declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+@Middleware
+class AuthMiddleware {
+  async use(next: Next<{ id: number; name: string }>, req = request()): Promise<Response | undefined> {
+    await next({ id: 1, name: 'placeholder' });
+    return undefined;
+  }
+}
 // ---cut---
+@UseMiddleware(AuthMiddleware)
 @Controller('/profile')
 export class ProfileController {
   @Get('/')
-  getProfile(user = getContext('user')) {
-    return { id: user?.id, name: user?.name };
+  getProfile(user = resultOf(AuthMiddleware)) {
+    return { id: user.id, name: user.name };
   }
 }
 ```
+
+型は `M` 自身の `Next<T>` 宣言をそのまま反映します(例えば `Next<string | undefined>` を宣言するmiddlewareであれば、読み取れる値もnullableになります)。この例では `AuthMiddleware` が `next(user)` を呼ぶ前に401レスポンスで短絡するため、handlerが実行される時点で値の存在は保証されています。middlewareが他のmiddlewareの値を読み取る場合も、自身の`use()`メソッドのパラメータのデフォルト値として同じ方法で読み取ります。
+
+### Reading Requires the Middleware {#reading-requires-the-middleware}
+
+`resultOf(M)` の呼び出しは、次の2つの場合に即座にそのmiddleware名を含むエラーをスローします — ルートにそのmiddlewareが適用されていない場合、そして適用されていても`next(value)`が一度も呼ばれておらず値が記録されていない場合です。黙って`undefined`が返ることはありません。middlewareをルートに適用する方法自体は従来どおりで、controllerやmethodへの`@UseMiddleware`、またはmoduleの`middlewares`を使います。
 
 ## Dependency Injection {#dependency-injection}
 
@@ -347,18 +345,15 @@ class MethodMiddleware {
 
 ## Common Patterns {#common-patterns}
 
-Middlewareはクラスとして記述します。フレームワークのprimitiveには`request()`、`response()`、`setContext()`、`getContext()`を使います。
+Middlewareはクラスとして記述します。フレームワークのprimitiveには`request()`、`response()`、`resultOf()`を使います。
 
 ### Restrict Access {#restrict-access}
 
 serviceを注入する必要がある場合はclass middlewareを使います:
 
 ```typescript
-// @noErrors
-// Reason: module augmentationにはTwoslash VFSでは利用できない完全なモジュール解決が必要なため
 import { Middleware, Injectable, inject, currentUser, type Next } from '@zeltjs/core';
 
-declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
 @Injectable() class AuthService { isAdmin(user: unknown) { return false; } }
 // ---cut---
 @Middleware

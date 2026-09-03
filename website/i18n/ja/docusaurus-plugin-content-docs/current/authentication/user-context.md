@@ -88,87 +88,11 @@ class ProfileController {
 }
 ```
 
-## 型安全なUser Context {#type-safe-user-context}
+## Typed Access {#typed-access}
 
-デフォルトでは、`currentUser()` は `Record<string, unknown>` を返します。宣言のマージ(declaration merging)を使って `RequestContextSchema` を拡張すると、完全な型安全性が得られます。
+`currentUser()` は常に `Record<string, unknown> | undefined` を返します。`setUser()` に渡した形は型レベルでは追跡されないため、特定のフィールドを読み取るには手動でのアサーションや絞り込みが必要です。
 
-```typescript
-// @noErrors
-// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
-import '@zeltjs/core';
-// ---cut---
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: {
-      id: string;
-      name: string;
-      email: string;
-    };
-    authRoles: ('admin' | 'editor' | 'user')[];
-  }
-}
-```
-
-これで、ユーザーに関連するすべての関数に型が付きます。
-
-```typescript
-// @noErrors
-// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
-import '@zeltjs/core';
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string; name: string; email: string };
-    authRoles: ('admin' | 'editor' | 'user')[];
-  }
-}
-// ---cut---
-import { currentUser, currentRoles, setUser } from '@zeltjs/core';
-
-const user = currentUser();
-// TypeScriptはuser?.id、user?.name、user?.emailを認識する
-
-const roles = currentRoles();
-// TypeScriptはrolesが('admin' | 'editor' | 'user')[]であると認識する
-
-setUser(
-  { id: '123', name: 'Alice', email: 'alice@example.com' },
-  ['admin', 'user']
-);
-// RequestContextSchemaに対して型チェックされる
-```
-
-### 型宣言をどこに置くか {#where-to-put-the-type-declaration}
-
-プロジェクトに `types/zelt.d.ts` ファイルを作成します。
-
-```typescript
-// @noErrors
-// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
-// types/zelt.d.ts
-import '@zeltjs/core';
-// ---cut---
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: {
-      id: string;
-      name: string;
-      email: string;
-      avatarUrl?: string;
-    };
-    authRoles: ('admin' | 'moderator' | 'user')[];
-  }
-}
-
-export {};
-```
-
-`tsconfig.json` がこのファイルをincludeしていることを確認してください。
-
-```json
-{
-  "include": ["src/**/*", "types/**/*"]
-}
-```
+handlerで利用できる、具体的に絞り込まれた型の値が必要な場合は、代わりにmiddleware経由で提供します。`Next<T>` に宣言して `next(value)` に渡し、`resultOf(M)` で読み取ります。詳細は[Middleware Results](../middleware.md#middleware-results)を参照してください。
 
 ## User設計のBest Practices {#user-design-best-practices}
 
@@ -177,28 +101,22 @@ export {};
 ハンドラーで必要なフィールドだけを含めます。データベースレコード全体をコピーしないでください。
 
 ```typescript
+import { setUser } from '@zeltjs/core';
 // ---cut---
-// ✅ Good — 最小限のcontext
-interface RequestContextSchemaGood {
-  user: {
-    id: string;
-    name: string;
-  };
-}
+// ✅ Good — 最小限のuser
+setUser({ id: '123', name: 'Alice' }, ['user']);
 
-// ❌ Avoid — データが多すぎる
-interface RequestContextSchemaBad {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    passwordHash: string;  // 機微なデータは含めない
-    createdAt: Date;
-    updatedAt: Date;
-    preferences: object;
-    // ...さらに20個のフィールド
-  };
-}
+// ❌ Avoid — レコード全体をコピーする
+setUser({
+  id: '123',
+  name: 'Alice',
+  email: 'alice@example.com',
+  passwordHash: '...',  // 機微なデータは含めない
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  preferences: {},
+  // ...さらに20個のフィールド
+}, ['user']);
 ```
 
 ### 必要な時に追加データを取得する {#fetch-additional-data-when-needed}
@@ -206,17 +124,13 @@ interface RequestContextSchemaBad {
 特定のハンドラー内で、ユーザーIDを使ってより多くのデータを取得します。
 
 ```typescript
-// @noErrors
-// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
-import '@zeltjs/core';
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string };
-  }
-}
 import { Controller, Get, Authorized, Injectable, inject, currentUser } from '@zeltjs/core';
 
 type FullUser = { preferences: object };
+type SessionUser = { id: string };
+
+const isSessionUser = (u: Record<string, unknown> | undefined): u is SessionUser =>
+  typeof u?.id === 'string';
 
 @Injectable()
 class UserRepository {
@@ -234,7 +148,7 @@ class SettingsController {
   @Get('/')
   async getSettings() {
     const user = currentUser();
-    if (!user) return;
+    if (!isSessionUser(user)) return;
     const fullUser = await this.userRepo.findById(user.id);
     return { preferences: fullUser.preferences };
   }
@@ -257,22 +171,17 @@ type BadRoles = ('can_edit_posts' | 'can_delete_posts' | 'can_view_analytics')[]
 きめ細かい権限が必要な場合は、サービス層でroleをチェックします。
 
 ```typescript
-// @noErrors
-// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
-import '@zeltjs/core';
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string };
-  }
-}
 import { currentUser, currentRoles } from '@zeltjs/core';
 interface Post { authorId: string; }
+type SessionUser = { id: string };
+const isSessionUser = (u: Record<string, unknown> | undefined): u is SessionUser =>
+  typeof u?.id === 'string';
 // ---cut---
 function canEdit(post: Post): boolean {
   const user = currentUser();
   const roles = currentRoles();
   if (roles.includes('admin')) return true;
-  if (roles.includes('editor') && post.authorId === user?.id) return true;
+  if (roles.includes('editor') && isSessionUser(user) && post.authorId === user.id) return true;
   return false;
 }
 ```

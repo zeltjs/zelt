@@ -28,16 +28,8 @@ export class ApiController {
 レート制限のキーは、リクエストがどのようにグルーピングされるかを決定します。静的な文字列または関数を使ってください:
 
 ```typescript
-// @noErrors
-// 理由: module augmentationにはTwoslash VFSでは利用できない完全なmodule resolutionが必要
 import { Controller, Get, currentUser, request } from '@zeltjs/core';
 import { RateLimit } from '@zeltjs/rate-limit';
-
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string };
-  }
-}
 // ---cut---
 @Controller('/api')
 class ApiController {

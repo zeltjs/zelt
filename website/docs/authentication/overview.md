@@ -81,14 +81,6 @@ const app = createApp([http({
 ### 3. Protect routes
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import '@zeltjs/core';
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { name: string };
-  }
-}
 import { Controller, Get, Authorized, currentUser } from '@zeltjs/core';
 // ---cut---
 @Controller('/dashboard')

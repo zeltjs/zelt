@@ -1,4 +1,5 @@
-import { getContext, runInContext, setContext } from '@zeltjs/core';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { runInContext } from '@zeltjs/core';
 import type { IpcMainInvokeEvent } from 'electron';
 import { match } from 'ts-pattern';
 
@@ -62,11 +63,7 @@ export const toIpcResponse = async (
   };
 };
 
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    ipcEvent: IpcMainInvokeEvent;
-  }
-}
+const ipcEventStorage = new AsyncLocalStorage<IpcMainInvokeEvent>();
 
 type IpcMainLike = {
   handle(
@@ -76,22 +73,21 @@ type IpcMainLike = {
   removeHandler(channel: string): void;
 };
 
-/** @throws {ZeltContextNotAvailableError} */
-export const ipcEvent = (): IpcMainInvokeEvent | undefined => getContext('ipcEvent');
+export const ipcEvent = (): IpcMainInvokeEvent | undefined => ipcEventStorage.getStore();
 
-/** @throws {ZeltContextNotAvailableError} */
 export const setupIpcBridge = (
   ipcMain: IpcMainLike,
   fetch: (request: Request) => Promise<Response>,
   channel: string,
 ): (() => void) => {
   ipcMain.handle(channel, async (event, payload) =>
-    runInContext(async () => {
-      setContext('ipcEvent', event);
-      const request = toRequest(payload, channel);
-      const response = await fetch(request);
-      return toIpcResponse(response, payload.method);
-    }),
+    ipcEventStorage.run(event, () =>
+      runInContext(async () => {
+        const request = toRequest(payload, channel);
+        const response = await fetch(request);
+        return toIpcResponse(response, payload.method);
+      }),
+    ),
   );
 
   return () => {

@@ -152,65 +152,63 @@ More specific middleware attachment wins over a class-level skip. If a controlle
 
 `CorsMiddleware` and `SecureHeadersMiddleware` are auto-registered on every HTTP app. See [HTTP Security](./http-security.md) for their defaults, configuration options, skip examples, and CORS preflight behavior.
 
-## Context Sharing
+## Middleware Results
 
-Middleware can share data with handlers via `setContext()` and `getContext()`.
+Middleware can provide a typed value to the code that runs after it. Providing a value uses the `Next<T>` type together with `next(value)`; reading it uses `resultOf(M)`. There are no string keys or module augmentation to maintain.
 
-### Type-Safe Context
+### Providing a Value
 
-Define your context shape using module augmentation:
-
-```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import '@zeltjs/core';
-// ---cut---
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: number; name: string };
-  }
-}
-```
-
-### Setting Context in Middleware
+A middleware that provides a value declares it in `Next<T>` and passes it to `next(value)`:
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import { Middleware, request, setContext, type Next } from '@zeltjs/core';
+import { Middleware, request, type Next } from '@zeltjs/core';
 
-declare function verifyToken(token: string | undefined): Promise<{ id: number; name: string }>;
-declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+declare function verifyToken(token: string): Promise<{ id: number; name: string } | null>;
 // ---cut---
 @Middleware
 export class AuthMiddleware {
-  async use(next: Next, req = request()): Promise<Response | undefined> {
+  async use(next: Next<{ id: number; name: string }>, req = request()): Promise<Response | undefined> {
     const token = req.header('Authorization');
-    const user = await verifyToken(token);
-    setContext('user', user);
-    await next();
+    const user = token ? await verifyToken(token) : null;
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    await next(user);
     return undefined;
   }
 }
 ```
 
-### Reading Context in Handlers
+Because `Next<T>` requires an argument, calling `next()` without a value is a type error. Middleware that provides nothing keeps using the plain `Next` type, as in the examples above.
+
+### Reading a Value
+
+Handlers — and other middleware — read a provided value with `resultOf(M)`, passed as a parameter default:
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import { Controller, Get, getContext } from '@zeltjs/core';
+import { Controller, Get, Middleware, UseMiddleware, request, resultOf, type Next } from '@zeltjs/core';
 
-declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
+@Middleware
+class AuthMiddleware {
+  async use(next: Next<{ id: number; name: string }>, req = request()): Promise<Response | undefined> {
+    await next({ id: 1, name: 'placeholder' });
+    return undefined;
+  }
+}
 // ---cut---
+@UseMiddleware(AuthMiddleware)
 @Controller('/profile')
 export class ProfileController {
   @Get('/')
-  getProfile(user = getContext('user')) {
-    return { id: user?.id, name: user?.name };
+  getProfile(user = resultOf(AuthMiddleware)) {
+    return { id: user.id, name: user.name };
   }
 }
 ```
+
+The type is inferred from `Next<T>` and never includes `null` or `undefined`: `AuthMiddleware` short-circuits with a 401 response before it ever calls `next(user)`, so by the time a handler runs, the value is guaranteed to exist. Middleware reads another middleware's value the same way, as a parameter default on its own `use()` method.
+
+### Reading Requires the Middleware
+
+Calling `resultOf(M)` for a middleware that isn't applied to the route throws immediately, with an error naming the middleware — there is no silent `undefined`. Applying middleware to a route still works exactly as before, with `@UseMiddleware` on a controller or method, or with `middlewares` on a module.
 
 ## Dependency Injection
 
@@ -347,18 +345,15 @@ class MethodMiddleware {
 
 ## Common Patterns
 
-Middleware is written as classes. Use `request()`, `response()`, `setContext()`, and `getContext()` for framework primitives.
+Middleware is written as classes. Use `request()`, `response()`, and `resultOf()` for framework primitives.
 
 ### Restrict Access
 
 Use class middleware when you need to inject services:
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
 import { Middleware, Injectable, inject, currentUser, type Next } from '@zeltjs/core';
 
-declare module '@zeltjs/core' { interface RequestContextSchema { user: { id: number; name: string }; } }
 @Injectable() class AuthService { isAdmin(user: unknown) { return false; } }
 // ---cut---
 @Middleware

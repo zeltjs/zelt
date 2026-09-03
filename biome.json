@@ -41,6 +41,21 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "packages/core/src/features/http/middleware/middleware.types.ts",
+        "packages/core/src/features/http/request/injection/result-of.lib.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConfusingVoidType": "off"
+          }
+        }
+      }
+    }
+  ],
   "assist": {
     "actions": {
       "source": {

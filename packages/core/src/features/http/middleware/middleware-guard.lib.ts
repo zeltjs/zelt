@@ -4,6 +4,7 @@ import { findTargetHandler } from 'hono/utils/handler';
 
 import type { ResolverHandle } from '../../../kernel';
 import { createContextKey, getInternal, setInternal } from '../../../kernel';
+import { recordMiddlewareResult } from '../request/injection';
 import type { HonoMiddleware, MiddlewareIdentifier, MiddlewareInput } from './middleware.types';
 
 const SKIPPED_MIDDLEWARES = Symbol('zelt:skipped-middlewares');
@@ -29,23 +30,42 @@ export const middlewareIdentity = (input: MiddlewareInput): MiddlewareIdentifier
   return input.middleware;
 };
 
+// next() is Hono's own zero-arg callback; wrapping it lets middleware pass a
+// value through next(value) without changing what Hono itself receives.
+// arguments.length (not `value === undefined`) distinguishes an explicit
+// undefined payload from a bare next() call.
+/** @throws {ZeltContextNotAvailableError} */
+const captureNextResult = (
+  identifier: MiddlewareIdentifier,
+  next: () => Promise<void>,
+): ((...args: unknown[]) => Promise<void>) => {
+  return async (...args: unknown[]) => {
+    if (args.length > 0) {
+      recordMiddlewareResult(identifier, args[0]);
+    }
+    await next();
+  };
+};
+
 /** @throws {ZeltLifecycleStateError | TypeError} */
 export const resolveMiddleware = (
   middleware: MiddlewareInput,
   resolver: ResolverHandle,
 ): HonoMiddleware => {
+  const identifier = middlewareIdentity(middleware);
   if (typeof middleware === 'function') {
     if (!checkMiddlewareClass(middleware)) {
       throw new TypeError('Invalid middleware class. Missing use() method.');
     }
     const instance = resolver.get(middleware);
-    return async (_c, next) => await instance.use(next);
+    return async (_c, next) => await instance.use(captureNextResult(identifier, next));
   }
   if (!checkMiddlewareClass(middleware.middleware)) {
     throw new TypeError('Invalid middleware class. Missing use() method.');
   }
   const instance = resolver.get(middleware.middleware);
-  return async (_c, next) => await instance.use(next, middleware.options);
+  return async (_c, next) =>
+    await instance.use(captureNextResult(identifier, next), middleware.options);
 };
 
 export const attachSkippedMiddlewares = (handler: object, skipped: SkippedMiddlewareSets): void => {

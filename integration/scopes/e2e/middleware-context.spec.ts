@@ -22,7 +22,7 @@ describe('Middleware <-> handler context integration', () => {
   });
 
   describe('context isolation between middleware and handler', () => {
-    it('exposes setContext values from middleware to the handler via getContext', async () => {
+    it('exposes middleware-provided values to the handler via resultOf()', async () => {
       const res = await testApp.http.request('/middleware/context?id=req-A');
       expect(res.status).toBe(200);
       const body = (await res.json()) as ContextResponse;

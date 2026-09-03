@@ -28,27 +28,13 @@ setUser(
 );
 ```
 
-## Role Typeを定義する {#defining-role-types}
+## Role Types {#role-types}
 
-`RequestContextSchema` を使ってroleを型付けします。
+`currentRoles()` は常に `readonly string[]` を返します — role値は型レベルで特定のUnionに絞り込まれません。アプリで使うroleのローカル型を定義し、roleを割り当てたり比較したりする箇所すべてでそれを参照することで、role名の一貫性を保ちます:
 
 ```typescript
-// @noErrors
-// 理由: module augmentationには完全なモジュール解決が必要だが、Twoslash VFSでは利用できないため
-import '@zeltjs/core';
-// ---cut---
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string; name: string };
-    authRoles: ('admin' | 'editor' | 'viewer')[];
-  }
-}
+type Role = 'admin' | 'editor' | 'viewer';
 ```
-
-これにより次が得られます。
-- `setUser()` 呼び出し時の自動補完
-- `@Authorized(['...'])` での型チェック
-- 型安全な `currentRoles()` の戻り値
 
 ## Role設計パターン {#role-design-patterns}
 
