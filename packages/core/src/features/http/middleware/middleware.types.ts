@@ -2,11 +2,19 @@ import type { Context, Env, Input, MiddlewareHandler } from 'hono';
 
 export type HonoMiddleware = MiddlewareHandler<Env, string, Input>;
 
-// The [void] check must stay `void`: it detects the "provides no value" default
-// of Next<T = void>, and `undefined` is a different type here — a middleware may
-// legitimately provide `undefined` as a value via Next<undefined>.
+// The zero-arg branch must match `void` EXACTLY, not anything assignable to it:
+// `[T] extends [void]` alone also captures T = undefined (undefined is
+// assignable to void), which would silently turn Next<undefined> into a
+// zero-arg function — but Next<undefined> is a legitimate "provides an
+// explicit undefined" contract, distinguished at runtime via arguments.length.
+// The double check ([T] extends [void] and [void] extends [T]) is only true
+// for void itself.
 // biome-ignore lint/suspicious/noConfusingVoidType: void vs undefined is the point of this check; biome's unsafe fix to `undefined` breaks Next resolution
-export type Next<T = void> = [T] extends [void] ? () => Promise<void> : (value: T) => Promise<void>;
+export type Next<T = void> = [T] extends [void]
+  ? [void] extends [T]
+    ? () => Promise<void>
+    : (value: T) => Promise<void>
+  : (value: T) => Promise<void>;
 
 type MaybePromise<T> = T | Promise<T>;
 

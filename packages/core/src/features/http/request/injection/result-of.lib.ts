@@ -12,14 +12,19 @@ import type { MiddlewareIdentifier } from '../../middleware/middleware.types';
 // parameter for T to occur in, so TS cannot infer through it. Matching the
 // parameter shape works for value-providing middleware, but a value-less
 // `next: () => Promise<void>` still matches with no inference site, leaving T
-// as void — so void (and unknown, its no-signal sibling) must collapse to
-// never: middleware that provides nothing has no readable result.
+// as void — so exactly-void (and unknown, its no-signal sibling) must collapse
+// to never: middleware that provides nothing has no readable result. The check
+// must be EXACT (double conditional): plain `[T] extends [void]` also captures
+// T = undefined, and Next<undefined> is a real "provides explicit undefined"
+// contract whose result must stay readable as `undefined`.
 export type MiddlewareResultOf<M> = M extends {
   use(next: (value: infer T) => unknown, ...args: never[]): unknown;
 }
   ? // biome-ignore lint/suspicious/noConfusingVoidType: void vs undefined is the point of this check; biome's unsafe fix to `undefined` breaks never-collapsing
     [T] extends [void]
-    ? never
+    ? [void] extends [T]
+      ? never
+      : T
     : unknown extends T
       ? never
       : T

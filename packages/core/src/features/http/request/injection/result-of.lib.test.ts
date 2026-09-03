@@ -157,4 +157,45 @@ describe('resultOf', () => {
 
     expectTypeOf<MiddlewareResultOf<InstanceType<typeof _VoidMiddleware>>>().toBeNever();
   });
+
+  it('treats Next<undefined> as a value contract, not as the value-less Next', () => {
+    class _ExplicitUndefinedMiddleware {
+      async use(next: Next<undefined>): Promise<void> {
+        await next(undefined);
+      }
+    }
+
+    expectTypeOf<
+      MiddlewareResultOf<InstanceType<typeof _ExplicitUndefinedMiddleware>>
+    >().toEqualTypeOf<undefined>();
+  });
+
+  it('records an explicit undefined passed to next() and exposes it via resultOf()', async () => {
+    let readValue: unknown = 'not-read';
+
+    @Middleware
+    class ExplicitUndefinedMiddleware {
+      async use(next: Next<undefined>): Promise<Response | undefined> {
+        await next(undefined);
+        return undefined;
+      }
+    }
+
+    @Controller('/explicit-undefined')
+    @UseMiddleware(ExplicitUndefinedMiddleware)
+    class ExplicitUndefinedController {
+      @Get('/')
+      get() {
+        readValue = resultOf(ExplicitUndefinedMiddleware);
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [ExplicitUndefinedController] })]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.request('/explicit-undefined/');
+    expect(res.status).toBe(200);
+    expect(readValue).toBeUndefined();
+  });
 });
