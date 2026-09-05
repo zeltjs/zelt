@@ -3,7 +3,8 @@ import { Injectable } from '../../../kernel';
 import { getControllerMiddlewareMetadata, getMethodMiddlewareMetadata } from '../routing';
 import { Controller } from '../routing/controller.decorator';
 import { Get } from '../routing/http-method.decorator';
-import type { MiddlewareEntry, MiddlewareInstance } from './middleware.types';
+import type { MiddlewareInstance } from './middleware.types';
+import { MiddlewareWithOptions } from './middleware-with-options.lib';
 import { UseMiddleware } from './use-middleware.decorator';
 
 class TestMiddleware implements MiddlewareInstance {
@@ -84,18 +85,19 @@ describe('@UseMiddleware', () => {
     }).toThrow(/cannot be applied to static methods/);
   });
 
-  it('registers middleware with options on method metadata', () => {
+  it('registers a binding (from .with()) on method metadata, keeping the exact bound object as identity', () => {
     @Injectable()
-    class OptionsMiddleware implements MiddlewareInstance<{ limit: number }> {
-      async use(next: () => Promise<void>, _options: { limit: number }) {
+    class OptionsMiddleware extends MiddlewareWithOptions<{ limit: number }> {
+      async use(next: () => Promise<void>) {
         await next();
         return undefined;
       }
     }
+    const bound = OptionsMiddleware.with({ limit: 100 });
 
     @Controller('/test')
     class TestController {
-      @UseMiddleware(OptionsMiddleware, { limit: 100 })
+      @UseMiddleware(bound)
       @Get('/')
       handler() {
         return {};
@@ -105,28 +107,25 @@ describe('@UseMiddleware', () => {
     const meta = getMethodMiddlewareMetadata(TestController);
     expect(meta).toHaveLength(1);
     expect(meta[0]?.methodName).toBe('handler');
-    const entry = meta[0]?.middlewares[0] as MiddlewareEntry<{ limit: number }>;
-    expect(entry.middleware).toBe(OptionsMiddleware);
-    expect(entry.options).toEqual({ limit: 100 });
+    expect(meta[0]?.middlewares[0]).toBe(bound);
   });
 
-  it('registers middleware with options on controller metadata', () => {
+  it('registers a binding (from .with()) on controller metadata, keeping the exact bound object as identity', () => {
     @Injectable()
-    class OptionsMiddleware implements MiddlewareInstance<{ limit: number }> {
-      async use(next: () => Promise<void>, _options: { limit: number }) {
+    class OptionsMiddleware extends MiddlewareWithOptions<{ limit: number }> {
+      async use(next: () => Promise<void>) {
         await next();
         return undefined;
       }
     }
+    const bound = OptionsMiddleware.with({ limit: 50 });
 
-    @UseMiddleware(OptionsMiddleware, { limit: 50 })
+    @UseMiddleware(bound)
     @Controller('/test')
     class TestController {}
 
     const meta = getControllerMiddlewareMetadata(TestController);
-    const entry = meta?.[0]?.[0] as MiddlewareEntry<{ limit: number }>;
-    expect(entry.middleware).toBe(OptionsMiddleware);
-    expect(entry.options).toEqual({ limit: 50 });
+    expect(meta?.[0]?.[0]).toBe(bound);
   });
 
   it('keeps each @UseMiddleware application as a separate set on the class', () => {
@@ -138,5 +137,42 @@ describe('@UseMiddleware', () => {
     const meta = getControllerMiddlewareMetadata(TestController);
     // Innermost decorator is evaluated first, so [anotherMiddleware] comes first.
     expect(meta).toEqual([[AnotherMiddleware], [TestMiddleware]]);
+  });
+
+  it('accepts a MiddlewareWithOptions<undefined> subclass bare, without .with()', () => {
+    @Injectable()
+    class OptionalConfigMiddleware extends MiddlewareWithOptions {
+      async use(next: () => Promise<void>) {
+        await next();
+        return undefined;
+      }
+    }
+
+    @UseMiddleware(OptionalConfigMiddleware)
+    @Controller('/test')
+    class TestController {}
+
+    const meta = getControllerMiddlewareMetadata(TestController);
+    expect(meta).toEqual([[OptionalConfigMiddleware]]);
+  });
+
+  it('rejects registering an options-required middleware without .with() at the type level', () => {
+    @Injectable()
+    class OptionsMiddleware extends MiddlewareWithOptions<{ limit: number }> {
+      async use(next: () => Promise<void>) {
+        await next();
+        return undefined;
+      }
+    }
+
+    const registerBare = () => {
+      // @ts-expect-error registering the bare class is a type error — there's
+      // no options for OptionsMiddleware to run with without .with()
+      @UseMiddleware(OptionsMiddleware)
+      @Controller('/test')
+      class TestController {}
+      return TestController;
+    };
+    void registerBare;
   });
 });

@@ -6,6 +6,7 @@ import {
   ZeltMiddlewareResultUnavailableError,
 } from '../../../../kernel';
 import { http } from '../../http.feature';
+import { MiddlewareWithOptions } from '../../middleware';
 import { Middleware } from '../../middleware/middleware.decorator';
 import type { Next } from '../../middleware/middleware.types';
 import { UseMiddleware } from '../../middleware/use-middleware.decorator';
@@ -105,6 +106,66 @@ describe('resultOf', () => {
     const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/void/');
+    expect(res.status).toBe(200);
+  });
+
+  it('reads the value a bound (MiddlewareWithOptions) middleware passed to next(), via the shared binding', async () => {
+    type AuthOptions = { role: string };
+
+    @Middleware
+    class UserAuthMiddleware extends MiddlewareWithOptions<AuthOptions> {
+      async use(next: Next<{ id: number; role: string }>): Promise<Response | undefined> {
+        await next({ id: 1, role: 'admin' });
+        return undefined;
+      }
+    }
+
+    const adminAuth = UserAuthMiddleware.with({ role: 'admin' });
+
+    @Controller('/admin')
+    class AdminController {
+      @Get('/')
+      get() {
+        const admin = resultOf(adminAuth);
+        return { id: admin.id, role: admin.role };
+      }
+    }
+
+    const app = createApp([http({ controllers: [AdminController], middlewares: [adminAuth] })]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.request('/admin/');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id: 1, role: 'admin' });
+  });
+
+  it('throws when resultOf() is given a different .with() call than the one applied to the route, even with identical options', async () => {
+    type AuthOptions = { role: string };
+
+    @Middleware
+    class UserAuthMiddleware extends MiddlewareWithOptions<AuthOptions> {
+      async use(next: Next<{ id: number; role: string }>): Promise<Response | undefined> {
+        await next({ id: 1, role: 'admin' });
+        return undefined;
+      }
+    }
+
+    const applied = UserAuthMiddleware.with({ role: 'admin' });
+    const unapplied = UserAuthMiddleware.with({ role: 'admin' });
+
+    @Controller('/admin-mismatch')
+    class AdminController {
+      @Get('/')
+      get() {
+        expect(() => resultOf(unapplied)).toThrow(ZeltMiddlewareResultUnavailableError);
+        return { ok: true };
+      }
+    }
+
+    const app = createApp([http({ controllers: [AdminController], middlewares: [applied] })]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.request('/admin-mismatch/');
     expect(res.status).toBe(200);
   });
 

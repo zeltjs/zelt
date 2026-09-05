@@ -70,6 +70,11 @@ export const coreErrorDefinitions = {
     `or it has not run yet. Apply it with @UseMiddleware(${ctx.middlewareName}) before calling ` +
     `resultOf(${ctx.middlewareName}).`,
 
+  ZeltMiddlewareOptionsUnavailableError: (ctx: { middlewareName: string }) =>
+    `No options available for middleware '${ctx.middlewareName}'. It is not applied via ` +
+    `${ctx.middlewareName}.with(options) on this route, or it has not run yet. Apply it with ` +
+    `@UseMiddleware(${ctx.middlewareName}.with(options)) before calling optionsOf(${ctx.middlewareName}).`,
+
   ZeltNotImplementedError: (ctx: { className: string; methodName: string }) =>
     `${ctx.className}.${ctx.methodName}() not implemented`,
 
