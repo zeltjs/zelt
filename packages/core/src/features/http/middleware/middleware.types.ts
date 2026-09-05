@@ -63,6 +63,19 @@ export type MiddlewareOptionsOf<C> = C extends new (
   ? T
   : never;
 
+// BoundMiddleware is otherwise just { middleware, options } — purely
+// structural, so without this brand any object literal shaped like one would
+// satisfy the type, letting options: unknown skip all validation (e.g.
+// `{ middleware: RateLimitMiddleware, options: { limit: 'nope' } }` registered
+// directly via @UseMiddleware/middlewares:, bypassing MiddlewareWithOptions
+// entirely). Real (not `declare`d) so MiddlewareWithOptions.with(), the only
+// legitimate producer, can actually set it — a `declare`-only phantom can't be
+// assigned in a plain object literal without an inline `as`, which is banned.
+// Not re-exported from middleware/index.ts or the package's public index.ts:
+// packages/core's package.json "exports" only exposes dist/index.js, so code
+// outside this package can never import this symbol to forge one.
+export const BOUND_MIDDLEWARE_BRAND: unique symbol = Symbol('zelt:bound-middleware');
+
 // Produced by MiddlewareWithOptions.with(options); this value (not the class)
 // is what identifies the binding everywhere — @UseMiddleware, middlewares:,
 // optionsOf(), resultOf() — since one class can be bound to several option sets.
@@ -73,6 +86,7 @@ export type BoundMiddleware<
 > = {
   readonly middleware: TClass;
   readonly options: unknown;
+  [BOUND_MIDDLEWARE_BRAND]: true;
 };
 
 export type MiddlewareInput = MiddlewareClass | BoundMiddleware;

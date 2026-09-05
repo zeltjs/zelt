@@ -175,4 +175,36 @@ describe('@UseMiddleware', () => {
     };
     void registerBare;
   });
+
+  it('rejects a hand-crafted { middleware, options } object at the type level, even with a valid options shape', () => {
+    @Injectable()
+    class OptionsMiddleware extends MiddlewareWithOptions<{ limit: number }> {
+      async use(next: () => Promise<void>) {
+        await next();
+        return undefined;
+      }
+    }
+
+    // Control: the real .with() binding is accepted (proves the rejection
+    // below is about the hand-crafted shape, not about OptionsMiddleware).
+    const registerBound = () => {
+      @UseMiddleware(OptionsMiddleware.with({ limit: 100 }))
+      @Controller('/test')
+      class TestController {}
+      return TestController;
+    };
+    void registerBound;
+
+    const registerForged = () => {
+      // @ts-expect-error a hand-crafted { middleware, options } object is not
+      // a valid BoundMiddleware — only MiddlewareWithOptions.with() can
+      // produce one (it carries a brand no other code can construct), so this
+      // must be rejected even though `options` has the right shape.
+      @UseMiddleware({ middleware: OptionsMiddleware, options: { limit: 100 } })
+      @Controller('/test')
+      class TestController {}
+      return TestController;
+    };
+    void registerForged;
+  });
 });

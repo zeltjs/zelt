@@ -3,6 +3,7 @@ import type {
   BoundMiddleware,
   MiddlewareOptionsOf,
 } from './middleware.types';
+import { BOUND_MIDDLEWARE_BRAND } from './middleware.types';
 
 /**
  * Base class for middleware that needs configuration. Bind options with the
@@ -25,6 +26,6 @@ export abstract class MiddlewareWithOptions<TOptions = undefined> {
     options: MiddlewareOptionsOf<C>,
   ): BoundMiddleware<C> {
     // biome-ignore lint/complexity/noThisInStatic: `this` IS the calling subclass — biome's fix substitutes the base class, binding every subclass's options to it
-    return { middleware: this, options };
+    return { middleware: this, options, [BOUND_MIDDLEWARE_BRAND]: true };
   }
 }
