@@ -129,6 +129,9 @@ import { Controller, Get, Authorized, Injectable, inject, currentUser } from '@z
 type FullUser = { preferences: object };
 type SessionUser = { id: string };
 
+const isSessionUser = (u: Record<string, unknown> | undefined): u is SessionUser =>
+  typeof u?.id === 'string';
+
 @Injectable()
 class UserRepository {
   async findById(id: string): Promise<FullUser> {
@@ -144,8 +147,8 @@ class SettingsController {
   @Authorized()
   @Get('/')
   async getSettings() {
-    const user = currentUser() as SessionUser | undefined;
-    if (!user) return;
+    const user = currentUser();
+    if (!isSessionUser(user)) return;
     const fullUser = await this.userRepo.findById(user.id);
     return { preferences: fullUser.preferences };
   }
@@ -170,13 +173,15 @@ For fine-grained permissions, check roles in your service layer:
 ```typescript
 import { currentUser, currentRoles } from '@zeltjs/core';
 interface Post { authorId: string; }
-interface SessionUser { id: string; }
+type SessionUser = { id: string };
+const isSessionUser = (u: Record<string, unknown> | undefined): u is SessionUser =>
+  typeof u?.id === 'string';
 // ---cut---
 function canEdit(post: Post): boolean {
-  const user = currentUser() as SessionUser | undefined;
+  const user = currentUser();
   const roles = currentRoles();
   if (roles.includes('admin')) return true;
-  if (roles.includes('editor') && post.authorId === user?.id) return true;
+  if (roles.includes('editor') && isSessionUser(user) && post.authorId === user.id) return true;
   return false;
 }
 ```

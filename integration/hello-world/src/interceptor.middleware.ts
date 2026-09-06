@@ -1,5 +1,11 @@
 import type { Next } from '@zeltjs/core';
-import { Middleware, requestContext, response } from '@zeltjs/core';
+import {
+  Middleware,
+  MiddlewareWithOptions,
+  optionsOf,
+  requestContext,
+  response,
+} from '@zeltjs/core';
 
 @Middleware
 export class OverrideMiddleware {
@@ -19,8 +25,8 @@ export class TransformMiddleware {
 }
 
 @Middleware
-export class StatusMiddleware {
-  async use(next: Next, options: { statusCode: 200 | 400 | 500 }) {
+export class StatusMiddleware extends MiddlewareWithOptions<{ statusCode: 200 | 400 | 500 }> {
+  async use(next: Next, options = optionsOf(StatusMiddleware)) {
     await next();
     const c = requestContext();
     const original = await c.res.json();
@@ -29,8 +35,11 @@ export class StatusMiddleware {
 }
 
 @Middleware
-export class HeaderMiddleware {
-  async use(next: Next, options: { headerName: string; headerValue: string }, res = response()) {
+export class HeaderMiddleware extends MiddlewareWithOptions<{
+  headerName: string;
+  headerValue: string;
+}> {
+  async use(next: Next, options = optionsOf(HeaderMiddleware), res = response()) {
     res.header(options.headerName, options.headerValue);
     await next();
     return undefined;

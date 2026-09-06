@@ -204,11 +204,11 @@ export class ProfileController {
 }
 ```
 
-The type is inferred from `Next<T>` and never includes `null` or `undefined`: `AuthMiddleware` short-circuits with a 401 response before it ever calls `next(user)`, so by the time a handler runs, the value is guaranteed to exist. Middleware reads another middleware's value the same way, as a parameter default on its own `use()` method.
+The type reflects `M`'s own `Next<T>` declaration as-is — a middleware declared as `Next<string | undefined>` yields a nullable result. In this example, `AuthMiddleware` short-circuits with a 401 response before it ever calls `next(user)`, so by the time a handler runs, the value is guaranteed to exist. Middleware reads another middleware's value the same way, as a parameter default on its own `use()` method.
 
 ### Reading Requires the Middleware
 
-Calling `resultOf(M)` for a middleware that isn't applied to the route throws immediately, with an error naming the middleware — there is no silent `undefined`. Applying middleware to a route still works exactly as before, with `@UseMiddleware` on a controller or method, or with `middlewares` on a module.
+Calling `resultOf(M)` throws immediately, with an error naming the middleware, in two cases: the middleware isn't applied to the route, or it is applied but never called `next(value)` (so no value was ever recorded). There is no silent `undefined`. Applying middleware to a route still works exactly as before, with `@UseMiddleware` on a controller or method, or with `middlewares` on a module.
 
 ## Dependency Injection
 
@@ -256,26 +256,50 @@ export class AdminController {
 }
 ```
 
-## Parameterized Middleware
+## Middleware with Options
 
-For middleware that requires configuration options, pass options as the second `@UseMiddleware()` argument:
+Middleware that requires configuration extends `MiddlewareWithOptions<TOptions>` and reads its options with `optionsOf()`, as a parameter default — the same pattern as `request()` and `resultOf()`:
 
 ```typescript
-import { Controller, UseMiddleware, Middleware, Post, type Next } from '@zeltjs/core';
+import { Middleware, MiddlewareWithOptions, optionsOf, type Next } from '@zeltjs/core';
 // ---cut---
+interface RateLimitOptions {
+  limit: number;
+  windowSec: number;
+}
+
 @Middleware
-export class RateLimitMiddleware {
-  async use(next: Next, options: { limit: number; windowSec: number }) {
-    const { limit, windowSec } = options;
+export class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
+  async use(next: Next, opts = optionsOf(RateLimitMiddleware)) {
+    const { limit, windowSec } = opts;
     // ... rate limiting logic
     await next();
     return undefined;
   }
 }
+```
 
+Pass the options where the middleware is applied, with `.with()`:
+
+```typescript
+import { Controller, Middleware, MiddlewareWithOptions, Post, UseMiddleware, optionsOf, type Next } from '@zeltjs/core';
+
+interface RateLimitOptions {
+  limit: number;
+  windowSec: number;
+}
+
+@Middleware
+class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
+  async use(next: Next, opts = optionsOf(RateLimitMiddleware)) {
+    await next();
+    return undefined;
+  }
+}
+// ---cut---
 @Controller('/api')
 export class ApiController {
-  @UseMiddleware(RateLimitMiddleware, { limit: 10, windowSec: 60 })
+  @UseMiddleware(RateLimitMiddleware.with({ limit: 10, windowSec: 60 }))
   @Post('/submit')
   submit() {
     return { submitted: true };
@@ -283,7 +307,46 @@ export class ApiController {
 }
 ```
 
-The options parameter is passed to the middleware's `use()` method at runtime.
+Middleware that takes options is always registered through `.with()`. Registering the bare class is a type error — there would be no options for it to run with.
+
+Middleware without options doesn't extend anything and is registered as the plain class, exactly as in the earlier examples.
+
+### Reading Results from Middleware with Options
+
+To read the result of middleware that takes options, store the return value of `.with()` in a `const` and use that same `const` in both places — where the middleware is applied, and in `resultOf()`:
+
+```typescript
+import { Controller, Get, Middleware, MiddlewareWithOptions, UseMiddleware, optionsOf, resultOf, type Next } from '@zeltjs/core';
+
+interface AuthOptions {
+  role: 'admin' | 'member';
+}
+
+@Middleware
+class UserAuthMiddleware extends MiddlewareWithOptions<AuthOptions> {
+  async use(next: Next<{ id: number; role: string }>, opts = optionsOf(UserAuthMiddleware)) {
+    await next({ id: 1, role: opts.role });
+    return undefined;
+  }
+}
+// ---cut---
+// user-auth.middleware.ts
+export const adminAuth = UserAuthMiddleware.with({ role: 'admin' });
+
+// admin.controller.ts
+@UseMiddleware(adminAuth)
+@Controller('/admin')
+export class AdminController {
+  @Get('/me')
+  me(admin = resultOf(adminAuth)) {
+    return { id: admin.id, role: admin.role };
+  }
+}
+```
+
+Each `.with()` call counts as its own middleware. If a route is registered with one `.with()` call and `resultOf()` receives another — even with identical options — the two don't match: `resultOf()` sees a middleware that isn't applied to the route and throws. Always share a single `const`.
+
+The same middleware class can be applied multiple times with different options. Each application runs independently, and each `const` reads its own result.
 
 ## Request Flow
 

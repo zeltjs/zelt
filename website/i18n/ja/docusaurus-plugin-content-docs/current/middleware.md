@@ -256,26 +256,50 @@ export class AdminController {
 }
 ```
 
-## Parameterized Middleware {#parameterized-middleware}
+## Middleware with Options {#middleware-with-options}
 
-設定オプションが必要なmiddlewareでは、2番目の`@UseMiddleware()`引数としてオプションを渡します:
+設定が必要なmiddlewareは`MiddlewareWithOptions<TOptions>`を継承し、オプションを`optionsOf()`でパラメータデフォルト値として読み取ります — `request()`や`resultOf()`と同じパターンです:
 
 ```typescript
-import { Controller, UseMiddleware, Middleware, Post, type Next } from '@zeltjs/core';
+import { Middleware, MiddlewareWithOptions, optionsOf, type Next } from '@zeltjs/core';
 // ---cut---
+interface RateLimitOptions {
+  limit: number;
+  windowSec: number;
+}
+
 @Middleware
-export class RateLimitMiddleware {
-  async use(next: Next, options: { limit: number; windowSec: number }) {
-    const { limit, windowSec } = options;
+export class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
+  async use(next: Next, opts = optionsOf(RateLimitMiddleware)) {
+    const { limit, windowSec } = opts;
     // ... レート制限ロジック
     await next();
     return undefined;
   }
 }
+```
 
+オプションは、middlewareを適用する場所で`.with()`を使って渡します:
+
+```typescript
+import { Controller, Middleware, MiddlewareWithOptions, Post, UseMiddleware, optionsOf, type Next } from '@zeltjs/core';
+
+interface RateLimitOptions {
+  limit: number;
+  windowSec: number;
+}
+
+@Middleware
+class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
+  async use(next: Next, opts = optionsOf(RateLimitMiddleware)) {
+    await next();
+    return undefined;
+  }
+}
+// ---cut---
 @Controller('/api')
 export class ApiController {
-  @UseMiddleware(RateLimitMiddleware, { limit: 10, windowSec: 60 })
+  @UseMiddleware(RateLimitMiddleware.with({ limit: 10, windowSec: 60 }))
   @Post('/submit')
   submit() {
     return { submitted: true };
@@ -283,7 +307,46 @@ export class ApiController {
 }
 ```
 
-optionsパラメータは実行時にmiddlewareの`use()`メソッドへ渡されます。
+オプションを取るmiddlewareの登録は常に`.with()`を通して行います。素のクラスをそのまま登録すると型エラーになります — 実行に使うオプションが存在しないためです。
+
+オプションを持たないmiddlewareは何も継承せず、これまでの例のとおり素のクラスをそのまま登録します。
+
+### オプション付きmiddlewareの結果を読む {#reading-results-from-middleware-with-options}
+
+オプションを取るmiddlewareの結果を読むには、`.with()`の戻り値を`const`に入れ、middlewareを適用する場所と`resultOf()`の両方で同じ`const`を使います:
+
+```typescript
+import { Controller, Get, Middleware, MiddlewareWithOptions, UseMiddleware, optionsOf, resultOf, type Next } from '@zeltjs/core';
+
+interface AuthOptions {
+  role: 'admin' | 'member';
+}
+
+@Middleware
+class UserAuthMiddleware extends MiddlewareWithOptions<AuthOptions> {
+  async use(next: Next<{ id: number; role: string }>, opts = optionsOf(UserAuthMiddleware)) {
+    await next({ id: 1, role: opts.role });
+    return undefined;
+  }
+}
+// ---cut---
+// user-auth.middleware.ts
+export const adminAuth = UserAuthMiddleware.with({ role: 'admin' });
+
+// admin.controller.ts
+@UseMiddleware(adminAuth)
+@Controller('/admin')
+export class AdminController {
+  @Get('/me')
+  me(admin = resultOf(adminAuth)) {
+    return { id: admin.id, role: admin.role };
+  }
+}
+```
+
+`.with()`は呼び出しごとに、それぞれ別のmiddlewareとして扱われます。ルートの登録に使った`.with()`と`resultOf()`に渡した`.with()`が別の呼び出しだと、たとえオプションが同一でも両者は一致しません — `resultOf()`からはルートに適用されていないmiddlewareに見え、例外になります。必ず1つの`const`を共有してください。
+
+同じmiddlewareクラスを異なるオプションで複数回適用することもできます。それぞれの適用は独立して実行され、各`const`は自分の結果を読み取ります。
 
 ## Request Flow {#request-flow}
 

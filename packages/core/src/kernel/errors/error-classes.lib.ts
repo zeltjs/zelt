@@ -51,6 +51,14 @@ export type ZeltMiddlewareResultUnavailableError = InstanceType<
   typeof ZeltMiddlewareResultUnavailableError
 >;
 
+export const ZeltMiddlewareOptionsUnavailableError = defineError(
+  'ZeltMiddlewareOptionsUnavailableError',
+  coreErrorDefinitions.ZeltMiddlewareOptionsUnavailableError,
+);
+export type ZeltMiddlewareOptionsUnavailableError = InstanceType<
+  typeof ZeltMiddlewareOptionsUnavailableError
+>;
+
 export const ZeltNotImplementedError = defineError(
   'ZeltNotImplementedError',
   coreErrorDefinitions.ZeltNotImplementedError,

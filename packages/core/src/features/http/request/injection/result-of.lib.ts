@@ -6,7 +6,11 @@ import {
   setInternal,
   ZeltMiddlewareResultUnavailableError,
 } from '../../../../kernel';
-import type { MiddlewareIdentifier } from '../../middleware/middleware.types';
+import type {
+  BoundMiddleware,
+  MiddlewareClass,
+  MiddlewareIdentifier,
+} from '../../middleware/middleware.types';
 
 // Matching against `Next<infer T>` directly cannot recover T: Next<void> has no
 // parameter for T to occur in, so TS cannot infer through it. Matching the
@@ -30,6 +34,9 @@ export type MiddlewareResultOf<M> = M extends {
       : T
   : never;
 
+const middlewareDisplayName = (middleware: MiddlewareIdentifier): string =>
+  typeof middleware === 'function' ? middleware.name : middleware.middleware.name;
+
 const MIDDLEWARE_RESULTS =
   createContextKey<Map<MiddlewareIdentifier, unknown>>('zelt:middleware-results');
 
@@ -52,16 +59,23 @@ export const recordMiddlewareResult = (identifier: MiddlewareIdentifier, value: 
   setInternal(MIDDLEWARE_RESULTS, new Map([[identifier, value]]));
 };
 
-/** @throws {ZeltContextNotAvailableError | ZeltMiddlewareResultUnavailableError} */
-export const resultOf = <M extends MiddlewareIdentifier>(
+// Two overloads, not one generic over MiddlewareIdentifier: a bare class and a
+// binding resolve their instance type differently (InstanceType<M> vs
+// InstanceType<M['middleware']>), and keeping them separate gives each call
+// site a precise signature instead of a single loosely-inferred one.
+export function resultOf<M extends MiddlewareClass>(
   middleware: M,
-): MiddlewareResultOf<InstanceType<M>> => {
+): MiddlewareResultOf<InstanceType<M>>;
+export function resultOf<M extends BoundMiddleware>(
+  middleware: M,
+): MiddlewareResultOf<InstanceType<M['middleware']>>;
+/** @throws {ZeltContextNotAvailableError | ZeltMiddlewareResultUnavailableError} */
+export function resultOf(middleware: MiddlewareIdentifier): unknown {
   const store = getInternal(MIDDLEWARE_RESULTS);
   if (!store?.has(middleware)) {
-    throw new ZeltMiddlewareResultUnavailableError({ middlewareName: middleware.name });
+    throw new ZeltMiddlewareResultUnavailableError({
+      middlewareName: middlewareDisplayName(middleware),
+    });
   }
-  return unsafeResolveDeferredValue(
-    new ResultTypeHandle<MiddlewareResultOf<InstanceType<M>>>(),
-    store.get(middleware),
-  );
-};
+  return unsafeResolveDeferredValue(new ResultTypeHandle<unknown>(), store.get(middleware));
+}
