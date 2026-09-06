@@ -8,13 +8,13 @@ The `@zeltjs/eventbus` package provides a type-safe event bus with memory and Re
 ## Installation
 
 ```bash
-pnpm add @zeltjs/eventbus
+pnpm add @zeltjs/eventbus @zeltjs/core
 ```
 
 For Redis support:
 
 ```bash
-pnpm add @zeltjs/eventbus @zeltjs/redis ioredis
+pnpm add @zeltjs/eventbus @zeltjs/core @zeltjs/redis
 ```
 
 ## Overview
@@ -25,8 +25,9 @@ The event bus enables decoupled communication between components through publish
 
 Extend the `EventBusSchema` interface to define your events:
 
-```typescript
-// @noErrors
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+// ---cut---
 declare module '@zeltjs/eventbus' {
   interface EventBusSchema {
     'user.created': { userId: string; email: string };
@@ -38,23 +39,89 @@ declare module '@zeltjs/eventbus' {
 
 This provides full type safety for event names and payloads.
 
-## Memory Adapter
+## App Setup
 
-For single-process applications, use the in-memory adapter:
+Register the `eventbus` feature in `createApp`. It takes an `adaptor` class (the adapter to use for publishing and subscribing) and an optional `handlers` array of subscriber classes:
 
-```typescript
-// @noErrors
-import { Injectable, inject } from '@zeltjs/core';
-import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+```typescript twoslash
+import { Injectable, inject, LifecycleManager, createApp, http } from '@zeltjs/core';
+import type { Lifecycle } from '@zeltjs/core';
+import { MemoryEventBusAdaptor, eventbus } from '@zeltjs/eventbus';
+
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string; email: string };
+  }
+}
 
 @Injectable()
-export class NotificationService {
-  constructor(private eventBus = inject(MemoryEventBusAdaptor)) {}
+class NotificationHandlers implements Lifecycle {
+  private unsubscribes: Array<() => void> = [];
 
-  async setup() {
-    this.eventBus.on('user.created', (data) => {
+  constructor(
+    private readonly eventBus = inject(MemoryEventBusAdaptor),
+    lifecycle = inject(LifecycleManager),
+  ) {
+    lifecycle.register(this);
+  }
+
+  async startup(): Promise<void> {
+    const unsub = this.eventBus.on('user.created', (data) => {
       console.log(`Welcome email sent to ${data.email}`);
     });
+    this.unsubscribes.push(unsub);
+  }
+
+  async shutdown(): Promise<void> {
+    for (const unsub of this.unsubscribes) unsub();
+    this.unsubscribes = [];
+  }
+}
+// ---cut---
+const app = createApp([
+  http({ controllers: [] }),
+  eventbus({ adaptor: MemoryEventBusAdaptor, handlers: [NotificationHandlers] }),
+]);
+```
+
+`adaptor` selects which `EventBusAdaptor` implementation backs `emit`/`on`/`once` for handlers that inject it directly. `handlers` lists subscriber classes that nothing else in the app depends on — without listing them here, they would never be constructed and their `startup()` subscriptions would never run.
+
+## Subscribing with Lifecycle
+
+Subscriber classes implement `Lifecycle` from `@zeltjs/core`: they subscribe in `startup()` and keep the returned unsubscribe functions to call in `shutdown()`.
+
+```typescript twoslash
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string; email: string };
+  }
+}
+
+import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
+import type { Lifecycle } from '@zeltjs/core';
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus';
+// ---cut---
+@Injectable()
+export class NotificationHandlers implements Lifecycle {
+  private unsubscribes: Array<() => void> = [];
+
+  constructor(
+    private readonly eventBus = inject(MemoryEventBusAdaptor),
+    lifecycle = inject(LifecycleManager),
+  ) {
+    lifecycle.register(this);
+  }
+
+  async startup(): Promise<void> {
+    const unsub = this.eventBus.on('user.created', (data) => {
+      console.log(`Welcome email sent to ${data.email}`);
+    });
+    this.unsubscribes.push(unsub);
+  }
+
+  async shutdown(): Promise<void> {
+    for (const unsub of this.unsubscribes) unsub();
+    this.unsubscribes = [];
   }
 }
 
@@ -70,20 +137,36 @@ export class UserService {
 }
 ```
 
+`UserService` publishes events by injecting the same adapter class directly — publishers don't need to be listed in `handlers`, since `emit` doesn't require the class to be pre-constructed by the feature.
+
+## Memory Adapter
+
+For single-process applications, use the in-memory adapter. `MemoryEventBusAdaptor` is built on [mitt](https://github.com/developit/mitt); events are local to the process and lost on restart:
+
+```typescript twoslash
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+```
+
 ## Redis Adapter
 
-For distributed applications, use the Redis adapter:
+For distributed applications, use the Redis adapter. `RedisEventBusAdaptor` implements `Lifecycle` itself: it opens a dedicated subscriber connection on `startup()` and disconnects it on `shutdown()`.
 
-```typescript
-// @noErrors
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
 import { Injectable, inject } from '@zeltjs/core';
 import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'order.placed': { orderId: string; total: number };
+  }
+}
+// ---cut---
 @Injectable()
 export class OrderService {
   constructor(private eventBus = inject(RedisEventBusAdaptor)) {}
 
-  async placeOrder(items: OrderItem[]) {
+  async placeOrder(items: { price: number }[]) {
     const orderId = crypto.randomUUID();
     const total = items.reduce((sum, item) => sum + item.price, 0);
 
@@ -93,19 +176,37 @@ export class OrderService {
 }
 ```
 
-The Redis adapter requires `@zeltjs/redis` to be configured:
+The Redis adapter requires `@zeltjs/redis` to be configured. Register `RedisConfig` alongside the `eventbus` feature:
 
-```typescript
-// @noErrors
+```typescript twoslash
 import { createApp, http } from '@zeltjs/core';
+import { eventbus } from '@zeltjs/eventbus';
+import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
-const app = createApp([http({
-    controllers: [OrderController],
-  })], { configs: [RedisConfig] });
+declare class OrderHandlers {}
+// ---cut---
+const app = createApp(
+  [
+    http({ controllers: [] }),
+    eventbus({ adaptor: RedisEventBusAdaptor, handlers: [OrderHandlers] }),
+  ],
+  { configs: [RedisConfig] },
+);
 ```
 
+`@zeltjs/redis` is an optional peer dependency of `@zeltjs/eventbus` — only install it when you use `RedisEventBusAdaptor`. See [Redis KV Driver](./kv-redis.md) for customizing `RedisConfig` (connection URL, retry strategy, and so on).
+
 ## API Reference
+
+### eventbus(options)
+
+Registers the event bus feature. Adds it to the app under the `eventbus` key.
+
+| Option | Description |
+|--------|--------------|
+| `adaptor` | The `EventBusAdaptor` class to construct and expose (`MemoryEventBusAdaptor` or `RedisEventBusAdaptor`) |
+| `handlers` | Optional subscriber classes to force-construct at startup, so their `Lifecycle.startup()` subscriptions run |
 
 ### EventBusAdaptor Interface
 
@@ -119,10 +220,9 @@ Both adapters implement this interface:
 
 ### MemoryEventBusAdaptor
 
-In-memory event bus using Node.js EventEmitter. Events are local to the process.
+In-memory event bus built on [mitt](https://github.com/developit/mitt). Events are local to the process.
 
-```typescript
-// @noErrors
+```typescript twoslash
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 ```
 
@@ -130,8 +230,7 @@ import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 
 Redis-backed event bus using pub/sub. Events are distributed across processes.
 
-```typescript
-// @noErrors
+```typescript twoslash
 import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 ```
 
@@ -139,8 +238,18 @@ import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 
 Both `on()` and `once()` return an unsubscribe function:
 
-```typescript
-// @noErrors
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string; email: string };
+  }
+}
+
+const eventBus = new MemoryEventBusAdaptor();
+// ---cut---
 const unsubscribe = eventBus.on('user.created', (data) => {
   console.log(data.email);
 });
@@ -155,14 +264,17 @@ unsubscribe();
 
 Use dot notation for event names: `domain.action`
 
-```typescript
-// @noErrors
-interface EventBusSchema {
-  'user.created': { userId: string };
-  'user.updated': { userId: string; changes: string[] };
-  'user.deleted': { userId: string };
-  'order.placed': { orderId: string };
-  'order.shipped': { orderId: string; trackingNumber: string };
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+// ---cut---
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string };
+    'user.updated': { userId: string; changes: string[] };
+    'user.deleted': { userId: string };
+    'order.placed': { orderId: string };
+    'order.shipped': { orderId: string; trackingNumber: string };
+  }
 }
 ```
 
@@ -170,11 +282,30 @@ interface EventBusSchema {
 
 Design event handlers to be idempotent — safe to run multiple times with the same data:
 
-```typescript
-// @noErrors
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'order.placed': { orderId: string; total: number };
+  }
+}
+
+declare const db: {
+  query: {
+    notifications: { findFirst: (opts: unknown) => Promise<{ orderId: string } | undefined> };
+  };
+  insert: (table: unknown) => { values: (data: unknown) => Promise<void> };
+};
+declare const notifications: unknown;
+declare const eq: (column: unknown, value: unknown) => unknown;
+
+const eventBus = new MemoryEventBusAdaptor();
+// ---cut---
 eventBus.on('order.placed', async (data) => {
   const existing = await db.query.notifications.findFirst({
-    where: eq(notifications.orderId, data.orderId),
+    where: eq(notifications, data.orderId),
   });
 
   if (existing) return;
@@ -190,8 +321,20 @@ eventBus.on('order.placed', async (data) => {
 
 Wrap handlers in try-catch to prevent errors from affecting other subscribers:
 
-```typescript
-// @noErrors
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string; email: string };
+  }
+}
+
+declare const sendWelcomeEmail: (email: string) => Promise<void>;
+
+const eventBus = new MemoryEventBusAdaptor();
+// ---cut---
 eventBus.on('user.created', async (data) => {
   try {
     await sendWelcomeEmail(data.email);

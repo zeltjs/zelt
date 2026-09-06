@@ -54,6 +54,8 @@ export const twoslasher = createTwoslasher({
       '@zeltjs/adapter-electron/renderer': ['./packages/adapter-electron/dist/renderer/index.d.ts'],
       '@zeltjs/validator-valibot': ['./packages/validator-valibot/dist/index.d.ts'],
       '@zeltjs/kv/adaptor-redis': ['./packages/kv/dist/adaptor-redis/index.d.ts'],
+      '@zeltjs/eventbus/adaptor-memory': ['./packages/eventbus/dist/adaptor-memory/index.d.ts'],
+      '@zeltjs/eventbus/adaptor-redis': ['./packages/eventbus/dist/adaptor-redis/index.d.ts'],
       '@zeltjs/redis/testing': ['./packages/redis/dist/testing/index.d.ts'],
       '@zeltjs/testing/vitest': ['./packages/testing/dist/adapters/vitest.d.ts'],
       '@zeltjs/testing/jest': ['./packages/testing/dist/adapters/jest.d.ts'],
@@ -65,6 +67,12 @@ export const twoslasher = createTwoslasher({
       'hono/*': pnpmTypes('hono@', 'hono/dist/types/*.d.ts'),
       ioredis: pnpmTypes('ioredis@', 'ioredis/built/index.d.ts'),
       bullmq: pnpmTypes('bullmq@', 'bullmq/dist/esm/index.d.ts'),
+      'drizzle-orm/postgres-js': pnpmTypes(
+        'drizzle-orm@0.44.2',
+        'drizzle-orm/postgres-js/index.d.ts',
+      ),
+      'drizzle-orm/pg-core': pnpmTypes('drizzle-orm@0.44.2', 'drizzle-orm/pg-core/index.d.ts'),
+      postgres: pnpmTypes('postgres@', 'postgres/types/index.d.ts'),
     },
   },
 });

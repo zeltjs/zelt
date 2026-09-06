@@ -54,7 +54,14 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Core',
       collapsed: false,
-      items: ['dependency-injection', 'services', 'configuration', 'error-handling', 'logging'],
+      items: [
+        'dependency-injection',
+        'services',
+        'configuration',
+        'error-handling',
+        'logging',
+        'eventbus',
+      ],
     },
     {
       type: 'category',
@@ -72,7 +79,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Storage',
       collapsed: false,
-      items: ['kv', 'kv-redis'],
+      items: ['db', 'kv', 'kv-redis'],
     },
     {
       type: 'category',
