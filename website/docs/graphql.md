@@ -17,26 +17,27 @@ The executor consumes the runtime manifest. Code-first and schema-first are
 frontends that produce the same manifest, which is delivered to the running
 app as a prebuilt module rather than loaded by the app itself.
 
-```text
-Code-first:
-  Resolver code + args(schema)
-    -> zelt build / zelt dev
-    -> .zelt/graphql/<key>.runtime.ts (graphqlPrebuilt) + sibling .graphql
-    -> .zelt/prebuilt.ts (zeltPrebuilt)
-    -> entry imports zeltPrebuilt -> adapter(app, { prebuilt })
-    -> /graphql runtime
-
-Schema-first:
-  schema.graphql
-    -> zelt graphql codegen
-    -> generated typed helpers
-    -> resolver code
-    -> zelt build / zelt dev
-    -> .zelt/graphql/<key>.runtime.ts (graphqlPrebuilt) + sibling .graphql
-    -> .zelt/prebuilt.ts (zeltPrebuilt)
-    -> entry imports zeltPrebuilt -> adapter(app, { prebuilt })
-    -> /graphql runtime
+```mermaid
+flowchart LR
+  subgraph CF["Code-first"]
+    CFR["resolvers<br/>(args() schemas)"]
+  end
+  subgraph SF["Schema-first"]
+    SFS["schema.graphql"] -- "zelt graphql codegen" --> SFH["typed helpers"]
+    SFR["resolvers"] -. "import" .-> SFH
+  end
+  CFR -- "zelt build / dev" --> GRT["generated GraphQL runtime"]
+  SFR -- "zelt build / dev" --> GRT
+  GRT -- "app start" --> EP(["/graphql"])
+  classDef sot fill:#f8fafc,stroke:#334155,stroke-width:2px
+  classDef gen fill:#eef2f7,stroke:#cbd5e1,stroke-dasharray:5 5
+  class CFR,SFS,SFR sot
+  class SFH,GRT gen
 ```
+
+Solid nodes are sources you edit; dashed nodes are generated. When you change
+a source, rerun the command on its outgoing edge — stale generated output
+surfaces as type or build errors.
 
 ## API boundary
 

@@ -4,28 +4,28 @@ sidebar_position: 4
 
 # Session Authentication
 
-`@zeltjs/auth-session` provides cookie-based session management for server-rendered applications.
+`@zeltjs/auth-session` は、サーバーレンダリングアプリケーションのためのcookieベースのセッション管理を提供します。
 
-## Installation
+## インストール {#installation}
 
 ```bash
 pnpm add @zeltjs/auth-session @zeltjs/kv
 ```
 
-## Quick Start
+## クイックスタート {#quick-start}
 
-### 1. Set the Secret
+### 1. secretを設定する {#1-set-the-secret}
 
-Set the `SESSION_SECRET` environment variable:
+`SESSION_SECRET` 環境変数を設定します。
 
 ```bash
 # .env
 SESSION_SECRET=your-secret-key-at-least-32-characters
 ```
 
-### 2. Configure Session Store
+### 2. セッションストアを設定する {#2-configure-session-store}
 
-Sessions are stored in a KV store. By default `SessionConfig` uses the in-memory adaptor under the `session:` namespace. To customize the namespace (or other options), extend `SessionConfig`:
+セッションはKVストアに保存されます。デフォルトでは `SessionConfig` は `session:` namespace配下でin-memory adaptorを使用します。namespace(やその他のオプション)をカスタマイズするには `SessionConfig` を継承します。
 
 ```typescript
 import { Config } from '@zeltjs/core';
@@ -37,7 +37,7 @@ class MySessionConfig extends SessionConfig {
 }
 ```
 
-### 3. Register Middleware
+### 3. middlewareを登録する {#3-register-middleware}
 
 ```typescript
 import { createApp, Config, Controller, Post, Get, inject, http } from '@zeltjs/core';
@@ -75,9 +75,9 @@ const app = createApp([http({
   })], { configs: [MySessionConfig] });
 ```
 
-### 4. Manage Sessions
+### 4. セッションを管理する {#4-manage-sessions}
 
-Use session functions in your handlers:
+ハンドラー内でセッション関数を使用します。
 
 ```typescript
 import { Controller, Post, Get } from '@zeltjs/core';
@@ -119,20 +119,20 @@ class AuthController {
 }
 ```
 
-## Session API
+## Session API {#session-api}
 
-| Function | Description |
+| 関数 | 説明 |
 |----------|-------------|
-| `getSession()` | Get current session data (`undefined` if not logged in) |
-| `setSession(data)` | Set session data (replaces existing) |
-| `updateSession(fn)` | Update session data with a function |
-| `destroySession()` | Destroy session and clear cookie |
-| `isNewSession()` | Check if this is a newly created session |
-| `getSessionId()` | Get the current session ID |
+| `getSession()` | 現在のセッションデータを取得する(未ログインなら `undefined`) |
+| `setSession(data)` | セッションデータを設定する(既存のものを置き換える) |
+| `updateSession(fn)` | 関数でセッションデータを更新する |
+| `destroySession()` | セッションを破棄しcookieをクリアする |
+| `isNewSession()` | 新規に作成されたセッションかを確認する |
+| `getSessionId()` | 現在のセッションIDを取得する |
 
-### setSession
+### setSession {#setsession}
 
-Create or replace the session:
+セッションを作成または置き換えます。
 
 ```typescript
 import { setSession } from '@zeltjs/auth-session';
@@ -144,9 +144,9 @@ setSession({
 });
 ```
 
-### updateSession
+### updateSession {#updatesession}
 
-Partially update the session:
+セッションを部分的に更新します。
 
 ```typescript
 import { updateSession } from '@zeltjs/auth-session';
@@ -157,9 +157,9 @@ updateSession((session) => ({
 }));
 ```
 
-### destroySession
+### destroySession {#destroysession}
 
-Clear the session and cookie (for logout):
+セッションとcookieをクリアします(ログアウト用)。
 
 ```typescript
 import { destroySession } from '@zeltjs/auth-session';
@@ -167,9 +167,9 @@ import { destroySession } from '@zeltjs/auth-session';
 destroySession();
 ```
 
-## Type-Safe Sessions
+## 型安全なセッション {#type-safe-sessions}
 
-Extend `SessionSchema` for type-safe session access:
+`SessionSchema` を継承すると、型安全にセッションへアクセスできます。
 
 ```typescript
 import { SessionSchema } from '@zeltjs/auth-session';
@@ -185,21 +185,21 @@ declare module '@zeltjs/auth-session' {
 }
 ```
 
-Now all session functions are typed:
+これで、すべてのセッション関数に型が付きます。
 
 ```typescript
 import { getSession, setSession } from '@zeltjs/auth-session';
 // ---cut---
 const session = getSession();
-// TypeScript knows: session?.userId, session?.name, session?.cart
+// TypeScriptはsession?.userId、session?.name、session?.cartを認識する
 
 setSession({ userId: '123', name: 'Alice' });
-// Type-checked against SessionSchema
+// SessionSchemaに対して型チェックされる
 ```
 
-## Configuration
+## 設定 {#configuration}
 
-Extend `SessionConfig` to customize behavior:
+`SessionConfig` を継承して動作をカスタマイズします。
 
 ```typescript
 import { Config } from '@zeltjs/core';
@@ -210,11 +210,11 @@ class MySessionConfig extends SessionConfig {
   override readonly kvStoreNamespace = 'sessions:';
 
   override get cookieName(): string {
-    return 'my_session';  // default: 'session'
+    return 'my_session';  // デフォルト: 'session'
   }
 
   override get ttlSec(): number {
-    return 86400 * 7;  // 7 days (default: 1 day)
+    return 86400 * 7;  // 7日(デフォルト: 1日)
   }
 
   override get cookieOptions() {
@@ -228,18 +228,18 @@ class MySessionConfig extends SessionConfig {
 }
 ```
 
-### Configuration Options
+### Configuration Options {#configuration-options}
 
-| Option | Type | Default | Description |
+| オプション | 型 | デフォルト | 説明 |
 |--------|------|---------|-------------|
-| `kv` | `KVAdaptor` | `MemoryKV` | KV adaptor (constructor arg 2) backing session storage |
-| `kvStoreNamespace` | `string` | `'session:'` | Namespace prefix for session keys |
-| `secret` | `string` | `env.getString('SESSION_SECRET')` | Secret for signing session IDs |
-| `cookieName` | `string` | `'session'` | Cookie name |
-| `ttlSec` | `number` | `86400` (1 day) | Session TTL in seconds |
-| `cookieOptions` | `object` | See below | Cookie configuration |
+| `kv` | `KVAdaptor` | `MemoryKV` | セッションストレージの裏側となるKV adaptor(コンストラクタ引数2) |
+| `kvStoreNamespace` | `string` | `'session:'` | セッションkeyのnamespace prefix |
+| `secret` | `string` | `env.getString('SESSION_SECRET')` | セッションID署名用のsecret |
+| `cookieName` | `string` | `'session'` | cookie名 |
+| `ttlSec` | `number` | `86400`(1日) | セッションのTTL(秒) |
+| `cookieOptions` | `object` | 下記参照 | cookieの設定 |
 
-### Default Cookie Options
+### デフォルトのcookieオプション {#default-cookie-options}
 
 ```typescript
 import { Config } from '@zeltjs/core';
@@ -259,9 +259,9 @@ class MySessionConfig extends SessionConfig {
 }
 ```
 
-## Storage Backends
+## ストレージバックエンド {#storage-backends}
 
-### Memory (Development)
+### Memory(開発用) {#memory-development}
 
 ```typescript
 import { Config, inject } from '@zeltjs/core';
@@ -276,9 +276,9 @@ class MySessionConfig extends SessionConfig {
 }
 ```
 
-### Redis (Production)
+### Redis(本番用) {#redis-production}
 
-`SessionConfig` takes the KV adaptor as its second constructor argument. Pass a `RedisKVAdaptor` to `super()` to store sessions in Redis (leave the first argument as `undefined` to keep the default `Env` injection):
+`SessionConfig` はKV adaptorをコンストラクタの第2引数として受け取ります。セッションをRedisに保存するには `RedisKVAdaptor` を `super()` に渡します(第1引数はデフォルトの `Env` injectionを維持するため `undefined` のままにします)。
 
 ```typescript
 import { Config, inject } from '@zeltjs/core';
@@ -295,11 +295,11 @@ class MySessionConfig extends SessionConfig {
 }
 ```
 
-Using Redis requires registering `RedisConfig` (from `@zeltjs/redis`) so the adaptor can resolve its connection.
+Redisを使用するには、adaptorが接続を解決できるよう(`@zeltjs/redis` の)`RedisConfig` を登録する必要があります。
 
-## Integration with User Context
+## User Contextとの統合 {#integration-with-user-context}
 
-Sessions don't automatically set the user context. Add middleware to bridge them:
+セッションは自動的にuser contextを設定しません。両者をつなぐmiddlewareを追加します。
 
 ```typescript
 import { Middleware, Injectable, inject, setUser, type Next } from '@zeltjs/core';
@@ -335,7 +335,7 @@ export class SessionAuthMiddleware {
 }
 ```
 
-Register after `SessionMiddleware`:
+`SessionMiddleware` の後に登録します。
 
 ```typescript
 import { createApp, Config, Controller, Get, Middleware, Injectable, inject, setUser, type Next, http } from '@zeltjs/core';
@@ -381,19 +381,19 @@ const app = createApp([http({
   })], { configs: [MySessionConfig] });
 ```
 
-## Security Considerations
+## セキュリティ上の注意点 {#security-considerations}
 
-### CSRF Protection
+### CSRF Protection {#csrf-protection}
 
-Session-based authentication requires CSRF protection. Consider using:
+セッションベースの認証にはCSRF対策が必要です。以下の方法を検討してください。
 
-- `SameSite=Strict` cookies (strongest, may affect UX)
-- `SameSite=Lax` cookies with CSRF tokens for mutations
-- Double-submit cookie pattern
+- `SameSite=Strict` cookie(最も強力だが、UXに影響する場合がある)
+- 変更を伴う操作に対する `SameSite=Lax` cookie + CSRFトークン
+- Double-submit cookieパターン
 
-### Session Fixation
+### Session Fixation {#session-fixation}
 
-Always regenerate the session ID after login:
+ログイン後は必ずセッションIDを再生成してください。
 
 ```typescript
 import { Controller, Post } from '@zeltjs/core';
@@ -410,17 +410,17 @@ class AuthController {
     const body = await req.body();
     const user = await validateCredentials(body.email, body.password);
     
-    destroySession();  // Clear old session
-    setSession({ userId: user.id, name: user.name });  // Creates new ID
+    destroySession();  // 古いセッションをクリア
+    setSession({ userId: user.id, name: user.name });  // 新しいIDを作成
     
     return { success: true };
   }
 }
 ```
 
-### Secure Cookies
+### Secure Cookies {#secure-cookies}
 
-In production, always use secure cookies:
+本番環境では、必ずsecure cookieを使用してください。
 
 ```typescript
 import { SessionConfig } from '@zeltjs/auth-session';
@@ -428,7 +428,7 @@ declare const _: SessionConfig;
 // ---cut---
 const cookieOptions = {
   httpOnly: true,
-  secure: true,  // HTTPS only
+  secure: true,  // HTTPSのみ
   sameSite: 'Strict' as const,
   path: '/',
 };

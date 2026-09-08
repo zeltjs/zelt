@@ -3,11 +3,11 @@
 
 # Error Handling
 
-Zelt provides a simple error handling mechanism based on Hono's `HTTPException`.
+Zeltは、Honoの`HTTPException`をベースにしたシンプルなエラーハンドリング機構を提供します。
 
-## Error Response Format
+## Error Response Format {#error-response-format}
 
-All errors are returned in a consistent JSON format:
+全てのエラーは一貫したJSON形式で返されます:
 
 ```json
 {
@@ -16,11 +16,11 @@ All errors are returned in a consistent JSON format:
 }
 ```
 
-## Built-in Error Types
+## Built-in Error Types {#built-in-error-types}
 
-### VALIDATION_FAILED
+### VALIDATION_FAILED {#validation_failed}
 
-Returned when request body validation fails (status 400):
+リクエストボディのバリデーションが失敗したときに返されます(ステータス400):
 
 ```json
 {
@@ -36,9 +36,9 @@ Returned when request body validation fails (status 400):
 }
 ```
 
-### INTERNAL_ERROR
+### INTERNAL_ERROR {#internal_error}
 
-Returned when an unhandled error occurs (status 500):
+未処理のエラーが発生したときに返されます(ステータス500):
 
 ```json
 {
@@ -47,15 +47,15 @@ Returned when an unhandled error occurs (status 500):
 }
 ```
 
-In development mode (`NODE_ENV=development`), the actual error message is included for debugging.
+開発モード(`NODE_ENV=development`)では、デバッグのために実際のエラーメッセージが含まれます。
 
-## Throwing HTTPExceptions
+## Throwing HTTPExceptions {#throwing-httpexceptions}
 
-Use Hono's `HTTPException` to throw HTTP errors by specifying a status code and either a message or a custom response.
+Honoの`HTTPException`を使い、ステータスコードとメッセージまたはカスタムレスポンスを指定してHTTPエラーを投げます。
 
-### Custom Message
+### Custom Message {#custom-message}
 
-For basic text responses, just set the error `message`:
+基本的なテキストレスポンスの場合は、エラーの`message`を設定するだけです:
 
 ```typescript
 import { HTTPException } from '@zeltjs/core';
@@ -63,9 +63,9 @@ import { HTTPException } from '@zeltjs/core';
 throw new HTTPException(401, { message: 'Unauthorized' });
 ```
 
-### Custom Response
+### Custom Response {#custom-response}
 
-For JSON responses, or to set response headers, use the `res` option.
+JSONレスポンスやレスポンスヘッダーの設定には`res`オプションを使います。
 
 ```typescript
 import { HTTPException } from '@zeltjs/core';
@@ -78,7 +78,7 @@ const errorResponse = Response.json(
 throw new HTTPException(404, { res: errorResponse });
 ```
 
-With custom headers:
+カスタムヘッダー付きの場合:
 
 ```typescript
 import { HTTPException } from '@zeltjs/core';
@@ -93,9 +93,9 @@ const errorResponse = new Response('Unauthorized', {
 throw new HTTPException(401, { res: errorResponse });
 ```
 
-### Cause
+### Cause {#cause}
 
-Use the `cause` option to attach the original error for debugging:
+デバッグのために元のエラーを付加するには`cause`オプションを使います:
 
 ```typescript
 import { Middleware, HTTPException, type RequestContext, type Next } from '@zeltjs/core';
@@ -120,9 +120,9 @@ class AuthMiddleware {
 }
 ```
 
-## Custom Error Codes
+## Custom Error Codes {#custom-error-codes}
 
-Define reusable error responses to maintain consistency across your API:
+APIの一貫性を保つため、再利用可能なエラーレスポンスを定義します:
 
 ```typescript
 import { HTTPException } from '@zeltjs/core';
@@ -137,12 +137,12 @@ const forbiddenResponse = Response.json(
   { status: 403 }
 );
 
-// Usage
+// 使用例
 throw new HTTPException(404, { res: notFoundResponse });
 throw new HTTPException(403, { res: forbiddenResponse });
 ```
 
-Or create a factory function:
+または、ファクトリ関数を作成します:
 
 ```typescript
 import { HTTPException } from '@zeltjs/core';
@@ -155,52 +155,42 @@ const createErrorResponse = (
   return Response.json({ code, message }, { status });
 };
 
-// Usage
+// 使用例
 const response = createErrorResponse(404, 'USER_NOT_FOUND', 'User not found');
 throw new HTTPException(404, { res: response });
 ```
 
-## Error Types for OpenAPI
+## Error Types for OpenAPI {#error-types-for-openapi}
 
-Use the built-in error types to document error responses in your OpenAPI spec:
+組み込みのエラー型を使って、OpenAPI仕様書にエラーレスポンスをドキュメント化します:
 
 ```typescript
 import type { ErrorBody, ValidationErrorBody } from '@zeltjs/core';
 ```
 
-These types define the structure of error responses:
+これらの型はエラーレスポンスの構造を定義します:
 
-- `ErrorBody` — Union of all error types (VALIDATION_FAILED | INTERNAL_ERROR)
-- `ValidationErrorBody` — Only the validation error type
+- `ErrorBody` — 全てのエラー型のUnion(VALIDATION_FAILED | INTERNAL_ERROR)
+- `ValidationErrorBody` — バリデーションエラー型のみ
 
-## Error Handling Flow
+## Error Handling Flow {#error-handling-flow}
 
-```
-Request
-  │
-  ▼
-Middleware chain
-  │
-  ▼
-Route handler ─── throws HTTPException ──► HTTPException.getResponse()
-  │                                                │
-  │                                                ▼
-  │                                        Custom error response
-  │
-  ├─── throws Error ──► handleError()
-  │                           │
-  │                           ▼
-  │                    500 INTERNAL_ERROR
-  │
-  ▼
-Success response
+```mermaid
+flowchart TD
+  REQ["リクエスト"] --> MW["Middlewareチェーン"]
+  MW --> RH["ルートハンドラ"]
+  RH -- "HTTPExceptionを投げる" --> GETRESP["HTTPException.getResponse()"]
+  GETRESP --> CUSTOM["カスタムエラーレスポンス"]
+  RH -- "Errorを投げる" --> HANDLE["handleError()"]
+  HANDLE --> ERR500["500 INTERNAL_ERROR"]
+  RH --> SUCCESS["成功レスポンス"]
 ```
 
-## Custom Error Handlers
+## Custom Error Handlers {#custom-error-handlers}
 
-For more complex error handling logic, use the `@ErrorHandler` decorator to create reusable error handler classes.
+より複雑なエラーハンドリングロジックには、`@ErrorHandler`デコレータを使って再利用可能なエラーハンドラクラスを作成します。
 
-### Creating an Error Handler
+### Creating an Error Handler {#creating-an-error-handler}
 
 ```typescript
 import { ErrorHandler, RequestContext } from '@zeltjs/core';
@@ -219,15 +209,15 @@ class DatabaseErrorHandler {
 }
 ```
 
-The `onError` method receives:
-- `error` — The thrown error
-- `c` — The Hono request context
+`onError`メソッドは次を受け取ります:
+- `error` — 投げられたエラー
+- `c` — Honoのリクエストcontext
 
-Return a `Response` to handle the error, or `undefined` to pass it to the next handler.
+エラーを処理する場合は`Response`を返し、次のハンドラへ渡す場合は`undefined`を返します。
 
-### Registering Error Handlers
+### Registering Error Handlers {#registering-error-handlers}
 
-Pass error handlers to `createApp` via the `errorHandlers` option:
+`errorHandlers`オプションを通じて、`controllers`付きの`http(...)`featureへエラーハンドラを渡します:
 
 ```typescript
 import { createApp, Controller, Get, ErrorHandler, RequestContext, http } from '@zeltjs/core';
@@ -242,13 +232,13 @@ const app = createApp([http({
   })]);
 ```
 
-### Handler Chain
+### Handler Chain {#handler-chain}
 
-Error handlers execute in the order they are registered:
+エラーハンドラは、`http({ errorHandlers: [...] })`で登録された順序で実行されます:
 
-1. First handler's `onError` is called
-2. If it returns `undefined`, the next handler is called
-3. If all handlers return `undefined`, the default error handler runs
+1. 最初のハンドラの`onError`が呼ばれる
+2. `undefined`が返された場合、次のハンドラが呼ばれる
+3. 全てのハンドラが`undefined`を返した場合、デフォルトのエラーハンドラが実行される
 
 ```typescript
 import { createApp, Controller, Get, ErrorHandler, RequestContext, http } from '@zeltjs/core';
@@ -280,9 +270,9 @@ createApp([http({
   })]);
 ```
 
-### Dependency Injection
+### Dependency Injection {#dependency-injection}
 
-Error handlers support dependency injection. Use constructor injection to access services:
+エラーハンドラは依存性注入をサポートしています。serviceへアクセスするにはコンストラクタ注入を使います:
 
 ```typescript
 import { ErrorHandler, RequestContext, inject } from '@zeltjs/core';
@@ -299,22 +289,22 @@ class LoggingErrorHandler {
 }
 ```
 
-## Framework Error Classes
+## Framework Error Classes {#framework-error-classes}
 
-Zelt provides structured error classes for framework-level errors. These classes follow a consistent naming convention (`Zelt*Error`) and include typed context for debugging:
+Zeltはフレームワークレベルのエラーのための構造化されたエラークラスを提供します。これらのクラスは一貫した命名規則(`Zelt*Error`)に従い、デバッグ用の型付きcontextを含みます:
 
 | Error Class | Description |
 |------------|-------------|
-| `ZeltDecoratorUsageError` | Invalid decorator usage (e.g., applied to static method) |
-| `ZeltLifecycleStateError` | Invalid lifecycle state (e.g., calling method after shutdown) |
-| `ZeltContextNotAvailableError` | Primitive called outside execution context |
-| `ZeltAppConfigurationError` | Invalid app configuration |
-| `ZeltRouteConfigurationError` | Invalid route configuration |
-| `ZeltMiddlewareExecutionError` | Middleware execution error (e.g., next() called multiple times) |
-| `ZeltNotImplementedError` | Method not implemented |
-| `ZeltSchemaValidationError` | Invalid schema definition |
+| `ZeltDecoratorUsageError` | デコレータの不正な使用(例: staticメソッドへの適用) |
+| `ZeltLifecycleStateError` | 不正なライフサイクル状態(例: shutdown後のメソッド呼び出し) |
+| `ZeltContextNotAvailableError` | 実行context外でのprimitive呼び出し |
+| `ZeltAppConfigurationError` | 不正なアプリ設定 |
+| `ZeltRouteConfigurationError` | 不正なルート設定 |
+| `ZeltMiddlewareExecutionError` | middlewareの実行エラー(例: next()の複数回呼び出し) |
+| `ZeltNotImplementedError` | メソッドが未実装 |
+| `ZeltSchemaValidationError` | 不正なschema定義 |
 
-### Usage
+### Usage {#usage}
 
 ```typescript
 import { ZeltAppConfigurationError } from '@zeltjs/core';
@@ -328,32 +318,32 @@ try {
 }
 ```
 
-### Error Context
+### Error Context {#error-context}
 
-Each error class includes a `context` property with structured information:
+各エラークラスは、構造化された情報を持つ`context`プロパティを含みます:
 
 ```ts twoslash
 // @noErrors
-// Reason: type-only example without runtime code
-// ZeltDecoratorUsageError context
+// Reason: 型のみの例でランタイムコードがないため
+// ZeltDecoratorUsageErrorのcontext
 type DecoratorUsageErrorContext = {
   decoratorName: string;
   reason: 'static_method' | 'missing_decorator';
   targetName?: string;
 }
 
-// ZeltLifecycleStateError context
+// ZeltLifecycleStateErrorのcontext
 type LifecycleStateErrorContext = {
   operation: string;
   currentState: 'disposed' | 'ready' | 'not_ready';
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-1. **Use descriptive error codes** — Prefer `USER_NOT_FOUND` over `NOT_FOUND`
-2. **Include actionable messages** — Help API consumers understand what went wrong
-3. **Avoid exposing internal details** — In production, don't include stack traces or internal error messages
-4. **Document error responses** — Use OpenAPI schemas to document all possible error codes
-5. **Order error handlers by specificity** — Place specific handlers before generic ones
-6. **Use framework errors** — Catch `Zelt*Error` classes to handle framework-specific issues
+1. **説明的なエラーコードを使う** — `NOT_FOUND`より`USER_NOT_FOUND`を優先する
+2. **実用的なメッセージを含める** — APIの利用者が何が起きたかを理解できるようにする
+3. **内部の詳細を露出させない** — 本番環境ではスタックトレースや内部エラーメッセージを含めない
+4. **エラーレスポンスをドキュメント化する** — OpenAPI schemaを使って全ての起こりうるエラーコードをドキュメント化する
+5. **エラーハンドラを具体性の高い順に並べる** — 汎用的なハンドラより具体的なハンドラを先に置く
+6. **フレームワークのエラーを使う** — `Zelt*Error`クラスを捕捉して、フレームワーク固有の問題を処理する

@@ -3,13 +3,13 @@
 
 # OpenAPI
 
-Zelt automatically generates OpenAPI 3.1 specifications from your controllers — no decorators or annotations required.
+Zeltはcontrollerから自動的にOpenAPI 3.1仕様を生成します — デコレータやアノテーションは不要です。
 
-## Overview
+## 概要 {#overview}
 
-The `@zeltjs/openapi` package analyzes your controller method signatures at build time and generates a standard OpenAPI 3.1 specification.
+`@zeltjs/openapi` パッケージは、build時にcontrollerのメソッドシグネチャを解析し、標準的なOpenAPI 3.1仕様を生成します。
 
-## Installation
+## インストール {#installation}
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -32,9 +32,9 @@ import TabItem from '@theme/TabItem';
   </TabItem>
 </Tabs>
 
-### Valibot adapter と併用する場合
+### Valibot adapterと併用する場合 {#with-the-valibot-adapter}
 
-Valibot から schema を生成する場合は、`@zeltjs/validator-valibot/openapi` と `@valibot/to-json-schema` が必要です：
+Valibotからschemaを生成する場合は、`@zeltjs/validator-valibot/openapi` を使い、`@valibot/to-json-schema` をインストールしてください:
 
 <Tabs groupId="pkg-manager">
   <TabItem value="npm" label="npm" default>
@@ -58,9 +58,9 @@ Valibot から schema を生成する場合は、`@zeltjs/validator-valibot/open
 `@valibot/to-json-schema` は `valibot` のバージョンと合わせる必要があります。詳細は [Validation - Installation](./validation.md#installation) を参照してください。
 :::
 
-## Configuration
+## 設定 {#configuration}
 
-Create a `zelt.config.ts` file in your project root:
+プロジェクトルートに `zelt.config.ts` ファイルを作成します:
 
 ```typescript
 type OpenApiConfig = {
@@ -77,37 +77,37 @@ export default defineConfig({
 });
 ```
 
-### Configuration Options
+### 設定オプション {#configuration-options}
 
-| Option | Type | Description |
+| オプション | 型 | 説明 |
 |--------|------|-------------|
-| `controllers` | `string[]` | Glob patterns to find controller files |
-| `dist` | `string` | Output directory for generated files |
-| `tsconfig` | `string` | Path to tsconfig.json (required for OpenAPI generation) |
+| `controllers` | `string[]` | controllerファイルを見つけるためのglobパターン |
+| `dist` | `string` | 生成されたファイルの出力ディレクトリ |
+| `tsconfig` | `string` | tsconfig.jsonへのパス(OpenAPI生成に必須) |
 
-Controllers are automatically discovered by scanning files matching the glob patterns and detecting classes with `@Controller` decorator.
+Controllerは、globパターンに一致するファイルをスキャンし、`@Controller` デコレータを持つクラスを検出することで自動的に発見されます。
 
-## Generating OpenAPI Spec
+## OpenAPI仕様の生成 {#generating-openapi-spec}
 
-### One-time Build
+### 単発ビルド {#one-time-build}
 
 ```bash
 pnpm zelt-openapi build
 ```
 
-This generates `<dist>/openapi.json`.
+これにより `<dist>/openapi.json` が生成されます。
 
-### Watch Mode
+### Watchモード {#watch-mode}
 
 ```bash
 pnpm zelt-openapi watch
 ```
 
-Continuously regenerates when controllers change.
+controllerが変更されるたびに継続的に再生成します。
 
-### npm Scripts
+### npmスクリプト {#npm-scripts}
 
-Add to your `package.json`:
+`package.json` に追加します:
 
 ```json
 {
@@ -118,9 +118,9 @@ Add to your `package.json`:
 }
 ```
 
-## Generated openapi.json
+## 生成されるopenapi.json {#generated-openapijson}
 
-Standard OpenAPI 3.1 specification:
+標準的なOpenAPI 3.1仕様:
 
 ```json
 {
@@ -143,12 +143,12 @@ Standard OpenAPI 3.1 specification:
 }
 ```
 
-## How It Works
+## 仕組み {#how-it-works}
 
-Zelt uses a "zero-annotation" approach inspired by [Scramble](https://scramble.dedoc.co/):
+Zeltは [Scramble](https://scramble.dedoc.co/) に着想を得た「ゼロアノテーション」アプローチを使用します:
 
-1. **Static Analysis** — Analyzes controller method signatures at build time
-2. **Type Extraction** — Extracts request/response types from TypeScript types
-3. **Schema Generation** — Converts TypeScript types to JSON Schema for OpenAPI
+1. **静的解析** — build時にcontrollerのメソッドシグネチャを解析する
+2. **型抽出** — TypeScriptの型からrequest/responseの型を抽出する
+3. **Schema生成** — TypeScriptの型をOpenAPI用のJSON Schemaに変換する
 
-This means your runtime code stays clean — no decorators or schema definitions needed beyond what you already write for validation.
+これにより、あなたのランタイムコードはクリーンなまま保たれます — validationのためにすでに書いているもの以外の、デコレータやschema定義は不要です。

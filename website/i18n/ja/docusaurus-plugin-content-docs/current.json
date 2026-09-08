@@ -1,0 +1,66 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docsSidebar.category.Getting Started": {
+    "message": "はじめる",
+    "description": "The label for category 'Getting Started' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.HTTP": {
+    "message": "HTTP",
+    "description": "The label for category 'HTTP' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Security": {
+    "message": "セキュリティ",
+    "description": "The label for category 'Security' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Authentication": {
+    "message": "認証",
+    "description": "The label for category 'Authentication' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Authorization": {
+    "message": "認可",
+    "description": "The label for category 'Authorization' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Core": {
+    "message": "コア",
+    "description": "The label for category 'Core' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Electron": {
+    "message": "Electron",
+    "description": "The label for category 'Electron' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.CLI": {
+    "message": "CLI",
+    "description": "The label for category 'CLI' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Storage": {
+    "message": "ストレージ",
+    "description": "The label for category 'Storage' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Testing": {
+    "message": "テスト",
+    "description": "The label for category 'Testing' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Integrations": {
+    "message": "インテグレーション",
+    "description": "The label for category 'Integrations' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.LLM": {
+    "message": "LLM",
+    "description": "The label for category 'LLM' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.link.llms.txt": {
+    "message": "llms.txt",
+    "description": "The label for link 'llms.txt' in sidebar 'docsSidebar', linking to 'pathname:///llms.txt'"
+  },
+  "sidebar.docsSidebar.link.llms-full.txt": {
+    "message": "llms-full.txt",
+    "description": "The label for link 'llms-full.txt' in sidebar 'docsSidebar', linking to 'pathname:///llms-full.txt'"
+  },
+  "sidebar.docsSidebar.link.Examples": {
+    "message": "サンプル",
+    "description": "The label for link 'Examples' in sidebar 'docsSidebar', linking to '/examples/drizzle-todo'"
+  }
+}

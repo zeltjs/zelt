@@ -8,14 +8,14 @@ import type { Lifecycle } from '../../kernel';
 import { inject, LifecycleManager, runInContext } from '../../kernel';
 import { ErrorHandler } from './error/error-handler.decorator';
 import { http } from './http.feature';
-import { fromHonoMiddleware } from './middleware';
+import { fromHonoMiddleware, MiddlewareWithOptions } from './middleware';
 import { Middleware } from './middleware/middleware.decorator';
 import type { Next } from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
 import { registerAfterResponseCallback } from './request';
-import { getContext, request, setContext } from './request/injection';
+import { optionsOf, request, resultOf } from './request/injection';
 import { response } from './response';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
@@ -41,13 +41,6 @@ const createStandardSchema = <Output>({
 const passthroughFormSchema = createStandardSchema<unknown>({
   validate: (value) => ({ value }),
 });
-
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    configValue: string;
-    requestId: string;
-  }
-}
 
 @injectable()
 class Greeter {
@@ -129,13 +122,21 @@ describe('createApp() — fetch', () => {
   it('isolates request helpers when another request is processed inside a request', async () => {
     let fetchInner: () => Promise<Response>;
 
+    @Middleware
+    class TagMiddleware {
+      async use(next: Next<string>, req = request()): Promise<Response | undefined> {
+        await next(req.path().includes('outer') ? 'outer' : 'inner');
+        return undefined;
+      }
+    }
+
     @Controller('/inner-context')
     class InnerContextController {
       @Post('/')
       async get(req = request()) {
         return {
           body: await req.body(),
-          requestId: getContext('requestId') ?? null,
+          requestId: resultOf(TagMiddleware),
           url: req.url(),
         };
       }
@@ -145,16 +146,15 @@ describe('createApp() — fetch', () => {
     class OuterContextController {
       @Post('/')
       async get(req = request()) {
-        setContext('requestId', 'outer');
         const outerBefore = {
           body: await req.body(),
-          requestId: getContext('requestId'),
+          requestId: resultOf(TagMiddleware),
           url: req.url(),
         };
         const res = await fetchInner();
         const outerAfter = {
           body: await req.body(),
-          requestId: getContext('requestId'),
+          requestId: resultOf(TagMiddleware),
           url: req.url(),
         };
         return { inner: await res.json(), outerAfter, outerBefore };
@@ -162,7 +162,10 @@ describe('createApp() — fetch', () => {
     }
 
     const app = createApp([
-      http({ controllers: [OuterContextController, InnerContextController] }),
+      http({
+        controllers: [OuterContextController, InnerContextController],
+        middlewares: [TagMiddleware],
+      }),
     ]);
     const readyApp = await app.createRuntime();
     fetchInner = () =>
@@ -186,7 +189,7 @@ describe('createApp() — fetch', () => {
     expect(await res.json()).toEqual({
       inner: {
         body: { scope: 'inner' },
-        requestId: null,
+        requestId: 'inner',
         url: 'https://example.com/inner-context/',
       },
       outerAfter: {
@@ -722,9 +725,8 @@ describe('middleware', () => {
     class DIMiddleware {
       constructor(private config = inject(ConfigService)) {}
 
-      async use(next: Next): Promise<Response | undefined> {
-        setContext('configValue', this.config.getValue());
-        await next();
+      async use(next: Next<string>): Promise<Response | undefined> {
+        await next(this.config.getValue());
         return undefined;
       }
     }
@@ -734,7 +736,7 @@ describe('middleware', () => {
     class TestController {
       @Get('/')
       get() {
-        return { value: getContext('configValue') };
+        return { value: resultOf(DIMiddleware) };
       }
     }
 
@@ -745,12 +747,11 @@ describe('middleware', () => {
     expect(await res.json()).toEqual({ value: 'injected-value' });
   });
 
-  it('middleware can set context values accessible in handler via getContext()', async () => {
+  it('middleware can pass a typed result to the handler via resultOf()', async () => {
     @Middleware
     class SetUserMiddleware {
-      async use(next: Next): Promise<Response | undefined> {
-        setContext('user', { id: 123, name: 'alice' });
-        await next();
+      async use(next: Next<{ id: number; name: string }>): Promise<Response | undefined> {
+        await next({ id: 123, name: 'alice' });
         return undefined;
       }
     }
@@ -759,8 +760,8 @@ describe('middleware', () => {
     class TestController {
       @Get('/')
       get() {
-        const user = getContext('user') as { id: number; name: string } | undefined;
-        return { userId: user?.id, userName: user?.name };
+        const user = resultOf(SetUserMiddleware);
+        return { userId: user.id, userName: user.name };
       }
     }
 
@@ -1815,12 +1816,9 @@ describe('warmup option', () => {
     type RateLimitOptions = { limit: number; windowSec: number };
 
     @Middleware
-    class RateLimitMiddleware {
-      async use(
-        next: Next,
-        options: RateLimitOptions,
-        res = response(),
-      ): Promise<Response | undefined> {
+    class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
+      async use(next: Next, res = response()): Promise<Response | undefined> {
+        const options = optionsOf(RateLimitMiddleware);
         res.header('X-RateLimit-Limit', String(options.limit));
         res.header('X-RateLimit-Window', String(options.windowSec));
         await next();
@@ -1830,20 +1828,58 @@ describe('warmup option', () => {
 
     @Controller('/api')
     class ApiController {
-      @UseMiddleware(RateLimitMiddleware, { limit: 100, windowSec: 60 })
       @Get('/')
       get() {
         return { ok: true };
       }
     }
 
-    const app = createApp([http({ controllers: [ApiController] })]);
+    const app = createApp([
+      http({
+        controllers: [ApiController],
+        middlewares: [RateLimitMiddleware.with({ limit: 100, windowSec: 60 })],
+      }),
+    ]);
     const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/api/');
     expect(res.status).toBe(200);
     expect(res.headers.get('X-RateLimit-Limit')).toBe('100');
     expect(res.headers.get('X-RateLimit-Window')).toBe('60');
+    await readyApp.shutdown();
+  });
+
+  it('applies a binding with @UseMiddleware and reads its result via the shared const, as documented', async () => {
+    type AuthOptions = { role: string };
+
+    @Middleware
+    class UserAuthMiddleware extends MiddlewareWithOptions<AuthOptions> {
+      async use(
+        next: Next<{ id: number; role: string }>,
+        opts = optionsOf(UserAuthMiddleware),
+      ): Promise<Response | undefined> {
+        await next({ id: 1, role: opts.role });
+        return undefined;
+      }
+    }
+
+    const adminAuth = UserAuthMiddleware.with({ role: 'admin' });
+
+    @UseMiddleware(adminAuth)
+    @Controller('/admin')
+    class AdminController {
+      @Get('/me')
+      me(admin = resultOf(adminAuth)) {
+        return { id: admin.id, role: admin.role };
+      }
+    }
+
+    const app = createApp([http({ controllers: [AdminController] })]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.request('/admin/me');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id: 1, role: 'admin' });
     await readyApp.shutdown();
   });
 });

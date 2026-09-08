@@ -28,27 +28,13 @@ setUser(
 );
 ```
 
-## Defining Role Types
+## Role Types
 
-Use `RequestContextSchema` to type your roles:
+`currentRoles()` always returns `readonly string[]` — role values aren't narrowed to a specific union at the type level. Define a local type for the roles your app uses and reference it wherever you assign or compare roles, so role names stay consistent:
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import '@zeltjs/core';
-// ---cut---
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string; name: string };
-    authRoles: ('admin' | 'editor' | 'viewer')[];
-  }
-}
+type Role = 'admin' | 'editor' | 'viewer';
 ```
-
-This provides:
-- Autocomplete when calling `setUser()`
-- Type checking in `@Authorized(['...'])`
-- Type-safe `currentRoles()` return value
 
 ## Role Design Patterns
 

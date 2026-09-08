@@ -1,24 +1,34 @@
 # Introduction
 
 ZeltJSは、DIを組み込んだポータブルなTypeScriptアプリケーションフレームワークです。アダプターを切り替えることで、Node.js、Bun、Cloudflare Workers、AWS Lambdaで動作します。
-大規模なアプリケーションを、インフラを変えても動くように書けること。これがZeltJSの目指すところです。
+異なるインフラで動作する大規模なアプリケーションを構築すること。それがZeltJSの目指すところです。
 
-## Philosophy
+## 設計思想 {#philosophy}
 
-In TypeScript backend development, there are almost no true "frameworks." Hono and Express are excellent libraries, but they're not enough as application frameworks. Libraries are "convenient tools," but frameworks provide "answers to how to build applications." DI mechanisms, directory structure, integrated patterns for authentication, validation, and logging — only when these "answers to how to build" are in place can developers focus on essential feature development.
+TypeScriptによるバックエンド開発には、真の意味での「フレームワーク」がほとんど存在しません。HonoやExpressは優れたライブラリですが、アプリケーションフレームワークとしては不十分です。ライブラリは「便利な道具」ですが、フレームワークは「アプリケーションをどう構築するかへの答え」を提供します。DIの仕組み、ディレクトリ構造、認証・バリデーション・ロギングの統合パターン — これら「構築方法への答え」が揃って初めて、開発者は本質的な機能開発に集中できます。
 
-NestJS is one of the few that can be called a framework, but it brings in its own module system and RxJS-based abstractions, diverging from standard TypeScript conventions. Its heavy metadata analysis at startup also makes it impractical for serverless environments.
+NestJSはフレームワークと呼べる数少ない存在ですが、独自のモジュールシステムとRxJSベースの抽象化を持ち込むため、標準的なTypeScriptの慣習から外れます。起動時の重いメタデータ解析も、サーバーレス環境では非実用的です。
 
-ZeltJS aims to be a "framework" where you don't have to wonder how to build your application.
-To achieve this, we build with these five policies:
+ZeltJSは、アプリケーションの構築方法に悩まなくて済む「フレームワーク」を目指しています。
+そのために、次の5つの方針で構築しています:
 
-- TS-Native — Don't reinvent what TS already has. Use import/export, use async/await, use types
-- Web-Standard — Align with web standards like Request/Response, Fetch API. No custom abstractions
-- Transport-Agnostic — REST/GraphQL/CLI/Queue are just different entry points. The application core stays the same
-- Cold-Start Friendly — Runs on serverless/Worker/Edge. No startup cost penalty
-- Least Astonishment — Follow ecosystem standards. No extra learning cost
+- TS-Native — TSがすでに持っているものを再発明しない。import/exportを使い、async/awaitを使い、typesを使う
+- Web-Standard — Request/Response、Fetch APIなどWeb標準に沿う。独自の抽象化はしない
+- Transport-Agnostic — REST/GraphQL/CLI/Queueは単なる異なるエントリポイントに過ぎない。アプリケーションのコアは変わらない
+- Cold-Start Friendly — serverless/Worker/Edgeで動作する。起動コストのペナルティなし
+- Least Astonishment — エコシステムの標準に従う。追加の学習コストなし
 
-## Quick Example
+## インストール {#installation}
+
+```bash
+pnpm add @zeltjs/core @zeltjs/adapter-node
+```
+
+:::note
+Zeltは**pre-alpha**です — マイナーバージョン間でAPIが変わることがあります。
+:::
+
+## クイックサンプル {#quick-example}
 
 ```typescript
 import { createApp, Controller, Get, http } from '@zeltjs/core';
@@ -37,9 +47,11 @@ const nodeApp = await onNode(app);
 await nodeApp.http.listen({ port: 3000 });
 ```
 
-## Benchmark
+順を追った説明は[Getting Started](./getting-started)ガイドを参照してください。
 
-Zeltはランタイム性能とコールドスタート速度のバランスを実現 — サーバーレスに最適。
+## ベンチマーク {#benchmark}
+
+Zeltはランタイム性能とコールドスタート速度のバランスを実現 — サーバーレスに最適です。
 
 | Framework | Requests/sec | Cold Start (ms) |
 | --------- | -----------: | --------------: |
@@ -51,6 +63,6 @@ Zeltはランタイム性能とコールドスタート速度のバランスを�
 
 [ベンチマーク詳細 →](https://github.com/zeltjs/benchmarks)
 
-## Status
+## ステータス {#status}
 
-**pre-alpha** — Breaking changes may occur in minor versions during 0.x.
+**pre-alpha** — 0.xの間はマイナーバージョンで破壊的変更が発生することがあります。

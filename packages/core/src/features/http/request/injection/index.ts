@@ -6,8 +6,7 @@ export {
   readRequestBody,
   setBodySource,
 } from './body.lib';
-export type { RequestContextSchema } from './get-context.lib';
-export { getContext, setContext } from './get-context.lib';
+export { optionsOf, recordMiddlewareOptions } from './options-of.lib';
 export { setPathParams } from './path-param.lib';
 export type {
   ExtractRequestBody,
@@ -16,3 +15,5 @@ export type {
   RequestBodyAccessor,
 } from './request.lib';
 export { request } from './request.lib';
+export type { MiddlewareResultOf } from './result-of.lib';
+export { recordMiddlewareResult, resultOf } from './result-of.lib';

@@ -126,6 +126,9 @@ const config: KnipConfig = {
         'scripts/extract-doc-tests.ts',
         'scripts/typecheck-docs.ts',
         'scripts/check-example-excerpts.ts',
+        // Localized content is discovered by the Docusaurus i18n filesystem
+        // convention; knip's docusaurus plugin only lists {blog,docs}/**/*.mdx
+        'i18n/*/docusaurus-plugin-content-docs*/**/*.mdx',
       ],
       // prism-react-renderer is used internally by Docusaurus for code block syntax highlighting
       // wrangler is used by Cloudflare Workers build system for deployment

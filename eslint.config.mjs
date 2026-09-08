@@ -178,6 +178,7 @@ export default tseslint.config(
             // the double-dot check no matter how they're named
             'main.tsx',
             'app.tsx',
+            'inspector-panel.tsx',
           ],
           allowedPatterns: ['on-*.ts'],
         },
@@ -363,8 +364,11 @@ export default tseslint.config(
     name: 'allow/studio-ui-browser-boundary',
     // no-console protects "log through the logger", but studio-ui is a plain
     // browser SPA with no zelt DI container and therefore no injected logger
-    // to route through. This file IS the client-side localStorage boundary.
-    files: ['packages/cli/studio-ui/src/positions.lib.ts'],
+    // to route through. These files ARE the client-side localStorage boundary.
+    files: [
+      'packages/cli/studio-ui/src/positions.lib.ts',
+      'packages/cli/studio-ui/src/settings.lib.ts',
+    ],
     rules: {
       'no-console': 'off',
     },
@@ -495,7 +499,11 @@ export default tseslint.config(
     // truth for the shape; a narrow cast is the least-bad option here.
     // Repay: once DependencyGraph is defined via a valibot schema (single
     // source of truth), replace these casts with schema-derived validation.
-    files: ['packages/cli/studio-ui/src/app.tsx', 'packages/cli/studio-ui/src/positions.lib.ts'],
+    files: [
+      'packages/cli/studio-ui/src/app.tsx',
+      'packages/cli/studio-ui/src/positions.lib.ts',
+      'packages/cli/studio-ui/src/settings.lib.ts',
+    ],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
     },

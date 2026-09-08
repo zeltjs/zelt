@@ -103,8 +103,10 @@ export type {
   HttpMountableRouter,
   HttpOptions,
 } from './features/http/http.types';
-export { fromHonoMiddleware } from './features/http/middleware';
+export type { MiddlewareOptionsClass, MiddlewareOptionsOf } from './features/http/middleware';
+export { fromHonoMiddleware, MiddlewareWithOptions } from './features/http/middleware';
 // HTTP primitives
+export type { AuthRoles, AuthUser } from './features/http/middleware/auth';
 export { currentRoles, currentUser, setUser } from './features/http/middleware/auth';
 // HTTP decorators
 export { Authorized } from './features/http/middleware/auth/authorized.decorator';
@@ -112,13 +114,14 @@ export { CorsConfig } from './features/http/middleware/cors/cors.config';
 export { CorsMiddleware } from './features/http/middleware/cors/cors.middleware';
 export { Middleware } from './features/http/middleware/middleware.decorator';
 export type {
+  BoundMiddleware,
   ErrorHandlerClass,
   ErrorHandlerInstance,
   MiddlewareClass,
-  MiddlewareEntry,
   MiddlewareIdentifier,
   MiddlewareInput,
   MiddlewareInstance,
+  MiddlewareResult,
   Next,
   RequestContext,
 } from './features/http/middleware/middleware.types';
@@ -133,14 +136,10 @@ export {
   ValidationFailedException,
 } from './features/http/request';
 export type {
+  MiddlewareResultOf,
   ParsedBody,
-  RequestContextSchema,
 } from './features/http/request/injection';
-export {
-  getContext,
-  request,
-  setContext,
-} from './features/http/request/injection';
+export { optionsOf, request, resultOf } from './features/http/request/injection';
 export type {
   ExtractRequestBody,
   HasRequestBody,
@@ -187,6 +186,8 @@ export {
   ZeltEnvError,
   ZeltLifecycleStateError,
   ZeltMiddlewareExecutionError,
+  ZeltMiddlewareOptionsUnavailableError,
+  ZeltMiddlewareResultUnavailableError,
   ZeltNotImplementedError,
   ZeltPluginConfigurationError,
   ZeltRouteConfigurationError,

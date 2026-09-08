@@ -4,32 +4,32 @@ sidebar_position: 5
 
 # Custom Authentication
 
-Build your own authentication using Zelt's built-in primitives. No package required.
+Zeltの組み込みprimitiveを使って、独自の認証を構築します。パッケージは不要です。
 
-## When to Use Custom Auth
+## Custom Authを使うべき場面 {#when-to-use-custom-auth}
 
-- API key authentication
-- OAuth/OIDC with your own flow
-- mTLS or certificate-based auth
-- Proprietary authentication systems
-- Simple prototypes
+- APIキー認証
+- 独自フローによるOAuth/OIDC
+- mTLSや証明書ベースの認証
+- 独自の認証システム
+- シンプルなプロトタイプ
 
-## Core Primitives
+## コアPrimitive {#core-primitives}
 
-| Function | Description |
+| 関数 | 説明 |
 |----------|-------------|
-| `setUser(user, roles)` | Set the authenticated user in request context |
-| `currentUser()` | Get the current user |
-| `currentRoles()` | Get the current user's roles |
-| `@Authorized(roles?)` | Require authentication/roles on routes |
+| `setUser(user, roles)` | request contextに認証済みユーザーを設定する |
+| `currentUser()` | 現在のユーザーを取得する |
+| `currentRoles()` | 現在のユーザーのroleを取得する |
+| `@Authorized(roles?)` | ルートに認証/roleを要求する |
 
-These are available from `@zeltjs/core` — no additional packages needed.
+これらは `@zeltjs/core` から利用でき、追加のパッケージは不要です。
 
-## API Key Authentication
+## APIキー認証 {#api-key-authentication}
 
-Use class middleware when authentication requires database access or other injected services.
+認証にデータベースアクセスや他のinjected serviceが必要な場合は、class middlewareを使います。
 
-### Basic API Key Middleware
+### Basic API Key Middleware {#basic-api-key-middleware}
 
 ```typescript
 import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
@@ -53,7 +53,7 @@ export class ApiKeyAuthMiddleware {
       if (client) {
         setUser(
           { id: client.id, name: client.name, type: 'api' },
-          client.scopes  // e.g., ['read:users', 'write:posts']
+          client.scopes  // 例: ['read:users', 'write:posts']
         );
       }
     }
@@ -64,7 +64,7 @@ export class ApiKeyAuthMiddleware {
 }
 ```
 
-### With Revocation Check and Usage Tracking
+### With Revocation Check and Usage Tracking {#with-revocation-check-and-usage-tracking}
 
 ```typescript
 import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
@@ -115,7 +115,7 @@ export class ApiKeyAuthMiddleware {
 }
 ```
 
-## Basic Authentication
+## Basic認証 {#basic-authentication}
 
 ```typescript
 import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
@@ -154,11 +154,11 @@ export class BasicAuthMiddleware {
 }
 ```
 
-## OAuth Integration
+## OAuth連携 {#oauth-integration}
 
-### With an OAuth Library
+### With an OAuth Library {#with-an-oauth-library}
 
-For OAuth integration, use `@Config` for credentials and `@Injectable` for services:
+OAuth連携では、認証情報には `@Config` を、サービスには `@Injectable` を使います。
 
 ```typescript
 import { Config, Env, Injectable, Middleware, inject, request, setUser, type Next } from '@zeltjs/core';
@@ -218,7 +218,7 @@ export class OAuthMiddleware {
           );
         }
       } catch {
-        // Invalid token — continue without user
+        // 無効なトークン — userなしで続行
       }
     }
 
@@ -228,7 +228,7 @@ export class OAuthMiddleware {
 }
 ```
 
-### OAuth Callback Handler
+### OAuth Callback Handler {#oauth-callback-handler}
 
 ```typescript
 import { Controller, Get, Injectable, inject, request } from '@zeltjs/core';
@@ -295,9 +295,9 @@ class OAuthController {
 }
 ```
 
-## Multi-Provider Authentication
+## 複数プロバイダー認証 {#multi-provider-authentication}
 
-Support multiple auth methods in one middleware. Use the framework-provided `JwtService` from `@zeltjs/auth-jwt`:
+1つのmiddlewareで複数の認証方式をサポートします。`@zeltjs/auth-jwt` が提供する `JwtService` を使います。
 
 ```typescript
 import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
@@ -321,7 +321,7 @@ export class MultiAuthMiddleware {
     const auth = req.header('Authorization');
     const apiKey = req.header('X-API-Key');
 
-    // Try API key first
+    // まずAPIキーを試す
     if (apiKey) {
       const client = await this.apiKeyRepo.findByKey(apiKey);
       if (client) {
@@ -331,14 +331,14 @@ export class MultiAuthMiddleware {
       }
     }
 
-    // Then try Bearer token (JWT)
+    // 次にBearerトークン(JWT)を試す
     if (auth?.startsWith('Bearer ')) {
       const token = auth.slice(7);
       try {
         const payload = await this.jwtService.verify(token);
         setUser({ id: payload.sub, type: 'user' }, payload.roles as string[]);
       } catch {
-        // Invalid token
+        // 無効なトークン
       }
     }
 
@@ -348,9 +348,9 @@ export class MultiAuthMiddleware {
 }
 ```
 
-## Request Signing (HMAC)
+## リクエスト署名(HMAC) {#request-signing-hmac}
 
-For secure machine-to-machine communication:
+安全なサーバー間通信のために。
 
 ```typescript
 import { Middleware, Injectable, inject, request, setUser, type Next } from '@zeltjs/core';
@@ -409,20 +409,20 @@ export class HmacAuthMiddleware {
       return undefined;
     }
 
-    // Check timestamp (5 minute window)
+    // タイムスタンプをチェック(5分間のウィンドウ)
     const now = Date.now();
     const requestTime = parseInt(timestamp, 10);
     if (Math.abs(now - requestTime) > 5 * 60 * 1000) {
       throw new HTTPException(401, { message: 'Request expired' });
     }
 
-    // Get client secret
+    // クライアントのsecretを取得
     const client = await this.clientRepo.findById(clientId);
     if (!client) {
       throw new HTTPException(401, { message: 'Unknown client' });
     }
 
-    // Verify signature
+    // 署名を検証
     const body = await req.bodyRaw();
     const payload = `${timestamp}.${body}`;
     const expected = await this.cryptoService.hmacSha256(client.secret, payload);
@@ -438,9 +438,9 @@ export class HmacAuthMiddleware {
 }
 ```
 
-## Testing Custom Auth
+## Custom Authをテストする {#testing-custom-auth}
 
-Mock the user context in tests:
+テストではuser contextをモックします。
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -453,7 +453,7 @@ class UserController {
   me() { return currentUser(); }
 }
 
-// Middleware sets user within request context — required for setUser to work
+// Middlewareがrequest context内でuserを設定する — setUserが機能するために必要
 @Middleware
 class MockAuthMiddleware {
   async use(next: Next): Promise<Response | undefined> {
@@ -480,10 +480,10 @@ describe('Protected routes', () => {
 });
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-1. **Fail open in middleware** — Don't throw errors for missing auth; let `@Authorized` handle access control
-2. **Use constant-time comparison** — For secrets and signatures, use `timingSafeEqual`
-3. **Validate timestamps** — For signed requests, reject old timestamps to prevent replay attacks
-4. **Log authentication failures** — But don't log sensitive data like passwords or full tokens
-5. **Separate concerns** — Middleware authenticates (who?), `@Authorized` authorizes (can they?)
+1. **middlewareではfail open** — 認証がないことをエラーにしない。access controlは `@Authorized` に任せる
+2. **一定時間比較を使う** — secretや署名の比較には `timingSafeEqual` を使う
+3. **タイムスタンプを検証する** — 署名付きリクエストでは、古いタイムスタンプを拒否してリプレイ攻撃を防ぐ
+4. **認証の失敗をログに残す** — ただし、パスワードや完全なトークンなど機微なデータはログに残さない
+5. **関心を分離する** — middlewareは認証(誰か?)を、`@Authorized` は認可(できるか?)を担当する

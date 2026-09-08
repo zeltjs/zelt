@@ -25,9 +25,16 @@ pnpm add -D electron electron-vite
 
 Unlike server-based adapters (Node.js, Bun), the Electron adapter communicates via IPC instead of HTTP sockets. Your Zelt app runs in the **main process**, and the renderer calls it through an IPC bridge:
 
-```
-Renderer  ──ipcFetch()──▶  Preload  ──IPC──▶  Main (Zelt app)
-              ◀── Response ──   ◀── Response ──
+```mermaid
+sequenceDiagram
+  participant Renderer
+  participant Preload
+  participant Main as Main (Zelt app)
+
+  Renderer->>Preload: ipcFetch(request)
+  Preload->>Main: invoke over the IPC channel
+  Main-->>Preload: Response
+  Preload-->>Renderer: Response
 ```
 
 Three pieces are needed:

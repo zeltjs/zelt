@@ -1,8 +1,15 @@
-import { getContext, Injectable, setContext } from '@zeltjs/core';
+import { Injectable } from '@zeltjs/core';
 
-// Singleton service that reads/writes request-scoped data through context.
-// Demonstrates how a single service can safely serve concurrent requests
-// without per-request instances by routing state through the context.
+export type RequestState = {
+  counter: number;
+  trace: string[];
+};
+
+// Singleton service operating on request-scoped state passed in by the
+// caller. Demonstrates how a single service instance can safely serve
+// concurrent requests without per-request instances: the mutable state
+// lives outside the service (owned by the caller's middleware-provided
+// value), not on `this`.
 @Injectable()
 export class RequestIdService {
   static constructorCalls = 0;
@@ -11,29 +18,9 @@ export class RequestIdService {
     RequestIdService.constructorCalls += 1;
   }
 
-  assign(id: string): void {
-    setContext('requestId', id);
-    setContext('counter', 0);
-    setContext('trace', []);
-  }
-
-  current(): string {
-    const id = getContext('requestId');
-    if (id === undefined) {
-      throw new Error('requestId is not set in this request context');
-    }
-    return id;
-  }
-
-  tick(label: string): number {
-    const next = (getContext('counter') ?? 0) + 1;
-    setContext('counter', next);
-    const trace = getContext('trace') ?? [];
-    setContext('trace', [...trace, label]);
-    return next;
-  }
-
-  trace(): string[] {
-    return getContext('trace') ?? [];
+  tick(state: RequestState, label: string): number {
+    state.counter += 1;
+    state.trace.push(label);
+    return state.counter;
   }
 }

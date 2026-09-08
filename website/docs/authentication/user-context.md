@@ -88,87 +88,11 @@ class ProfileController {
 }
 ```
 
-## Type-Safe User Context
+## Typed Access
 
-By default, `currentUser()` returns `Record<string, unknown>`. Extend `RequestContextSchema` via declaration merging to get full type safety:
+`currentUser()` always returns `Record<string, unknown> | undefined` — the shape passed to `setUser()` isn't tracked at the type level, so reading a specific field requires a manual assertion or narrowing.
 
-```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import '@zeltjs/core';
-// ---cut---
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: {
-      id: string;
-      name: string;
-      email: string;
-    };
-    authRoles: ('admin' | 'editor' | 'user')[];
-  }
-}
-```
-
-Now all user-related functions are typed:
-
-```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import '@zeltjs/core';
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string; name: string; email: string };
-    authRoles: ('admin' | 'editor' | 'user')[];
-  }
-}
-// ---cut---
-import { currentUser, currentRoles, setUser } from '@zeltjs/core';
-
-const user = currentUser();
-// TypeScript knows: user?.id, user?.name, user?.email
-
-const roles = currentRoles();
-// TypeScript knows: roles is ('admin' | 'editor' | 'user')[]
-
-setUser(
-  { id: '123', name: 'Alice', email: 'alice@example.com' },
-  ['admin', 'user']
-);
-// Type-checked against RequestContextSchema
-```
-
-### Where to Put the Type Declaration
-
-Create a `types/zelt.d.ts` file in your project:
-
-```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-// types/zelt.d.ts
-import '@zeltjs/core';
-// ---cut---
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: {
-      id: string;
-      name: string;
-      email: string;
-      avatarUrl?: string;
-    };
-    authRoles: ('admin' | 'moderator' | 'user')[];
-  }
-}
-
-export {};
-```
-
-Make sure your `tsconfig.json` includes this file:
-
-```json
-{
-  "include": ["src/**/*", "types/**/*"]
-}
-```
+For a value with a concrete, narrowed type available to handlers, provide it through a middleware instead: declare it with `Next<T>` and pass it to `next(value)`, then read it with `resultOf(M)`. See [Middleware Results](../middleware.md#middleware-results) for details.
 
 ## User Design Best Practices
 
@@ -177,28 +101,22 @@ Make sure your `tsconfig.json` includes this file:
 Only include fields you need in handlers. Don't copy the entire database record:
 
 ```typescript
+import { setUser } from '@zeltjs/core';
 // ---cut---
-// ✅ Good — minimal context
-interface RequestContextSchemaGood {
-  user: {
-    id: string;
-    name: string;
-  };
-}
+// ✅ Good — minimal user
+setUser({ id: '123', name: 'Alice' }, ['user']);
 
-// ❌ Avoid — too much data
-interface RequestContextSchemaBad {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    passwordHash: string;  // Never include sensitive data
-    createdAt: Date;
-    updatedAt: Date;
-    preferences: object;
-    // ... 20 more fields
-  };
-}
+// ❌ Avoid — copying the entire record
+setUser({
+  id: '123',
+  name: 'Alice',
+  email: 'alice@example.com',
+  passwordHash: '...',  // Never include sensitive data
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  preferences: {},
+  // ... 20 more fields
+}, ['user']);
 ```
 
 ### Fetch Additional Data When Needed
@@ -206,17 +124,13 @@ interface RequestContextSchemaBad {
 Use the user ID to fetch more data in specific handlers:
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import '@zeltjs/core';
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string };
-  }
-}
 import { Controller, Get, Authorized, Injectable, inject, currentUser } from '@zeltjs/core';
 
 type FullUser = { preferences: object };
+type SessionUser = { id: string };
+
+const isSessionUser = (u: Record<string, unknown> | undefined): u is SessionUser =>
+  typeof u?.id === 'string';
 
 @Injectable()
 class UserRepository {
@@ -234,7 +148,7 @@ class SettingsController {
   @Get('/')
   async getSettings() {
     const user = currentUser();
-    if (!user) return;
+    if (!isSessionUser(user)) return;
     const fullUser = await this.userRepo.findById(user.id);
     return { preferences: fullUser.preferences };
   }
@@ -257,22 +171,17 @@ type BadRoles = ('can_edit_posts' | 'can_delete_posts' | 'can_view_analytics')[]
 For fine-grained permissions, check roles in your service layer:
 
 ```typescript
-// @noErrors
-// Reason: module augmentation requires full module resolution unavailable in Twoslash VFS
-import '@zeltjs/core';
-declare module '@zeltjs/core' {
-  interface RequestContextSchema {
-    user: { id: string };
-  }
-}
 import { currentUser, currentRoles } from '@zeltjs/core';
 interface Post { authorId: string; }
+type SessionUser = { id: string };
+const isSessionUser = (u: Record<string, unknown> | undefined): u is SessionUser =>
+  typeof u?.id === 'string';
 // ---cut---
 function canEdit(post: Post): boolean {
   const user = currentUser();
   const roles = currentRoles();
   if (roles.includes('admin')) return true;
-  if (roles.includes('editor') && post.authorId === user?.id) return true;
+  if (roles.includes('editor') && isSessionUser(user) && post.authorId === user.id) return true;
   return false;
 }
 ```

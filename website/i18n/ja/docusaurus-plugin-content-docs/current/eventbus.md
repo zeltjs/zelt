@@ -3,27 +3,27 @@
 
 # イベントバス
 
-`@zeltjs/eventbus` パッケージは、メモリおよび Redis アダプターを備えた型安全なイベントバスを pub/sub メッセージング用に提供します。
+`@zeltjs/eventbus` パッケージは、メモリおよびRedisアダプターを備えた型安全なイベントバスをpub/subメッセージング用に提供します。
 
-## インストール
+## インストール {#installation}
 
 ```bash
 pnpm add @zeltjs/eventbus @zeltjs/core
 ```
 
-Redis サポートの場合：
+Redisサポートの場合:
 
 ```bash
 pnpm add @zeltjs/eventbus @zeltjs/core @zeltjs/redis
 ```
 
-## 概要
+## 概要 {#overview}
 
-イベントバスは、publish/subscribe メッセージングを通じてコンポーネント間の疎結合な通信を可能にします。イベントは TypeScript の宣言マージを通じて完全に型付けされます。
+イベントバスは、publish/subscribeメッセージングを通じてコンポーネント間の疎結合な通信を可能にします。イベントはTypeScriptの宣言マージを通じて完全に型付けされます。
 
-## イベントの定義
+## イベントの定義 {#defining-events}
 
-`EventBusSchema` インターフェースを拡張してイベントを定義します：
+`EventBusSchema` インターフェースを拡張してイベントを定義します:
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';
@@ -39,7 +39,7 @@ declare module '@zeltjs/eventbus' {
 
 これにより、イベント名とペイロードの完全な型安全性が提供されます。
 
-## アプリへの登録
+## アプリへの登録 {#app-setup}
 
 `createApp` に `eventbus` フィーチャーを登録します。`adaptor`（発行・購読に使うアダプタークラス）と、任意の `handlers`（購読者クラスの配列）を受け取ります：
 
@@ -86,7 +86,7 @@ const app = createApp([
 
 `adaptor` は、購読者がそのアダプターを直接注入して使う `emit`/`on`/`once` の実体となる `EventBusAdaptor` の実装を選びます。`handlers` は、アプリの他のどこからも依存されていない購読者クラスを列挙するためのものです。ここに列挙しなければ、そのクラスは構築されず、`startup()` 内の購読処理も一切実行されません。
 
-## Lifecycle による購読
+## Lifecycle による購読 {#subscribing-with-lifecycle}
 
 購読者クラスは `@zeltjs/core` の `Lifecycle` を実装します。`startup()` で購読を開始し、返された購読解除関数を保持しておき、`shutdown()` で呼び出します。
 
@@ -139,7 +139,7 @@ export class UserService {
 
 `UserService` は同じアダプタークラスを直接注入してイベントを発行します。`emit` を使うだけならフィーチャーによる事前構築は不要なので、発行側を `handlers` に列挙する必要はありません。
 
-## メモリアダプター
+## メモリアダプター {#memory-adapter}
 
 単一プロセスアプリケーションには、インメモリアダプターを使用します。`MemoryEventBusAdaptor` は [mitt](https://github.com/developit/mitt) 上に構築されており、イベントはプロセス内でローカルに扱われ、再起動すると失われます：
 
@@ -147,7 +147,7 @@ export class UserService {
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 ```
 
-## Redis アダプター
+## Redis アダプター {#redis-adapter}
 
 分散アプリケーションには、Redis アダプターを使用します。`RedisEventBusAdaptor` はそれ自体が `Lifecycle` を実装しており、`startup()` で購読専用の接続を開き、`shutdown()` で切断します。
 
@@ -197,9 +197,9 @@ const app = createApp(
 
 `@zeltjs/redis` は `@zeltjs/eventbus` のオプションのピア依存関係です。`RedisEventBusAdaptor` を使う場合のみインストールしてください。接続 URL やリトライ戦略など `RedisConfig` のカスタマイズについては [Redis KV ドライバー](./kv-redis.md) を参照してください。
 
-## API リファレンス
+## API リファレンス {#api-reference}
 
-### eventbus(options)
+### eventbus(options) {#eventbusoptions}
 
 イベントバスフィーチャーを登録します。アプリに `eventbus` キーとして追加されます。
 
@@ -208,9 +208,9 @@ const app = createApp(
 | `adaptor` | 構築して公開する `EventBusAdaptor` クラス（`MemoryEventBusAdaptor` または `RedisEventBusAdaptor`） |
 | `handlers` | 起動時に強制的に構築する購読者クラス。これにより `Lifecycle.startup()` の購読処理が実行される |
 
-### EventBusAdaptor インターフェース
+### EventBusAdaptor インターフェース {#eventbusadaptor-interface}
 
-両方のアダプターがこのインターフェースを実装しています：
+両方のアダプターがこのインターフェースを実装しています:
 
 | メソッド | 説明 |
 |--------|------|
@@ -218,7 +218,7 @@ const app = createApp(
 | `on(event, handler)` | イベントを購読。購読解除関数を返す |
 | `once(event, handler)` | イベントを一度だけ購読。購読解除関数を返す |
 
-### MemoryEventBusAdaptor
+### MemoryEventBusAdaptor {#memoryeventbusadaptor}
 
 [mitt](https://github.com/developit/mitt) 上に構築されたインメモリイベントバス。イベントはプロセス内でローカルです。
 
@@ -226,17 +226,17 @@ const app = createApp(
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 ```
 
-### RedisEventBusAdaptor
+### RedisEventBusAdaptor {#rediseventbusadaptor}
 
-pub/sub を使用した Redis バックエンドのイベントバス。イベントはプロセス間で分散されます。
+pub/subを使用したRedisバックエンドのイベントバス。イベントはプロセス間で分散されます。
 
 ```typescript twoslash
 import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 ```
 
-## 購読解除
+## 購読解除 {#unsubscribing}
 
-`on()` と `once()` の両方が購読解除関数を返します：
+`on()` と `once()` の両方が購読解除関数を返します:
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';
@@ -258,11 +258,11 @@ const unsubscribe = eventBus.on('user.created', (data) => {
 unsubscribe();
 ```
 
-## ベストプラクティス
+## ベストプラクティス {#best-practices}
 
-### イベント命名
+### イベント命名 {#event-naming}
 
-イベント名にはドット記法を使用します：`domain.action`
+イベント名にはドット記法を使用します: `domain.action`
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';
@@ -278,9 +278,9 @@ declare module '@zeltjs/eventbus' {
 }
 ```
 
-### べき等なハンドラー
+### べき等なハンドラー {#idempotent-handlers}
 
-イベントハンドラーはべき等に設計します — 同じデータで複数回実行しても安全：
+イベントハンドラーはべき等に設計します — 同じデータで複数回実行しても安全:
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';
@@ -317,9 +317,9 @@ eventBus.on('order.placed', async (data) => {
 });
 ```
 
-### エラーハンドリング
+### エラーハンドリング {#error-handling}
 
-エラーが他の購読者に影響を与えないように、ハンドラーを try-catch でラップします：
+エラーが他の購読者に影響を与えないように、ハンドラーをtry-catchでラップします:
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';

@@ -3,21 +3,21 @@
 
 # データベース
 
-`@zeltjs/db` パッケージは、AsyncLocalStorage を使用した自動トランザクション伝播を備えた ORM 非依存のデータベース抽象化を提供します。
+`@zeltjs/db` パッケージは、AsyncLocalStorageを使った自動トランザクション伝播により、ORMに依存しないデータベース抽象化を提供します。
 
-## インストール
+## インストール {#installation}
 
 ```bash
 pnpm add @zeltjs/db
 ```
 
-## 概要
+## 概要 {#overview}
 
-Zelt のデータベース抽象化は、トランザクションオブジェクトを明示的に渡すことなくサービスレイヤー全体にトランザクションを伝播させるという一般的な問題を解決します。Node.js の AsyncLocalStorage を使用して、トランザクションは非同期呼び出しチェーンを通じて自動的に流れます。
+Zeltのデータベース抽象化は、よくある問題を解決します: トランザクションオブジェクトを明示的に渡すことなく、service層を通じてトランザクションを伝播させることです。Node.jsのAsyncLocalStorageを使うことで、トランザクションはasyncの呼び出しチェーンを自動的に流れます。
 
-## データベースサービスの作成
+## データベースServiceの作成 {#creating-a-database-service}
 
-`DatabaseService` を拡張して ORM を統合します：
+`DatabaseService` を継承して、あなたのORMを統合します:
 
 ```typescript
 import { Config, Env, Injectable, inject } from '@zeltjs/core';
@@ -60,17 +60,17 @@ export class DrizzleService extends DatabaseService<PostgresJsDatabase> {
 }
 ```
 
-ポイント：
+主なポイント:
 
 - `setup()` — データベースクライアントを初期化して返す
 - `transaction()` — トランザクション内で関数を実行
 - `shutdown()` — グレースフルシャットダウン時に接続をクローズ
 
-## データベースサービスの使用
+## データベースServiceの使用 {#using-the-database-service}
 
-### 直接使用
+### 直接利用 {#direct-usage}
 
-サービスを注入してクライアントにアクセスします：
+serviceをinjectしてクライアントにアクセスします:
 
 ```typescript
 import { Config, Env, Injectable, inject } from '@zeltjs/core';
@@ -125,13 +125,13 @@ export class UserRepository {
 }
 ```
 
-`client` プロパティは自動的に以下を返します：
-- トランザクション内の場合はトランザクションクライアント
-- それ以外の場合は元のクライアント
+`client` プロパティは自動的に以下を返します:
+- トランザクション内であればトランザクションクライアント
+- そうでなければ元のクライアント
 
-### トランザクションデコレーター
+### トランザクションデコレータ {#transaction-decorator}
 
-データベースサービス用のデコレーターを作成します：
+データベースserviceのためのデコレータを作成します:
 
 ```typescript
 import { Config, Env, Injectable, inject } from '@zeltjs/core';
@@ -168,7 +168,7 @@ class DrizzleService extends DatabaseService<PostgresJsDatabase> {
 export const Transaction = createTransactionDecorator(DrizzleService);
 ```
 
-トランザクション内で実行すべきメソッドに適用します：
+トランザクション内で実行すべきメソッドに適用します:
 
 ```typescript
 import { Config, Env, Injectable, inject } from '@zeltjs/core';
@@ -238,11 +238,11 @@ export class OrderService {
 }
 ```
 
-`placeOrder` 内のすべてのリポジトリ呼び出しは自動的に同じトランザクションを使用します。いずれかの操作が失敗すると、トランザクション全体がロールバックされます。
+`placeOrder` 内のすべてのrepository呼び出しは自動的に同じトランザクションを使います。いずれかの操作が失敗すると、トランザクション全体がロールバックされます。
 
-### トランザクションミドルウェア
+### トランザクションミドルウェア {#transaction-middleware}
 
-リクエストスコープのトランザクションにはミドルウェアを使用します：
+リクエストスコープのトランザクションには、ミドルウェアを使います:
 
 ```typescript
 import { Config, Env, Injectable, inject } from '@zeltjs/core';
@@ -279,7 +279,7 @@ class DrizzleService extends DatabaseService<PostgresJsDatabase> {
 export const TransactionMiddleware = createTransactionMiddleware(DrizzleService);
 ```
 
-コントローラーに適用します：
+controllerに適用します:
 
 ```typescript
 import { Config, Controller, Env, Injectable, Post, UseMiddleware, inject, request } from '@zeltjs/core';
@@ -341,11 +341,11 @@ export class OrderController {
 }
 ```
 
-このコントローラーへのすべてのリクエストがトランザクション内で実行されます。
+このcontrollerへのすべてのリクエストはトランザクション内で実行されます。
 
-## トランザクション伝播
+## トランザクションの伝播 {#transaction-propagation}
 
-トランザクションは非同期呼び出しチェーンを通じて自動的に伝播します：
+トランザクションはasyncの呼び出しチェーンを自動的に伝播します:
 
 ```typescript
 import { Config, Env, Injectable, inject } from '@zeltjs/core';
@@ -425,11 +425,11 @@ export class OrderService {
 }
 ```
 
-`completeOrder` が `processPayment` を呼び出すと、両方が同じトランザクション内で実行されます — 内側の `@Transaction()` は新しいトランザクションを開始するのではなく、既存のトランザクションに参加します。
+`completeOrder` が `processPayment` を呼び出すとき、両方とも同じトランザクション内で実行されます — 内側の `@Transaction()` は新しいトランザクションを開始するのではなく、既存のトランザクションに合流します。
 
-## ライフサイクル統合
+## ライフサイクル統合 {#lifecycle-integration}
 
-`DatabaseService` は Zelt のライフサイクルシステムと統合されます：
+`DatabaseService` はZeltのライフサイクルシステムと統合します:
 
 ```typescript
 import { Controller, Get, createApp, http } from '@zeltjs/core';
@@ -451,9 +451,9 @@ const app = createApp([http({
 1. アプリ起動時に `setup()` を呼び出す
 2. アプリシャットダウン時に `shutdown()` を呼び出す
 
-## API リファレンス
+## APIリファレンス {#api-reference}
 
-### DatabaseService
+### DatabaseService {#databaseservice}
 
 | プロパティ/メソッド | 説明 |
 |-------------------|------|
@@ -463,9 +463,9 @@ const app = createApp([http({
 | `withTransaction(fn)` | 新規または既存のトランザクション内で関数を実行 |
 | `shutdown()` | 抽象: シャットダウン時に接続をクローズ |
 
-### ファクトリ関数
+### ファクトリ関数 {#factory-functions}
 
 | 関数 | 説明 |
-|-----|------|
-| `createTransactionDecorator(Service)` | `@Transaction()` デコレーターを作成 |
-| `createTransactionMiddleware(Service)` | トランザクションミドルウェアクラスを作成 |
+|----------|-------------|
+| `createTransactionDecorator(Service)` | `@Transaction()` デコレータを作成する |
+| `createTransactionMiddleware(Service)` | トランザクションミドルウェアクラスを作成する |

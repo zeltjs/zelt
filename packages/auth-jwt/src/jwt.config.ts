@@ -1,12 +1,12 @@
-import type { RequestContextSchema } from '@zeltjs/core';
+import type { AuthRoles, AuthUser } from '@zeltjs/core';
 import { Config, Env, inject } from '@zeltjs/core';
 
 import { ZeltJwtConfigError } from './jwt.errors';
 import type { JwtDriver, JwtPayload } from './jwt.types';
 
 export interface ResolveUserResult {
-  user: RequestContextSchema['user'];
-  roles: RequestContextSchema['authRoles'];
+  user: AuthUser;
+  roles: AuthRoles;
 }
 
 @Config

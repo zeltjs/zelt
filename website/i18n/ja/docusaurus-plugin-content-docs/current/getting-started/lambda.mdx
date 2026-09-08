@@ -1,0 +1,234 @@
+---
+sidebar_label: AWS Lambda
+---
+
+import Prerequisites from './_partials/prerequisites.mdx';
+import FolderStructure from './_partials/folder-structure.mdx';
+
+# AWS Lambdaではじめる
+
+このガイドでは、AWS Lambda上でZeltアプリケーションをゼロから構築する手順を説明します。
+
+<Prerequisites />
+
+AWS Lambdaでは追加で以下が必要です:
+- [AWSアカウント](https://aws.amazon.com/)
+- [AWS CLI](https://aws.amazon.com/cli/) または [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
+
+## インストール {#installation}
+
+```bash
+pnpm add @zeltjs/core @zeltjs/adapter-lambda
+pnpm add -D @types/aws-lambda esbuild
+```
+
+<FolderStructure />
+
+AWS Lambdaの場合、プロジェクトルートに `template.yaml`(SAMテンプレート)も追加します。
+
+## Hello World {#hello-world}
+
+### Step 1: Controllerを作成する {#step-1-create-the-controller}
+
+`src/entry/controllers/hello.controller.ts` を作成します:
+
+```typescript
+// @noErrors
+import { Controller, Get, request } from '@zeltjs/core';
+// ---cut---
+@Controller('/hello')
+export class HelloController {
+  @Get('/:name')
+  greet(req = request()) {
+    const name = req.pathParam('name');
+    return { message: `Hello, ${name}!` };
+  }
+}
+```
+
+### Step 2: アプリケーションを作成する {#step-2-create-the-application}
+
+`src/app.ts` を作成します:
+
+```typescript
+// @noErrors
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
+}
+// ---cut---
+export const app = createApp([http({
+    controllers: [HelloController],
+  })]);
+```
+
+### Step 3: Lambda Handlerを作成する {#step-3-create-the-lambda-handler}
+
+`src/handler.ts` を作成します:
+
+```typescript
+// @noErrors
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { onLambda } from '@zeltjs/adapter-lambda';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp([http({ controllers: [HelloController] })]);
+// ---cut---
+const lambdaApp = await onLambda(app);
+
+export const handler = lambdaApp.handler;
+```
+
+`onLambda()` 関数はアプリをLambdaランタイム用に準備します。返されるのは:
+
+- `handler` — API Gateway v2(HTTP API)ハンドラ
+- `handlerV1` — API Gateway v1(REST API)ハンドラ
+- `shutdown()` — アプリケーションをgracefulにシャットダウンします
+- `get<T>(Class)` — DIコンテナからserviceを解決します
+
+### Step 4: SAMテンプレートを設定する {#step-4-configure-sam-template}
+
+`template.yaml` を作成します:
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs20.x
+
+Resources:
+  HelloFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handler.handler
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2022
+        EntryPoints:
+          - src/handler.ts
+
+Outputs:
+  ApiEndpoint:
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+```
+
+### Step 5: デプロイする {#step-5-deploy}
+
+```bash
+sam build
+sam deploy --guided
+```
+
+## API Gatewayのバージョン {#api-gateway-versions}
+
+このadapterは両方のAPI Gatewayバージョンをサポートします:
+
+### HTTP API (v2) — 推奨 {#http-api-v2--recommended}
+
+```typescript
+// @noErrors
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { onLambda } from '@zeltjs/adapter-lambda';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp([http({ controllers: [HelloController] })]);
+const lambdaApp = await onLambda(app);
+// ---cut---
+export const handler = lambdaApp.handler;
+```
+
+### REST API (v1) {#rest-api-v1}
+
+```typescript
+// @noErrors
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { onLambda } from '@zeltjs/adapter-lambda';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp([http({ controllers: [HelloController] })]);
+const lambdaApp = await onLambda(app);
+// ---cut---
+export const handler = lambdaApp.handlerV1;
+```
+
+## Warmupオプション {#warmup-option}
+
+デフォルトでは、`onLambda()` はコールドスタート時間を最小化するために遅延初期化(`warmup: false`)を使用します。controllerは最初のリクエストで解決されます。
+
+即時初期化にするには:
+
+```typescript
+// @noErrors
+import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { onLambda } from '@zeltjs/adapter-lambda';
+
+@Controller('/hello')
+class HelloController {
+  @Get('/:name')
+  greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
+}
+
+const app = createApp([http({ controllers: [HelloController] })]);
+// ---cut---
+const lambdaApp = await onLambda(app, { warmup: true });
+```
+
+| オプション | 挙動 | 用途 |
+|--------|----------|----------|
+| `warmup: false`(デフォルト) | controllerは最初のリクエストで解決される | コールドスタートの最適化 |
+| `warmup: true` | 全controllerが初期化時に解決される | プロビジョンド同時実行 |
+
+## バイナリレスポンス {#binary-responses}
+
+このadapterは、バイナリレスポンス(画像、音声、動画、octet-stream)をbase64エンコードして自動的に処理します。
+
+```typescript
+// @noErrors
+import { Controller, Get, response } from '@zeltjs/core';
+// ---cut---
+@Controller('/files')
+export class FileController {
+  @Get('/image')
+  getImage() {
+    const imageBuffer = new Uint8Array([/* ... */]);
+    return response()
+      .header('Content-Type', 'image/png')
+      .body(imageBuffer);
+  }
+}
+```
+
+## 次のステップ {#whats-next}
+
+- [Controllers](../controllers) — ルーティングとHTTPメソッド
+- [Services](../services) — ビジネスロジックと依存性注入
+- [Configuration](../configuration) — 環境変数とsecrets

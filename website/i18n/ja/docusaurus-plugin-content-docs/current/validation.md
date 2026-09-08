@@ -3,64 +3,40 @@
 
 # Validation
 
-Zelt validates request bodies with synchronous Standard Schema compatible schemas. You can use any validator that exposes `schema["~standard"].validate(value)`, including [Valibot](https://valibot.dev/), Zod, and ArkType.
+Zeltは、同期的なStandard Schema互換のschemaを使ってリクエストボディをバリデーションします。`schema["~standard"].validate(value)`を公開しているバリデータであれば、[Valibot](https://valibot.dev/)、Zod、ArkTypeを含め、どれでも使用できます。
 
-## Installation
+## Installation {#installation}
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
+`request()`は`@zeltjs/core`に含まれています。使用したいschemaライブラリをインストールしてください:
 
-<Tabs groupId="pkg-manager">
-  <TabItem value="npm" label="npm" default>
-    ```bash
-    npm install @zeltjs/core valibot
-    ```
-  </TabItem>
-  <TabItem value="pnpm" label="pnpm">
-    ```bash
-    pnpm add @zeltjs/core valibot
-    ```
-  </TabItem>
-  <TabItem value="bun" label="bun">
-    ```bash
-    bun add @zeltjs/core valibot
-    ```
-  </TabItem>
-</Tabs>
+```bash
+pnpm add @zeltjs/core valibot
+```
 
-### OpenAPI 生成を使う場合
+### With OpenAPI Generation {#with-openapi-generation}
 
-`@zeltjs/openapi` で Valibot schema から OpenAPI スペックを生成する場合は、`@zeltjs/validator-valibot/openapi` と `@valibot/to-json-schema` が必要です：
+実行時のバリデーションにはStandard Schemaだけで十分です。schemaが標準JSON Schemaを公開していない場合、OpenAPI生成にはschemaアダプターが別途必要です。Valibotの場合は、`@zeltjs/validator-valibot/openapi`と`@valibot/to-json-schema`を使います:
 
-<Tabs groupId="pkg-manager">
-  <TabItem value="npm" label="npm" default>
-    ```bash
-    npm install @zeltjs/validator-valibot valibot @valibot/to-json-schema
-    ```
-  </TabItem>
-  <TabItem value="pnpm" label="pnpm">
-    ```bash
-    pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
-    ```
-  </TabItem>
-  <TabItem value="bun" label="bun">
-    ```bash
-    bun add @zeltjs/validator-valibot valibot @valibot/to-json-schema
-    ```
-  </TabItem>
-</Tabs>
+```bash
+pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
+```
 
-:::tip バージョン互換性
-`@valibot/to-json-schema` は `valibot` のバージョンと合わせる必要があります。例：
+:::tip[バージョン互換性]
+`@valibot/to-json-schema`は`valibot`のバージョンと一致させる必要があります。例:
 - `valibot@1.4.x` → `@valibot/to-json-schema@1.7.x`
 - `valibot@1.3.x` → `@valibot/to-json-schema@1.6.x`
 
-互換性については [@valibot/to-json-schema releases](https://github.com/fabian-hiller/valibot/releases) を参照してください。
+互換性については[Valibotのリリースページ](https://github.com/fabian-hiller/valibot/releases)を確認してください。
 :::
 
-## Basic Usage
+:::info[重要]
+`request()`は`@zeltjs/core`からimportしてください。Valibotパッケージが提供するのはOpenAPI schemaアダプターのみです。
+`valibot`のpeer dependencyは`^1.0.0`である必要があります。テストは`1.3.x`に対して行っています。それより古いバージョンを使うと型推論の問題が発生する場合があります。
+:::
 
-Use `request(schema)` with a Valibot schema to validate request bodies:
+## Basic Usage {#basic-usage}
+
+Valibot schemaを渡した`request()`を使い、リクエストボディをバリデーションします:
 
 ```typescript
 import { Controller, Post, request, response } from '@zeltjs/core';
@@ -77,15 +53,15 @@ export class UserController {
   @Post('/')
   async create(req = request(CreateUserSchema), res = response()) {
     const body = await req.body();
-    // body is fully typed: { name: string; email: string; age?: number }
+    // bodyは { name: string; email: string; age?: number } として完全に型付けされる
     return res.json({ id: '1', ...body }, 201);
   }
 }
 ```
 
-## Form Data and File Uploads
+## Form Data and File Uploads {#form-data-and-file-uploads}
 
-Use `request(schema, { target: 'form' })` to validate `multipart/form-data` requests, including file uploads:
+ファイルアップロードを含む`multipart/form-data`リクエストをバリデーションするには`request(schema, { target: 'form' })`を使います:
 
 ```typescript
 import { Controller, Post, request, response } from '@zeltjs/core';
@@ -101,23 +77,23 @@ export class UploadController {
   @Post('/')
   async upload(req = request(UploadSchema, { target: 'form' }), res = response()) {
     const body = await req.body();
-    // body.file is a File object
+    // body.fileはFileオブジェクトである
     console.log(body.file.name, body.file.size, body.file.type);
     return res.json({ filename: body.file.name, size: body.file.size }, 201);
   }
 }
 ```
 
-### Target Options
+### Target Options {#target-options}
 
-The `target` option of `request()` specifies the request body format:
+`request()`の`target`オプションは、リクエストボディの形式を指定します:
 
 | Target | Content-Type | Use Case |
 |--------|-------------|----------|
-| `'json'` (default) | `application/json` | JSON API requests |
-| `'form'` | `multipart/form-data`, `application/x-www-form-urlencoded` | File uploads, HTML forms |
+| `'json'`(デフォルト) | `application/json` | JSON APIリクエスト |
+| `'form'` | `multipart/form-data`、`application/x-www-form-urlencoded` | ファイルアップロード、HTMLフォーム |
 
-### Multiple Files
+### Multiple Files {#multiple-files}
 
 ```typescript
 import { Controller, Post, request } from '@zeltjs/core';
@@ -141,9 +117,9 @@ class BulkUploadController {
 }
 ```
 
-### OpenAPI Generation
+### OpenAPI Generation {#openapi-generation}
 
-When using `'form'` target, OpenAPI output automatically uses `multipart/form-data` as the content type:
+`'form'` targetを使う場合、OpenAPI出力は自動的にcontent typeとして`multipart/form-data`を使用します:
 
 ```yaml
 requestBody:
@@ -154,9 +130,9 @@ requestBody:
         $ref: '#/components/schemas/UploadSchema'
 ```
 
-## Validation Error Response
+## Validation Error Response {#validation-error-response}
 
-When validation fails, Zelt automatically returns a 400 response:
+バリデーションが失敗すると、Zeltは自動的に400レスポンスを返します:
 
 ```json
 {
@@ -172,11 +148,11 @@ When validation fails, Zelt automatically returns a 400 response:
 }
 ```
 
-See [Error Handling](./error-handling.md) for more details on error responses.
+エラーレスポンスの詳細は[Error Handling](./error-handling.md)を参照してください。
 
-## Common Validations
+## Common Validations {#common-validations}
 
-### String Validations
+### String Validations {#string-validations}
 
 ```typescript
 import * as v from 'valibot';
@@ -194,7 +170,7 @@ const schema = v.object({
 });
 ```
 
-### Number Validations
+### Number Validations {#number-validations}
 
 ```typescript
 import * as v from 'valibot';
@@ -206,7 +182,7 @@ const schema = v.object({
 });
 ```
 
-### Array Validations
+### Array Validations {#array-validations}
 
 ```typescript
 import * as v from 'valibot';
@@ -221,7 +197,7 @@ const schema = v.object({
 });
 ```
 
-### Optional and Nullable
+### Optional and Nullable {#optional-and-nullable}
 
 ```typescript
 import * as v from 'valibot';
@@ -235,7 +211,7 @@ const schema = v.object({
 });
 ```
 
-### Nested Objects
+### Nested Objects {#nested-objects}
 
 ```typescript
 import * as v from 'valibot';
@@ -254,9 +230,9 @@ const UserSchema = v.object({
 });
 ```
 
-## Type Inference
+## Type Inference {#type-inference}
 
-Valibot schemas provide automatic TypeScript type inference:
+Valibot schemaは自動的なTypeScript型推論を提供します:
 
 ```typescript
 import * as v from 'valibot';
@@ -266,14 +242,14 @@ const UserSchema = v.object({
   age: v.number(),
 });
 
-// Infer the type from schema
+// schemaから型を推論する
 type User = v.InferOutput<typeof UserSchema>;
-// Equivalent to: { name: string; age: number }
+// { name: string; age: number } と同等
 ```
 
-## Why Valibot?
+## Why Valibot? {#why-valibot}
 
-- **Type-safe** — Full TypeScript support with automatic type inference
-- **Lightweight** — Tree-shakeable, only includes what you use
-- **Fast** — Optimized for runtime performance
-- **Composable** — Build complex schemas from simple building blocks
+- **Type-safe** — 自動型推論を含むフルTypeScriptサポート
+- **Lightweight** — tree-shakeable、使う分だけを含む
+- **Fast** — 実行時性能に最適化
+- **Composable** — シンプルな構成要素から複雑なschemaを組み立てられる
