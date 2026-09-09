@@ -149,7 +149,7 @@ import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 
 ## Redis Adapter
 
-For distributed applications, use the Redis adapter. `RedisEventBusAdaptor` implements `Lifecycle` itself: `startup()` duplicates the `@zeltjs/redis` client into a dedicated subscriber connection and attaches the message listener; `on()` subscribes a channel the first time it's used for an event; `shutdown()` disconnects the subscriber connection.
+For distributed applications, use the Redis adapter. `RedisEventBusAdaptor` implements `Lifecycle` itself. It duplicates the `@zeltjs/redis` client into a dedicated subscriber connection when constructed (clients are created with `lazyConnect`, so this performs no I/O), `startup()` opens that connection, `on()` subscribes a channel the first time it's used for an event, and `shutdown()` disconnects the subscriber connection.
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';

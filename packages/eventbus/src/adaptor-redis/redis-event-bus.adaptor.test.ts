@@ -1,4 +1,4 @@
-import { LifecycleManager, ZeltLifecycleStateError } from '@zeltjs/core';
+import { LifecycleManager } from '@zeltjs/core';
 import type { RedisService } from '@zeltjs/redis';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +7,7 @@ import { RedisEventBusAdaptor } from './redis-event-bus.adaptor';
 type MessageListener = (channel: string, message: string) => void;
 
 type FakeRedisClient = {
+  connect: ReturnType<typeof vi.fn>;
   publish: ReturnType<typeof vi.fn>;
   subscribe: ReturnType<typeof vi.fn>;
   on: ReturnType<typeof vi.fn>;
@@ -18,6 +19,7 @@ type FakeRedisClient = {
 const createFakeRedisClient = (): FakeRedisClient => {
   let messageListener: MessageListener | undefined;
   return {
+    connect: vi.fn(async () => undefined),
     publish: vi.fn(async () => 1),
     subscribe: vi.fn(async () => undefined),
     on: vi.fn((event: string, listener: MessageListener) => {
@@ -38,31 +40,41 @@ const setup = () => {
 };
 
 describe('RedisEventBusAdaptor', () => {
-  it('does not duplicate the redis client on construction', () => {
-    const { redis, pub } = setup();
+  it('duplicates the client and attaches the message listener on construction, without connecting', () => {
+    const { redis, pub, sub } = setup();
 
     new RedisEventBusAdaptor(redis, new LifecycleManager());
 
-    expect(pub.duplicate).not.toHaveBeenCalled();
+    expect(pub.duplicate).toHaveBeenCalledTimes(1);
+    expect(sub.on).toHaveBeenCalledWith('message', expect.any(Function));
+    expect(sub.connect).not.toHaveBeenCalled();
   });
 
-  it('duplicates the client and attaches the message listener on startup', async () => {
-    const { redis, pub, sub } = setup();
+  it('connects the duplicated client on startup', async () => {
+    const { redis, sub } = setup();
     const lifecycle = new LifecycleManager();
     new RedisEventBusAdaptor(redis, lifecycle);
 
     await lifecycle.startup();
 
-    expect(pub.duplicate).toHaveBeenCalledTimes(1);
-    expect(sub.on).toHaveBeenCalledWith('message', expect.any(Function));
+    expect(sub.connect).toHaveBeenCalledTimes(1);
   });
 
-  it('throws ZeltLifecycleStateError when emit/on are called before startup', async () => {
-    const { redis } = setup();
-    const adaptor = new RedisEventBusAdaptor(redis, new LifecycleManager());
+  it('on() before startup subscribes immediately and delivers messages received after startup (P2 regression)', async () => {
+    const { redis, sub } = setup();
+    const lifecycle = new LifecycleManager();
+    const adaptor = new RedisEventBusAdaptor(redis, lifecycle);
 
-    await expect(adaptor.emit('order.created', { id: 1 })).rejects.toThrow(ZeltLifecycleStateError);
-    expect(() => adaptor.on('order.created', () => {})).toThrow(ZeltLifecycleStateError);
+    const handler = vi.fn();
+    adaptor.on('order.created', handler);
+
+    expect(sub.subscribe).toHaveBeenCalledWith('order.created');
+
+    await lifecycle.startup();
+
+    sub.emitMessage('order.created', JSON.stringify({ id: 1 }));
+
+    expect(handler).toHaveBeenCalledWith({ id: 1 });
   });
 
   it('subscribes to a channel once and delivers messages to all handlers', async () => {

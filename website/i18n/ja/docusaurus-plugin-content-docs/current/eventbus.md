@@ -149,7 +149,7 @@ import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 
 ## Redis アダプター {#redis-adapter}
 
-分散アプリケーションには、Redis アダプターを使用します。`RedisEventBusAdaptor` はそれ自体が `Lifecycle` を実装しています。`startup()` は `@zeltjs/redis` のクライアントを複製して専用の購読コネクションを作り、メッセージリスナーをアタッチします。`on()` はそのイベントが最初に使われた時点でチャンネルを購読します。`shutdown()` は購読コネクションを切断します。
+分散アプリケーションには、Redis アダプターを使用します。`RedisEventBusAdaptor` はそれ自体が `Lifecycle` を実装しています。生成時に `@zeltjs/redis` のクライアントを複製して専用の購読コネクションを用意し(クライアントは `lazyConnect` で作られるため、この時点では I/O は発生しません)、`startup()` でそのコネクションを開きます。`on()` はそのイベントが最初に使われた時点でチャンネルを購読し、`shutdown()` は購読コネクションを切断します。
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';

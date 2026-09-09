@@ -35,6 +35,27 @@ describe('RedisTestContainerConfig', () => {
     await shutdown();
   }, 60_000);
 
+  it('connects on startup and disconnects on shutdown against a real Redis instance', async () => {
+    @Injectable()
+    class TestService {
+      constructor(private redis = inject(RedisService)) {}
+
+      async ping(): Promise<string> {
+        return await this.redis.client.ping();
+      }
+    }
+
+    const { target, shutdown } = await createTestTarget(TestService, {
+      configs: [RedisTestContainerConfig],
+    });
+
+    expect(await target.ping()).toBe('PONG');
+
+    await shutdown();
+
+    await expect(target.ping()).rejects.toThrow();
+  }, 60_000);
+
   it('provides empty options by default', async () => {
     @Injectable()
     class ConfigReader {
