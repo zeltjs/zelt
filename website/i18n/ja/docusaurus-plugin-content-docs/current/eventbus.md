@@ -149,7 +149,7 @@ import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 
 ## Redis アダプター {#redis-adapter}
 
-分散アプリケーションには、Redis アダプターを使用します。`RedisEventBusAdaptor` はそれ自体が `Lifecycle` を実装しており、`startup()` で購読専用の接続を開き、`shutdown()` で切断します。
+分散アプリケーションには、Redis アダプターを使用します。`RedisEventBusAdaptor` はそれ自体が `Lifecycle` を実装しています。`startup()` は `@zeltjs/redis` のクライアントを複製して専用の購読コネクションを作り、メッセージリスナーをアタッチします。`on()` はそのイベントが最初に使われた時点でチャンネルを購読します。`shutdown()` は購読コネクションを切断します。
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';
@@ -179,12 +179,41 @@ export class OrderService {
 Redis アダプターを使うには `@zeltjs/redis` の設定が必要です。`eventbus` フィーチャーと一緒に `RedisConfig` を登録します：
 
 ```typescript twoslash
-import { createApp, http } from '@zeltjs/core';
+import { Injectable, inject, LifecycleManager, createApp, http } from '@zeltjs/core';
+import type { Lifecycle } from '@zeltjs/core';
 import { eventbus } from '@zeltjs/eventbus';
 import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
-declare class OrderHandlers {}
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'order.placed': { orderId: string; total: number };
+  }
+}
+
+@Injectable()
+class OrderHandlers implements Lifecycle {
+  private unsubscribes: Array<() => void> = [];
+
+  constructor(
+    private readonly eventBus = inject(RedisEventBusAdaptor),
+    lifecycle = inject(LifecycleManager),
+  ) {
+    lifecycle.register(this);
+  }
+
+  async startup(): Promise<void> {
+    const unsub = this.eventBus.on('order.placed', (data) => {
+      console.log(`Order ${data.orderId} placed for ${data.total}`);
+    });
+    this.unsubscribes.push(unsub);
+  }
+
+  async shutdown(): Promise<void> {
+    for (const unsub of this.unsubscribes) unsub();
+    this.unsubscribes = [];
+  }
+}
 // ---cut---
 const app = createApp(
   [
@@ -285,6 +314,10 @@ declare module '@zeltjs/eventbus' {
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+import { eq } from 'drizzle-orm';
+import { pgTable, serial, text } from 'drizzle-orm/pg-core';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 
 declare module '@zeltjs/eventbus' {
   interface EventBusSchema {
@@ -292,21 +325,22 @@ declare module '@zeltjs/eventbus' {
   }
 }
 
-declare const db: {
-  query: {
-    notifications: { findFirst: (opts: unknown) => Promise<{ orderId: string } | undefined> };
-  };
-  insert: (table: unknown) => { values: (data: unknown) => Promise<void> };
-};
-declare const notifications: unknown;
-declare const eq: (column: unknown, value: unknown) => unknown;
+const notifications = pgTable('notifications', {
+  id: serial('id').primaryKey(),
+  orderId: text('order_id').notNull(),
+  type: text('type').notNull(),
+});
+
+const db = drizzle(postgres('postgres://localhost:5432/app'));
 
 const eventBus = new MemoryEventBusAdaptor();
 // ---cut---
 eventBus.on('order.placed', async (data) => {
-  const existing = await db.query.notifications.findFirst({
-    where: eq(notifications, data.orderId),
-  });
+  const [existing] = await db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.orderId, data.orderId))
+    .limit(1);
 
   if (existing) return;
 
@@ -324,6 +358,7 @@ eventBus.on('order.placed', async (data) => {
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+import { Injectable } from '@zeltjs/core';
 
 declare module '@zeltjs/eventbus' {
   interface EventBusSchema {
@@ -331,13 +366,17 @@ declare module '@zeltjs/eventbus' {
   }
 }
 
-declare const sendWelcomeEmail: (email: string) => Promise<void>;
+@Injectable()
+class MailService {
+  async sendWelcome(email: string): Promise<void> {}
+}
 
+const mailService = new MailService();
 const eventBus = new MemoryEventBusAdaptor();
 // ---cut---
 eventBus.on('user.created', async (data) => {
   try {
-    await sendWelcomeEmail(data.email);
+    await mailService.sendWelcome(data.email);
   } catch (error) {
     console.error('Failed to send welcome email:', error);
   }

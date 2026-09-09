@@ -1,25 +1,31 @@
-import type { Lifecycle } from '@zeltjs/core';
+import type { Lifecycle, ReadyValue } from '@zeltjs/core';
 import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
 import Redis from 'ioredis';
 
 import { RedisConfig } from './redis.config';
 
-@Injectable()
-export class RedisService implements Lifecycle {
-  private readonly _client: Redis;
+type RedisReady = { client: Redis };
 
-  constructor(config = inject(RedisConfig), lifecycle = inject(LifecycleManager)) {
-    this._client = new Redis(config.url, config.options);
-    lifecycle.register(this);
+@Injectable()
+export class RedisService implements Lifecycle<RedisReady> {
+  private readonly ready: ReadyValue<RedisReady>;
+
+  constructor(
+    private readonly config = inject(RedisConfig),
+    lifecycle = inject(LifecycleManager),
+  ) {
+    this.ready = lifecycle.register(this);
+  }
+
+  async startup(): Promise<RedisReady> {
+    return { client: new Redis(this.config.url, this.config.options) };
   }
 
   get client(): Redis {
-    return this._client;
+    return this.ready.client;
   }
 
-  async startup(): Promise<void> {}
-
   async shutdown(): Promise<void> {
-    this._client.disconnect();
+    this.ready.client.disconnect();
   }
 }

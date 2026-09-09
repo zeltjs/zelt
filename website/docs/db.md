@@ -34,17 +34,17 @@ export class DatabaseConfig {
   }
 }
 
-@Injectable()
-export class DrizzleService extends DatabaseService<PostgresJsDatabase> {
-  private readonly sql: postgres.Sql;
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
 
-  constructor(config = inject(DatabaseConfig)) {
+@Injectable()
+export class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
     super();
-    this.sql = postgres(config.url);
   }
 
-  async setup(): Promise<PostgresJsDatabase> {
-    return drizzle(this.sql);
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
   }
 
   transaction<T>(
@@ -55,16 +55,16 @@ export class DrizzleService extends DatabaseService<PostgresJsDatabase> {
   }
 
   async shutdown(): Promise<void> {
-    await this.sql.end();
+    await this.ready.sql.end();
   }
 }
 ```
 
 Key points:
 
-- `setup()` — Initialize and return your database client
+- `setup()` — Create the client and any handles `shutdown()` will need (e.g. a raw connection pool); the returned object is sealed into `this.ready`
 - `transaction()` — Execute a function within a transaction
-- `shutdown()` — Close connections during graceful shutdown
+- `shutdown()` — Close connections held in `this.ready` during graceful shutdown
 
 ## Using the Database Service
 
@@ -87,21 +87,22 @@ class DatabaseConfig {
   }
 }
 
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
 @Injectable()
-class DrizzleService extends DatabaseService<PostgresJsDatabase> {
-  private readonly sql: postgres.Sql;
-  constructor(config = inject(DatabaseConfig)) {
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
     super();
-    this.sql = postgres(config.url);
   }
-  async setup(): Promise<PostgresJsDatabase> {
-    return drizzle(this.sql);
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
   }
   transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
     return client.transaction(fn);
   }
   async shutdown(): Promise<void> {
-    await this.sql.end();
+    await this.ready.sql.end();
   }
 }
 
@@ -147,21 +148,22 @@ class DatabaseConfig {
   }
 }
 
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
 @Injectable()
-class DrizzleService extends DatabaseService<PostgresJsDatabase> {
-  private readonly sql: postgres.Sql;
-  constructor(config = inject(DatabaseConfig)) {
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
     super();
-    this.sql = postgres(config.url);
   }
-  async setup(): Promise<PostgresJsDatabase> {
-    return drizzle(this.sql);
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
   }
   transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
     return client.transaction(fn);
   }
   async shutdown(): Promise<void> {
-    await this.sql.end();
+    await this.ready.sql.end();
   }
 }
 // ---cut---
@@ -184,21 +186,22 @@ class DatabaseConfig {
   }
 }
 
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
 @Injectable()
-class DrizzleService extends DatabaseService<PostgresJsDatabase> {
-  private readonly sql: postgres.Sql;
-  constructor(config = inject(DatabaseConfig)) {
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
     super();
-    this.sql = postgres(config.url);
   }
-  async setup(): Promise<PostgresJsDatabase> {
-    return drizzle(this.sql);
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
   }
   transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
     return client.transaction(fn);
   }
   async shutdown(): Promise<void> {
-    await this.sql.end();
+    await this.ready.sql.end();
   }
 }
 
@@ -258,21 +261,22 @@ class DatabaseConfig {
   }
 }
 
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
 @Injectable()
-class DrizzleService extends DatabaseService<PostgresJsDatabase> {
-  private readonly sql: postgres.Sql;
-  constructor(config = inject(DatabaseConfig)) {
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
     super();
-    this.sql = postgres(config.url);
   }
-  async setup(): Promise<PostgresJsDatabase> {
-    return drizzle(this.sql);
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
   }
   transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
     return client.transaction(fn);
   }
   async shutdown(): Promise<void> {
-    await this.sql.end();
+    await this.ready.sql.end();
   }
 }
 // ---cut---
@@ -296,21 +300,22 @@ class DatabaseConfig {
   }
 }
 
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
 @Injectable()
-class DrizzleService extends DatabaseService<PostgresJsDatabase> {
-  private readonly sql: postgres.Sql;
-  constructor(config = inject(DatabaseConfig)) {
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
     super();
-    this.sql = postgres(config.url);
   }
-  async setup(): Promise<PostgresJsDatabase> {
-    return drizzle(this.sql);
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
   }
   transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
     return client.transaction(fn);
   }
   async shutdown(): Promise<void> {
-    await this.sql.end();
+    await this.ready.sql.end();
   }
 }
 
@@ -361,21 +366,22 @@ class DatabaseConfig {
   }
 }
 
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
 @Injectable()
-class DrizzleService extends DatabaseService<PostgresJsDatabase> {
-  private readonly sql: postgres.Sql;
-  constructor(config = inject(DatabaseConfig)) {
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
     super();
-    this.sql = postgres(config.url);
   }
-  async setup(): Promise<PostgresJsDatabase> {
-    return drizzle(this.sql);
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
   }
   transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
     return client.transaction(fn);
   }
   async shutdown(): Promise<void> {
-    await this.sql.end();
+    await this.ready.sql.end();
   }
 }
 
@@ -429,27 +435,10 @@ When `completeOrder` calls `processPayment`, both run in the same transaction �
 
 ## Lifecycle Integration
 
-`DatabaseService` integrates with Zelt's lifecycle system:
+`DatabaseService` integrates with Zelt's lifecycle system. `DrizzleService` is an ordinary injectable — nothing "registers" it. The first time something injects it (a repository, for example), it is constructed and registered with the `LifecycleManager` automatically. The app runs any pending lifecycles before it starts serving:
 
-```typescript
-import { Controller, Get, createApp, http } from '@zeltjs/core';
-
-@Controller('/orders')
-class OrderController {
-  @Get('/')
-  list() {
-    return [];
-  }
-}
-// ---cut---
-const app = createApp([http({
-    controllers: [OrderController],
-  })]);
-```
-
-The service is registered with the lifecycle automatically the first time it is injected — there is no need to list it in `configs`. A concrete `@Config` class like `DatabaseConfig` resolves automatically too; `configs` is only needed to override a default or to supply a concrete implementation for an abstract config (see [Configuration](./configuration.md)). Once resolved:
-1. Calls `setup()` during app startup
-2. Calls `shutdown()` during app shutdown
+1. `setup()` runs during app startup, and its return value is sealed into `this.ready`
+2. `shutdown()` runs during app shutdown
 
 ## API Reference
 
@@ -458,7 +447,8 @@ The service is registered with the lifecycle automatically the first time it is 
 | Property/Method | Description |
 |----------------|-------------|
 | `client` | Current database client (transaction-aware) |
-| `setup()` | Abstract: Initialize database connection |
+| `ready` | Protected: `ReadyValue` sealed from `setup()`'s return value; throws if accessed before startup |
+| `setup()` | Abstract: Create the client and any shutdown handles; the returned object is sealed into `ready` |
 | `transaction(client, fn)` | Abstract: Execute function in transaction |
 | `withTransaction(fn)` | Run function in a new or existing transaction |
 | `shutdown()` | Abstract: Close connections on shutdown |

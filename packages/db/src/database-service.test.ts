@@ -1,22 +1,21 @@
-import { LifecycleManager } from '@zeltjs/core';
+import { LifecycleManager, ZeltLifecycleStateError } from '@zeltjs/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DatabaseService } from './database.service';
 
-class MockDatabaseService extends DatabaseService<{ query: (sql: string) => string }> {
+type Client = { query: (sql: string) => string };
+
+class MockDatabaseService extends DatabaseService<Client> {
   setupCalled = false;
   shutdownCalled = false;
   transactionCalls: unknown[] = [];
 
   async setup() {
     this.setupCalled = true;
-    return { query: (sql: string) => `result: ${sql}` };
+    return { client: { query: (sql: string) => `result: ${sql}` } };
   }
 
-  async transaction<T>(
-    client: { query: (sql: string) => string },
-    fn: (tx: { query: (sql: string) => string }) => Promise<T>,
-  ): Promise<T> {
+  async transaction<T>(client: Client, fn: (tx: Client) => Promise<T>): Promise<T> {
     const transactionNumber = this.transactionCalls.length + 1;
     const tx = { query: (sql: string) => `tx-${transactionNumber}: ${sql}` };
     this.transactionCalls.push({ client, tx });
@@ -25,6 +24,38 @@ class MockDatabaseService extends DatabaseService<{ query: (sql: string) => stri
 
   async shutdown() {
     this.shutdownCalled = true;
+  }
+}
+
+type Handle = { close: () => void; closed: boolean };
+
+class MockDatabaseServiceWithHandle extends DatabaseService<
+  Client,
+  { client: Client; handle: Handle }
+> {
+  // Captured separately from `this.ready` so tests can observe it after
+  // shutdown disposes the ReadyValue.
+  private capturedHandle: Handle | undefined;
+
+  async setup() {
+    const handle: Handle = { closed: false, close: () => {} };
+    handle.close = () => {
+      handle.closed = true;
+    };
+    this.capturedHandle = handle;
+    return { client: { query: (sql: string) => `result: ${sql}` }, handle };
+  }
+
+  async transaction<T>(client: Client, fn: (tx: Client) => Promise<T>): Promise<T> {
+    return fn(client);
+  }
+
+  async shutdown() {
+    this.ready.handle.close();
+  }
+
+  wasClosed(): boolean {
+    return this.capturedHandle?.closed ?? false;
   }
 }
 
@@ -125,6 +156,29 @@ describe('DatabaseService', () => {
     it('should call subclass shutdown', async () => {
       await service.shutdown();
       expect(service.shutdownCalled).toBe(true);
+    });
+  });
+
+  describe('pre-startup access', () => {
+    it('should throw ZeltLifecycleStateError when client is read before startup', () => {
+      const freshLifecycle = new LifecycleManager();
+      const freshService = new MockDatabaseService(freshLifecycle);
+
+      expect(() => freshService.client).toThrow(ZeltLifecycleStateError);
+    });
+  });
+
+  describe('extra ready state', () => {
+    it('exposes non-client values sealed into ready for use during shutdown', async () => {
+      const handleLifecycle = new LifecycleManager();
+      const handleService = new MockDatabaseServiceWithHandle(handleLifecycle);
+      await handleLifecycle.startup();
+
+      expect(handleService.client.query('x')).toBe('result: x');
+
+      await handleLifecycle.shutdown();
+
+      expect(handleService.wasClosed()).toBe(true);
     });
   });
 });

@@ -67,11 +67,8 @@ export const twoslasher = createTwoslasher({
       'hono/*': pnpmTypes('hono@', 'hono/dist/types/*.d.ts'),
       ioredis: pnpmTypes('ioredis@', 'ioredis/built/index.d.ts'),
       bullmq: pnpmTypes('bullmq@', 'bullmq/dist/esm/index.d.ts'),
-      'drizzle-orm/postgres-js': pnpmTypes(
-        'drizzle-orm@0.44.2',
-        'drizzle-orm/postgres-js/index.d.ts',
-      ),
-      'drizzle-orm/pg-core': pnpmTypes('drizzle-orm@0.44.2', 'drizzle-orm/pg-core/index.d.ts'),
+      'drizzle-orm': pnpmTypes('drizzle-orm@0.44.2', 'drizzle-orm/index.d.ts'),
+      'drizzle-orm/*': pnpmTypes('drizzle-orm@0.44.2', 'drizzle-orm/*/index.d.ts'),
       postgres: pnpmTypes('postgres@', 'postgres/types/index.d.ts'),
     },
   },
