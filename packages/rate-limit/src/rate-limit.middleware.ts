@@ -3,7 +3,7 @@ import {
   inject,
   Middleware,
   MiddlewareWithOptions,
-  optionsOf,
+  middlewareOptions,
   response,
   UseMiddleware,
 } from '@zeltjs/core';
@@ -30,7 +30,7 @@ export class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions>
    */
   async use(
     next: Next,
-    opts = optionsOf(RateLimitMiddleware),
+    opts = middlewareOptions(RateLimitMiddleware),
     res = response(),
   ): Promise<Response | undefined> {
     if (!this.config.enabled) {

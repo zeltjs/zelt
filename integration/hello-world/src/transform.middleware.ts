@@ -1,5 +1,5 @@
 import type { Next } from '@zeltjs/core';
-import { Middleware, MiddlewareWithOptions, optionsOf, response } from '@zeltjs/core';
+import { Middleware, MiddlewareWithOptions, middlewareOptions, response } from '@zeltjs/core';
 
 @Middleware
 export class TransformMiddleware {
@@ -14,7 +14,7 @@ export class HeaderMiddleware extends MiddlewareWithOptions<{
   headerName: string;
   headerValue: string;
 }> {
-  async use(next: Next, options = optionsOf(HeaderMiddleware), res = response()) {
+  async use(next: Next, options = middlewareOptions(HeaderMiddleware), res = response()) {
     res.header(options.headerName, options.headerValue);
     await next();
     return undefined;

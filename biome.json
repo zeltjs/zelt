@@ -45,7 +45,7 @@
     {
       "includes": [
         "packages/core/src/features/http/middleware/middleware.types.ts",
-        "packages/core/src/features/http/request/injection/result-of.lib.ts"
+        "packages/core/src/features/http/request/injection/middleware-value.lib.ts"
       ],
       "linter": {
         "rules": {
