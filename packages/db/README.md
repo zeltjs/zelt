@@ -15,53 +15,72 @@ npm install @zeltjs/db @zeltjs/core
 ## Usage
 
 Extend `DatabaseService` for your driver. `setup()` returns everything the
-lifecycle should seal into `this.ready` — at minimum `{ client }`, plus any
-extra handles (e.g. a raw connection pool) that `shutdown()` needs to close:
+service needs later: at minimum `{ client }`, plus any handle `shutdown()`
+must close. The returned object is sealed into `this.ready`, so nothing is
+created in the constructor. This example is the same one that is type-checked
+in the documentation:
 
 ```typescript
-import postgres from 'postgres';
+import { Config, Env, Injectable, inject } from '@zeltjs/core';
 import { DatabaseService } from '@zeltjs/db';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 
-class PostgresService extends DatabaseService<
-  postgres.TransactionSql,
-  { client: postgres.TransactionSql; sql: postgres.Sql }
-> {
-  async setup() {
-    const sql = postgres(process.env.DATABASE_URL!);
-    return { client: sql, sql };
+@Config
+export class DatabaseConfig {
+  constructor(private env = inject(Env)) {}
+
+  get url(): string {
+    return this.env.getStringOrThrow('DATABASE_URL');
+  }
+}
+
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
+@Injectable()
+export class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
+    super();
   }
 
-  transaction<T>(client: postgres.Sql, fn: (tx: postgres.TransactionSql) => Promise<T>) {
-    return client.begin(fn);
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
   }
 
-  async shutdown() {
+  transaction<T>(
+    client: PostgresJsDatabase,
+    fn: (tx: PostgresJsDatabase) => Promise<T>,
+  ): Promise<T> {
+    return client.transaction(fn);
+  }
+
+  async shutdown(): Promise<void> {
     await this.ready.sql.end();
   }
 }
 ```
 
-Register the service and use `createTransactionDecorator` to run controller
-methods inside a transaction:
+Inject the service where you need the client, and use
+`createTransactionDecorator` to run methods inside a transaction:
 
 ```typescript
-import { createApp, http, Controller, Post, inject } from '@zeltjs/core';
-import { DbConfig, createTransactionDecorator } from '@zeltjs/db';
+import { Injectable, inject } from '@zeltjs/core';
+import { createTransactionDecorator } from '@zeltjs/db';
 
-const Transactional = createTransactionDecorator(PostgresService);
+const Transaction = createTransactionDecorator(DrizzleService);
 
-@Controller('/users')
-class UserController {
-  constructor(private db = inject(PostgresService)) {}
+@Injectable()
+class UserService {
+  constructor(private db = inject(DrizzleService)) {}
 
-  @Post('/')
-  @Transactional()
-  createUser() {
-    // runs within a transaction; this.db.client is the tx client
+  @Transaction()
+  async createUser(name: string, email: string) {
+    // this.db.client is the transaction client inside this method
   }
 }
-
-const app = createApp([http({ controllers: [UserController] })], {
-  configs: [DbConfig],
-});
 ```
+
+`DrizzleService` is an ordinary injectable: the first time something injects
+it, it is constructed and registered with the lifecycle automatically, so
+`setup()` runs on app startup and `shutdown()` on app shutdown.

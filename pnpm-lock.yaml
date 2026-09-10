@@ -501,12 +501,18 @@ importers:
       '@zeltjs/redis':
         specifier: workspace:*
         version: link:../redis
+      '@zeltjs/testing':
+        specifier: workspace:*
+        version: link:../testing
       ioredis:
         specifier: 5.10.1
         version: 5.10.1
       mitt:
         specifier: 3.0.1
         version: 3.0.1
+      testcontainers:
+        specifier: 10.25.0
+        version: 10.25.0
 
   packages/graphql:
     dependencies:

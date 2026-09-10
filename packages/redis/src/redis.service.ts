@@ -21,7 +21,16 @@ export class RedisService implements Lifecycle {
   }
 
   async startup(): Promise<void> {
-    await this._client.connect();
+    try {
+      await this._client.connect();
+    } catch (error) {
+      // ioredis keeps rescheduling reconnects via retryStrategy after a
+      // rejected connect(), and LifecycleManager never calls shutdown() for
+      // a lifecycle whose own startup() threw, so this is the only place
+      // left to stop the socket/reconnect timer before rethrowing.
+      this._client.disconnect();
+      throw error;
+    }
   }
 
   async shutdown(): Promise<void> {
