@@ -20,23 +20,31 @@ Zeltのデータベース抽象化は、よくある問題を解決します: �
 `DatabaseService` を継承して、あなたのORMを統合します:
 
 ```typescript
-// @noErrors
+import { Config, Env, Injectable, inject } from '@zeltjs/core';
 import { DatabaseService } from '@zeltjs/db';
-import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
-export class DrizzleService extends DatabaseService<PostgresJsDatabase> {
-  private sql!: postgres.Sql;
+@Config
+export class DatabaseConfig {
+  constructor(private env = inject(Env)) {}
 
-  async setup(): Promise<PostgresJsDatabase> {
-    this.sql = postgres(process.env.DATABASE_URL!);
-    const db = drizzle(this.sql);
+  get url(): string {
+    return this.env.getStringOrThrow('DATABASE_URL');
+  }
+}
 
-    this.onShutdown(async () => {
-      await this.sql.end();
-    });
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
 
-    return db;
+@Injectable()
+export class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
+    super();
+  }
+
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
   }
 
   transaction<T>(
@@ -45,14 +53,18 @@ export class DrizzleService extends DatabaseService<PostgresJsDatabase> {
   ): Promise<T> {
     return client.transaction(fn);
   }
+
+  async shutdown(): Promise<void> {
+    await this.ready.sql.end();
+  }
 }
 ```
 
 主なポイント:
 
-- `setup()` — データベースクライアントを初期化して返す
-- `transaction()` — トランザクション内で関数を実行する
-- `onShutdown()` — グレースフルシャットダウン用のクリーンアップハンドラを登録する
+- `setup()` — `shutdown()` が必要とするクライアントとハンドル(例: 生の接続プール)を作成する。戻り値は `this.ready` に封印される
+- `transaction()` — トランザクション内で関数を実行
+- `shutdown()` — `this.ready` に保持された接続をグレースフルシャットダウン時にクローズ
 
 ## データベースServiceの使用 {#using-the-database-service}
 
@@ -61,9 +73,44 @@ export class DrizzleService extends DatabaseService<PostgresJsDatabase> {
 serviceをinjectしてクライアントにアクセスします:
 
 ```typescript
-// @noErrors
-import { Injectable, inject } from '@zeltjs/core';
-import { users } from './schema';
+import { Config, Env, Injectable, inject } from '@zeltjs/core';
+import { DatabaseService } from '@zeltjs/db';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { pgTable, serial, text } from 'drizzle-orm/pg-core';
+import postgres from 'postgres';
+
+@Config
+class DatabaseConfig {
+  constructor(private env = inject(Env)) {}
+  get url(): string {
+    return this.env.getStringOrThrow('DATABASE_URL');
+  }
+}
+
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
+@Injectable()
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
+    super();
+  }
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
+  }
+  transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
+    return client.transaction(fn);
+  }
+  async shutdown(): Promise<void> {
+    await this.ready.sql.end();
+  }
+}
+
+const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+});
 // ---cut---
 @Injectable()
 export class UserRepository {
@@ -88,18 +135,92 @@ export class UserRepository {
 データベースserviceのためのデコレータを作成します:
 
 ```typescript
-// @noErrors
-import { createTransactionDecorator } from '@zeltjs/db';
+import { Config, Env, Injectable, inject } from '@zeltjs/core';
+import { createTransactionDecorator, DatabaseService } from '@zeltjs/db';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 
+@Config
+class DatabaseConfig {
+  constructor(private env = inject(Env)) {}
+  get url(): string {
+    return this.env.getStringOrThrow('DATABASE_URL');
+  }
+}
+
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
+@Injectable()
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
+    super();
+  }
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
+  }
+  transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
+    return client.transaction(fn);
+  }
+  async shutdown(): Promise<void> {
+    await this.ready.sql.end();
+  }
+}
+// ---cut---
 export const Transaction = createTransactionDecorator(DrizzleService);
 ```
 
 トランザクション内で実行すべきメソッドに適用します:
 
 ```typescript
-// @noErrors
-import { Injectable, inject } from '@zeltjs/core';
+import { Config, Env, Injectable, inject } from '@zeltjs/core';
+import { createTransactionDecorator, DatabaseService } from '@zeltjs/db';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 
+@Config
+class DatabaseConfig {
+  constructor(private env = inject(Env)) {}
+  get url(): string {
+    return this.env.getStringOrThrow('DATABASE_URL');
+  }
+}
+
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
+@Injectable()
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
+    super();
+  }
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
+  }
+  transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
+    return client.transaction(fn);
+  }
+  async shutdown(): Promise<void> {
+    await this.ready.sql.end();
+  }
+}
+
+const Transaction = createTransactionDecorator(DrizzleService);
+
+type OrderItem = { productId: string; quantity: number };
+
+@Injectable()
+class OrderRepository {
+  async create(userId: string, items: OrderItem[]) {
+    return { id: 'order-1', userId, items };
+  }
+}
+
+@Injectable()
+class InventoryRepository {
+  async decrement(productId: string, quantity: number) {}
+}
+// ---cut---
 @Injectable()
 export class OrderService {
   constructor(
@@ -127,25 +248,98 @@ export class OrderService {
 リクエストスコープのトランザクションには、ミドルウェアを使います:
 
 ```typescript
-// @noErrors
-import { createTransactionMiddleware } from '@zeltjs/db';
+import { Config, Env, Injectable, inject } from '@zeltjs/core';
+import { createTransactionMiddleware, DatabaseService } from '@zeltjs/db';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 
+@Config
+class DatabaseConfig {
+  constructor(private env = inject(Env)) {}
+  get url(): string {
+    return this.env.getStringOrThrow('DATABASE_URL');
+  }
+}
+
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
+@Injectable()
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
+    super();
+  }
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
+  }
+  transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
+    return client.transaction(fn);
+  }
+  async shutdown(): Promise<void> {
+    await this.ready.sql.end();
+  }
+}
+// ---cut---
 export const TransactionMiddleware = createTransactionMiddleware(DrizzleService);
 ```
 
 controllerに適用します:
 
 ```typescript
-// @noErrors
-import { Controller, Post, UseMiddleware, inject, request } from '@zeltjs/core';
+import { Config, Controller, Env, Injectable, Post, UseMiddleware, inject, request } from '@zeltjs/core';
+import { createTransactionMiddleware, DatabaseService } from '@zeltjs/db';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import * as v from 'valibot';
 
+@Config
+class DatabaseConfig {
+  constructor(private env = inject(Env)) {}
+  get url(): string {
+    return this.env.getStringOrThrow('DATABASE_URL');
+  }
+}
+
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
+@Injectable()
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
+    super();
+  }
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
+  }
+  transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
+    return client.transaction(fn);
+  }
+  async shutdown(): Promise<void> {
+    await this.ready.sql.end();
+  }
+}
+
+const TransactionMiddleware = createTransactionMiddleware(DrizzleService);
+
+const PlaceOrderBody = v.object({
+  userId: v.string(),
+  items: v.array(v.object({ productId: v.string(), quantity: v.number() })),
+});
+
+@Injectable()
+class OrderService {
+  async placeOrder(userId: string, items: { productId: string; quantity: number }[]) {
+    return { id: 'order-1', userId, items };
+  }
+}
+// ---cut---
 @Controller('/orders')
 @UseMiddleware(TransactionMiddleware)
 export class OrderController {
   constructor(private orderService = inject(OrderService)) {}
 
   @Post('/')
-  async create(req = request()) {
+  async create(req = request(PlaceOrderBody)) {
     const data = await req.body();
     return this.orderService.placeOrder(data.userId, data.items);
   }
@@ -159,9 +353,62 @@ export class OrderController {
 トランザクションはasyncの呼び出しチェーンを自動的に伝播します:
 
 ```typescript
-// @noErrors
+import { Config, Env, Injectable, inject } from '@zeltjs/core';
+import { createTransactionDecorator, DatabaseService } from '@zeltjs/db';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+
+@Config
+class DatabaseConfig {
+  constructor(private env = inject(Env)) {}
+  get url(): string {
+    return this.env.getStringOrThrow('DATABASE_URL');
+  }
+}
+
+type DrizzleReady = { client: PostgresJsDatabase; sql: postgres.Sql };
+
+@Injectable()
+class DrizzleService extends DatabaseService<PostgresJsDatabase, DrizzleReady> {
+  constructor(private config = inject(DatabaseConfig)) {
+    super();
+  }
+  async setup(): Promise<DrizzleReady> {
+    const sql = postgres(this.config.url);
+    return { client: drizzle(sql), sql };
+  }
+  transaction<T>(client: PostgresJsDatabase, fn: (tx: PostgresJsDatabase) => Promise<T>): Promise<T> {
+    return client.transaction(fn);
+  }
+  async shutdown(): Promise<void> {
+    await this.ready.sql.end();
+  }
+}
+
+const Transaction = createTransactionDecorator(DrizzleService);
+
+@Injectable()
+class LedgerRepository {
+  async debit(orderId: string, amount: number) {}
+}
+
+@Injectable()
+class NotificationService {
+  async sendReceipt(orderId: string) {}
+}
+
+@Injectable()
+class OrderRepository {
+  async markComplete(orderId: string) {}
+}
+// ---cut---
 @Injectable()
 export class PaymentService {
+  constructor(
+    private ledgerRepo = inject(LedgerRepository),
+    private notificationService = inject(NotificationService),
+  ) {}
+
   @Transaction()
   async processPayment(orderId: string, amount: number) {
     await this.ledgerRepo.debit(orderId, amount);
@@ -171,6 +418,11 @@ export class PaymentService {
 
 @Injectable()
 export class OrderService {
+  constructor(
+    private orderRepo = inject(OrderRepository),
+    private paymentService = inject(PaymentService),
+  ) {}
+
   @Transaction()
   async completeOrder(orderId: string) {
     await this.orderRepo.markComplete(orderId);
@@ -183,32 +435,23 @@ export class OrderService {
 
 ## ライフサイクル統合 {#lifecycle-integration}
 
-`DatabaseService` はZeltのライフサイクルシステムと統合します:
+`DatabaseService` はZeltのライフサイクルシステムと統合します。`DrizzleService` は通常の injectable であり、誰かが「登録」するものではありません。何か(例えば repository)が最初にそれを inject した時点で自動的に構築され、`LifecycleManager` に登録されます。アプリは実際にリクエストを処理し始める前に、未実行の lifecycle をすべて実行します:
 
-```typescript
-// @noErrors
-import { createApp, http } from '@zeltjs/core';
-
-const app = createApp([http({
-    controllers: [OrderController],
-  })], { configs: [DrizzleService] });
-```
-
-このserviceは:
-1. アプリ起動時に `setup()` を呼び出す
-2. アプリシャットダウン時に `shutdown()` ハンドラを呼び出す
+1. 起動時に `setup()` が呼ばれ、その戻り値が `this.ready` に封印される
+2. シャットダウン時に `shutdown()` が呼ばれる
 
 ## APIリファレンス {#api-reference}
 
 ### DatabaseService {#databaseservice}
 
 | プロパティ/メソッド | 説明 |
-|----------------|-------------|
-| `client` | 現在のデータベースクライアント(トランザクション対応) |
-| `setup()` | 抽象: データベース接続を初期化する |
-| `transaction(client, fn)` | 抽象: 関数をトランザクション内で実行する |
-| `withTransaction(fn)` | 新規または既存のトランザクション内で関数を実行する |
-| `onShutdown(fn)` | シャットダウンハンドラを登録する |
+|-------------------|------|
+| `client` | 現在のデータベースクライアント（トランザクション対応） |
+| `ready` | Protected: `setup()` の戻り値から封印された `ReadyValue`。起動前にアクセスすると例外を投げる |
+| `setup()` | 抽象: クライアントとシャットダウンに必要なハンドルを作成する。戻り値は `ready` に封印される |
+| `transaction(client, fn)` | 抽象: トランザクション内で関数を実行 |
+| `withTransaction(fn)` | 新規または既存のトランザクション内で関数を実行 |
+| `shutdown()` | 抽象: シャットダウン時に接続をクローズ |
 
 ### ファクトリ関数 {#factory-functions}
 

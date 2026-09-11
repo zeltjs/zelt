@@ -143,7 +143,7 @@ importers:
         version: 12.9.0
       drizzle-orm:
         specifier: 0.45.2
-        version: 0.45.2(@cloudflare/workers-types@4.20260506.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.9.0)(bun-types@1.2.17)
+        version: 0.45.2(@cloudflare/workers-types@4.20260506.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.9.0)(bun-types@1.2.17)(postgres@3.4.9)
       valibot:
         specifier: 'catalog:'
         version: 1.3.1(typescript@6.0.2)
@@ -183,7 +183,7 @@ importers:
         version: link:../../packages/validator-valibot
       tsdown:
         specifier: 'catalog:'
-        version: 0.21.10(oxc-resolver@11.19.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1))(typescript@6.0.2)
+        version: 0.21.10(oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0))(typescript@6.0.2)
       valibot:
         specifier: 'catalog:'
         version: 1.3.1(typescript@6.0.2)
@@ -501,12 +501,18 @@ importers:
       '@zeltjs/redis':
         specifier: workspace:*
         version: link:../redis
+      '@zeltjs/testing':
+        specifier: workspace:*
+        version: link:../testing
       ioredis:
         specifier: 5.10.1
         version: 5.10.1
       mitt:
         specifier: 3.0.1
         version: 3.0.1
+      testcontainers:
+        specifier: 10.25.0
+        version: 10.25.0
 
   packages/graphql:
     dependencies:
@@ -790,6 +796,9 @@ importers:
       '@zeltjs/db':
         specifier: workspace:*
         version: link:../packages/db
+      '@zeltjs/eventbus':
+        specifier: workspace:*
+        version: link:../packages/eventbus
       '@zeltjs/hono-client':
         specifier: workspace:*
         version: link:../packages/hono-client
@@ -816,7 +825,10 @@ importers:
         version: 5.76.9
       drizzle-orm:
         specifier: 0.44.2
-        version: 0.44.2(@cloudflare/workers-types@4.20260506.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)(bun-types@1.2.17)
+        version: 0.44.2(@cloudflare/workers-types@4.20260506.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)(bun-types@1.2.17)(postgres@3.4.9)
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
       twoslash:
         specifier: 0.3.8
         version: 0.3.8(typescript@6.0.2)
@@ -10628,6 +10640,10 @@ packages:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
     engines: {node: ^10 || ^12 || >=14}
 
+  postgres@3.4.9:
+    resolution: {integrity: sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw==}
+    engines: {node: '>=12'}
+
   prebuild-install@7.1.3:
     resolution: {integrity: sha512-8Mf2cbV7x1cXPUILADGI3wuhfqWvtiLA1iclTDbFRZkgRQS0NqsPZphna9V+HyTEadheuPmjaJMsbzKQFOzLug==}
     engines: {node: '>=10'}
@@ -16420,6 +16436,14 @@ snapshots:
   '@oxc-resolver/binding-openharmony-arm64@11.19.1':
     optional: true
 
+  '@oxc-resolver/binding-wasm32-wasi@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
+    dependencies:
+      '@napi-rs/wasm-runtime': 1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+    transitivePeerDependencies:
+      - '@emnapi/core'
+      - '@emnapi/runtime'
+    optional: true
+
   '@oxc-resolver/binding-wasm32-wasi@11.19.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
     dependencies:
       '@napi-rs/wasm-runtime': 1.1.4(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
@@ -17850,7 +17874,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@types/node@24.12.4)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.1.3(@types/node@24.12.4)(esbuild@0.17.19)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.9.0))
+      vitest: 4.1.5(@types/node@24.12.4)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.1.3(@types/node@24.12.4)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.9.0))
 
   '@vitest/expect@4.1.5':
     dependencies:
@@ -19692,19 +19716,25 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.44.2(@cloudflare/workers-types@4.20260506.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)(bun-types@1.2.17):
+  drizzle-orm@0.44.2(@cloudflare/workers-types@4.20260506.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)(bun-types@1.2.17)(postgres@3.4.9):
     optionalDependencies:
       '@cloudflare/workers-types': 4.20260506.1
       '@types/better-sqlite3': 7.6.13
       better-sqlite3: 12.10.0
       bun-types: 1.2.17
+      postgres: 3.4.9
 
-  drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260506.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.9.0)(bun-types@1.2.17):
+  drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260506.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.9.0)(bun-types@1.2.17)(postgres@3.4.9):
     optionalDependencies:
       '@cloudflare/workers-types': 4.20260506.1
       '@types/better-sqlite3': 7.6.13
       better-sqlite3: 12.9.0
       bun-types: 1.2.17
+      postgres: 3.4.9
+
+  dts-resolver@2.1.3(oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)):
+    optionalDependencies:
+      oxc-resolver: 11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
 
   dts-resolver@2.1.3(oxc-resolver@11.19.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)):
     optionalDependencies:
@@ -22675,6 +22705,33 @@ snapshots:
       '@oxc-parser/binding-win32-ia32-msvc': 0.128.0
       '@oxc-parser/binding-win32-x64-msvc': 0.128.0
 
+  oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0):
+    optionalDependencies:
+      '@oxc-resolver/binding-android-arm-eabi': 11.19.1
+      '@oxc-resolver/binding-android-arm64': 11.19.1
+      '@oxc-resolver/binding-darwin-arm64': 11.19.1
+      '@oxc-resolver/binding-darwin-x64': 11.19.1
+      '@oxc-resolver/binding-freebsd-x64': 11.19.1
+      '@oxc-resolver/binding-linux-arm-gnueabihf': 11.19.1
+      '@oxc-resolver/binding-linux-arm-musleabihf': 11.19.1
+      '@oxc-resolver/binding-linux-arm64-gnu': 11.19.1
+      '@oxc-resolver/binding-linux-arm64-musl': 11.19.1
+      '@oxc-resolver/binding-linux-ppc64-gnu': 11.19.1
+      '@oxc-resolver/binding-linux-riscv64-gnu': 11.19.1
+      '@oxc-resolver/binding-linux-riscv64-musl': 11.19.1
+      '@oxc-resolver/binding-linux-s390x-gnu': 11.19.1
+      '@oxc-resolver/binding-linux-x64-gnu': 11.19.1
+      '@oxc-resolver/binding-linux-x64-musl': 11.19.1
+      '@oxc-resolver/binding-openharmony-arm64': 11.19.1
+      '@oxc-resolver/binding-wasm32-wasi': 11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+      '@oxc-resolver/binding-win32-arm64-msvc': 11.19.1
+      '@oxc-resolver/binding-win32-ia32-msvc': 11.19.1
+      '@oxc-resolver/binding-win32-x64-msvc': 11.19.1
+    transitivePeerDependencies:
+      - '@emnapi/core'
+      - '@emnapi/runtime'
+    optional: true
+
   oxc-resolver@11.19.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1):
     optionalDependencies:
       '@oxc-resolver/binding-android-arm-eabi': 11.19.1
@@ -23527,6 +23584,8 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
+  postgres@3.4.9: {}
+
   prebuild-install@7.1.3:
     dependencies:
       detect-libc: 2.1.2
@@ -24090,6 +24149,24 @@ snapshots:
   rfdc@1.4.1: {}
 
   robust-predicates@3.0.3: {}
+
+  rolldown-plugin-dts@0.23.2(oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0))(rolldown@1.0.0-rc.17)(typescript@6.0.2):
+    dependencies:
+      '@babel/generator': 8.0.0-rc.3
+      '@babel/helper-validator-identifier': 8.0.0-rc.3
+      '@babel/parser': 8.0.0-rc.3
+      '@babel/types': 8.0.0-rc.3
+      ast-kit: 3.0.0-beta.1
+      birpc: 4.0.0
+      dts-resolver: 2.1.3(oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0))
+      get-tsconfig: 4.14.0
+      obug: 2.1.1
+      picomatch: 4.0.4
+      rolldown: 1.0.0-rc.17
+    optionalDependencies:
+      typescript: 6.0.2
+    transitivePeerDependencies:
+      - oxc-resolver
 
   rolldown-plugin-dts@0.23.2(oxc-resolver@11.19.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1))(rolldown@1.0.0-rc.17)(typescript@6.0.2):
     dependencies:
@@ -25037,6 +25114,33 @@ snapshots:
       json5: 2.2.3
       minimist: 1.2.8
       strip-bom: 3.0.0
+
+  tsdown@0.21.10(oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0))(typescript@6.0.2):
+    dependencies:
+      ansis: 4.2.0
+      cac: 7.0.0
+      defu: 6.1.7
+      empathic: 2.0.0
+      hookable: 6.1.1
+      import-without-cache: 0.3.3
+      obug: 2.1.1
+      picomatch: 4.0.4
+      rolldown: 1.0.0-rc.17
+      rolldown-plugin-dts: 0.23.2(oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0))(rolldown@1.0.0-rc.17)(typescript@6.0.2)
+      semver: 7.8.1
+      tinyexec: 1.1.2
+      tinyglobby: 0.2.16
+      tree-kill: 1.2.2
+      unconfig-core: 7.5.0
+      unrun: 0.2.37
+    optionalDependencies:
+      typescript: 6.0.2
+    transitivePeerDependencies:
+      - '@ts-macro/tsc'
+      - '@typescript/native-preview'
+      - oxc-resolver
+      - synckit
+      - vue-tsc
 
   tsdown@0.21.10(oxc-resolver@11.19.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1))(typescript@6.0.2):
     dependencies:
