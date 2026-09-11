@@ -1,65 +1,58 @@
-# Introduction
+# はじめに
 
-ZeltJSは、一貫したバックエンド構造を必要としながら、アプリケーションのコアを
-特定の実行環境に縛りたくないチームのためのTypeScriptアプリケーションフレームワークです。
-コントローラー、サービス、設定などの機能を一度定義し、Node.js、Bun、Cloudflare
-Workers、AWS Lambda、Electron、またはプロセス内テスト用のアダプターで同じアプリを
-実行可能な状態にします。
+ZeltJSは、DIを備えたTypeScriptバックエンドフレームワークです。コントローラー、
+サービス、設定などのアプリコードと、サーバーの起動処理を分けて記述します。
+Node.js、Bun、Cloudflare Workers、AWS Lambda、Electron、プロセス内テスト用の
+アダプターを提供しています。
 
 :::caution[Pre-alpha]
 ZeltJSは活発に開発中です。0.xの間はマイナーバージョンでAPIが変わる可能性があります。
-調査・試用・フィードバックには利用できますが、安定したAPIと長期サポートが必須の
-アプリケーションには、まだ保守的な選択肢ではありません。
+安定したAPIや長期サポートが必要なプロジェクトでは、安定版のリリースを待ってください。
 :::
 
-## Zeltが解決する問題 {#the-problem-zelt-addresses}
+## ZeltJSが提供するもの {#the-problem-zelt-addresses}
 
 HTTPルーターを使えば、サービスをすぐに起動できます。しかしサービスが成長すると、
 DI、設定、ライフサイクル、バリデーション、認証、ロギング、バックグラウンド処理、
 テストをどう組み合わせるかもチームで決めなければなりません。これらはルーティングではなく、
 アプリケーション設計の問題です。
 
-Zeltは、そのアプリケーション層を提供しつつ、実行環境との境界を明示します。
+ZeltJSはこれらの機能を提供し、実行環境ごとの起動処理と分けて扱います。
 
-- **アプリケーションのコアは振る舞いを記述します。** コントローラー、サービス、各機能は
-  サーバーを起動せず、デプロイ先にも依存しません。
-- **アダプターがアプリを実行可能にします。** 小さなエントリーファイルでNode.js、Bun、
-  Workers、Lambda、Electron、またはテスト環境を選びます。
-- **任意のプラグインが成果物を導出します。** OpenAPI文書、GraphQL実行用データ、
-  型付きクライアントなどをアプリ定義から生成できます。
+- **アプリ定義:** コントローラー、サービス、各機能
+- **実行環境のエントリー:** アダプターを使ってNode.js、Bun、Workers、Lambda、
+  Electron、テスト環境でアプリを起動
+- **生成ファイル:** 任意のプラグインがアプリ定義からOpenAPI文書、GraphQL実行用
+  データ、型付きクライアントを生成
 
-これは「実行環境固有のコードがゼロになる」という意味ではありません。エントリーファイルと
-インフラ設定は各環境に必要です。Zeltの目的は、それらをアプリ全体へ広げず、境界部分に
-留めることです。
+エントリーファイルとインフラ設定は実行環境ごとに必要です。コントローラー、サービス、
+ビジネスルールとは分けて記述します。
 
-## Zeltが適している場合 {#when-zelt-fits}
+## 想定するユースケース {#when-zelt-fits}
 
-次のような場合はZeltを検討できます。
+ZeltJSは次のようなアプリを対象としています。
 
-- ルーターだけでなく、フレームワークとしての構造と組み込みDIが必要
-- 本番とプロセス内テストで同じアプリケーションのコアを動かしたい
-- 同じ機能をNode.js、Bun、Workers、Lambda、Electronなどへデプロイする可能性がある
+- DIとライフサイクル管理が必要
+- 本番とプロセス内テストで同じアプリ定義を使う
+- Node.js、Bun、Workers、Lambda、Electronのいずれかで実行する
 - HTTP、GraphQL、コマンド、スケジュールジョブなど、複数の入口から振る舞いを提供する
-- OpenAPIや型付きクライアントなど、コードから導出される契約が必要
+- アプリのmetadataからOpenAPI文書や型付きクライアントを生成する
 
-小さなHTTPハンドラーにルーターだけで十分な場合、アプリ全体を意図的に一つの実行環境へ
-最適化する場合、または成熟したエコシステムと安定したAPIが今すぐ必要な本番システムには、
-Zeltが適さない可能性があります。
+ルーティングだけが必要な小さなHTTPハンドラーには、ルーターで十分です。安定したAPIと
+長期サポートが必要な本番システムにも、現時点のZeltJSは適していません。
 
 ## 設計原則 {#design-principles}
 
-- **TypeScriptネイティブ** — 独自のモジュールシステムやリアクティブモデルではなく、
-  module、async/await、型、標準decoratorを使う
-- **HTTP境界ではWeb標準** — 独自のrequest/responseモデルではなく、`Request`、
-  `Response`、Fetch APIを使う
-- **持ち運べるアプリケーションコア** — 実行環境固有の起動処理とインフラを、
-  アダプターや交換可能なサービスへ分離する
+- **TypeScript API** — module、async/await、型、標準decoratorを使う
+- **HTTPにWeb標準APIを使用** — `Request`、`Response`、Fetch APIを使う
+- **起動処理を分離** — 実行環境固有の処理とインフラを、アダプターや差し替え可能な
+  サービスに置く
 - **明示的な構成** — `createApp([...])` でコントローラーと機能を組み立て、
-  アプリの形がコード上で見えるようにする
-- **コールドスタートを意識** — serverlessやedge環境で使えるよう、起動時の処理を小さく保つ。
-  測定条件と結果は[ベンチマーク](https://github.com/zeltjs/benchmarks)を参照
+  アプリ定義をコード上で確認できるようにする
+- **起動時間を測定** — ベンチマークでスループットとコールドスタート時間を公開する。
+  [測定方法と結果](https://github.com/zeltjs/benchmarks)を参照
 
-## 小さなアプリケーション {#a-small-application}
+## コード例 {#a-small-application}
 
 ```typescript
 import { Controller, Get, Injectable, createApp, http, inject } from '@zeltjs/core';
@@ -84,7 +77,7 @@ class GreetingController {
 export const app = createApp([http({ controllers: [GreetingController] })]);
 ```
 
-アプリケーション自身は実行環境を選びません。Node.js用のエントリーは数行です。
+アプリ定義はサーバーを起動しません。Node.js用のエントリーで起動します。
 
 ```typescript
 import { onNode } from '@zeltjs/adapter-node';
@@ -97,9 +90,9 @@ const node = await onNode(app);
 await node.http.listen(3000);
 ```
 
-## 次に進む {#choose-your-next-step}
+## 次に読むもの {#choose-your-next-step}
 
 - [StackBlitzでZeltJSを試す](https://stackblitz.com/fork/github/zeltjs/zelt/tree/main/examples/stackblitz-node?startScript=dev&title=ZeltJS%20Quickstart) — ブラウザで小さなNode.jsアプリを実行・編集する
 - [Getting Startedを進める](./getting-started) — ローカルへインストールし、実行環境を選ぶ
-- [全体像を理解する](./big-picture) — アプリ定義、生成物、アダプター、実行環境の関係を見る
+- [アーキテクチャの概要を読む](./big-picture) — アプリ定義、生成物、アダプター、実行環境の関係を確認する
 - [完成したサンプルを見る](https://github.com/zeltjs/zelt/tree/main/examples/drizzle-todo) — Drizzleとテストを使うバックエンドを確認する

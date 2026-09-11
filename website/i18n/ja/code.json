@@ -1,90 +1,87 @@
 {
-  "homepage.hero.eyebrow": {
-    "message": "TypeScriptバックエンドチームのために"
-  },
   "homepage.hero.tagline": {
-    "message": "アプリケーションコアを一度作り、適した環境で動かす。"
+    "message": "DIを備えたTypeScriptバックエンドフレームワーク"
   },
   "homepage.hero.description": {
-    "message": "ZeltJSはWeb標準APIに、DI、ライフサイクル、一貫したアプリケーション構造を加えます。同じコアをNode.js、Bun、Cloudflare Workers、AWS Lambda、プロセス内テストで利用できます。"
+    "message": "コントローラーやサービスの定義と、サーバーの起動処理を分けて記述します。Node.js、Bun、Cloudflare Workers、AWS Lambda、Electron、プロセス内テスト用のアダプターを提供しています。"
   },
   "homepage.hero.tryStackblitz": {
     "message": "StackBlitzで試す"
   },
   "homepage.hero.startLocally": {
-    "message": "ローカルで始める"
+    "message": "ローカルで試す"
   },
   "homepage.hero.github": {
-    "message": "GitHubでStar"
+    "message": "GitHubでスター"
   },
   "homepage.hero.status": {
-    "message": "Pre-alpha · 設計を確認し、APIを試し、変えるべき点を教えてください。"
+    "message": "Pre-alpha · 0.xの間はAPIが変更される可能性があります。"
   },
   "homepage.code.title": {
-    "message": "アプリケーションコードを、アプリケーションのために"
+    "message": "アプリの定義と起動処理"
   },
   "homepage.code.description": {
-    "message": "起動処理を含めずに振る舞いを定義し、小さなエントリーファイルで実行環境を選びます。"
+    "message": "コントローラーとサービスはアプリ定義に記述します。実行環境ごとのエントリーファイルがサーバーを起動します。"
   },
   "homepage.features.title": {
-    "message": "ルーティングの先まで扱うフレームワーク"
+    "message": "主な機能"
   },
   "homepage.features.applicationStructure.title": {
-    "message": "アプリケーション構造を提供"
+    "message": "DIとライフサイクル"
   },
   "homepage.features.applicationStructure.description": {
-    "message": "DI、設定、ライフサイクル、バリデーション、テストを一つのアプリケーションモデルで扱います。"
+    "message": "サービス、設定、ライフサイクルフック、バリデーション、テストで同じDIコンテナーを使います。"
   },
   "homepage.features.runtimePortability.title": {
-    "message": "一つのコア、複数の実行環境"
+    "message": "実行環境別のアダプター"
   },
   "homepage.features.runtimePortability.description": {
-    "message": "アプリの振る舞いを保ったまま、小さなエントリーでNode、Bun、Workers、Lambdaを選べます。"
+    "message": "Node.js、Bun、Cloudflare Workers、AWS Lambda、Electronでアプリを起動できます。"
   },
   "homepage.features.productionLikeTests.title": {
-    "message": "テストも一つの実行環境"
+    "message": "プロセス内テスト"
   },
   "homepage.features.productionLikeTests.description": {
-    "message": "テスト用アダプターで、同じアプリ構成とDIライフサイクルをプロセス内実行します。"
+    "message": "テスト用アダプターで、ネットワークポートを開かずにアプリとDIライフサイクルを実行します。"
   },
   "homepage.features.coldStart.title": {
-    "message": "コールドスタートを意識"
+    "message": "起動性能"
   },
   "homepage.features.coldStart.description": {
-    "message": "serverlessとedgeを想定して起動を設計し、ベンチマークを公開しています。"
+    "message": "公開ベンチマークでスループットとコールドスタート時間を比較できます。"
   },
   "homepage.features.webStandard.title": {
-    "message": "Web標準のHTTP"
+    "message": "Web標準API"
   },
   "homepage.features.webStandard.description": {
     "message": "独自のHTTP object modelではなく、Request、Response、Fetch APIを使います。"
   },
   "homepage.features.derivedContracts.title": {
-    "message": "コードから導出する契約"
+    "message": "API関連ファイルの生成"
   },
   "homepage.features.derivedContracts.description": {
-    "message": "任意のpluginがOpenAPI、GraphQL実行用データ、型付きclientをアプリから導出します。"
+    "message": "任意のプラグインでOpenAPI文書、GraphQL実行用データ、型付きクライアントを生成できます。"
   },
   "homepage.benchmark.title": {
-    "message": "起動速度も無視しないパフォーマンス"
+    "message": "ベンチマーク"
   },
   "homepage.benchmark.description": {
-    "message": "ベンチマークの抜粋です。ハードウェア、version、測定方法はリンク先を参照してください。"
+    "message": "ZeltJSのベンチマークで測定したスループットとコールドスタート時間です。ハードウェア、バージョン、測定方法も公開しています。"
   },
   "homepage.benchmark.details": {
     "message": "測定方法と全結果を見る →"
   },
   "homepage.install.title": {
-    "message": "選ぶ前に試してみる"
+    "message": "ZeltJSを試す"
   },
   "homepage.install.description": {
-    "message": "ブラウザで動くアプリを開くか、coreと一つのruntime adapterをローカルへインストールします。"
+    "message": "StackBlitzでNode.jsのサンプルを実行するか、セットアップガイドに沿ってローカルで起動できます。"
   },
   "homepage.install.stackblitz": {
     "message": "StackBlitzで実行 →"
   },
   "homepage.install.docs": {
-    "message": "ZeltJSを理解する →"
+    "message": "ドキュメントを読む →"
   },
   "theme.navbar.mobileLanguageDropdown.label": {
     "message": "他の言語",

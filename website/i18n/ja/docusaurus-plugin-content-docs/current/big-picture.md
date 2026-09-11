@@ -1,17 +1,17 @@
 ---
-sidebar_label: 全体像
+sidebar_label: アーキテクチャ
 ---
 
-# 全体像
+# アーキテクチャ
 
-Zeltは、**アプリケーションのコア**と、それを動かす環境を分離します。コントローラー、
-サービス、各機能はアプリ定義に置きます。環境ごとの小さなエントリーファイルが、同じアプリを
-Node.js、Bun、Workers、Lambda、Electron、またはテスト用のアダプターへ渡します。
+ZeltJSでは、アプリ定義と実行環境ごとの起動処理を分けます。アプリ定義にはコントローラー、
+サービス、各機能を記述します。エントリーファイルは、Node.js、Bun、Cloudflare Workers、AWS Lambda、
+Electron、テストのいずれかに対応するアダプターへアプリ定義を渡します。
 
-Zeltが持ち運べるようにするのは、この境界です。エントリーとインフラ設定は環境ごとに
-異なりますが、アプリケーションの振る舞いまで変える必要はありません。
+実行環境固有のコードは、エントリーファイルとインフラ用サービスに置きます。このページでは、
+その分離とビルド時に生成されるファイルを説明します。
 
-## 30秒で分かるモデル {#the-30-second-model}
+## 構成要素 {#the-30-second-model}
 
 ```mermaid
 flowchart TD
@@ -30,15 +30,15 @@ flowchart TD
 
 ```text
 src/
-├── app.ts          # 持ち運べるアプリケーションコア
+├── app.ts          # アプリ定義
 └── node.ts         # Node.js固有のエントリー
-zelt.config.ts      # 必要な場合のbuild・plugin設定
+zelt.config.ts      # 必要な場合のビルド・プラグイン設定
 .zelt/
-└── prebuilt.ts     # 必要な場合の実行時生成物
-dist/               # bundleされたデプロイ物
+└── prebuilt.ts     # 必要な場合に生成される実行時データ
+dist/               # バンドル済みのデプロイ成果物
 ```
 
-## 1. アプリ定義: 自分で管理する振る舞い {#app-definition}
+## 1. アプリ定義 {#app-definition}
 
 `createApp([...])` は、HTTPコントローラー、GraphQLリゾルバー、コマンド、
 スケジューラー、それらを支えるサービスを組み立てます。
@@ -55,41 +55,39 @@ export const app = createApp([
 ]);
 ```
 
-アプリ定義は `.zelt/` からimportせず、サーバーを起動せず、moduleの評価時に接続を
-開かないようにします。この境界があることで、CLIはアプリを安全に調べられ、異なる
-アダプターも同じアプリを実行可能な状態にできます。
+アプリ定義は `.zelt/` からimportせず、サーバーを起動せず、モジュールの評価時に接続を
+開かないでください。CLIはビルド時にこのファイルをimportし、アダプターは起動時にimportします。
 
-## 2. Blueprint: データで表したアプリ構造 {#blueprint}
+## 2. Blueprint {#blueprint}
 
 アプリ定義をimportして評価すると、機能とdecoratorのmetadataが集められます。
 その結果が **blueprint** です。ルート、リゾルバー、型などの構造情報をデータとして
 表します。
 
-build toolとruntime adapterは、どちらもこの設計情報を使います。評価だけでは、
-adapterへサーバー起動やインフラ接続を要求しません。アプリ側のmoduleも同じく、
-評価時に副作用を起こさない境界を守る必要があります。
+ビルドツールとアダプターは、どちらもblueprintを使います。アプリ定義の評価ではサーバーを
+起動せず、インフラへ接続しません。そのため、アプリ側のモジュールも評価時にこれらの処理を
+実行しないでください。
 
-## 3. Build生成物: 機能が必要とするときだけ導出 {#build-artifacts}
+## 3. 生成ファイル {#build-artifacts}
 
-`zelt build`(および `zelt dev` の再起動のたび)はapp定義をimportして評価します。
-その後、任意のpluginがblueprintを使って次のようなものを導出します。
+`zelt build` と `zelt dev` の各再起動では、アプリ定義をimportして評価します。その後、
+任意のプラグインがblueprintを使って次のファイルを生成できます。
 
 - **`.zelt/prebuilt.ts`** — GraphQLなどの機能が必要とする実行時データ
 - **OpenAPI文書と型付きクライアント** — アプリの外から使う契約
 - その他、plugin固有の生成物
 
-生成物はアプリ定義から外向きに流れます。entryとテストは `.zelt/prebuilt` を
-importできますが、アプリ定義は自分自身の生成物へ依存できません。`.zelt/` は
-使い捨て可能で、`zelt build` によって再生成できます。
+エントリーとテストは `.zelt/prebuilt` をimportできますが、アプリ定義から自身の生成ファイルを
+importしないでください。`.zelt/` ディレクトリは `zelt build` で再生成できます。
 
 現在、Zeltがbuild時または起動時に検査するのは、endpoint pathやresolverの集合など、
 構造上の整合性です。すべての実装詳細やmethod signatureが全生成物と一致することまでは
 証明しません。アプリを変更したら再buildしてください。構造が古い生成物は、
 `zelt build` を促すメッセージとともに失敗します。
 
-最後にtsdownやWranglerなどのbundlerが、entryとそのimport先を `dist/` へまとめます。
+その後、tsdownやWranglerなどのバンドラーが、エントリーとimport先を `dist/` にまとめます。
 
-## 4. Runtime adapter: 副作用が始まる場所 {#runtime-adapter}
+## 4. 実行環境のアダプター {#runtime-adapter}
 
 entryは実行環境を選び、アプリを渡します。
 
@@ -105,17 +103,16 @@ const node = await onNode(app);
 await node.http.listen(3000);
 ```
 
-adapterは設計を**実行可能な状態にする(realize)**役割を持ちます。DI runtimeを作り、
-環境設定を読み、lifecycle hookを実行し、実行環境の機能を公開します。その後、
-serviceはlifecycleの中でDBや外部serviceへの接続を開けます。
+アダプターはDIランタイムを作成し、環境設定を読み、ライフサイクルフックを実行し、実行環境の
+機能を提供します。サービスはライフサイクルフックからDBや外部サービスへ接続できます。
 
 `onNode`、`onBun`、`onCloudflareWorkers`、`onLambda`、`onElectron`、`onTest` は、
-それぞれ異なる環境で同じ役割を果たします。小さなentryは変わりますが、app定義は
-そのままにできます。
+それぞれ異な環境で同じ役割を果たします。実行環境ごとにエントリーファイルを用意し、
+同じアプリ定義を使用できます。
 
-## 持ち運べるものの境界 {#portability-boundary}
+## 実行環境に依存するコード {#portability-boundary}
 
-| 持ち運べるアプリケーションコア | 環境固有の境界 |
+| 実行環境に依存しないコード | 実行環境に依存するコード |
 | --- | --- |
 | コントローラーとサービス | エントリーファイルとadapter呼び出し |
 | DIの依存関係 | 環境変数とsecret |
@@ -125,25 +122,24 @@ serviceはlifecycleの中でDBや外部serviceへの接続を開けます。
 実行環境固有のコードが必要になることもあります。すべての環境に同じAPIがあると仮定せず、
 DIで差し替えるserviceの背後か、環境ごとのentryに置いてください。
 
-## テストも同じ境界を使う {#tests-use-the-same-boundary}
+## テスト用アダプター {#tests-use-the-same-boundary}
 
-テストは別のentryとして振る舞います。アプリと必要なprebuilt dataを `onTest` に渡し、
-プロセス内で呼び出します。network portを開かずに、本番と同じアプリ構成とDI lifecycleを
-通せます。
+テストはアプリと必要な生成データを `onTest` に渡し、プロセス内で呼び出します。
+ネットワークポートを開かずに、アプリ構成とDIライフサイクルを実行できます。
 
-## ソースからデプロイまで {#source-to-deployment}
+## ビルドとデプロイ {#source-to-deployment}
 
-デプロイと運用から見ると、地図はこう繋がります:
+デプロイに関係するファイルとサービスを次に示します。
 
 ```mermaid
 flowchart LR
   SRCSET["entry + app + .zelt/prebuilt"] -- "tsdown / wrangler が bundle" --> DIST["dist/<br/>デプロイ物"]
   DIST -- "CI/CD がデプロイ" --> LIVE["実行環境で<br/>動くアプリ"]
-  ENV["環境変数 · secrets"] -- "realize が設定として読む" --> LIVE
+  ENV["環境変数 · secrets"] -- "adapter が設定として読む" --> LIVE
   LIVE -- "実行中に接続" --> INFRA["DB · KV · 外部サービス"]
   USER["フロントエンド · API利用者"] -- "HTTP / GraphQL で呼ぶ" --> LIVE
   API["openapi.json · 型付きclient"] -- "型安全な呼び出しに使う" --> USER
 ```
 
-次は[Getting Started](./getting-started)でアプリを動かすか、
-[Node.jsガイド](./getting-started/node)で具体的なプロジェクト構成を確認してください。
+アプリを起動する手順は[Getting Started](./getting-started)、プロジェクト全体の例は
+[Node.jsガイド](./getting-started/node)を参照してください。

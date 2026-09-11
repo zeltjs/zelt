@@ -1,4 +1,4 @@
-**`app.ts` — portable application core**
+**`app.ts`**
 
 ```typescript twoslash
 import { Controller, Get, Injectable, createApp, http, inject } from '@zeltjs/core';
@@ -23,7 +23,7 @@ class GreetingController {
 export const app = createApp([http({ controllers: [GreetingController] })]);
 ```
 
-**Choose a runtime in its entry file**
+**`node.ts`**
 
 ```typescript twoslash
 import { onNode } from '@zeltjs/adapter-node';

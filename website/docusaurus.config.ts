@@ -56,7 +56,7 @@ const shikiOnly = {
 
 const config: Config = {
   title: 'ZeltJS',
-  tagline: 'A structured TypeScript application core that runs across runtimes',
+  tagline: 'A TypeScript backend framework with dependency injection',
   favicon: 'img/favicon.png',
 
   future: {
@@ -185,7 +185,7 @@ const config: Config = {
           'A TypeScript application framework with built-in DI and explicit runtime adapters',
         includeOrder: llmsIncludeOrder.filter((p) => p !== 'index.md'),
         includeUnmatchedLast: false,
-        rootContent: `- [Introduction](https://zeltjs.com/docs/index.md): Build a structured TypeScript application core with built-in DI, then run it through explicit adapters for Node.js, Bun, Cloudflare Workers, AWS Lambda, Electron, or tests.`,
+        rootContent: `- [Introduction](https://zeltjs.com/docs/index.md): ZeltJS is a TypeScript backend framework with dependency injection and runtime adapters for Node.js, Bun, Cloudflare Workers, AWS Lambda, Electron, and tests.`,
       },
     ],
     'docusaurus-markdown-source-plugin',

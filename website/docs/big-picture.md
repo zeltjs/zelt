@@ -1,18 +1,17 @@
 ---
-sidebar_label: The Big Picture
+sidebar_label: Architecture
 ---
 
-# The Big Picture
+# Architecture
 
-Zelt keeps the **application core** separate from the environment that runs it.
-Controllers, services, and features live in an app definition. Small, platform-specific
-entry files hand that same app to a Node.js, Bun, Workers, Lambda, Electron, or test
-adapter.
+ZeltJS separates the application definition from runtime startup. The definition contains
+controllers, services, and features. An entry file passes it to the adapter for Node.js,
+Bun, Cloudflare Workers, AWS Lambda, Electron, or tests.
 
-This is the boundary Zelt makes portable. Platform entries and infrastructure settings
-still differ; your application behavior does not have to.
+Runtime-specific code remains in the entry file and infrastructure services. The rest of
+this page explains that separation and the files produced during a build.
 
-## The 30-second model
+## Components
 
 ```mermaid
 flowchart TD
@@ -31,7 +30,7 @@ In concrete files, a small Node.js project looks like this:
 
 ```text
 src/
-├── app.ts          # portable application core
+├── app.ts          # application definition
 └── node.ts         # Node-specific entry
 zelt.config.ts      # build and plugin configuration, when needed
 .zelt/
@@ -39,7 +38,7 @@ zelt.config.ts      # build and plugin configuration, when needed
 dist/               # bundled deployable
 ```
 
-## 1. App definition: behavior you own
+## 1. Application definition
 
 `createApp([...])` composes the features of your application: HTTP controllers,
 GraphQL resolvers, commands, schedulers, and the services behind them.
@@ -56,42 +55,40 @@ export const app = createApp([
 ]);
 ```
 
-The app definition should not import from `.zelt/`, start a server, or open connections
-at module scope. Keeping those effects out is what lets the CLI inspect the app and lets
-different adapters realize it safely.
+The application definition must not import from `.zelt/`, start a server, or open
+connections at module scope. The CLI imports this file during builds, and runtime adapters
+import it during startup.
 
-## 2. Blueprint: the app's structure as data
+## 2. Blueprint
 
 Importing and evaluating the app definition collects its feature and decorator metadata.
 Zelt represents the result as a **blueprint**: routes, resolvers, types, and other
 structural information expressed as data.
 
-Both build tools and runtime adapters use this design. Evaluation alone does not ask an
-adapter to start servers or connect to infrastructure; application modules should follow
-the same side-effect-free boundary.
+Build tools and runtime adapters both use the blueprint. Evaluating the application
+definition does not start a server or connect to infrastructure, so application modules
+must not perform those operations at module scope.
 
-## 3. Build artifacts: derived when a feature needs them
+## 3. Generated files
 
-`zelt build` (and every `zelt dev` restart) imports your app definition and
-evaluates it, then optional plugins consume the blueprint. They can derive:
+`zelt build` and each `zelt dev` restart import and evaluate the application definition.
+Optional plugins then use the blueprint to generate:
 
 - **`.zelt/prebuilt.ts`** — runtime data required by features such as GraphQL;
 - **OpenAPI documents and typed clients** — contracts used outside the app; and
 - other plugin-specific artifacts.
 
-These files flow out of the app definition. Entries and tests may import
-`.zelt/prebuilt`; the app definition must not depend on its own generated output. The
-directory is disposable and `zelt build` can recreate it.
+Entries and tests may import `.zelt/prebuilt`; the application definition must not import
+its generated output. `zelt build` can recreate the `.zelt/` directory.
 
 Today Zelt checks structural consistency, such as endpoint paths or resolver sets, at
 build or startup. It does not yet prove that every implementation detail and method
 signature agrees with every generated artifact. Rebuild after changing the app; stale
 structural artifacts fail with a message directing you to `zelt build`.
 
-Finally, a bundler such as tsdown or Wrangler packages the entry and everything it
-imports into `dist/`.
+A bundler such as tsdown or Wrangler then packages the entry and its imports into `dist/`.
 
-## 4. Runtime adapter: where effects begin
+## 4. Runtime adapter
 
 An entry selects the environment and hands it the app:
 
@@ -107,17 +104,17 @@ const node = await onNode(app);
 await node.http.listen(3000);
 ```
 
-The adapter **realizes** the design: it creates the DI runtime, reads environment
-configuration, runs lifecycle hooks, and exposes platform capabilities. Services can
-then open database or external-service connections as part of that lifecycle.
+The adapter creates the DI runtime, reads environment configuration, runs lifecycle hooks,
+and exposes platform capabilities. Services can open database or external-service
+connections from lifecycle hooks.
 
 `onNode`, `onBun`, `onCloudflareWorkers`, `onLambda`, `onElectron`, and `onTest` all
-perform this role for different environments. The small entry changes; the app definition
-can stay the same.
+perform this role for different environments. Each environment has its own entry file and
+can use the same application definition.
 
-## What portability includes
+## Runtime-independent and runtime-specific code
 
-| Portable application core | Platform-specific edge |
+| Runtime-independent code | Runtime-specific code |
 | --- | --- |
 | Controllers and services | Entry file and adapter call |
 | DI relationships | Environment variables and secrets |
@@ -127,25 +124,25 @@ can stay the same.
 Runtime-specific code is sometimes necessary. Put it behind an injected service or in
 the platform entry rather than assuming every API exists in every environment.
 
-## Tests use the same boundary
+## Test adapter
 
-Tests act like another entry. They hand the app and any required prebuilt data to
-`onTest`, then call it in-process. That exercises the same application composition and DI
-lifecycle as production without opening a network port.
+Tests pass the application and any required prebuilt data to `onTest`, then call it
+in-process. This runs the application composition and DI lifecycle without opening a
+network port.
 
-## From source to a running deployment
+## Build and deployment
 
-Seen from deployment and operations, the map connects like this:
+The following diagram shows the files and services involved in a deployment:
 
 ```mermaid
 flowchart LR
   SRCSET["entry + app + .zelt/prebuilt"] -- "tsdown / wrangler bundles" --> DIST["dist/<br/>deployable"]
   DIST -- "CI/CD deploys" --> LIVE["running app in a<br/>runtime environment"]
-  ENV["env vars · secrets"] -- "realize reads as configuration" --> LIVE
+  ENV["env vars · secrets"] -- "adapter reads as configuration" --> LIVE
   LIVE -- "connects at runtime" --> INFRA["DB · KV · external services"]
   USER["frontends · API consumers"] -- "call via HTTP / GraphQL" --> LIVE
   API["openapi.json · typed clients"] -- "used for type-safe calls" --> USER
 ```
 
-Next, [follow Getting Started](./getting-started) to run an app, or see the
-[Node.js guide](./getting-started/node) for a concrete project setup.
+See [Getting Started](./getting-started) to run an application or the
+[Node.js guide](./getting-started/node) for a complete project setup.

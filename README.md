@@ -1,7 +1,7 @@
 <p align="center">
   <img src="website/static/img/logo.svg" alt="ZeltJS" height="80">
   <br>
-  <strong>Build your application core once. Run it where it belongs.</strong>
+  <strong>A TypeScript backend framework with dependency injection</strong>
 </p>
 
 <p align="center">
@@ -10,41 +10,39 @@
   <img src="https://img.shields.io/badge/status-pre--alpha-orange.svg" alt="Status: pre-alpha">
 </p>
 
-ZeltJS is a TypeScript application framework with built-in dependency injection. It keeps
-controllers, services, and business behavior in a structured application core, then uses a
-small adapter entry to run that app on **Node.js**, **Bun**, **Cloudflare Workers**,
-**AWS Lambda**, **Electron**, or inside your tests.
+ZeltJS provides controllers, services, configuration, lifecycle hooks, validation, and
+testing. Application code is defined separately from server startup. Runtime adapters are
+available for **Node.js**, **Bun**, **Cloudflare Workers**, **AWS Lambda**, **Electron**,
+and in-process tests.
 
 <p align="center">
   <a href="https://zeltjs.com">Documentation</a> ·
   <a href="https://stackblitz.com/fork/github/zeltjs/zelt/tree/main/examples/stackblitz-node?startScript=dev&title=ZeltJS%20Quickstart">Try in StackBlitz</a> ·
-  <a href="https://zeltjs.com/docs/big-picture">The Big Picture</a>
+  <a href="https://zeltjs.com/docs/big-picture">Architecture</a>
 </p>
 
 > [!CAUTION]
-> ZeltJS is pre-alpha. It is ready to explore and shape, but APIs may change between minor
-> versions during 0.x.
+> ZeltJS is pre-alpha. APIs may change between minor versions during 0.x.
 
-## Why ZeltJS?
+## What ZeltJS Provides
 
-- **Application structure, not only routing** — DI, configuration, lifecycle, validation,
-  authentication, logging, background work, and testing share one application model.
-- **A clear runtime boundary** — keep deployment-specific startup in small entries and
-  replaceable services instead of spreading it through application code.
-- **Production-like in-process tests** — `onTest` realizes the same app composition and DI
-  lifecycle without opening a network port.
-- **Web-standard HTTP** — work with `Request`, `Response`, and Fetch APIs rather than a
-  framework-specific HTTP object model.
-- **Build-derived contracts** — optional plugins can derive OpenAPI documents, GraphQL
+- **Dependency injection and lifecycle** — services, configuration, lifecycle hooks,
+  validation, authentication, logging, background work, and tests use the same DI container.
+- **Runtime adapters** — small entry files start the application on Node.js, Bun,
+  Cloudflare Workers, AWS Lambda, Electron, or in-process tests.
+- **In-process testing** — `onTest` starts the application and its DI lifecycle without
+  opening a network port.
+- **Web Standard APIs** — HTTP features use `Request`, `Response`, and Fetch APIs.
+- **Generated API artifacts** — optional plugins generate OpenAPI documents, GraphQL
   runtime data, and typed clients from the application definition.
 
-Zelt is a good fit when a router alone leaves your team to reinvent application structure,
-or when the same application behavior needs to cross runtime and transport boundaries. For
-a tiny runtime-specific handler, a router may be the simpler choice.
+ZeltJS is intended for backend applications that need dependency injection and shared
+application structure across controllers, jobs, and tests. For a small HTTP handler that
+only needs routing, a router is likely sufficient.
 
-## See the boundary in code
+## Application Definition and Node.js Entry
 
-Your application describes behavior and dependencies:
+Controllers and services are defined in the application:
 
 ```typescript
 // app.ts
@@ -70,7 +68,7 @@ class GreetingController {
 export const app = createApp([http({ controllers: [GreetingController] })]);
 ```
 
-A small entry chooses where it runs:
+The Node.js entry starts the server:
 
 ```typescript
 // node.ts
@@ -81,8 +79,7 @@ const node = await onNode(app);
 await node.http.listen(3000);
 ```
 
-The app definition stays the same for another environment; its entry selects a different
-adapter.
+Other runtime entries import the same application definition and use a different adapter.
 
 ## Try it
 
@@ -95,8 +92,7 @@ npm install @zeltjs/core @zeltjs/adapter-node
 ```
 
 Follow the [Node.js Getting Started guide](https://zeltjs.com/docs/getting-started/node) for
-the project setup, or read [The Big Picture](https://zeltjs.com/docs/big-picture) before
-going deeper.
+the project setup, or read the [architecture overview](https://zeltjs.com/docs/big-picture).
 
 ## Supported Runtimes
 

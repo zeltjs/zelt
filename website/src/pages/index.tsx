@@ -30,24 +30,23 @@ const features: FeatureItem[] = [
     id: 'application-structure',
     title: (
       <Translate id="homepage.features.applicationStructure.title">
-        Application structure included
+        Dependency injection and lifecycle
       </Translate>
     ),
     description: (
       <Translate id="homepage.features.applicationStructure.description">
-        DI, configuration, lifecycle, validation, and testing fit into one application model.
+        Define services, configuration, lifecycle hooks, validation, and tests with the same DI
+        container.
       </Translate>
     ),
     Icon: CubeTransparentIcon,
   },
   {
     id: 'runtime-portability',
-    title: (
-      <Translate id="homepage.features.runtimePortability.title">One core, many runtimes</Translate>
-    ),
+    title: <Translate id="homepage.features.runtimePortability.title">Runtime adapters</Translate>,
     description: (
       <Translate id="homepage.features.runtimePortability.description">
-        Keep application behavior stable while small entries select Node, Bun, Workers, or Lambda.
+        Start an application on Node.js, Bun, Cloudflare Workers, AWS Lambda, or Electron.
       </Translate>
     ),
     Icon: GlobeAltIcon,
@@ -55,30 +54,28 @@ const features: FeatureItem[] = [
   {
     id: 'production-like-tests',
     title: (
-      <Translate id="homepage.features.productionLikeTests.title">
-        Tests are another runtime
-      </Translate>
+      <Translate id="homepage.features.productionLikeTests.title">In-process testing</Translate>
     ),
     description: (
       <Translate id="homepage.features.productionLikeTests.description">
-        Run the same app composition and DI lifecycle in-process with the test adapter.
+        Use the test adapter to run the application and its DI lifecycle without a network port.
       </Translate>
     ),
     Icon: BeakerIcon,
   },
   {
     id: 'cold-start',
-    title: <Translate id="homepage.features.coldStart.title">Cold-start conscious</Translate>,
+    title: <Translate id="homepage.features.coldStart.title">Startup performance</Translate>,
     description: (
       <Translate id="homepage.features.coldStart.description">
-        Startup is designed for serverless and edge workloads, with public benchmarks.
+        Compare throughput and cold-start time using the published benchmark suite.
       </Translate>
     ),
     Icon: BoltIcon,
   },
   {
     id: 'web-standard',
-    title: <Translate id="homepage.features.webStandard.title">Web-standard HTTP</Translate>,
+    title: <Translate id="homepage.features.webStandard.title">Web Standard APIs</Translate>,
     description: (
       <Translate id="homepage.features.webStandard.description">
         Use Request, Response, and Fetch APIs instead of a custom HTTP object model.
@@ -88,10 +85,12 @@ const features: FeatureItem[] = [
   },
   {
     id: 'derived-contracts',
-    title: <Translate id="homepage.features.derivedContracts.title">Derived contracts</Translate>,
+    title: (
+      <Translate id="homepage.features.derivedContracts.title">Generated API artifacts</Translate>
+    ),
     description: (
       <Translate id="homepage.features.derivedContracts.description">
-        Optional plugins derive OpenAPI, GraphQL runtime data, and typed clients from the app.
+        Generate OpenAPI documents, GraphQL runtime data, and typed clients with optional plugins.
       </Translate>
     ),
     Icon: ArrowsPointingInIcon,
@@ -104,20 +103,17 @@ function HeroSection() {
   return (
     <section className="hero">
       <div className="hero__container">
-        <p className="hero__eyebrow">
-          <Translate id="homepage.hero.eyebrow">For TypeScript backend teams</Translate>
-        </p>
         <h1 className="hero__title">{siteConfig.title}</h1>
         <p className="hero__tagline">
           <Translate id="homepage.hero.tagline">
-            Build your application core once. Run it where it belongs.
+            A TypeScript backend framework with dependency injection
           </Translate>
         </p>
         <p className="hero__description">
           <Translate id="homepage.hero.description">
-            ZeltJS brings dependency injection, lifecycle, and a consistent application structure to
-            Web Standard APIs. Keep the same core across Node.js, Bun, Cloudflare Workers, AWS
-            Lambda, and in-process tests.
+            Define controllers and services separately from server startup. Runtime adapters are
+            available for Node.js, Bun, Cloudflare Workers, AWS Lambda, Electron, and in-process
+            tests.
           </Translate>
         </p>
         <div className="hero__buttons">
@@ -125,7 +121,7 @@ function HeroSection() {
             <Translate id="homepage.hero.tryStackblitz">Try in StackBlitz</Translate>
           </Link>
           <Link className="hero__button hero__button--secondary" to="/docs/getting-started/node">
-            <Translate id="homepage.hero.startLocally">Start locally</Translate>
+            <Translate id="homepage.hero.startLocally">Try locally</Translate>
           </Link>
           <Link
             className="hero__button hero__button--secondary"
@@ -135,9 +131,7 @@ function HeroSection() {
           </Link>
         </div>
         <p className="hero__status">
-          <Translate id="homepage.hero.status">
-            Pre-alpha · Explore the design, try the APIs, and tell us what should change.
-          </Translate>
+          <Translate id="homepage.hero.status">Pre-alpha · APIs may change during 0.x.</Translate>
         </p>
       </div>
     </section>
@@ -149,11 +143,12 @@ function CodeShowcase() {
     <section className="code-showcase">
       <div className="code-showcase__container">
         <h2 className="code-showcase__title">
-          <Translate id="homepage.code.title">Application code stays application code</Translate>
+          <Translate id="homepage.code.title">Application definition and startup</Translate>
         </h2>
         <p className="code-showcase__description">
           <Translate id="homepage.code.description">
-            Define behavior without startup logic. Choose a runtime in a small entry file.
+            Controllers and services are defined in the application. A separate entry file starts
+            the selected runtime.
           </Translate>
         </p>
         {/* MDXContent supplies the MDXComponents mapping (twoslashblock → TwoslashBlock);
@@ -171,7 +166,7 @@ function FeaturesSection() {
     <section className="features">
       <div className="features__container">
         <h2 className="features__title">
-          <Translate id="homepage.features.title">A framework beyond routing</Translate>
+          <Translate id="homepage.features.title">Included features</Translate>
         </h2>
         <div className="features__grid">
           {features.map((feature) => (
@@ -226,11 +221,12 @@ function BenchmarkSection() {
       />
       <div className="benchmark__container">
         <h2 className="benchmark__title">
-          <Translate id="homepage.benchmark.title">Performance without ignoring startup</Translate>
+          <Translate id="homepage.benchmark.title">Benchmarks</Translate>
         </h2>
         <p className="benchmark__subtitle">
           <Translate id="homepage.benchmark.description">
-            A benchmark snapshot. See the linked repository for hardware, versions, and methodology.
+            Throughput and cold-start results from the ZeltJS benchmark suite. Hardware, versions,
+            and methodology are published with the results.
           </Translate>
         </p>
         <div className="benchmark__grid">
@@ -316,11 +312,11 @@ function InstallSection() {
     <section className="install">
       <div className="install__container">
         <h2 className="install__title">
-          <Translate id="homepage.install.title">Try it before you choose it</Translate>
+          <Translate id="homepage.install.title">Try ZeltJS</Translate>
         </h2>
         <p className="install__description">
           <Translate id="homepage.install.description">
-            Open a working app in your browser, or install the core and one runtime adapter locally.
+            Run the Node.js example in StackBlitz, or follow the local setup guide.
           </Translate>
         </p>
         <div className="install__commands">
@@ -331,7 +327,7 @@ function InstallSection() {
             <Translate id="homepage.install.stackblitz">Run in StackBlitz →</Translate>
           </Link>
           <Link className="install__link" to="/docs">
-            <Translate id="homepage.install.docs">Understand ZeltJS →</Translate>
+            <Translate id="homepage.install.docs">Read the documentation →</Translate>
           </Link>
         </div>
       </div>

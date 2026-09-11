@@ -520,15 +520,6 @@ article .markdown header h1 {
   margin: 0 auto;
 }
 
-.hero__eyebrow {
-  margin-bottom: 0.75rem;
-  color: var(--ifm-color-primary);
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .hero__title {
   font-size: 4rem;
   font-weight: 700;
