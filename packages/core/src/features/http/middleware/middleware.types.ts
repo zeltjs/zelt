@@ -21,7 +21,7 @@ type MaybePromise<T> = T | Promise<T>;
 export type MiddlewareResult = MaybePromise<Response | undefined>;
 
 // Middleware that needs options extends MiddlewareWithOptions<TOptions> and
-// reads them via optionsOf() inside use().
+// reads them via middlewareOptions() inside use().
 export type MiddlewareInstance = {
   use(next: Next): MiddlewareResult;
 };
@@ -48,7 +48,7 @@ export type AnyMiddlewareWithOptionsClass = new (
   ...args: never[]
 ) => MiddlewareInstance & OptionsPhantom<never>;
 
-// Deliberately does NOT require use(): optionsOf(Self) is written as a default
+// Deliberately does NOT require use(): middlewareOptions(Self) is written as a default
 // parameter of Self's own use(), so a use()-requiring constraint would make
 // checking that call depend on resolving the very signature being checked, and
 // TS types `opts` as an implicit any (verified). `.with()` is the side that
@@ -78,8 +78,8 @@ export const BOUND_MIDDLEWARE_BRAND: unique symbol = Symbol('zelt:bound-middlewa
 
 // Produced by MiddlewareWithOptions.with(options); this value (not the class)
 // is what identifies the binding everywhere — @UseMiddleware, middlewares:,
-// optionsOf(), resultOf() — since one class can be bound to several option sets.
-// TClass is preserved (not widened to MiddlewareClass) so resultOf() can still
+// middlewareOptions(), middlewareValue() — since one class can be bound to several option sets.
+// TClass is preserved (not widened to MiddlewareClass) so middlewareValue() can still
 // recover the concrete middleware's provided-value type through `.middleware`.
 export type BoundMiddleware<
   TClass extends AnyMiddlewareWithOptionsClass = AnyMiddlewareWithOptionsClass,

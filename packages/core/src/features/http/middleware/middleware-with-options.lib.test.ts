@@ -32,7 +32,7 @@ describe('MiddlewareWithOptions.with()', () => {
     expect(bound.options).toEqual({ limit: 1, windowSec: 1 });
   });
 
-  it('preserves the concrete class (not widened to MiddlewareClass) so optionsOf()/resultOf() can recover it', () => {
+  it('preserves the concrete class (not widened to MiddlewareClass) so middlewareOptions()/middlewareValue() can recover it', () => {
     const bound = RateLimitMiddleware.with({ limit: 1, windowSec: 1 });
     expectTypeOf(bound.middleware).toEqualTypeOf<typeof RateLimitMiddleware>();
   });

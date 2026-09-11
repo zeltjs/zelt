@@ -8,8 +8,8 @@ import { BOUND_MIDDLEWARE_BRAND } from './middleware.types';
 /**
  * Base class for middleware that needs configuration. Bind options with the
  * static `.with()` factory; the returned value is the middleware's identity
- * everywhere it's used (`@UseMiddleware`, `middlewares:`, `optionsOf()`,
- * `resultOf()`), so store it in a `const` and reuse that reference — calling
+ * everywhere it's used (`@UseMiddleware`, `middlewares:`, `middlewareOptions()`,
+ * `middlewareValue()`), so store it in a `const` and reuse that reference — calling
  * `.with()` again, even with identical options, produces a different identity.
  */
 export abstract class MiddlewareWithOptions<TOptions = undefined> {

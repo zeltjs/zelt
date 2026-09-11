@@ -152,9 +152,9 @@ export class PublicController {
 
 `CorsMiddleware`と`SecureHeadersMiddleware`は、全てのHTTPアプリで自動的に登録されます。デフォルト設定、設定オプション、skipの例、CORSプリフライトの挙動については[HTTP Security](./http-security.md)を参照してください。
 
-## Middleware Results {#middleware-results}
+## Middleware Values {#middleware-values}
 
-middlewareは、後続のコードに型付きの値を提供できます。値の提供には `Next<T>` 型と `next(value)` を、読み取りには `resultOf(M)` を使います。文字列キーやmodule augmentationを管理する必要はありません。
+middlewareは、後続のコードに型付きの値を提供できます。値の提供には `Next<T>` 型と `next(value)` を、読み取りには `middlewareValue(M)` を使います。文字列キーやmodule augmentationを管理する必要はありません。
 
 ### Providing a Value {#providing-a-value}
 
@@ -181,10 +181,10 @@ export class AuthMiddleware {
 
 ### Reading a Value {#reading-a-value}
 
-handler、そして他のmiddlewareも、提供された値をパラメータのデフォルト値として渡す `resultOf(M)` で読み取ります。
+handler、そして他のmiddlewareも、提供された値をパラメータのデフォルト値として渡す `middlewareValue(M)` で読み取ります。
 
 ```typescript
-import { Controller, Get, Middleware, UseMiddleware, request, resultOf, type Next } from '@zeltjs/core';
+import { Controller, Get, Middleware, UseMiddleware, request, middlewareValue, type Next } from '@zeltjs/core';
 
 @Middleware
 class AuthMiddleware {
@@ -198,7 +198,7 @@ class AuthMiddleware {
 @Controller('/profile')
 export class ProfileController {
   @Get('/')
-  getProfile(user = resultOf(AuthMiddleware)) {
+  getProfile(user = middlewareValue(AuthMiddleware)) {
     return { id: user.id, name: user.name };
   }
 }
@@ -208,7 +208,7 @@ export class ProfileController {
 
 ### Reading Requires the Middleware {#reading-requires-the-middleware}
 
-`resultOf(M)` の呼び出しは、次の2つの場合に即座にそのmiddleware名を含むエラーをスローします — ルートにそのmiddlewareが適用されていない場合、そして適用されていても`next(value)`が一度も呼ばれておらず値が記録されていない場合です。黙って`undefined`が返ることはありません。middlewareをルートに適用する方法自体は従来どおりで、controllerやmethodへの`@UseMiddleware`、またはmoduleの`middlewares`を使います。
+`middlewareValue(M)` の呼び出しは、次の2つの場合に即座にそのmiddleware名を含むエラーをスローします — ルートにそのmiddlewareが適用されていない場合、そして適用されていても`next(value)`が一度も呼ばれておらず値が記録されていない場合です。黙って`undefined`が返ることはありません。middlewareをルートに適用する方法自体は従来どおりで、controllerやmethodへの`@UseMiddleware`、またはmoduleの`middlewares`を使います。
 
 ## Dependency Injection {#dependency-injection}
 
@@ -258,10 +258,10 @@ export class AdminController {
 
 ## Middleware with Options {#middleware-with-options}
 
-設定が必要なmiddlewareは`MiddlewareWithOptions<TOptions>`を継承し、オプションを`optionsOf()`でパラメータデフォルト値として読み取ります — `request()`や`resultOf()`と同じパターンです:
+設定が必要なmiddlewareは`MiddlewareWithOptions<TOptions>`を継承し、オプションを`middlewareOptions()`でパラメータデフォルト値として読み取ります — `request()`や`middlewareValue()`と同じパターンです:
 
 ```typescript
-import { Middleware, MiddlewareWithOptions, optionsOf, type Next } from '@zeltjs/core';
+import { Middleware, MiddlewareWithOptions, middlewareOptions, type Next } from '@zeltjs/core';
 // ---cut---
 interface RateLimitOptions {
   limit: number;
@@ -270,7 +270,7 @@ interface RateLimitOptions {
 
 @Middleware
 export class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
-  async use(next: Next, opts = optionsOf(RateLimitMiddleware)) {
+  async use(next: Next, opts = middlewareOptions(RateLimitMiddleware)) {
     const { limit, windowSec } = opts;
     // ... レート制限ロジック
     await next();
@@ -282,7 +282,7 @@ export class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions>
 オプションは、middlewareを適用する場所で`.with()`を使って渡します:
 
 ```typescript
-import { Controller, Middleware, MiddlewareWithOptions, Post, UseMiddleware, optionsOf, type Next } from '@zeltjs/core';
+import { Controller, Middleware, MiddlewareWithOptions, Post, UseMiddleware, middlewareOptions, type Next } from '@zeltjs/core';
 
 interface RateLimitOptions {
   limit: number;
@@ -291,7 +291,7 @@ interface RateLimitOptions {
 
 @Middleware
 class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
-  async use(next: Next, opts = optionsOf(RateLimitMiddleware)) {
+  async use(next: Next, opts = middlewareOptions(RateLimitMiddleware)) {
     await next();
     return undefined;
   }
@@ -311,12 +311,12 @@ export class ApiController {
 
 オプションを持たないmiddlewareは何も継承せず、これまでの例のとおり素のクラスをそのまま登録します。
 
-### オプション付きmiddlewareの結果を読む {#reading-results-from-middleware-with-options}
+### オプション付きmiddlewareの値を読む {#reading-values-from-middleware-with-options}
 
-オプションを取るmiddlewareの結果を読むには、`.with()`の戻り値を`const`に入れ、middlewareを適用する場所と`resultOf()`の両方で同じ`const`を使います:
+オプションを取るmiddlewareが提供する値を読むには、`.with()`の戻り値を`const`に入れ、middlewareを適用する場所と`middlewareValue()`の両方で同じ`const`を使います:
 
 ```typescript
-import { Controller, Get, Middleware, MiddlewareWithOptions, UseMiddleware, optionsOf, resultOf, type Next } from '@zeltjs/core';
+import { Controller, Get, Middleware, MiddlewareWithOptions, UseMiddleware, middlewareOptions, middlewareValue, type Next } from '@zeltjs/core';
 
 interface AuthOptions {
   role: 'admin' | 'member';
@@ -324,7 +324,7 @@ interface AuthOptions {
 
 @Middleware
 class UserAuthMiddleware extends MiddlewareWithOptions<AuthOptions> {
-  async use(next: Next<{ id: number; role: string }>, opts = optionsOf(UserAuthMiddleware)) {
+  async use(next: Next<{ id: number; role: string }>, opts = middlewareOptions(UserAuthMiddleware)) {
     await next({ id: 1, role: opts.role });
     return undefined;
   }
@@ -338,15 +338,15 @@ export const adminAuth = UserAuthMiddleware.with({ role: 'admin' });
 @Controller('/admin')
 export class AdminController {
   @Get('/me')
-  me(admin = resultOf(adminAuth)) {
+  me(admin = middlewareValue(adminAuth)) {
     return { id: admin.id, role: admin.role };
   }
 }
 ```
 
-`.with()`は呼び出しごとに、それぞれ別のmiddlewareとして扱われます。ルートの登録に使った`.with()`と`resultOf()`に渡した`.with()`が別の呼び出しだと、たとえオプションが同一でも両者は一致しません — `resultOf()`からはルートに適用されていないmiddlewareに見え、例外になります。必ず1つの`const`を共有してください。
+`.with()`は呼び出しごとに、それぞれ別のmiddlewareとして扱われます。ルートの登録に使った`.with()`と`middlewareValue()`に渡した`.with()`が別の呼び出しだと、たとえオプションが同一でも両者は一致しません — `middlewareValue()`からはルートに適用されていないmiddlewareに見え、例外になります。必ず1つの`const`を共有してください。
 
-同じmiddlewareクラスを異なるオプションで複数回適用することもできます。それぞれの適用は独立して実行され、各`const`は自分の結果を読み取ります。
+同じmiddlewareクラスを異なるオプションで複数回適用することもできます。それぞれの適用は独立して実行され、各`const`は自分の値を読み取ります。
 
 ## Request Flow {#request-flow}
 
@@ -408,7 +408,7 @@ class MethodMiddleware {
 
 ## Common Patterns {#common-patterns}
 
-Middlewareはクラスとして記述します。フレームワークのprimitiveには`request()`、`response()`、`resultOf()`を使います。
+Middlewareはクラスとして記述します。フレームワークのprimitiveには`request()`、`response()`、`middlewareValue()`を使います。
 
 ### Restrict Access {#restrict-access}
 

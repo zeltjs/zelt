@@ -21,7 +21,7 @@ describe('Middleware with Options binding', () => {
     await shutdownAll();
   });
 
-  it('connects @UseMiddleware and resultOf() through a shared const binding', async () => {
+  it('connects @UseMiddleware and middlewareValue() through a shared const binding', async () => {
     const res = await testApp.http.request('/options/admin/me');
     expect(res.status).toBe(200);
     const body = (await res.json()) as AuthResponse;
@@ -48,8 +48,8 @@ describe('Middleware with Options binding', () => {
     expect(body.member).toEqual({ id: 'user-member', role: 'member' });
   });
 
-  it('fails when resultOf() reads a binding that is not applied to the route', async () => {
-    // Only memberAuth is applied to this route; reading adminAuth's result
+  it('fails when middlewareValue() reads a binding that is not applied to the route', async () => {
+    // Only memberAuth is applied to this route; reading adminAuth's value
     // must fail because that exact binding never ran here.
     const res = await testApp.http.request('/options/member-only/read-unapplied-binding');
     expect(res.status).toBe(500);

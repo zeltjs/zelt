@@ -56,7 +56,7 @@ describe('studio analyzer (integration)', () => {
     expect(loggingMiddleware.contract).toEqual([
       {
         name: 'use',
-        // Next<T = void> is a conditional type since the middleware-results
+        // Next<T = void> is a conditional type since the middleware-values
         // change; TS resolves the default application eagerly and drops the
         // alias, so the analyzer sees the expanded shape. Restoring the alias
         // name in the graph is tracked as a separate studio improvement.

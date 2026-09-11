@@ -136,10 +136,10 @@ export {
   ValidationFailedException,
 } from './features/http/request';
 export type {
-  MiddlewareResultOf,
+  MiddlewareValueOf,
   ParsedBody,
 } from './features/http/request/injection';
-export { optionsOf, request, resultOf } from './features/http/request/injection';
+export { middlewareOptions, middlewareValue, request } from './features/http/request/injection';
 export type {
   ExtractRequestBody,
   HasRequestBody,
@@ -187,7 +187,7 @@ export {
   ZeltLifecycleStateError,
   ZeltMiddlewareExecutionError,
   ZeltMiddlewareOptionsUnavailableError,
-  ZeltMiddlewareResultUnavailableError,
+  ZeltMiddlewareValueUnavailableError,
   ZeltNotImplementedError,
   ZeltPluginConfigurationError,
   ZeltRouteConfigurationError,
