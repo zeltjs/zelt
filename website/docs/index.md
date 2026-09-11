@@ -1,68 +1,106 @@
 # Introduction
 
-ZeltJS is a portable TypeScript application framework with built-in DI. Swap adapters to run on Node.js, Bun, Cloudflare Workers, or AWS Lambda.
-Building large-scale applications that work across different infrastructure. That's what ZeltJS aims for.
+ZeltJS is a TypeScript application framework for teams that want a consistent backend
+structure without tying their application core to one runtime. Define controllers,
+services, configuration, and other features once, then realize the same app with an
+adapter for Node.js, Bun, Cloudflare Workers, AWS Lambda, Electron, or in-process tests.
 
-## Philosophy
-
-In TypeScript backend development, there are almost no true "frameworks." Hono and Express are excellent libraries, but they're not enough as application frameworks. Libraries are "convenient tools," but frameworks provide "answers to how to build applications." DI mechanisms, directory structure, integrated patterns for authentication, validation, and logging — only when these "answers to how to build" are in place can developers focus on essential feature development.
-
-NestJS is one of the few that can be called a framework, but it brings in its own module system and RxJS-based abstractions, diverging from standard TypeScript conventions. Its heavy metadata analysis at startup also makes it impractical for serverless environments.
-
-ZeltJS aims to be a "framework" where you don't have to wonder how to build your application.
-To achieve this, we build with these five policies:
-
-- TS-Native — Don't reinvent what TS already has. Use import/export, use async/await, use types
-- Web-Standard — Align with web standards like Request/Response, Fetch API. No custom abstractions
-- Transport-Agnostic — REST/GraphQL/CLI/Queue are just different entry points. The application core stays the same
-- Cold-Start Friendly — Runs on serverless/Worker/Edge. No startup cost penalty
-- Least Astonishment — Follow ecosystem standards. No extra learning cost
-
-## Installation
-
-```bash
-pnpm add @zeltjs/core @zeltjs/adapter-node
-```
-
-:::note
-Zelt is in **pre-alpha** — APIs may change between minor versions.
+:::caution[Pre-alpha]
+ZeltJS is in active development. APIs may change between minor versions during 0.x.
+It is ready for exploration and feedback, but not yet a conservative choice for
+applications that require a stable API and long-term support.
 :::
 
-## Quick Example
+## The problem Zelt addresses
+
+A router can get an HTTP service running quickly. As the service grows, teams also have
+to decide how dependency injection, configuration, lifecycle hooks, validation,
+authentication, logging, background work, and tests fit together. Those decisions are
+application architecture, not routing.
+
+Zelt provides that application layer while keeping the runtime boundary explicit:
+
+- **Your application core describes behavior.** Controllers, services, and features do
+  not start servers or depend on a deployment platform.
+- **An adapter realizes the app.** A small entry file selects Node.js, Bun, Workers,
+  Lambda, Electron, or the test runtime.
+- **Optional plugins derive artifacts.** OpenAPI documents, GraphQL runtime data, and
+  typed clients can be generated from the application definition.
+
+The result is not "zero platform-specific code." Entry files and infrastructure
+configuration still belong to each platform. The goal is to keep those details at the
+edge instead of spreading them through your application.
+
+## When Zelt is a good fit
+
+Consider Zelt when you:
+
+- need framework-level structure and built-in dependency injection, not only a router;
+- want the same application core to run in production and in-process tests;
+- may deploy the same features to Node.js, Bun, Workers, Lambda, or Electron;
+- expose behavior through more than one transport, such as HTTP, GraphQL, commands, or
+  scheduled jobs; or
+- want build-derived contracts such as OpenAPI or typed clients.
+
+Zelt may not be the right fit for a tiny handler where a router is enough, an application
+that intentionally depends on one runtime throughout, or a production system that needs
+a mature ecosystem and stable APIs today.
+
+## Design principles
+
+- **TypeScript-native** — use modules, async/await, types, and standard decorators
+  instead of introducing a parallel module or reactive programming model.
+- **Web-standard at the HTTP boundary** — work with `Request`, `Response`, and the Fetch
+  API rather than a framework-specific request/response model.
+- **Portable application core** — isolate runtime-specific startup and infrastructure in
+  adapters and replaceable services.
+- **Explicit composition** — assemble controllers and features with `createApp([...])`,
+  so the application's shape is visible in code.
+- **Cold-start conscious** — keep startup work small enough for serverless and edge
+  environments. See the [benchmark methodology and results](https://github.com/zeltjs/benchmarks).
+
+## A small application
 
 ```typescript
-import { createApp, Controller, Get, http } from '@zeltjs/core';
-import { onNode } from '@zeltjs/adapter-node';
+import { Controller, Get, Injectable, createApp, http, inject } from '@zeltjs/core';
 
-@Controller('/hello')
-class HelloController {
-  @Get('/')
+@Injectable()
+class GreetingService {
   greet() {
-    return { message: 'Hello, World!' };
+    return 'Hello from ZeltJS!';
   }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
-const nodeApp = await onNode(app);
-await nodeApp.http.listen({ port: 3000 });
+@Controller('/')
+class GreetingController {
+  constructor(private greetings = inject(GreetingService)) {}
+
+  @Get('/')
+  hello() {
+    return { message: this.greetings.greet() };
+  }
+}
+
+export const app = createApp([http({ controllers: [GreetingController] })]);
 ```
 
-See the [Getting Started](./getting-started) guide for a step-by-step walkthrough.
+The application does not select a runtime. A Node.js entry is only a few lines:
 
-## Benchmark
+```typescript
+import { onNode } from '@zeltjs/adapter-node';
+import { createApp, http } from '@zeltjs/core';
+const app = createApp([http({ controllers: [] })]);
+// ---cut---
+// node.ts — app is imported from ./app
 
-Zelt balances runtime performance with cold-start speed — ideal for serverless.
+const node = await onNode(app);
+await node.http.listen(3000);
+```
 
-| Framework | Requests/sec | Cold Start (ms) |
-| --------- | -----------: | --------------: |
-| Fastify   |       44,033 |             101 |
-| **Zelt**  |   **37,331** |          **68** |
-| Hono      |       37,262 |              37 |
-| AdonisJS  |       33,548 |             149 |
-| NestJS    |       23,597 |             268 |
+## Choose your next step
 
-[View full benchmark details →](https://github.com/zeltjs/benchmarks)
-
-## Status
-
-**pre-alpha** — Breaking changes may occur in minor versions during 0.x.
+- [Try ZeltJS in StackBlitz](https://stackblitz.com/fork/github/zeltjs/zelt/tree/main/examples/stackblitz-node?startScript=dev&title=ZeltJS%20Quickstart) — run and edit a small Node.js app in your browser.
+- [Follow Getting Started](./getting-started) — install Zelt locally and choose a runtime.
+- [Understand the Big Picture](./big-picture) — see how app definitions, generated
+  artifacts, adapters, and runtime environments fit together.
+- [Explore a complete example](https://github.com/zeltjs/zelt/tree/main/examples/drizzle-todo) — inspect a backend with Drizzle and tests.

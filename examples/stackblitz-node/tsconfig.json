@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "erasableSyntaxOnly": false,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -1,4 +1,91 @@
 {
+  "homepage.hero.eyebrow": {
+    "message": "TypeScriptバックエンドチームのために"
+  },
+  "homepage.hero.tagline": {
+    "message": "アプリケーションコアを一度作り、適した環境で動かす。"
+  },
+  "homepage.hero.description": {
+    "message": "ZeltJSはWeb標準APIに、DI、ライフサイクル、一貫したアプリケーション構造を加えます。同じコアをNode.js、Bun、Cloudflare Workers、AWS Lambda、プロセス内テストで利用できます。"
+  },
+  "homepage.hero.tryStackblitz": {
+    "message": "StackBlitzで試す"
+  },
+  "homepage.hero.startLocally": {
+    "message": "ローカルで始める"
+  },
+  "homepage.hero.github": {
+    "message": "GitHubでStar"
+  },
+  "homepage.hero.status": {
+    "message": "Pre-alpha · 設計を確認し、APIを試し、変えるべき点を教えてください。"
+  },
+  "homepage.code.title": {
+    "message": "アプリケーションコードを、アプリケーションのために"
+  },
+  "homepage.code.description": {
+    "message": "起動処理を含めずに振る舞いを定義し、小さなエントリーファイルで実行環境を選びます。"
+  },
+  "homepage.features.title": {
+    "message": "ルーティングの先まで扱うフレームワーク"
+  },
+  "homepage.features.applicationStructure.title": {
+    "message": "アプリケーション構造を提供"
+  },
+  "homepage.features.applicationStructure.description": {
+    "message": "DI、設定、ライフサイクル、バリデーション、テストを一つのアプリケーションモデルで扱います。"
+  },
+  "homepage.features.runtimePortability.title": {
+    "message": "一つのコア、複数の実行環境"
+  },
+  "homepage.features.runtimePortability.description": {
+    "message": "アプリの振る舞いを保ったまま、小さなエントリーでNode、Bun、Workers、Lambdaを選べます。"
+  },
+  "homepage.features.productionLikeTests.title": {
+    "message": "テストも一つの実行環境"
+  },
+  "homepage.features.productionLikeTests.description": {
+    "message": "テスト用アダプターで、同じアプリ構成とDIライフサイクルをプロセス内実行します。"
+  },
+  "homepage.features.coldStart.title": {
+    "message": "コールドスタートを意識"
+  },
+  "homepage.features.coldStart.description": {
+    "message": "serverlessとedgeを想定して起動を設計し、ベンチマークを公開しています。"
+  },
+  "homepage.features.webStandard.title": {
+    "message": "Web標準のHTTP"
+  },
+  "homepage.features.webStandard.description": {
+    "message": "独自のHTTP object modelではなく、Request、Response、Fetch APIを使います。"
+  },
+  "homepage.features.derivedContracts.title": {
+    "message": "コードから導出する契約"
+  },
+  "homepage.features.derivedContracts.description": {
+    "message": "任意のpluginがOpenAPI、GraphQL実行用データ、型付きclientをアプリから導出します。"
+  },
+  "homepage.benchmark.title": {
+    "message": "起動速度も無視しないパフォーマンス"
+  },
+  "homepage.benchmark.description": {
+    "message": "ベンチマークの抜粋です。ハードウェア、version、測定方法はリンク先を参照してください。"
+  },
+  "homepage.benchmark.details": {
+    "message": "測定方法と全結果を見る →"
+  },
+  "homepage.install.title": {
+    "message": "選ぶ前に試してみる"
+  },
+  "homepage.install.description": {
+    "message": "ブラウザで動くアプリを開くか、coreと一つのruntime adapterをローカルへインストールします。"
+  },
+  "homepage.install.stackblitz": {
+    "message": "StackBlitzで実行 →"
+  },
+  "homepage.install.docs": {
+    "message": "ZeltJSを理解する →"
+  },
   "theme.navbar.mobileLanguageDropdown.label": {
     "message": "他の言語",
     "description": "The label for the mobile language switcher dropdown"

@@ -1,49 +1,48 @@
+**`app.ts` — portable application core**
+
 ```typescript twoslash
-import { Controller, Get, Post, createApp, http } from '@zeltjs/core';
-import { request } from '@zeltjs/core';
-import { onNode } from '@zeltjs/adapter-node';
-import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
-import { onLambda } from '@zeltjs/adapter-lambda';
-import * as v from 'valibot';
+import { Controller, Get, Injectable, createApp, http, inject } from '@zeltjs/core';
 
-declare const db: { users: { findMany: () => unknown[]; find: (id: string) => unknown; create: (data: unknown) => unknown } };
-// ---cut---
-const UserSchema = v.object({
-  name: v.string(),
-  email: v.pipe(v.string(), v.email()),
-});
-
-@Controller('/users')
-class UserController {
-  @Get('/')
-  list() {
-    return { users: db.users.findMany() };
-  }
-
-  @Get('/:id')
-  findOne(req = request()) {
-    const id = req.pathParam('id');
-    return { user: db.users.find(id) };
-  }
-
-  @Post('/')
-  async create(req = request(UserSchema)) {
-    const data = await req.body();
-    return { user: db.users.create(data) };
+@Injectable()
+class GreetingService {
+  greet() {
+    return 'Hello from ZeltJS!';
   }
 }
 
-const app = createApp([http({ controllers: [UserController] })]);
+@Controller('/')
+class GreetingController {
+  constructor(private greetings = inject(GreetingService)) {}
 
-// Node.js
+  @Get('/')
+  hello() {
+    return { message: this.greetings.greet() };
+  }
+}
+
+export const app = createApp([http({ controllers: [GreetingController] })]);
+```
+
+**Choose a runtime in its entry file**
+
+```typescript twoslash
+import { onNode } from '@zeltjs/adapter-node';
+import { createApp, http } from '@zeltjs/core';
+const app = createApp([http({ controllers: [] })]);
+// ---cut---
+// node.ts — app is imported from ./app
+
 const node = await onNode(app);
-node.http.listen(3000);
+await node.http.listen(3000);
+```
 
-// Cloudflare Workers
-const workers = await onCloudflareWorkers(app);
-export default { fetch: workers.fetch };
+```typescript twoslash
+import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
+import { createApp, http } from '@zeltjs/core';
+const app = createApp([http({ controllers: [] })]);
+// ---cut---
+// worker.ts — the same app is imported from ./app
 
-// Lambda
-const lambda = await onLambda(app);
-export const handler = lambda.handler;
+const worker = await onCloudflareWorkers(app);
+export default { fetch: worker.fetch };
 ```

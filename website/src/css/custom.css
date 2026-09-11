@@ -520,6 +520,15 @@ article .markdown header h1 {
   margin: 0 auto;
 }
 
+.hero__eyebrow {
+  margin-bottom: 0.75rem;
+  color: var(--ifm-color-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .hero__title {
   font-size: 4rem;
   font-weight: 700;
@@ -532,10 +541,18 @@ article .markdown header h1 {
 
 .hero__tagline {
   font-size: 1.5rem;
-  color: var(--ifm-font-color-base);
-  opacity: 0.8;
-  margin-bottom: 2.5rem;
+  color: var(--ifm-heading-color);
+  margin-bottom: 1rem;
   line-height: 1.6;
+}
+
+.hero__description {
+  max-width: 720px;
+  margin: 0 auto 2.5rem;
+  color: var(--ifm-font-color-base);
+  font-size: 1.05rem;
+  line-height: 1.75;
+  opacity: 0.8;
 }
 
 .hero__buttons {
@@ -577,6 +594,13 @@ article .markdown header h1 {
   text-decoration: none;
 }
 
+.hero__status {
+  margin: 1.25rem 0 0;
+  color: var(--ifm-font-color-base);
+  font-size: 0.875rem;
+  opacity: 0.65;
+}
+
 .code-showcase {
   padding: var(--section-padding);
   background-color: var(--ifm-background-surface-color);
@@ -591,7 +615,14 @@ article .markdown header h1 {
   text-align: center;
   font-size: 2rem;
   font-weight: 600;
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.code-showcase__description {
+  margin: 0 auto 2rem;
+  color: var(--ifm-font-color-base);
+  text-align: center;
+  opacity: 0.7;
 }
 
 .code-showcase__code {
@@ -678,7 +709,14 @@ article .markdown header h1 {
 .install__title {
   font-size: 2rem;
   font-weight: 600;
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.install__description {
+  margin: 0 auto 2rem;
+  color: var(--ifm-font-color-base);
+  line-height: 1.7;
+  opacity: 0.75;
 }
 
 .install__commands {
@@ -699,6 +737,13 @@ article .markdown header h1 {
   font-size: 1.125rem;
   font-weight: 500;
   color: var(--ifm-color-primary);
+}
+
+.install__links {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .install__link:hover {
@@ -785,6 +830,14 @@ article .markdown header h1 {
 
   .hero__tagline {
     font-size: 1.125rem;
+  }
+
+  .hero__description {
+    font-size: 0.95rem;
+  }
+
+  .hero__button {
+    width: min(100%, 20rem);
   }
 
   .code-showcase__code {

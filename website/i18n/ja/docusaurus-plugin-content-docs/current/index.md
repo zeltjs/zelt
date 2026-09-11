@@ -1,68 +1,105 @@
 # Introduction
 
-ZeltJSは、DIを組み込んだポータブルなTypeScriptアプリケーションフレームワークです。アダプターを切り替えることで、Node.js、Bun、Cloudflare Workers、AWS Lambdaで動作します。
-異なるインフラで動作する大規模なアプリケーションを構築すること。それがZeltJSの目指すところです。
+ZeltJSは、一貫したバックエンド構造を必要としながら、アプリケーションのコアを
+特定の実行環境に縛りたくないチームのためのTypeScriptアプリケーションフレームワークです。
+コントローラー、サービス、設定などの機能を一度定義し、Node.js、Bun、Cloudflare
+Workers、AWS Lambda、Electron、またはプロセス内テスト用のアダプターで同じアプリを
+実行可能な状態にします。
 
-## 設計思想 {#philosophy}
-
-TypeScriptによるバックエンド開発には、真の意味での「フレームワーク」がほとんど存在しません。HonoやExpressは優れたライブラリですが、アプリケーションフレームワークとしては不十分です。ライブラリは「便利な道具」ですが、フレームワークは「アプリケーションをどう構築するかへの答え」を提供します。DIの仕組み、ディレクトリ構造、認証・バリデーション・ロギングの統合パターン — これら「構築方法への答え」が揃って初めて、開発者は本質的な機能開発に集中できます。
-
-NestJSはフレームワークと呼べる数少ない存在ですが、独自のモジュールシステムとRxJSベースの抽象化を持ち込むため、標準的なTypeScriptの慣習から外れます。起動時の重いメタデータ解析も、サーバーレス環境では非実用的です。
-
-ZeltJSは、アプリケーションの構築方法に悩まなくて済む「フレームワーク」を目指しています。
-そのために、次の5つの方針で構築しています:
-
-- TS-Native — TSがすでに持っているものを再発明しない。import/exportを使い、async/awaitを使い、typesを使う
-- Web-Standard — Request/Response、Fetch APIなどWeb標準に沿う。独自の抽象化はしない
-- Transport-Agnostic — REST/GraphQL/CLI/Queueは単なる異なるエントリポイントに過ぎない。アプリケーションのコアは変わらない
-- Cold-Start Friendly — serverless/Worker/Edgeで動作する。起動コストのペナルティなし
-- Least Astonishment — エコシステムの標準に従う。追加の学習コストなし
-
-## インストール {#installation}
-
-```bash
-pnpm add @zeltjs/core @zeltjs/adapter-node
-```
-
-:::note
-Zeltは**pre-alpha**です — マイナーバージョン間でAPIが変わることがあります。
+:::caution[Pre-alpha]
+ZeltJSは活発に開発中です。0.xの間はマイナーバージョンでAPIが変わる可能性があります。
+調査・試用・フィードバックには利用できますが、安定したAPIと長期サポートが必須の
+アプリケーションには、まだ保守的な選択肢ではありません。
 :::
 
-## クイックサンプル {#quick-example}
+## Zeltが解決する問題 {#the-problem-zelt-addresses}
+
+HTTPルーターを使えば、サービスをすぐに起動できます。しかしサービスが成長すると、
+DI、設定、ライフサイクル、バリデーション、認証、ロギング、バックグラウンド処理、
+テストをどう組み合わせるかもチームで決めなければなりません。これらはルーティングではなく、
+アプリケーション設計の問題です。
+
+Zeltは、そのアプリケーション層を提供しつつ、実行環境との境界を明示します。
+
+- **アプリケーションのコアは振る舞いを記述します。** コントローラー、サービス、各機能は
+  サーバーを起動せず、デプロイ先にも依存しません。
+- **アダプターがアプリを実行可能にします。** 小さなエントリーファイルでNode.js、Bun、
+  Workers、Lambda、Electron、またはテスト環境を選びます。
+- **任意のプラグインが成果物を導出します。** OpenAPI文書、GraphQL実行用データ、
+  型付きクライアントなどをアプリ定義から生成できます。
+
+これは「実行環境固有のコードがゼロになる」という意味ではありません。エントリーファイルと
+インフラ設定は各環境に必要です。Zeltの目的は、それらをアプリ全体へ広げず、境界部分に
+留めることです。
+
+## Zeltが適している場合 {#when-zelt-fits}
+
+次のような場合はZeltを検討できます。
+
+- ルーターだけでなく、フレームワークとしての構造と組み込みDIが必要
+- 本番とプロセス内テストで同じアプリケーションのコアを動かしたい
+- 同じ機能をNode.js、Bun、Workers、Lambda、Electronなどへデプロイする可能性がある
+- HTTP、GraphQL、コマンド、スケジュールジョブなど、複数の入口から振る舞いを提供する
+- OpenAPIや型付きクライアントなど、コードから導出される契約が必要
+
+小さなHTTPハンドラーにルーターだけで十分な場合、アプリ全体を意図的に一つの実行環境へ
+最適化する場合、または成熟したエコシステムと安定したAPIが今すぐ必要な本番システムには、
+Zeltが適さない可能性があります。
+
+## 設計原則 {#design-principles}
+
+- **TypeScriptネイティブ** — 独自のモジュールシステムやリアクティブモデルではなく、
+  module、async/await、型、標準decoratorを使う
+- **HTTP境界ではWeb標準** — 独自のrequest/responseモデルではなく、`Request`、
+  `Response`、Fetch APIを使う
+- **持ち運べるアプリケーションコア** — 実行環境固有の起動処理とインフラを、
+  アダプターや交換可能なサービスへ分離する
+- **明示的な構成** — `createApp([...])` でコントローラーと機能を組み立て、
+  アプリの形がコード上で見えるようにする
+- **コールドスタートを意識** — serverlessやedge環境で使えるよう、起動時の処理を小さく保つ。
+  測定条件と結果は[ベンチマーク](https://github.com/zeltjs/benchmarks)を参照
+
+## 小さなアプリケーション {#a-small-application}
 
 ```typescript
-import { createApp, Controller, Get, http } from '@zeltjs/core';
-import { onNode } from '@zeltjs/adapter-node';
+import { Controller, Get, Injectable, createApp, http, inject } from '@zeltjs/core';
 
-@Controller('/hello')
-class HelloController {
-  @Get('/')
+@Injectable()
+class GreetingService {
   greet() {
-    return { message: 'Hello, World!' };
+    return 'Hello from ZeltJS!';
   }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
-const nodeApp = await onNode(app);
-await nodeApp.http.listen({ port: 3000 });
+@Controller('/')
+class GreetingController {
+  constructor(private greetings = inject(GreetingService)) {}
+
+  @Get('/')
+  hello() {
+    return { message: this.greetings.greet() };
+  }
+}
+
+export const app = createApp([http({ controllers: [GreetingController] })]);
 ```
 
-順を追った説明は[Getting Started](./getting-started)ガイドを参照してください。
+アプリケーション自身は実行環境を選びません。Node.js用のエントリーは数行です。
 
-## ベンチマーク {#benchmark}
+```typescript
+import { onNode } from '@zeltjs/adapter-node';
+import { createApp, http } from '@zeltjs/core';
+const app = createApp([http({ controllers: [] })]);
+// ---cut---
+// node.ts — appは./appからimport
 
-Zeltはランタイム性能とコールドスタート速度のバランスを実現 — サーバーレスに最適です。
+const node = await onNode(app);
+await node.http.listen(3000);
+```
 
-| Framework | Requests/sec | Cold Start (ms) |
-| --------- | -----------: | --------------: |
-| Fastify   |       44,033 |             101 |
-| **Zelt**  |   **37,331** |          **68** |
-| Hono      |       37,262 |              37 |
-| AdonisJS  |       33,548 |             149 |
-| NestJS    |       23,597 |             268 |
+## 次に進む {#choose-your-next-step}
 
-[ベンチマーク詳細 →](https://github.com/zeltjs/benchmarks)
-
-## ステータス {#status}
-
-**pre-alpha** — 0.xの間はマイナーバージョンで破壊的変更が発生することがあります。
+- [StackBlitzでZeltJSを試す](https://stackblitz.com/fork/github/zeltjs/zelt/tree/main/examples/stackblitz-node?startScript=dev&title=ZeltJS%20Quickstart) — ブラウザで小さなNode.jsアプリを実行・編集する
+- [Getting Startedを進める](./getting-started) — ローカルへインストールし、実行環境を選ぶ
+- [全体像を理解する](./big-picture) — アプリ定義、生成物、アダプター、実行環境の関係を見る
+- [完成したサンプルを見る](https://github.com/zeltjs/zelt/tree/main/examples/drizzle-todo) — Drizzleとテストを使うバックエンドを確認する

@@ -1,4 +1,5 @@
 import Link from '@docusaurus/Link';
+import Translate from '@docusaurus/Translate';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import {
   ArrowsPointingInIcon,
@@ -10,45 +11,89 @@ import {
 } from '@heroicons/react/24/outline';
 import Layout from '@theme/Layout';
 import MDXContent from '@theme/MDXContent';
-import type { ComponentType, SVGProps } from 'react';
+import type { ReactNode } from 'react';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import HeroCode from './_hero-code.mdx';
 
 type FeatureItem = {
-  title: string;
-  description: string;
-  Icon: ComponentType<SVGProps<SVGSVGElement>>;
+  id: string;
+  title: ReactNode;
+  description: ReactNode;
+  Icon: typeof GlobeAltIcon;
 };
+
+const stackblitzUrl =
+  'https://stackblitz.com/fork/github/zeltjs/zelt/tree/main/examples/stackblitz-node?startScript=dev&title=ZeltJS%20Quickstart';
 
 const features: FeatureItem[] = [
   {
-    title: 'Run Anywhere',
-    description: 'Node, Bun, Workers, Lambda — portable across runtimes.',
-    Icon: GlobeAltIcon,
-  },
-  {
-    title: 'DI Built-in',
-    description: 'First-class dependency injection, type-safe.',
+    id: 'application-structure',
+    title: (
+      <Translate id="homepage.features.applicationStructure.title">
+        Application structure included
+      </Translate>
+    ),
+    description: (
+      <Translate id="homepage.features.applicationStructure.description">
+        DI, configuration, lifecycle, validation, and testing fit into one application model.
+      </Translate>
+    ),
     Icon: CubeTransparentIcon,
   },
   {
-    title: 'Fast Startup',
-    description: 'Minimal wake-up time, serverless-ready.',
-    Icon: BoltIcon,
+    id: 'runtime-portability',
+    title: (
+      <Translate id="homepage.features.runtimePortability.title">One core, many runtimes</Translate>
+    ),
+    description: (
+      <Translate id="homepage.features.runtimePortability.description">
+        Keep application behavior stable while small entries select Node, Bun, Workers, or Lambda.
+      </Translate>
+    ),
+    Icon: GlobeAltIcon,
   },
   {
-    title: 'Future-proof Decorators',
-    description: 'TC39 & reflect-metadata dual support.',
-    Icon: SparklesIcon,
-  },
-  {
-    title: 'Test-friendly',
-    description: 'DI-based testing, easy mock injection, Testcontainers integration.',
+    id: 'production-like-tests',
+    title: (
+      <Translate id="homepage.features.productionLikeTests.title">
+        Tests are another runtime
+      </Translate>
+    ),
+    description: (
+      <Translate id="homepage.features.productionLikeTests.description">
+        Run the same app composition and DI lifecycle in-process with the test adapter.
+      </Translate>
+    ),
     Icon: BeakerIcon,
   },
   {
-    title: 'Minimal Size',
-    description: 'Tree-shakable, loads only what you need — no unused dependencies.',
+    id: 'cold-start',
+    title: <Translate id="homepage.features.coldStart.title">Cold-start conscious</Translate>,
+    description: (
+      <Translate id="homepage.features.coldStart.description">
+        Startup is designed for serverless and edge workloads, with public benchmarks.
+      </Translate>
+    ),
+    Icon: BoltIcon,
+  },
+  {
+    id: 'web-standard',
+    title: <Translate id="homepage.features.webStandard.title">Web-standard HTTP</Translate>,
+    description: (
+      <Translate id="homepage.features.webStandard.description">
+        Use Request, Response, and Fetch APIs instead of a custom HTTP object model.
+      </Translate>
+    ),
+    Icon: SparklesIcon,
+  },
+  {
+    id: 'derived-contracts',
+    title: <Translate id="homepage.features.derivedContracts.title">Derived contracts</Translate>,
+    description: (
+      <Translate id="homepage.features.derivedContracts.description">
+        Optional plugins derive OpenAPI, GraphQL runtime data, and typed clients from the app.
+      </Translate>
+    ),
     Icon: ArrowsPointingInIcon,
   },
 ];
@@ -59,19 +104,41 @@ function HeroSection() {
   return (
     <section className="hero">
       <div className="hero__container">
+        <p className="hero__eyebrow">
+          <Translate id="homepage.hero.eyebrow">For TypeScript backend teams</Translate>
+        </p>
         <h1 className="hero__title">{siteConfig.title}</h1>
-        <p className="hero__tagline">{siteConfig.tagline}</p>
+        <p className="hero__tagline">
+          <Translate id="homepage.hero.tagline">
+            Build your application core once. Run it where it belongs.
+          </Translate>
+        </p>
+        <p className="hero__description">
+          <Translate id="homepage.hero.description">
+            ZeltJS brings dependency injection, lifecycle, and a consistent application structure to
+            Web Standard APIs. Keep the same core across Node.js, Bun, Cloudflare Workers, AWS
+            Lambda, and in-process tests.
+          </Translate>
+        </p>
         <div className="hero__buttons">
-          <Link className="hero__button hero__button--primary" to="/docs">
-            Documentation
+          <Link className="hero__button hero__button--primary" to={stackblitzUrl}>
+            <Translate id="homepage.hero.tryStackblitz">Try in StackBlitz</Translate>
+          </Link>
+          <Link className="hero__button hero__button--secondary" to="/docs/getting-started/node">
+            <Translate id="homepage.hero.startLocally">Start locally</Translate>
           </Link>
           <Link
             className="hero__button hero__button--secondary"
             to="https://github.com/zeltjs/zelt"
           >
-            Star on GitHub
+            <Translate id="homepage.hero.github">Star on GitHub</Translate>
           </Link>
         </div>
+        <p className="hero__status">
+          <Translate id="homepage.hero.status">
+            Pre-alpha · Explore the design, try the APIs, and tell us what should change.
+          </Translate>
+        </p>
       </div>
     </section>
   );
@@ -81,7 +148,14 @@ function CodeShowcase() {
   return (
     <section className="code-showcase">
       <div className="code-showcase__container">
-        <h2 className="code-showcase__title">Simple, Intuitive API</h2>
+        <h2 className="code-showcase__title">
+          <Translate id="homepage.code.title">Application code stays application code</Translate>
+        </h2>
+        <p className="code-showcase__description">
+          <Translate id="homepage.code.description">
+            Define behavior without startup logic. Choose a runtime in a small entry file.
+          </Translate>
+        </p>
         {/* MDXContent supplies the MDXComponents mapping (twoslashblock → TwoslashBlock);
             rendering the MDX partial bare leaves an unrendered <twoslashblock> element */}
         <MDXContent>
@@ -96,10 +170,12 @@ function FeaturesSection() {
   return (
     <section className="features">
       <div className="features__container">
-        <h2 className="features__title">Why Zelt?</h2>
+        <h2 className="features__title">
+          <Translate id="homepage.features.title">A framework beyond routing</Translate>
+        </h2>
         <div className="features__grid">
           {features.map((feature) => (
-            <div key={feature.title} className="feature-card">
+            <div key={feature.id} className="feature-card">
               <feature.Icon className="feature-card__icon" />
               <h3 className="feature-card__title">{feature.title}</h3>
               <p className="feature-card__description">{feature.description}</p>
@@ -138,18 +214,24 @@ const benchmarkJson = JSON.stringify({
     unit: 'ms',
     data: coldStartData.map(({ name, value }) => ({ name, value })),
   },
-});
+}).replaceAll('<', '\\u003c');
 
 function BenchmarkSection() {
   return (
     <section className="benchmark">
-      <script id="zelt-benchmark-data" type="application/json">
-        {benchmarkJson}
-      </script>
+      <script
+        id="zelt-benchmark-data"
+        type="application/json"
+        dangerouslySetInnerHTML={{ __html: benchmarkJson }}
+      />
       <div className="benchmark__container">
-        <h2 className="benchmark__title">Benchmark</h2>
+        <h2 className="benchmark__title">
+          <Translate id="homepage.benchmark.title">Performance without ignoring startup</Translate>
+        </h2>
         <p className="benchmark__subtitle">
-          Performance comparison with popular TypeScript frameworks
+          <Translate id="homepage.benchmark.description">
+            A benchmark snapshot. See the linked repository for hardware, versions, and methodology.
+          </Translate>
         </p>
         <div className="benchmark__grid">
           <div className="benchmark__card">
@@ -218,7 +300,11 @@ function BenchmarkSection() {
           </div>
         </div>
         <p className="benchmark__footer">
-          <Link to="https://github.com/zeltjs/benchmarks">View full benchmark details →</Link>
+          <Link to="https://github.com/zeltjs/benchmarks">
+            <Translate id="homepage.benchmark.details">
+              View methodology and full results →
+            </Translate>
+          </Link>
         </p>
       </div>
     </section>
@@ -229,13 +315,25 @@ function InstallSection() {
   return (
     <section className="install">
       <div className="install__container">
-        <h2 className="install__title">Get Started in Seconds</h2>
+        <h2 className="install__title">
+          <Translate id="homepage.install.title">Try it before you choose it</Translate>
+        </h2>
+        <p className="install__description">
+          <Translate id="homepage.install.description">
+            Open a working app in your browser, or install the core and one runtime adapter locally.
+          </Translate>
+        </p>
         <div className="install__commands">
-          <code className="install__command">npm install @zeltjs/core</code>
+          <code className="install__command">npm install @zeltjs/core @zeltjs/adapter-node</code>
         </div>
-        <Link className="install__link" to="/docs">
-          Read the Documentation →
-        </Link>
+        <div className="install__links">
+          <Link className="install__link" to={stackblitzUrl}>
+            <Translate id="homepage.install.stackblitz">Run in StackBlitz →</Translate>
+          </Link>
+          <Link className="install__link" to="/docs">
+            <Translate id="homepage.install.docs">Understand ZeltJS →</Translate>
+          </Link>
+        </div>
       </div>
     </section>
   );
