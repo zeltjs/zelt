@@ -3,7 +3,7 @@ import { createApp } from '../../../../app';
 import {
   runInContext,
   ZeltContextNotAvailableError,
-  ZeltMiddlewareResultUnavailableError,
+  ZeltMiddlewareValueUnavailableError,
 } from '../../../../kernel';
 import { http } from '../../http.feature';
 import { MiddlewareWithOptions } from '../../middleware';
@@ -12,10 +12,10 @@ import type { Next } from '../../middleware/middleware.types';
 import { UseMiddleware } from '../../middleware/use-middleware.decorator';
 import { Controller } from '../../routing/controller.decorator';
 import { Get } from '../../routing/http-method.decorator';
-import type { MiddlewareResultOf } from './result-of.lib';
-import { resultOf } from './result-of.lib';
+import type { MiddlewareValueOf } from './middleware-value.lib';
+import { middlewareValue } from './middleware-value.lib';
 
-describe('resultOf', () => {
+describe('middlewareValue', () => {
   it('reads the value a middleware passed to next() from the handler', async () => {
     @Middleware
     class GreetingMiddleware {
@@ -30,7 +30,7 @@ describe('resultOf', () => {
     class GreetController {
       @Get('/')
       get() {
-        return { greeting: resultOf(GreetingMiddleware) };
+        return { greeting: middlewareValue(GreetingMiddleware) };
       }
     }
 
@@ -42,7 +42,7 @@ describe('resultOf', () => {
     expect(await res.json()).toEqual({ greeting: 'hello' });
   });
 
-  it("lets a downstream middleware read an upstream middleware's result via resultOf()", async () => {
+  it("lets a downstream middleware read an upstream middleware's value via middlewareValue()", async () => {
     const seenByDownstream: number[] = [];
 
     @Middleware
@@ -56,7 +56,7 @@ describe('resultOf', () => {
     @Middleware
     class DownstreamMiddleware {
       async use(next: Next): Promise<Response | undefined> {
-        seenByDownstream.push(resultOf(UpstreamMiddleware));
+        seenByDownstream.push(middlewareValue(UpstreamMiddleware));
         await next();
         return undefined;
       }
@@ -83,7 +83,7 @@ describe('resultOf', () => {
     expect(seenByDownstream).toEqual([42]);
   });
 
-  it('does not record a result when next() is called with no arguments', async () => {
+  it('does not record a value when next() is called with no arguments', async () => {
     @Middleware
     class VoidMiddleware {
       async use(next: Next): Promise<Response | undefined> {
@@ -97,7 +97,7 @@ describe('resultOf', () => {
     class VoidController {
       @Get('/')
       get() {
-        expect(() => resultOf(VoidMiddleware)).toThrow(ZeltMiddlewareResultUnavailableError);
+        expect(() => middlewareValue(VoidMiddleware)).toThrow(ZeltMiddlewareValueUnavailableError);
         return { ok: true };
       }
     }
@@ -126,7 +126,7 @@ describe('resultOf', () => {
     class AdminController {
       @Get('/')
       get() {
-        const admin = resultOf(adminAuth);
+        const admin = middlewareValue(adminAuth);
         return { id: admin.id, role: admin.role };
       }
     }
@@ -139,7 +139,7 @@ describe('resultOf', () => {
     expect(await res.json()).toEqual({ id: 1, role: 'admin' });
   });
 
-  it('throws when resultOf() is given a different .with() call than the one applied to the route, even with identical options', async () => {
+  it('throws when middlewareValue() is given a different .with() call than the one applied to the route, even with identical options', async () => {
     type AuthOptions = { role: string };
 
     @Middleware
@@ -157,7 +157,7 @@ describe('resultOf', () => {
     class AdminController {
       @Get('/')
       get() {
-        expect(() => resultOf(unapplied)).toThrow(ZeltMiddlewareResultUnavailableError);
+        expect(() => middlewareValue(unapplied)).toThrow(ZeltMiddlewareValueUnavailableError);
         return { ok: true };
       }
     }
@@ -179,9 +179,11 @@ describe('resultOf', () => {
     }
 
     runInContext(() => {
-      expect(() => resultOf(UnappliedMiddleware)).toThrow(ZeltMiddlewareResultUnavailableError);
-      expect(() => resultOf(UnappliedMiddleware)).toThrow(/UnappliedMiddleware/);
-      expect(() => resultOf(UnappliedMiddleware)).toThrow(/@UseMiddleware/);
+      expect(() => middlewareValue(UnappliedMiddleware)).toThrow(
+        ZeltMiddlewareValueUnavailableError,
+      );
+      expect(() => middlewareValue(UnappliedMiddleware)).toThrow(/UnappliedMiddleware/);
+      expect(() => middlewareValue(UnappliedMiddleware)).toThrow(/@UseMiddleware/);
     });
   });
 
@@ -194,7 +196,7 @@ describe('resultOf', () => {
       }
     }
 
-    expect(() => resultOf(SomeMiddleware)).toThrow(ZeltContextNotAvailableError);
+    expect(() => middlewareValue(SomeMiddleware)).toThrow(ZeltContextNotAvailableError);
   });
 
   it('infers the value type from a middleware exposing Next<T>', () => {
@@ -204,7 +206,7 @@ describe('resultOf', () => {
       }
     }
 
-    expectTypeOf<MiddlewareResultOf<InstanceType<typeof _TypedMiddleware>>>().toEqualTypeOf<{
+    expectTypeOf<MiddlewareValueOf<InstanceType<typeof _TypedMiddleware>>>().toEqualTypeOf<{
       id: number;
     }>();
   });
@@ -216,7 +218,7 @@ describe('resultOf', () => {
       }
     }
 
-    expectTypeOf<MiddlewareResultOf<InstanceType<typeof _VoidMiddleware>>>().toBeNever();
+    expectTypeOf<MiddlewareValueOf<InstanceType<typeof _VoidMiddleware>>>().toBeNever();
   });
 
   it('treats Next<undefined> as a value contract, not as the value-less Next', () => {
@@ -227,11 +229,11 @@ describe('resultOf', () => {
     }
 
     expectTypeOf<
-      MiddlewareResultOf<InstanceType<typeof _ExplicitUndefinedMiddleware>>
+      MiddlewareValueOf<InstanceType<typeof _ExplicitUndefinedMiddleware>>
     >().toEqualTypeOf<undefined>();
   });
 
-  it('records an explicit undefined passed to next() and exposes it via resultOf()', async () => {
+  it('records an explicit undefined passed to next() and exposes it via middlewareValue()', async () => {
     let readValue: unknown = 'not-read';
 
     @Middleware
@@ -247,7 +249,7 @@ describe('resultOf', () => {
     class ExplicitUndefinedController {
       @Get('/')
       get() {
-        readValue = resultOf(ExplicitUndefinedMiddleware);
+        readValue = middlewareValue(ExplicitUndefinedMiddleware);
         return { ok: true };
       }
     }

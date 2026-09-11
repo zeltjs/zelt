@@ -92,7 +92,7 @@ class ProfileController {
 
 `currentUser()` always returns `Record<string, unknown> | undefined` — the shape passed to `setUser()` isn't tracked at the type level, so reading a specific field requires a manual assertion or narrowing.
 
-For a value with a concrete, narrowed type available to handlers, provide it through a middleware instead: declare it with `Next<T>` and pass it to `next(value)`, then read it with `resultOf(M)`. See [Middleware Results](../middleware.md#middleware-results) for details.
+For a value with a concrete, narrowed type available to handlers, provide it through a middleware instead: declare it with `Next<T>` and pass it to `next(value)`, then read it with `middlewareValue(M)`. See [Middleware Values](../middleware.md#middleware-values) for details.
 
 ## User Design Best Practices
 

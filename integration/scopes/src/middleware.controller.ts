@@ -1,5 +1,5 @@
 import type { Next } from '@zeltjs/core';
-import { Controller, Get, Middleware, request, resultOf, UseMiddleware } from '@zeltjs/core';
+import { Controller, Get, Middleware, middlewareValue, request, UseMiddleware } from '@zeltjs/core';
 
 type RequestIdentity = {
   requestId: string;
@@ -19,13 +19,13 @@ export class AssignIdMiddleware {
 }
 
 // Class middleware: appends a tag to the chain. Demonstrates that multiple
-// middlewares can read the same upstream result (via resultOf) and mutate
+// middlewares can read the same upstream value (via middlewareValue) and mutate
 // the shared array without leaking across requests, because the store is
 // request-scoped (AsyncLocalStorage).
 @Middleware
 export class AppendStageOneMiddleware {
   async use(next: Next<string>): Promise<Response | undefined> {
-    const { chain } = resultOf(AssignIdMiddleware);
+    const { chain } = middlewareValue(AssignIdMiddleware);
     chain.push('stage-one');
     await next('stage-one');
     return undefined;
@@ -35,7 +35,7 @@ export class AppendStageOneMiddleware {
 @Middleware
 export class AppendStageTwoMiddleware {
   async use(next: Next<string>): Promise<Response | undefined> {
-    const { chain } = resultOf(AssignIdMiddleware);
+    const { chain } = middlewareValue(AssignIdMiddleware);
     chain.push('stage-two');
     await next('stage-two');
     return undefined;
@@ -62,12 +62,12 @@ export class MiddlewareController {
   @Get('/context')
   read(req = request()) {
     const id = req.queryParam('id');
-    const { requestId, chain } = resultOf(AssignIdMiddleware);
+    const { requestId, chain } = middlewareValue(AssignIdMiddleware);
     return {
       idFromQuery: id,
       requestId,
       // The last middleware in the chain provides the tag the handler reads.
-      middlewareTag: resultOf(AppendStageTwoMiddleware),
+      middlewareTag: middlewareValue(AppendStageTwoMiddleware),
       middlewareChain: chain,
     };
   }
@@ -75,10 +75,10 @@ export class MiddlewareController {
   @Get('/fail-safe')
   @UseMiddleware(ConditionalFailMiddleware)
   failSafe() {
-    const { requestId, chain } = resultOf(AssignIdMiddleware);
+    const { requestId, chain } = middlewareValue(AssignIdMiddleware);
     return {
       requestId,
-      middlewareTag: resultOf(AppendStageTwoMiddleware),
+      middlewareTag: middlewareValue(AppendStageTwoMiddleware),
       middlewareChain: chain,
     };
   }

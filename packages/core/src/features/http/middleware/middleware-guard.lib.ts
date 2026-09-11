@@ -4,7 +4,7 @@ import { findTargetHandler } from 'hono/utils/handler';
 
 import type { ResolverHandle } from '../../../kernel';
 import { createContextKey, getInternal, setInternal } from '../../../kernel';
-import { recordMiddlewareOptions, recordMiddlewareResult } from '../request/injection';
+import { recordMiddlewareOptions, recordMiddlewareValue } from '../request/injection';
 import type { HonoMiddleware, MiddlewareIdentifier, MiddlewareInput } from './middleware.types';
 
 const SKIPPED_MIDDLEWARES = Symbol('zelt:skipped-middlewares');
@@ -32,17 +32,17 @@ export const middlewareIdentity = (input: MiddlewareInput): MiddlewareIdentifier
 
 // Wraps Hono's zero-arg next() so middleware can pass a value through
 // next(value); arguments.length distinguishes an explicit next(undefined) — a
-// legitimate Next<undefined> contract — from a bare next(). Results are keyed
+// legitimate Next<undefined> contract — from a bare next(). Values are keyed
 // by the registered value itself: for a binding, the bound object, never its
 // class, which would collide two bindings of the same class.
 /** @throws {ZeltContextNotAvailableError} */
-const captureNextResult = (
+const captureNextValue = (
   key: MiddlewareInput,
   next: () => Promise<void>,
 ): ((...args: unknown[]) => Promise<void>) => {
   return async (...args: unknown[]) => {
     if (args.length > 0) {
-      recordMiddlewareResult(key, args[0]);
+      recordMiddlewareValue(key, args[0]);
     }
     await next();
   };
@@ -58,7 +58,7 @@ export const resolveMiddleware = (
       throw new TypeError('Invalid middleware class. Missing use() method.');
     }
     const instance = resolver.get(middleware);
-    return async (_c, next) => await instance.use(captureNextResult(middleware, next));
+    return async (_c, next) => await instance.use(captureNextValue(middleware, next));
   }
   if (!checkMiddlewareClass(middleware.middleware)) {
     throw new TypeError('Invalid middleware class. Missing use() method.');
@@ -69,7 +69,7 @@ export const resolveMiddleware = (
     // use() call, not just after next() — see its doc for why.
     const restoreOptions = recordMiddlewareOptions(middleware.middleware, middleware.options);
     try {
-      return await instance.use(captureNextResult(middleware, next));
+      return await instance.use(captureNextValue(middleware, next));
     } finally {
       restoreOptions();
     }

@@ -15,7 +15,7 @@ import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-head
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
 import { registerAfterResponseCallback } from './request';
-import { optionsOf, request, resultOf } from './request/injection';
+import { middlewareOptions, middlewareValue, request } from './request/injection';
 import { response } from './response';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
@@ -136,7 +136,7 @@ describe('createApp() — fetch', () => {
       async get(req = request()) {
         return {
           body: await req.body(),
-          requestId: resultOf(TagMiddleware),
+          requestId: middlewareValue(TagMiddleware),
           url: req.url(),
         };
       }
@@ -148,13 +148,13 @@ describe('createApp() — fetch', () => {
       async get(req = request()) {
         const outerBefore = {
           body: await req.body(),
-          requestId: resultOf(TagMiddleware),
+          requestId: middlewareValue(TagMiddleware),
           url: req.url(),
         };
         const res = await fetchInner();
         const outerAfter = {
           body: await req.body(),
-          requestId: resultOf(TagMiddleware),
+          requestId: middlewareValue(TagMiddleware),
           url: req.url(),
         };
         return { inner: await res.json(), outerAfter, outerBefore };
@@ -736,7 +736,7 @@ describe('middleware', () => {
     class TestController {
       @Get('/')
       get() {
-        return { value: resultOf(DIMiddleware) };
+        return { value: middlewareValue(DIMiddleware) };
       }
     }
 
@@ -747,7 +747,7 @@ describe('middleware', () => {
     expect(await res.json()).toEqual({ value: 'injected-value' });
   });
 
-  it('middleware can pass a typed result to the handler via resultOf()', async () => {
+  it('middleware can pass a typed value to the handler via middlewareValue()', async () => {
     @Middleware
     class SetUserMiddleware {
       async use(next: Next<{ id: number; name: string }>): Promise<Response | undefined> {
@@ -760,7 +760,7 @@ describe('middleware', () => {
     class TestController {
       @Get('/')
       get() {
-        const user = resultOf(SetUserMiddleware);
+        const user = middlewareValue(SetUserMiddleware);
         return { userId: user.id, userName: user.name };
       }
     }
@@ -1818,7 +1818,7 @@ describe('warmup option', () => {
     @Middleware
     class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
       async use(next: Next, res = response()): Promise<Response | undefined> {
-        const options = optionsOf(RateLimitMiddleware);
+        const options = middlewareOptions(RateLimitMiddleware);
         res.header('X-RateLimit-Limit', String(options.limit));
         res.header('X-RateLimit-Window', String(options.windowSec));
         await next();
@@ -1849,14 +1849,14 @@ describe('warmup option', () => {
     await readyApp.shutdown();
   });
 
-  it('applies a binding with @UseMiddleware and reads its result via the shared const, as documented', async () => {
+  it('applies a binding with @UseMiddleware and reads its value via the shared const, as documented', async () => {
     type AuthOptions = { role: string };
 
     @Middleware
     class UserAuthMiddleware extends MiddlewareWithOptions<AuthOptions> {
       async use(
         next: Next<{ id: number; role: string }>,
-        opts = optionsOf(UserAuthMiddleware),
+        opts = middlewareOptions(UserAuthMiddleware),
       ): Promise<Response | undefined> {
         await next({ id: 1, role: opts.role });
         return undefined;
@@ -1869,7 +1869,7 @@ describe('warmup option', () => {
     @Controller('/admin')
     class AdminController {
       @Get('/me')
-      me(admin = resultOf(adminAuth)) {
+      me(admin = middlewareValue(adminAuth)) {
         return { id: admin.id, role: admin.role };
       }
     }

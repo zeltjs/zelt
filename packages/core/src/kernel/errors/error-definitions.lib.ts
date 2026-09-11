@@ -65,15 +65,15 @@ export const coreErrorDefinitions = {
     middlewareName: string;
   }) => `next() called multiple times in middleware '${ctx.middlewareName}'`,
 
-  ZeltMiddlewareResultUnavailableError: (ctx: { middlewareName: string }) =>
-    `No result available for middleware '${ctx.middlewareName}'. It is not applied to this route, ` +
+  ZeltMiddlewareValueUnavailableError: (ctx: { middlewareName: string }) =>
+    `No value available for middleware '${ctx.middlewareName}'. It is not applied to this route, ` +
     `or it has not run yet. Apply it with @UseMiddleware(${ctx.middlewareName}) before calling ` +
-    `resultOf(${ctx.middlewareName}).`,
+    `middlewareValue(${ctx.middlewareName}).`,
 
   ZeltMiddlewareOptionsUnavailableError: (ctx: { middlewareName: string }) =>
     `No options available for middleware '${ctx.middlewareName}'. It is not applied via ` +
     `${ctx.middlewareName}.with(options) on this route, or it has not run yet. Apply it with ` +
-    `@UseMiddleware(${ctx.middlewareName}.with(options)) before calling optionsOf(${ctx.middlewareName}).`,
+    `@UseMiddleware(${ctx.middlewareName}.with(options)) before calling middlewareOptions(${ctx.middlewareName}).`,
 
   ZeltNotImplementedError: (ctx: { className: string; methodName: string }) =>
     `${ctx.className}.${ctx.methodName}() not implemented`,

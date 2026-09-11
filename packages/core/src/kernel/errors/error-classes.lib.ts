@@ -43,12 +43,12 @@ export const ZeltMiddlewareExecutionError = defineError(
 );
 export type ZeltMiddlewareExecutionError = InstanceType<typeof ZeltMiddlewareExecutionError>;
 
-export const ZeltMiddlewareResultUnavailableError = defineError(
-  'ZeltMiddlewareResultUnavailableError',
-  coreErrorDefinitions.ZeltMiddlewareResultUnavailableError,
+export const ZeltMiddlewareValueUnavailableError = defineError(
+  'ZeltMiddlewareValueUnavailableError',
+  coreErrorDefinitions.ZeltMiddlewareValueUnavailableError,
 );
-export type ZeltMiddlewareResultUnavailableError = InstanceType<
-  typeof ZeltMiddlewareResultUnavailableError
+export type ZeltMiddlewareValueUnavailableError = InstanceType<
+  typeof ZeltMiddlewareValueUnavailableError
 >;
 
 export const ZeltMiddlewareOptionsUnavailableError = defineError(

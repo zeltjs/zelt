@@ -12,18 +12,18 @@ import { Middleware } from '../../middleware/middleware.decorator';
 import type { Next } from '../../middleware/middleware.types';
 import { Controller } from '../../routing/controller.decorator';
 import { Get } from '../../routing/http-method.decorator';
-import { optionsOf } from './options-of.lib';
+import { middlewareOptions } from './middleware-options.lib';
 
 type RateLimitOptions = { limit: number; windowSec: number };
 
-describe('optionsOf', () => {
+describe('middlewareOptions', () => {
   it('reads the options a middleware was bound with, from inside its own use()', async () => {
     const seen: RateLimitOptions[] = [];
 
     @Middleware
     class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
       async use(next: Next): Promise<Response | undefined> {
-        seen.push(optionsOf(RateLimitMiddleware));
+        seen.push(middlewareOptions(RateLimitMiddleware));
         await next();
         return undefined;
       }
@@ -56,7 +56,7 @@ describe('optionsOf', () => {
     @Middleware
     class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
       async use(next: Next): Promise<Response | undefined> {
-        seen.push(optionsOf(RateLimitMiddleware));
+        seen.push(middlewareOptions(RateLimitMiddleware));
         await next();
         return undefined;
       }
@@ -113,9 +113,9 @@ describe('optionsOf', () => {
     @Middleware
     class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
       async use(next: Next): Promise<Response | undefined> {
-        seenBefore.push(optionsOf(RateLimitMiddleware));
+        seenBefore.push(middlewareOptions(RateLimitMiddleware));
         await next();
-        seenAfter.push(optionsOf(RateLimitMiddleware));
+        seenAfter.push(middlewareOptions(RateLimitMiddleware));
         return undefined;
       }
     }
@@ -167,9 +167,11 @@ describe('optionsOf', () => {
     }
 
     runInContext(() => {
-      expect(() => optionsOf(UnboundMiddleware)).toThrow(ZeltMiddlewareOptionsUnavailableError);
-      expect(() => optionsOf(UnboundMiddleware)).toThrow(/UnboundMiddleware/);
-      expect(() => optionsOf(UnboundMiddleware)).toThrow(/\.with\(/);
+      expect(() => middlewareOptions(UnboundMiddleware)).toThrow(
+        ZeltMiddlewareOptionsUnavailableError,
+      );
+      expect(() => middlewareOptions(UnboundMiddleware)).toThrow(/UnboundMiddleware/);
+      expect(() => middlewareOptions(UnboundMiddleware)).toThrow(/\.with\(/);
     });
   });
 
@@ -181,21 +183,24 @@ describe('optionsOf', () => {
       }
     }
 
-    expect(() => optionsOf(SomeMiddleware)).toThrow(ZeltContextNotAvailableError);
+    expect(() => middlewareOptions(SomeMiddleware)).toThrow(ZeltContextNotAvailableError);
   });
 
-  it('supports the self-referencing default-parameter idiom (opts = optionsOf(Self)), unannotated as documented', async () => {
+  it('supports the self-referencing default-parameter idiom (opts = middlewareOptions(Self)), unannotated as documented', async () => {
     const seen: RateLimitOptions[] = [];
 
     @Middleware
     class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
       // No parameter type annotation, matching website/docs/middleware.md
-      // exactly. This only type-checks because optionsOf()'s parameter
+      // exactly. This only type-checks because middlewareOptions()'s parameter
       // constraint doesn't require use() to exist (see MiddlewareOptionsClass
       // in middleware-with-options.lib.ts) — requiring it here would make TS
       // resolve this very use() signature while checking that constraint,
       // which is circular.
-      async use(next: Next, opts = optionsOf(RateLimitMiddleware)): Promise<Response | undefined> {
+      async use(
+        next: Next,
+        opts = middlewareOptions(RateLimitMiddleware),
+      ): Promise<Response | undefined> {
         seen.push(opts);
         await next();
         return undefined;
