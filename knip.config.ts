@@ -64,6 +64,12 @@ const config: KnipConfig = {
       entry: ['src/worker.ts', 'src/app.ts', 'src/controllers.ts', 'src/url/*.ts', 'src/env.ts'],
       ignoreDependencies: ['@zeltjs/core', '@zeltjs/validator-valibot', 'valibot', 'wrangler'],
     },
+    'examples/stackblitz-node': {
+      entry: ['src/server.ts!'],
+      // @zeltjs/adapter-node@0.11.0 exposes @hono/node-server declarations that reference ws.
+      // Keep the runtime package and its declarations explicit until the published package owns them.
+      ignoreDependencies: ['ws', '@types/ws'],
+    },
     'packages/decorator-metadata': {
       // Test fixtures are imported dynamically in tests, not statically analyzable
       ignore: ['src/test/fixtures/**'],

@@ -1,4 +1,88 @@
 {
+  "homepage.hero.tagline": {
+    "message": "DIを備えたTypeScriptバックエンドフレームワーク"
+  },
+  "homepage.hero.description": {
+    "message": "コントローラーやサービスの定義と、サーバーの起動処理を分けて記述します。Node.js、Bun、Cloudflare Workers、AWS Lambda、Electron、プロセス内テスト用のアダプターを提供しています。"
+  },
+  "homepage.hero.tryStackblitz": {
+    "message": "StackBlitzで試す"
+  },
+  "homepage.hero.startLocally": {
+    "message": "ローカルで試す"
+  },
+  "homepage.hero.github": {
+    "message": "GitHubでスター"
+  },
+  "homepage.hero.status": {
+    "message": "Pre-alpha · 0.xの間はAPIが変更される可能性があります。"
+  },
+  "homepage.code.title": {
+    "message": "アプリの定義と起動処理"
+  },
+  "homepage.code.description": {
+    "message": "コントローラーとサービスはアプリ定義に記述します。実行環境ごとのエントリーファイルがサーバーを起動します。"
+  },
+  "homepage.features.title": {
+    "message": "主な機能"
+  },
+  "homepage.features.applicationStructure.title": {
+    "message": "DIとライフサイクル"
+  },
+  "homepage.features.applicationStructure.description": {
+    "message": "サービス、設定、ライフサイクルフック、バリデーション、テストで同じDIコンテナーを使います。"
+  },
+  "homepage.features.runtimePortability.title": {
+    "message": "実行環境別のアダプター"
+  },
+  "homepage.features.runtimePortability.description": {
+    "message": "Node.js、Bun、Cloudflare Workers、AWS Lambda、Electronでアプリを起動できます。"
+  },
+  "homepage.features.productionLikeTests.title": {
+    "message": "プロセス内テスト"
+  },
+  "homepage.features.productionLikeTests.description": {
+    "message": "テスト用アダプターで、ネットワークポートを開かずにアプリとDIライフサイクルを実行します。"
+  },
+  "homepage.features.coldStart.title": {
+    "message": "起動性能"
+  },
+  "homepage.features.coldStart.description": {
+    "message": "公開ベンチマークでスループットとコールドスタート時間を比較できます。"
+  },
+  "homepage.features.webStandard.title": {
+    "message": "Web標準API"
+  },
+  "homepage.features.webStandard.description": {
+    "message": "独自のHTTP object modelではなく、Request、Response、Fetch APIを使います。"
+  },
+  "homepage.features.derivedContracts.title": {
+    "message": "API関連ファイルの生成"
+  },
+  "homepage.features.derivedContracts.description": {
+    "message": "任意のプラグインでOpenAPI文書、GraphQL実行用データ、型付きクライアントを生成できます。"
+  },
+  "homepage.benchmark.title": {
+    "message": "ベンチマーク"
+  },
+  "homepage.benchmark.description": {
+    "message": "ZeltJSのベンチマークで測定したスループットとコールドスタート時間です。ハードウェア、バージョン、測定方法も公開しています。"
+  },
+  "homepage.benchmark.details": {
+    "message": "測定方法と全結果を見る →"
+  },
+  "homepage.install.title": {
+    "message": "ZeltJSを試す"
+  },
+  "homepage.install.description": {
+    "message": "StackBlitzでNode.jsのサンプルを実行するか、セットアップガイドに沿ってローカルで起動できます。"
+  },
+  "homepage.install.stackblitz": {
+    "message": "StackBlitzで実行 →"
+  },
+  "homepage.install.docs": {
+    "message": "ドキュメントを読む →"
+  },
   "theme.navbar.mobileLanguageDropdown.label": {
     "message": "他の言語",
     "description": "The label for the mobile language switcher dropdown"
