@@ -7,21 +7,21 @@ Zeltは `@zeltjs/core` を通じて、依存性の注入付きのCLIコマンド
 
 ## Commandの作成 {#creating-a-command}
 
-型安全なCLIコマンドのために、`@Command` デコレータを `cliSchema()` と `args()` とともに使います:
+`cliSchema()` でモジュールレベルの定数としてスキーマを定義し、それを `@Command` デコレータを付けたクラス内で `args()` に渡すことで、型安全なCLIコマンドを作ります:
 
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
+
+const greetSchema = cliSchema({
+  args: [{ name: 'name', type: 'string' }],
+});
 
 @Command({
   name: 'greet',
   description: 'Greet a user',
 })
 export class GreetCommand {
-  static schema = cliSchema({
-    args: [{ name: 'name', type: 'string' }],
-  });
-
-  run(ctx = args(GreetCommand)) {
+  run(ctx = args(greetSchema)) {
     console.log(`Hello, ${ctx.name}!`);
   }
 }
@@ -35,10 +35,11 @@ CLI用の `src/cli.ts` エントリポイントを作成します:
 import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
+const greetSchema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
+
 @Command({ name: 'greet', description: 'Greet a user' })
 class GreetCommand {
-  static schema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
-  run(ctx = args(GreetCommand)) { console.log(`Hello, ${ctx.name}!`); }
+  run(ctx = args(greetSchema)) { console.log(`Hello, ${ctx.name}!`); }
 }
 // ---cut---
 const app = createApp([command([GreetCommand])]);
@@ -77,23 +78,23 @@ zelt run -c ./config/zelt.config.ts greet Alice
 
 ## スキーマ定義 {#schema-definition}
 
-`cliSchema()` 関数は、型付きの引数とオプションを定義します:
+`cliSchema()` 関数は、型付きの引数とオプションを定義します。戻り値は単なる値なので、独立したモジュール(例: `greet-schema.lib.ts`)に宣言し、commandにimportして `args()` に渡します。argvは `args(schema)` が呼び出された時にだけパース・検証されます — `args()` を呼ばないcommandは余分なargvを受け取ってもエラーになりません。
 
 ### 位置引数 {#positional-arguments}
 
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
 // ---cut---
+const copySchema = cliSchema({
+  args: [
+    { name: 'source', type: 'string' },
+    { name: 'destination', type: 'string' },
+  ],
+});
+
 @Command({ name: 'copy' })
 export class CopyCommand {
-  static schema = cliSchema({
-    args: [
-      { name: 'source', type: 'string' },
-      { name: 'destination', type: 'string' },
-    ],
-  });
-
-  run(ctx = args(CopyCommand)) {
+  run(ctx = args(copySchema)) {
     console.log(`Copying ${ctx.source} to ${ctx.destination}`);
   }
 }
@@ -104,16 +105,16 @@ export class CopyCommand {
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
 // ---cut---
+const buildSchema = cliSchema({
+  options: [
+    { name: 'watch', type: 'boolean', alias: 'w' },
+    { name: 'outDir', type: 'string', alias: 'o', default: 'dist' },
+  ],
+});
+
 @Command({ name: 'build' })
 export class BuildCommand {
-  static schema = cliSchema({
-    options: [
-      { name: 'watch', type: 'boolean', alias: 'w' },
-      { name: 'outDir', type: 'string', alias: 'o', default: 'dist' },
-    ],
-  });
-
-  run(ctx = args(BuildCommand)) {
+  run(ctx = args(buildSchema)) {
     if (ctx.watch) {
       console.log('Watching for changes...');
     }
@@ -133,19 +134,19 @@ zelt run build -w -o out
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
 // ---cut---
+const deploySchema = cliSchema({
+  args: [
+    { name: 'environment', type: 'string' },
+  ],
+  options: [
+    { name: 'dryRun', type: 'boolean' },
+    { name: 'tag', type: 'string' },
+  ],
+});
+
 @Command({ name: 'deploy' })
 export class DeployCommand {
-  static schema = cliSchema({
-    args: [
-      { name: 'environment', type: 'string' },
-    ],
-    options: [
-      { name: 'dryRun', type: 'boolean' },
-      { name: 'tag', type: 'string' },
-    ],
-  });
-
-  run(ctx = args(DeployCommand)) {
+  run(ctx = args(deploySchema)) {
     const { environment, dryRun, tag } = ctx;
 
     if (dryRun) {
@@ -232,22 +233,56 @@ Commandは依存性の注入をサポートします:
 import { Command, cliSchema, args, inject } from '@zeltjs/core';
 declare class DatabaseService { runMigrations(): Promise<void>; }
 // ---cut---
+const migrateSchema = cliSchema({
+  options: [
+    { name: 'force', type: 'boolean' },
+  ],
+});
+
 @Command({ name: 'migrate' })
 export class MigrateCommand {
-  static schema = cliSchema({
-    options: [
-      { name: 'force', type: 'boolean' },
-    ],
-  });
-
   constructor(private readonly db = inject(DatabaseService)) {}
 
-  async run(ctx = args(MigrateCommand)) {
+  async run(ctx = args(migrateSchema)) {
     if (ctx.force) {
       console.log('Force migration enabled');
     }
     await this.db.runMigrations();
     console.log('Migrations completed');
+  }
+}
+```
+
+### `inject()` と `args()` の呼び出し場所 {#where-to-call-inject-and-args}
+
+`inject()` はconstructorで、`args()` は `run()` のデフォルト引数として呼び出します。`args()` が読み取るcommand contextは `run()` の実行中にしか存在しないため、constructorで `args()` を呼ぶと `ZeltContextNotAvailableError` がthrowされます。
+
+```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
+const greetSchema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
+
+@Command({ name: 'greet' })
+export class GreetCommand {
+  // ❌ まだcommand contextが無い — ZeltContextNotAvailableErrorがthrowされる
+  constructor(private readonly ctx = args(greetSchema)) {}
+
+  run() {
+    console.log(`Hello, ${this.ctx.name}!`);
+  }
+}
+```
+
+```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
+const greetSchema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
+
+@Command({ name: 'greet' })
+export class GreetCommand {
+  // ✅ run()はcommand context内で実行される
+  run(ctx = args(greetSchema)) {
+    console.log(`Hello, ${ctx.name}!`);
   }
 }
 ```
@@ -259,10 +294,12 @@ Commandは `onNode()` を使ってプログラムから実行できます:
 ```typescript
 import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
+
+const migrateSchema = cliSchema({ options: [{ name: 'force', type: 'boolean' }] });
+
 @Command({ name: 'migrate' })
 class MigrateCommand {
-  static schema = cliSchema({ options: [{ name: 'force', type: 'boolean' }] });
-  run(ctx = args(MigrateCommand)) {}
+  run(ctx = args(migrateSchema)) {}
 }
 // ---cut---
 const app = createApp([command([MigrateCommand])]);

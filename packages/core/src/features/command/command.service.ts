@@ -10,8 +10,7 @@ import {
 import type { CommandClass } from './command.types';
 import { getCommandMetadata } from './definition';
 import type { ExecResult } from './exec-result.types';
-import { bindCommandInput, runInCommandContext } from './input';
-import type { SchemaDefinition } from './input/command-schema.types';
+import { runInCommandContext } from './input';
 
 export type CommandRegistry = ReadonlyMap<string, CommandClass>;
 
@@ -65,26 +64,19 @@ export class CommandService {
     commandName: string,
     argv: readonly string[],
   ): Promise<ExecResult> {
-    const commandWithOptionalSchema: { schema?: SchemaDefinition } = CommandClass;
-    const schema = commandWithOptionalSchema.schema ?? { args: [], options: [] };
-    const parseResult = bindCommandInput(argv, schema);
-    if (!parseResult.ok) {
-      return {
-        exitCode: 1 as const,
-        reason: new ZeltCommandExecutionError({
-          reason: 'argv_parse_error',
-          commandName,
-          details: parseResult.error,
-        }),
-      };
-    }
-
     try {
       const instance = resolve(this.container, CommandClass);
-      const result = runInCommandContext({ parsedArgs: parseResult.parsed }, () => instance.run());
+      const result = runInCommandContext({ commandName, argv }, () => instance.run());
       await Promise.resolve(result);
       return { exitCode: 0 as const };
     } catch (e: unknown) {
+      // Only args()'s own argv_parse_error passes through verbatim, since it already
+      // carries the right commandName/details. Any other ZeltCommandExecutionError
+      // (including one a user throws from inside run()) still goes through the
+      // run_error branch below so it keeps the current commandName and cause.
+      if (e instanceof ZeltCommandExecutionError && e.context.reason === 'argv_parse_error') {
+        return { exitCode: 1 as const, reason: e };
+      }
       const details = e instanceof Error ? e.message : String(e);
       const cause = e instanceof Error ? e : undefined;
       return {

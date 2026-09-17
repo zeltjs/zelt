@@ -1,8 +1,19 @@
+import { ZeltCommandExecutionError } from '../../../../kernel';
 import type { InferSchema, SchemaDefinition } from '../command-schema.types';
-import { getCommandContext } from '../index';
+import { bindCommandInput, getCommandContext } from '../index';
 
-type CommandWithSchema = { schema: SchemaDefinition };
+/** @throws {ZeltContextNotAvailableError | ZeltCommandExecutionError} */
+export const args = <S extends SchemaDefinition>(schema: S): InferSchema<S> => {
+  const { commandName, argv } = getCommandContext();
 
-/** @throws {ZeltContextNotAvailableError} */
-export const args = <T extends CommandWithSchema>(_commandClass: T): InferSchema<T['schema']> =>
-  getCommandContext().parsedArgs as InferSchema<T['schema']>;
+  const parseResult = bindCommandInput(argv, schema);
+  if (!parseResult.ok) {
+    throw new ZeltCommandExecutionError({
+      reason: 'argv_parse_error',
+      commandName,
+      details: parseResult.error,
+    });
+  }
+
+  return parseResult.parsed as InferSchema<S>;
+};
