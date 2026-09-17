@@ -7,15 +7,13 @@ Zelt provides a type-safe configuration system using the `@Config` decorator and
 
 ## Defining Configuration
 
-Use the `@Config` decorator to define a configuration class. Each config class must have a static `Token` property:
+Use the `@Config` decorator to define a configuration class:
 
 ```typescript
 import { Config, Env, inject } from '@zeltjs/core';
 
 @Config
 export class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
-
   constructor(private env = inject(Env)) {}
 
   get host() {
@@ -41,7 +39,6 @@ import { Injectable, inject, Config, Env } from '@zeltjs/core';
 
 @Config
 class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
   constructor(private env = inject(Env)) {}
   get host() { return this.env.getString('DATABASE_HOST', 'localhost'); }
   get port() { return this.env.getNumber('DATABASE_PORT', 5432); }
@@ -67,7 +64,6 @@ import { createApp, Config, Env, inject, Controller, Get, http } from '@zeltjs/c
 
 @Config
 class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
   constructor(private env = inject(Env)) {}
   get host() { return this.env.getString('DATABASE_HOST', 'localhost'); }
   get port() { return this.env.getNumber('DATABASE_PORT', 5432); }
@@ -89,7 +85,6 @@ import { Config, createApp, Env, inject, http } from '@zeltjs/core';
 declare class AppController {}
 @Config
 class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
   constructor(private env = inject(Env)) {}
   get host() { return this.env.getString('DATABASE_HOST', 'localhost'); }
   get port() { return this.env.getNumber('DATABASE_PORT', 5432); }
@@ -113,7 +108,7 @@ const app = createApp([http({
   })], { configs: [TestDatabaseConfig] });
 ```
 
-The `Token` property is inherited from the parent class, so `inject(DatabaseConfig)` will receive the overridden `TestDatabaseConfig` instance.
+`inject(DatabaseConfig)` resolves to the overriding `TestDatabaseConfig` instance because the subclass is registered for the parent's class token.
 
 ## Abstract Configuration
 
@@ -193,8 +188,6 @@ import { Config, Env, inject, createApp, Controller, Get, http } from '@zeltjs/c
 // ---cut---
 @Config
 export class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
-
   constructor(private env = inject(Env)) {}
 
   get host() {

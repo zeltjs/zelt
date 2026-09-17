@@ -14,8 +14,6 @@ export type TransportBinding = {
 
 @Config
 export class LoggerConfig {
-  static readonly Token = LoggerConfig;
-
   private readonly _transports: readonly TransportBinding[];
 
   constructor(
