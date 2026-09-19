@@ -2,17 +2,17 @@ import type { EdgeLabel, GraphLabel, NodeLabel } from '@dagrejs/dagre';
 import dagre from '@dagrejs/dagre';
 import type { Edge, Node } from '@xyflow/react';
 
-import type { DependencyGraph, GraphEdge, GraphNode } from '../../src/studio/graph/graph.types';
 import type { AggregatedEdge } from './collapse.lib';
 import { collapseView, dirOf, displayDirLabel, groupIdOf } from './collapse.lib';
+import type { ClassView, ViewEdge, ViewNode } from './graph-view.lib';
 
 export type SavedPositions = Readonly<Record<string, { readonly x: number; readonly y: number }>>;
 
 export type CardData = {
-  readonly className: string;
+  readonly name: string;
   readonly filePath: string;
-  readonly kind: GraphNode['kind'];
-  readonly unresolved: boolean;
+  readonly fileKind: string | null;
+  readonly external: boolean;
 };
 
 // label は表示用に短縮済み（displayDirLabel）、dir は折りたたみ操作やツールチップ用のフルパス
@@ -67,7 +67,7 @@ const runDagre = (
 // グループ内メンバーのみを対象にした dagre レイアウト（他グループへのエッジは無視する）
 const layoutWithinGroup = (
   nodeIds: readonly string[],
-  edges: readonly GraphEdge[],
+  edges: readonly ViewEdge[],
 ): ReadonlyMap<string, Point> => {
   const nodeIdSet = new Set(nodeIds);
   const innerEdges = edges.filter((edge) => nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to));
@@ -76,7 +76,7 @@ const layoutWithinGroup = (
 };
 
 const groupMembership = (
-  nodes: readonly GraphNode[],
+  nodes: readonly ViewNode[],
 ): { nodeIdsByDir: Map<string, string[]>; dirById: Map<string, string> } => {
   const nodeIdsByDir = new Map<string, string[]>();
   const dirById = new Map<string, string>();
@@ -93,7 +93,7 @@ const groupMembership = (
 // グループ内メンバーの相対座標（saved 優先）と、それを包含するグループサイズを求める
 const layoutGroupMembers = (
   nodeIdsByDir: ReadonlyMap<string, string[]>,
-  edges: readonly GraphEdge[],
+  edges: readonly ViewEdge[],
   saved: SavedPositions,
 ): { relativePositions: Map<string, Point>; groupSizes: Map<string, Size> } => {
   const relativePositions = new Map<string, Point>();
@@ -123,7 +123,7 @@ const layoutGroupMembers = (
 
 // グループ間のエッジをグループペアで dedup する（同一ペアの多重エッジは group-level dagre に不要）
 const groupEdgesOf = (
-  edges: readonly GraphEdge[],
+  edges: readonly ViewEdge[],
   dirById: ReadonlyMap<string, string>,
 ): { from: string; to: string }[] => {
   const seenPairs = new Set<string>();
@@ -140,16 +140,16 @@ const groupEdgesOf = (
   return groupEdges;
 };
 
-const cardDataOf = (node: GraphNode): CardData => ({
-  className: node.className,
+const cardDataOf = (node: ViewNode): CardData => ({
+  name: node.name,
   filePath: node.filePath,
-  kind: node.kind,
-  unresolved: node.unresolved === true,
+  fileKind: node.fileKind,
+  external: node.external,
 });
 
 // 同一ノードペアに kind 違いの 2 本が並存しうるため、id に kind を含めて一意化する
-const edgesOf = (graph: DependencyGraph): Edge[] =>
-  graph.edges.map((edge) => ({
+const edgesOf = (view: ClassView): Edge[] =>
+  view.edges.map((edge) => ({
     id: `${edge.from}->${edge.to}#${edge.kind}`,
     source: edge.from,
     target: edge.to,
@@ -224,7 +224,7 @@ const moduleNodesOf = (
 
 // 折りたたみ dir 所属ノードは module ノードに丸め込まれるため描画しない
 const cardNodesOf = (
-  nodes: readonly GraphNode[],
+  nodes: readonly ViewNode[],
   collapsedDirIds: ReadonlySet<string>,
   dirById: ReadonlyMap<string, string>,
   relativePositions: ReadonlyMap<string, Point>,
@@ -241,11 +241,11 @@ const cardNodesOf = (
     }));
 
 const graphToFlowGrouped = (
-  graph: DependencyGraph,
+  view: ClassView,
   saved: SavedPositions,
   collapsedDirs: ReadonlySet<string>,
 ): { nodes: FlowNode[]; edges: Edge[] } => {
-  const { nodeIdsByDir, dirById } = groupMembership(graph.nodes);
+  const { nodeIdsByDir, dirById } = groupMembership(view.nodes);
   // 存在しない dir 名は nodeIdsByDir に無いため、ここで自然に無視される
   const collapsedDirIds = new Set(
     Array.from(nodeIdsByDir.keys()).filter((dir) => collapsedDirs.has(dir)),
@@ -256,12 +256,12 @@ const graphToFlowGrouped = (
 
   const { relativePositions, groupSizes: expandedGroupSizes } = layoutGroupMembers(
     expandedDirIds,
-    graph.edges,
+    view.edges,
     saved,
   );
   const groupSizes = collapsedGroupSizesOf(expandedGroupSizes, collapsedDirIds);
 
-  const groupEdges = groupEdgesOf(graph.edges, dirById);
+  const groupEdges = groupEdgesOf(view.edges, dirById);
   const groupSizesById = new Map(
     Array.from(groupSizes.entries()).map(([dir, size]) => [groupIdOf(dir), size]),
   );
@@ -270,9 +270,9 @@ const graphToFlowGrouped = (
   // React Flow は parent node が配列内で child より前に来る必要がある
   const groupNodes = groupNodesOf(expandedDirIds, groupSizes, saved, groupLayout);
   const moduleNodes = moduleNodesOf(collapsedDirIds, nodeIdsByDir, groupSizes, saved, groupLayout);
-  const cardNodes = cardNodesOf(graph.nodes, collapsedDirIds, dirById, relativePositions);
+  const cardNodes = cardNodesOf(view.nodes, collapsedDirIds, dirById, relativePositions);
 
-  const collapsed = collapseView(graph, collapsedDirs);
+  const collapsed = collapseView(view, collapsedDirs);
   return {
     nodes: [...groupNodes, ...moduleNodes, ...cardNodes],
     edges: aggregatedEdgesToFlow(collapsed.edges),
@@ -281,22 +281,22 @@ const graphToFlowGrouped = (
 
 // グルーピング導入前と同じフラット表示: グループ枠は作らず、全ノードを 1 回の dagre で配置する
 const graphToFlowFlat = (
-  graph: DependencyGraph,
+  view: ClassView,
   saved: SavedPositions,
 ): { nodes: FlowNode[]; edges: Edge[] } => {
   const sizes = new Map(
-    graph.nodes.map((node) => [node.id, { width: NODE_WIDTH, height: NODE_HEIGHT }]),
+    view.nodes.map((node) => [node.id, { width: NODE_WIDTH, height: NODE_HEIGHT }]),
   );
-  const layout = runDagre(sizes, graph.edges, { nodesep: 40, ranksep: 80 });
+  const layout = runDagre(sizes, view.edges, { nodesep: 40, ranksep: 80 });
 
-  const nodes: FlowNode[] = graph.nodes.map((node) => ({
+  const nodes: FlowNode[] = view.nodes.map((node) => ({
     id: node.id,
     type: 'card',
     position: saved[node.id] ?? layout.get(node.id) ?? { x: 0, y: 0 },
     data: cardDataOf(node),
   }));
 
-  return { nodes, edges: edgesOf(graph) };
+  return { nodes, edges: edgesOf(view) };
 };
 
 export type GraphToFlowOptions = {
@@ -306,10 +306,10 @@ export type GraphToFlowOptions = {
 };
 
 export const graphToFlow = (
-  graph: DependencyGraph,
+  view: ClassView,
   saved: SavedPositions,
   options: GraphToFlowOptions,
 ): { nodes: FlowNode[]; edges: Edge[] } =>
   options.grouped
-    ? graphToFlowGrouped(graph, saved, options.collapsedDirs ?? new Set())
-    : graphToFlowFlat(graph, saved);
+    ? graphToFlowGrouped(view, saved, options.collapsedDirs ?? new Set())
+    : graphToFlowFlat(view, saved);

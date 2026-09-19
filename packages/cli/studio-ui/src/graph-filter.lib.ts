@@ -1,18 +1,13 @@
-import type { DependencyGraph } from '../../src/studio/graph/graph.types';
+import type { ClassView } from './graph-view.lib';
 
-// 部分文字列一致だと "node_modules_like" 等を誤検知するため、
-// パスをセグメントに分けて "node_modules" 完全一致で判定する
-// （先頭・途中・"../" 経由・pnpm 仮想 store のネストしたパスも同じ判定で拾える）
-export const isNodeModulesPath = (filePath: string): boolean =>
-  filePath.split('/').includes('node_modules');
+// external な依存(v2 の node_modules 相当)は "ext:" で始まるグループにまとまる
+// (collapse.lib.dirOf 参照)ため、デフォルト折りたたみ対象の判定にも流用できる
+export const isExternalDir = (dir: string): boolean => dir.startsWith('ext:');
 
-export const hideNodeModules = (graph: DependencyGraph): DependencyGraph => {
-  const hiddenIds = new Set(
-    graph.nodes.filter((node) => isNodeModulesPath(node.filePath)).map((node) => node.id),
-  );
+export const hideNodeModules = (view: ClassView): ClassView => {
+  const hiddenIds = new Set(view.nodes.filter((node) => node.external).map((node) => node.id));
   return {
-    version: graph.version,
-    nodes: graph.nodes.filter((node) => !hiddenIds.has(node.id)),
-    edges: graph.edges.filter((edge) => !hiddenIds.has(edge.from) && !hiddenIds.has(edge.to)),
+    nodes: view.nodes.filter((node) => !hiddenIds.has(node.id)),
+    edges: view.edges.filter((edge) => !hiddenIds.has(edge.from) && !hiddenIds.has(edge.to)),
   };
 };

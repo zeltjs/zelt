@@ -51,6 +51,7 @@
     "citty": "0.1.6",
     "consola": "3.4.2",
     "jiti": "2.6.1",
+    "neverthrow": "8.2.0",
     "ts-pattern": "5.7.1",
     "tsx": "catalog:"
   },
@@ -60,10 +61,16 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@zeltjs/core": "workspace:*",
+    "@zeltjs/eventbus": "workspace:*",
     "c12": "3.0.4",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "valibot": "catalog:"
+  },
+  "dependenciesMeta": {
+    "@zeltjs/eventbus": {
+      "injected": true
+    }
   },
   "volta": {
     "extends": "../../package.json"

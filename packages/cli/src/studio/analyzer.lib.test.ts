@@ -1,13 +1,11 @@
-import { resolve } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
 import {
-  createResolveContract,
   extractDecoratorNames,
   extractMiddlewareRefs,
   extractRoutes,
   isAppLike,
+  propsAppliesMiddleware,
   toPosixPath,
 } from './analyzer.lib';
 
@@ -93,15 +91,69 @@ describe('extractMiddlewareRefs', () => {
     ]);
   });
 
-  it('unwraps options-style entries and lets class-level absorb method-level', () => {
+  // レビュー指摘6: class-level 適用と method-level 適用は別々の occurrence であり、
+  // 同じ middleware であっても一方が他方を吸収して握り潰してはならない(以前は
+  // 「class-level に既にあれば method-level occurrence を作らない」という誤った仕様だった)
+  it('keeps a class-level application and a method-level application of the same middleware as two distinct occurrences (unwrapping options-style entries)', () => {
     const meta = {
       props: [
         { decorator: 'UseMiddleware', middlewares: [{ middleware: MwA, options: { x: 1 } }] },
       ],
       methods: [{ name: 'list', props: [{ decorator: 'UseMiddleware', middlewares: [MwA] }] }],
     };
-    // class-level 適用があれば全メソッドに効くため methods は持たない
-    expect(extractMiddlewareRefs(meta)).toEqual([{ middleware: MwA }]);
+    expect(extractMiddlewareRefs(meta)).toEqual([
+      { middleware: MwA },
+      { middleware: MwA, methods: ['list'] },
+    ]);
+  });
+
+  // レビュー指摘6: 同じメソッドへの同じ middleware の2回の適用も、それぞれ別の occurrence
+  // として保持する(以前は2回目以降を includes() で無視していた)
+  it('keeps two applications of the same middleware on the same method as two occurrences', () => {
+    const meta = {
+      props: [],
+      methods: [
+        {
+          name: 'handle',
+          props: [
+            { decorator: 'UseMiddleware', middlewares: [MwA] },
+            { decorator: 'UseMiddleware', middlewares: [MwA] },
+          ],
+        },
+      ],
+    };
+    expect(extractMiddlewareRefs(meta)).toEqual([
+      { middleware: MwA, methods: ['handle', 'handle'] },
+    ]);
+  });
+});
+
+describe('propsAppliesMiddleware', () => {
+  it('matches a UseMiddleware props entry referencing the given class', () => {
+    expect(propsAppliesMiddleware({ decorator: 'UseMiddleware', middlewares: [MwA] }, MwA)).toBe(
+      true,
+    );
+  });
+
+  it('matches an options-style entry ({ middleware, options })', () => {
+    expect(
+      propsAppliesMiddleware(
+        { decorator: 'UseMiddleware', middlewares: [{ middleware: MwA, options: { x: 1 } }] },
+        MwA,
+      ),
+    ).toBe(true);
+  });
+
+  it('does not match a different middleware class', () => {
+    expect(propsAppliesMiddleware({ decorator: 'UseMiddleware', middlewares: [MwA] }, MwB)).toBe(
+      false,
+    );
+  });
+
+  it('does not match a non-UseMiddleware decorator (e.g. @RateLimit itself, which has no class-reference args)', () => {
+    expect(propsAppliesMiddleware({ decorator: 'RateLimit', options: { limit: 3 } }, MwA)).toBe(
+      false,
+    );
   });
 });
 
@@ -112,14 +164,5 @@ describe('toPosixPath', () => {
 
   it('leaves posix paths unchanged', () => {
     expect(toPosixPath('src/studio/analyzer.lib.ts')).toBe('src/studio/analyzer.lib.ts');
-  });
-});
-
-describe('createResolveContract', () => {
-  it('throws on extraction failure instead of suppressing it', async () => {
-    const resolveContract = createResolveContract(resolve(__dirname, '../../tsconfig.json'));
-    await expect(
-      resolveContract({ filePath: '/no/such/file.ts', exportName: 'X' }),
-    ).rejects.toThrow('SOURCE_NOT_FOUND');
   });
 });

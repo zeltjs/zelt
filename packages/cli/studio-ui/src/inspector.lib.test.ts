@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { DependencyGraph } from '../../src/studio/graph/graph.types';
+import type { ClassView } from './graph-view.lib';
 import { findGraphNode, formatMethodSignature } from './inspector.lib';
 
 describe('formatMethodSignature', () => {
@@ -25,15 +25,25 @@ describe('formatMethodSignature', () => {
 });
 
 describe('findGraphNode', () => {
-  const graph: DependencyGraph = {
-    version: 2,
-    nodes: [{ id: 'a', className: 'A', filePath: 'src/a.ts', kind: 'service' }],
+  const view: ClassView = {
+    nodes: [
+      {
+        id: 'a',
+        name: 'A',
+        filePath: 'src/a.ts',
+        fileKind: null,
+        external: false,
+        decorators: [],
+        routes: [],
+        methods: [],
+      },
+    ],
     edges: [],
   };
   it('finds a node by id', () => {
-    expect(findGraphNode(graph, 'a')?.className).toBe('A');
+    expect(findGraphNode(view, 'a')?.name).toBe('A');
   });
   it('returns undefined for unknown id', () => {
-    expect(findGraphNode(graph, 'zz')).toBeUndefined();
+    expect(findGraphNode(view, 'zz')).toBeUndefined();
   });
 });

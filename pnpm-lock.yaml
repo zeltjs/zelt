@@ -336,12 +336,18 @@ importers:
       jiti:
         specifier: 2.6.1
         version: 2.6.1
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
       ts-pattern:
         specifier: 5.7.1
         version: 5.7.1
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
+    dependenciesMeta:
+      '@zeltjs/eventbus':
+        injected: true
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -349,6 +355,9 @@ importers:
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
+      '@zeltjs/eventbus':
+        specifier: workspace:*
+        version: file:packages/eventbus(@zeltjs/core@packages+core)
       c12:
         specifier: 3.0.4
         version: 3.0.4
@@ -376,6 +385,9 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+      ts-pattern:
+        specifier: 5.7.1
+        version: 5.7.1
     devDependencies:
       '@types/react':
         specifier: 19.2.17
@@ -5009,12 +5021,6 @@ packages:
     os: [linux]
     libc: [glibc]
 
-  '@rollup/rollup-linux-x64-gnu@4.60.2':
-    resolution: {integrity: sha512-UQjrkIdWrKI626Du8lCQ6MJp/6V1LAo2bOK9OTu4mSn8GGXIkPXk/Vsp4bLHCd9Z9Iz2OTEaokUE90VweJgIYQ==}
-    cpu: [x64]
-    os: [linux]
-    libc: [glibc]
-
   '@rollup/rollup-linux-x64-gnu@4.60.4':
     resolution: {integrity: sha512-Boiz5+MsaROEWDf+GGEwF8VMHGhlUoQMtIPjOgA5fv4osupqTVnJteQNKJwUcnUog2G55jYXH7KZFFiJe0TEzQ==}
     cpu: [x64]
@@ -6135,6 +6141,15 @@ packages:
   '@yarnpkg/parsers@3.0.2':
     resolution: {integrity: sha512-/HcYgtUSiJiot/XWGLOlGxPYUG65+/31V8oqk17vZLW1xlCoR4PampyePljOxY2n8/3jz9+tIFzICsyGujJZoA==}
     engines: {node: '>=18.12.0'}
+
+  '@zeltjs/eventbus@file:packages/eventbus':
+    resolution: {directory: packages/eventbus, type: directory}
+    peerDependencies:
+      '@zeltjs/core': workspace:*
+      '@zeltjs/redis': workspace:*
+    peerDependenciesMeta:
+      '@zeltjs/redis':
+        optional: true
 
   '@zkochan/js-yaml@0.0.7':
     resolution: {integrity: sha512-nrUSn7hzt7J6JWgWGz78ZYI8wj+gdIJdk0Ynjpp8l+trkn58Uqsf6RYrYkEK+3X18EX+TNdtJI0WxAtc+L84SQ==}
@@ -16815,9 +16830,6 @@ snapshots:
   '@rollup/rollup-linux-s390x-gnu@4.60.4':
     optional: true
 
-  '@rollup/rollup-linux-x64-gnu@4.60.2':
-    optional: true
-
   '@rollup/rollup-linux-x64-gnu@4.60.4':
     optional: true
 
@@ -17850,7 +17862,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@types/node@24.12.4)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.1.3(@types/node@24.12.4)(esbuild@0.17.19)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.9.0))
+      vitest: 4.1.5(@types/node@24.12.4)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.1.3(@types/node@24.12.4)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.9.0))
 
   '@vitest/expect@4.1.5':
     dependencies:
@@ -18052,6 +18064,10 @@ snapshots:
     dependencies:
       js-yaml: 3.14.2
       tslib: 2.8.1
+
+  '@zeltjs/eventbus@file:packages/eventbus(@zeltjs/core@packages+core)':
+    dependencies:
+      '@zeltjs/core': link:packages/core
 
   '@zkochan/js-yaml@0.0.7':
     dependencies:
@@ -22437,7 +22453,7 @@ snapshots:
 
   neverthrow@8.2.0:
     optionalDependencies:
-      '@rollup/rollup-linux-x64-gnu': 4.60.2
+      '@rollup/rollup-linux-x64-gnu': 4.60.4
 
   no-case@3.0.4:
     dependencies:

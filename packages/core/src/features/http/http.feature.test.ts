@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { createApp } from '../../app';
 import { HttpFeature, http } from './http.feature';
+import type { Next } from './middleware/middleware.types';
 import { Controller } from './routing/controller.decorator';
 import { Get } from './routing/http-method.decorator';
 
@@ -218,5 +219,23 @@ describe('http feature', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+});
+
+describe('globalMiddlewares', () => {
+  it('returns the middlewares passed to http() options', () => {
+    class M1 {
+      async use(next: Next): Promise<Response | undefined> {
+        await next();
+        return undefined;
+      }
+    }
+    const feature = http({ controllers: [], middlewares: [M1] });
+    expect(feature.globalMiddlewares()).toEqual([M1]);
+  });
+
+  it('returns an empty array when no middlewares option is given', () => {
+    const feature = http({ controllers: [] });
+    expect(feature.globalMiddlewares()).toEqual([]);
   });
 });

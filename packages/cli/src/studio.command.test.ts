@@ -8,7 +8,7 @@ import { handleExport, resolvePort, serveStudio } from './studio.command';
 
 const okResult: AnalyzeResult = {
   ok: true,
-  graph: { version: 2, nodes: [], edges: [] },
+  graph: { version: 3, nodes: [], edges: [], tests: [] },
 };
 
 const errorResult: AnalyzeResult = { ok: false, errorOutput: 'boom' };
@@ -135,7 +135,7 @@ describe('serveStudio', () => {
     const openBrowser = vi.fn();
     const analyze = vi.fn().mockResolvedValue(okResult);
 
-    await serveStudio(analyze, 4400, true, runtime, startServer, openBrowser);
+    await serveStudio(analyze, process.cwd(), 4400, true, runtime, startServer, openBrowser);
 
     expect(openBrowser).toHaveBeenCalledWith(server.url);
     expect(runtime.setExitCode).not.toHaveBeenCalled();
@@ -148,7 +148,7 @@ describe('serveStudio', () => {
     const openBrowser = vi.fn();
     const analyze = vi.fn().mockResolvedValue(okResult);
 
-    await serveStudio(analyze, 4400, false, runtime, startServer, openBrowser);
+    await serveStudio(analyze, process.cwd(), 4400, false, runtime, startServer, openBrowser);
 
     expect(openBrowser).not.toHaveBeenCalled();
   });
@@ -161,7 +161,7 @@ describe('serveStudio', () => {
     const analyze = vi.fn().mockResolvedValue(okResult);
 
     await expect(
-      serveStudio(analyze, 4400, false, runtime, startServer, openBrowser),
+      serveStudio(analyze, process.cwd(), 4400, false, runtime, startServer, openBrowser),
     ).resolves.toBeUndefined();
 
     expect(runtime.setExitCode).toHaveBeenCalledWith(1);
@@ -175,7 +175,7 @@ describe('serveStudio', () => {
     const analyze = vi.fn().mockResolvedValue(okResult);
 
     await expect(
-      serveStudio(analyze, 4400, false, runtime, startServer, openBrowser),
+      serveStudio(analyze, process.cwd(), 4400, false, runtime, startServer, openBrowser),
     ).rejects.toThrow('unexpected');
     expect(runtime.setExitCode).not.toHaveBeenCalled();
   });

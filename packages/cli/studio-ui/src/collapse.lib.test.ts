@@ -1,15 +1,25 @@
 import { describe, expect, it } from 'vitest';
 
-import type { DependencyGraph } from '../../src/studio/graph/graph.types';
 import { collapseView, dirOf, displayDirLabel, groupIdOf } from './collapse.lib';
+import type { ClassView, ViewNode } from './graph-view.lib';
 
-const graph: DependencyGraph = {
-  version: 2,
+const node = (id: string, filePath: string): ViewNode => ({
+  id,
+  name: id,
+  filePath,
+  fileKind: null,
+  external: false,
+  decorators: [],
+  routes: [],
+  methods: [],
+});
+
+const view: ClassView = {
   nodes: [
-    { id: 'src/foo/a.ts#A', className: 'A', filePath: 'src/foo/a.ts', kind: 'controller' },
-    { id: 'src/foo/c.ts#C', className: 'C', filePath: 'src/foo/c.ts', kind: 'service' },
-    { id: 'src/bar/b.ts#B', className: 'B', filePath: 'src/bar/b.ts', kind: 'service' },
-    { id: 'src/bar/d.ts#D', className: 'D', filePath: 'src/bar/d.ts', kind: 'service' },
+    node('src/foo/a.ts#A', 'src/foo/a.ts'),
+    node('src/foo/c.ts#C', 'src/foo/c.ts'),
+    node('src/bar/b.ts#B', 'src/bar/b.ts'),
+    node('src/bar/d.ts#D', 'src/bar/d.ts'),
   ],
   edges: [
     { from: 'src/foo/a.ts#A', to: 'src/bar/b.ts#B', kind: 'injects' },
@@ -26,6 +36,10 @@ describe('dirOf', () => {
 
   it('returns the whole string when there is no slash (e.g. "(unknown)")', () => {
     expect(dirOf('(unknown)')).toBe('(unknown)');
+  });
+
+  it('returns an "ext:" filePath unchanged, even for a scoped package', () => {
+    expect(dirOf('ext:@zeltjs/rate-limit')).toBe('ext:@zeltjs/rate-limit');
   });
 });
 
@@ -65,11 +79,11 @@ describe('displayDirLabel', () => {
 
 describe('collapseView', () => {
   it('is equivalent to the input when nothing is collapsed', () => {
-    const view = collapseView(graph, new Set());
+    const collapsed = collapseView(view, new Set());
 
-    expect(view.visibleNodes).toEqual(graph.nodes);
-    expect(view.collapsedGroups).toEqual([]);
-    expect(view.edges).toEqual([
+    expect(collapsed.visibleNodes).toEqual(view.nodes);
+    expect(collapsed.collapsedGroups).toEqual([]);
+    expect(collapsed.edges).toEqual([
       { from: 'src/foo/a.ts#A', to: 'src/bar/b.ts#B', kind: 'injects', count: 1 },
       { from: 'src/foo/c.ts#C', to: 'src/bar/d.ts#D', kind: 'injects', count: 1 },
       { from: 'src/foo/a.ts#A', to: 'src/foo/c.ts#C', kind: 'injects', count: 1 },
@@ -78,17 +92,17 @@ describe('collapseView', () => {
   });
 
   it('collapses member nodes of a collapsed dir into a single folder group', () => {
-    const view = collapseView(graph, new Set(['src/foo']));
+    const collapsed = collapseView(view, new Set(['src/foo']));
 
-    expect(view.visibleNodes.map((n) => n.id)).toEqual(['src/bar/b.ts#B', 'src/bar/d.ts#D']);
-    expect(view.collapsedGroups).toEqual([{ dir: 'src/foo', memberCount: 2 }]);
+    expect(collapsed.visibleNodes.map((n) => n.id)).toEqual(['src/bar/b.ts#B', 'src/bar/d.ts#D']);
+    expect(collapsed.collapsedGroups).toEqual([{ dir: 'src/foo', memberCount: 2 }]);
   });
 
   it('aggregates parallel edges between the same endpoints and kind into a count', () => {
-    const view = collapseView(graph, new Set(['src/foo', 'src/bar']));
+    const collapsed = collapseView(view, new Set(['src/foo', 'src/bar']));
 
     // a->b と c->d はどちらも folder:src/foo -> folder:src/bar (injects) に丸め込まれ集約される
-    expect(view.edges).toContainEqual({
+    expect(collapsed.edges).toContainEqual({
       from: 'folder:src/foo',
       to: 'folder:src/bar',
       kind: 'injects',
@@ -97,56 +111,51 @@ describe('collapseView', () => {
   });
 
   it('drops edges that become self-loops within the same collapsed group', () => {
-    const view = collapseView(graph, new Set(['src/foo', 'src/bar']));
+    const collapsed = collapseView(view, new Set(['src/foo', 'src/bar']));
 
     // src/foo/a->src/foo/c と src/bar/b->src/bar/d はどちらも自己ループになり除去される
-    expect(view.edges.some((e) => e.from === e.to)).toBe(false);
-    expect(view.edges).toHaveLength(1);
+    expect(collapsed.edges.some((e) => e.from === e.to)).toBe(false);
+    expect(collapsed.edges).toHaveLength(1);
   });
 
   it('preserves a pre-existing self-loop when nothing is collapsed', () => {
-    const selfLoopGraph: DependencyGraph = {
-      version: 2,
-      nodes: [{ id: 'src/foo/a.ts#A', className: 'A', filePath: 'src/foo/a.ts', kind: 'service' }],
+    const selfLoopView: ClassView = {
+      nodes: [node('src/foo/a.ts#A', 'src/foo/a.ts')],
       edges: [{ from: 'src/foo/a.ts#A', to: 'src/foo/a.ts#A', kind: 'injects' }],
     };
 
-    const view = collapseView(selfLoopGraph, new Set());
-    expect(view.edges).toEqual([
+    const collapsed = collapseView(selfLoopView, new Set());
+    expect(collapsed.edges).toEqual([
       { from: 'src/foo/a.ts#A', to: 'src/foo/a.ts#A', kind: 'injects', count: 1 },
     ]);
   });
 
   it('keeps edges of different kinds separate even between the same endpoints', () => {
-    const twoKindGraph: DependencyGraph = {
-      version: 2,
-      nodes: [
-        { id: 'src/foo/a.ts#A', className: 'A', filePath: 'src/foo/a.ts', kind: 'controller' },
-        { id: 'src/bar/b.ts#B', className: 'B', filePath: 'src/bar/b.ts', kind: 'middleware' },
-      ],
+    const twoKindView: ClassView = {
+      nodes: [node('src/foo/a.ts#A', 'src/foo/a.ts'), node('src/bar/b.ts#B', 'src/bar/b.ts')],
       edges: [
         { from: 'src/foo/a.ts#A', to: 'src/bar/b.ts#B', kind: 'injects' },
         { from: 'src/foo/a.ts#A', to: 'src/bar/b.ts#B', kind: 'applies-middleware' },
       ],
     };
 
-    const view = collapseView(twoKindGraph, new Set(['src/foo', 'src/bar']));
-    expect([...view.edges].sort((x, y) => x.kind.localeCompare(y.kind))).toEqual([
+    const collapsed = collapseView(twoKindView, new Set(['src/foo', 'src/bar']));
+    expect([...collapsed.edges].sort((x, y) => x.kind.localeCompare(y.kind))).toEqual([
       { from: 'folder:src/foo', to: 'folder:src/bar', kind: 'applies-middleware', count: 1 },
       { from: 'folder:src/foo', to: 'folder:src/bar', kind: 'injects', count: 1 },
     ]);
   });
 
   it('rewrites only the collapsed endpoint when just one side is collapsed', () => {
-    const view = collapseView(graph, new Set(['src/foo']));
+    const collapsed = collapseView(view, new Set(['src/foo']));
 
-    expect(view.edges).toContainEqual({
+    expect(collapsed.edges).toContainEqual({
       from: 'folder:src/foo',
       to: 'src/bar/b.ts#B',
       kind: 'injects',
       count: 1,
     });
-    expect(view.edges).toContainEqual({
+    expect(collapsed.edges).toContainEqual({
       from: 'src/bar/b.ts#B',
       to: 'src/bar/d.ts#D',
       kind: 'injects',
@@ -155,9 +164,9 @@ describe('collapseView', () => {
   });
 
   it('ignores collapsedDirs entries that do not correspond to any node', () => {
-    const view = collapseView(graph, new Set(['does/not/exist']));
+    const collapsed = collapseView(view, new Set(['does/not/exist']));
 
-    expect(view.visibleNodes).toEqual(graph.nodes);
-    expect(view.collapsedGroups).toEqual([]);
+    expect(collapsed.visibleNodes).toEqual(view.nodes);
+    expect(collapsed.collapsedGroups).toEqual([]);
   });
 });

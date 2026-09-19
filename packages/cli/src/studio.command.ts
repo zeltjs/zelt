@@ -113,6 +113,7 @@ export const handleExport = async (
 /** @throws {Error} from server.lib.ts:startStudioServer (non-EADDRINUSE bind failures) */
 export const serveStudio = async (
   analyze: Analyze,
+  cwd: string,
   port: number,
   open: boolean,
   runtime: Pick<CliRuntime, 'setExitCode'>,
@@ -120,7 +121,7 @@ export const serveStudio = async (
   doOpenBrowser: OpenBrowser = openBrowser,
 ): Promise<void> => {
   try {
-    const server = await startServer({ port, staticDir, analyze });
+    const server = await startServer({ port, staticDir, analyze, cwd });
     consola.success(`zelt studio running at ${server.url}`);
     if (open) doOpenBrowser(server.url);
   } catch (error) {
@@ -164,6 +165,6 @@ export const studioCommand = defineCommand({
       return;
     }
 
-    await serveStudio(analyze, port, typedArgs.open ?? false, nodeCliRuntime);
+    await serveStudio(analyze, cwd, port, typedArgs.open ?? false, nodeCliRuntime);
   },
 });
