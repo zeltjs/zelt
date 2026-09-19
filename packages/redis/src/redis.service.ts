@@ -9,7 +9,10 @@ export class RedisService implements Lifecycle {
   private readonly _client: Redis;
 
   constructor(config = inject(RedisConfig), lifecycle = inject(LifecycleManager)) {
-    this._client = new Redis(config.url, config.options);
+    // lazyConnect defers the network handshake to startup(); ioredis skips it
+    // entirely at construction time, so `client` is safe to read from other
+    // constructors (e.g. namespace() call sites) before the app has started.
+    this._client = new Redis(config.url, { ...config.options, lazyConnect: true });
     lifecycle.register(this);
   }
 
@@ -17,7 +20,18 @@ export class RedisService implements Lifecycle {
     return this._client;
   }
 
-  async startup(): Promise<void> {}
+  async startup(): Promise<void> {
+    try {
+      await this._client.connect();
+    } catch (error) {
+      // ioredis keeps rescheduling reconnects via retryStrategy after a
+      // rejected connect(), and LifecycleManager never calls shutdown() for
+      // a lifecycle whose own startup() threw, so this is the only place
+      // left to stop the socket/reconnect timer before rethrowing.
+      this._client.disconnect();
+      throw error;
+    }
+  }
 
   async shutdown(): Promise<void> {
     this._client.disconnect();

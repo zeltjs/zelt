@@ -7,7 +7,7 @@ class MockDatabaseService extends DatabaseService<{ id: string }> {
   withTransactionCalls: (() => Promise<unknown>)[] = [];
 
   async setup() {
-    return { id: 'mock-client' };
+    return { client: { id: 'mock-client' } };
   }
 
   async transaction<T>(client: { id: string }, fn: (tx: { id: string }) => Promise<T>): Promise<T> {

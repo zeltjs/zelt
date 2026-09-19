@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { app } from '../src/app';
 import { RequestIdService } from '../src/request-id.service';
 
-describe('Request-scoped data via a middleware-provided value and resultOf()', () => {
+describe('Request-scoped data via a middleware-provided value and middlewareValue()', () => {
   let testApp: Awaited<ReturnType<(typeof app)['createRuntime']>>;
   let serviceCallsAtStart = 0;
 

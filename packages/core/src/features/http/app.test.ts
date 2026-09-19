@@ -8,14 +8,14 @@ import type { Lifecycle } from '../../kernel';
 import { inject, LifecycleManager, runInContext } from '../../kernel';
 import { ErrorHandler } from './error/error-handler.decorator';
 import { http } from './http.feature';
-import { fromHonoMiddleware } from './middleware';
+import { fromHonoMiddleware, MiddlewareWithOptions } from './middleware';
 import { Middleware } from './middleware/middleware.decorator';
 import type { Next } from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
 import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
 import { registerAfterResponseCallback } from './request';
-import { request, resultOf } from './request/injection';
+import { middlewareOptions, middlewareValue, request } from './request/injection';
 import { response } from './response';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
@@ -136,7 +136,7 @@ describe('createApp() — fetch', () => {
       async get(req = request()) {
         return {
           body: await req.body(),
-          requestId: resultOf(TagMiddleware),
+          requestId: middlewareValue(TagMiddleware),
           url: req.url(),
         };
       }
@@ -148,13 +148,13 @@ describe('createApp() — fetch', () => {
       async get(req = request()) {
         const outerBefore = {
           body: await req.body(),
-          requestId: resultOf(TagMiddleware),
+          requestId: middlewareValue(TagMiddleware),
           url: req.url(),
         };
         const res = await fetchInner();
         const outerAfter = {
           body: await req.body(),
-          requestId: resultOf(TagMiddleware),
+          requestId: middlewareValue(TagMiddleware),
           url: req.url(),
         };
         return { inner: await res.json(), outerAfter, outerBefore };
@@ -736,7 +736,7 @@ describe('middleware', () => {
     class TestController {
       @Get('/')
       get() {
-        return { value: resultOf(DIMiddleware) };
+        return { value: middlewareValue(DIMiddleware) };
       }
     }
 
@@ -747,7 +747,7 @@ describe('middleware', () => {
     expect(await res.json()).toEqual({ value: 'injected-value' });
   });
 
-  it('middleware can pass a typed result to the handler via resultOf()', async () => {
+  it('middleware can pass a typed value to the handler via middlewareValue()', async () => {
     @Middleware
     class SetUserMiddleware {
       async use(next: Next<{ id: number; name: string }>): Promise<Response | undefined> {
@@ -760,7 +760,7 @@ describe('middleware', () => {
     class TestController {
       @Get('/')
       get() {
-        const user = resultOf(SetUserMiddleware);
+        const user = middlewareValue(SetUserMiddleware);
         return { userId: user.id, userName: user.name };
       }
     }
@@ -1816,12 +1816,9 @@ describe('warmup option', () => {
     type RateLimitOptions = { limit: number; windowSec: number };
 
     @Middleware
-    class RateLimitMiddleware {
-      async use(
-        next: Next,
-        options: RateLimitOptions,
-        res = response(),
-      ): Promise<Response | undefined> {
+    class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
+      async use(next: Next, res = response()): Promise<Response | undefined> {
+        const options = middlewareOptions(RateLimitMiddleware);
         res.header('X-RateLimit-Limit', String(options.limit));
         res.header('X-RateLimit-Window', String(options.windowSec));
         await next();
@@ -1831,20 +1828,58 @@ describe('warmup option', () => {
 
     @Controller('/api')
     class ApiController {
-      @UseMiddleware(RateLimitMiddleware, { limit: 100, windowSec: 60 })
       @Get('/')
       get() {
         return { ok: true };
       }
     }
 
-    const app = createApp([http({ controllers: [ApiController] })]);
+    const app = createApp([
+      http({
+        controllers: [ApiController],
+        middlewares: [RateLimitMiddleware.with({ limit: 100, windowSec: 60 })],
+      }),
+    ]);
     const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/api/');
     expect(res.status).toBe(200);
     expect(res.headers.get('X-RateLimit-Limit')).toBe('100');
     expect(res.headers.get('X-RateLimit-Window')).toBe('60');
+    await readyApp.shutdown();
+  });
+
+  it('applies a binding with @UseMiddleware and reads its value via the shared const, as documented', async () => {
+    type AuthOptions = { role: string };
+
+    @Middleware
+    class UserAuthMiddleware extends MiddlewareWithOptions<AuthOptions> {
+      async use(
+        next: Next<{ id: number; role: string }>,
+        opts = middlewareOptions(UserAuthMiddleware),
+      ): Promise<Response | undefined> {
+        await next({ id: 1, role: opts.role });
+        return undefined;
+      }
+    }
+
+    const adminAuth = UserAuthMiddleware.with({ role: 'admin' });
+
+    @UseMiddleware(adminAuth)
+    @Controller('/admin')
+    class AdminController {
+      @Get('/me')
+      me(admin = middlewareValue(adminAuth)) {
+        return { id: admin.id, role: admin.role };
+      }
+    }
+
+    const app = createApp([http({ controllers: [AdminController] })]);
+    const readyApp = await app.createRuntime();
+
+    const res = await readyApp.http.request('/admin/me');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id: 1, role: 'admin' });
     await readyApp.shutdown();
   });
 });

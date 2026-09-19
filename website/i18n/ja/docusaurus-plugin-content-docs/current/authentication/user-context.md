@@ -92,7 +92,7 @@ class ProfileController {
 
 `currentUser()` は常に `Record<string, unknown> | undefined` を返します。`setUser()` に渡した形は型レベルでは追跡されないため、特定のフィールドを読み取るには手動でのアサーションや絞り込みが必要です。
 
-handlerで利用できる、具体的に絞り込まれた型の値が必要な場合は、代わりにmiddleware経由で提供します。`Next<T>` に宣言して `next(value)` に渡し、`resultOf(M)` で読み取ります。詳細は[Middleware Results](../middleware.md#middleware-results)を参照してください。
+handlerで利用できる、具体的に絞り込まれた型の値が必要な場合は、代わりにmiddleware経由で提供します。`Next<T>` に宣言して `next(value)` に渡し、`middlewareValue(M)` で読み取ります。詳細は[Middleware Values](../middleware.md#middleware-values)を参照してください。
 
 ## User設計のBest Practices {#user-design-best-practices}
 

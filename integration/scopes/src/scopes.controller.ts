@@ -4,8 +4,8 @@ import {
   Get,
   inject,
   Middleware,
+  middlewareValue,
   request,
-  resultOf,
   UseMiddleware,
 } from '@zeltjs/core';
 
@@ -15,7 +15,7 @@ import { RequestIdService } from './request-id.service';
 
 // Provides a fresh, mutable per-request state bucket. Demonstrates the
 // "counter/trace" shape: a middleware allocates a mutable object and hands
-// it downstream via `next(value)`; the handler reads it via resultOf() and
+// it downstream via `next(value)`; the handler reads it via middlewareValue() and
 // passes it explicitly to the singleton service instead of the service
 // reaching into request-scoped storage itself.
 @Middleware
@@ -51,7 +51,7 @@ export class ScopesController {
   @UseMiddleware(RequestStateMiddleware)
   request(req = request()) {
     const id = req.header('X-Request-Id') ?? 'anonymous';
-    const state = resultOf(RequestStateMiddleware);
+    const state = middlewareValue(RequestStateMiddleware);
     const first = this.requestIds.tick(state, 'begin');
     const second = this.requestIds.tick(state, 'end');
     return {
@@ -67,7 +67,7 @@ export class ScopesController {
   async overlap(req = request()) {
     const id = req.queryParam('id') ?? 'missing';
     const delay = req.queryParam('delay');
-    const state = resultOf(RequestStateMiddleware);
+    const state = middlewareValue(RequestStateMiddleware);
     this.requestIds.tick(state, 'start');
     const ms = Number(delay ?? '0');
     if (ms > 0) {

@@ -152,9 +152,9 @@ More specific middleware attachment wins over a class-level skip. If a controlle
 
 `CorsMiddleware` and `SecureHeadersMiddleware` are auto-registered on every HTTP app. See [HTTP Security](./http-security.md) for their defaults, configuration options, skip examples, and CORS preflight behavior.
 
-## Middleware Results
+## Middleware Values
 
-Middleware can provide a typed value to the code that runs after it. Providing a value uses the `Next<T>` type together with `next(value)`; reading it uses `resultOf(M)`. There are no string keys or module augmentation to maintain.
+Middleware can provide a typed value to the code that runs after it. Providing a value uses the `Next<T>` type together with `next(value)`; reading it uses `middlewareValue(M)`. There are no string keys or module augmentation to maintain.
 
 ### Providing a Value
 
@@ -181,10 +181,10 @@ Because `Next<T>` requires an argument, calling `next()` without a value is a ty
 
 ### Reading a Value
 
-Handlers — and other middleware — read a provided value with `resultOf(M)`, passed as a parameter default:
+Handlers — and other middleware — read a provided value with `middlewareValue(M)`, passed as a parameter default:
 
 ```typescript
-import { Controller, Get, Middleware, UseMiddleware, request, resultOf, type Next } from '@zeltjs/core';
+import { Controller, Get, Middleware, UseMiddleware, request, middlewareValue, type Next } from '@zeltjs/core';
 
 @Middleware
 class AuthMiddleware {
@@ -198,17 +198,17 @@ class AuthMiddleware {
 @Controller('/profile')
 export class ProfileController {
   @Get('/')
-  getProfile(user = resultOf(AuthMiddleware)) {
+  getProfile(user = middlewareValue(AuthMiddleware)) {
     return { id: user.id, name: user.name };
   }
 }
 ```
 
-The type is inferred from `Next<T>` and never includes `null` or `undefined`: `AuthMiddleware` short-circuits with a 401 response before it ever calls `next(user)`, so by the time a handler runs, the value is guaranteed to exist. Middleware reads another middleware's value the same way, as a parameter default on its own `use()` method.
+The type reflects `M`'s own `Next<T>` declaration as-is — a middleware declared as `Next<string | undefined>` yields a nullable value. In this example, `AuthMiddleware` short-circuits with a 401 response before it ever calls `next(user)`, so by the time a handler runs, the value is guaranteed to exist. Middleware reads another middleware's value the same way, as a parameter default on its own `use()` method.
 
 ### Reading Requires the Middleware
 
-Calling `resultOf(M)` for a middleware that isn't applied to the route throws immediately, with an error naming the middleware — there is no silent `undefined`. Applying middleware to a route still works exactly as before, with `@UseMiddleware` on a controller or method, or with `middlewares` on a module.
+Calling `middlewareValue(M)` throws immediately, with an error naming the middleware, in two cases: the middleware isn't applied to the route, or it is applied but never called `next(value)` (so no value was ever recorded). There is no silent `undefined`. Applying middleware to a route still works exactly as before, with `@UseMiddleware` on a controller or method, or with `middlewares` on a module.
 
 ## Dependency Injection
 
@@ -256,26 +256,50 @@ export class AdminController {
 }
 ```
 
-## Parameterized Middleware
+## Middleware with Options
 
-For middleware that requires configuration options, pass options as the second `@UseMiddleware()` argument:
+Middleware that requires configuration extends `MiddlewareWithOptions<TOptions>` and reads its options with `middlewareOptions()`, as a parameter default — the same pattern as `request()` and `middlewareValue()`:
 
 ```typescript
-import { Controller, UseMiddleware, Middleware, Post, type Next } from '@zeltjs/core';
+import { Middleware, MiddlewareWithOptions, middlewareOptions, type Next } from '@zeltjs/core';
 // ---cut---
+interface RateLimitOptions {
+  limit: number;
+  windowSec: number;
+}
+
 @Middleware
-export class RateLimitMiddleware {
-  async use(next: Next, options: { limit: number; windowSec: number }) {
-    const { limit, windowSec } = options;
+export class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
+  async use(next: Next, opts = middlewareOptions(RateLimitMiddleware)) {
+    const { limit, windowSec } = opts;
     // ... rate limiting logic
     await next();
     return undefined;
   }
 }
+```
 
+Pass the options where the middleware is applied, with `.with()`:
+
+```typescript
+import { Controller, Middleware, MiddlewareWithOptions, Post, UseMiddleware, middlewareOptions, type Next } from '@zeltjs/core';
+
+interface RateLimitOptions {
+  limit: number;
+  windowSec: number;
+}
+
+@Middleware
+class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
+  async use(next: Next, opts = middlewareOptions(RateLimitMiddleware)) {
+    await next();
+    return undefined;
+  }
+}
+// ---cut---
 @Controller('/api')
 export class ApiController {
-  @UseMiddleware(RateLimitMiddleware, { limit: 10, windowSec: 60 })
+  @UseMiddleware(RateLimitMiddleware.with({ limit: 10, windowSec: 60 }))
   @Post('/submit')
   submit() {
     return { submitted: true };
@@ -283,7 +307,46 @@ export class ApiController {
 }
 ```
 
-The options parameter is passed to the middleware's `use()` method at runtime.
+Middleware that takes options is always registered through `.with()`. Registering the bare class is a type error — there would be no options for it to run with.
+
+Middleware without options doesn't extend anything and is registered as the plain class, exactly as in the earlier examples.
+
+### Reading Values from Middleware with Options
+
+To read the value provided by middleware that takes options, store the return value of `.with()` in a `const` and use that same `const` in both places — where the middleware is applied, and in `middlewareValue()`:
+
+```typescript
+import { Controller, Get, Middleware, MiddlewareWithOptions, UseMiddleware, middlewareOptions, middlewareValue, type Next } from '@zeltjs/core';
+
+interface AuthOptions {
+  role: 'admin' | 'member';
+}
+
+@Middleware
+class UserAuthMiddleware extends MiddlewareWithOptions<AuthOptions> {
+  async use(next: Next<{ id: number; role: string }>, opts = middlewareOptions(UserAuthMiddleware)) {
+    await next({ id: 1, role: opts.role });
+    return undefined;
+  }
+}
+// ---cut---
+// user-auth.middleware.ts
+export const adminAuth = UserAuthMiddleware.with({ role: 'admin' });
+
+// admin.controller.ts
+@UseMiddleware(adminAuth)
+@Controller('/admin')
+export class AdminController {
+  @Get('/me')
+  me(admin = middlewareValue(adminAuth)) {
+    return { id: admin.id, role: admin.role };
+  }
+}
+```
+
+Each `.with()` call counts as its own middleware. If a route is registered with one `.with()` call and `middlewareValue()` receives another — even with identical options — the two don't match: `middlewareValue()` sees a middleware that isn't applied to the route and throws. Always share a single `const`.
+
+The same middleware class can be applied multiple times with different options. Each application runs independently, and each `const` reads its own value.
 
 ## Request Flow
 
@@ -345,7 +408,7 @@ class MethodMiddleware {
 
 ## Common Patterns
 
-Middleware is written as classes. Use `request()`, `response()`, and `resultOf()` for framework primitives.
+Middleware is written as classes. Use `request()`, `response()`, and `middlewareValue()` for framework primitives.
 
 ### Restrict Access
 

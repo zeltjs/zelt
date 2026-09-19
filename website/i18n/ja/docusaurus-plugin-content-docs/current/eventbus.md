@@ -8,13 +8,13 @@
 ## インストール {#installation}
 
 ```bash
-pnpm add @zeltjs/eventbus
+pnpm add @zeltjs/eventbus @zeltjs/core
 ```
 
 Redisサポートの場合:
 
 ```bash
-pnpm add @zeltjs/eventbus @zeltjs/redis ioredis
+pnpm add @zeltjs/eventbus @zeltjs/core @zeltjs/redis
 ```
 
 ## 概要 {#overview}
@@ -25,8 +25,9 @@ pnpm add @zeltjs/eventbus @zeltjs/redis ioredis
 
 `EventBusSchema` インターフェースを拡張してイベントを定義します:
 
-```typescript
-// @noErrors
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+// ---cut---
 declare module '@zeltjs/eventbus' {
   interface EventBusSchema {
     'user.created': { userId: string; email: string };
@@ -38,23 +39,89 @@ declare module '@zeltjs/eventbus' {
 
 これにより、イベント名とペイロードの完全な型安全性が提供されます。
 
-## メモリアダプター {#memory-adapter}
+## アプリへの登録 {#app-setup}
 
-単一プロセスアプリケーションには、インメモリアダプターを使用します:
+`createApp` に `eventbus` フィーチャーを登録します。`adaptor`（発行・購読に使うアダプタークラス）と、任意の `handlers`（購読者クラスの配列）を受け取ります：
 
-```typescript
-// @noErrors
-import { Injectable, inject } from '@zeltjs/core';
-import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+```typescript twoslash
+import { Injectable, inject, LifecycleManager, createApp, http } from '@zeltjs/core';
+import type { Lifecycle } from '@zeltjs/core';
+import { MemoryEventBusAdaptor, eventbus } from '@zeltjs/eventbus';
+
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string; email: string };
+  }
+}
 
 @Injectable()
-export class NotificationService {
-  constructor(private eventBus = inject(MemoryEventBusAdaptor)) {}
+class NotificationHandlers implements Lifecycle {
+  private unsubscribes: Array<() => void> = [];
 
-  async setup() {
-    this.eventBus.on('user.created', (data) => {
+  constructor(
+    private readonly eventBus = inject(MemoryEventBusAdaptor),
+    lifecycle = inject(LifecycleManager),
+  ) {
+    lifecycle.register(this);
+  }
+
+  async startup(): Promise<void> {
+    const unsub = this.eventBus.on('user.created', (data) => {
       console.log(`Welcome email sent to ${data.email}`);
     });
+    this.unsubscribes.push(unsub);
+  }
+
+  async shutdown(): Promise<void> {
+    for (const unsub of this.unsubscribes) unsub();
+    this.unsubscribes = [];
+  }
+}
+// ---cut---
+const app = createApp([
+  http({ controllers: [] }),
+  eventbus({ adaptor: MemoryEventBusAdaptor, handlers: [NotificationHandlers] }),
+]);
+```
+
+`adaptor` は、購読者がそのアダプターを直接注入して使う `emit`/`on`/`once` の実体となる `EventBusAdaptor` の実装を選びます。`handlers` は、アプリの他のどこからも依存されていない購読者クラスを列挙するためのものです。ここに列挙しなければ、そのクラスは構築されず、`startup()` 内の購読処理も一切実行されません。
+
+## Lifecycle による購読 {#subscribing-with-lifecycle}
+
+購読者クラスは `@zeltjs/core` の `Lifecycle` を実装します。`startup()` で購読を開始し、返された購読解除関数を保持しておき、`shutdown()` で呼び出します。
+
+```typescript twoslash
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string; email: string };
+  }
+}
+
+import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
+import type { Lifecycle } from '@zeltjs/core';
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus';
+// ---cut---
+@Injectable()
+export class NotificationHandlers implements Lifecycle {
+  private unsubscribes: Array<() => void> = [];
+
+  constructor(
+    private readonly eventBus = inject(MemoryEventBusAdaptor),
+    lifecycle = inject(LifecycleManager),
+  ) {
+    lifecycle.register(this);
+  }
+
+  async startup(): Promise<void> {
+    const unsub = this.eventBus.on('user.created', (data) => {
+      console.log(`Welcome email sent to ${data.email}`);
+    });
+    this.unsubscribes.push(unsub);
+  }
+
+  async shutdown(): Promise<void> {
+    for (const unsub of this.unsubscribes) unsub();
+    this.unsubscribes = [];
   }
 }
 
@@ -70,20 +137,36 @@ export class UserService {
 }
 ```
 
-## Redisアダプター {#redis-adapter}
+`UserService` は同じアダプタークラスを直接注入してイベントを発行します。`emit` を使うだけならフィーチャーによる事前構築は不要なので、発行側を `handlers` に列挙する必要はありません。
 
-分散アプリケーションには、Redisアダプターを使用します:
+## メモリアダプター {#memory-adapter}
 
-```typescript
-// @noErrors
+単一プロセスアプリケーションには、インメモリアダプターを使用します。`MemoryEventBusAdaptor` は [mitt](https://github.com/developit/mitt) 上に構築されており、イベントはプロセス内でローカルに扱われ、再起動すると失われます：
+
+```typescript twoslash
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+```
+
+## Redis アダプター {#redis-adapter}
+
+分散アプリケーションには、Redis アダプターを使用します。`RedisEventBusAdaptor` はそれ自体が `Lifecycle` を実装しています。生成時に `@zeltjs/redis` のクライアントを複製して専用の購読コネクションを用意し(クライアントは `lazyConnect` で作られるため、この時点では I/O は発生しません)、`startup()` でそのコネクションを開きます。`on()` はそのイベントが最初に使われた時点でチャンネルを購読し、`shutdown()` は購読コネクションを切断します。
+
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
 import { Injectable, inject } from '@zeltjs/core';
 import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'order.placed': { orderId: string; total: number };
+  }
+}
+// ---cut---
 @Injectable()
 export class OrderService {
   constructor(private eventBus = inject(RedisEventBusAdaptor)) {}
 
-  async placeOrder(items: OrderItem[]) {
+  async placeOrder(items: { price: number }[]) {
     const orderId = crypto.randomUUID();
     const total = items.reduce((sum, item) => sum + item.price, 0);
 
@@ -93,21 +176,68 @@ export class OrderService {
 }
 ```
 
-Redisアダプターには `@zeltjs/redis` の設定が必要です:
+Redis アダプターを使うには `@zeltjs/redis` の設定が必要です。`eventbus` フィーチャーと一緒に `RedisConfig` を登録します：
 
-```typescript
-// @noErrors
-import { createApp, http } from '@zeltjs/core';
+```typescript twoslash
+import { Injectable, inject, LifecycleManager, createApp, http } from '@zeltjs/core';
+import type { Lifecycle } from '@zeltjs/core';
+import { eventbus } from '@zeltjs/eventbus';
+import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
-const app = createApp([http({
-    controllers: [OrderController],
-  })], { configs: [RedisConfig] });
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'order.placed': { orderId: string; total: number };
+  }
+}
+
+@Injectable()
+class OrderHandlers implements Lifecycle {
+  private unsubscribes: Array<() => void> = [];
+
+  constructor(
+    private readonly eventBus = inject(RedisEventBusAdaptor),
+    lifecycle = inject(LifecycleManager),
+  ) {
+    lifecycle.register(this);
+  }
+
+  async startup(): Promise<void> {
+    const unsub = this.eventBus.on('order.placed', (data) => {
+      console.log(`Order ${data.orderId} placed for ${data.total}`);
+    });
+    this.unsubscribes.push(unsub);
+  }
+
+  async shutdown(): Promise<void> {
+    for (const unsub of this.unsubscribes) unsub();
+    this.unsubscribes = [];
+  }
+}
+// ---cut---
+const app = createApp(
+  [
+    http({ controllers: [] }),
+    eventbus({ adaptor: RedisEventBusAdaptor, handlers: [OrderHandlers] }),
+  ],
+  { configs: [RedisConfig] },
+);
 ```
 
-## APIリファレンス {#api-reference}
+`@zeltjs/redis` は `@zeltjs/eventbus` のオプションのピア依存関係です。`RedisEventBusAdaptor` を使う場合のみインストールしてください。接続 URL やリトライ戦略など `RedisConfig` のカスタマイズについては [Redis KV ドライバー](./kv-redis.md) を参照してください。
 
-### EventBusAdaptorインターフェース {#eventbusadaptor-interface}
+## API リファレンス {#api-reference}
+
+### eventbus(options) {#eventbusoptions}
+
+イベントバスフィーチャーを登録します。アプリに `eventbus` キーとして追加されます。
+
+| オプション | 説明 |
+|--------|--------------|
+| `adaptor` | 構築して公開する `EventBusAdaptor` クラス（`MemoryEventBusAdaptor` または `RedisEventBusAdaptor`） |
+| `handlers` | 起動時に強制的に構築する購読者クラス。これにより `Lifecycle.startup()` の購読処理が実行される |
+
+### EventBusAdaptor インターフェース {#eventbusadaptor-interface}
 
 両方のアダプターがこのインターフェースを実装しています:
 
@@ -119,10 +249,9 @@ const app = createApp([http({
 
 ### MemoryEventBusAdaptor {#memoryeventbusadaptor}
 
-Node.js EventEmitterを使用したインメモリイベントバス。イベントはプロセス内でローカルです。
+[mitt](https://github.com/developit/mitt) 上に構築されたインメモリイベントバス。イベントはプロセス内でローカルです。
 
-```typescript
-// @noErrors
+```typescript twoslash
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 ```
 
@@ -130,8 +259,7 @@ import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 
 pub/subを使用したRedisバックエンドのイベントバス。イベントはプロセス間で分散されます。
 
-```typescript
-// @noErrors
+```typescript twoslash
 import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 ```
 
@@ -139,13 +267,23 @@ import { RedisEventBusAdaptor } from '@zeltjs/eventbus/adaptor-redis';
 
 `on()` と `once()` の両方が購読解除関数を返します:
 
-```typescript
-// @noErrors
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string; email: string };
+  }
+}
+
+const eventBus = new MemoryEventBusAdaptor();
+// ---cut---
 const unsubscribe = eventBus.on('user.created', (data) => {
   console.log(data.email);
 });
 
-// 後で購読を停止する
+// Later, stop listening
 unsubscribe();
 ```
 
@@ -155,14 +293,17 @@ unsubscribe();
 
 イベント名にはドット記法を使用します: `domain.action`
 
-```typescript
-// @noErrors
-interface EventBusSchema {
-  'user.created': { userId: string };
-  'user.updated': { userId: string; changes: string[] };
-  'user.deleted': { userId: string };
-  'order.placed': { orderId: string };
-  'order.shipped': { orderId: string; trackingNumber: string };
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+// ---cut---
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string };
+    'user.updated': { userId: string; changes: string[] };
+    'user.deleted': { userId: string };
+    'order.placed': { orderId: string };
+    'order.shipped': { orderId: string; trackingNumber: string };
+  }
 }
 ```
 
@@ -170,12 +311,36 @@ interface EventBusSchema {
 
 イベントハンドラーはべき等に設計します — 同じデータで複数回実行しても安全:
 
-```typescript
-// @noErrors
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+import { eq } from 'drizzle-orm';
+import { pgTable, serial, text } from 'drizzle-orm/pg-core';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'order.placed': { orderId: string; total: number };
+  }
+}
+
+const notifications = pgTable('notifications', {
+  id: serial('id').primaryKey(),
+  orderId: text('order_id').notNull(),
+  type: text('type').notNull(),
+});
+
+const db = drizzle(postgres('postgres://localhost:5432/app'));
+
+const eventBus = new MemoryEventBusAdaptor();
+// ---cut---
 eventBus.on('order.placed', async (data) => {
-  const existing = await db.query.notifications.findFirst({
-    where: eq(notifications.orderId, data.orderId),
-  });
+  const [existing] = await db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.orderId, data.orderId))
+    .limit(1);
 
   if (existing) return;
 
@@ -190,11 +355,28 @@ eventBus.on('order.placed', async (data) => {
 
 エラーが他の購読者に影響を与えないように、ハンドラーをtry-catchでラップします:
 
-```typescript
-// @noErrors
+```typescript twoslash
+import type { EventBusSchema } from '@zeltjs/eventbus';
+import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
+import { Injectable } from '@zeltjs/core';
+
+declare module '@zeltjs/eventbus' {
+  interface EventBusSchema {
+    'user.created': { userId: string; email: string };
+  }
+}
+
+@Injectable()
+class MailService {
+  async sendWelcome(email: string): Promise<void> {}
+}
+
+const mailService = new MailService();
+const eventBus = new MemoryEventBusAdaptor();
+// ---cut---
 eventBus.on('user.created', async (data) => {
   try {
-    await sendWelcomeEmail(data.email);
+    await mailService.sendWelcome(data.email);
   } catch (error) {
     console.error('Failed to send welcome email:', error);
   }
