@@ -12,20 +12,19 @@ function Wired(_dep: unknown): (_target: unknown, _context: ClassMethodDecorator
 }
 
 export class Widget {
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: set config からのみ書き込まれる、意図的な write-only private field(private/get/set 抽出テスト用)
   private mutableName = '';
 
   constructor(private readonly name: string) {}
 
   @LogCall
   render(): string {
+    this.guarded();
     return this.name;
   }
 
   @Wired(Dep)
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: 呼び出されない private メソッドへの decorator 適用を検出できることを確認するためのフィクスチャ
   private guarded(): void {
-    this.render();
+    this.mutableName = this.name;
   }
 
   // import 別名(AliasedDep)経由で渡された decorator 引数。ClassSource は import 元の
@@ -41,7 +40,7 @@ export class Widget {
   }
 
   get label(): string {
-    return this.name;
+    return this.mutableName;
   }
 
   // get と別名の set accessor(同名 get/set 共存は未検証のため name を分ける。設計判断メモ12)

@@ -61,7 +61,7 @@ describe('getFunctionDeclarations', () => {
     const result = await getFunctionDeclarations(MIXED, { tsconfig: TSCONFIG });
     if (!result.isOk()) throw new Error('expected ok');
     const render = result.value.find((f) => f.ref.name === 'render');
-    expect(render?.decorators).toEqual([{ name: 'LogCall', line: 20, args: [] }]);
+    expect(render?.decorators).toEqual([{ name: 'LogCall', line: 19, args: [] }]);
   });
 
   it('resolves decorator factory arguments to a ClassSource via TypeChecker (レビュー指摘8: import 別名対策)', async () => {
@@ -80,7 +80,7 @@ describe('getFunctionDeclarations', () => {
     expect(aliased?.decorators).toEqual([
       {
         name: 'Wired',
-        line: 34,
+        line: 33,
         args: [
           {
             filePath: resolve(__dirname, './fixtures/functions/dep-external.ts'),
