@@ -8,10 +8,10 @@ export class ContextExamples {
     }
   }
 
-  async catchContext(): Promise<void> {
+  // try 側に呼び出し式を置かずに catch へ到達可能にするため、引数の Promise を await する
+  async catchContext(pending: Promise<void>): Promise<void> {
     try {
-      // 呼び出し無し
-      // biome-ignore lint/correctness/noUnreachable: fixtureは実行されずAST解析のみに使われる。tryが実際にthrowする必要はない
+      await pending;
     } catch {
       inner();
     }
