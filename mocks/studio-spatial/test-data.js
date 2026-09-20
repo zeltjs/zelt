@@ -2,6 +2,24 @@
 window.EC_TESTS = (() => {
   const unitFile = 'packages/auth-jwt/src/jwt.service.test.ts';
   const e2eFile = 'integration/ec-backend/e2e/product.spec.ts';
+  const setups = {
+    JwtService: {
+      targetClass: 'JwtService',
+      resolved: true,
+      dependencies: [{ provide: 'JwtConfig', kind: 'config' }],
+      configs: ['TestJwtConfig'],
+      overrides: [],
+    },
+  };
+  // Inputs are Zelt setup facts, not test names, imports or narrative judgments.
+  const summarizeSetup = (setup) => {
+    if (!setup.resolved) return { style: null, mocks: null };
+    const mocks = [...new Set(setup.overrides.map((item) => item.provide))];
+    const realServices = setup.dependencies.filter(
+      (dependency) => dependency.kind === 'service' && !mocks.includes(dependency.provide),
+    );
+    return { style: realServices.length ? 'Sociable' : 'Solitary', mocks };
+  };
   const unit = [
     ['sign', 33, 'should generate a valid JWT token'],
     ['verify', 43, 'should verify and return payload for valid token'],
@@ -15,10 +33,7 @@ window.EC_TESTS = (() => {
     name,
     target: `JwtService.${method}`,
     suite: `JwtService / ${method}`,
-    style: 'Sociable',
-    mocks: [],
-    evidence: `describe('${method}') 内で jwtService.${method} を直接呼出。createTestTarget(JwtService) を使用。joseは実装を利用。`,
-    config: 'JwtConfig → TestJwtConfig（値の差し替え。実装のmockではない）',
+    setup: 'JwtService',
   }));
   const e2e = [
     [22, 'returns empty list initially', 'GET /api/products', ['list']],
@@ -44,5 +59,5 @@ window.EC_TESTS = (() => {
     suite: `Product API / ${suite}`,
     targets: methods.map((method) => `ProductController.${method}`),
   }));
-  return { unitFile, e2eFile, unit, e2e };
+  return { unitFile, e2eFile, setups, summarizeSetup, unit, e2e };
 })();

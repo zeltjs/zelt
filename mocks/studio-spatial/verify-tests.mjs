@@ -12,6 +12,119 @@ export function verifyTestsModel(fixture, model, root, ok, equal) {
     visit(node);
     return found;
   };
+  const sourceFile = (file) =>
+    ts.createSourceFile(
+      file,
+      readFileSync(resolve(root, file), 'utf8'),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+  const setup = fixture.setups.JwtService;
+  const setupCall = calls(sourceFile(fixture.unitFile)).find(
+    (call) => call.expression.getText() === 'createTestTarget',
+  );
+  equal(
+    setup.targetClass,
+    setupCall.arguments[0].getText(),
+    'Zelt target class from setup argument',
+  );
+  const options = setupCall.arguments[1];
+  const option = (name) =>
+    options.properties.find((item) => item.name.getText() === name)?.initializer;
+  equal(
+    [...setup.configs],
+    option('configs').elements.map((item) => item.getText()),
+    'Config registration from Zelt options',
+  );
+  const overrideOption = option('overrides');
+  const overrides = overrideOption
+    ? overrideOption.elements.map((item) => ({
+        provide: item.properties
+          .find((property) => property.name.getText() === 'provide')
+          .initializer.getText(),
+        useValue: item.properties
+          .find((property) => property.name.getText() === 'useValue')
+          .initializer.getText(),
+      }))
+    : [];
+  equal(
+    JSON.parse(JSON.stringify(setup.overrides)),
+    overrides,
+    'Mock facts match actual Zelt overrides',
+  );
+  const config = sourceFile('packages/auth-jwt/src/jwt.config.ts').statements.find(
+    (item) => ts.isClassDeclaration(item) && item.name.text === 'JwtConfig',
+  );
+  ok(
+    ts.getDecorators(config).some((item) => item.expression.getText() === 'Config'),
+    'Config role verified from decorator',
+  );
+  const injections = calls(sourceFile('packages/auth-jwt/src/jwt.service.ts')).filter(
+    (call) => call.expression.getText() === 'inject',
+  );
+  equal(
+    injections.map((call) => call.arguments[0].getText()),
+    ['JwtConfig'],
+    'Complete DI inputs of fixture class (not its library imports)',
+  );
+  equal(
+    JSON.parse(JSON.stringify(setup.dependencies)),
+    [{ provide: config.name.text, kind: 'config' }],
+    'Setup dependencies match actual DI tokens and roles',
+  );
+
+  const summary = (data) => JSON.parse(JSON.stringify(fixture.summarizeSetup(data)));
+  const cases = [
+    [[], [], 'Solitary', []],
+    [[{ provide: 'Settings', kind: 'config' }], [], 'Solitary', []],
+    [[{ provide: 'Repo', kind: 'service' }], [], 'Sociable', []],
+    [
+      [{ provide: 'Repo', kind: 'service' }],
+      [{ provide: 'Repo', useValue: 'mockRepo' }],
+      'Solitary',
+      ['Repo'],
+    ],
+    [
+      [
+        { provide: 'Repo', kind: 'service' },
+        { provide: 'Mail', kind: 'service' },
+      ],
+      [{ provide: 'Repo', useValue: 'mockRepo' }],
+      'Sociable',
+      ['Repo'],
+    ],
+    [
+      [{ provide: 'Repo', kind: 'service' }],
+      [{ provide: 'Unused', useValue: 'mockUnused' }],
+      'Sociable',
+      ['Unused'],
+    ],
+  ];
+  for (const [dependencies, overrides, style, mocks] of cases) {
+    const input = { resolved: true, dependencies, overrides, configs: ['TestConfig'] };
+    const before = JSON.stringify(input);
+    equal(
+      summary(input),
+      { style, mocks },
+      'Classify real/overridden/absent DI service dependencies',
+    );
+    equal(JSON.stringify(input), before, 'Classification preserves input facts');
+  }
+  equal(
+    summary({ resolved: false }),
+    { style: null, mocks: null },
+    'Unresolved facts never become no mocks',
+  );
+  equal(
+    summary({ ...setup, imports: ['jose', 'other-library'] }),
+    summary(setup),
+    'Library imports cannot affect Zelt classification',
+  );
+  equal(
+    summary({ ...setup, overrides: [{ provide: 'Repo' }, { provide: 'Repo' }] }).mocks,
+    ['Repo'],
+    'Unique provided class names',
+  );
   for (const [kind, file] of [
     ['unit', fixture.unitFile],
     ['e2e', fixture.e2eFile],
@@ -45,8 +158,16 @@ export function verifyTestsModel(fixture, model, root, ok, equal) {
           'Unit directly invokes its target',
         );
         equal(test.target, `JwtService.${suites.at(-1)}`, 'Setup calls do not become test targets');
-        equal(test.mocks.length, 0, 'No fabricated class mock');
-        equal(test.style, 'Sociable', 'Real jose collaborator');
+        equal(test.setup, setup.targetClass, 'Test uses the verified Zelt setup');
+        equal(
+          summary(fixture.setups[test.setup]),
+          { style: 'Solitary', mocks: [] },
+          'Config-only target is Solitary under Zelt DI criterion',
+        );
+        ok(
+          !('style' in test) && !('mocks' in test) && !('evidence' in test),
+          'No stored classifications or narrative judgments',
+        );
       } else {
         // Independent request oracle for this bounded fixture; no general extractor.
         const expected = new Set();
@@ -109,15 +230,68 @@ export async function verifyTestsBrowser(page, ok, equal) {
   equal(await page.locator('.unit-test').count(), 3, 'Only target method tests');
   equal(
     await page.locator('.test-style').allTextContents(),
-    ['Sociable', 'Sociable', 'Sociable'],
-    'Unit style visible',
+    ['Solitary', 'Solitary', 'Solitary'],
+    'Computed Zelt style visible',
   );
-  await page.locator('.unit-test details summary').first().click();
-  ok(await page.locator('.unit-test details[open]').isVisible(), 'Evidence can be opened');
+  equal(
+    await page.locator('.test-table th').allTextContents(),
+    ['test名', '分類', 'mock対象'],
+    'Comparable table columns',
+  );
+  equal(await page.locator('tr.unit-test').count(), 3, 'One table row per test');
+  equal(
+    await page.locator('.test-mocks').allTextContents(),
+    ['なし', 'なし', 'なし'],
+    'Mock column uses Zelt overrides',
+  );
+  equal(await page.locator('#inspector details').count(), 0, 'No per-test prose disclosure');
+  ok(
+    !(await page.locator('#inspector').textContent()).includes('jose'),
+    'No library-based classification narrative',
+  );
+  ok(
+    (await page.locator('.unit-test td').first().getAttribute('title')).includes(
+      'jwt.service.test.ts:43',
+    ),
+    'Source provenance retained without row paragraphs',
+  );
+  ok(
+    await page
+      .locator('.test-table-scroll')
+      .evaluate(
+        (element) => element.clientWidth <= document.querySelector('.inspector-body').clientWidth,
+      ),
+    'Table scroll is contained on small viewports',
+  );
+  const synthetic = await page.evaluate(() => {
+    const facts = window.EC_TESTS.setups.JwtService;
+    window.EC_TESTS.setups.JwtService = {
+      resolved: true,
+      dependencies: [{ provide: 'Repo', kind: 'service' }],
+      overrides: [{ provide: 'Repo', useValue: 'mockRepo' }],
+    };
+    const html = ecTestList('JwtService.verify');
+    window.EC_TESTS.setups.JwtService = facts;
+    const holder = document.createElement('div');
+    holder.innerHTML = html;
+    return [...holder.querySelectorAll('.test-mocks')].map((element) => element.textContent);
+  });
+  equal(
+    synthetic,
+    ['Repo', 'Repo', 'Repo'],
+    'Mock names render from provided class tokens (synthetic only, not fixture)',
+  );
   await select('JwtService');
   equal(await page.locator('.unit-test').count(), 6, 'Class aggregates all member test targets');
+  equal(
+    await page.locator('.test-table th').allTextContents(),
+    ['test名', '対象', '分類', 'mock対象'],
+    'Class table retains method identity',
+  );
   await select('ProductController.create');
   equal(await page.locator('.e2e-test').count(), 6, 'Create includes test-body preparation POSTs');
+  equal(await page.locator('tr.e2e-test').count(), 6, 'Related E2E also uses compact rows');
+  equal(await page.locator('#inspector details').count(), 0, 'No per-E2E explanations');
   equal(await page.locator('.unit-test').count(), 0, 'E2E is not unit');
   await select('ProductController.detail');
   equal(await page.locator('.e2e-test').count(), 4, 'Detail includes deletion check request');

@@ -842,6 +842,6 @@
     columns,
     width: 1880,
     height: 3440,
-    version: 'ec-contract-tests-1',
+    version: 'ec-test-table-1',
   };
 })();

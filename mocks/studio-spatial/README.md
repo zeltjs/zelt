@@ -242,13 +242,16 @@ TypeScript ASTで宣言・ファイル・署名・コード位置・全アプリ
 
 - タブは「契約 / 実コード」の2つ。境界の一般論・関係一覧は詳細欄から削除。
 - 契約は宣言signatureとUnit一覧。HTTP entryには別のEndpoint関連E2E欄を置く。
-- Unitは対象methodのdescribeと直接呼出を照合。準備呼出は対象へ広げない。
-- Unit収録はjwt.service.test.tsの6件。実joseとの協調なのでSociable、Mockなし。TestJwtConfigは値の差替えとして別記。
+- このUnit fixtureは対象methodのdescribe名と直接呼出が一致する6件を収録し、準備呼出を対象へ広げない。describe名だけから一般のテスト対象を推定する抽出器ではない。
+- Unit収録はjwt.service.test.tsの6件。1test1行で「test名 / 分類 / mock対象」。group選択時のみ「対象」列を追加する。根拠説明・config説明を行に積まない。
+- 分類の入力はcreateTestTargetのZelt DIサービス依存とoverrides。configsとConfig依存は分類対象外。実体のサービス依存が残ればSociable、全依存override済みまたはサービス依存なしならSolitary。部分overrideはSociable。未解決入力は未判定、mock対象も未確認。
+- mock対象はoverridesのprovideを重複除去したclass名。configsや外部ライブラリのimportからmock対象を作らない。分類はsetupの事実から関数で算出し、固定ラベルをfixtureへ保存しない。
+- JwtServiceはinject(JwtConfig)だけなので、この基準ではSolitary。overrides未指定なのでmock対象なし。TestJwtConfigはconfigsの指定として保持し、根拠文に意味づけしない。
 - E2E収録はproduct.spec.tsの16件の本体内request。helperを介す準備POSTも関連として表示する。共通setup・他ファイルの対応は未収録。
 - E2Eの対応はrequest→endpoint→Controller method。下流schema/serviceへ波及させず、method本体の実行・網羅・主たる検証対象を保証しない。
 - 未収録は「なし」と表示しない。ec-backend内はUnitファイルがないことを確認済み。packageの未調査対象は未確認。
 - groupは所属methodのテストを集約し、対象名を保持。開閉やロックでテスト対応は変わらない。
-- データ(test-data.js)と表示(test-view.js)を分離。出典と対応根拠を開ける。分類不明を架空のSolitary/Sociableで埋めない。
+- データ(test-data.js)と表示(test-view.js)を分離。test名のtitleにsuiteと出典を保持。E2Eも表にして出典を列表示する。分類不明を架空のSolitary/Sociableで埋めない。
 
 不変条件: graph、active範囲、ロック、実コード、元testファイル。契約外の外部影響なし。
 仮定: この分離が読みやすいかはユーザーのUI評価で確認する。
