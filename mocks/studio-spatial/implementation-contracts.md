@@ -1,0 +1,16 @@
+# React移行の検証契約
+
+目的は、合意済みモックの読みやすさ・実体対応を保ち、通常の型・lint・test・buildで変更を検証できる状態にすること。抽出器、CLI接続、test runner連携は含めない。
+
+| 境界 | 事前条件 | 事後条件・不変条件 |
+| --- | --- | --- |
+| JSON → graph | schemaVersion=1、ID一意、参照先が存在 | 41 group / 157宣言 / 256関係を保持。source・test・出辺は所有者に内包。秘密値は配信しない。不正JSONはerror状態で表示 |
+| Mediator | ready状態、有効な対象・操作 | 遷移を一括確定。ロック中の選択は詳細だけ変更。起点選択は選択＋再帰＋ロック。無効な要求は理由を表示し状態を部分更新しない |
+| graph → Presenter | 検証済みgraphと確定状態 | use/used byを独立再帰。折りたたみで探索を変えない。閉じた箱とタグの濃淡を統一。未選択/範囲外のタグも残す |
+| View → 親handler | 意味イベントを一度送信 | handledで停止、passで直近の親に一度伝播。兄弟・Mediatorへ飛び越えない。Root未処理はエラー。Viewは探索・ロックの判断をしない |
+| URL ↔ Mediator | nuqsで構文検証、graphでID検証 | node/root/mode/tabをreload・戻る/進むで復元。復元を再pushしない。存在しないID・不正値は表示して拒否 |
+| static hosting | build済みassetsとJSON | バックエンド不要。相対baseでサブパス配信可能。fetch失敗・古い取得結果を正常データで代替しない |
+
+表示設定・展開状態のURL保存は今回追加しない。既存のリセット既定値を維持する。fixtureの未収録testを「なし」と断定しない。
+
+IO境界はunmountで取得をabortし、その後の結果で描画しない。URL保存失敗は状態を保って通知する。リセットは不正なURLも既定値へ戻す。URL復元では選択対象を地図内に表示し、履歴を増やさない。

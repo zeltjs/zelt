@@ -1,257 +1,76 @@
-# ec-backend / Studio mock
+# Studio spatial mock
 
-抽出器・API接続・ビルド不要の静的UIモック。`index.html` を直接開くか、このディレクトリで
-`python3 -m http.server 4411 --bind 127.0.0.1` を実行する。
+ec-backend全体を、1宣言1nodeとclass/file/interface groupで表示するReact SPA。
+抽出器やCLIへの接続はありません。構造・source・testは手動のJSON fixtureです。
 
-## 評価する体験
+## 起動
 
-注文だけの抜粋からec-backend全体へ広げても、入口・共有依存・契約を実コードに照合できるか。
-HTTP / eventのentryとmiddlewareを起点にする。configは別タブに隔離しない。
-層の列と箱の並び順を保ち、groupの折りたたみと選択近傍／起点の依存範囲で読めるかを試す。
-読みやすさはユーザーによる評価待ちで、自動テストの成功とは別。
+リポジトリルートから:
 
-## 表示範囲とロックの契約
+```sh
+pnpm install
+pnpm --filter @zeltjs/studio-spatial-mock dev
+```
 
-目的: 同じflowの矢印・active範囲を保ったまま詳細を読み、通常の追従状態へ明示的に戻せる。
-事前条件: 選択・固定対象はfixture内の宣言またはgroup。未選択時とapp.tsの構成だけを選択した時は新規ロック不可。
+http://localhost:4490/ を開きます。以前のPython静的サーバーではなくViteを使います。
 
-- 範囲（近傍／再帰／全関係）とロックは独立。ロックOFFは現在選択を基準にし、ONはその時の基準を保持する。
-- 詳細選択は選択枠・詳細だけを変え、ロック中の元edge集合・activeな元ID集合を変えない。範囲外の選択も薄表示を維持する。
-- 折りたたみは同じ集合を現在の表示単位へ投影する。メソッドからclassへ探索を拡大しない。表示オプションは表示だけを変える。
-- ロック解除は現在選択へ追従を戻す。範囲切替はロックを勝手に解除せず、固定基準に対して範囲を再計算する。
-- 起点選択・詳細のショートカットは対象選択＋再帰＋ロックを一度に行い、通常の範囲・ロックUIへ反映する。起点の種類は候補だけのフィルターでロックを変えない。
-- 検索・小地図・詳細リンク・タグ/warp移動は同じ詳細選択。ロックと範囲モードを変えない。「戻る」は両方を含め復元する。
-- middleware適用は近傍・再帰の探索から除く。checkboxは撤去するが、適用タグ・実在の箱・詳細の根拠は残す。middleware内部のcall/read等は通常どおり辿る。
-- タグの濃淡は閉じた箱では箱全体、展開時のmiddleware適用ではactiveな適用元メンバーに従う。全関係では適用関係も表示対象にする。
-- 初期化・リセットは未選択、近傍、ロックOFF。ロック状態と固定基準を地図の上で明示する。
+```sh
+pnpm --filter @zeltjs/studio-spatial-mock build
+pnpm --filter @zeltjs/studio-spatial-mock preview
+```
 
-`EC_PRESENT.display`の`focus`は範囲基準、`selected`は詳細選択。active集合は元edge端点とfocusのseedだけで決める。
-不変条件: 元グラフ・関係の根拠・固定配置・表示単位・既存の表示オプション。契約外の外部影響: なし（静的mockのみ）。
-仮定: この状態分離と可視化でクリック結果を予測しやすくなるかは、ユーザーの操作評価で確認する。
+`dist/`をそのまま静的ホストへ配置できます。相対baseなのでサブパスにも配置可能。
+`ec-backend.snapshot.json`も同じディレクトリに配信してください。バックエンド不要です。
 
-## 操作一覧
+## 構造
 
-- CLASS・FILE・INTERFACEの全groupは初期折りたたみ。各箱の「＋ / −」で個別展開でき、「全groupを展開」で全宣言を表示する。app.tsは構成画面で扱う。
-- 閉じたgroupの関数・property・型などにつながる線はgroupに接続。同方向・同種の線だけを束ね、件数を表示する。
-- group内だけの関係は展開または詳細で確認する。線・タグのホバーには元の宣言名・根拠が残る。
-- groupの種類表示は維持する。宣言の検索・起点・詳細リンクからの選択では所属groupだけを自動展開する。
-- 起点ショートカット: 全16 HTTP entry、event受信callback、5 middleware、lifecycleから選び、再帰＋ロックする。app.tsの登録は「アプリ構成」から確認する。
-- 近傍（1段）: 基準の宣言が使う先と使う元の線だけを表示する。
-- 再帰（use / used by）: useとused byを同じ基準からそれぞれ独立に再帰し、前後の経路を重ねる。途中で方向を変えない。
-- 範囲をロック: 矢印とactiveな宣言の範囲を保持し、詳細だけを選べる。解除すると現在の選択へ追従する。
-- 全関係: 全256関係が対象。通常の線、適用タグ、event/callのwarp、設定非表示の印、構成画面に分ける。初期画面は線なしの全体配置とタグ/warp。
-- 検索: 関数・class・property・型・ファイル名を探し、選ぶと地図の位置へ移動する。
-- 全体の小地図: class/file/interfaceをクリックして移動する。地図は縦横スクロール可能。
-- 倍率: 横幅に合わせる / 100% / 拡大・縮小。宣言の座標は変えない。
-- 詳細: 契約（宣言・Unit一覧・HTTP entryの関連E2E）／実コード。関係は地図で確認する。
-- ここから再帰＋ロック: entry以外の宣言も調査の起点にできる。app.tsの構成関数は除く。
-- Order型の仮変更: statusにrefundedを加える仮定で、直接型参照3メソッドとその呼出元3メソッドを強調する。
-  完全な変更影響解析ではない。実コード・DBは変更しない。
+```mermaid
+flowchart LR
+  JSON["graph JSON<br/>group → declaration → source / test / relations"] --> Runtime["runtime.lib.ts<br/>fetch・URL・render"]
+  Runtime --> Mediator["mediator.lib.ts<br/>状態遷移"]
+  Mediator --> Presenter["presenter.lib.ts<br/>描画用props"]
+  Presenter --> Root["Root<br/>Passive View階層"]
+  Root -->|"子 → 直近の親<br/>handled / pass"| Mediator
+```
 
-## 起点の依存範囲の契約
+- JSONの型と検証: [snapshot.types.ts](src/snapshot.types.ts)、[snapshot-schema.lib.ts](src/snapshot-schema.lib.ts)、[graph.lib.ts](src/graph.lib.ts)。
+- 選択・ロック・起点・表示設定はMediatorが判断します。Viewは探索しません。
+- 各Viewは親へのイベント出口1本を受け取り、未処理イベントだけを直近の親へ渡します。Context・global busはありません。
+- スクロール・ズーム・フォーカスは描画側の責務。GraphViewportがpan/zoomを処理して伝播を止めます。
+- URLは`node / root / mode / tab`を保存。nuqsの[loader / serializer](https://nuqs.dev/docs/utilities)を利用し、履歴操作はIO境界に置いています。reload・戻る/進むで復元します。
+- fetch・JSON・URLの不正は画面に表示し、代替データで隠しません。
 
-目的: 起点を使うentryまでの経路と、起点が使う先を同じ地図で見渡す。
-事前条件: 元グラフのID・端点が検証済み。seedは宣言1つ、または明示選択したgroupと全メンバー。対象edgeはmiddleware適用を除いた元関係。
-`EC_SCOPE.trace(seeds, edges)`はDOM非依存で`use`/`usedBy`それぞれの到達IDと元edge集合、および合流した`nodes`/`edges`を返す。
+見出し・操作群・行・SVG部品は同ファイルの子Viewに分割しています。Root配下でイベントは親を飛び越えません。
+レビュー済み設計は[react-migration-design.md](react-migration-design.md)、検証契約は[implementation-contracts.md](implementation-contracts.md)。
 
-- useはfrom→toのみ、used byはto→fromのみを、同じseedから独立して再帰する。
-- 両方向で実際に辿ったedgeだけを元グラフの順序で合流し、重複しない。合流したnode間の未探索edgeを追加しない。
-- 共有依存から別の呼出元へ、または呼出元から別の依存先へ方向転換しない。循環・自己参照でも停止し、孤立seedは保持する。
-- 到達したメンバーの所属groupやconstructorを探索seedへ追加しない。overrideも元edgeの向きに従い、use探索で逆向きに追加しない。起点としてgroupを明示選択した場合のみ全メンバーをseedにする。
-- ロック中は固定root、それ以外は現在の選択を基準とする。近傍も同じ基準を使う。
-- 型/config/件数の表示オプションは探索を変えない。middleware適用は両方向の探索から除く。
+## 表示の意味
 
-不変条件: 元グラフと元edge参照、選択/root ID、開閉、配置、共通表示モデルの契約は維持。メソッドを閉じてもseedは広がらない。
-従来仕様からの変更: 初期化/overrideの暗黙的な文脈追加を撤去。表示は静的な関係の経路であり、実行順序や変更影響の確定を意味しない。
-契約外の外部影響: なし。抽出器・API・DB・ec-backend本体は変更しない。
+閉じた箱は全メンバーを表し、矢印も箱に集約します。同じ向き・種類だけを束ね、×Nは関係の本数です。
+閉じた箱と付属middlewareタグは同じ濃淡になります。
 
-## 共通表示モデルの契約
+近傍は1段。再帰はuseとused byを別々に辿り、途中で方向を反転しません。
+ロックは矢印とactive範囲を保持します。起点ショートカットは選択＋再帰＋ロックです。
+middleware適用はタグ、別entryへの接続はwarp、configは表示切替、app.tsは「アプリ構成」にあります。
 
-目的: 箱が代表する抽象度と、線・付属情報・強調の意味を一致させる。
-合意した原則: 実態への忠実性、現在の抽象度で意味を揃える、構造の存在と注目範囲を分ける、必要時だけ内部を読む。
-仮定: 表示単位と注目状態を描画前に一度決めれば、箱/タグ/矢印それぞれの独立判定による矛盾を防げるか。
-
-事前条件: 元fixtureのID/所属/端点は検証済み。選択ID・focus IDと開閉IDはfixtureに存在し、探索範囲は元edgeへの参照で渡す。
-`EC_PRESENT.display(model, options)`はDOMに依存しないDisplayGraphを返す。
-
-- `units`は元ID→現在の表示単位。閉じたgroupのメンバーはgroup、展開したメンバーは元ID。箱の選択枠・矢印端点・付属情報の所有単位は同じ写像を使う。
-- `groups`/`nodes`は代表する宣言、表示/非表示、注目範囲による濃淡、選択と仮変更の状態を持つ。class/file/interface共通の規則とする。
-- middleware/warp/configの付属情報は明示的な表示オプションで除外しない限り全体を保持する。選択で消さず、安定したキー・順序・元関係・移動先を保つ。
-- 閉じた箱の付属情報は箱の濃淡と一致する。展開中のmiddleware適用は適用元のactive状態、その他は元関係の範囲に従う。所属箱が範囲外なら薄くする。未選択の全体表示では薄くしない。二重にopacityを掛けない。
-- `projection`は現在の範囲の通常線だけを同じunitsで投影する。タグを残すために探索を拡張したり、元グラフへ関係を追加したりしない。`parts`/`total`の集計は現在範囲を示す。
-- rendererはDisplayGraphの結果を描画し、濃淡・選択・端点・付属情報の存在を独自に再判定しない。
-
-不変条件: 元グラフ・元edge参照・探索範囲・選択/root ID・開閉・詳細・固定配置・明示的オプションの意味は保持。メソッドを閉じても探索をclass全体へ広げない。タグの通常表示は全メソッドへの適用を意味せず、実際の適用対象は内訳で確認できる。
-契約外の外部影響: なし。抽出器・API・DB・実アプリは変更しない。
-
-## 特別な関係の表示契約
-
-目的: 通常の依存線と、適用・別entryへの接続・設定・アプリ構成を区別して読めるようにする。
-仮定: 長い接続線を意味付きの参照リンクに置き換えれば、関係を失わず大枠を読みやすくできるか。
-事前条件: 元fixtureの関係種別・所属group・登録済みrootが解決できる。
-
-- middleware適用は線ではなく、適用元group内のタグにする。タグの名前・内訳で対象メソッドを確認し、middlewareの詳細へ移動できる。group内全メソッドに適用されるとは見なさない。
-- event配送と別groupの登録済みentryへの直接callは、両端のgroupに関係種別付きwarpリンクを置く。helperがEntry列にあるだけではwarp化しない。warpは新nodeではなく既存宣言へのリンク。
-- middleware/warp/configの付属情報は共通表示モデルの規則で保持・強調する。middleware適用は探索しなくてもタグとして残す。
-- 初期の未選択時は全体のタグ/warpを示すが線は出さない。詳細一覧と参照印には元の関係を保持。
-- タグ/warp用の領域は元グラフから予約し、選択・表示設定で箱の座標を変えない。開閉では従来同様、縦の余白を詰める。
-- リンクで移動すると対象宣言の詳細を表示する。モード・ロックは維持し、「戻る」で固定基準・選択・詳細タブ・開閉・表示設定・地図スクロール・倍率を復元する。
-- configは初期/リセットON。OFFはConfig列の箱・小地図・接続線を隠すが、非config側には設定との関係がある印と内訳を残す。他の箱は動かさない。検索/参照リンクでconfigを選ぶとONに戻す。
-- app.tsは常に地図・小地図に表示しない。構成rootは起点選択から外し、「アプリ構成」で登録先一覧・createEcAppのソースを確認できる。検索/詳細からも参照可能。
-- 型参照OFF・数字OFF・near/flow/all・ロック・折りたたみと併用できる。非表示にした関係を線へ戻す代替表示は作らない。
-
-不変条件: 元グラフの宣言/関係/根拠と線・タグのホバー、依存範囲計算は不変。Adapter→Portの実装など必要な逆向き線は残す。
-配置分類は既存fixtureのConfig列と実在app.ts、entry判定はHTTP/Event/Middleware rootを使う。新しい業務上の箱や抽出ロジックは作らない。
-契約外の外部影響: なし。本番コード・DB・設定値は変更しない。読みやすさはユーザー評価待ち。
-
-## 表示オプションの契約
-
-目的: 型参照と矢印の件数を独立に省き、地図の読みやすさを比較する。
-事前条件: fixtureの関係種別が型参照と実行時参照を区別している。
-
-事後条件:
-
-- 地図上部に「型の参照arrow」「数字表示（×N）」のcheckboxを置く。初期・リセットは両方ON。
-- 型OFFでは型注釈・型定義の参照線のみ隠す。他種別の関係は通常の線・タグ・warp等、それぞれの表現で残す。
-- 数字OFFでは矢印の束に付く×Nだけ隠す。矢印・元の関係・ホバーの内訳は維持し、集計・内部件数・倍率・ソース行番号は対象外。
-- 選択近傍・依存範囲・全関係、および開閉状態の組み合わせで適用する。OFF→ONで元に戻る。
-- 選択・起点・タブ・開閉を操作しても設定を維持する。再読込では初期状態へ戻る。
-
-不変条件: 表示切替で元グラフ・依存範囲の計算・箱の配置と強調・開閉・選択ID・起点・詳細タブと関係一覧は変えない。
-既存fixtureの実行時request(schema)参照6本はtypeからschemaへ分類を訂正する。型定義からschema/tableへの参照はtypeのまま。
-新しい業務上の箱・抽出器・実コード変更なし。契約外の外部影響: なし。
-
-## 折りたたみの契約
-
-目的: 全体をgroup単位で見渡し、必要な箱だけ宣言単位へ掘り下げられるかを試す。
-仮定: 表示密度を下げつつ、隠れた宣言の入出力をgroupへ投影すれば関係を見失わないか。
-
-事前条件: 宣言の所属group・関係の端点が既存fixture内で解決できる。
-
-事後条件:
-
-- 初期状態とリセットではCLASS・FILE・INTERFACEの全groupを閉じる。全groupに個別開閉ボタンを表示し、一括開閉も同じ対象に適用する。
-- 個別の開閉では他groupの開閉状態、起点・選択ID・詳細タブを維持する。
-- 隠れたメンバーの端点だけをgroupに投影する。片側展開ならgroup→宣言 / 宣言→group、両側展開なら元の端点となる。
-- 同一の表示始点・終点・関係種別のみ束ねる。反対向き・別種別は混ぜない。元の関係IDを全て保持する。
-- 閉じたgroup内の関係は自己ループを作らず、上部の集計に含める。元の関係は詳細と再展開で確認できる。
-- 閉じた箱の宣言数・内部関係数の説明行は表示しない。基本高さは86pxから62pxへ24px縮め、タグ/warp用の領域は維持する。展開時の宣言・高さ、種類・名前・開閉ボタン、上部集計・矢印の件数は変えない。
-- 選択近傍・起点の依存範囲は元グラフで計算してから投影する。閉じたgroupの別の宣言へ範囲を広げない。
-- group選択は展開しない。メンバー選択・「地図の位置へ」は所属groupだけを開いて位置へ移動できる。
-- 層・列・縦の並び順を維持し、閉じたメンバーの高さ分だけ同列の後続箱を詰める。タグ用の固定領域を加味した全展開座標へ戻せる。
-- 開閉後も箱が重ならず、線の端点・小地図・スクロール範囲が表示座標と一致する。
-- 個別開閉ボタンはキーボード操作とaria-expandedに対応し、再描画後もフォーカスを失わない。
-
-不変条件: fixture・元の宣言ID・関係・署名・groupの種類ラベルは変更しない。仮変更の強調は閉じたgroupにも伝える。
-表示だけの変更で、抽出器・実コード・DB・設定への変更や新しい業務上の箱はない。契約外の外部影響: なし。
-
-## 実装の契約
-
-目的: 全体を載せた状態でUIを評価する。抽出器の設計や実装は行わない。
-
-事前条件:
-
-- fixtureは実在する宣言・登録・呼出・参照を指す。意味で合成した関数やclassは作らない。
-- 1関数宣言1node。メソッドは宣言元classに所属する。トップレベル関数はFILE、型のメンバーはINTERFACEとして区別する。
-- イベント受信の無名関数は位置と登録式で識別する。startupをイベントハンドラーとは呼ばない。
-- property/getter、schema/type/table、interfaceのシグネチャは関数実装nodeと区別する。
-- 設定値を表示しない。getterの値やproperty initializerはソースsnapshotでも伏せる。
-
-事後条件:
-
-- ec-backendの全21 source file、16 HTTP entry、event購読callback、5 middlewareを確認できる。
-- 全4 usecase、app構成、Domainの全5ファイル、両config、DB定義、lifecycleメソッド、ローカル補助関数を表示する。
-- JwtServiceはHTTP loginとJwtMiddlewareの両方から参照される同じclass。configも同じ宣言を共有する。
-- middleware適用は直接呼出と別。event発行と購読先の対応も直接呼出と別。継承・実装・型参照も種別を保つ。
-- OrderHandlersの購読はstartupにあり、受信callbackは別関数。callbackを起点として選べる。
-- 選択した宣言のシグネチャ・コード範囲・呼ぶ先・読む先・使う元・境界を確認できる。
-- 起点の網羅はfixtureの数ではなく、アプリの登録をソースから独立に列挙して照合する。
-
-不変条件:
-
-- 開閉状態が同じなら起点選択・検索・選択・詳細タブで座標を変えない。IDは開閉でも変えず、同じ宣言をflowごとに複製しない。
-- package側で展開を止めた宣言は「内部未展開」と明示する。未展開を依存なしと同一視しない。
-- プロダクションのコード・DB・設定を書き換えない。CLIはアプリに登録がないため作らない。
-- HTMLが参照するCSSと8本のJSはすべて同じ版番号を使う。
-- バージョン変更は11アセットのURLとdata.jsのversionを同時に更新する。
-
-## モデル・ソースとの対応
-
-157宣言（関数実装82、property/getter・型・schema・table・interface契約等75）、
-41 class/file/interface group、256関係。groupは新しい責務の合成ではない。
-constructorは実在する関数だがHTTP/event entryとは区別する。
-ローカルの無名callbackはevent受信・EcJwtConfig.resolveUserの返却関数を除き、親の内部コードに残す。
-
-`data.js` は手で範囲と関係を記述した固定fixture。
-`sources.js` は指定した実宣言から複写した署名・コード・位置の固定snapshot（設定値は伏せる）。
-`scope.js` は元の関係をuse/used byの各方向へ独立に辿る。描画・開閉・DOMから独立し、app.jsが選んだseedと対象関係を受け取る。
-`projection.js` は開閉状態に応じた表示座標と線の投影のみを計算する。元グラフと依存範囲は変更しない。
-`map-view.js` はその表示座標をDOM・小地図へ適用し、groupの開閉を扱う。
-`presentation.js` は共通表示モデルを生成する。表示単位・箱の強調・付属情報の濃淡・線の投影を一箇所で決め、元の参照関係を保持する。描画側はこの結果を使い、意味の判定を繰り返さない。
-`special-view.js` はタグ、warpの往復、config表示、構成ダイアログを扱う。
-ブラウザでソースを読み取ったり、構造を抽出したりする処理はない。
-
-配置列は表示規約。package serviceを架空のUse caseへ分類しない。
-Domainはschemaと型。OrderなどDB由来の型はsrc/infra/db/schema.tsに置く。
-独自Repository Portはない。CartServiceのKVStoreは実在のinterfaceで、
-MemoryKVStore implements AtomicKVStore extends KVStoreを区別する。
-
-## 展開の境界・未検証
-
-ec-backend/src全体と、使用packageの明示的な境界を対象にする。
-ライブラリ全体を無制限に再帰展開した図ではない。
-MemoryKV、MemoryEventBus、Logger、RateLimitService、LifecycleManager等は表示したメンバーの先を未展開とする。
-JwtConfigは注入先の型として表示し、EcJwtConfigのoverride・appでの登録を分けて示す。
-CorsConfig / SecureHeadersConfigを読むmiddlewareも含める。
-
-ORM / SQL builder、標準API、request・response・DI・認可・例外処理等のframework内部は展開しない。
-@Authorizedはframework側の認可情報であり、架空のAuthorizedMiddlewareを作らない。
-middleware適用のタグは登録関係。実行時の順序や完全なトレースではない。
-関数を返すgetterの静的参照とoverrideは示すが、任意の高階関数の呼出先解決を保証するものではない。
-
-契約を通らない影響:
-共有DBテーブル、注文のDB transaction後のKV削除・event発行、request contextを通じた認証情報を詳細に記す。
-性能、並行更新、例外の最終HTTP変換、ライブラリ内部を含む完全な影響解析は未検証。
+下部は「契約 / 実コード」。Unit testは対象宣言に対応する一覧で、分類とmock対象はZeltのDI setupから表示します。
+HTTP entryのE2E対応はrequestに基づき、method実行の証明ではありません。
+未収録・内部未展開は、testや依存が存在しないという意味ではありません。
 
 ## 検証
 
-リポジトリルートで:
-
 ```sh
-node mocks/studio-spatial/verify.mjs
-node mocks/studio-spatial/verify.mjs --browser
+pnpm --filter @zeltjs/studio-spatial-mock typecheck
+pnpm --filter @zeltjs/studio-spatial-mock lint
+pnpm exec biome check mocks/studio-spatial
+pnpm --filter @zeltjs/studio-spatial-mock test
+pnpm --filter @zeltjs/studio-spatial-mock build
+pnpm --filter @zeltjs/studio-spatial-mock exec playwright install chromium
+pnpm --filter @zeltjs/studio-spatial-mock test:browser
 ```
 
-TypeScript ASTで宣言・ファイル・署名・コード位置・全アプリメンバー・全HTTP登録・event登録を照合する。
-注入先アクセスはfixtureの宛先で先に絞らずに列挙し、存在しない／表示していない参照を失敗にする。
-自己メソッド呼出、ローカル関数、constructorの注入先への呼出も照合する。
-この検証コードはfixture検査用であり、画面用データを生成する抽出器ではない。
+Unit検証はルートの`pnpm test`にも含まれます。buildとtypecheckもworkspaceに接続しています。
+ブラウザ検証はbuild後、専用preview（4491）を自動起動し、PC・タブレット・モバイルを検証します。
 
-ブラウザ検証にはPlaywrightが必要。
-`PLAYWRIGHT_MODULE` と `CHROMIUM_EXECUTABLE` で既存のローカル環境を指定できる。
-3画面サイズ、全起点・全宣言の詳細、entry→configとmiddleware→同じconfig、event受信への移動、
-検索・ズーム・キーボード・リセット・幾何の不変条件、file/HTTPと旧版アセットが残ったキャッシュ更新を確認する。
-折りたたみは84状態（全開閉、各groupのみ開閉）で投影・種別・方向・元関係の保存・非重複配置を検証する。
-ブラウザで初期状態、片側/両側の展開、検索時の自動展開、選択/起点/詳細タブの保持、実DOMと線・小地図の座標を確認する。
-`verify-special.mjs`では表示振分けの全関係保存、直接callとeventの区別、タグの適用元、warpの往復、config OFFと再表示、構成への検索、タグと宣言の非重複を確認する。
-
-## 契約・テスト表示の契約
-
-目的: 地図で選んだ宣言の契約と、その対象を検証するテストを混同せず確認する。
-事前条件: 収録するtest名・行・対象は実コードに存在する。抽出器は今回作らない。
-
-- タブは「契約 / 実コード」の2つ。境界の一般論・関係一覧は詳細欄から削除。
-- 契約は宣言signatureとUnit一覧。HTTP entryには別のEndpoint関連E2E欄を置く。
-- このUnit fixtureは対象methodのdescribe名と直接呼出が一致する6件を収録し、準備呼出を対象へ広げない。describe名だけから一般のテスト対象を推定する抽出器ではない。
-- Unit収録はjwt.service.test.tsの6件。1test1行で「test名 / 分類 / mock対象」。group選択時のみ「対象」列を追加する。根拠説明・config説明を行に積まない。
-- 分類の入力はcreateTestTargetのZelt DIサービス依存とoverrides。configsとConfig依存は分類対象外。実体のサービス依存が残ればSociable、全依存override済みまたはサービス依存なしならSolitary。部分overrideはSociable。未解決入力は未判定、mock対象も未確認。
-- mock対象はoverridesのprovideを重複除去したclass名。configsや外部ライブラリのimportからmock対象を作らない。分類はsetupの事実から関数で算出し、固定ラベルをfixtureへ保存しない。
-- JwtServiceはinject(JwtConfig)だけなので、この基準ではSolitary。overrides未指定なのでmock対象なし。TestJwtConfigはconfigsの指定として保持し、根拠文に意味づけしない。
-- E2E収録はproduct.spec.tsの16件の本体内request。helperを介す準備POSTも関連として表示する。共通setup・他ファイルの対応は未収録。
-- E2Eの対応はrequest→endpoint→Controller method。下流schema/serviceへ波及させず、method本体の実行・網羅・主たる検証対象を保証しない。
-- 未収録は「なし」と表示しない。ec-backend内はUnitファイルがないことを確認済み。packageの未調査対象は未確認。
-- groupは所属methodのテストを集約し、対象名を保持。開閉やロックでテスト対応は変わらない。
-- データ(test-data.js)と表示(test-view.js)を分離。test名のtitleにsuiteと出典を保持。E2Eも表にして出典を列表示する。分類不明を架空のSolitary/Sociableで埋めない。
-
-不変条件: graph、active範囲、ロック、実コード、元testファイル。契約外の外部影響なし。
-仮定: この分離が読みやすいかはユーザーのUI評価で確認する。
+旧script版の検証はVitest / Playwrightへ置き換えました。
+`src/test-fixtures/legacy-display.json`は移行前コードから取得した120状態の表示ハッシュです。
+箱の位置・展開・選択・濃淡・タグ・矢印の退行を検出するため、React側の出力から期待値を再生成しないでください。

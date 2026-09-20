@@ -1,82 +1,13 @@
 <!doctype html>
 <html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <title>ec-backend — Studio / whole application</title>
-  <link rel="stylesheet" href="./style.css?v=ec-test-table-1">
-  <script defer src="./data.js?v=ec-test-table-1"></script>
-  <script defer src="./sources.js?v=ec-test-table-1"></script>
-  <script defer src="./scope.js?v=ec-test-table-1"></script>
-  <script defer src="./projection.js?v=ec-test-table-1"></script>
-  <script defer src="./presentation.js?v=ec-test-table-1"></script>
-  <script defer src="./map-view.js?v=ec-test-table-1"></script>
-  <script defer src="./special-view.js?v=ec-test-table-1"></script>
-  <script defer src="./test-data.js?v=ec-test-table-1"></script>
-  <script defer src="./test-view.js?v=ec-test-table-1"></script>
-  <script defer src="./app.js?v=ec-test-table-1"></script>
-</head>
-<body>
-  <header class="app-header">
-    <a class="brand" href="./index.html"><b>z</b> zelt <span>studio</span></a>
-    <div class="project"><strong>ec-backend</strong><span>WHOLE APPLICATION · MOCK</span></div>
-    <div class="search-wrap"><label class="sr-only" for="search">宣言・ファイルを検索</label><input id="search" type="search" placeholder="関数・class・configを検索…" autocomplete="off"><div id="search-results" hidden></div></div>
-    <button type="button" data-action="help">図の読み方</button>
-    <button type="button" id="composition-button">アプリ構成</button>
-    <button type="button" data-action="reset">リセット</button>
-  </header>
-  <main>
-    <section class="origin-bar" aria-label="依存を辿る起点">
-      <div class="origin-title"><h1>ec-backend 全体</h1><span>16 HTTP · 1 Event · 5 Middleware</span></div>
-      <label>起点の種類<select id="category"><option value="all">すべて</option><option value="HTTP">HTTP entry</option><option value="Event">Event entry</option><option value="Middleware">Middleware</option><option value="Lifecycle">構成・Lifecycle</option></select></label>
-      <label class="root-picker">起点ショートカット（再帰＋ロック）<select id="root-select"></select></label>
-    </section>
-    <section class="map-section" aria-label="固定配置の依存地図">
-      <div class="map-toolbar">
-        <div class="mode-buttons" role="group" aria-label="表示する関係"><button type="button" data-mode="near" aria-pressed="true">近傍（1段）</button><button type="button" data-mode="flow" aria-pressed="false">再帰（use / used by）</button><button type="button" data-mode="all" aria-pressed="false">全関係</button></div>
-        <button type="button" id="scope-lock" data-action="toggle-lock" aria-pressed="false" aria-describedby="scope-status" disabled>範囲をロック</button>
-        <span id="scope-status" role="status">選択に追従 · 箱を選んでください</span>
-        <span id="line-count">0 relations</span>
-        <div class="display-options" role="group" aria-label="表示オプション"><span>表示</span><label title="型注釈・型定義の参照線。実行時のschema・table・config参照は残します"><input id="show-type-arrows" type="checkbox" checked>型の参照arrow</label><label title="矢印を束ねた件数（×N）の表示。線とホバーの内訳は残します"><input id="show-edge-counts" type="checkbox" checked>数字表示（×N）</label><label><input id="show-config" type="checkbox" checked>config</label></div>
-        <button type="button" id="reference-back" hidden>↩ 移動前に戻る</button>
-        <div class="collapse-controls" role="group" aria-label="groupの表示粒度"><button type="button" data-action="expand-all">全groupを展開</button><button type="button" data-action="collapse-all">全groupを閉じる</button></div>
-        <div class="zoom-controls"><button type="button" data-action="zoom-out" aria-label="縮小">−</button><output id="zoom-level">100%</output><button type="button" data-action="zoom-in" aria-label="拡大">＋</button><button type="button" data-action="zoom-actual">100%</button><button type="button" data-action="zoom-fit">横幅に合わせる</button></div>
-      </div>
-      <p id="config-notice" hidden>Configの箱と線を非表示中。設定との関係は各箱のタグから確認できます。</p>
-      <div class="map-shell">
-        <div id="map-scroll" tabindex="0" aria-label="依存地図。縦横スクロールで移動">
-          <div id="map-space"><div id="architecture-map">
-            <div id="column-headings"></div>
-            <svg id="map-wires" width="1880" height="3440" aria-hidden="true"></svg>
-            <div id="class-groups"></div>
-          </div></div>
-        </div>
-        <aside class="overview"><span>全体の位置</span><div id="mini-map"></div><small>箱を押して移動</small></aside>
-      </div>
-      <footer class="map-footer"><span id="selection-summary"></span><div class="legend"><span class="call-key">→ 呼ぶ</span><span class="read-key">─○ 読む</span><span class="middleware-key">タグ: 適用</span><span class="event-key">↗ warp: event / call</span><span>·· 型・登録・継承</span></div></footer>
-    </section>
-    <div class="detail-toolbar"><span>列・並び順を維持 · groupの＋/−で展開・折りたたみ · 同じ宣言を共有</span><button type="button" id="scenario" data-action="scenario" aria-pressed="false">Order型の仮変更</button></div>
-    <section id="inspector" aria-label="選択した宣言の契約・実コード"></section>
-    <footer class="page-footer">静的fixture / ソースの固定snapshot · 抽出器・API接続なし · 設定値非表示 · 実コードやDBは変更しません</footer>
-  </main>
-  <dialog id="help-dialog">
-    <div class="dialog-title"><h2>何を表示しているか</h2><button type="button" data-action="close-help" aria-label="閉じる">×</button></div>
-    <p>CLASS・FILE・INTERFACEの全groupは最初は折りたたみ。＋でメンバーを開き、−で閉じます。閉じたメンバーの線はgroupにつなぎ、同じ向き・同じ種類だけを束ねます。線の×件数とホバーで元の関係を確認できます。内部の宣言・関係は展開して確認します。箱の種類は変わりません。</p>
-    <p>層の列と箱の並び順は維持し、折りたたみ分だけ縦の空間を詰めます。タグ用の領域は固定で予約します。関数・型などの宣言を検索・起点・メンバーリンクから選ぶと所属groupだけを開きます。</p>
-    <p>表示オプションで型の参照arrowと数字表示（矢印の×N）を独立に切り替えられます。型OFFでも実行時の入力検証schema・table・config参照は残ります。箱の配置・依存範囲の計算・線・タグのホバーは変えません。初期状態とリセットは両方ONです。</p>
-    <p>middlewareの適用は箱の下のタグ、event配送・別entryへの直接呼出は↗のwarpリンクです。タグのホバーで元の宣言間の関係を確認できます。group内の全メソッドへの適用を意味しません。クリックすると既存の宣言の詳細へ移動します。ロック中の範囲は変えません。「移動前に戻る」で元の表示へ戻れます。新しい関数nodeではありません。</p>
-    <p>閉じた箱の付属情報は箱全体と同じ濃淡になります。展開すると元の宣言間の関係に沿った濃淡になります。選択範囲外のタグ・warp・設定参照も消さずに残します。メソッドを閉じても、選択や依存範囲がclass全体へ広がることはありません。</p>
-    <p>configは箱と線をまとめて表示切替できます。OFFでも参照の印と詳細は残り、他の箱は動きません。app.tsは通常の地図から外し、上部の「アプリ構成」で登録先とソースを確認します。</p>
-    <p>小さい箱は実際の宣言です。METHOD / FUNCTION / CALLBACKは1関数1node。CTOR、property / getter、型・schema・table、interfaceのSIGNATUREを区別します。classの囲みは宣言元class、FILEは実在するファイルです。</p>
-    <p>起点はHTTP entry、event受信、middleware。起点の先は必ず全層を通るわけではありません。configや共有classを起点ごとに複製しません。CLIはこのアプリに登録されていないので表示しません。</p>
-    <p>選択近傍は、選んだ箱が直接使う先・使われる元の1段です。起点の依存範囲は、use（使う先）とused by（使われる元）を同じ起点から別々に再帰して重ねます。途中で方向は切り替えず、共有依存を使うだけの別entryへは広げません。ロックOFFでは現在の選択に追従し、ONでは矢印とnodeのactive範囲を保持して詳細だけを選べます。近傍も再帰もロックでき、解除すると現在の選択へ追従します。起点ショートカットは再帰＋ロックを同時に設定します。middleware適用は探索せず、適用タグと詳細の根拠に残します。constructorやoverrideを暗黙に追加せず、元の関係の向きに従います。実行順序や影響の確定を示すものではありません。薄くなった箱も同じ座標に残ります。「全関係」は密度を確認するための表示です。</p>
-    <p>緑=直接呼出、青=読み取り、紫=middleware適用、橙=event配送。点線の型参照・登録・継承・実装は直接呼出ではありません。線・タグのホバーで根拠を確認できます。</p>
-    <p>eventの受信関数はOrderHandlers.startup内の無名callbackです。startupそのものを受信関数に置き換えていません。Middlewareの適用は登録情報であり、Controllerメソッドからの直接呼出ではありません。</p>
-    <p>src/domainにはschemaと型があり、DB由来のOrder等はsrc/infra/db/schema.tsです。独自のRepository PortやDomain関数を捏造しません。package serviceの列は所在を示す表示規約で、設計上の責務を推定した分類ではありません。</p>
-    <p>「内部未展開」は依存なしではありません。ORM・framework内部や内部callbackの完全な再帰展開、実行時トレース、性能・並行更新の検証は対象外です。</p>
-    <button type="button" data-action="close-help">地図に戻る</button>
-  </dialog>
-  <dialog id="reference-dialog" aria-labelledby="reference-title"><div class="dialog-title"><h2 id="reference-title"></h2><button type="button" id="close-reference" aria-label="参照を閉じる">×</button></div><div id="reference-content"></div></dialog>
-</body>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>ec-backend — Studio / whole application</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
 </html>
