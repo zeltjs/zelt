@@ -9,11 +9,12 @@ function ecPosition(id) {
 }
 
 function ecApplyLayout() {
-  ecLayout = window.EC_VIEW.layout(ecModel, ecState.collapsed);
+  ecLayout = window.EC_VIEW.layout(ecModel, ecState.collapsed, window.EC_PRESENT.space(ecModel));
   for (const el of document.querySelectorAll('[data-group]')) {
     const id = el.dataset.group,
       box = ecLayout.boxes.get(id);
     const collapsed = ecState.collapsed.has(id);
+    el.hidden = ecSpecialHidden(id);
     el.style.top = `${box.y}px`;
     el.style.height = `${box.height}px`;
     el.classList.toggle('collapsed', collapsed);
@@ -23,7 +24,6 @@ function ecApplyLayout() {
     toggle.textContent = collapsed ? '＋' : '−';
     toggle.setAttribute('aria-expanded', String(!collapsed));
     toggle.setAttribute('aria-label', `${id}を${collapsed ? '展開' : '折りたたむ'}`);
-    el.querySelector('.collapsed-summary').hidden = !collapsed;
   }
   ecResizeMap();
 }
@@ -39,6 +39,7 @@ function ecResizeMap() {
     const box = ecLayout.boxes.get(el.dataset.mini);
     el.setAttribute('y', box.y);
     el.setAttribute('height', box.height);
+    el.style.display = ecSpecialHidden(el.dataset.mini) ? 'none' : '';
   }
   ecUpdateMini();
 }
@@ -74,4 +75,43 @@ function ecUpdateMini() {
     rect.setAttribute(key, value);
 }
 
-window.EC_MAP = { ecPosition, ecApplyLayout, ecToggleGroup, ecSetAllCollapsed, ecUpdateMini };
+function ecLocate(id) {
+  if (ecOwner(id).id === 'app.ts') return ecOpenComposition();
+  ecSpecialReveal(id);
+  if (ecNodes.has(id)) ecState.collapsed.delete(ecNodes.get(id).group);
+  ecRenderMap();
+  const point = ecPosition(id),
+    viewport = ecEl('map-scroll');
+  viewport.scrollTo({
+    left: Math.max(0, (point.x - 50) * ecState.zoom),
+    top: Math.max(0, (point.y - 80) * ecState.zoom),
+  });
+  ecUpdateMini();
+}
+
+function ecSetZoom(value) {
+  const viewport = ecEl('map-scroll'),
+    old = ecState.zoom;
+  const center = [
+    (viewport.scrollLeft + viewport.clientWidth / 2) / old,
+    (viewport.scrollTop + viewport.clientHeight / 2) / old,
+  ];
+  ecState.zoom = Math.max(0.15, Math.min(1.4, value));
+  ecEl('architecture-map').style.transform = `scale(${ecState.zoom})`;
+  ecEl('map-space').style.width = `${ecModel.width * ecState.zoom}px`;
+  ecEl('map-space').style.height = `${ecLayout.height * ecState.zoom}px`;
+  ecEl('zoom-level').textContent = `${Math.round(ecState.zoom * 100)}%`;
+  viewport.scrollLeft = center[0] * ecState.zoom - viewport.clientWidth / 2;
+  viewport.scrollTop = center[1] * ecState.zoom - viewport.clientHeight / 2;
+  ecUpdateMini();
+}
+
+window.EC_MAP = {
+  ecPosition,
+  ecApplyLayout,
+  ecToggleGroup,
+  ecSetAllCollapsed,
+  ecUpdateMini,
+  ecLocate,
+  ecSetZoom,
+};

@@ -5,12 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>ec-backend — Studio / whole application</title>
-  <link rel="stylesheet" href="./style.css?v=ec-display-options-1">
-  <script defer src="./data.js?v=ec-display-options-1"></script>
-  <script defer src="./sources.js?v=ec-display-options-1"></script>
-  <script defer src="./projection.js?v=ec-display-options-1"></script>
-  <script defer src="./map-view.js?v=ec-display-options-1"></script>
-  <script defer src="./app.js?v=ec-display-options-1"></script>
+  <link rel="stylesheet" href="./style.css?v=ec-middleware-dim-1">
+  <script defer src="./data.js?v=ec-middleware-dim-1"></script>
+  <script defer src="./sources.js?v=ec-middleware-dim-1"></script>
+  <script defer src="./projection.js?v=ec-middleware-dim-1"></script>
+  <script defer src="./presentation.js?v=ec-middleware-dim-1"></script>
+  <script defer src="./map-view.js?v=ec-middleware-dim-1"></script>
+  <script defer src="./special-view.js?v=ec-middleware-dim-1"></script>
+  <script defer src="./app.js?v=ec-middleware-dim-1"></script>
 </head>
 <body>
   <header class="app-header">
@@ -18,6 +20,7 @@
     <div class="project"><strong>ec-backend</strong><span>WHOLE APPLICATION · MOCK</span></div>
     <div class="search-wrap"><label class="sr-only" for="search">宣言・ファイルを検索</label><input id="search" type="search" placeholder="関数・class・configを検索…" autocomplete="off"><div id="search-results" hidden></div></div>
     <button type="button" data-action="help">図の読み方</button>
+    <button type="button" id="composition-button">アプリ構成</button>
     <button type="button" data-action="reset">リセット</button>
   </header>
   <main>
@@ -31,10 +34,12 @@
       <div class="map-toolbar">
         <div class="mode-buttons" role="group" aria-label="表示する関係"><button type="button" data-mode="near" aria-pressed="true">選択近傍</button><button type="button" data-mode="flow" aria-pressed="false">起点の依存範囲</button><button type="button" data-mode="all" aria-pressed="false">全関係</button></div>
         <span id="line-count">0 relations</span>
-        <div class="display-options" role="group" aria-label="表示オプション"><span>表示</span><label title="型注釈・型定義の参照線。実行時のschema・table・config参照は残します"><input id="show-type-arrows" type="checkbox" checked>型の参照arrow</label><label title="矢印を束ねた件数（×N）の表示。線とホバーの内訳は残します"><input id="show-edge-counts" type="checkbox" checked>数字表示（×N）</label></div>
+        <div class="display-options" role="group" aria-label="表示オプション"><span>表示</span><label title="型注釈・型定義の参照線。実行時のschema・table・config参照は残します"><input id="show-type-arrows" type="checkbox" checked>型の参照arrow</label><label title="矢印を束ねた件数（×N）の表示。線とホバーの内訳は残します"><input id="show-edge-counts" type="checkbox" checked>数字表示（×N）</label><label><input id="show-config" type="checkbox" checked>config</label></div>
+        <button type="button" id="reference-back" hidden>↩ 移動前に戻る</button>
         <div class="collapse-controls" role="group" aria-label="groupの表示粒度"><button type="button" data-action="expand-all">全groupを展開</button><button type="button" data-action="collapse-all">全groupを閉じる</button></div>
         <div class="zoom-controls"><button type="button" data-action="zoom-out" aria-label="縮小">−</button><output id="zoom-level">100%</output><button type="button" data-action="zoom-in" aria-label="拡大">＋</button><button type="button" data-action="zoom-actual">100%</button><button type="button" data-action="zoom-fit">横幅に合わせる</button></div>
       </div>
+      <p id="config-notice" hidden>Configの箱と線を非表示中。設定との関係は各箱のタグから確認できます。</p>
       <div class="map-shell">
         <div id="map-scroll" tabindex="0" aria-label="依存地図。縦横スクロールで移動">
           <div id="map-space"><div id="architecture-map">
@@ -45,7 +50,7 @@
         </div>
         <aside class="overview"><span>全体の位置</span><div id="mini-map"></div><small>箱を押して移動</small></aside>
       </div>
-      <footer class="map-footer"><span id="selection-summary"></span><div class="legend"><span class="call-key">→ 呼ぶ</span><span class="read-key">─○ 読む</span><span class="middleware-key">┄ 適用</span><span class="event-key">┄ event</span><span>·· 型・登録・継承</span></div></footer>
+      <footer class="map-footer"><span id="selection-summary"></span><div class="legend"><span class="call-key">→ 呼ぶ</span><span class="read-key">─○ 読む</span><span class="middleware-key">タグ: 適用</span><span class="event-key">↗ warp: event / call</span><span>·· 型・登録・継承</span></div></footer>
     </section>
     <div class="detail-toolbar"><span>列・並び順を維持 · groupの＋/−で展開・折りたたみ · 同じ宣言を共有</span><button type="button" id="scenario" data-action="scenario" aria-pressed="false">Order型の仮変更</button></div>
     <section id="inspector" aria-label="選択した宣言の契約・関係"></section>
@@ -53,9 +58,11 @@
   </main>
   <dialog id="help-dialog">
     <div class="dialog-title"><h2>何を表示しているか</h2><button type="button" data-action="close-help" aria-label="閉じる">×</button></div>
-    <p>CLASS・FILE・INTERFACEの全groupは最初は折りたたみ。＋でメンバーを開き、−で閉じます。閉じたメンバーの線はgroupにつなぎ、同じ向き・同じ種類だけを束ねます。線の×件数とホバーで元の関係を確認できます。内部だけの関係は箱の下に件数で表示します。箱の種類は変わりません。</p>
-    <p>層の列と箱の並び順は維持し、折りたたみ分だけ縦の空間を詰めます。「全groupを展開」で従来の座標に戻ります。関数・型などの宣言を検索・起点・詳細リンクから選ぶと所属groupだけを開きます。</p>
+    <p>CLASS・FILE・INTERFACEの全groupは最初は折りたたみ。＋でメンバーを開き、−で閉じます。閉じたメンバーの線はgroupにつなぎ、同じ向き・同じ種類だけを束ねます。線の×件数とホバーで元の関係を確認できます。内部の宣言・関係は展開して確認します。箱の種類は変わりません。</p>
+    <p>層の列と箱の並び順は維持し、折りたたみ分だけ縦の空間を詰めます。タグ用の領域は固定で予約します。関数・型などの宣言を検索・起点・詳細リンクから選ぶと所属groupだけを開きます。</p>
     <p>表示オプションで型の参照arrowと数字表示（矢印の×N）を独立に切り替えられます。型OFFでも実行時の入力検証schema・table・config参照は残ります。箱の配置・依存範囲の計算・詳細の関係一覧は変えません。初期状態とリセットは両方ONです。</p>
+    <p>middlewareの適用は箱の下のタグ、event配送・別entryへの直接呼出は↗のwarpリンクです。タグのホバーで元の宣言間の関係を確認できます。group内の全メソッドへの適用を意味しません。クリックすると既存の宣言を起点に辿り、「移動前に戻る」で元の表示へ戻れます。新しい関数nodeではありません。</p>
+    <p>configは箱と線をまとめて表示切替できます。OFFでも参照の印と詳細は残り、他の箱は動きません。app.tsは通常の地図から外し、上部の「アプリ構成」で登録先とソースを確認します。</p>
     <p>小さい箱は実際の宣言です。METHOD / FUNCTION / CALLBACKは1関数1node。CTOR、property / getter、型・schema・table、interfaceのSIGNATUREを区別します。classの囲みは宣言元class、FILEは実在するファイルです。</p>
     <p>起点はHTTP entry、event受信、middleware。起点の先は必ず全層を通るわけではありません。configや共有classを起点ごとに複製しません。CLIはこのアプリに登録されていないので表示しません。</p>
     <p>選択近傍は使う先・使う元。依存範囲は起点から辿る先（同じclassのconstructorと設定overrideを含む）。薄くなった箱も同じ座標に残ります。「全関係」は密度を確認するための表示です。</p>
@@ -65,5 +72,6 @@
     <p>「内部未展開」は依存なしではありません。ORM・framework内部や内部callbackの完全な再帰展開、実行時トレース、性能・並行更新の検証は対象外です。</p>
     <button type="button" data-action="close-help">地図に戻る</button>
   </dialog>
+  <dialog id="reference-dialog" aria-labelledby="reference-title"><div class="dialog-title"><h2 id="reference-title"></h2><button type="button" id="close-reference" aria-label="参照を閉じる">×</button></div><div id="reference-content"></div></dialog>
 </body>
 </html>

@@ -5,11 +5,12 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { verifySpecialBrowser, verifySpecialModel } from './verify-special.mjs';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const root = resolve(dir, '../..');
 const context = { window: {} };
-for (const file of ['data.js', 'sources.js', 'projection.js'])
+for (const file of ['data.js', 'sources.js', 'projection.js', 'presentation.js'])
   vm.runInNewContext(readFileSync(resolve(dir, file), 'utf8'), context);
 const model = JSON.parse(JSON.stringify(context.window.EC_GRAPH));
 const sources = JSON.parse(JSON.stringify(context.window.EC_SOURCES));
@@ -427,10 +428,10 @@ ok(
 );
 const assets = [
   ...readFileSync(resolve(dir, 'index.html'), 'utf8').matchAll(
-    /(?:src|href)="\.\/(?:data\.js|sources\.js|projection\.js|map-view\.js|app\.js|style\.css)\?v=([^"]+)"/g,
+    /(?:src|href)="\.\/(?:data\.js|sources\.js|projection\.js|presentation\.js|map-view\.js|special-view\.js|app\.js|style\.css)\?v=([^"]+)"/g,
   ),
 ];
-equal(assets.length, 6, 'All script/style assets versioned');
+equal(assets.length, 8, 'All script/style assets versioned');
 equal(sorted(assets.map((m) => m[1])), [model.version], 'Same cache revision for all assets');
 ok(
   !readFileSync(resolve(dir, 'sources.js'), 'utf8').includes('ec-backend-test-secret-key'),
@@ -481,6 +482,13 @@ for (const ids of collapseStates) {
   }
   for (const group of model.groups) {
     const box = layout.boxes.get(group.id);
+    equal(
+      box.height,
+      collapsed.has(group.id)
+        ? 62
+        : 62 + model.declarations.filter((node) => node.group === group.id).length * 46,
+      'Collapsed summary space removed; expanded member height unchanged',
+    );
     equal(box.x, group.column * 310 + 14, 'Layer column unchanged');
     ok(box.y >= 70 && box.y + box.height <= layout.height, 'Box contained in map');
     for (const other of model.groups.filter((g) => g.column === group.column && g.y > group.y))
@@ -526,6 +534,8 @@ console.log(
   `PASS: ${checks - projectionStart} projection/layout checks (${collapseStates.length} collapse states).`,
 );
 
+verifySpecialModel(model, context.window.EC_PRESENT, ok, equal);
+console.log('PASS: special relation partition, provenance and source immutability checks.');
 if (process.argv.includes('--browser')) {
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
   const browser = await chromium.launch({
@@ -751,7 +761,24 @@ if (process.argv.includes('--browser')) {
       });
       await page.goto(pathToFileURL(resolve(dir, 'index.html')).href);
       await page.locator('[data-group]').first().waitFor();
+      equal(await page.locator('.collapsed-summary').count(), 0, 'Summary row removed from DOM');
+      ok(
+        !/宣言を折りたたみ|表示範囲の内部関係/.test(
+          await page.locator('#class-groups').textContent(),
+        ),
+        'Both collapsed summary labels removed',
+      );
+      const foldedHeights = await page.evaluate(() => {
+        const extra = window.EC_PRESENT.space(window.EC_GRAPH);
+        return [...document.querySelectorAll('[data-group]')].map((el) => ({
+          height: Number.parseFloat(el.style.height),
+          extra: extra.get(el.dataset.group) ?? 0,
+        }));
+      });
+      for (const box of foldedHeights)
+        equal(box.height, 62 + box.extra, 'Compact header retains tag/warp space');
       await checkDisplayOptions(page);
+      await verifySpecialBrowser(page, ok, equal);
       equal(
         await page.locator('[data-group]').count(),
         groups.size,
@@ -787,12 +814,12 @@ if (process.argv.includes('--browser')) {
         0,
         'FILE and INTERFACE initially collapsed too',
       );
-      for (const group of model.groups.filter((g) => g.kind !== 'class')) {
+      for (const group of model.groups.filter((g) => g.kind !== 'class' && g.id !== 'app.ts')) {
         const memberIds = new Set(
           model.declarations.filter((n) => n.group === group.id).map((n) => n.id),
         );
         const owner = (id) => nodes.get(id)?.group ?? id;
-        const relation = model.edges.find(
+        const relation = context.window.EC_PRESENT.partition(model, model.edges, true).wires.find(
           (e) =>
             (owner(e.from) === group.id || owner(e.to) === group.id) &&
             owner(e.from) !== owner(e.to),
@@ -1008,8 +1035,8 @@ if (process.argv.includes('--browser')) {
       await page.locator('[data-mode="all"]').click();
       equal(
         await page.locator('[data-edge]').count(),
-        model.edges.length,
-        'All relationships can be displayed',
+        context.window.EC_PRESENT.partition(model, model.edges, true).wires.length,
+        'All ordinary relations use wires; special relations have dedicated checks',
       );
       await checkViewGeometry(page);
       await page.locator('#include-middleware').uncheck();
@@ -1022,7 +1049,7 @@ if (process.argv.includes('--browser')) {
       await page.selectOption('#category', 'HTTP');
       equal(await page.locator('#root-select option').count(), 17, 'All HTTP options available');
       await page.selectOption('#category', 'all');
-      for (const origin of model.roots) {
+      for (const origin of model.roots.filter((r) => r.id !== 'createEcApp')) {
         await page.selectOption('#root-select', origin.id);
         equal(
           await page.locator('.inspector-heading h2').textContent(),
@@ -1186,7 +1213,9 @@ if (process.argv.includes('--browser')) {
           'data.js',
           'sources.js',
           'projection.js',
+          'presentation.js',
           'map-view.js',
+          'special-view.js',
           'app.js',
         ].includes(name)
       ) {
@@ -1223,7 +1252,7 @@ if (process.argv.includes('--browser')) {
       await page.reload();
       equal(
         await page.locator('[data-group]:visible').count(),
-        groups.size,
+        groups.size - 1,
         'Updated HTML does not reuse hidden legacy styles',
       );
       await page.reload();

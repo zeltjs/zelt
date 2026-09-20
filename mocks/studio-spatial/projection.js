@@ -1,5 +1,5 @@
 /* Display projection only: the source graph and dependency traversal stay unchanged. */
-function ecViewLayout(model, collapsed) {
+function ecViewLayout(model, collapsed, extra = new Map()) {
   const boxes = new Map();
   for (let column = 0; column < model.columns.length; column++) {
     let removed = 0;
@@ -7,15 +7,18 @@ function ecViewLayout(model, collapsed) {
     for (const group of groups) {
       const members = model.declarations.filter((n) => n.group === group.id);
       const fullHeight = 62 + members.length * 46;
-      const height = collapsed.has(group.id) ? 86 : fullHeight;
+      const height = (collapsed.has(group.id) ? 62 : fullHeight) + (extra.get(group.id) ?? 0);
       boxes.set(group.id, { x: column * 310 + 14, y: group.y - removed, width: 282, height });
       removed += fullHeight - height;
     }
   }
-  const height = collapsed.size
+  return { boxes, height: ecViewHeight(model, boxes, collapsed.size + extra.size) };
+}
+
+function ecViewHeight(model, boxes, changed) {
+  return changed
     ? Math.max(...[...boxes.values()].map((box) => box.y + box.height)) + 82
     : model.height;
-  return { boxes, height };
 }
 
 function ecViewProject(model, collapsed, edges) {

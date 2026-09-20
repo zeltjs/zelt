@@ -80,9 +80,9 @@ function ecBuildMap() {
       const x = group.column * 310 + 14;
       return `<section class="class-group" data-group="${ecEscape(group.id)}" style="left:${x}px;top:${group.y}px;width:282px;height:${height}px">
       <button type="button" class="group-heading" data-select="${ecEscape(group.id)}"><span>${group.kind.toUpperCase()}${group.boundary ? ' · 内部未展開' : ''}</span><strong>${ecEscape(group.id)}</strong></button>
-      <button type="button" class="group-toggle" data-toggle="${ecEscape(group.id)}" aria-label="${ecEscape(group.id)}を展開" aria-expanded="false">＋</button><span class="collapsed-summary" hidden></span>
+      <button type="button" class="group-toggle" data-toggle="${ecEscape(group.id)}" aria-label="${ecEscape(group.id)}を展開" aria-expanded="false">＋</button>
       ${members.map((item, index) => `<button type="button" class="declaration ${ecCallable.has(item.kind) ? 'function-node' : 'data-node'}" data-declaration="${ecEscape(item.id)}" ${ecCallable.has(item.kind) ? `data-node="${ecEscape(item.id)}"` : `data-property="${ecEscape(item.id)}"`} data-select="${ecEscape(item.id)}" style="top:${62 + index * 46}px" title="${ecEscape(item.id)}"><span class="member-line"><small class="kind">${ecKinds[item.kind]}</small><strong>${ecEscape(item.name)}${item.kind === 'method' || item.kind === 'function' ? '()' : ''}</strong></span><span class="member-hint">${ecEscape(item.hint)}</span></button>`).join('')}
-    </section>`;
+      <div class="group-references" role="group" aria-label="${ecEscape(group.id)}の適用・接続先"></div></section>`;
     })
     .join('');
   ecEl('mini-map').innerHTML =
@@ -91,7 +91,9 @@ function ecBuildMap() {
 
 function ecBuildOrigins() {
   const matching = ecModel.roots.filter(
-    (root) => ecState.category === 'all' || root.kind === ecState.category,
+    (root) =>
+      ecOwner(root.id).id !== 'app.ts' &&
+      (ecState.category === 'all' || root.kind === ecState.category),
   );
   ecEl('root-select').innerHTML =
     '<option value="">起点を選ぶ — 全体のまま強調</option>' +
@@ -207,7 +209,8 @@ function ecWire(edge, index) {
 
 function ecDrawEdges(edges) {
   edges = edges.filter((edge) => ecEl('show-type-arrows').checked || edge.kind !== 'type');
-  const projection = window.EC_VIEW.project(ecModel, ecState.collapsed, edges);
+  const special = ecSpecialDraw(edges);
+  const projection = window.EC_VIEW.project(ecModel, ecState.collapsed, special.wires);
   const defs = Object.keys(ecLabels)
     .map(
       (kind) =>
@@ -216,13 +219,7 @@ function ecDrawEdges(edges) {
     .join('');
   ecEl('map-wires').innerHTML = `<defs>${defs}</defs>${projection.edges.map(ecWire).join('')}`;
   ecEl('map-wires').classList.toggle('hide-counts', !ecEl('show-edge-counts').checked);
-  const internal = [...projection.internal.values()].reduce((sum, count) => sum + count, 0);
-  ecEl('line-count').textContent =
-    `${projection.edges.length}線 / ${edges.length}関係${internal ? ` · 内部${internal}` : ''}`;
-  for (const el of document.querySelectorAll('.collapsed-summary')) {
-    const id = el.closest('[data-group]').dataset.group;
-    el.textContent = `${ecMembers(id).length}宣言を折りたたみ · 表示範囲の内部関係 ${projection.internal.get(id) ?? 0}`;
-  }
+  ecEl('line-count').textContent = ecSpecialCounts(special, projection, edges.length);
 }
 
 function ecChangedNodes() {
@@ -342,44 +339,18 @@ function ecRenderInspector() {
           `<button type="button" role="tab" data-tab="${tab}" aria-selected="${ecState.tab === tab}" tabindex="${ecState.tab === tab ? 0 : -1}">${label}</button>`,
       )
       .join('')}</div><div class="inspector-body" role="tabpanel">${content}</div>`;
+  ecSpecialInspector(id);
 }
 
 function ecSelect(id, locate = false) {
   if (!ecSources[id]) throw new Error(`Unknown declaration: ${id}`);
+  ecSpecialReveal(id);
   if (ecNodes.has(id)) ecState.collapsed.delete(ecNodes.get(id).group);
   ecState.selected = id;
   ecState.tab = 'contract';
   ecRenderMap();
   ecRenderInspector();
   if (locate) ecLocate(id);
-}
-
-function ecLocate(id) {
-  if (ecNodes.has(id) && ecState.collapsed.delete(ecNodes.get(id).group)) ecRenderMap();
-  const point = ecPosition(id),
-    viewport = ecEl('map-scroll');
-  viewport.scrollTo({
-    left: Math.max(0, (point.x - 50) * ecState.zoom),
-    top: Math.max(0, (point.y - 80) * ecState.zoom),
-  });
-  ecUpdateMini();
-}
-
-function ecSetZoom(value) {
-  const viewport = ecEl('map-scroll'),
-    old = ecState.zoom;
-  const center = [
-    (viewport.scrollLeft + viewport.clientWidth / 2) / old,
-    (viewport.scrollTop + viewport.clientHeight / 2) / old,
-  ];
-  ecState.zoom = Math.max(0.15, Math.min(1.4, value));
-  ecEl('architecture-map').style.transform = `scale(${ecState.zoom})`;
-  ecEl('map-space').style.width = `${ecModel.width * ecState.zoom}px`;
-  ecEl('map-space').style.height = `${ecLayout.height * ecState.zoom}px`;
-  ecEl('zoom-level').textContent = `${Math.round(ecState.zoom * 100)}%`;
-  viewport.scrollLeft = center[0] * ecState.zoom - viewport.clientWidth / 2;
-  viewport.scrollTop = center[1] * ecState.zoom - viewport.clientHeight / 2;
-  ecUpdateMini();
 }
 
 function ecSearch() {
@@ -402,6 +373,7 @@ function ecSearch() {
 }
 
 function ecReset() {
+  ecSpecialReset();
   Object.assign(ecState, {
     selected: null,
     root: '',
@@ -524,4 +496,5 @@ ecEl('map-scroll').addEventListener('scroll', ecUpdateMini);
 for (const id of ['show-type-arrows', 'show-edge-counts'])
   ecEl(id).addEventListener('change', () => ecDrawEdges(ecVisibleEdges()));
 window.addEventListener('resize', ecUpdateMini);
+ecSpecialInit();
 ecReset();

@@ -842,6 +842,6 @@
     columns,
     width: 1880,
     height: 3440,
-    version: 'ec-display-options-1',
+    version: 'ec-middleware-dim-1',
   };
 })();
