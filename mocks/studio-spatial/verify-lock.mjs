@@ -194,7 +194,8 @@ export async function verifyLockBrowser(page, ok, equal) {
     'Origin shortcut activates ordinary recursive UI',
   );
   const shortcut = await scope();
-  await page.locator('#inspector [data-select="OrderService.findById"]').click();
+  await page.locator('#search').fill('OrderService.findById');
+  await page.locator('[data-find="OrderService.findById"]').click();
   equal(await scope(), shortcut, 'Following a contract link preserves pinned scope');
   await select('ProductController');
   await page.locator('[data-mode="near"]').click();

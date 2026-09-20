@@ -273,39 +273,16 @@ function ecRenderMap() {
   ecSetOriginValue();
 }
 
-function ecRelations(id) {
-  const seeds = new Set(ecSeed(id));
-  const incoming = ecModel.edges.filter((edge) => seeds.has(edge.to) && !seeds.has(edge.from));
-  const outgoing = ecModel.edges.filter((edge) => seeds.has(edge.from));
-  const render = (items, inward) =>
-    items.length
-      ? items
-          .map(
-            (edge) =>
-              `<li><span class="relation-kind">${ecLabels[edge.kind]}</span>${ecButton(inward ? edge.from : edge.to)}<code>${ecEscape(edge.expression)}</code>${edge.kind === 'middleware' ? '<small>登録・適用の関係。メソッドの直接呼出ではありません。</small>' : ''}${edge.kind === 'event' ? '<small>同じイベント名の発行と購読。直接呼出ではありません。</small>' : ''}${edge.evidence ? `<small>${ecEscape(edge.evidence.file)}<br>${ecEscape(edge.evidence.text)}</small>` : ''}</li>`,
-          )
-          .join('')
-      : '<li class="muted">fixture内の該当関係なし（外部・未展開範囲を除く）</li>';
-  return `<section><h3>使う元・適用元 <small>${incoming.length}</small></h3><ul class="relations">${render(incoming, true)}</ul></section><section><h3>使う先・参照先 <small>${outgoing.length}</small></h3><ul class="relations">${render(outgoing, false)}</ul></section>`;
-}
-
 function ecContract(id) {
-  const source = ecSources[id],
-    node = ecNodes.get(id),
-    group = ecOwner(id);
-  const root = ecModel.roots.find((item) => item.id === id);
-  return `<div class="contract-grid"><section><h3>${root ? `${root.kind} の起点` : '宣言の契約'}</h3>${root ? `<p>${ecEscape(root.label)}</p>` : ''}<pre>${ecEscape(source.signature)}</pre>${group.boundary ? '<p class="warning">内部の依存は未展開。依存がないという意味ではありません。</p>' : ''}${group.notes ? `<p>${ecEscape(group.notes)}</p>` : ''}${
+  const source = ecSources[id];
+  const node = ecNodes.get(id);
+  return `<div class="contract-grid"><section><h3>宣言の契約</h3><pre>${ecEscape(source.signature)}</pre>${
     !node
-      ? `<h3>実在するメンバー</h3><div class="member-links">${ecMembers(id)
-          .map((n) => ecButton(n.id, `${ecKinds[n.kind]} · ${n.name}`))
+      ? `<h3>メンバー</h3><div class="member-links">${ecMembers(id)
+          .map((member) => ecButton(member.id, `${ecKinds[member.kind]} · ${member.name}`))
           .join('')}</div>`
       : ''
-  }${ecState.change && ecChangedNodes().has(id) ? '<p class="warning">仮変更: Order.statusへrefundedを追加。直接型参照と呼出元を強調する例です。自動の完全影響解析ではありません。</p>' : ''}</section>${ecRelations(id)}</div>`;
-}
-
-function ecScope(id) {
-  const group = ecOwner(id);
-  return `<div class="scope-grid"><section><h3>この箱の実体</h3><p>${ecEscape(group.file)}</p><p>${group.kind === 'class' ? '囲みは実際のclass宣言です。' : group.kind === 'interface' ? 'interfaceの契約宣言です。実装された関数nodeではありません。' : 'FILEの囲みは実際のファイルです。架空のclassではありません。'}</p><p>${ecEscape(group.notes ?? 'この図は宣言と静的な呼出・参照の対応を示します。実行時トレースではありません。')}</p></section><section><h3>展開を止める境界</h3><p>ORM / SQL builder、標準API、request・response・DI・例外処理などのframework内部はコード欄で確認します。無名の内部callbackは受信ハンドラーとconfig返却関数以外、親関数のコードに残します。</p><p>packageの「内部未展開」classは境界の実メソッドまで。ec-backendのメソッドは省略しません。登録のないCLI entryは作りません。</p></section><section><h3>契約以外の共有・影響</h3><p>DB: users / products / orders / order_itemsを共有。注文のDB transactionにKV削除・event発行は含まれません。</p><p>JWT middlewareのsetUserとentryのrequireUserはrequest contextを介します。@Authorizedの認可判定はframework側であり、Controllerから直接呼ぶ架空のmiddlewareは作りません。</p><p>性能、並行更新、例外の最終HTTP変換、実行時middleware順序の網羅は未検証。</p></section></div>`;
+  }</section>${ecTestList(id)}</div>`;
 }
 
 function ecSourceView(id) {
@@ -325,17 +302,11 @@ function ecRenderInspector() {
     return;
   }
   const source = ecSources[id];
-  const content =
-    ecState.tab === 'source'
-      ? ecSourceView(id)
-      : ecState.tab === 'scope'
-        ? ecScope(id)
-        : ecContract(id);
+  const content = ecState.tab === 'source' ? ecSourceView(id) : ecContract(id);
   ecEl('inspector').innerHTML =
     `<header class="inspector-heading"><div><span class="eyebrow">${ecKinds[ecNodes.get(id)?.kind] ?? ecOwner(id).kind.toUpperCase()}</span><h2>${ecEscape(id)}</h2><p class="source-path">${ecEscape(source.file)}:${source.line}</p></div><div class="inspector-actions"><button type="button" data-action="locate">地図の位置へ ↗</button><button type="button" data-action="as-root">ここから再帰＋ロック</button></div></header><div class="inspector-tabs" role="tablist" aria-label="宣言の詳細">${[
-      ['contract', '契約・関係'],
+      ['contract', '契約'],
       ['source', '実コード'],
-      ['scope', '範囲・境界の影響'],
     ]
       .map(
         ([tab, label]) =>
@@ -456,9 +427,9 @@ function ecClick(event) {
 function ecKeydown(event) {
   if (event.key === 'Escape') ecEl('search-results').hidden = true;
   if (!event.target.matches('[role="tab"]')) return;
-  const tabs = ['contract', 'source', 'scope'];
+  const tabs = ['contract', 'source'];
   const index = tabs.indexOf(ecState.tab);
-  const next = { ArrowRight: (index + 1) % 3, ArrowLeft: (index + 2) % 3, Home: 0, End: 2 }[
+  const next = { ArrowRight: (index + 1) % 2, ArrowLeft: (index + 1) % 2, Home: 0, End: 1 }[
     event.key
   ];
   if (next === undefined) return;

@@ -9,11 +9,19 @@ import { verifyDisplayBrowser, verifyDisplayModel } from './verify-display.mjs';
 import { verifyLockBrowser, verifyLockModel } from './verify-lock.mjs';
 import { verifyScopeBrowser, verifyScopeModel } from './verify-scope.mjs';
 import { verifySpecialBrowser, verifySpecialModel } from './verify-special.mjs';
+import { verifyTestsBrowser, verifyTestsModel } from './verify-tests.mjs';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const root = resolve(dir, '../..');
 const context = { window: {} };
-for (const file of ['data.js', 'sources.js', 'scope.js', 'projection.js', 'presentation.js'])
+for (const file of [
+  'data.js',
+  'sources.js',
+  'test-data.js',
+  'scope.js',
+  'projection.js',
+  'presentation.js',
+])
   vm.runInNewContext(readFileSync(resolve(dir, file), 'utf8'), context);
 const model = JSON.parse(JSON.stringify(context.window.EC_GRAPH));
 const sources = JSON.parse(JSON.stringify(context.window.EC_SOURCES));
@@ -431,10 +439,10 @@ ok(
 );
 const assets = [
   ...readFileSync(resolve(dir, 'index.html'), 'utf8').matchAll(
-    /(?:src|href)="\.\/(?:data\.js|sources\.js|scope\.js|projection\.js|presentation\.js|map-view\.js|special-view\.js|app\.js|style\.css)\?v=([^"]+)"/g,
+    /(?:src|href)="\.\/(?:data\.js|sources\.js|test-data\.js|test-view\.js|scope\.js|projection\.js|presentation\.js|map-view\.js|special-view\.js|app\.js|style\.css)\?v=([^"]+)"/g,
   ),
 ];
-equal(assets.length, 9, 'All script/style assets versioned');
+equal(assets.length, 11, 'All script/style assets versioned');
 equal(sorted(assets.map((m) => m[1])), [model.version], 'Same cache revision for all assets');
 ok(
   !readFileSync(resolve(dir, 'sources.js'), 'utf8').includes('ec-backend-test-secret-key'),
@@ -538,6 +546,7 @@ console.log(
   `PASS: ${checks - projectionStart} projection/layout checks (${collapseStates.length} collapse states).`,
 );
 
+verifyTestsModel(context.window.EC_TESTS, model, root, ok, equal);
 verifySpecialModel(model, context.window.EC_PRESENT, ok, equal);
 verifyDisplayModel(model, context.window.EC_PRESENT, ok, equal);
 verifyScopeModel(model, context.window.EC_SCOPE, ok, equal);
@@ -786,6 +795,7 @@ if (process.argv.includes('--browser')) {
         equal(box.height, 62 + box.extra, 'Compact header retains tag/warp space');
       await checkDisplayOptions(page);
       await verifyScopeBrowser(page, ok, equal);
+      await verifyTestsBrowser(page, ok, equal);
       await verifyLockBrowser(page, ok, equal);
       await verifyDisplayBrowser(page, ok, equal);
       await verifySpecialBrowser(page, ok, equal);
@@ -1110,9 +1120,12 @@ if (process.argv.includes('--browser')) {
         'AuthController.login',
         'Real method click',
       );
-      await page.locator('#inspector [data-select="AuthService.login"]').click();
-      await page.locator('#inspector [data-select="JwtService.sign"]').click();
-      await page.locator('#inspector [data-select="JwtConfig.secret"]').click();
+      await page.locator('#search').fill('AuthService.login');
+      await page.locator('[data-find="AuthService.login"]').click();
+      await page.locator('#search').fill('JwtService.sign');
+      await page.locator('[data-find="JwtService.sign"]').click();
+      await page.locator('#search').fill('JwtConfig.secret');
+      await page.locator('[data-find="JwtConfig.secret"]').click();
       equal(
         await page.locator('.inspector-heading h2').textContent(),
         'JwtConfig.secret',
@@ -1125,8 +1138,10 @@ if (process.argv.includes('--browser')) {
         'Non-entry declaration remains visible as custom origin',
       );
       await page.selectOption('#root-select', 'JwtMiddleware.use');
-      await page.locator('#inspector [data-select="JwtService.verify"]').click();
-      await page.locator('#inspector [data-select="JwtConfig.secret"]').click();
+      await page.locator('#search').fill('JwtService.verify');
+      await page.locator('[data-find="JwtService.verify"]').click();
+      await page.locator('#search').fill('JwtConfig.secret');
+      await page.locator('[data-find="JwtConfig.secret"]').click();
       equal(
         await page.locator('[data-declaration="JwtConfig.secret"]').count(),
         1,
@@ -1141,13 +1156,14 @@ if (process.argv.includes('--browser')) {
       );
       await page.keyboard.press('End');
       equal(
-        await page.locator('[data-tab="scope"]').getAttribute('aria-selected'),
+        await page.locator('[data-tab="source"]').getAttribute('aria-selected'),
         'true',
         'Keyboard End tab',
       );
       await page.locator('#search').fill('OrderService.createOrder');
       await page.locator('[data-find="OrderService.createOrder"]').click();
-      await page.locator('#inspector [data-select="OrderHandlers.startup@order:created"]').click();
+      await page.locator('#search').fill('OrderHandlers.startup@order:created');
+      await page.locator('[data-find="OrderHandlers.startup@order:created"]').click();
       equal(
         await page.locator('.inspector-heading h2').textContent(),
         'OrderHandlers.startup@order:created',
@@ -1220,6 +1236,8 @@ if (process.argv.includes('--browser')) {
           'style.css',
           'data.js',
           'sources.js',
+          'test-data.js',
+          'test-view.js',
           'scope.js',
           'projection.js',
           'presentation.js',

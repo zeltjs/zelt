@@ -842,6 +842,6 @@
     columns,
     width: 1880,
     height: 3440,
-    version: 'ec-flow-lock-1',
+    version: 'ec-contract-tests-1',
   };
 })();
