@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { verifyDisplayBrowser, verifyDisplayModel } from './verify-display.mjs';
 import { verifySpecialBrowser, verifySpecialModel } from './verify-special.mjs';
 
 const dir = dirname(fileURLToPath(import.meta.url));
@@ -502,6 +503,7 @@ ok(
   'Collapsed canvas actually shrinks',
 );
 const smallModel = {
+  groups: [{ id: 'A' }, { id: 'B' }],
   declarations: [
     { id: 'a1', group: 'A' },
     { id: 'a2', group: 'A' },
@@ -535,6 +537,7 @@ console.log(
 );
 
 verifySpecialModel(model, context.window.EC_PRESENT, ok, equal);
+verifyDisplayModel(model, context.window.EC_PRESENT, ok, equal);
 console.log('PASS: special relation partition, provenance and source immutability checks.');
 if (process.argv.includes('--browser')) {
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
@@ -778,6 +781,7 @@ if (process.argv.includes('--browser')) {
       for (const box of foldedHeights)
         equal(box.height, 62 + box.extra, 'Compact header retains tag/warp space');
       await checkDisplayOptions(page);
+      await verifyDisplayBrowser(page, ok, equal);
       await verifySpecialBrowser(page, ok, equal);
       equal(
         await page.locator('[data-group]').count(),

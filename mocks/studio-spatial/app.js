@@ -207,10 +207,9 @@ function ecWire(edge, index) {
   return `<path class="wire edge-${edge.kind}" data-edge="${indices[0]}" data-edges="${indices.join(',')}" data-from="${ecEscape(edge.from)}" data-to="${ecEscape(edge.to)}" data-count="${indices.length}" d="${path}" marker-end="url(#${symbol}-${edge.kind})"><title>${ecEscape(title)}</title></path>${indices.length > 1 ? `<text class="bundle-count" x="${labelX}" y="${(y1 + y2) / 2 - 5}">×${indices.length}<title>${ecEscape(title)}</title></text>` : ''}`;
 }
 
-function ecDrawEdges(edges) {
-  edges = edges.filter((edge) => ecEl('show-type-arrows').checked || edge.kind !== 'type');
-  const special = ecSpecialDraw(edges);
-  const projection = window.EC_VIEW.project(ecModel, ecState.collapsed, special.wires);
+function ecDrawEdges(display) {
+  ecSpecialDraw(display);
+  const projection = display.projection;
   const defs = Object.keys(ecLabels)
     .map(
       (kind) =>
@@ -219,7 +218,7 @@ function ecDrawEdges(edges) {
     .join('');
   ecEl('map-wires').innerHTML = `<defs>${defs}</defs>${projection.edges.map(ecWire).join('')}`;
   ecEl('map-wires').classList.toggle('hide-counts', !ecEl('show-edge-counts').checked);
-  ecEl('line-count').textContent = ecSpecialCounts(special, projection, edges.length);
+  ecEl('line-count').textContent = ecSpecialCounts(display.parts, projection, display.total);
 }
 
 function ecChangedNodes() {
@@ -233,33 +232,30 @@ function ecChangedNodes() {
 }
 
 function ecRenderMap() {
-  ecApplyLayout();
-  const edges = ecVisibleEdges();
-  const active = new Set(edges.flatMap((edge) => [edge.from, edge.to]));
-  if (ecState.selected) for (const id of ecSeed(ecState.selected)) active.add(id);
-  const changed = ecChangedNodes();
+  const display = window.EC_PRESENT.display(ecModel, {
+    collapsed: ecState.collapsed,
+    selected: ecState.selected,
+    edges: ecVisibleEdges(),
+    changed: ecState.change ? ecChangedNodes() : new Set(),
+    middleware: ecState.middleware,
+    showTypes: ecEl('show-type-arrows').checked,
+    showConfig: ecEl('show-config').checked,
+  });
+  ecApplyLayout(display);
   for (const el of document.querySelectorAll('[data-declaration]')) {
-    const id = el.dataset.declaration;
-    el.classList.toggle('selected', id === ecState.selected);
-    el.classList.toggle('dimmed', active.size > 0 && !active.has(id));
-    el.classList.toggle('changed', ecState.change && changed.has(id));
-    el.setAttribute('aria-pressed', String(id === ecState.selected));
+    const node = display.nodes.get(el.dataset.declaration);
+    el.classList.toggle('selected', node.selected);
+    el.classList.toggle('dimmed', node.dimmed);
+    el.classList.toggle('changed', node.changed);
+    el.setAttribute('aria-pressed', String(node.selected));
   }
   for (const el of document.querySelectorAll('[data-group]')) {
-    const id = el.dataset.group;
-    const involved = active.has(id) || ecMembers(id).some((n) => active.has(n.id));
-    el.classList.toggle('dimmed-group', active.size > 0 && !involved);
-    el.classList.toggle(
-      'selected-group',
-      ecState.selected === id ||
-        (ecState.collapsed.has(id) && ecNodes.get(ecState.selected)?.group === id),
-    );
-    el.classList.toggle(
-      'changed-group',
-      ecState.change && ecMembers(id).some((n) => changed.has(n.id)),
-    );
+    const group = display.groups.get(el.dataset.group);
+    el.classList.toggle('dimmed-group', group.dimmed);
+    el.classList.toggle('selected-group', group.selected);
+    el.classList.toggle('changed-group', group.changed);
   }
-  ecDrawEdges(edges);
+  ecDrawEdges(display);
   ecEl('selection-summary').textContent = ecState.selected
     ? `${ecState.selected} · ${ecState.mode === 'flow' ? '依存範囲（初期化・overrideを含む）' : '選択近傍'}`
     : '全体の配置 · 箱を選ぶと、使う先と使う元の線を表示';
@@ -494,7 +490,7 @@ ecEl('include-middleware').addEventListener('change', (event) => {
 });
 ecEl('map-scroll').addEventListener('scroll', ecUpdateMini);
 for (const id of ['show-type-arrows', 'show-edge-counts'])
-  ecEl(id).addEventListener('change', () => ecDrawEdges(ecVisibleEdges()));
+  ecEl(id).addEventListener('change', ecRenderMap);
 window.addEventListener('resize', ecUpdateMini);
 ecSpecialInit();
 ecReset();

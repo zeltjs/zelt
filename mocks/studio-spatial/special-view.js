@@ -3,11 +3,6 @@ const ecReferenceNotes = new Map();
 const ecReferenceHistory = [];
 const ecDisplayInputs = ['show-type-arrows', 'show-edge-counts', 'show-config'];
 
-function ecSpecialHidden(id) {
-  const role = window.EC_PRESENT.role(ecOwner(id));
-  return role === 'composition' || (role === 'config' && !ecEl('show-config').checked);
-}
-
 function ecSpecialReveal(id) {
   if (window.EC_PRESENT.role(ecOwner(id)) === 'config') ecEl('show-config').checked = true;
 }
@@ -30,47 +25,27 @@ function ecSpecialTitle(note) {
     .join('\n');
 }
 
-function ecSpecialDraw(edges) {
-  const partition = window.EC_PRESENT.partition(ecModel, edges, ecEl('show-config').checked);
-  const initial = !ecState.selected && ecState.mode === 'near';
-  const noteEdges = initial
-    ? ecModel.edges
-        .filter(ecAllowed)
-        .filter((e) => ecEl('show-type-arrows').checked || e.kind !== 'type')
-    : edges;
-  const noteParts = window.EC_PRESENT.partition(ecModel, noteEdges, ecEl('show-config').checked);
-  noteParts.middleware = window.EC_PRESENT.partition(
-    ecModel,
-    ecModel.edges.filter(ecAllowed),
-    ecEl('show-config').checked,
-  ).middleware;
-  const notes = window.EC_PRESENT.notes(ecModel, noteParts);
-  const activeMiddleware = new Set(partition.middleware);
+function ecSpecialDraw(display) {
   ecReferenceNotes.clear();
   for (const el of document.querySelectorAll('.group-references')) {
     const id = el.closest('[data-group]').dataset.group;
-    el.innerHTML = notes
+    el.innerHTML = display.groups
       .get(id)
-      .map((note, index) => {
-        const key = `${id}:${index}`;
+      .notes.map((note) => {
+        const key = note.key;
         ecReferenceNotes.set(key, note);
-        const dimmed =
-          note.kind === 'middleware' &&
-          !initial &&
-          !note.originals.some((edge) => activeMiddleware.has(edge));
-        return `<button type="button" class="reference-tag ref-${note.kind}${dimmed ? ' dimmed' : ''}" data-reference="${ecEscape(key)}" title="${ecEscape(ecSpecialTitle(note))}" aria-label="${ecEscape(`${ecSpecialLabel(note)}: ${note.target}`)}">${ecEscape(ecSpecialLabel(note))}</button>`;
+        return `<button type="button" class="reference-tag ref-${note.kind}${note.dimmed ? ' dimmed' : ''}" data-reference="${ecEscape(key)}" title="${ecEscape(ecSpecialTitle(note))}" aria-label="${ecEscape(`${ecSpecialLabel(note)}: ${note.target}`)}">${ecEscape(ecSpecialLabel(note))}</button>`;
       })
       .join('');
   }
   ecEl('reference-back').hidden = ecReferenceHistory.length === 0;
   ecEl('config-notice').hidden = ecEl('show-config').checked;
-  return partition;
 }
 
 function ecSpecialCounts(parts, projection, total) {
   if (!ecState.selected && ecState.mode === 'near') return '0線 · 未選択: タグ/warpは全体を表示';
   const internal = [...projection.internal.values()].reduce((sum, count) => sum + count, 0);
-  return `${projection.edges.length}線 / ${total}関係 · 内部 ${internal} · 適用 ${parts.middleware.length}関係 · warp ${parts.warp.length}関係 · 設定非表示 ${parts.config.length}関係 · 構成 ${parts.composition.length}関係`;
+  return `範囲内: ${projection.edges.length}線 / ${total}関係 · 内部 ${internal} · 適用 ${parts.middleware.length}関係 · warp ${parts.warp.length}関係 · 設定非表示 ${parts.config.length}関係 · 構成 ${parts.composition.length}関係`;
 }
 
 function ecReferenceSnapshot() {
@@ -181,7 +156,6 @@ function ecSpecialInit() {
 }
 
 window.EC_SPECIAL = {
-  ecSpecialHidden,
   ecSpecialReveal,
   ecSpecialDraw,
   ecSpecialCounts,

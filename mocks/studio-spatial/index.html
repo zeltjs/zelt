@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>ec-backend — Studio / whole application</title>
-  <link rel="stylesheet" href="./style.css?v=ec-middleware-dim-1">
-  <script defer src="./data.js?v=ec-middleware-dim-1"></script>
-  <script defer src="./sources.js?v=ec-middleware-dim-1"></script>
-  <script defer src="./projection.js?v=ec-middleware-dim-1"></script>
-  <script defer src="./presentation.js?v=ec-middleware-dim-1"></script>
-  <script defer src="./map-view.js?v=ec-middleware-dim-1"></script>
-  <script defer src="./special-view.js?v=ec-middleware-dim-1"></script>
-  <script defer src="./app.js?v=ec-middleware-dim-1"></script>
+  <link rel="stylesheet" href="./style.css?v=ec-display-model-1">
+  <script defer src="./data.js?v=ec-display-model-1"></script>
+  <script defer src="./sources.js?v=ec-display-model-1"></script>
+  <script defer src="./projection.js?v=ec-display-model-1"></script>
+  <script defer src="./presentation.js?v=ec-display-model-1"></script>
+  <script defer src="./map-view.js?v=ec-display-model-1"></script>
+  <script defer src="./special-view.js?v=ec-display-model-1"></script>
+  <script defer src="./app.js?v=ec-display-model-1"></script>
 </head>
 <body>
   <header class="app-header">
@@ -62,6 +62,7 @@
     <p>層の列と箱の並び順は維持し、折りたたみ分だけ縦の空間を詰めます。タグ用の領域は固定で予約します。関数・型などの宣言を検索・起点・詳細リンクから選ぶと所属groupだけを開きます。</p>
     <p>表示オプションで型の参照arrowと数字表示（矢印の×N）を独立に切り替えられます。型OFFでも実行時の入力検証schema・table・config参照は残ります。箱の配置・依存範囲の計算・詳細の関係一覧は変えません。初期状態とリセットは両方ONです。</p>
     <p>middlewareの適用は箱の下のタグ、event配送・別entryへの直接呼出は↗のwarpリンクです。タグのホバーで元の宣言間の関係を確認できます。group内の全メソッドへの適用を意味しません。クリックすると既存の宣言を起点に辿り、「移動前に戻る」で元の表示へ戻れます。新しい関数nodeではありません。</p>
+    <p>閉じた箱の付属情報は箱全体と同じ濃淡になります。展開すると元の宣言間の関係に沿った濃淡になります。選択範囲外のタグ・warp・設定参照も消さずに残します。メソッドを閉じても、選択や依存範囲がclass全体へ広がることはありません。</p>
     <p>configは箱と線をまとめて表示切替できます。OFFでも参照の印と詳細は残り、他の箱は動きません。app.tsは通常の地図から外し、上部の「アプリ構成」で登録先とソースを確認します。</p>
     <p>小さい箱は実際の宣言です。METHOD / FUNCTION / CALLBACKは1関数1node。CTOR、property / getter、型・schema・table、interfaceのSIGNATUREを区別します。classの囲みは宣言元class、FILEは実在するファイルです。</p>
     <p>起点はHTTP entry、event受信、middleware。起点の先は必ず全層を通るわけではありません。configや共有classを起点ごとに複製しません。CLIはこのアプリに登録されていないので表示しません。</p>

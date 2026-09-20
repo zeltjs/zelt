@@ -21,14 +21,22 @@ function ecViewHeight(model, boxes, changed) {
     : model.height;
 }
 
-function ecViewProject(model, collapsed, edges) {
-  const owners = new Map(model.declarations.map((n) => [n.id, n.group]));
-  const endpoint = (id) => (collapsed.has(owners.get(id)) ? owners.get(id) : id);
+function ecViewUnits(model, collapsed) {
+  return new Map([
+    ...model.groups.map((group) => [group.id, group.id]),
+    ...model.declarations.map((node) => [
+      node.id,
+      collapsed.has(node.group) ? node.group : node.id,
+    ]),
+  ]);
+}
+
+function ecViewProject(model, collapsed, edges, units = ecViewUnits(model, collapsed)) {
   const bundles = new Map();
   const internal = new Map();
   for (const edge of edges) {
-    const from = endpoint(edge.from),
-      to = endpoint(edge.to);
+    const from = units.get(edge.from),
+      to = units.get(edge.to);
     if (from === to && collapsed.has(from)) {
       internal.set(from, (internal.get(from) ?? 0) + 1);
       continue;
@@ -56,4 +64,4 @@ function ecSeparateParallel(projected) {
   return projected;
 }
 
-window.EC_VIEW = { layout: ecViewLayout, project: ecViewProject };
+window.EC_VIEW = { layout: ecViewLayout, project: ecViewProject, units: ecViewUnits };

@@ -8,27 +8,29 @@ function ecPosition(id) {
   return { x: box.x, y: box.y + (header ? 20 : 72 + index * 46), width: box.width };
 }
 
-function ecApplyLayout() {
+function ecApplyLayout(display) {
   ecLayout = window.EC_VIEW.layout(ecModel, ecState.collapsed, window.EC_PRESENT.space(ecModel));
   for (const el of document.querySelectorAll('[data-group]')) {
     const id = el.dataset.group,
       box = ecLayout.boxes.get(id);
-    const collapsed = ecState.collapsed.has(id);
-    el.hidden = ecSpecialHidden(id);
+    const group = display.groups.get(id);
+    const collapsed = group.collapsed;
+    el.hidden = group.hidden;
     el.style.top = `${box.y}px`;
     el.style.height = `${box.height}px`;
     el.classList.toggle('collapsed', collapsed);
-    for (const member of el.querySelectorAll('[data-declaration]')) member.hidden = collapsed;
+    for (const member of el.querySelectorAll('[data-declaration]'))
+      member.hidden = display.nodes.get(member.dataset.declaration).hidden;
     const toggle = el.querySelector('[data-toggle]');
     if (!toggle) continue;
     toggle.textContent = collapsed ? '＋' : '−';
     toggle.setAttribute('aria-expanded', String(!collapsed));
     toggle.setAttribute('aria-label', `${id}を${collapsed ? '展開' : '折りたたむ'}`);
   }
-  ecResizeMap();
+  ecResizeMap(display);
 }
 
-function ecResizeMap() {
+function ecResizeMap(display) {
   ecEl('architecture-map').style.height = `${ecLayout.height}px`;
   ecEl('map-wires').setAttribute('height', ecLayout.height);
   ecEl('map-space').style.height = `${ecLayout.height * ecState.zoom}px`;
@@ -39,7 +41,7 @@ function ecResizeMap() {
     const box = ecLayout.boxes.get(el.dataset.mini);
     el.setAttribute('y', box.y);
     el.setAttribute('height', box.height);
-    el.style.display = ecSpecialHidden(el.dataset.mini) ? 'none' : '';
+    el.style.display = display.groups.get(el.dataset.mini).hidden ? 'none' : '';
   }
   ecUpdateMini();
 }

@@ -73,9 +73,96 @@ function ecPresentationSpace(model) {
   );
 }
 
+function ecDisplayGroups(model, options, units, active) {
+  return new Map(
+    model.groups.map((group) => {
+      const sourceIds = [
+        group.id,
+        ...model.declarations.filter((n) => n.group === group.id).map((n) => n.id),
+      ];
+      const role = ecPresentationRole(group);
+      return [
+        group.id,
+        {
+          id: group.id,
+          sourceIds,
+          collapsed: options.collapsed.has(group.id),
+          hidden: role === 'composition' || (role === 'config' && !options.showConfig),
+          dimmed: active.size > 0 && !sourceIds.some((id) => active.has(id)),
+          selected: units.get(options.selected) === group.id,
+          changed: sourceIds.some((id) => options.changed.has(id)),
+          notes: [],
+        },
+      ];
+    }),
+  );
+}
+
+function ecDisplayAttachments(model, parts, groups, units, active, scope) {
+  const notes = ecPresentationNotes(model, parts);
+  const { owner } = ecPresentationIndex(model);
+  for (const [id, items] of notes) {
+    const group = groups.get(id);
+    group.notes = items.map((note) => ({
+      ...note,
+      key: JSON.stringify([id, note.kind, note.target, note.incoming]),
+      units: [
+        ...new Set(
+          note.originals
+            .flatMap((edge) => [edge.from, edge.to])
+            .filter((source) => owner(source).id === id)
+            .map((source) => units.get(source)),
+        ),
+      ],
+      dimmed: group.collapsed
+        ? group.dimmed
+        : group.dimmed || (active.size > 0 && !note.originals.some((edge) => scope.has(edge))),
+    }));
+  }
+}
+
+function ecDisplayGraph(model, options) {
+  const units = window.EC_VIEW.units(model, options.collapsed);
+  const active = new Set(options.edges.flatMap((edge) => [edge.from, edge.to]));
+  if (options.selected) {
+    active.add(options.selected);
+    for (const node of model.declarations) if (node.group === options.selected) active.add(node.id);
+  }
+  const groups = ecDisplayGroups(model, options, units, active);
+  const nodes = new Map(
+    model.declarations.map((node) => [
+      node.id,
+      {
+        id: node.id,
+        unit: units.get(node.id),
+        hidden: groups.get(node.group).hidden || groups.get(node.group).collapsed,
+        dimmed: active.size > 0 && !active.has(node.id),
+        selected: options.selected === node.id,
+        changed: options.changed.has(node.id),
+      },
+    ]),
+  );
+  const allowed = (edge) =>
+    (options.middleware || edge.kind !== 'middleware') &&
+    (options.showTypes || edge.kind !== 'type');
+  const edges = options.edges.filter(allowed);
+  const parts = ecPresentationPartition(model, edges, options.showConfig);
+  const allParts = ecPresentationPartition(model, model.edges.filter(allowed), options.showConfig);
+  ecDisplayAttachments(model, allParts, groups, units, active, new Set(edges));
+  return {
+    units,
+    groups,
+    nodes,
+    parts,
+    total: edges.length,
+    projection: window.EC_VIEW.project(model, options.collapsed, parts.wires, units),
+  };
+}
+
 window.EC_PRESENT = {
   role: ecPresentationRole,
   partition: ecPresentationPartition,
   notes: ecPresentationNotes,
   space: ecPresentationSpace,
+  display: ecDisplayGraph,
 };

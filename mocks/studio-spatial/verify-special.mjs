@@ -135,10 +135,17 @@ async function verifyPersistentMiddlewareTags(page, ok, equal) {
     initial.length,
     'Unrelated service selection never removes application tags',
   );
-  equal(
-    await page.locator('.ref-middleware.dimmed').count(),
-    initial.length,
-    'All application tags dim for unrelated service',
+  ok(
+    await page
+      .locator('.collapsed .ref-middleware')
+      .evaluateAll((els) =>
+        els.every(
+          (el) =>
+            el.classList.contains('dimmed') ===
+            el.closest('[data-group]').classList.contains('dimmed-group'),
+        ),
+      ),
+    'Collapsed application tags follow their visible owner, not individual relations',
   );
   await page.locator('[data-action="reset"]').click();
   equal(await inventory(), initial, 'Reset restores initial tag layout and provenance');
