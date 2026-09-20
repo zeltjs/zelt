@@ -62,8 +62,6 @@ function ecReferenceSnapshot() {
 function ecReferenceJump(id) {
   ecReferenceHistory.push(ecReferenceSnapshot());
   ecEl('reference-dialog').close();
-  ecState.root = id;
-  ecState.mode = 'flow';
   ecSelect(id, true);
   const selector = ecNodes.has(id)
     ? `[data-declaration="${CSS.escape(id)}"]`
@@ -76,7 +74,6 @@ function ecReferenceBack() {
   const previous = ecReferenceHistory.pop();
   Object.assign(ecState, previous.state);
   for (const [id, value] of previous.inputs) ecEl(id).checked = value;
-  ecEl('include-middleware').checked = ecState.middleware;
   ecEl('category').value = ecState.category;
   ecEl('search').value = ecState.query;
   ecBuildOrigins();

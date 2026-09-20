@@ -40,7 +40,6 @@ const ecState = {
   tab: 'contract',
   query: '',
   category: 'all',
-  middleware: true,
   change: false,
   zoom: 0.7,
   collapsed: new Set(ecGroups.keys()),
@@ -96,7 +95,7 @@ function ecBuildOrigins() {
       (ecState.category === 'all' || root.kind === ecState.category),
   );
   ecEl('root-select').innerHTML =
-    '<option value="">起点を選ぶ — 全体のまま強調</option>' +
+    '<option value="">起点を選ぶ → 再帰＋ロック</option>' +
     ['HTTP', 'Event', 'Middleware', 'Lifecycle']
       .map(
         (kind) =>
@@ -109,25 +108,43 @@ function ecBuildOrigins() {
             .join('')}</optgroup>`,
       )
       .join('');
-  ecEl('root-select').value = ecState.root;
+  ecSetOriginValue();
 }
 
 function ecSetOriginValue() {
   const select = ecEl('root-select');
   const custom = select.querySelector('[data-custom-origin]');
   if (custom) custom.remove();
-  if (ecState.root && ![...select.options].some((option) => option.value === ecState.root)) {
+  if (
+    ecState.category === 'all' &&
+    ecState.root &&
+    ![...select.options].some((option) => option.value === ecState.root)
+  ) {
     const option = document.createElement('option');
     option.value = ecState.root;
     option.textContent = `選択した宣言: ${ecState.root}`;
     option.dataset.customOrigin = 'true';
     select.append(option);
   }
-  select.value = ecState.root;
+  select.value = [...select.options].some((option) => option.value === ecState.root)
+    ? ecState.root
+    : '';
 }
 
 function ecAllowed(edge) {
-  return ecState.middleware || edge.kind !== 'middleware';
+  return edge.kind !== 'middleware';
+}
+
+function ecFocus() {
+  return ecState.root || ecState.selected;
+}
+
+function ecLockOrigin(id, locate = false) {
+  if (!ecSources[id] || window.EC_PRESENT.role(ecOwner(id)) === 'composition')
+    throw new Error(`Invalid map origin: ${id}`);
+  ecState.root = id;
+  ecState.mode = 'flow';
+  ecSelect(id, locate);
 }
 
 function ecSeed(id) {
@@ -143,12 +160,13 @@ function ecReachable(id) {
 }
 
 function ecVisibleEdges() {
-  if (ecState.mode === 'all') return ecModel.edges.filter(ecAllowed);
-  if (ecState.mode === 'flow' && (ecState.root || ecState.selected)) {
-    return ecDependencyScope(ecState.root || ecState.selected).edges;
+  if (ecState.mode === 'all') return ecModel.edges;
+  const focus = ecFocus();
+  if (ecState.mode === 'flow' && focus) {
+    return ecDependencyScope(focus).edges;
   }
-  if (!ecState.selected) return [];
-  const selected = new Set(ecSeed(ecState.selected));
+  if (!focus) return [];
+  const selected = new Set(ecSeed(focus));
   return ecModel.edges.filter(
     (edge) => ecAllowed(edge) && (selected.has(edge.from) || selected.has(edge.to)),
   );
@@ -212,9 +230,9 @@ function ecRenderMap() {
   const display = window.EC_PRESENT.display(ecModel, {
     collapsed: ecState.collapsed,
     selected: ecState.selected,
+    focus: ecFocus(),
     edges: ecVisibleEdges(),
     changed: ecState.change ? ecChangedNodes() : new Set(),
-    middleware: ecState.middleware,
     showTypes: ecEl('show-type-arrows').checked,
     showConfig: ecEl('show-config').checked,
   });
@@ -234,10 +252,20 @@ function ecRenderMap() {
   }
   ecDrawEdges(display);
   ecEl('selection-summary').textContent = ecState.selected
-    ? ecState.mode === 'flow'
-      ? `起点: ${ecState.root || ecState.selected} · use / used byを独立に再帰 · 選択: ${ecState.selected}`
-      : `${ecState.selected} · ${ecState.mode === 'all' ? '全関係' : '選択近傍'}`
+    ? `詳細の選択: ${ecState.selected}`
     : '全体の配置 · 箱を選ぶと、使う先と使う元の線を表示';
+  const locked = Boolean(ecState.root);
+  const lock = ecEl('scope-lock');
+  lock.setAttribute('aria-pressed', String(locked));
+  lock.textContent = locked ? 'ロック中 · 解除' : '範囲をロック';
+  lock.disabled =
+    !locked &&
+    (!ecState.selected || window.EC_PRESENT.role(ecOwner(ecState.selected)) === 'composition');
+  ecEl('scope-status').textContent = locked
+    ? `固定基準: ${ecState.root} · クリックは詳細のみ`
+    : ecFocus()
+      ? `選択に追従: ${ecFocus()}`
+      : '選択に追従 · 箱を選んでください';
   ecEl('scenario').setAttribute('aria-pressed', String(ecState.change));
   ecEl('scenario').textContent = ecState.change ? '仮変更を戻す' : 'Order型の仮変更';
   for (const button of document.querySelectorAll('[data-mode]'))
@@ -293,7 +321,7 @@ function ecRenderInspector() {
   const id = ecState.selected;
   if (!id) {
     ecEl('inspector').innerHTML =
-      `<div class="welcome"><span class="eyebrow">EC-BACKEND / WHOLE APPLICATION</span><h2>入口を選び、依存を辿る</h2><p>HTTP 16 · Event 1 · Middleware 5。箱を選ぶと近傍の線、起点を選ぶと依存範囲を表示します。</p><p>configは独立したタブではなく、どの起点からも共有される宣言です。右の小地図から全体の各位置へ移動できます。</p><p class="muted">${ecNodes.size}宣言 / ${ecGroups.size} class・file・interface。手動fixture。抽出器・API接続なし。</p></div>`;
+      `<div class="welcome"><span class="eyebrow">EC-BACKEND / WHOLE APPLICATION</span><h2>入口を選び、依存を辿る</h2><p>HTTP 16 · Event 1 · Middleware 5。箱の選択に範囲が追従します。ロックすると矢印・active範囲を保って詳細を読めます。起点ショートカットは再帰＋ロックです。</p><p>configは独立したタブではなく、どの起点からも共有される宣言です。右の小地図から全体の各位置へ移動できます。</p><p class="muted">${ecNodes.size}宣言 / ${ecGroups.size} class・file・interface。手動fixture。抽出器・API接続なし。</p></div>`;
     return;
   }
   const source = ecSources[id];
@@ -304,7 +332,7 @@ function ecRenderInspector() {
         ? ecScope(id)
         : ecContract(id);
   ecEl('inspector').innerHTML =
-    `<header class="inspector-heading"><div><span class="eyebrow">${ecKinds[ecNodes.get(id)?.kind] ?? ecOwner(id).kind.toUpperCase()}</span><h2>${ecEscape(id)}</h2><p class="source-path">${ecEscape(source.file)}:${source.line}</p></div><div class="inspector-actions"><button type="button" data-action="locate">地図の位置へ ↗</button><button type="button" data-action="as-root">ここから辿る</button></div></header><div class="inspector-tabs" role="tablist" aria-label="宣言の詳細">${[
+    `<header class="inspector-heading"><div><span class="eyebrow">${ecKinds[ecNodes.get(id)?.kind] ?? ecOwner(id).kind.toUpperCase()}</span><h2>${ecEscape(id)}</h2><p class="source-path">${ecEscape(source.file)}:${source.line}</p></div><div class="inspector-actions"><button type="button" data-action="locate">地図の位置へ ↗</button><button type="button" data-action="as-root">ここから再帰＋ロック</button></div></header><div class="inspector-tabs" role="tablist" aria-label="宣言の詳細">${[
       ['contract', '契約・関係'],
       ['source', '実コード'],
       ['scope', '範囲・境界の影響'],
@@ -356,13 +384,11 @@ function ecReset() {
     tab: 'contract',
     query: '',
     category: 'all',
-    middleware: true,
     change: false,
     collapsed: new Set(ecGroups.keys()),
   });
   ecEl('search').value = '';
   ecEl('category').value = 'all';
-  ecEl('include-middleware').checked = true;
   for (const id of ['show-type-arrows', 'show-edge-counts']) ecEl(id).checked = true;
   ecBuildOrigins();
   ecSearch();
@@ -383,9 +409,14 @@ function ecAction(action) {
     'zoom-actual': () => ecSetZoom(1),
     'zoom-fit': () => ecSetZoom((ecEl('map-scroll').clientWidth - 20) / ecModel.width),
     locate: () => ecLocate(ecState.selected),
-    'as-root': () => {
-      ecState.root = ecState.selected;
-      ecState.mode = 'flow';
+    'as-root': () => ecLockOrigin(ecState.selected),
+    'toggle-lock': () => {
+      if (
+        !ecState.root &&
+        (!ecState.selected || window.EC_PRESENT.role(ecOwner(ecState.selected)) === 'composition')
+      )
+        return;
+      ecState.root = ecState.root ? '' : ecState.selected;
       ecRenderMap();
     },
     scenario: () => {
@@ -448,24 +479,14 @@ ecEl('search').addEventListener('input', (event) => {
 });
 ecEl('category').addEventListener('change', (event) => {
   ecState.category = event.target.value;
-  ecState.root = '';
   ecBuildOrigins();
 });
 ecEl('root-select').addEventListener('change', (event) => {
-  ecState.root = event.target.value;
-  if (!ecState.root) {
-    ecState.selected = null;
-    ecState.mode = 'near';
-    ecRenderMap();
-    ecRenderInspector();
+  if (!event.target.value) {
+    ecSetOriginValue();
     return;
   }
-  ecState.mode = 'flow';
-  ecSelect(ecState.root, true);
-});
-ecEl('include-middleware').addEventListener('change', (event) => {
-  ecState.middleware = event.target.checked;
-  ecRenderMap();
+  ecLockOrigin(event.target.value, true);
 });
 ecEl('map-scroll').addEventListener('scroll', ecUpdateMini);
 for (const id of ['show-type-arrows', 'show-edge-counts'])

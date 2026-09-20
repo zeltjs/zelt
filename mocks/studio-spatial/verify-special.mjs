@@ -110,7 +110,7 @@ async function verifyPersistentMiddlewareTags(page, ok, equal) {
   await jwt.focus();
   await page.keyboard.press('Enter');
   equal(
-    await page.inputValue('#root-select'),
+    await page.locator('.inspector-heading h2').textContent(),
     'JwtMiddleware.use',
     'Dimmed tag is keyboard navigable',
   );
@@ -219,7 +219,11 @@ export async function verifySpecialBrowser(page, ok, equal) {
   const beforeMiddleware = await snapshot();
   await jwt.focus();
   await page.keyboard.press('Enter');
-  equal(await page.inputValue('#root-select'), 'JwtMiddleware.use', 'Tag opens middleware as root');
+  equal(
+    await page.locator('.inspector-heading h2').textContent(),
+    'JwtMiddleware.use',
+    'Tag opens middleware details',
+  );
   await page.locator('#reference-back').click();
   equal(await snapshot(), beforeMiddleware, 'Return restores middleware origin and fold state');
 
@@ -227,13 +231,12 @@ export async function verifySpecialBrowser(page, ok, equal) {
   await page.locator('[data-tab="source"]').click();
   await page.locator('#show-type-arrows').uncheck();
   await page.locator('#show-edge-counts').uncheck();
-  await page.locator('#include-middleware').uncheck();
   const warp = page.locator('[data-group="OrderService"] .ref-event');
   await warp.scrollIntoViewIfNeeded();
   const beforeWarp = await snapshot();
   await warp.click();
   equal(
-    await page.inputValue('#root-select'),
+    await page.locator('.inspector-heading h2').textContent(),
     'OrderHandlers.startup@order:created',
     'Warp navigates to receiver callback',
   );
@@ -297,11 +300,9 @@ export async function verifySpecialBrowser(page, ok, equal) {
   await page.locator('#reference-back').click();
   ok(!(await page.locator('#show-config').isChecked()), 'Back restores config OFF');
   equal(await geometry(), positions, 'Back preserves geometry');
-  await page.locator('#include-middleware').uncheck();
-  equal(
-    await page.locator('.ref-middleware').count(),
-    0,
-    'Middleware OFF removes application tags',
+  ok(
+    (await page.locator('.ref-middleware').count()) > 0,
+    'Application tags remain without traversal option',
   );
   await page.locator('#show-type-arrows').uncheck();
   await page.locator('#show-edge-counts').uncheck();

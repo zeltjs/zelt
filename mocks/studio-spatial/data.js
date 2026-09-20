@@ -842,6 +842,6 @@
     columns,
     width: 1880,
     height: 3440,
-    version: 'ec-bidirectional-scope-1',
+    version: 'ec-flow-lock-1',
   };
 })();

@@ -116,7 +116,11 @@ function ecDisplayAttachments(model, parts, groups, units, active, scope) {
       ],
       dimmed: group.collapsed
         ? group.dimmed
-        : group.dimmed || (active.size > 0 && !note.originals.some((edge) => scope.has(edge))),
+        : group.dimmed ||
+          (active.size > 0 &&
+            !note.originals.some((edge) =>
+              note.kind === 'middleware' ? active.has(edge.from) : scope.has(edge),
+            )),
     }));
   }
 }
@@ -124,9 +128,9 @@ function ecDisplayAttachments(model, parts, groups, units, active, scope) {
 function ecDisplayGraph(model, options) {
   const units = window.EC_VIEW.units(model, options.collapsed);
   const active = new Set(options.edges.flatMap((edge) => [edge.from, edge.to]));
-  if (options.selected) {
-    active.add(options.selected);
-    for (const node of model.declarations) if (node.group === options.selected) active.add(node.id);
+  if (options.focus) {
+    active.add(options.focus);
+    for (const node of model.declarations) if (node.group === options.focus) active.add(node.id);
   }
   const groups = ecDisplayGroups(model, options, units, active);
   const nodes = new Map(
@@ -142,15 +146,14 @@ function ecDisplayGraph(model, options) {
       },
     ]),
   );
-  const allowed = (edge) =>
-    (options.middleware || edge.kind !== 'middleware') &&
-    (options.showTypes || edge.kind !== 'type');
+  const allowed = (edge) => options.showTypes || edge.kind !== 'type';
   const edges = options.edges.filter(allowed);
   const parts = ecPresentationPartition(model, edges, options.showConfig);
   const allParts = ecPresentationPartition(model, model.edges.filter(allowed), options.showConfig);
   ecDisplayAttachments(model, allParts, groups, units, active, new Set(edges));
   return {
     units,
+    active,
     groups,
     nodes,
     parts,

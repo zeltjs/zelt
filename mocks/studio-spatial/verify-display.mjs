@@ -21,10 +21,10 @@ export function verifyDisplayModel(model, present, ok, equal) {
         const options = {
           collapsed: new Set(collapsedIds),
           selected,
+          focus: selected,
           edges,
           showConfig,
           showTypes: true,
-          middleware: true,
           changed: new Set(['Order']),
         };
         const before = JSON.stringify({ edges, collapsedIds });
@@ -48,7 +48,12 @@ export function verifyDisplayModel(model, present, ok, equal) {
               equal(
                 note.dimmed,
                 group.dimmed ||
-                  (selected !== null && !note.originals.some((edge) => edges.includes(edge))),
+                  (selected !== null &&
+                    !note.originals.some((edge) =>
+                      note.kind === 'middleware'
+                        ? display.active.has(edge.from)
+                        : edges.includes(edge),
+                    )),
                 'Expanded attachments use exact source relations',
               );
             ok(
@@ -109,19 +114,15 @@ export function verifyDisplayModel(model, present, ok, equal) {
   const options = {
     collapsed: new Set(ids),
     selected: null,
+    focus: null,
     edges: model.edges,
     showConfig: false,
     showTypes: false,
-    middleware: false,
     changed: new Set(),
   };
   const off = present.display(model, options);
-  equal(off.parts.middleware.length, 0, 'Explicit middleware OFF still excludes applications');
+  equal(off.parts.middleware.length, 62, 'All-relations presentation retains application evidence');
   for (const group of off.groups.values()) {
-    ok(
-      group.notes.every((note) => note.kind !== 'middleware'),
-      'Explicit middleware OFF excludes attachment',
-    );
     equal(
       group.hidden,
       group.id === 'app.ts' || model.groups.find((g) => g.id === group.id).column === 5,
@@ -134,7 +135,6 @@ export function verifyDisplayModel(model, present, ok, equal) {
   );
   const initial = present.display(model, {
     ...options,
-    middleware: true,
     showTypes: true,
     edges: [],
   });
@@ -152,7 +152,6 @@ export function verifyDisplayModel(model, present, ok, equal) {
     noteKeys(
       present.display(model, {
         ...options,
-        middleware: true,
         showTypes: true,
         showConfig: true,
         edges: [],
@@ -253,7 +252,7 @@ export async function verifyDisplayBrowser(page, ok, equal) {
   await warp.focus();
   await page.keyboard.press('Enter');
   equal(
-    await page.inputValue('#root-select'),
+    await page.locator('.inspector-heading h2').textContent(),
     'OrderHandlers.startup@order:created',
     'Retained warp navigates to actual callback',
   );
@@ -269,11 +268,14 @@ export async function verifyDisplayBrowser(page, ok, equal) {
   await page.locator('[data-group="AuthController"] .group-heading').click();
   equal(await inventory(), withConfigNotes, 'Hidden config references persist across selection');
   const config = page.locator('[data-group="JwtMiddleware"] .ref-config');
-  ok(await config.isVisible(), 'Active middleware keeps its hidden-config reference');
+  ok(
+    await config.isVisible(),
+    'Middleware keeps its hidden-config reference without traversing application',
+  );
   equal(
     await config.evaluate((el) => getComputedStyle(el).opacity),
     '1',
-    'Config attachment shares collapsed owner emphasis',
+    'Config attachment inherits dimmed owner without double dimming',
   );
   await assertCollapsedOwners();
   await config.click();

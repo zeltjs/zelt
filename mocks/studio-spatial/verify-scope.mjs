@@ -146,9 +146,7 @@ export async function verifyScopeBrowser(page, ok, equal) {
   equal(pinned.root, 'OrderService.findById', 'Explicit root remains pinned');
   equal(pinned.edges, flow.edges, 'Detail selection does not replace pinned root');
   ok(
-    (await page.locator('#selection-summary').textContent()).includes(
-      '起点: OrderService.findById',
-    ),
+    (await page.locator('#scope-status').textContent()).includes('固定基準: OrderService.findById'),
     'Summary names actual trace root',
   );
   await page.locator('[data-action="reset"]').click();
@@ -164,13 +162,8 @@ export async function verifyScopeBrowser(page, ok, equal) {
   await reset();
   await page.selectOption('#root-select', 'JwtMiddleware.use');
   ok(
-    (await readScope()).nodes.includes('OrderController.detail'),
-    'Middleware root traces its users',
-  );
-  await page.locator('#include-middleware').uncheck();
-  ok(
     !(await readScope()).nodes.includes('OrderController.detail'),
-    'Middleware OFF excludes application edges from reverse trace',
+    'Middleware application is no longer traversed',
   );
   await reset();
   equal(

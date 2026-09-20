@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { verifyDisplayBrowser, verifyDisplayModel } from './verify-display.mjs';
+import { verifyLockBrowser, verifyLockModel } from './verify-lock.mjs';
 import { verifyScopeBrowser, verifyScopeModel } from './verify-scope.mjs';
 import { verifySpecialBrowser, verifySpecialModel } from './verify-special.mjs';
 
@@ -540,6 +541,7 @@ console.log(
 verifySpecialModel(model, context.window.EC_PRESENT, ok, equal);
 verifyDisplayModel(model, context.window.EC_PRESENT, ok, equal);
 verifyScopeModel(model, context.window.EC_SCOPE, ok, equal);
+verifyLockModel(model, context.window.EC_PRESENT, ok, equal);
 console.log('PASS: special relation partition, provenance and source immutability checks.');
 if (process.argv.includes('--browser')) {
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
@@ -784,6 +786,7 @@ if (process.argv.includes('--browser')) {
         equal(box.height, 62 + box.extra, 'Compact header retains tag/warp space');
       await checkDisplayOptions(page);
       await verifyScopeBrowser(page, ok, equal);
+      await verifyLockBrowser(page, ok, equal);
       await verifyDisplayBrowser(page, ok, equal);
       await verifySpecialBrowser(page, ok, equal);
       equal(
@@ -1046,13 +1049,11 @@ if (process.argv.includes('--browser')) {
         'All ordinary relations use wires; special relations have dedicated checks',
       );
       await checkViewGeometry(page);
-      await page.locator('#include-middleware').uncheck();
       equal(
         await page.locator('.edge-middleware[data-edge]').count(),
         0,
-        'Middleware application can be excluded without hiding config',
+        'Middleware application is represented only by tags',
       );
-      await page.locator('#include-middleware').check();
       await page.selectOption('#category', 'HTTP');
       equal(await page.locator('#root-select option').count(), 17, 'All HTTP options available');
       await page.selectOption('#category', 'all');
