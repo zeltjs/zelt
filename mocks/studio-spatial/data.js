@@ -775,7 +775,7 @@
     'CartController.addItem': 'AddToCartSchema',
     'CartController.updateItem': 'UpdateCartItemSchema',
   }))
-    ref(id, schema, schema);
+    edge(id, schema, 'schema', schema);
   for (const [type, schema] of Object.entries({
     RegisterInput: 'RegisterSchema',
     LoginInput: 'LoginSchema',
@@ -842,6 +842,6 @@
     columns,
     width: 1880,
     height: 3440,
-    version: 'ec-whole-2',
+    version: 'ec-display-options-1',
   };
 })();

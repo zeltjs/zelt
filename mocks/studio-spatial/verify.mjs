@@ -9,7 +9,7 @@ import ts from 'typescript';
 const dir = dirname(fileURLToPath(import.meta.url));
 const root = resolve(dir, '../..');
 const context = { window: {} };
-for (const file of ['data.js', 'sources.js'])
+for (const file of ['data.js', 'sources.js', 'projection.js'])
   vm.runInNewContext(readFileSync(resolve(dir, file), 'utf8'), context);
 const model = JSON.parse(JSON.stringify(context.window.EC_GRAPH));
 const sources = JSON.parse(JSON.stringify(context.window.EC_SOURCES));
@@ -282,6 +282,19 @@ equal(
   'Event origin coverage',
 );
 
+const runtimeSchemas = [];
+for (const root of model.roots.filter((r) => r.kind === 'HTTP')) {
+  for (const call of descendants(declarations.get(root.id), ts.isCallExpression)) {
+    if (call.expression.getText() === 'request' && call.arguments.length === 1)
+      runtimeSchemas.push(`${root.id}|${call.arguments[0].getText()}`);
+  }
+}
+equal(
+  sorted(model.edges.filter((e) => e.kind === 'schema').map((e) => `${e.from}|${e.to}`)),
+  sorted(runtimeSchemas),
+  'Runtime request(schema) dependencies are separate from type references',
+);
+equal(runtimeSchemas.length, 6, 'Six runtime schema references checked');
 const keys = new Set();
 for (const edge of model.edges) {
   const key = `${edge.from}|${edge.to}|${edge.kind}`;
@@ -414,10 +427,10 @@ ok(
 );
 const assets = [
   ...readFileSync(resolve(dir, 'index.html'), 'utf8').matchAll(
-    /(?:src|href)="\.\/(?:data\.js|sources\.js|app\.js|style\.css)\?v=([^"]+)"/g,
+    /(?:src|href)="\.\/(?:data\.js|sources\.js|projection\.js|map-view\.js|app\.js|style\.css)\?v=([^"]+)"/g,
   ),
 ];
-equal(assets.length, 4, 'All script/style assets versioned');
+equal(assets.length, 6, 'All script/style assets versioned');
 equal(sorted(assets.map((m) => m[1])), [model.version], 'Same cache revision for all assets');
 ok(
   !readFileSync(resolve(dir, 'sources.js'), 'utf8').includes('ec-backend-test-secret-key'),
@@ -425,6 +438,92 @@ ok(
 );
 console.log(
   `PASS: ${checks} source/fixture checks (${appFiles.length} app files, ${groups.size} groups, ${nodes.size} declarations, ${model.edges.length} relations).`,
+);
+
+const projectionStart = checks;
+const groupIds = model.groups.map((g) => g.id);
+const graphBefore = JSON.stringify(model);
+const collapseStates = [
+  [],
+  groupIds,
+  ...groupIds.map((id) => [id]),
+  ...groupIds.map((id) => groupIds.filter((other) => other !== id)),
+];
+for (const ids of collapseStates) {
+  const collapsed = new Set(ids);
+  const layout = context.window.EC_VIEW.layout(model, collapsed);
+  const projection = context.window.EC_VIEW.project(model, collapsed, model.edges);
+  const originals = projection.edges.flatMap((e) => e.originals);
+  const hidden = model.edges.filter((e) => {
+    const from = nodes.get(e.from)?.group ?? e.from;
+    const to = nodes.get(e.to)?.group ?? e.to;
+    return from === to && collapsed.has(from);
+  });
+  equal(
+    originals.length + hidden.length,
+    model.edges.length,
+    'Every original relation accounted for',
+  );
+  equal(new Set(originals).size, originals.length, 'No duplicate source relations');
+  equal(
+    [...projection.internal.values()].reduce((a, b) => a + b, 0),
+    hidden.length,
+    'Exact internal relation count',
+  );
+  for (const edge of projection.edges) {
+    ok(edge.from !== edge.to, 'No synthetic self-loop');
+    for (const original of edge.originals) {
+      const expected = (id) => (collapsed.has(nodes.get(id)?.group) ? nodes.get(id).group : id);
+      equal(edge.from, expected(original.from), 'Only hidden source projected');
+      equal(edge.to, expected(original.to), 'Only hidden target projected');
+      equal(edge.kind, original.kind, 'Relation kind preserved');
+    }
+  }
+  for (const group of model.groups) {
+    const box = layout.boxes.get(group.id);
+    equal(box.x, group.column * 310 + 14, 'Layer column unchanged');
+    ok(box.y >= 70 && box.y + box.height <= layout.height, 'Box contained in map');
+    for (const other of model.groups.filter((g) => g.column === group.column && g.y > group.y))
+      ok(box.y + box.height < layout.boxes.get(other.id).y, 'Vertical order and non-overlap');
+    if (!ids.length) equal(box.y, group.y, 'All-expanded restores original coordinates');
+  }
+}
+equal(JSON.stringify(model), graphBefore, 'Projection never mutates original graph');
+ok(
+  context.window.EC_VIEW.layout(model, new Set(groupIds)).height < model.height,
+  'Collapsed canvas actually shrinks',
+);
+const smallModel = {
+  declarations: [
+    { id: 'a1', group: 'A' },
+    { id: 'a2', group: 'A' },
+    { id: 'b1', group: 'B' },
+  ],
+};
+const sampleEdges = [
+  { from: 'a1', to: 'b1', kind: 'call' },
+  { from: 'a2', to: 'b1', kind: 'call' },
+  { from: 'b1', to: 'a1', kind: 'call' },
+  { from: 'a1', to: 'b1', kind: 'read' },
+  { from: 'a1', to: 'a2', kind: 'call' },
+];
+const folded = context.window.EC_VIEW.project(smallModel, new Set(['A', 'B']), sampleEdges);
+equal(folded.edges.length, 3, 'Reverse and read edges stay separate from bundled calls');
+equal(folded.edges[0].originals.length, 2, 'Same direction and kind bundle');
+equal(
+  new Set(folded.edges.map((e) => e.offset)).size,
+  3,
+  'Different kinds and directions have distinct visual lanes',
+);
+equal(folded.internal.get('A'), 1, 'Internal relation becomes count');
+equal(
+  context.window.EC_VIEW.project(smallModel, new Set(['A']), sampleEdges.slice(0, 1)).edges[0]
+    .originals.length,
+  1,
+  'Filter precedes projection; no unrelated method leaks into selection',
+);
+console.log(
+  `PASS: ${checks - projectionStart} projection/layout checks (${collapseStates.length} collapse states).`,
 );
 
 if (process.argv.includes('--browser')) {
@@ -449,6 +548,196 @@ if (process.argv.includes('--browser')) {
           el.style.height,
         ]),
       );
+  const checkDisplayOptions = async (page) => {
+    const type = page.locator('#show-type-arrows');
+    const counts = page.locator('#show-edge-counts');
+    const edgeIds = () =>
+      page
+        .locator('[data-edge]')
+        .evaluateAll((els) =>
+          els.flatMap((el) => el.dataset.edges.split(',').map(Number)).sort((a, b) => a - b),
+        );
+    const invariant = () =>
+      page.evaluate(() => ({
+        selected: ecState.selected,
+        root: ecState.root,
+        tab: ecState.tab,
+        collapsed: [...ecState.collapsed],
+        model: JSON.stringify(ecModel),
+        inspector: document.getElementById('inspector').innerHTML,
+        reached: [...ecReachable('OrderController.detail')],
+        highlights: [...document.querySelectorAll('[data-group], [data-declaration]')].map(
+          (el) => el.className,
+        ),
+      }));
+    ok((await type.isChecked()) && (await counts.isChecked()), 'Both display options default ON');
+    await page.locator('[data-group="schema.ts"] .group-heading').click();
+    const orderType = page.locator('[data-from="OrderService"][data-to="schema.ts"].edge-type');
+    const orderTable = page.locator('[data-from="OrderService"][data-to="schema.ts"].edge-table');
+    equal(
+      await orderType.getAttribute('data-count'),
+      '3',
+      'Folded Order type bundle has three relations',
+    );
+    equal(
+      await orderTable.getAttribute('data-count'),
+      '6',
+      'Folded Order table bundle has six relations',
+    );
+    await type.uncheck();
+    equal(await orderType.count(), 0, 'Type OFF removes Order type bundle');
+    equal(await orderTable.getAttribute('data-count'), '6', 'Type OFF retains Order table bundle');
+    await counts.uncheck();
+    equal(
+      await page.locator('.bundle-count:visible').count(),
+      0,
+      'Numbers OFF hides bundle labels',
+    );
+    equal(
+      await orderTable.getAttribute('data-count'),
+      '6',
+      'Numbers OFF retains original relation count',
+    );
+    ok(
+      (await orderTable.locator('title').textContent()).includes('OrderService.createOrder'),
+      'Numbers OFF retains hover details',
+    );
+    for (const expand of [false, true]) {
+      await page.locator(`[data-action="${expand ? 'expand-all' : 'collapse-all'}"]`).click();
+      for (const mode of ['near', 'flow', 'all']) {
+        await page.locator(`[data-mode="${mode}"]`).click();
+        const before = await invariant();
+        const layout = await geometry(page);
+        await type.check();
+        await counts.check();
+        const all = await edgeIds();
+        for (const showType of [false, true]) {
+          await type.setChecked(showType);
+          for (const showCounts of [false, true]) {
+            await counts.setChecked(showCounts);
+            equal(
+              await edgeIds(),
+              all.filter((id) => showType || model.edges[id].kind !== 'type'),
+              'Only type arrows are filtered',
+            );
+            const bundled = await page
+              .locator('[data-edge]')
+              .evaluateAll((els) => els.filter((el) => Number(el.dataset.count) > 1).length);
+            equal(
+              await page.locator('.bundle-count:visible').count(),
+              showCounts ? bundled : 0,
+              'Count toggle is independent of type toggle',
+            );
+            equal(
+              await invariant(),
+              before,
+              'Display options preserve model, traversal, highlights and inspection',
+            );
+            equal(await geometry(page), layout, 'Display options preserve coordinates');
+          }
+        }
+      }
+    }
+    await type.uncheck();
+    await counts.uncheck();
+    equal(
+      await page.locator('.edge-schema[data-edge]').count(),
+      6,
+      'Runtime schema dependencies remain visible',
+    );
+    ok((await page.locator('.edge-read[data-edge]').count()) > 0, 'Reads remain visible');
+    await page.selectOption('#root-select', 'AuthController.login');
+    await page.locator('[data-tab="source"]').click();
+    await page.locator('[data-action="collapse-all"]').click();
+    ok(
+      !(await type.isChecked()) && !(await counts.isChecked()),
+      'Options persist through origin, tabs and collapse',
+    );
+    equal(await page.locator('.wire.edge-type').count(), 0, 'Redraw retains type OFF');
+    equal(await page.locator('.bundle-count:visible').count(), 0, 'Redraw retains numbers OFF');
+    await type.focus();
+    await page.keyboard.press('Space');
+    ok(await type.isChecked(), 'Type checkbox supports keyboard');
+    await counts.focus();
+    await page.keyboard.press('Space');
+    ok(await counts.isChecked(), 'Numbers checkbox supports keyboard');
+    await page.screenshot({
+      path: `/tmp/studio-options-${page.viewportSize().width}.png`,
+      fullPage: true,
+    });
+    await type.uncheck();
+    await counts.uncheck();
+    await page.locator('[data-action="reset"]').click();
+    ok((await type.isChecked()) && (await counts.isChecked()), 'Reset restores both options ON');
+  };
+  const checkViewGeometry = async (page) => {
+    const measurements = await page.evaluate(() => {
+      const groups = [...document.querySelectorAll('[data-group]')];
+      const boxes = groups.map((el) => ({
+        id: el.dataset.group,
+        y: Number.parseFloat(el.style.top),
+        height: Number.parseFloat(el.style.height),
+      }));
+      const mini = [...document.querySelectorAll('[data-mini]')].map((el) => ({
+        id: el.dataset.mini,
+        y: Number(el.getAttribute('y')),
+        height: Number(el.getAttribute('height')),
+      }));
+      const edges = [...document.querySelectorAll('[data-edge]')].map((path) => {
+        const start = path.getPointAtLength(0),
+          end = path.getPointAtLength(path.getTotalLength());
+        const rect = (id) => {
+          const node = [...document.querySelectorAll('[data-declaration]')].find(
+            (el) => el.dataset.declaration === id,
+          );
+          const owner = groups.find(
+            (el) => el.dataset.group === (node ? ecNodes.get(id).group : id),
+          );
+          const isMember = node && !node.hidden;
+          const y =
+            Number.parseFloat(owner.style.top) + (isMember ? Number.parseFloat(node.style.top) : 0);
+          return { x: Number.parseFloat(owner.style.left), y, height: isMember ? 43 : 60 };
+        };
+        return {
+          start: { x: start.x, y: start.y },
+          end: { x: end.x, y: end.y },
+          from: rect(path.dataset.from),
+          to: rect(path.dataset.to),
+        };
+      });
+      return {
+        boxes,
+        mini,
+        edges,
+        mapHeight: Number.parseFloat(document.getElementById('architecture-map').style.height),
+        scrollHeight: Number.parseFloat(document.getElementById('map-space').style.height),
+        zoom: ecState.zoom,
+        svgHeight: Number(document.getElementById('map-wires').getAttribute('height')),
+      };
+    });
+    equal(measurements.mini, measurements.boxes, 'Minimap matches rendered group boxes');
+    equal(measurements.svgHeight, measurements.mapHeight, 'SVG follows compact map height');
+    // CSSOM serializes fractional px values with fewer digits than JS arithmetic.
+    ok(
+      Math.abs(measurements.scrollHeight - measurements.mapHeight * measurements.zoom) < 0.01,
+      'Scroll area follows projected canvas within CSS serialization precision',
+    );
+    for (const edge of measurements.edges) {
+      for (const [point, box] of [
+        [edge.start, edge.from],
+        [edge.end, edge.to],
+      ]) {
+        ok(
+          point.y >= box.y && point.y <= box.y + box.height,
+          'Wire endpoint belongs to actual visible node/header',
+        );
+        ok(
+          Math.min(Math.abs(point.x - box.x), Math.abs(point.x - box.x - 282)) < 0.1,
+          'Wire endpoint lies on node horizontal boundary',
+        );
+      }
+    }
+  };
   try {
     for (const viewport of [
       { width: 1440, height: 1000 },
@@ -462,6 +751,7 @@ if (process.argv.includes('--browser')) {
       });
       await page.goto(pathToFileURL(resolve(dir, 'index.html')).href);
       await page.locator('[data-group]').first().waitFor();
+      await checkDisplayOptions(page);
       equal(
         await page.locator('[data-group]').count(),
         groups.size,
@@ -481,6 +771,239 @@ if (process.argv.includes('--browser')) {
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
         'No page-wide horizontal overflow',
       );
+      const compact = await geometry(page);
+      equal(
+        await page.locator('[data-toggle][aria-expanded="false"]').count(),
+        groupIds.length,
+        'All group kinds initially collapsed',
+      );
+      equal(
+        await page.locator('.collapsed [data-declaration]:visible').count(),
+        0,
+        'Collapsed members are hidden',
+      );
+      equal(
+        await page.locator('.class-group:not(.collapsed) [data-declaration]:visible').count(),
+        0,
+        'FILE and INTERFACE initially collapsed too',
+      );
+      for (const group of model.groups.filter((g) => g.kind !== 'class')) {
+        const memberIds = new Set(
+          model.declarations.filter((n) => n.group === group.id).map((n) => n.id),
+        );
+        const owner = (id) => nodes.get(id)?.group ?? id;
+        const relation = model.edges.find(
+          (e) =>
+            (owner(e.from) === group.id || owner(e.to) === group.id) &&
+            owner(e.from) !== owner(e.to),
+        );
+        ok(relation, `${group.id}: cross-group relation exists for endpoint regression`);
+        const relationIndex = model.edges.indexOf(relation);
+        const drawnRelation = () =>
+          page
+            .locator('[data-edges]')
+            .evaluateAll(
+              (paths, index) =>
+                paths
+                  .filter((p) => p.dataset.edges.split(',').includes(String(index)))
+                  .map((p) => [p.dataset.from, p.dataset.to]),
+              relationIndex,
+            );
+        await page.locator('[data-action="reset"]').click();
+        await page.locator(`[data-select="${group.id}"].group-heading`).click();
+        equal(
+          await page.locator(`[data-toggle="${group.id}"]`).getAttribute('aria-expanded'),
+          'false',
+          `${group.id}: group selection keeps folded`,
+        );
+        const label = await page
+          .locator(`[data-group="${group.id}"] .group-heading span`)
+          .textContent();
+        ok(label.startsWith(group.kind.toUpperCase()), `${group.id}: correct kind label preserved`);
+        await page.locator('[data-mode="all"]').click();
+        equal(
+          await drawnRelation(),
+          [[owner(relation.from), owner(relation.to)]],
+          `${group.id}: hidden declaration edges project to group`,
+        );
+        await page.locator(`[data-toggle="${group.id}"]`).focus();
+        await page.keyboard.press('Space');
+        equal(
+          await page.locator(`[data-group="${group.id}"] [data-declaration]:visible`).count(),
+          memberIds.size,
+          `${group.id}: individual expansion reveals every member`,
+        );
+        equal(
+          await page.locator('[data-toggle][aria-expanded="true"]').count(),
+          1,
+          `${group.id}: other groups remain folded`,
+        );
+        const expandedEndpoint = (id) => (memberIds.has(id) ? id : owner(id));
+        equal(
+          await drawnRelation(),
+          [[expandedEndpoint(relation.from), expandedEndpoint(relation.to)]],
+          `${group.id}: edges reconnect to expanded declaration`,
+        );
+        await checkViewGeometry(page);
+        await page.locator(`[data-toggle="${group.id}"]`).click();
+        equal(
+          await drawnRelation(),
+          [[owner(relation.from), owner(relation.to)]],
+          `${group.id}: refolding restores group endpoints`,
+        );
+        equal(await geometry(page), compact, `${group.id}: refolding restores layout`);
+        const member = [...memberIds][0];
+        await page.locator('#search').fill(member);
+        await page.locator(`[data-find="${member}"]`).click();
+        equal(
+          await page.locator('[data-toggle][aria-expanded="true"]').count(),
+          1,
+          `${group.id}: search reveals only owner`,
+        );
+        ok(
+          await page.locator(`[data-declaration="${member}"]`).isVisible(),
+          `${group.id}: searched declaration is visible`,
+        );
+        await page.locator('[data-action="as-root"]').click();
+        await page.locator(`[data-toggle="${group.id}"]`).click();
+        equal(await page.inputValue('#root-select'), member, `${group.id}: fold keeps exact root`);
+        equal(
+          await page.locator('.inspector-heading h2').textContent(),
+          member,
+          `${group.id}: fold keeps selected identity`,
+        );
+      }
+      await page.locator('[data-action="reset"]').click();
+      await page.locator('[data-mode="all"]').click();
+      ok(
+        (await page.locator('[data-edge]').count()) < model.edges.length,
+        'Collapsed relationships are bundled',
+      );
+      equal(
+        await page
+          .locator('[data-from="AuthController"][data-to="AuthService"].edge-call')
+          .getAttribute('data-count'),
+        '3',
+        'Class receives three underlying method calls',
+      );
+      await checkViewGeometry(page);
+      await page.locator('[data-toggle="AuthController"]').focus();
+      await page.keyboard.press('Enter');
+      equal(
+        await page.locator('[data-toggle="AuthController"]').getAttribute('aria-expanded'),
+        'true',
+        'Keyboard expands one class',
+      );
+      ok(
+        await page
+          .locator('[data-toggle="AuthController"]')
+          .evaluate((el) => el === document.activeElement),
+        'Toggle retains focus',
+      );
+      equal(
+        await page
+          .locator('[data-from="AuthController.login"][data-to="AuthService"].edge-call')
+          .count(),
+        1,
+        'Expanded function to collapsed class',
+      );
+      await page.locator('[data-toggle="AuthService"]').click();
+      equal(
+        await page
+          .locator('[data-from="AuthController.login"][data-to="AuthService.login"].edge-call')
+          .count(),
+        1,
+        'Both endpoints expanded',
+      );
+      await checkViewGeometry(page);
+      await page.locator('[data-toggle="AuthController"]').click();
+      equal(
+        await page
+          .locator('[data-from="AuthController"][data-to="AuthService.login"].edge-call')
+          .count(),
+        1,
+        'Collapsed class to expanded function',
+      );
+      await page.locator('[data-action="collapse-all"]').click();
+      equal(await geometry(page), compact, 'Collapse all restores compact geometry');
+      await page.locator('[data-mode="near"]').click();
+      await page.locator('[data-select="AuthController"].group-heading').click();
+      equal(
+        await page.locator('[data-toggle="AuthController"]').getAttribute('aria-expanded'),
+        'false',
+        'Selecting class does not expand',
+      );
+      await page.locator('#inspector [data-select="AuthController.login"]').click();
+      equal(
+        await page.locator('[data-toggle][aria-expanded="true"]').count(),
+        1,
+        'Member link opens only its owner',
+      );
+      await page.locator('[data-tab="source"]').click();
+      await page.locator('[data-toggle="AuthController"]').click();
+      equal(
+        await page.locator('.inspector-heading h2').textContent(),
+        'AuthController.login',
+        'Collapse retains selected method identity',
+      );
+      equal(
+        await page.locator('[data-tab="source"]').getAttribute('aria-selected'),
+        'true',
+        'Collapse retains detail tab',
+      );
+      ok(
+        await page
+          .locator('[data-group="AuthController"]')
+          .evaluate((el) => el.classList.contains('selected-group')),
+        'Hidden selection highlighted on owner',
+      );
+      equal(
+        await page
+          .locator('[data-from="AuthController"][data-to="AuthService"].edge-call')
+          .getAttribute('data-count'),
+        '1',
+        'Near mode does not include other hidden methods',
+      );
+      await page.locator('[data-action="locate"]').click();
+      equal(
+        await page.locator('[data-toggle="AuthController"]').getAttribute('aria-expanded'),
+        'true',
+        'Locate reveals selected member',
+      );
+      await page.locator('[data-action="collapse-all"]').click();
+      await page.locator('#search').fill('JwtService.sign');
+      await page.locator('[data-find="JwtService.sign"]').click();
+      equal(
+        await page.locator('[data-toggle][aria-expanded="true"]').count(),
+        1,
+        'Search opens only owner',
+      );
+      await page.locator('[data-action="collapse-all"]').click();
+      await page.selectOption('#root-select', 'AuthController.login');
+      const flowEdges = await page.evaluate(() =>
+        ecVisibleEdges().map((e) => ecModel.edges.indexOf(e)),
+      );
+      await page.locator('[data-toggle="AuthController"]').click();
+      equal(
+        await page.inputValue('#root-select'),
+        'AuthController.login',
+        'Collapse preserves exact origin',
+      );
+      equal(
+        await page.evaluate(() => ecVisibleEdges().map((e) => ecModel.edges.indexOf(e))),
+        flowEdges,
+        'Collapse does not change traversal',
+      );
+      await page.locator('[data-action="scenario"]').click();
+      ok(
+        await page
+          .locator('[data-group="OrderService"]')
+          .evaluate((el) => el.classList.contains('changed-group')),
+        'Change visible on folded class',
+      );
+      await page.locator('[data-action="reset"]').click();
+      await page.screenshot({ path: `/tmp/studio-collapse-${viewport.width}.png`, fullPage: true });
+      await page.locator('[data-action="expand-all"]').click();
       const initial = await geometry(page);
       await page.locator('[data-mode="all"]').click();
       equal(
@@ -488,6 +1011,7 @@ if (process.argv.includes('--browser')) {
         model.edges.length,
         'All relationships can be displayed',
       );
+      await checkViewGeometry(page);
       await page.locator('#include-middleware').uncheck();
       equal(
         await page.locator('.edge-middleware[data-edge]').count(),
@@ -544,6 +1068,7 @@ if (process.argv.includes('--browser')) {
         );
       }
       await page.locator('[data-action="reset"]').click();
+      await page.locator('[data-toggle="AuthController"]').click();
       await page.locator('[data-declaration="AuthController.login"]').click();
       equal(
         await page.locator('.inspector-heading h2').textContent(),
@@ -610,13 +1135,14 @@ if (process.argv.includes('--browser')) {
       );
       await page.keyboard.press('Escape');
       ok(await page.locator('#search-results').isHidden(), 'Escape dismisses search');
+      const beforeZoom = await geometry(page);
       await page.locator('[data-action="zoom-actual"]').click();
       equal(await page.locator('#zoom-level').textContent(), '100%', 'Readable zoom');
       await page.locator('[data-action="zoom-in"]').click();
       equal(await page.locator('#zoom-level').textContent(), '110%', 'Zoom in');
       await page.locator('[data-action="zoom-out"]').click();
       equal(await page.locator('#zoom-level').textContent(), '100%', 'Zoom out');
-      equal(await geometry(page), initial, 'Zoom changes viewport only');
+      equal(await geometry(page), beforeZoom, 'Zoom changes viewport only');
       await page.locator('[data-action="scenario"]').click();
       ok(
         await page
@@ -644,7 +1170,7 @@ if (process.argv.includes('--browser')) {
       equal(await page.inputValue('#search'), '', 'Reset search');
       equal(await page.inputValue('#root-select'), '', 'Reset origin');
       equal(await page.locator('[data-edge]').count(), 0, 'Overview starts without hairball');
-      equal(await geometry(page), initial, 'Reset preserves coordinates');
+      equal(await geometry(page), compact, 'Reset restores compact coordinates');
       await page.screenshot({ path: `/tmp/studio-ec-whole-${viewport.width}.png`, fullPage: true });
       await page.close();
     }
@@ -653,7 +1179,17 @@ if (process.argv.includes('--browser')) {
     let legacy = true;
     const server = createServer((request, response) => {
       const name = request.url.split('?')[0].slice(1) || 'index.html';
-      if (!['index.html', 'style.css', 'data.js', 'sources.js', 'app.js'].includes(name)) {
+      if (
+        ![
+          'index.html',
+          'style.css',
+          'data.js',
+          'sources.js',
+          'projection.js',
+          'map-view.js',
+          'app.js',
+        ].includes(name)
+      ) {
         response.writeHead(404);
         response.end();
         return;
