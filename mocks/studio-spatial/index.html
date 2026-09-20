@@ -4,64 +4,59 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>ec-backend — Studio / 関数とクラス</title>
-  <link rel="stylesheet" href="./style.css?v=property-reads-2">
-  <script defer src="./data.js?v=property-reads-2"></script>
-  <script defer src="./app.js?v=property-reads-2"></script>
+  <title>ec-backend — Studio / whole application</title>
+  <link rel="stylesheet" href="./style.css?v=ec-whole-2">
+  <script defer src="./data.js?v=ec-whole-2"></script>
+  <script defer src="./sources.js?v=ec-whole-2"></script>
+  <script defer src="./app.js?v=ec-whole-2"></script>
 </head>
 <body>
   <header class="app-header">
     <a class="brand" href="./index.html"><b>z</b> zelt <span>studio</span></a>
-    <span class="project-name">ec-backend</span><span class="prototype-label">FUNCTION MAP · MOCK</span>
-    <div class="header-actions"><button type="button" data-action="help">図の読み方 ↗</button><button type="button" data-action="reset">リセット</button></div>
+    <div class="project"><strong>ec-backend</strong><span>WHOLE APPLICATION · MOCK</span></div>
+    <div class="search-wrap"><label class="sr-only" for="search">宣言・ファイルを検索</label><input id="search" type="search" placeholder="関数・class・configを検索…" autocomplete="off"><div id="search-results" hidden></div></div>
+    <button type="button" data-action="help">図の読み方</button>
+    <button type="button" data-action="reset">リセット</button>
   </header>
-  <main id="main">
-    <section class="page-intro" aria-label="表示する範囲">
-      <div><h1 id="map-title">注文の依存関係</h1><p>関数は1宣言1node · property / getter は別表示</p></div>
-      <div class="view-nav" role="group" aria-label="表示する地図"><button type="button" data-view="orders" aria-pressed="true">注文</button><button type="button" data-view="config" aria-pressed="false">認証・config</button></div>
-      <div class="flow-nav" role="group" aria-label="flow を絞り込む">
-        <button type="button" data-flow="all" aria-pressed="true">全体</button>
-        <button type="button" data-flow="create" aria-pressed="false">注文作成 <small>POST</small></button>
-        <button type="button" data-flow="read" aria-pressed="false">注文照会 <small>GET /:id</small></button>
-      </div>
-      <button type="button" class="scenario-toggle" data-action="toggle-change" aria-pressed="false">Order.status の仮変更</button>
+  <main>
+    <section class="origin-bar" aria-label="依存を辿る起点">
+      <div class="origin-title"><h1>ec-backend 全体</h1><span>16 HTTP · 1 Event · 5 Middleware</span></div>
+      <label>起点の種類<select id="category"><option value="all">すべて</option><option value="HTTP">HTTP entry</option><option value="Event">Event entry</option><option value="Middleware">Middleware</option><option value="Lifecycle">構成・Lifecycle</option></select></label>
+      <label class="root-picker">起点<select id="root-select"></select></label>
+      <label class="checkbox"><input id="include-middleware" type="checkbox" checked>適用middlewareも辿る</label>
     </section>
-    <section class="map-section" aria-label="関数 node と class group の地図">
-      <header class="map-toolbar"><span id="scope-label">注文の依存関係</span><span class="map-legend"><span>→ 呼ぶ</span><span class="read-legend">─○ 読む</span><span>⇢ 継承</span><span class="group-key">▢ class group</span></span></header>
-      <div class="map-scroll" tabindex="0" aria-label="地図。狭い画面では横スクロールできます">
-        <div id="architecture-map" class="architecture-map">
-          <div class="layer entry"><b>Entry</b><small>src/entry</small></div>
-          <div class="layer usecase"><b>Use case</b><small>src/usecase</small></div>
-          <div class="layer domain"><b>Domain</b><small>src/domain</small></div>
-          <div class="layer port"><b>Port</b><small>契約</small></div>
-          <div class="layer adapter"><b>Adapter</b><small>packages/eventbus</small></div>
-          <div class="empty-column domain-empty">この範囲に<br>関数 node なし</div>
-          <div class="empty-column port-empty">Repository<br>Port なし</div>
-          <div class="config-layer" style="left:294px"><b>Service</b><small>packages/auth-jwt</small></div>
-          <div class="config-layer" style="left:650px"><b>Config · 注入先の型</b><small>packages/auth-jwt</small></div>
-          <div class="config-layer" style="left:980px"><b>Config · ec-backend</b><small>src/config</small></div>
-          <div class="config-context"><b>JWT の検証</b><p>注文処理とは別の実コード。<br>config を読む依存の例。</p><p>呼び元: JwtMiddleware.use<br>（この地図では未展開）</p></div>
-          <svg id="map-wires" width="1208" height="354" aria-hidden="true"></svg>
-          <div id="class-groups"></div>
+    <section class="map-section" aria-label="固定配置の依存地図">
+      <div class="map-toolbar">
+        <div class="mode-buttons" role="group" aria-label="表示する関係"><button type="button" data-mode="near" aria-pressed="true">選択近傍</button><button type="button" data-mode="flow" aria-pressed="false">起点の依存範囲</button><button type="button" data-mode="all" aria-pressed="false">全関係</button></div>
+        <span id="line-count">0 relations</span>
+        <div class="zoom-controls"><button type="button" data-action="zoom-out" aria-label="縮小">−</button><output id="zoom-level">100%</output><button type="button" data-action="zoom-in" aria-label="拡大">＋</button><button type="button" data-action="zoom-actual">100%</button><button type="button" data-action="zoom-fit">横幅に合わせる</button></div>
+      </div>
+      <div class="map-shell">
+        <div id="map-scroll" tabindex="0" aria-label="依存地図。縦横スクロールで移動">
+          <div id="map-space"><div id="architecture-map">
+            <div id="column-headings"></div>
+            <svg id="map-wires" width="1880" height="3440" aria-hidden="true"></svg>
+            <div id="class-groups"></div>
+          </div></div>
         </div>
+        <aside class="overview"><span>全体の位置</span><div id="mini-map"></div><small>箱を押して移動</small></aside>
       </div>
-      <footer class="map-foot"><span id="map-caption">呼ぶ先・読む先を表示 · 選択・flow 切替で位置は固定</span><button type="button" data-action="scope">表示範囲・省略した依存 ↗</button></footer>
+      <footer class="map-footer"><span id="selection-summary"></span><div class="legend"><span class="call-key">→ 呼ぶ</span><span class="read-key">─○ 読む</span><span class="middleware-key">┄ 適用</span><span class="event-key">┄ event</span><span>·· 型・登録・継承</span></div></footer>
     </section>
-    <section class="type-strip" aria-label="関数とは別の型情報">
-      <span class="type-kind">TYPE</span><button type="button" data-type="Order">Order</button><code>typeof orders.$inferSelect</code><span id="type-status">関数 node ではありません</span><button type="button" class="type-diff-link" data-type="Order">型と参照先を見る ↗</button>
-    </section>
-    <section id="inspector" class="inspector" aria-label="選択した対象の詳細"></section>
-    <footer class="page-footer">静的な手入力 fixture · 抽出器・API 連携なし · 実コードや DB は変更しません</footer>
+    <div class="detail-toolbar"><span>固定配置 · 同じ宣言を共有 · package内部の展開境界は詳細へ</span><button type="button" id="scenario" data-action="scenario" aria-pressed="false">Order型の仮変更</button></div>
+    <section id="inspector" aria-label="選択した宣言の契約・関係"></section>
+    <footer class="page-footer">静的fixture / ソースの固定snapshot · 抽出器・API接続なし · 設定値非表示 · 実コードやDBは変更しません</footer>
   </main>
-  <dialog id="help-dialog" aria-labelledby="help-title">
-    <div class="dialog-top"><span>READING THE MAP</span><button type="button" data-action="close-help" aria-label="閉じる">×</button></div>
-    <h2 id="help-title">表示とコードの対応</h2>
-    <p>小さい箱は実在する1つのメソッド。囲みはその宣言元クラスです。実際の名前を使い、意味で複数の関数を合成しません。</p>
-    <p>緑の矢印はメソッドを「呼ぶ」。青の丸端の線は property / getter を「読む」。灰色の破線はクラスの「継承」です。property を架空の関数 node に変換しません。interface の実装関係はクラス詳細に記載します。</p>
-    <p>注文の地図は8メソッドと DrizzleService.db、認証の地図は JwtService.verify と JwtConfig.secret / EcJwtConfig.secret を表示します。getter は実際のアクセサー宣言として1つだけ表示します。</p>
-    <p>対象メソッド内の注入先への呼出・property 読み取りを実コードと照合します。コンストラクター本体、無名コールバック、ORM・KV・フレームワークの内部まで網羅した図ではありません。</p>
-    <p>層はこの fixture のファイル配置・パッケージに基づく固定配置です。責務を推測して新しいクラスを作ったものではありません。</p>
-    <button type="button" class="primary-button" data-action="close-help">地図に戻る</button>
+  <dialog id="help-dialog">
+    <div class="dialog-title"><h2>何を表示しているか</h2><button type="button" data-action="close-help" aria-label="閉じる">×</button></div>
+    <p>小さい箱は実際の宣言です。METHOD / FUNCTION / CALLBACKは1関数1node。CTOR、property / getter、型・schema・table、interfaceのSIGNATUREを区別します。classの囲みは宣言元class、FILEは実在するファイルです。</p>
+    <p>起点はHTTP entry、event受信、middleware。起点の先は必ず全層を通るわけではありません。configや共有classを起点ごとに複製しません。CLIはこのアプリに登録されていないので表示しません。</p>
+    <p>選択近傍は使う先・使う元。依存範囲は起点から辿る先（同じclassのconstructorと設定overrideを含む）。薄くなった箱も同じ座標に残ります。「全関係」は密度を確認するための表示です。</p>
+    <p>緑=直接呼出、青=読み取り、紫=middleware適用、橙=event配送。点線の型参照・登録・継承・実装は直接呼出ではありません。詳細の関係一覧で根拠を確認できます。</p>
+    <p>eventの受信関数はOrderHandlers.startup内の無名callbackです。startupそのものを受信関数に置き換えていません。Middlewareの適用は登録情報であり、Controllerメソッドからの直接呼出ではありません。</p>
+    <p>src/domainにはschemaと型があり、DB由来のOrder等はsrc/infra/db/schema.tsです。独自のRepository PortやDomain関数を捏造しません。package serviceの列は所在を示す表示規約で、設計上の責務を推定した分類ではありません。</p>
+    <p>「内部未展開」は依存なしではありません。ORM・framework内部や内部callbackの完全な再帰展開、実行時トレース、性能・並行更新の検証は対象外です。</p>
+    <button type="button" data-action="close-help">地図に戻る</button>
   </dialog>
 </body>
 </html>

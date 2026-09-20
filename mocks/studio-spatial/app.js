@@ -1,370 +1,512 @@
-(() => {
-  const model = window.STUDIO_MOCK;
-  const nodes = new Map(model.nodes.map((node) => [node.id, node]));
-  const groups = new Map(model.groups.map((group) => [group.id, group]));
-  const properties = new Map(model.properties.map((property) => [property.id, property]));
-  const viewOf = (group) => group.view ?? 'orders';
-  const initial = () => ({
-    kind: 'group',
-    id: 'OrderService',
-    tab: 'boundary',
-    flow: 'all',
+/* Browser-only UI over the fixed EC_GRAPH / EC_SOURCES fixture. */
+const ecModel = window.EC_GRAPH;
+const ecSources = window.EC_SOURCES;
+const ecGroups = new Map(ecModel.groups.map((item) => [item.id, item]));
+const ecNodes = new Map(ecModel.declarations.map((item) => [item.id, item]));
+const ecLabels = {
+  call: '呼ぶ',
+  read: '読む / 参照',
+  contract: '契約を呼ぶ',
+  type: '型 / schema参照',
+  table: 'table参照',
+  middleware: 'middleware適用',
+  event: 'event配送',
+  register: '登録',
+  extends: '継承',
+  implements: '実装',
+  override: 'override',
+  returns: '関数を返す',
+  construct: '生成',
+};
+const ecKinds = {
+  method: 'METHOD',
+  constructor: 'CTOR',
+  function: 'FUNCTION',
+  callback: 'CALLBACK',
+  property: 'PROP',
+  getter: 'GET',
+  signature: 'SIGNATURE',
+  type: 'TYPE',
+  schema: 'SCHEMA',
+  table: 'TABLE',
+  value: 'VALUE',
+  'event-type': 'EVENT TYPE',
+};
+const ecState = {
+  selected: null,
+  root: '',
+  mode: 'near',
+  tab: 'contract',
+  query: '',
+  category: 'all',
+  middleware: true,
+  change: false,
+  zoom: 0.7,
+};
+const ecCallable = new Set(['method', 'constructor', 'function', 'callback']);
+const ecEscape = (value) =>
+  String(value).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+const ecEl = (id) => document.getElementById(id);
+const ecMembers = (id) => ecModel.declarations.filter((item) => item.group === id);
+const ecOwner = (id) => ecGroups.get(ecNodes.get(id)?.group ?? id);
+const ecButton = (id, text = id) =>
+  `<button type="button" class="text-link" data-select="${ecEscape(id)}">${ecEscape(text)}</button>`;
+
+function ecValidate() {
+  if (ecNodes.size !== ecModel.declarations.length || ecGroups.size !== ecModel.groups.length)
+    throw new Error('Duplicate declaration identity');
+  for (const item of [...ecModel.groups, ...ecModel.declarations]) {
+    if (!ecSources[item.id]) throw new Error(`Missing source: ${item.id}`);
+  }
+  for (const edge of ecModel.edges) {
+    if (!ecSources[edge.from] || !ecSources[edge.to])
+      throw new Error(`Missing edge endpoint: ${edge.from} → ${edge.to}`);
+  }
+}
+
+function ecPosition(id) {
+  const group = ecOwner(id);
+  const x = group.column * 310 + 14;
+  const index = ecMembers(group.id).findIndex((item) => item.id === id);
+  return { x, y: group.y + (index < 0 ? 20 : 72 + index * 46), width: 282 };
+}
+
+function ecBuildMap() {
+  ecEl('column-headings').innerHTML = ecModel.columns
+    .map((label) => `<span>${ecEscape(label)}</span>`)
+    .join('');
+  ecEl('class-groups').innerHTML = ecModel.groups
+    .map((group) => {
+      const members = ecMembers(group.id);
+      const height = 62 + members.length * 46;
+      const x = group.column * 310 + 14;
+      return `<section class="class-group" data-group="${ecEscape(group.id)}" style="left:${x}px;top:${group.y}px;width:282px;height:${height}px">
+      <button type="button" class="group-heading" data-select="${ecEscape(group.id)}"><span>${group.kind.toUpperCase()}${group.boundary ? ' · 内部未展開' : ''}</span><strong>${ecEscape(group.id)}</strong></button>
+      ${members.map((item, index) => `<button type="button" class="declaration ${ecCallable.has(item.kind) ? 'function-node' : 'data-node'}" data-declaration="${ecEscape(item.id)}" ${ecCallable.has(item.kind) ? `data-node="${ecEscape(item.id)}"` : `data-property="${ecEscape(item.id)}"`} data-select="${ecEscape(item.id)}" style="top:${62 + index * 46}px" title="${ecEscape(item.id)}"><span class="member-line"><small class="kind">${ecKinds[item.kind]}</small><strong>${ecEscape(item.name)}${item.kind === 'method' || item.kind === 'function' ? '()' : ''}</strong></span><span class="member-hint">${ecEscape(item.hint)}</span></button>`).join('')}
+    </section>`;
+    })
+    .join('');
+  ecEl('mini-map').innerHTML =
+    `<svg viewBox="0 0 ${ecModel.width} ${ecModel.height}" aria-label="全体の位置。classを選ぶと移動"><g>${ecModel.groups.map((group) => `<rect data-mini="${ecEscape(group.id)}" x="${group.column * 310 + 14}" y="${group.y}" width="282" height="${62 + ecMembers(group.id).length * 46}" rx="12"><title>${ecEscape(group.id)}</title></rect>`).join('')}</g><rect id="mini-viewport" fill="none" stroke="#d58238" stroke-width="18"/></svg>`;
+}
+
+function ecBuildOrigins() {
+  const matching = ecModel.roots.filter(
+    (root) => ecState.category === 'all' || root.kind === ecState.category,
+  );
+  ecEl('root-select').innerHTML =
+    '<option value="">起点を選ぶ — 全体のまま強調</option>' +
+    ['HTTP', 'Event', 'Middleware', 'Lifecycle']
+      .map(
+        (kind) =>
+          `<optgroup label="${kind}">${matching
+            .filter((root) => root.kind === kind)
+            .map(
+              (root) =>
+                `<option value="${ecEscape(root.id)}">${ecEscape(root.label)} · ${ecEscape(root.id)}</option>`,
+            )
+            .join('')}</optgroup>`,
+      )
+      .join('');
+  ecEl('root-select').value = ecState.root;
+}
+
+function ecSetOriginValue() {
+  const select = ecEl('root-select');
+  const custom = select.querySelector('[data-custom-origin]');
+  if (custom) custom.remove();
+  if (ecState.root && ![...select.options].some((option) => option.value === ecState.root)) {
+    const option = document.createElement('option');
+    option.value = ecState.root;
+    option.textContent = `選択した宣言: ${ecState.root}`;
+    option.dataset.customOrigin = 'true';
+    select.append(option);
+  }
+  select.value = ecState.root;
+}
+
+function ecAllowed(edge) {
+  return ecState.middleware || edge.kind !== 'middleware';
+}
+
+function ecSeed(id) {
+  return ecGroups.has(id) ? [id, ...ecMembers(id).map((item) => item.id)] : [id];
+}
+
+function ecReachable(id) {
+  const reached = new Set(ecSeed(id));
+  const queue = [...reached];
+  while (queue.length) {
+    const current = queue.shift();
+    const owner = ecOwner(current);
+    const contextual = [
+      owner.id,
+      ...ecMembers(owner.id)
+        .filter((n) => n.kind === 'constructor')
+        .map((n) => n.id),
+    ];
+    const targets = ecModel.edges
+      .filter((edge) => ecAllowed(edge) && edge.from === current)
+      .map((edge) => edge.to);
+    const overrides = ecModel.edges
+      .filter((edge) => edge.kind === 'override' && edge.to === current)
+      .map((edge) => edge.from);
+    for (const target of [...contextual, ...targets, ...overrides]) {
+      if (!reached.has(target)) {
+        reached.add(target);
+        queue.push(target);
+      }
+    }
+  }
+  return reached;
+}
+
+function ecVisibleEdges() {
+  if (ecState.mode === 'all') return ecModel.edges.filter(ecAllowed);
+  if (ecState.mode === 'flow' && (ecState.root || ecState.selected)) {
+    const reached = ecReachable(ecState.root || ecState.selected);
+    return ecModel.edges.filter(
+      (edge) => ecAllowed(edge) && reached.has(edge.from) && reached.has(edge.to),
+    );
+  }
+  if (!ecState.selected) return [];
+  const selected = new Set(ecSeed(ecState.selected));
+  return ecModel.edges.filter(
+    (edge) => ecAllowed(edge) && (selected.has(edge.from) || selected.has(edge.to)),
+  );
+}
+
+function ecWire(edge, index) {
+  const from = ecPosition(edge.from),
+    to = ecPosition(edge.to);
+  let x1 = from.x + from.width,
+    x2 = to.x,
+    y1 = from.y + 10,
+    y2 = to.y + 10;
+  let path;
+  if (from.x === to.x) {
+    x2 = to.x + to.width;
+    const lane = x1 + 8 + (index % 3) * 4;
+    path = `M ${x1} ${y1} H ${lane} V ${y2} H ${x2}`;
+  } else {
+    if (from.x > to.x) {
+      x1 = from.x;
+      x2 = to.x + to.width;
+    }
+    const bend = Math.min(160, Math.abs(x2 - x1) / 2);
+    const direction = x2 > x1 ? 1 : -1;
+    path = `M ${x1} ${y1} C ${x1 + direction * bend} ${y1}, ${x2 - direction * bend} ${y2}, ${x2} ${y2}`;
+  }
+  const symbol = edge.kind === 'read' ? 'dot' : 'arrow';
+  return `<path class="wire edge-${edge.kind}" data-edge="${ecModel.edges.indexOf(edge)}" d="${path}" marker-end="url(#${symbol}-${edge.kind})"><title>${ecEscape(`${edge.from} —${ecLabels[edge.kind]}→ ${edge.to}`)}</title></path>`;
+}
+
+function ecDrawEdges(edges) {
+  const defs = Object.keys(ecLabels)
+    .map(
+      (kind) =>
+        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="edge-${kind}" d="M 1 1 L 9 5 L 1 9" fill="none" stroke-width="1.6"/></marker><marker id="dot-${kind}" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6"><circle class="edge-${kind}" cx="5" cy="5" r="3" fill="white"/></marker>`,
+    )
+    .join('');
+  ecEl('map-wires').innerHTML = `<defs>${defs}</defs>${edges.map(ecWire).join('')}`;
+  ecEl('line-count').textContent = `${edges.length} relations`;
+}
+
+function ecChangedNodes() {
+  const ids = new Set(
+    ecModel.edges.filter((e) => e.kind === 'type' && e.to === 'Order').map((e) => e.from),
+  );
+  for (const edge of ecModel.edges.filter((e) => e.kind === 'call'))
+    if (ids.has(edge.to)) ids.add(edge.from);
+  ids.add('Order');
+  return ids;
+}
+
+function ecRenderMap() {
+  const edges = ecVisibleEdges();
+  const active = new Set(edges.flatMap((edge) => [edge.from, edge.to]));
+  if (ecState.selected) for (const id of ecSeed(ecState.selected)) active.add(id);
+  const changed = ecChangedNodes();
+  for (const el of document.querySelectorAll('[data-declaration]')) {
+    const id = el.dataset.declaration;
+    el.classList.toggle('selected', id === ecState.selected);
+    el.classList.toggle('dimmed', active.size > 0 && !active.has(id));
+    el.classList.toggle('changed', ecState.change && changed.has(id));
+    el.setAttribute('aria-pressed', String(id === ecState.selected));
+  }
+  for (const el of document.querySelectorAll('[data-group]')) {
+    const id = el.dataset.group;
+    const involved = active.has(id) || ecMembers(id).some((n) => active.has(n.id));
+    el.classList.toggle('dimmed-group', active.size > 0 && !involved);
+    el.classList.toggle('selected-group', ecState.selected === id);
+  }
+  ecDrawEdges(edges);
+  ecEl('selection-summary').textContent = ecState.selected
+    ? `${ecState.selected} · ${ecState.mode === 'flow' ? '依存範囲（初期化・overrideを含む）' : '選択近傍'}`
+    : '全体の配置 · 箱を選ぶと、使う先と使う元の線を表示';
+  ecEl('scenario').setAttribute('aria-pressed', String(ecState.change));
+  ecEl('scenario').textContent = ecState.change ? '仮変更を戻す' : 'Order型の仮変更';
+  for (const button of document.querySelectorAll('[data-mode]'))
+    button.setAttribute('aria-pressed', String(button.dataset.mode === ecState.mode));
+  ecSetOriginValue();
+}
+
+function ecRelations(id) {
+  const seeds = new Set(ecSeed(id));
+  const incoming = ecModel.edges.filter((edge) => seeds.has(edge.to) && !seeds.has(edge.from));
+  const outgoing = ecModel.edges.filter((edge) => seeds.has(edge.from));
+  const render = (items, inward) =>
+    items.length
+      ? items
+          .map(
+            (edge) =>
+              `<li><span class="relation-kind">${ecLabels[edge.kind]}</span>${ecButton(inward ? edge.from : edge.to)}<code>${ecEscape(edge.expression)}</code>${edge.kind === 'middleware' ? '<small>登録・適用の関係。メソッドの直接呼出ではありません。</small>' : ''}${edge.kind === 'event' ? '<small>同じイベント名の発行と購読。直接呼出ではありません。</small>' : ''}${edge.evidence ? `<small>${ecEscape(edge.evidence.file)}<br>${ecEscape(edge.evidence.text)}</small>` : ''}</li>`,
+          )
+          .join('')
+      : '<li class="muted">fixture内の該当関係なし（外部・未展開範囲を除く）</li>';
+  return `<section><h3>使う元・適用元 <small>${incoming.length}</small></h3><ul class="relations">${render(incoming, true)}</ul></section><section><h3>使う先・参照先 <small>${outgoing.length}</small></h3><ul class="relations">${render(outgoing, false)}</ul></section>`;
+}
+
+function ecContract(id) {
+  const source = ecSources[id],
+    node = ecNodes.get(id),
+    group = ecOwner(id);
+  const root = ecModel.roots.find((item) => item.id === id);
+  return `<div class="contract-grid"><section><h3>${root ? `${root.kind} の起点` : '宣言の契約'}</h3>${root ? `<p>${ecEscape(root.label)}</p>` : ''}<pre>${ecEscape(source.signature)}</pre>${group.boundary ? '<p class="warning">内部の依存は未展開。依存がないという意味ではありません。</p>' : ''}${group.notes ? `<p>${ecEscape(group.notes)}</p>` : ''}${
+    !node
+      ? `<h3>実在するメンバー</h3><div class="member-links">${ecMembers(id)
+          .map((n) => ecButton(n.id, `${ecKinds[n.kind]} · ${n.name}`))
+          .join('')}</div>`
+      : ''
+  }${ecState.change && ecChangedNodes().has(id) ? '<p class="warning">仮変更: Order.statusへrefundedを追加。直接型参照と呼出元を強調する例です。自動の完全影響解析ではありません。</p>' : ''}</section>${ecRelations(id)}</div>`;
+}
+
+function ecScope(id) {
+  const group = ecOwner(id);
+  return `<div class="scope-grid"><section><h3>この箱の実体</h3><p>${ecEscape(group.file)}</p><p>${group.kind === 'class' ? '囲みは実際のclass宣言です。' : group.kind === 'interface' ? 'interfaceの契約宣言です。実装された関数nodeではありません。' : 'FILEの囲みは実際のファイルです。架空のclassではありません。'}</p><p>${ecEscape(group.notes ?? 'この図は宣言と静的な呼出・参照の対応を示します。実行時トレースではありません。')}</p></section><section><h3>展開を止める境界</h3><p>ORM / SQL builder、標準API、request・response・DI・例外処理などのframework内部はコード欄で確認します。無名の内部callbackは受信ハンドラーとconfig返却関数以外、親関数のコードに残します。</p><p>packageの「内部未展開」classは境界の実メソッドまで。ec-backendのメソッドは省略しません。登録のないCLI entryは作りません。</p></section><section><h3>契約以外の共有・影響</h3><p>DB: users / products / orders / order_itemsを共有。注文のDB transactionにKV削除・event発行は含まれません。</p><p>JWT middlewareのsetUserとentryのrequireUserはrequest contextを介します。@Authorizedの認可判定はframework側であり、Controllerから直接呼ぶ架空のmiddlewareは作りません。</p><p>性能、並行更新、例外の最終HTTP変換、実行時middleware順序の網羅は未検証。</p></section></div>`;
+}
+
+function ecSourceView(id) {
+  const source = ecSources[id];
+  const group = ecGroups.get(id);
+  const notice = group
+    ? '<p class="muted">囲みの宣言ヘッダーです。本文は各メンバーを選んで確認してください。FILEの場合はファイルの所在を表示します。</p>'
+    : '';
+  return `${notice}<pre class="source-code">${ecEscape(source.code || source.signature)}</pre>`;
+}
+
+function ecRenderInspector() {
+  const id = ecState.selected;
+  if (!id) {
+    ecEl('inspector').innerHTML =
+      `<div class="welcome"><span class="eyebrow">EC-BACKEND / WHOLE APPLICATION</span><h2>入口を選び、依存を辿る</h2><p>HTTP 16 · Event 1 · Middleware 5。箱を選ぶと近傍の線、起点を選ぶと依存範囲を表示します。</p><p>configは独立したタブではなく、どの起点からも共有される宣言です。右の小地図から全体の各位置へ移動できます。</p><p class="muted">${ecNodes.size}宣言 / ${ecGroups.size} class・file・interface。手動fixture。抽出器・API接続なし。</p></div>`;
+    return;
+  }
+  const source = ecSources[id];
+  const content =
+    ecState.tab === 'source'
+      ? ecSourceView(id)
+      : ecState.tab === 'scope'
+        ? ecScope(id)
+        : ecContract(id);
+  ecEl('inspector').innerHTML =
+    `<header class="inspector-heading"><div><span class="eyebrow">${ecKinds[ecNodes.get(id)?.kind] ?? ecOwner(id).kind.toUpperCase()}</span><h2>${ecEscape(id)}</h2><p class="source-path">${ecEscape(source.file)}:${source.line}</p></div><div class="inspector-actions"><button type="button" data-action="locate">地図の位置へ ↗</button><button type="button" data-action="as-root">ここから辿る</button></div></header><div class="inspector-tabs" role="tablist" aria-label="宣言の詳細">${[
+      ['contract', '契約・関係'],
+      ['source', '実コード'],
+      ['scope', '範囲・境界の影響'],
+    ]
+      .map(
+        ([tab, label]) =>
+          `<button type="button" role="tab" data-tab="${tab}" aria-selected="${ecState.tab === tab}" tabindex="${ecState.tab === tab ? 0 : -1}">${label}</button>`,
+      )
+      .join('')}</div><div class="inspector-body" role="tabpanel">${content}</div>`;
+}
+
+function ecSelect(id, locate = false) {
+  if (!ecSources[id]) throw new Error(`Unknown declaration: ${id}`);
+  ecState.selected = id;
+  ecState.tab = 'contract';
+  ecRenderMap();
+  ecRenderInspector();
+  if (locate) ecLocate(id);
+}
+
+function ecLocate(id) {
+  const point = ecPosition(id),
+    viewport = ecEl('map-scroll');
+  viewport.scrollTo({
+    left: Math.max(0, (point.x - 50) * ecState.zoom),
+    top: Math.max(0, (point.y - 80) * ecState.zoom),
+  });
+  ecUpdateMini();
+}
+
+function ecSetZoom(value) {
+  const viewport = ecEl('map-scroll'),
+    old = ecState.zoom;
+  const center = [
+    (viewport.scrollLeft + viewport.clientWidth / 2) / old,
+    (viewport.scrollTop + viewport.clientHeight / 2) / old,
+  ];
+  ecState.zoom = Math.max(0.15, Math.min(1.4, value));
+  ecEl('architecture-map').style.transform = `scale(${ecState.zoom})`;
+  ecEl('map-space').style.width = `${ecModel.width * ecState.zoom}px`;
+  ecEl('map-space').style.height = `${ecModel.height * ecState.zoom}px`;
+  ecEl('zoom-level').textContent = `${Math.round(ecState.zoom * 100)}%`;
+  viewport.scrollLeft = center[0] * ecState.zoom - viewport.clientWidth / 2;
+  viewport.scrollTop = center[1] * ecState.zoom - viewport.clientHeight / 2;
+  ecUpdateMini();
+}
+
+function ecUpdateMini() {
+  const viewport = ecEl('map-scroll'),
+    rect = ecEl('mini-viewport');
+  if (!rect) return;
+  for (const [key, value] of Object.entries({
+    x: viewport.scrollLeft / ecState.zoom,
+    y: viewport.scrollTop / ecState.zoom,
+    width: viewport.clientWidth / ecState.zoom,
+    height: viewport.clientHeight / ecState.zoom,
+  }))
+    rect.setAttribute(key, value);
+}
+
+function ecSearch() {
+  const query = ecState.query.trim().toLowerCase();
+  const items = [...ecModel.groups, ...ecModel.declarations].filter((item) =>
+    `${item.id} ${item.hint ?? ''} ${ecSources[item.id].file}`.toLowerCase().includes(query),
+  );
+  ecEl('search-results').hidden = !query;
+  ecEl('search-results').innerHTML = query
+    ? `<p>${items.length}件 · 宣言とファイルを検索</p>${items
+        .slice(0, 40)
+        .map(
+          (item) =>
+            `<button type="button" data-find="${ecEscape(item.id)}"><strong>${ecEscape(item.id)}</strong><small>${ecEscape(item.hint ?? item.kind)}</small></button>`,
+        )
+        .join(
+          '',
+        )}${items.length === 0 ? '<p>該当する宣言はありません。</p>' : ''}${items.length > 40 ? '<p>先頭40件。検索語を追加してください。</p>' : ''}`
+    : '';
+}
+
+function ecReset() {
+  Object.assign(ecState, {
+    selected: null,
+    root: '',
+    mode: 'near',
+    tab: 'contract',
+    query: '',
+    category: 'all',
+    middleware: true,
     change: false,
-    view: 'orders',
   });
-  let state = initial();
-  const inspector = document.getElementById('inspector');
-  const help = document.getElementById('help-dialog');
-  const escapeHtml = (value) =>
-    String(value).replace(
-      /[&<>"']/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-    );
-  const list = (values) =>
-    `<ul class="notes">${values.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul>`;
-  const nodeLink = (id, hint = '') =>
-    `<button type="button" class="relation" data-select="${escapeHtml(id)}">${escapeHtml(id)}()${hint ? `<small>${escapeHtml(hint)}</small>` : ''}</button>`;
-  const propertyLink = (id, hint = '') =>
-    `<button type="button" class="relation property-link" data-select-property="${escapeHtml(id)}">${escapeHtml(id)}<small>${escapeHtml(hint || properties.get(id).signature)}</small></button>`;
-  const readLinks = (node) =>
-    model.reads
-      .filter((read) => read.from === node.id)
-      .map((read) => propertyLink(read.to, `${read.expression} を読む`))
-      .join('');
-  const section = (title, content) =>
-    `<section><h3 class="section-label">${escapeHtml(title)}</h3>${content}</section>`;
-  const tabs = ['boundary', 'internal', 'source'];
+  ecEl('search').value = '';
+  ecEl('category').value = 'all';
+  ecEl('include-middleware').checked = true;
+  ecBuildOrigins();
+  ecSearch();
+  ecRenderMap();
+  ecRenderInspector();
+  const viewportWidth = ecEl('map-scroll').clientWidth;
+  ecSetZoom(viewportWidth < 600 ? 1 : Math.min(1, (viewportWidth - 20) / ecModel.width));
+  ecEl('map-scroll').scrollTo(0, 0);
+}
 
-  function validateModel() {
-    if (nodes.size !== model.nodes.length || groups.size !== model.groups.length)
-      throw new Error('Duplicate declaration identity');
-    for (const node of nodes.values()) {
-      if (!groups.has(node.group) || node.id !== `${node.group}.${node.name}`)
-        throw new Error(`Invalid method identity: ${node.id}`);
-    }
-    for (const edge of model.edges) {
-      if (!nodes.has(edge.from) || !nodes.has(edge.to))
-        throw new Error('Call endpoint is not a method');
-    }
-    for (const property of properties.values()) {
-      if (!groups.has(property.group) || nodes.has(property.id))
-        throw new Error(`Invalid property identity: ${property.id}`);
-    }
-    for (const read of model.reads) {
-      if (!nodes.has(read.from) || !properties.has(read.to))
-        throw new Error('Invalid property read endpoint');
-    }
+function ecAction(action) {
+  const handlers = {
+    reset: ecReset,
+    'zoom-in': () => ecSetZoom(ecState.zoom + 0.1),
+    'zoom-out': () => ecSetZoom(ecState.zoom - 0.1),
+    'zoom-actual': () => ecSetZoom(1),
+    'zoom-fit': () => ecSetZoom((ecEl('map-scroll').clientWidth - 20) / ecModel.width),
+    locate: () => ecLocate(ecState.selected),
+    'as-root': () => {
+      ecState.root = ecState.selected;
+      ecState.mode = 'flow';
+      ecRenderMap();
+    },
+    scenario: () => {
+      ecState.change = !ecState.change;
+      ecSelect('Order', true);
+    },
+    help: () => ecEl('help-dialog').showModal(),
+    'close-help': () => ecEl('help-dialog').close(),
+  };
+  handlers[action]?.();
+}
+
+function ecClick(event) {
+  const target = event.target.closest(
+    '[data-select], [data-find], [data-mini], [data-tab], [data-mode], [data-action]',
+  );
+  if (!target) return;
+  if (target.dataset.select) ecSelect(target.dataset.select);
+  if (target.dataset.find) {
+    ecSelect(target.dataset.find, true);
+    ecEl('search-results').hidden = true;
   }
-
-  function buildMap() {
-    document.getElementById('class-groups').innerHTML = model.groups
-      .map((group) => {
-        const members = model.nodes.filter((node) => node.group === group.id);
-        const fields = model.properties.filter((property) => property.group === group.id);
-        const count = fields.length
-          ? `${fields.length} ${fields[0].kind} · 関数とは別表示`
-          : `${members.length} methods 表示 / ${group.omitted.length} methods 範囲外`;
-        return `<section class="class-group" data-group="${group.id}" aria-label="${group.id} class group" style="left:${group.x}px;top:${group.y}px;width:${group.width}px;height:${group.height}px"><button type="button" class="group-heading" data-select-group="${group.id}" aria-pressed="false"><span class="group-kind">CLASS</span><strong>${group.id}</strong></button><span class="group-count">${count}</span>${members.map((node) => `<button type="button" class="function-node" data-node="${node.id}" data-select="${node.id}" aria-label="${node.id}()" aria-pressed="false" style="top:${node.y}px"><strong>${node.name}()</strong><small>${escapeHtml(node.label)}</small></button>`).join('')}${fields.map((property) => `<button type="button" class="property-slot" data-property="${property.id}" data-select-property="${property.id}" aria-pressed="false" style="top:${property.y}px"><span class="property-kind">${property.kind === 'getter' ? 'GET' : 'PROP'}</span><strong>${property.name}</strong><small>${escapeHtml(property.type)}</small></button>`).join('')}</section>`;
-      })
-      .join('');
-    const wires = model.edges
-      .map((edge, index) => {
-        const from = nodes.get(edge.from);
-        const to = nodes.get(edge.to);
-        const source = groups.get(from.group);
-        const target = groups.get(to.group);
-        const x1 = source.x + source.width - 10;
-        const x2 = target.x + 10;
-        const y1 = source.y + from.y + 26;
-        const y2 = target.y + to.y + 26;
-        const path =
-          edge.route === 'above'
-            ? `M ${x1} ${y1} H ${source.x + source.width + 24} V 55 H ${target.x - 20} V ${y2} H ${x2}`
-            : `M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`;
-        return `<path class="wire" data-edge="${index}" d="${path}" marker-end="url(#arrow)"/>`;
-      })
-      .join('');
-    const readWires = model.reads
-      .map((read, index) => {
-        const node = nodes.get(read.from),
-          property = properties.get(read.to);
-        const from = groups.get(node.group),
-          to = groups.get(property.group);
-        const x1 = from.x + from.width - 10,
-          y1 = from.y + node.y + 26;
-        const x2 = to.x + 10,
-          y2 = to.y + property.y + 26;
-        const path =
-          read.lane === undefined
-            ? `M ${x1} ${y1} H ${x2}`
-            : `M ${x1} ${y1} H 522 V ${read.lane} H 950 V ${y2} H ${x2}`;
-        return `<path class="read-wire" data-read-edge="${index}" d="${path}" marker-end="url(#read-dot)"/>`;
-      })
-      .join('');
-    document.getElementById('map-wires').innerHTML =
-      `<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#678f84" stroke-width="1.5"/></marker><marker id="read-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7"><circle cx="5" cy="5" r="3" fill="white" stroke="#497cad" stroke-width="1.5"/></marker></defs>${wires}${readWires}<path class="extends-wire" d="M 970 115 H 940 V 78 H 775 V 96" marker-end="url(#arrow)"/><text class="extends-label" x="810" y="70">extends JwtConfig</text><text class="config-read-label" x="538" y="159">secret を読む</text>`;
+  if (target.dataset.mini) ecSelect(target.dataset.mini, true);
+  if (target.dataset.tab) {
+    ecState.tab = target.dataset.tab;
+    ecRenderInspector();
+    document.querySelector(`[data-tab="${ecState.tab}"]`).focus();
   }
-
-  function propertyView(property) {
-    const group = groups.get(property.group);
-    const incoming = model.reads.filter((read) => read.to === property.id);
-    const related =
-      property.id === 'JwtConfig.secret'
-        ? propertyLink('EcJwtConfig.secret', '実在する override 宣言を見る')
-        : property.id === 'EcJwtConfig.secret'
-          ? propertyLink('JwtConfig.secret', '基底クラスの宣言を見る')
-          : '';
-    const registration = group.registration
-      ? `<p class="source-file">${group.registration.file}</p><pre class="source-block">${escapeHtml(group.registration.snippet)}</pre>`
-      : '';
-    return `<div class="detail-columns"><div><p class="source-file">${escapeHtml(group.file)}</p><pre class="signature">${escapeHtml(property.signature)}</pre>${list(property.notes)}${related}</div><div>${section('読む関数（表示範囲内）', incoming.length ? incoming.map((read) => nodeLink(read.from, read.expression)).join('') : '<p class="muted">直接参照する宣言先は JwtConfig.secret。override 宣言への直接呼出線は作りません。</p>')}${section('実コードの根拠（抜粋）', property.snippets.map((snippet) => `<pre class="source-block">${escapeHtml(snippet)}</pre>`).join('') + registration)}</div></div>`;
+  if (target.dataset.mode) {
+    ecState.mode = target.dataset.mode;
+    ecRenderMap();
   }
+  if (target.dataset.action) ecAction(target.dataset.action);
+}
 
-  function methodBoundary(node) {
-    const incoming = model.edges.filter((edge) => edge.to === node.id);
-    const outgoing = model.edges.filter((edge) => edge.from === node.id);
-    const signature = `<pre class="signature">${escapeHtml(node.signature)}</pre><div class="result">${escapeHtml(node.result)}</div>`;
-    const type = model.types.Order.direct.includes(node.id)
-      ? '<button type="button" class="type-link" data-type="Order">型参照: Order</button>'
-      : '';
-    return `<div class="detail-columns"><div>${section('このメソッドのシグネチャ', signature + type)}${section('コードを読んだ補足（手入力・node ではない）', list(node.notes))}</div><div>${section('読む property / getter', readLinks(node) || '<p class="muted">注入先クラスの property 読み取りなし（対象メソッド内）。</p>')}${section('呼び元（表示範囲内）', incoming.length ? incoming.map((edge) => nodeLink(edge.from, edge.expression)).join('') : '<p class="muted">表示範囲内のメソッドからの呼出なし。HTTP ルート・範囲外からの呼出は別です。</p>')}${section('呼出先（表示範囲内）', outgoing.length ? outgoing.map((edge) => nodeLink(edge.to, edge.expression)).join('') : '<p class="muted">表示範囲内へのメソッド呼出なし。</p>')}</div></div>`;
+function ecKeydown(event) {
+  if (event.key === 'Escape') ecEl('search-results').hidden = true;
+  if (!event.target.matches('[role="tab"]')) return;
+  const tabs = ['contract', 'source', 'scope'];
+  const index = tabs.indexOf(ecState.tab);
+  const next = { ArrowRight: (index + 1) % 3, ArrowLeft: (index + 2) % 3, Home: 0, End: 2 }[
+    event.key
+  ];
+  if (next === undefined) return;
+  event.preventDefault();
+  ecState.tab = tabs[next];
+  ecRenderInspector();
+  document.querySelector(`[data-tab="${ecState.tab}"]`).focus();
+}
+
+ecValidate();
+ecBuildMap();
+ecBuildOrigins();
+document.addEventListener('click', ecClick);
+document.addEventListener('keydown', ecKeydown);
+ecEl('search').addEventListener('input', (event) => {
+  ecState.query = event.target.value;
+  ecSearch();
+});
+ecEl('category').addEventListener('change', (event) => {
+  ecState.category = event.target.value;
+  ecState.root = '';
+  ecBuildOrigins();
+});
+ecEl('root-select').addEventListener('change', (event) => {
+  ecState.root = event.target.value;
+  if (!ecState.root) {
+    ecState.selected = null;
+    ecState.mode = 'near';
+    ecRenderMap();
+    ecRenderInspector();
+    return;
   }
-
-  function methodInternal(node) {
-    const outgoing = model.edges.filter((edge) => edge.from === node.id);
-    return `<div class="detail-columns"><div>${section('読む property / getter', readLinks(node) || '<p class="muted">対象となる読み取りなし。</p>')}${section('このメソッド内にある直接呼出', outgoing.length ? outgoing.map((edge) => nodeLink(edge.to, edge.expression)).join('') : '<p class="muted">表示中のメソッドへの直接呼出なし。</p>')}<p class="muted">同じ宣言へのリンクです。処理を意味で分割した擬似 node は作りません。</p></div><div>${section('その先の呼出・データ参照（地図では未展開）', `<ul class="reference-list">${node.references.map((ref) => `<li>${escapeHtml(ref)}</li>`).join('')}</ul>`)}${section('境界をまたぐ影響・補足', list(node.notes))}</div></div>`;
-  }
-
-  function sourceView(node) {
-    const group = groups.get(node.group);
-    return `<p class="source-file">${escapeHtml(group.file)}<br>${escapeHtml(group.id)} → ${escapeHtml(node.name)}()</p><pre class="signature">${escapeHtml(node.signature)}</pre><p class="muted">同じメソッドの抜粋。抜粋間のコードは省略しています。シグネチャ・抜粋・宣言元は検証スクリプトで実ファイルと照合します。</p>${node.snippets.map((snippet) => `<pre class="source-block">${escapeHtml(snippet)}</pre>`).join('<p class="muted">… 省略 …</p>')}`;
-  }
-
-  function groupView(group) {
-    const members = model.nodes.filter((node) => node.group === group.id);
-    const fields = model.properties.filter((property) => property.group === group.id);
-    const dependencies = model.reads.filter((read) =>
-      members.some((node) => node.id === read.from),
-    );
-    return `<div class="detail-columns"><div>${fields.length ? section('この class の property / getter', fields.map((property) => propertyLink(property.id)).join('')) : ''}${members.length ? section('この class が宣言するメソッド（表示範囲）', members.map((node) => nodeLink(node.id, node.signature)).join('')) : ''}${dependencies.length ? section('メソッドが読む外部 property', [...new Set(dependencies.map((read) => read.to))].map((id) => propertyLink(id)).join('')) : ''}</div><div>${section('実体との対応', `<p class="source-file">${escapeHtml(group.file)}</p><p class="muted">この囲みは <code>${escapeHtml(group.id)}</code> の宣言に対応します。group 自体は関数 node ではありません。</p>`)}${section('この class の表示していないメンバー', `<p class="muted">${group.omitted.map((name) => `<code>${escapeHtml(name)}()</code>`).join(' / ')} ${(group.omittedAccessors || []).map((name) => `<code>get ${name}</code>`).join(' / ')}</p><p class="muted">コンストラクター・無名コールバックは表示範囲外。</p>`)}${group.extends ? section('extends / 設定の登録', `<p>${group.id} extends ${group.extends}</p><p class="source-file">${group.registration.file}</p><pre class="source-block">${escapeHtml(group.registration.snippet)}</pre>`) : ''}${section('implements（呼出関係とは別）', `<p class="muted">${group.implements.length ? group.implements.map(escapeHtml).join(', ') : 'このクラス宣言に implements 節なし。'}</p>`)}</div></div>`;
-  }
-
-  function typeView() {
-    const type = model.types.Order;
-    const before = type.status.map((s) => `'${s}'`).join(' | ');
-    const diff = state.change
-      ? `<div class="diff-columns"><div><h3 class="section-label">現在の status</h3><pre class="source-block">${before}</pre></div><div><h3 class="section-label">仮変更後（実コードは変更しない）</h3><pre class="source-block after">${before}\n| 'refunded'</pre></div></div>`
-      : `<pre class="source-block">status: ${before}</pre>`;
-    return `<div class="detail-columns"><div><p class="source-file">${type.file}</p><pre class="signature">${escapeHtml(type.declaration)}</pre>${diff}<p class="muted">型情報は関数 node とは別です。独立した Domain クラスではなく、DB スキーマから導出された型です。</p></div><div>${section('Order を戻り値型に明示しているメソッド', type.direct.map((id) => nodeLink(id)).join(''))}${section('返却値を利用する呼び元（今回の仮変更で確認する範囲）', type.propagated.map((id) => nodeLink(id)).join(''))}<p class="warning">getOrderItems() は Order を返しません。別の orderItems スキーマを読むため、今回の型変更の対象には含めません。影響の自動抽出は未実装です。</p></div></div>`;
-  }
-
-  function scopeView() {
-    return `<div class="detail-columns"><div>${section('地図上の class group', model.groups.map((group) => `<button type="button" class="relation" data-select-group="${group.id}">${group.id}<small>${group.file}</small></button>`).join(''))}</div><div>${section('表示の規則と範囲', list(['対象メソッド内の注入先へのアクセスは、呼ぶ／読むのどちらかで表示する。', 'DrizzleService.db は property、JwtConfig.secret は実在する getter として表示。架空の getter や Repository は作らない。', 'コンストラクター・無名コールバック・フレームワーク・ORM・KV・mitt の内部は未展開。property の先の ORM 呼出も各メソッドの詳細に記す。', '注入先の静的な型 JwtConfig と、ec-backend が登録する EcJwtConfig を区別する。設定値自体は表示しない。', 'イベント配送先の自動解決、全呼出・型影響の網羅は未実装。線がないことは依存がないことの証明ではない。']))}<p class="warning">DB・KV・イベントの境界をまたぐ影響は createOrder の詳細に記載。性能・並行実行・例外変換全体は未検証。</p></div></div>`;
-  }
-
-  function renderInspector() {
-    let title, location, body, badge;
-    const isNode = state.kind === 'node';
-    if (isNode) {
-      const node = nodes.get(state.id);
-      const group = groups.get(node.group);
-      title = `${node.name}()`;
-      location = `${group.layer} / <button type="button" data-select-group="${group.id}">${group.id}</button> / method`;
-      badge = '1 method = 1 node';
-      body =
-        state.tab === 'boundary'
-          ? methodBoundary(node)
-          : state.tab === 'internal'
-            ? methodInternal(node)
-            : sourceView(node);
-    } else if (state.kind === 'property') {
-      const property = properties.get(state.id);
-      const group = groups.get(property.group);
-      title = property.name;
-      location = `${group.layer} / <button type="button" data-select-group="${group.id}">${group.id}</button> / ${property.kind}`;
-      badge =
-        property.kind === 'getter' ? 'getter · 実在するアクセサー' : 'property · メソッドではない';
-      body = propertyView(property);
-    } else if (state.kind === 'group') {
-      const group = groups.get(state.id);
-      title = group.id;
-      location = `${group.layer} / class`;
-      badge = 'class group';
-      body = groupView(group);
-    } else if (state.kind === 'type') {
-      title = 'Order';
-      location = '型情報 / src/infra/db/schema.ts';
-      badge = 'type · 関数 node ではない';
-      body = typeView();
-    } else {
-      title = '表示範囲';
-      location = 'ec-backend / 手入力 fixture';
-      badge = '9 methods / 3 properties';
-      body = scopeView();
-    }
-    const tabNames = {
-      boundary: '境界の契約',
-      internal: '内部の呼出・参照',
-      source: '実コードとの対応',
-    };
-    inspector.innerHTML = `<div class="inspector-head"><div><div class="detail-location">${location}</div><h2 id="detail-title">${escapeHtml(title)}</h2></div><span class="detail-badge">${badge}</span></div>${isNode ? `<div class="tabs" role="tablist" aria-label="読む深さ">${tabs.map((tab) => `<button type="button" id="tab-${tab}" data-tab="${tab}" role="tab" aria-selected="${state.tab === tab}" aria-controls="detail-content" tabindex="${state.tab === tab ? 0 : -1}">${tabNames[tab]}</button>`).join('')}</div>` : ''}<div id="detail-content" class="detail-body" ${isNode ? `role="tabpanel" aria-labelledby="tab-${state.tab}"` : 'aria-labelledby="detail-title"'} tabindex="0">${body}</div>`;
-  }
-
-  function render() {
-    renderInspector();
-    const impacts = [...model.types.Order.direct, ...model.types.Order.propagated];
-    document.querySelectorAll('[data-node]').forEach((el) => {
-      const node = nodes.get(el.dataset.node);
-      const selected = state.kind === 'node' && state.id === node.id;
-      el.classList.toggle('selected', selected);
-      el.classList.toggle('dimmed', state.flow !== 'all' && !node.flows.includes(state.flow));
-      el.classList.toggle('impacted', state.change && impacts.includes(node.id));
-      el.setAttribute('aria-pressed', String(selected));
-    });
-    document.querySelectorAll('[data-group]').forEach((el) => {
-      el.hidden = viewOf(groups.get(el.dataset.group)) !== state.view;
-      const selected = state.kind === 'group' && state.id === el.dataset.group;
-      el.classList.toggle('selected', selected);
-      el.querySelector('.group-heading').setAttribute('aria-pressed', String(selected));
-    });
-    document.querySelectorAll('[data-edge]').forEach((el) => {
-      el.style.display = state.view === 'orders' ? '' : 'none';
-      const edge = model.edges[Number(el.dataset.edge)];
-      el.classList.toggle('dimmed', state.flow !== 'all' && edge.flow !== state.flow);
-      el.classList.toggle(
-        'focused',
-        state.kind === 'node' && (edge.from === state.id || edge.to === state.id),
-      );
-    });
-    document.querySelectorAll('[data-property]').forEach((el) => {
-      const selected = state.kind === 'property' && state.id === el.dataset.property;
-      el.classList.toggle('selected', selected);
-      el.setAttribute('aria-pressed', String(selected));
-    });
-    document.querySelectorAll('[data-read-edge]').forEach((el) => {
-      const read = model.reads[Number(el.dataset.readEdge)];
-      const shown = viewOf(groups.get(nodes.get(read.from).group)) === state.view;
-      el.style.display = shown ? '' : 'none';
-      el.classList.toggle(
-        'dimmed',
-        state.view === 'orders' && state.flow !== 'all' && read.flow !== state.flow,
-      );
-      el.classList.toggle('focused', state.id === read.from || state.id === read.to);
-    });
-    document.getElementById('architecture-map').dataset.view = state.view;
-    document.querySelectorAll('[data-view]').forEach((el) => {
-      if (el.tagName === 'BUTTON')
-        el.setAttribute('aria-pressed', String(el.dataset.view === state.view));
-    });
-    const configView = state.view === 'config';
-    document.querySelector('.flow-nav').style.visibility = configView ? 'hidden' : '';
-    document.querySelector('.scenario-toggle').style.visibility = configView ? 'hidden' : '';
-    document.querySelector('.type-strip').style.visibility = configView ? 'hidden' : '';
-    document.getElementById('map-title').textContent = configView
-      ? '認証と設定の依存'
-      : '注文の依存関係';
-    document.getElementById('map-caption').textContent = configView
-      ? '注入先の型と override 宣言を区別 · EcJwtConfig は createEcApp の configs に登録'
-      : '呼ぶ先・読む先を表示 · 選択・flow 切替で位置は固定';
-    document.querySelectorAll('[data-flow]').forEach((el) => {
-      el.setAttribute('aria-pressed', String(el.dataset.flow === state.flow));
-    });
-    document
-      .querySelector('[data-action="toggle-change"]')
-      .setAttribute('aria-pressed', String(state.change));
-    document.querySelector('.type-strip').classList.toggle('changing', state.change);
-    document.getElementById('type-status').textContent = state.change
-      ? "仮変更: status に 'refunded' を追加 · 4メソッドを確認"
-      : '関数 node ではありません';
-    document.getElementById('scope-label').textContent =
-      state.view === 'config'
-        ? 'JWT 検証 · config の getter 読み取りと継承'
-        : state.flow === 'all'
-          ? '2 flows · 5 classes · 8 methods + db property'
-          : `${state.flow === 'create' ? '注文作成' : '注文照会'}を強調 · 他の node の位置は保持`;
-  }
-
-  function select(kind, id) {
-    if (
-      (kind === 'node' && !nodes.has(id)) ||
-      (kind === 'group' && !groups.has(id)) ||
-      (kind === 'property' && !properties.has(id)) ||
-      (kind === 'type' && id !== 'Order')
-    )
-      throw new Error(`Unknown selection: ${kind}/${id}`);
-    state.kind = kind;
-    state.id = id;
-    state.tab = 'boundary';
-    if (kind === 'node') state.view = viewOf(groups.get(nodes.get(id).group));
-    if (kind === 'property') state.view = viewOf(groups.get(properties.get(id).group));
-    if (kind === 'group') state.view = viewOf(groups.get(id));
-    if (kind === 'type') state.view = 'orders';
-    render();
-  }
-
-  document.addEventListener('click', (event) => {
-    const button = event.target.closest('button');
-    if (!button) return;
-    if (button.dataset.select) return select('node', button.dataset.select);
-    if (button.dataset.selectGroup) return select('group', button.dataset.selectGroup);
-    if (button.dataset.selectProperty) return select('property', button.dataset.selectProperty);
-    if (button.dataset.view) {
-      state.flow = 'all';
-      return button.dataset.view === 'orders'
-        ? select('group', 'OrderService')
-        : select('node', 'JwtService.verify');
-    }
-    if (button.dataset.type) return select('type', button.dataset.type);
-    if (button.dataset.tab) {
-      state.tab = button.dataset.tab;
-      render();
-      document.getElementById(`tab-${state.tab}`).focus({ preventScroll: true });
-      return;
-    }
-    if (button.dataset.flow) {
-      state.flow = button.dataset.flow;
-      render();
-      return;
-    }
-    switch (button.dataset.action) {
-      case 'toggle-change':
-        state.change = !state.change;
-        select('type', 'Order');
-        break;
-      case 'scope':
-        select('scope', 'scope');
-        break;
-      case 'help':
-        help.showModal();
-        break;
-      case 'close-help':
-        help.close();
-        break;
-      case 'reset':
-        state = initial();
-        render();
-        document.querySelector('.map-scroll').scrollLeft = 0;
-        break;
-    }
-  });
-  inspector.addEventListener('keydown', (event) => {
-    if (
-      event.target.getAttribute('role') !== 'tab' ||
-      !['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)
-    )
-      return;
-    event.preventDefault();
-    const index =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? 2
-          : (tabs.indexOf(state.tab) + (event.key === 'ArrowRight' ? 1 : -1) + 3) % 3;
-    state.tab = tabs[index];
-    render();
-    document.getElementById(`tab-${state.tab}`).focus({ preventScroll: true });
-  });
-  validateModel();
-  buildMap();
-  render();
-})();
+  ecState.mode = 'flow';
+  ecSelect(ecState.root, true);
+});
+ecEl('include-middleware').addEventListener('change', (event) => {
+  ecState.middleware = event.target.checked;
+  ecRenderMap();
+});
+ecEl('map-scroll').addEventListener('scroll', ecUpdateMini);
+window.addEventListener('resize', ecUpdateMini);
+ecReset();
