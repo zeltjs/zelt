@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>ec-backend — Studio / whole application</title>
-  <link rel="stylesheet" href="./style.css?v=ec-display-model-1">
-  <script defer src="./data.js?v=ec-display-model-1"></script>
-  <script defer src="./sources.js?v=ec-display-model-1"></script>
-  <script defer src="./projection.js?v=ec-display-model-1"></script>
-  <script defer src="./presentation.js?v=ec-display-model-1"></script>
-  <script defer src="./map-view.js?v=ec-display-model-1"></script>
-  <script defer src="./special-view.js?v=ec-display-model-1"></script>
-  <script defer src="./app.js?v=ec-display-model-1"></script>
+  <link rel="stylesheet" href="./style.css?v=ec-bidirectional-scope-1">
+  <script defer src="./data.js?v=ec-bidirectional-scope-1"></script>
+  <script defer src="./sources.js?v=ec-bidirectional-scope-1"></script>
+  <script defer src="./scope.js?v=ec-bidirectional-scope-1"></script>
+  <script defer src="./projection.js?v=ec-bidirectional-scope-1"></script>
+  <script defer src="./presentation.js?v=ec-bidirectional-scope-1"></script>
+  <script defer src="./map-view.js?v=ec-bidirectional-scope-1"></script>
+  <script defer src="./special-view.js?v=ec-bidirectional-scope-1"></script>
+  <script defer src="./app.js?v=ec-bidirectional-scope-1"></script>
 </head>
 <body>
   <header class="app-header">
@@ -66,7 +67,7 @@
     <p>configは箱と線をまとめて表示切替できます。OFFでも参照の印と詳細は残り、他の箱は動きません。app.tsは通常の地図から外し、上部の「アプリ構成」で登録先とソースを確認します。</p>
     <p>小さい箱は実際の宣言です。METHOD / FUNCTION / CALLBACKは1関数1node。CTOR、property / getter、型・schema・table、interfaceのSIGNATUREを区別します。classの囲みは宣言元class、FILEは実在するファイルです。</p>
     <p>起点はHTTP entry、event受信、middleware。起点の先は必ず全層を通るわけではありません。configや共有classを起点ごとに複製しません。CLIはこのアプリに登録されていないので表示しません。</p>
-    <p>選択近傍は使う先・使う元。依存範囲は起点から辿る先（同じclassのconstructorと設定overrideを含む）。薄くなった箱も同じ座標に残ります。「全関係」は密度を確認するための表示です。</p>
+    <p>選択近傍は、選んだ箱が直接使う先・使われる元の1段です。起点の依存範囲は、use（使う先）とused by（使われる元）を同じ起点から別々に再帰して重ねます。途中で方向は切り替えず、共有依存を使うだけの別entryへは広げません。起点未設定なら現在の選択を使います。constructorやoverrideを暗黙に追加せず、元の関係の向きに従います。実行順序や影響の確定を示すものではありません。薄くなった箱も同じ座標に残ります。「全関係」は密度を確認するための表示です。</p>
     <p>緑=直接呼出、青=読み取り、紫=middleware適用、橙=event配送。点線の型参照・登録・継承・実装は直接呼出ではありません。詳細の関係一覧で根拠を確認できます。</p>
     <p>eventの受信関数はOrderHandlers.startup内の無名callbackです。startupそのものを受信関数に置き換えていません。Middlewareの適用は登録情報であり、Controllerメソッドからの直接呼出ではありません。</p>
     <p>src/domainにはschemaと型があり、DB由来のOrder等はsrc/infra/db/schema.tsです。独自のRepository PortやDomain関数を捏造しません。package serviceの列は所在を示す表示規約で、設計上の責務を推定した分類ではありません。</p>

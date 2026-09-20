@@ -134,41 +134,18 @@ function ecSeed(id) {
   return ecGroups.has(id) ? [id, ...ecMembers(id).map((item) => item.id)] : [id];
 }
 
+function ecDependencyScope(id) {
+  return window.EC_SCOPE.trace(ecSeed(id), ecModel.edges.filter(ecAllowed));
+}
+
 function ecReachable(id) {
-  const reached = new Set(ecSeed(id));
-  const queue = [...reached];
-  while (queue.length) {
-    const current = queue.shift();
-    const owner = ecOwner(current);
-    const contextual = [
-      owner.id,
-      ...ecMembers(owner.id)
-        .filter((n) => n.kind === 'constructor')
-        .map((n) => n.id),
-    ];
-    const targets = ecModel.edges
-      .filter((edge) => ecAllowed(edge) && edge.from === current)
-      .map((edge) => edge.to);
-    const overrides = ecModel.edges
-      .filter((edge) => edge.kind === 'override' && edge.to === current)
-      .map((edge) => edge.from);
-    for (const target of [...contextual, ...targets, ...overrides]) {
-      if (!reached.has(target)) {
-        reached.add(target);
-        queue.push(target);
-      }
-    }
-  }
-  return reached;
+  return ecDependencyScope(id).nodes;
 }
 
 function ecVisibleEdges() {
   if (ecState.mode === 'all') return ecModel.edges.filter(ecAllowed);
   if (ecState.mode === 'flow' && (ecState.root || ecState.selected)) {
-    const reached = ecReachable(ecState.root || ecState.selected);
-    return ecModel.edges.filter(
-      (edge) => ecAllowed(edge) && reached.has(edge.from) && reached.has(edge.to),
-    );
+    return ecDependencyScope(ecState.root || ecState.selected).edges;
   }
   if (!ecState.selected) return [];
   const selected = new Set(ecSeed(ecState.selected));
@@ -257,7 +234,9 @@ function ecRenderMap() {
   }
   ecDrawEdges(display);
   ecEl('selection-summary').textContent = ecState.selected
-    ? `${ecState.selected} · ${ecState.mode === 'flow' ? '依存範囲（初期化・overrideを含む）' : '選択近傍'}`
+    ? ecState.mode === 'flow'
+      ? `起点: ${ecState.root || ecState.selected} · use / used byを独立に再帰 · 選択: ${ecState.selected}`
+      : `${ecState.selected} · ${ecState.mode === 'all' ? '全関係' : '選択近傍'}`
     : '全体の配置 · 箱を選ぶと、使う先と使う元の線を表示';
   ecEl('scenario').setAttribute('aria-pressed', String(ecState.change));
   ecEl('scenario').textContent = ecState.change ? '仮変更を戻す' : 'Order型の仮変更';

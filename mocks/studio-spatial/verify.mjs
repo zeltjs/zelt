@@ -6,12 +6,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { verifyDisplayBrowser, verifyDisplayModel } from './verify-display.mjs';
+import { verifyScopeBrowser, verifyScopeModel } from './verify-scope.mjs';
 import { verifySpecialBrowser, verifySpecialModel } from './verify-special.mjs';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const root = resolve(dir, '../..');
 const context = { window: {} };
-for (const file of ['data.js', 'sources.js', 'projection.js', 'presentation.js'])
+for (const file of ['data.js', 'sources.js', 'scope.js', 'projection.js', 'presentation.js'])
   vm.runInNewContext(readFileSync(resolve(dir, file), 'utf8'), context);
 const model = JSON.parse(JSON.stringify(context.window.EC_GRAPH));
 const sources = JSON.parse(JSON.stringify(context.window.EC_SOURCES));
@@ -429,10 +430,10 @@ ok(
 );
 const assets = [
   ...readFileSync(resolve(dir, 'index.html'), 'utf8').matchAll(
-    /(?:src|href)="\.\/(?:data\.js|sources\.js|projection\.js|presentation\.js|map-view\.js|special-view\.js|app\.js|style\.css)\?v=([^"]+)"/g,
+    /(?:src|href)="\.\/(?:data\.js|sources\.js|scope\.js|projection\.js|presentation\.js|map-view\.js|special-view\.js|app\.js|style\.css)\?v=([^"]+)"/g,
   ),
 ];
-equal(assets.length, 8, 'All script/style assets versioned');
+equal(assets.length, 9, 'All script/style assets versioned');
 equal(sorted(assets.map((m) => m[1])), [model.version], 'Same cache revision for all assets');
 ok(
   !readFileSync(resolve(dir, 'sources.js'), 'utf8').includes('ec-backend-test-secret-key'),
@@ -538,6 +539,7 @@ console.log(
 
 verifySpecialModel(model, context.window.EC_PRESENT, ok, equal);
 verifyDisplayModel(model, context.window.EC_PRESENT, ok, equal);
+verifyScopeModel(model, context.window.EC_SCOPE, ok, equal);
 console.log('PASS: special relation partition, provenance and source immutability checks.');
 if (process.argv.includes('--browser')) {
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
@@ -781,6 +783,7 @@ if (process.argv.includes('--browser')) {
       for (const box of foldedHeights)
         equal(box.height, 62 + box.extra, 'Compact header retains tag/warp space');
       await checkDisplayOptions(page);
+      await verifyScopeBrowser(page, ok, equal);
       await verifyDisplayBrowser(page, ok, equal);
       await verifySpecialBrowser(page, ok, equal);
       equal(
@@ -1216,6 +1219,7 @@ if (process.argv.includes('--browser')) {
           'style.css',
           'data.js',
           'sources.js',
+          'scope.js',
           'projection.js',
           'presentation.js',
           'map-view.js',
