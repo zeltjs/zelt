@@ -20,6 +20,7 @@
     "knip": "knip",
     "codepolicy": "time codepolicy --filter=all 2>&1 | tee codepolicy.log",
     "test": "vitest run",
+    "test:container": "pnpm -r --if-present test:container",
     "test:integration": "./integration/scripts/run-tests.sh dist",
     "test:runtime-contracts": "node --test scripts/verify-dist-runtime-contracts.test.mjs",
     "typecheck": "tsc -b",

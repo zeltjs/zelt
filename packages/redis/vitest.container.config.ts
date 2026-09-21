@@ -5,9 +5,9 @@ export default mergeConfig(
   sharedConfig,
   defineConfig({
     test: {
-      name: '@zeltjs/redis',
-      include: ['src/**/*.test.ts'],
-      exclude: ['src/**/container/**'],
+      name: '@zeltjs/redis:container',
+      include: ['src/**/container/**/*.test.ts'],
+      testTimeout: 60_000,
     },
   }),
 );

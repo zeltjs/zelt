@@ -40,6 +40,7 @@
   "scripts": {
     "build": "tsdown",
     "test": "vitest run",
+    "test:container": "vitest run --config vitest.container.config.ts",
     "typecheck": "tsc -b"
   },
   "peerDependencies": {

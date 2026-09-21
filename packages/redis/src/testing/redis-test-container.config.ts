@@ -1,13 +1,18 @@
 import type { Lifecycle } from '@zeltjs/core';
 import { Config, inject, LifecycleManager } from '@zeltjs/core';
-import type { StartedTestContainer } from 'testcontainers';
 import { GenericContainer } from 'testcontainers';
 
 import { RedisConfig } from '../redis.config';
 
+export type StartedRedisContainer = {
+  readonly host: string;
+  readonly port: number;
+  readonly stop: () => Promise<void>;
+};
+
 // 敗北
 interface RedisTestContainerState {
-  container: StartedTestContainer | undefined;
+  container: StartedRedisContainer | undefined;
   connectionUrl: string;
 }
 
@@ -24,11 +29,20 @@ export class RedisTestContainerConfig extends RedisConfig implements Lifecycle {
     return 'redis:7-alpine';
   }
 
+  protected async startContainer(): Promise<StartedRedisContainer> {
+    const container = await new GenericContainer(this.image).withExposedPorts(6379).start();
+    return {
+      host: container.getHost(),
+      port: container.getMappedPort(6379),
+      stop: async () => {
+        await container.stop();
+      },
+    };
+  }
+
   async startup(): Promise<void> {
-    this.state.container = await new GenericContainer(this.image).withExposedPorts(6379).start();
-    const host = this.state.container.getHost();
-    const port = this.state.container.getMappedPort(6379);
-    this.state.connectionUrl = `redis://${host}:${port}`;
+    this.state.container = await this.startContainer();
+    this.state.connectionUrl = `redis://${this.state.container.host}:${this.state.container.port}`;
   }
 
   async shutdown(): Promise<void> {

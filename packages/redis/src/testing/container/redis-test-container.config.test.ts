@@ -1,0 +1,57 @@
+import { Injectable, inject } from '@zeltjs/core';
+import { createTestTarget } from '@zeltjs/testing';
+import { describe, expect, it } from 'vitest';
+
+import { RedisConfig } from '../../redis.config';
+import { RedisService } from '../../redis.service';
+import { RedisTestContainerConfig } from '../redis-test-container.config';
+
+describe('RedisTestContainerConfig', () => {
+  it('starts a Redis container and provides connection URL', async () => {
+    @Injectable()
+    class TestService {
+      constructor(
+        private config = inject(RedisConfig),
+        private redis = inject(RedisService),
+      ) {}
+
+      getUrl(): string {
+        return this.config.url;
+      }
+
+      async ping(): Promise<string> {
+        return await this.redis.client.ping();
+      }
+    }
+
+    const { target, shutdown } = await createTestTarget(TestService, {
+      configs: [RedisTestContainerConfig],
+    });
+
+    expect(target.getUrl()).toMatch(/^redis:\/\/localhost:\d+$/);
+    expect(await target.ping()).toBe('PONG');
+
+    await shutdown();
+  }, 60_000);
+
+  it('connects on startup and disconnects on shutdown against a real Redis instance', async () => {
+    @Injectable()
+    class TestService {
+      constructor(private redis = inject(RedisService)) {}
+
+      async ping(): Promise<string> {
+        return await this.redis.client.ping();
+      }
+    }
+
+    const { target, shutdown } = await createTestTarget(TestService, {
+      configs: [RedisTestContainerConfig],
+    });
+
+    expect(await target.ping()).toBe('PONG');
+
+    await shutdown();
+
+    await expect(target.ping()).rejects.toThrow();
+  }, 60_000);
+});

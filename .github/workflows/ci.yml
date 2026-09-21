@@ -94,6 +94,13 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Container Test
+        run: pnpm test:container
+        env:
+          # Ryuk (orphan-container reaper) has failed to start on this runner and
+          # is unnecessary here: the runner is ephemeral, so leftovers are discarded.
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
+
       - name: Integration Test
         run: pnpm test:integration
 

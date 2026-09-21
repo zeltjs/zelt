@@ -28,6 +28,7 @@ const TOOL_CONFIG_FILES = [
   'knip.config.ts',
   '**/tsdown.config.ts',
   '**/vitest.config.ts',
+  '**/vitest.container.config.ts',
   '**/vite.config.ts',
   '**/drizzle.config.ts',
   '**/zelt.config.ts',

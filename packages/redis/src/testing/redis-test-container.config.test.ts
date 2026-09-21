@@ -1,77 +1,95 @@
-import { Injectable, inject } from '@zeltjs/core';
+import { Config, Injectable, inject } from '@zeltjs/core';
 import { createTestTarget } from '@zeltjs/testing';
 import { describe, expect, it } from 'vitest';
 
 import { RedisConfig } from '../redis.config';
-import { RedisService } from '../redis.service';
 
+import type { StartedRedisContainer } from './redis-test-container.config';
 import { RedisTestContainerConfig } from './redis-test-container.config';
 
+@Injectable()
+class ConfigReader {
+  constructor(private config = inject(RedisConfig)) {}
+
+  getUrl(): string {
+    return this.config.url;
+  }
+
+  getOptions(): RedisConfig['options'] {
+    return this.config.options;
+  }
+}
+
 describe('RedisTestContainerConfig', () => {
-  it('starts a Redis container and provides connection URL', async () => {
-    @Injectable()
-    class TestService {
-      constructor(
-        private config = inject(RedisConfig),
-        private redis = inject(RedisService),
-      ) {}
+  it('builds the connection URL from the started container', async () => {
+    const started: StartedRedisContainer = {
+      host: 'fake-host',
+      port: 12345,
+      stop: async () => {},
+    };
 
-      getUrl(): string {
-        return this.config.url;
-      }
-
-      async ping(): Promise<string> {
-        return await this.redis.client.ping();
-      }
-    }
-
-    const { target, shutdown } = await createTestTarget(TestService, {
-      configs: [RedisTestContainerConfig],
-    });
-
-    expect(target.getUrl()).toMatch(/^redis:\/\/localhost:\d+$/);
-    expect(await target.ping()).toBe('PONG');
-
-    await shutdown();
-  }, 60_000);
-
-  it('connects on startup and disconnects on shutdown against a real Redis instance', async () => {
-    @Injectable()
-    class TestService {
-      constructor(private redis = inject(RedisService)) {}
-
-      async ping(): Promise<string> {
-        return await this.redis.client.ping();
-      }
-    }
-
-    const { target, shutdown } = await createTestTarget(TestService, {
-      configs: [RedisTestContainerConfig],
-    });
-
-    expect(await target.ping()).toBe('PONG');
-
-    await shutdown();
-
-    await expect(target.ping()).rejects.toThrow();
-  }, 60_000);
-
-  it('provides empty options by default', async () => {
-    @Injectable()
-    class ConfigReader {
-      constructor(private config = inject(RedisConfig)) {}
-
-      getOptions() {
-        return this.config.options;
+    @Config
+    class FakeRedisTestContainerConfig extends RedisTestContainerConfig {
+      protected override async startContainer(): Promise<StartedRedisContainer> {
+        return started;
       }
     }
 
     const { target, shutdown } = await createTestTarget(ConfigReader, {
-      configs: [RedisTestContainerConfig],
+      configs: [FakeRedisTestContainerConfig],
+    });
+
+    expect(target.getUrl()).toBe('redis://fake-host:12345');
+
+    await shutdown();
+  });
+
+  it('provides empty options by default', async () => {
+    const started: StartedRedisContainer = {
+      host: 'fake-host',
+      port: 12345,
+      stop: async () => {},
+    };
+
+    @Config
+    class FakeRedisTestContainerConfig extends RedisTestContainerConfig {
+      protected override async startContainer(): Promise<StartedRedisContainer> {
+        return started;
+      }
+    }
+
+    const { target, shutdown } = await createTestTarget(ConfigReader, {
+      configs: [FakeRedisTestContainerConfig],
     });
 
     expect(target.getOptions()).toEqual({});
 
     await shutdown();
-  }, 60_000);
+  });
+
+  it('stops the container on shutdown', async () => {
+    const stopped = { count: 0 };
+    const started: StartedRedisContainer = {
+      host: 'fake-host',
+      port: 12345,
+      stop: async () => {
+        stopped.count += 1;
+      },
+    };
+
+    @Config
+    class FakeRedisTestContainerConfig extends RedisTestContainerConfig {
+      protected override async startContainer(): Promise<StartedRedisContainer> {
+        return started;
+      }
+    }
+
+    const { shutdown } = await createTestTarget(ConfigReader, {
+      configs: [FakeRedisTestContainerConfig],
+    });
+
+    await shutdown();
+
+    expect(stopped.count).toBe(1);
+  });
 });
