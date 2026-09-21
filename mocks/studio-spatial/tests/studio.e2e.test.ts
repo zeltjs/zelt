@@ -116,6 +116,28 @@ test('shows unit and endpoint test tables separately from source', async ({ page
   await expect(page.locator('.e2e-test')).toHaveCount(0);
 });
 
+test('allocates tag space only while tags are rendered, including dimmed and expanded nodes', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const group = page.locator('[data-group="JwtService"]');
+  for (const expanded of [false, true]) {
+    if (expanded) await group.locator('[data-toggle]').click();
+    const baseHeight = 62 + (await group.locator('[data-declaration]').count()) * 46;
+    await expect(group).toHaveCSS('height', `${baseHeight}px`);
+    await expect(group.locator('.group-references')).toHaveCount(0);
+    await page.locator('#show-config').uncheck();
+    await expect(group.locator('.ref-config')).toHaveText('設定との関係あり');
+    await expect(group).toHaveCSS('height', `${baseHeight + 48}px`);
+    await page.locator('.group-heading[data-select="ProductController"]').click();
+    await expect(group).toHaveClass(/dimmed-group/);
+    await expect(group).toHaveCSS('height', `${baseHeight + 48}px`);
+    await page.locator('#show-config').check();
+    await expect(group.locator('.group-references')).toHaveCount(0);
+    await expect(group).toHaveCSS('height', `${baseHeight}px`);
+  }
+});
+
 test('restores node, lock, mode and tab on reload and browser back/forward', async ({ page }) => {
   await page.goto('/');
   await page.locator('#root-select').selectOption('entry:ProductController.create');

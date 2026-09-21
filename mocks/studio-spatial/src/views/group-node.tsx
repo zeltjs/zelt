@@ -93,11 +93,13 @@ export function GroupNode({
       {model.members.map((member) => (
         <DeclarationNode key={member.id} model={member} emit={send} />
       ))}
-      <fieldset className="group-references" aria-label={`${model.id}の適用・接続先`}>
-        {model.tags.map((tag) => (
-          <RelationTag key={tag.key} model={tag} emit={send} />
-        ))}
-      </fieldset>
+      {model.tags.length > 0 && (
+        <fieldset className="group-references" aria-label={`${model.id}の適用・接続先`}>
+          {model.tags.map((tag) => (
+            <RelationTag key={tag.key} model={tag} emit={send} />
+          ))}
+        </fieldset>
+      )}
     </section>
   );
 }

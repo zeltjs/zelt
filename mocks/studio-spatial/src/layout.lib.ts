@@ -10,7 +10,7 @@ export interface Layout {
 }
 export function layout(graph: Graph, view: ViewState): Layout {
   const boxes = new Map<string, Rect>();
-  const allNotes = attachments(graph, false);
+  const visibleNotes = attachments(graph, view.options.showConfig, view.options.showTypes);
   let x = 0;
   for (const column of graph.snapshot.graph.presentation.columns) {
     let removed = 0;
@@ -18,7 +18,7 @@ export function layout(graph: Graph, view: ViewState): Layout {
       .filter((g) => g.presentation.columnId === column.id)
       .sort((a, b) => a.presentation.expandedY - b.presentation.expandedY);
     for (const group of groups) {
-      const count = allNotes.filter((n) => n.groupId === group.id).length;
+      const count = visibleNotes.filter((n) => n.groupId === group.id).length;
       const reserved = count ? 22 + Math.ceil(count / 2) * 26 : 0;
       const fullHeight = 62 + group.members.length * 46;
       const height = (view.expanded.includes(group.id) ? fullHeight : 62) + reserved;
