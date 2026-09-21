@@ -7,15 +7,13 @@ Zeltは、`@Config`デコレータと`inject()`ヘルパーを使った型安全
 
 ## Defining Configuration {#defining-configuration}
 
-設定クラスを定義するには`@Config`デコレータを使います。各configクラスは静的な`Token`プロパティを持つ必要があります:
+設定クラスを定義するには`@Config`デコレータを使います:
 
 ```typescript
 import { Config, Env, inject } from '@zeltjs/core';
 
 @Config
 export class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
-
   constructor(private env = inject(Env)) {}
 
   get host() {
@@ -41,7 +39,6 @@ import { Injectable, inject, Config, Env } from '@zeltjs/core';
 
 @Config
 class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
   constructor(private env = inject(Env)) {}
   get host() { return this.env.getString('DATABASE_HOST', 'localhost'); }
   get port() { return this.env.getNumber('DATABASE_PORT', 5432); }
@@ -67,7 +64,6 @@ import { createApp, Config, Env, inject, Controller, Get, http } from '@zeltjs/c
 
 @Config
 class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
   constructor(private env = inject(Env)) {}
   get host() { return this.env.getString('DATABASE_HOST', 'localhost'); }
   get port() { return this.env.getNumber('DATABASE_PORT', 5432); }
@@ -89,7 +85,6 @@ import { Config, createApp, Env, inject, http } from '@zeltjs/core';
 declare class AppController {}
 @Config
 class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
   constructor(private env = inject(Env)) {}
   get host() { return this.env.getString('DATABASE_HOST', 'localhost'); }
   get port() { return this.env.getNumber('DATABASE_PORT', 5432); }
@@ -113,7 +108,7 @@ const app = createApp([http({
   })], { configs: [TestDatabaseConfig] });
 ```
 
-`Token`プロパティは親クラスから継承されるため、`inject(DatabaseConfig)`はオーバーライドされた`TestDatabaseConfig`のインスタンスを受け取ります。
+サブクラスは親クラスのトークンに対して登録されるため、`inject(DatabaseConfig)`はオーバーライドされた`TestDatabaseConfig`のインスタンスを受け取ります。
 
 ## Abstract Configuration {#abstract-configuration}
 
@@ -184,8 +179,6 @@ import { Config, Env, inject, createApp, Controller, Get, http } from '@zeltjs/c
 // ---cut---
 @Config
 export class DatabaseConfig {
-  static readonly Token = DatabaseConfig;
-
   constructor(private env = inject(Env)) {}
 
   get host() {

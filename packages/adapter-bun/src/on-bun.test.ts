@@ -3,7 +3,6 @@ import {
   Command,
   Config,
   Controller,
-  cliSchema,
   command,
   createApp,
   EnvAdaptor,
@@ -116,7 +115,6 @@ describe('onBun return types', () => {
 
     const runFn = vi.fn();
     class TestCommand {
-      static schema = cliSchema({});
       run() {
         runFn();
       }

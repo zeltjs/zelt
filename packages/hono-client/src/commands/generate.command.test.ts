@@ -68,8 +68,9 @@ describe('GenerateCommand', () => {
       configs: [createTestCliConfig(tempDir)],
     });
 
-    const parsedArgs = { config: undefined };
-    await expect(runInCommandContext({ parsedArgs }, () => command.run())).resolves.not.toThrow();
+    await expect(
+      runInCommandContext({ commandName: 'generate', argv: [] }, () => command.run()),
+    ).resolves.not.toThrow();
     await expect(readFile(outputPath, 'utf-8')).resolves.toBe('ok');
   });
 
@@ -102,7 +103,8 @@ describe('GenerateCommand', () => {
       configs: [createTestCliConfig(tempDir)],
     });
 
-    const parsedArgs = { config: undefined };
-    await expect(runInCommandContext({ parsedArgs }, () => command.run())).rejects.toThrow();
+    await expect(
+      runInCommandContext({ commandName: 'generate', argv: [] }, () => command.run()),
+    ).rejects.toThrow();
   });
 });

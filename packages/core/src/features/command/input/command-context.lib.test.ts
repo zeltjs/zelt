@@ -8,29 +8,30 @@ describe('command-context', () => {
   });
 
   it('returns context within runInCommandContext', () => {
-    const ctx = { parsedArgs: { target: 'world', port: 3000 } };
+    const ctx = { commandName: 'greet', argv: ['world', '--port', '3000'] };
 
     const result = runInCommandContext(ctx, () => getCommandContext());
 
     expect(result).toBe(ctx);
-    expect(result.parsedArgs).toEqual({ target: 'world', port: 3000 });
+    expect(result.commandName).toBe('greet');
+    expect(result.argv).toEqual(['world', '--port', '3000']);
   });
 
   it('supports nested contexts (inner overrides outer)', () => {
-    const outer = { parsedArgs: { env: 'dev' } };
-    const inner = { parsedArgs: { env: 'prod' } };
+    const outer = { commandName: 'outer', argv: [] };
+    const inner = { commandName: 'inner', argv: [] };
 
     runInCommandContext(outer, () => {
       const outerResult = getCommandContext();
-      expect(outerResult.parsedArgs['env']).toBe('dev');
+      expect(outerResult.commandName).toBe('outer');
 
       runInCommandContext(inner, () => {
         const innerResult = getCommandContext();
-        expect(innerResult.parsedArgs['env']).toBe('prod');
+        expect(innerResult.commandName).toBe('inner');
       });
 
       const outerResult2 = getCommandContext();
-      expect(outerResult2.parsedArgs['env']).toBe('dev');
+      expect(outerResult2.commandName).toBe('outer');
     });
   });
 });

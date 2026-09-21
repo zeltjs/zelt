@@ -7,21 +7,21 @@ Zelt provides CLI command support with dependency injection through `@zeltjs/cor
 
 ## Creating a Command
 
-Use the `@Command` decorator with `cliSchema()` and `args()` for type-safe CLI commands:
+Define the schema with `cliSchema()` as a module-level constant, then pass it to `args()` in the `@Command` decorated class for type-safe CLI commands:
 
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
+
+const greetSchema = cliSchema({
+  args: [{ name: 'name', type: 'string' }],
+});
 
 @Command({
   name: 'greet',
   description: 'Greet a user',
 })
 export class GreetCommand {
-  static schema = cliSchema({
-    args: [{ name: 'name', type: 'string' }],
-  });
-
-  run(ctx = args(GreetCommand)) {
+  run(ctx = args(greetSchema)) {
     console.log(`Hello, ${ctx.name}!`);
   }
 }
@@ -35,10 +35,11 @@ Create a `src/cli.ts` entry point for your CLI:
 import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
+const greetSchema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
+
 @Command({ name: 'greet', description: 'Greet a user' })
 class GreetCommand {
-  static schema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
-  run(ctx = args(GreetCommand)) { console.log(`Hello, ${ctx.name}!`); }
+  run(ctx = args(greetSchema)) { console.log(`Hello, ${ctx.name}!`); }
 }
 // ---cut---
 const app = createApp([command([GreetCommand])]);
@@ -77,23 +78,23 @@ zelt run -c ./config/zelt.config.ts greet Alice
 
 ## Schema Definition
 
-The `cliSchema()` function defines typed arguments and options:
+The `cliSchema()` function defines typed arguments and options. The resulting schema is a plain value: declare it in its own module (for example `greet-schema.lib.ts`), import it into the command, and pass it to `args()`. The argv is only parsed and validated when `args(schema)` is called — a command that never calls `args()` accepts extra argv without error.
 
 ### Positional Arguments
 
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
 // ---cut---
+const copySchema = cliSchema({
+  args: [
+    { name: 'source', type: 'string' },
+    { name: 'destination', type: 'string' },
+  ],
+});
+
 @Command({ name: 'copy' })
 export class CopyCommand {
-  static schema = cliSchema({
-    args: [
-      { name: 'source', type: 'string' },
-      { name: 'destination', type: 'string' },
-    ],
-  });
-
-  run(ctx = args(CopyCommand)) {
+  run(ctx = args(copySchema)) {
     console.log(`Copying ${ctx.source} to ${ctx.destination}`);
   }
 }
@@ -104,16 +105,16 @@ export class CopyCommand {
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
 // ---cut---
+const buildSchema = cliSchema({
+  options: [
+    { name: 'watch', type: 'boolean', alias: 'w' },
+    { name: 'outDir', type: 'string', alias: 'o', default: 'dist' },
+  ],
+});
+
 @Command({ name: 'build' })
 export class BuildCommand {
-  static schema = cliSchema({
-    options: [
-      { name: 'watch', type: 'boolean', alias: 'w' },
-      { name: 'outDir', type: 'string', alias: 'o', default: 'dist' },
-    ],
-  });
-
-  run(ctx = args(BuildCommand)) {
+  run(ctx = args(buildSchema)) {
     if (ctx.watch) {
       console.log('Watching for changes...');
     }
@@ -133,19 +134,19 @@ zelt run build -w -o out
 ```typescript
 import { Command, cliSchema, args } from '@zeltjs/core';
 // ---cut---
+const deploySchema = cliSchema({
+  args: [
+    { name: 'environment', type: 'string' },
+  ],
+  options: [
+    { name: 'dryRun', type: 'boolean' },
+    { name: 'tag', type: 'string' },
+  ],
+});
+
 @Command({ name: 'deploy' })
 export class DeployCommand {
-  static schema = cliSchema({
-    args: [
-      { name: 'environment', type: 'string' },
-    ],
-    options: [
-      { name: 'dryRun', type: 'boolean' },
-      { name: 'tag', type: 'string' },
-    ],
-  });
-
-  run(ctx = args(DeployCommand)) {
+  run(ctx = args(deploySchema)) {
     const { environment, dryRun, tag } = ctx;
 
     if (dryRun) {
@@ -232,22 +233,56 @@ Commands support dependency injection:
 import { Command, cliSchema, args, inject } from '@zeltjs/core';
 declare class DatabaseService { runMigrations(): Promise<void>; }
 // ---cut---
+const migrateSchema = cliSchema({
+  options: [
+    { name: 'force', type: 'boolean' },
+  ],
+});
+
 @Command({ name: 'migrate' })
 export class MigrateCommand {
-  static schema = cliSchema({
-    options: [
-      { name: 'force', type: 'boolean' },
-    ],
-  });
-
   constructor(private readonly db = inject(DatabaseService)) {}
 
-  async run(ctx = args(MigrateCommand)) {
+  async run(ctx = args(migrateSchema)) {
     if (ctx.force) {
       console.log('Force migration enabled');
     }
     await this.db.runMigrations();
     console.log('Migrations completed');
+  }
+}
+```
+
+### Where to Call `inject()` and `args()`
+
+Call `inject()` in the constructor and `args()` as a default parameter of `run()`. The command context that `args()` reads from only exists while `run()` is executing, so calling `args()` in the constructor throws `ZeltContextNotAvailableError`.
+
+```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
+const greetSchema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
+
+@Command({ name: 'greet' })
+export class GreetCommand {
+  // ❌ No command context yet — throws ZeltContextNotAvailableError
+  constructor(private readonly ctx = args(greetSchema)) {}
+
+  run() {
+    console.log(`Hello, ${this.ctx.name}!`);
+  }
+}
+```
+
+```typescript
+import { Command, cliSchema, args } from '@zeltjs/core';
+// ---cut---
+const greetSchema = cliSchema({ args: [{ name: 'name', type: 'string' }] });
+
+@Command({ name: 'greet' })
+export class GreetCommand {
+  // ✅ run() executes inside the command context
+  run(ctx = args(greetSchema)) {
+    console.log(`Hello, ${ctx.name}!`);
   }
 }
 ```
@@ -259,10 +294,12 @@ Commands can be executed programmatically using `onNode()`:
 ```typescript
 import { createApp, Command, cliSchema, args, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
+
+const migrateSchema = cliSchema({ options: [{ name: 'force', type: 'boolean' }] });
+
 @Command({ name: 'migrate' })
 class MigrateCommand {
-  static schema = cliSchema({ options: [{ name: 'force', type: 'boolean' }] });
-  run(ctx = args(MigrateCommand)) {}
+  run(ctx = args(migrateSchema)) {}
 }
 // ---cut---
 const app = createApp([command([MigrateCommand])]);

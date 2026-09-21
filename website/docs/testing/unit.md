@@ -161,12 +161,11 @@ Reusing a global app instance causes errors:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { createApp, Command, cliSchema, ZeltLifecycleStateError, command } from '@zeltjs/core';
+import { createApp, Command, ZeltLifecycleStateError, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Command({ name: 'greet' })
 class GreetCommand {
-  static schema = cliSchema({});
   run() { console.log('Hello!'); }
 }
 
@@ -194,12 +193,11 @@ Create a new app instance for each test:
 
 ```typescript
 import { describe, it, afterEach } from 'vitest';
-import { createApp, Command, cliSchema, command } from '@zeltjs/core';
+import { createApp, Command, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Command({ name: 'greet' })
 class GreetCommand {
-  static schema = cliSchema({});
   run() { console.log('Hello!'); }
 }
 // ---cut---
@@ -237,12 +235,11 @@ For cleaner tests, extract app creation into a factory:
 
 ```typescript
 import { describe, it, afterEach } from 'vitest';
-import { createApp, Command, cliSchema, command } from '@zeltjs/core';
+import { createApp, Command, command } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Command({ name: 'greet' })
 class GreetCommand {
-  static schema = cliSchema({});
   run() { console.log('Hello!'); }
 }
 // ---cut---

@@ -283,7 +283,6 @@ import { onNode } from '@zeltjs/adapter-node';
 
 @Config
 class SchedulerConfig {
-  static readonly Token = SchedulerConfig;
   constructor(private env = inject(Env)) {}
   get enabled() { return this.env.getBoolean('ENABLE_SCHEDULER', true); }
 }
