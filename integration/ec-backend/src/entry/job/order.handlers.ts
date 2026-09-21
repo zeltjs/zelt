@@ -17,7 +17,7 @@ export class OrderHandlers implements Lifecycle {
   }
 
   async startup(): Promise<void> {
-    const unsub = this.eventBus.on('order:created', (data) => {
+    const unsub = await this.eventBus.on('order:created', (data) => {
       this.notifications.push({
         orderId: data.orderId,
         userId: data.userId,

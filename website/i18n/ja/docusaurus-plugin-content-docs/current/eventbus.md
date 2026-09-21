@@ -66,7 +66,7 @@ class NotificationHandlers implements Lifecycle {
   }
 
   async startup(): Promise<void> {
-    const unsub = this.eventBus.on('user.created', (data) => {
+    const unsub = await this.eventBus.on('user.created', (data) => {
       console.log(`Welcome email sent to ${data.email}`);
     });
     this.unsubscribes.push(unsub);
@@ -113,7 +113,7 @@ export class NotificationHandlers implements Lifecycle {
   }
 
   async startup(): Promise<void> {
-    const unsub = this.eventBus.on('user.created', (data) => {
+    const unsub = await this.eventBus.on('user.created', (data) => {
       console.log(`Welcome email sent to ${data.email}`);
     });
     this.unsubscribes.push(unsub);
@@ -150,6 +150,8 @@ import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 ## Redis アダプター {#redis-adapter}
 
 分散アプリケーションには、Redis アダプターを使用します。`RedisEventBusAdaptor` はそれ自体が `Lifecycle` を実装しています。生成時に `@zeltjs/redis` のクライアントを複製して専用の購読コネクションを用意し(クライアントは `lazyConnect` で作られるため、この時点では I/O は発生しません)、`startup()` でそのコネクションを開きます。`on()` はそのイベントが最初に使われた時点でチャンネルを購読し、`shutdown()` は購読コネクションを切断します。
+
+`startup()` より前に呼ばれた `on()`/`once()` はハンドラーの登録のみを行い、実際の一括 SUBSCRIBE は `startup()` が行います。`startup()` より後に呼ぶと、新しいチャンネルに対しては即座に SUBSCRIBE を送り、Redis 側で購読が確定するまで返り値の Promise は解決しません。
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';
@@ -203,7 +205,7 @@ class OrderHandlers implements Lifecycle {
   }
 
   async startup(): Promise<void> {
-    const unsub = this.eventBus.on('order.placed', (data) => {
+    const unsub = await this.eventBus.on('order.placed', (data) => {
       console.log(`Order ${data.orderId} placed for ${data.total}`);
     });
     this.unsubscribes.push(unsub);
@@ -244,8 +246,8 @@ const app = createApp(
 | メソッド | 説明 |
 |--------|------|
 | `emit(event, data)` | ペイロード付きでイベントを発行 |
-| `on(event, handler)` | イベントを購読。購読解除関数を返す |
-| `once(event, handler)` | イベントを一度だけ購読。購読解除関数を返す |
+| `on(event, handler)` | イベントを購読。購読が確立すると購読解除関数で解決し、購読に失敗すると reject する |
+| `once(event, handler)` | イベントを一度だけ購読。購読が確立すると購読解除関数で解決し、購読に失敗すると reject する |
 
 ### MemoryEventBusAdaptor {#memoryeventbusadaptor}
 
@@ -279,7 +281,7 @@ declare module '@zeltjs/eventbus' {
 
 const eventBus = new MemoryEventBusAdaptor();
 // ---cut---
-const unsubscribe = eventBus.on('user.created', (data) => {
+const unsubscribe = await eventBus.on('user.created', (data) => {
   console.log(data.email);
 });
 
@@ -335,7 +337,7 @@ const db = drizzle(postgres('postgres://localhost:5432/app'));
 
 const eventBus = new MemoryEventBusAdaptor();
 // ---cut---
-eventBus.on('order.placed', async (data) => {
+await eventBus.on('order.placed', async (data) => {
   const [existing] = await db
     .select()
     .from(notifications)
@@ -374,7 +376,7 @@ class MailService {
 const mailService = new MailService();
 const eventBus = new MemoryEventBusAdaptor();
 // ---cut---
-eventBus.on('user.created', async (data) => {
+await eventBus.on('user.created', async (data) => {
   try {
     await mailService.sendWelcome(data.email);
   } catch (error) {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../app';
 import { http } from '../http/http.feature';
 import { Controller } from '../http/routing/controller.decorator';
@@ -21,11 +21,20 @@ describe('SchedulerRunner', () => {
     | { readonly schedulers: SchedulerCapabilities; readonly shutdown: () => Promise<void> }
     | undefined;
 
+  // Fixing the clock on a whole-second boundary makes '* * * * * *' fire at
+  // exactly +1000ms instead of after a leftover fraction of the real second.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+  });
+
   afterEach(async () => {
     if (readyApp) {
       await readyApp.schedulers.stopScheduler();
       await readyApp.shutdown();
+      readyApp = undefined;
     }
+    vi.useRealTimers();
   });
 
   it('starts and stops scheduler jobs', async () => {
@@ -54,7 +63,8 @@ describe('SchedulerRunner', () => {
       timezone: undefined,
     });
 
-    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(taskFn).toHaveBeenCalledTimes(1);
 
     await readyApp.schedulers.stopScheduler();
 
@@ -76,7 +86,8 @@ describe('SchedulerRunner', () => {
     readyApp = await app.createRuntime();
     await readyApp.schedulers.startScheduler();
 
-    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(taskFn).toHaveBeenCalledTimes(1);
 
     await readyApp.schedulers.stopScheduler();
   });

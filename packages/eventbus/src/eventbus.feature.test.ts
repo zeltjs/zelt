@@ -44,17 +44,17 @@ class ConfigAwareEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     _data: EventBusSchema[K],
   ): Promise<void> {}
 
-  on<K extends string & keyof EventBusSchema>(
+  async on<K extends string & keyof EventBusSchema>(
     _event: K,
     _handler: (data: EventBusSchema[K]) => void,
-  ): () => void {
+  ): Promise<() => void> {
     return () => {};
   }
 
-  once<K extends string & keyof EventBusSchema>(
+  async once<K extends string & keyof EventBusSchema>(
     _event: K,
     _handler: (data: EventBusSchema[K]) => void,
-  ): () => void {
+  ): Promise<() => void> {
     return () => {};
   }
 }
