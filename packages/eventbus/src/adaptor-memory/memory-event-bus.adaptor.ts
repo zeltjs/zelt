@@ -14,23 +14,25 @@ export class MemoryEventBusAdaptor implements EventBusAdaptor {
     this.emitter.emit(event, data);
   }
 
-  on<K extends string & keyof EventBusSchema>(
+  async on<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
-  ): () => void {
+  ): Promise<() => void> {
     this.emitter.on(event, handler);
     return () => this.emitter.off(event, handler);
   }
 
-  once<K extends string & keyof EventBusSchema>(
+  async once<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
-  ): () => void {
+  ): Promise<() => void> {
+    // Unsubscribes itself directly instead of going through on()'s returned
+    // function, since that function only resolves after this handler is
+    // already registered.
     const wrappedHandler = (data: EventBusSchema[K]) => {
-      unsubscribe();
+      this.emitter.off(event, wrappedHandler);
       handler(data);
     };
-    const unsubscribe = this.on(event, wrappedHandler);
-    return unsubscribe;
+    return this.on(event, wrappedHandler);
   }
 }

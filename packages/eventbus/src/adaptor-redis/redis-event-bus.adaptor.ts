@@ -12,13 +12,6 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
   private readonly sub: Redis;
   private readonly localEmitter = mitt<EventBusSchema>();
   private readonly subscriptions = new Set<string>();
-  // A post-startup SUBSCRIBE is acked asynchronously, so publishing right
-  // after on() can reach the server before the subscription exists. emit()
-  // awaits this to close that race. Combined (not replaced) with each new
-  // subscribe so an earlier rejection isn't lost behind a later success.
-  private readonly pendingSubscribe: { current: Promise<unknown> } = {
-    current: Promise.resolve(),
-  };
 
   constructor(redis = inject(RedisService), lifecycle = inject(LifecycleManager)) {
     // redis.client is lazyConnect (no I/O yet); duplicate() copies that option,
@@ -53,19 +46,18 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     this.sub.disconnect();
   }
 
-  /** @throws if any post-startup SUBSCRIBE is still pending and rejects. */
   async emit<K extends string & keyof EventBusSchema>(
     event: K,
     data: EventBusSchema[K],
   ): Promise<void> {
-    await this.pendingSubscribe.current;
     await this.pub.publish(event, JSON.stringify(data));
   }
 
-  on<K extends string & keyof EventBusSchema>(
+  /** @throws {Error} When the channel is new and the SUBSCRIBE command to Redis fails; the handler is not registered in that case. */
+  async on<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
-  ): () => void {
+  ): Promise<() => void> {
     const isNewSubscription = !this.subscriptions.has(event);
     if (isNewSubscription) {
       this.subscriptions.add(event);
@@ -74,18 +66,22 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
 
     // Before startup() the lazy client sits in 'wait'; sending SUBSCRIBE then
     // would auto-connect and make startup()'s connect() reject as "already
-    // connecting". startup() bulk-subscribes everything registered until then.
+    // connecting". startup() bulk-subscribes everything registered until then,
+    // so resolve immediately here without waiting on that bulk subscribe.
     // Once startup() has initiated the connection ioredis queues commands
     // across reconnects, so subscribing here is safe. 'end' means shutdown().
     const connectionInitiated = this.sub.status !== 'wait' && this.sub.status !== 'end';
     if (connectionInitiated && isNewSubscription) {
-      this.pendingSubscribe.current = Promise.all([
-        this.pendingSubscribe.current,
-        this.sub.subscribe(event),
-      ]);
-      // Only silences the unhandled-rejection warning if emit() never runs
-      // before the next on(); emit() still awaits and propagates failures.
-      this.pendingSubscribe.current.catch(() => {});
+      try {
+        await this.sub.subscribe(event);
+      } catch (error) {
+        // Subscribing failed, so leave no trace of this call: a caller that
+        // sees on() reject must be free to retry without a leaked handler
+        // or a channel stuck in `subscriptions` with nothing subscribed.
+        this.localEmitter.off(event, handler);
+        this.subscriptions.delete(event);
+        throw error;
+      }
     }
 
     return () => {
@@ -93,15 +89,18 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     };
   }
 
-  once<K extends string & keyof EventBusSchema>(
+  /** @throws {Error} When the channel is new and the SUBSCRIBE command to Redis fails; the handler is not registered in that case. */
+  async once<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
-  ): () => void {
+  ): Promise<() => void> {
+    // Unsubscribes itself directly instead of going through on()'s returned
+    // function, since that function only resolves after this handler is
+    // already registered.
     const wrappedHandler = (data: EventBusSchema[K]) => {
-      unsubscribe();
+      this.localEmitter.off(event, wrappedHandler);
       handler(data);
     };
-    const unsubscribe = this.on(event, wrappedHandler);
-    return unsubscribe;
+    return this.on(event, wrappedHandler);
   }
 }

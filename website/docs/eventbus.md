@@ -66,7 +66,7 @@ class NotificationHandlers implements Lifecycle {
   }
 
   async startup(): Promise<void> {
-    const unsub = this.eventBus.on('user.created', (data) => {
+    const unsub = await this.eventBus.on('user.created', (data) => {
       console.log(`Welcome email sent to ${data.email}`);
     });
     this.unsubscribes.push(unsub);
@@ -113,7 +113,7 @@ export class NotificationHandlers implements Lifecycle {
   }
 
   async startup(): Promise<void> {
-    const unsub = this.eventBus.on('user.created', (data) => {
+    const unsub = await this.eventBus.on('user.created', (data) => {
       console.log(`Welcome email sent to ${data.email}`);
     });
     this.unsubscribes.push(unsub);
@@ -150,6 +150,8 @@ import { MemoryEventBusAdaptor } from '@zeltjs/eventbus/adaptor-memory';
 ## Redis Adapter
 
 For distributed applications, use the Redis adapter. `RedisEventBusAdaptor` implements `Lifecycle` itself. It duplicates the `@zeltjs/redis` client into a dedicated subscriber connection when constructed (clients are created with `lazyConnect`, so this performs no I/O), `startup()` opens that connection, `on()` subscribes a channel the first time it's used for an event, and `shutdown()` disconnects the subscriber connection.
+
+Calling `on()`/`once()` before `startup()` only registers the handler; `startup()` performs the actual bulk SUBSCRIBE for everything registered until then. Calling `on()`/`once()` after `startup()` sends SUBSCRIBE for new channels immediately and the returned promise doesn't resolve until Redis confirms it.
 
 ```typescript twoslash
 import type { EventBusSchema } from '@zeltjs/eventbus';
@@ -203,7 +205,7 @@ class OrderHandlers implements Lifecycle {
   }
 
   async startup(): Promise<void> {
-    const unsub = this.eventBus.on('order.placed', (data) => {
+    const unsub = await this.eventBus.on('order.placed', (data) => {
       console.log(`Order ${data.orderId} placed for ${data.total}`);
     });
     this.unsubscribes.push(unsub);
@@ -244,8 +246,8 @@ Both adapters implement this interface:
 | Method | Description |
 |--------|-------------|
 | `emit(event, data)` | Publish an event with payload |
-| `on(event, handler)` | Subscribe to an event. Returns unsubscribe function |
-| `once(event, handler)` | Subscribe to an event once. Returns unsubscribe function |
+| `on(event, handler)` | Subscribe to an event. Resolves with an unsubscribe function once the subscription is established; rejects if subscribing fails |
+| `once(event, handler)` | Subscribe to an event once. Resolves with an unsubscribe function once the subscription is established; rejects if subscribing fails |
 
 ### MemoryEventBusAdaptor
 
@@ -279,7 +281,7 @@ declare module '@zeltjs/eventbus' {
 
 const eventBus = new MemoryEventBusAdaptor();
 // ---cut---
-const unsubscribe = eventBus.on('user.created', (data) => {
+const unsubscribe = await eventBus.on('user.created', (data) => {
   console.log(data.email);
 });
 
@@ -335,7 +337,7 @@ const db = drizzle(postgres('postgres://localhost:5432/app'));
 
 const eventBus = new MemoryEventBusAdaptor();
 // ---cut---
-eventBus.on('order.placed', async (data) => {
+await eventBus.on('order.placed', async (data) => {
   const [existing] = await db
     .select()
     .from(notifications)
@@ -374,7 +376,7 @@ class MailService {
 const mailService = new MailService();
 const eventBus = new MemoryEventBusAdaptor();
 // ---cut---
-eventBus.on('user.created', async (data) => {
+await eventBus.on('user.created', async (data) => {
   try {
     await mailService.sendWelcome(data.email);
   } catch (error) {
