@@ -192,3 +192,63 @@ describe('RedisEventBusAdaptor sub connection failure (P1c regression)', () => {
     pub.disconnect();
   });
 });
+
+// Regression: pendingSubscribe used to be overwritten by each new post-startup
+// on(), so an earlier SUBSCRIBE's rejection was silently dropped once a later
+// one resolved. Exercised with a fake sub (no real ioredis state transitions
+// involved) so the two SUBSCRIBE acks can be controlled deterministically.
+describe('RedisEventBusAdaptor post-startup SUBSCRIBE failures (regression)', () => {
+  const createFakeSub = () => {
+    const deferreds = new Map<string, { resolve: () => void; reject: (error: unknown) => void }>();
+    const subscribe = vi.fn((channel: string) => {
+      return new Promise<void>((resolve, reject) => {
+        deferreds.set(channel, { resolve, reject });
+      });
+    });
+    const sub = {
+      status: 'ready',
+      on: vi.fn(),
+      subscribe,
+      connect: vi.fn(async () => {}),
+      disconnect: vi.fn(),
+    } as unknown as Redis;
+
+    return {
+      sub,
+      resolveSubscribe: (channel: string) => deferreds.get(channel)?.resolve(),
+      rejectSubscribe: (channel: string, error: unknown) => deferreds.get(channel)?.reject(error),
+    };
+  };
+
+  const createAdaptor = () => {
+    const { sub, resolveSubscribe, rejectSubscribe } = createFakeSub();
+    const publish = vi.fn(async () => 1);
+    const pub = { duplicate: () => sub, publish } as unknown as Redis;
+    const redis = { client: pub } as unknown as RedisService;
+    const adaptor = new RedisEventBusAdaptor(redis, new LifecycleManager());
+    return { adaptor, publish, resolveSubscribe, rejectSubscribe };
+  };
+
+  it("keeps an earlier SUBSCRIBE's rejection from being dropped by a later success", async () => {
+    const { adaptor, resolveSubscribe, rejectSubscribe } = createAdaptor();
+    const subscribeError = new Error('subscribe failed');
+
+    adaptor.on('order.created', () => {});
+    adaptor.on('order.updated', () => {});
+    rejectSubscribe('order.created', subscribeError);
+    resolveSubscribe('order.updated');
+
+    await expect(adaptor.emit('order.updated', { id: 1 })).rejects.toBe(subscribeError);
+  });
+
+  it('publishes once its SUBSCRIBE resolves', async () => {
+    const { adaptor, publish, resolveSubscribe } = createAdaptor();
+
+    adaptor.on('order.created', () => {});
+    resolveSubscribe('order.created');
+
+    await adaptor.emit('order.created', { id: 1 });
+
+    expect(publish).toHaveBeenCalledWith('order.created', JSON.stringify({ id: 1 }));
+  });
+});
