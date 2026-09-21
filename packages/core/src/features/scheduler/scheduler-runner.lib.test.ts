@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../app';
+import { Config } from '../../built-in-service';
 import { http } from '../http/http.feature';
 import { Controller } from '../http/routing/controller.decorator';
 import { Get } from '../http/routing/http-method.decorator';
+import type { CronJobHandle, CronJobOptions } from './cron.adaptor';
+import { CronAdaptor } from './cron.adaptor';
 import { Cron } from './schedule/cron.decorator';
 import { Scheduled } from './schedule/scheduled.decorator';
 import type { SchedulerCapabilities } from './scheduler.feature';
@@ -16,9 +19,42 @@ class NoopController {
   }
 }
 
+/**
+ * Fakes CronAdaptor so tests trigger scheduled handlers synchronously instead
+ * of waiting on real cron ticks, which is what made these tests flaky in CI.
+ */
+@Config
+class ManualCronAdaptor extends CronAdaptor {
+  readonly handlers: (() => void)[] = [];
+
+  override schedule(
+    _expression: string,
+    _options: CronJobOptions,
+    handler: () => void,
+  ): CronJobHandle {
+    this.handlers.push(handler);
+    return {
+      stop: () => {
+        const index = this.handlers.indexOf(handler);
+        if (index !== -1) this.handlers.splice(index, 1);
+      },
+    };
+  }
+
+  fire(): void {
+    // Copy first: a handler may call stop() synchronously, which mutates
+    // handlers mid-iteration and would otherwise skip entries.
+    for (const handler of this.handlers.slice()) handler();
+  }
+}
+
 describe('SchedulerRunner', () => {
   let readyApp:
-    | { readonly schedulers: SchedulerCapabilities; readonly shutdown: () => Promise<void> }
+    | {
+        readonly schedulers: SchedulerCapabilities;
+        readonly shutdown: () => Promise<void>;
+        readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
+      }
     | undefined;
 
   afterEach(async () => {
@@ -40,7 +76,8 @@ describe('SchedulerRunner', () => {
     }
 
     const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
-    readyApp = await app.createRuntime();
+    readyApp = await app.createRuntime({ configs: [ManualCronAdaptor] });
+    const cronAdaptor = await readyApp.get(ManualCronAdaptor);
 
     expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
 
@@ -54,7 +91,8 @@ describe('SchedulerRunner', () => {
       timezone: undefined,
     });
 
-    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
+    cronAdaptor.fire();
+    expect(taskFn).toHaveBeenCalled();
 
     await readyApp.schedulers.stopScheduler();
 
@@ -73,10 +111,12 @@ describe('SchedulerRunner', () => {
     }
 
     const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
-    readyApp = await app.createRuntime();
+    readyApp = await app.createRuntime({ configs: [ManualCronAdaptor] });
+    const cronAdaptor = await readyApp.get(ManualCronAdaptor);
     await readyApp.schedulers.startScheduler();
 
-    await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 3000 });
+    cronAdaptor.fire();
+    expect(taskFn).toHaveBeenCalled();
 
     await readyApp.schedulers.stopScheduler();
   });
@@ -89,7 +129,7 @@ describe('SchedulerRunner', () => {
     }
 
     const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
-    readyApp = await app.createRuntime();
+    readyApp = await app.createRuntime({ configs: [ManualCronAdaptor] });
 
     expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
 

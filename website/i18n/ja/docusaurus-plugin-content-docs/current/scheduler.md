@@ -299,6 +299,66 @@ if (config.enabled) {
 }
 ```
 
+## テスト {#testing}
+
+scheduled taskは `CronAdaptor` 上で動作し、これが実際のcronタイマーをラップしています。テストで本物のtickを待つのは遅くflakyになるため、`CronAdaptor` を同期的にhandlerを発火するfakeで差し替えます:
+
+```typescript
+import { describe, expect, it, vi } from 'vitest';
+import { Config, Cron, CronAdaptor, Scheduled, createApp, http, scheduler } from '@zeltjs/core';
+import type { CronJobHandle, CronJobOptions } from '@zeltjs/core';
+
+@Config
+class ManualCronAdaptor extends CronAdaptor {
+  readonly handlers: (() => void)[] = [];
+
+  override schedule(
+    _expression: string,
+    _options: CronJobOptions,
+    handler: () => void,
+  ): CronJobHandle {
+    this.handlers.push(handler);
+    return {
+      stop: () => {
+        const index = this.handlers.indexOf(handler);
+        if (index !== -1) this.handlers.splice(index, 1);
+      },
+    };
+  }
+
+  fire(): void {
+    for (const handler of [...this.handlers]) handler();
+  }
+}
+// ---cut---
+describe('ReportScheduler', () => {
+  it('runs the scheduled task when the cron fires', async () => {
+    const taskFn = vi.fn();
+
+    @Scheduled()
+    class ReportScheduler {
+      @Cron('0 9 * * *')
+      sendDailyReport() {
+        taskFn();
+      }
+    }
+
+    const app = createApp([http({ controllers: [] }), scheduler([ReportScheduler])]);
+    const readyApp = await app.createRuntime({ configs: [ManualCronAdaptor] });
+    const cronAdaptor = await readyApp.get(ManualCronAdaptor);
+
+    await readyApp.schedulers.startScheduler();
+    cronAdaptor.fire();
+
+    expect(taskFn).toHaveBeenCalled();
+
+    await readyApp.shutdown();
+  });
+});
+```
+
+`ManualCronAdaptor` は `schedule()` の呼び出しを実タイマーの起動の代わりに記録するため、`fire()` でscheduled methodを決定的に発火でき、テストに `vi.waitFor` や実時間の待機は不要になります。
+
 ## Cron式のフォーマット {#cron-expression-format}
 
 Zeltは秒をオプションとする標準的なcron形式を使用します:

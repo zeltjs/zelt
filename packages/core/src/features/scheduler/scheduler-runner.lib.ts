@@ -1,6 +1,5 @@
-import { Cron } from 'croner';
-
 import type { Lifecycle } from '../../kernel';
+import type { CronAdaptor, CronJobHandle } from './cron.adaptor';
 import type { SchedulerClass } from './scheduler.types';
 import { getScheduledMetadata, getScheduleMetadata } from './scheduler-metadata.lib';
 
@@ -20,8 +19,9 @@ export type SchedulerRunner = Lifecycle & {
 export const createSchedulerRunner = (
   schedulerClasses: readonly SchedulerClass[],
   resolver: Resolver,
+  cron: Pick<CronAdaptor, 'schedule'>,
 ): SchedulerRunner => {
-  const jobs: Cron[] = [];
+  const jobs: CronJobHandle[] = [];
   const jobInfos: JobInfo[] = [];
   let running = false;
 
@@ -46,7 +46,7 @@ export const createSchedulerRunner = (
         }
 
         const cronOptions = schedule.timezone !== undefined ? { timezone: schedule.timezone } : {};
-        const job = new Cron(schedule.cronExpression, cronOptions, () => {
+        const job = cron.schedule(schedule.cronExpression, cronOptions, () => {
           void Promise.resolve(method.call(instance));
         });
 

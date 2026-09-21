@@ -159,6 +159,8 @@ export type { ControllerRouteInfo, HttpMethod, RouteInfo } from './features/http
 export { getControllerMetadata } from './features/http/routing';
 export { Controller } from './features/http/routing/controller.decorator';
 export { Delete, Get, Patch, Post, Put } from './features/http/routing/http-method.decorator';
+export type { CronJobHandle, CronJobOptions } from './features/scheduler/cron.adaptor';
+export { CronAdaptor } from './features/scheduler/cron.adaptor';
 // Scheduler decorators
 export { Cron } from './features/scheduler/schedule/cron.decorator';
 export { Daily } from './features/scheduler/schedule/daily.decorator';

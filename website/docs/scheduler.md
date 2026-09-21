@@ -299,6 +299,66 @@ if (config.enabled) {
 }
 ```
 
+## Testing
+
+Scheduled jobs run on `CronAdaptor`, which wraps the real cron timer. Waiting for a real tick in a test is slow and flaky, so override `CronAdaptor` with a fake that fires handlers synchronously instead:
+
+```typescript
+import { describe, expect, it, vi } from 'vitest';
+import { Config, Cron, CronAdaptor, Scheduled, createApp, http, scheduler } from '@zeltjs/core';
+import type { CronJobHandle, CronJobOptions } from '@zeltjs/core';
+
+@Config
+class ManualCronAdaptor extends CronAdaptor {
+  readonly handlers: (() => void)[] = [];
+
+  override schedule(
+    _expression: string,
+    _options: CronJobOptions,
+    handler: () => void,
+  ): CronJobHandle {
+    this.handlers.push(handler);
+    return {
+      stop: () => {
+        const index = this.handlers.indexOf(handler);
+        if (index !== -1) this.handlers.splice(index, 1);
+      },
+    };
+  }
+
+  fire(): void {
+    for (const handler of [...this.handlers]) handler();
+  }
+}
+// ---cut---
+describe('ReportScheduler', () => {
+  it('runs the scheduled task when the cron fires', async () => {
+    const taskFn = vi.fn();
+
+    @Scheduled()
+    class ReportScheduler {
+      @Cron('0 9 * * *')
+      sendDailyReport() {
+        taskFn();
+      }
+    }
+
+    const app = createApp([http({ controllers: [] }), scheduler([ReportScheduler])]);
+    const readyApp = await app.createRuntime({ configs: [ManualCronAdaptor] });
+    const cronAdaptor = await readyApp.get(ManualCronAdaptor);
+
+    await readyApp.schedulers.startScheduler();
+    cronAdaptor.fire();
+
+    expect(taskFn).toHaveBeenCalled();
+
+    await readyApp.shutdown();
+  });
+});
+```
+
+`ManualCronAdaptor` records every `schedule()` call instead of starting a real timer, so `fire()` triggers scheduled methods deterministically and the test needs no `vi.waitFor` or real-time delay.
+
 ## Cron Expression Format
 
 Zelt uses standard cron format with optional seconds:

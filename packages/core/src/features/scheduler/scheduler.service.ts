@@ -1,5 +1,6 @@
 import { Container } from '@needle-di/core';
 import { Injectable, inject, LifecycleManager, resolve } from '../../kernel';
+import { CronAdaptor } from './cron.adaptor';
 import type { SchedulerClass } from './scheduler.types';
 import type { SchedulerRunner } from './scheduler-runner.lib';
 import { createSchedulerRunner } from './scheduler-runner.lib';
@@ -15,6 +16,7 @@ export class SchedulerService {
 
   constructor(
     private readonly container: Container = inject(Container),
+    private readonly cron: CronAdaptor = inject(CronAdaptor),
     lifecycleManager: LifecycleManager = inject(LifecycleManager),
   ) {
     lifecycleManager.register({
@@ -31,7 +33,7 @@ export class SchedulerService {
     const resolver = {
       get: <T extends object>(cls: new (...args: never[]) => T): T => resolve(this.container, cls),
     };
-    const runner = createSchedulerRunner(schedulers, resolver);
+    const runner = createSchedulerRunner(schedulers, resolver, this.cron);
     this.runners.push(runner);
     return runner;
   }
