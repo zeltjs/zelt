@@ -271,4 +271,79 @@ describe('RedisEventBusAdaptor on() subscribe-completion contract (fake sub, no 
     expect(internals.subscriptions.has('order.created')).toBe(false);
     expect(internals.localEmitter.all.get('order.created') ?? []).not.toContain(handler);
   });
+
+  it('a second on() for the same channel waits on the first in-flight SUBSCRIBE instead of resolving early', async () => {
+    const { adaptor, subscribeDeferreds } = createFakeRedisEventBusAdaptor();
+
+    let firstSettled = false;
+    let secondSettled = false;
+    const firstPromise = adaptor
+      .on('order.created', () => {})
+      .then((unsub) => {
+        firstSettled = true;
+        return unsub;
+      });
+    const secondPromise = adaptor
+      .on('order.created', () => {})
+      .then((unsub) => {
+        secondSettled = true;
+        return unsub;
+      });
+
+    // Only the first on() should have sent SUBSCRIBE, and neither call can
+    // have settled yet since the fake SUBSCRIBE for this channel hasn't.
+    expect(firstSettled).toBe(false);
+    expect(secondSettled).toBe(false);
+    expect(subscribeDeferreds.size).toBe(1);
+
+    subscribeDeferreds.get('order.created')?.resolve();
+    const [firstUnsub, secondUnsub] = await Promise.all([firstPromise, secondPromise]);
+
+    expect(firstSettled).toBe(true);
+    expect(secondSettled).toBe(true);
+    expect(typeof firstUnsub).toBe('function');
+    expect(typeof secondUnsub).toBe('function');
+  });
+
+  it('a second on() for the same channel rejects with the same error as the first when SUBSCRIBE rejects, leaving no trace', async () => {
+    const { adaptor, subscribeDeferreds } = createFakeRedisEventBusAdaptor();
+
+    const firstHandler = () => {};
+    const secondHandler = () => {};
+    const firstPromise = adaptor.on('order.created', firstHandler);
+    const secondPromise = adaptor.on('order.created', secondHandler);
+    const failure = new Error('subscribe failed');
+
+    subscribeDeferreds.get('order.created')?.reject(failure);
+
+    await expect(firstPromise).rejects.toThrow('subscribe failed');
+    await expect(secondPromise).rejects.toThrow('subscribe failed');
+
+    const internals = asEmitterInternals(adaptor);
+    expect(internals.subscriptions.has('order.created')).toBe(false);
+    expect(internals.localEmitter.all.get('order.created') ?? []).not.toContain(firstHandler);
+    expect(internals.localEmitter.all.get('order.created') ?? []).not.toContain(secondHandler);
+  });
+
+  it('a third on() for an already-established channel resolves immediately without sending SUBSCRIBE again', async () => {
+    const { adaptor, subscribeDeferreds } = createFakeRedisEventBusAdaptor();
+
+    const onPromise = adaptor.on('order.created', () => {});
+    subscribeDeferreds.get('order.created')?.resolve();
+    await onPromise;
+    subscribeDeferreds.clear();
+
+    let settled = false;
+    const thirdPromise = adaptor
+      .on('order.created', () => {})
+      .then((unsub) => {
+        settled = true;
+        return unsub;
+      });
+
+    await thirdPromise;
+
+    expect(settled).toBe(true);
+    expect(subscribeDeferreds.size).toBe(0);
+  });
 });

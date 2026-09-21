@@ -12,6 +12,10 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
   private readonly sub: Redis;
   private readonly localEmitter = mitt<EventBusSchema>();
   private readonly subscriptions = new Set<string>();
+  // Lets concurrent on() calls for the same not-yet-established channel share
+  // one in-flight SUBSCRIBE, so the second caller's await reflects whether
+  // that SUBSCRIBE actually succeeded instead of resolving early.
+  private readonly subscribing = new Map<string, Promise<void>>();
 
   constructor(redis = inject(RedisService), lifecycle = inject(LifecycleManager)) {
     // redis.client is lazyConnect (no I/O yet); duplicate() copies that option,
@@ -53,15 +57,18 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     await this.pub.publish(event, JSON.stringify(data));
   }
 
-  /** @throws {Error} When the channel is new and the SUBSCRIBE command to Redis fails; the handler is not registered in that case. */
+  /**
+   * @throws {Error} When the channel's SUBSCRIBE command to Redis fails,
+   * whether this call sent it or joined another in-flight on() for the same
+   * channel; the handler is not registered in that case.
+   */
   async on<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
   ): Promise<() => void> {
-    const isNewSubscription = !this.subscriptions.has(event);
-    if (isNewSubscription) {
-      this.subscriptions.add(event);
-    }
+    // Registered before any await, so a message that arrives while this call
+    // is still waiting on SUBSCRIBE (below) or on startup()'s bulk subscribe
+    // is not missed.
     this.localEmitter.on(event, handler);
 
     // Before startup() the lazy client sits in 'wait'; sending SUBSCRIBE then
@@ -71,15 +78,33 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     // Once startup() has initiated the connection ioredis queues commands
     // across reconnects, so subscribing here is safe. 'end' means shutdown().
     const connectionInitiated = this.sub.status !== 'wait' && this.sub.status !== 'end';
-    if (connectionInitiated && isNewSubscription) {
+    if (!connectionInitiated) {
+      this.subscriptions.add(event);
+    } else if (!this.subscriptions.has(event)) {
+      // Share one in-flight SUBSCRIBE across concurrent on() calls for the
+      // same channel, so a second call's await reflects the same outcome as
+      // the first instead of resolving before the channel is established.
+      let subscribing = this.subscribing.get(event);
+      if (!subscribing) {
+        subscribing = this.sub
+          .subscribe(event)
+          .then(() => {
+            this.subscriptions.add(event);
+          })
+          .finally(() => {
+            this.subscribing.delete(event);
+          });
+        this.subscribing.set(event, subscribing);
+      }
+
       try {
-        await this.sub.subscribe(event);
+        await subscribing;
       } catch (error) {
         // Subscribing failed, so leave no trace of this call: a caller that
-        // sees on() reject must be free to retry without a leaked handler
-        // or a channel stuck in `subscriptions` with nothing subscribed.
+        // sees on() reject must be free to retry without a leaked handler.
+        // `subscriptions` never gained this channel (add() only runs on
+        // success above), so there is nothing to delete there.
         this.localEmitter.off(event, handler);
-        this.subscriptions.delete(event);
         throw error;
       }
     }
@@ -89,7 +114,7 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     };
   }
 
-  /** @throws {Error} When the channel is new and the SUBSCRIBE command to Redis fails; the handler is not registered in that case. */
+  /** @throws {Error} Same as on(), which this delegates to. */
   async once<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
