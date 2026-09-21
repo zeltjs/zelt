@@ -12,6 +12,15 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
   private readonly sub: Redis;
   private readonly localEmitter = mitt<EventBusSchema>();
   private readonly subscriptions = new Set<string>();
+  // Boxed (rather than a plain field) so the field itself stays readonly per
+  // this module's DI-class convention; only the boxed promise is swapped.
+  // Tracks the latest SUBSCRIBE sent on `sub` after startup so emit() can
+  // await it: ioredis processes commands on a connection in order, so
+  // waiting on the most recent subscribe also guarantees earlier ones on
+  // this connection have already been acked by the server.
+  private readonly pendingSubscribe: { current: Promise<unknown> } = {
+    current: Promise.resolve(),
+  };
 
   constructor(redis = inject(RedisService), lifecycle = inject(LifecycleManager)) {
     // redis.client is lazyConnect (no I/O yet); duplicate() copies that option,
@@ -46,10 +55,19 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     this.sub.disconnect();
   }
 
+  /**
+   * @throws if a SUBSCRIBE issued by a post-startup on() call is still
+   *   in flight and rejects (e.g. the connection drops before the server
+   *   acks it).
+   */
   async emit<K extends string & keyof EventBusSchema>(
     event: K,
     data: EventBusSchema[K],
   ): Promise<void> {
+    // Without this, a publish issued right after a post-startup on() can
+    // reach the server before that on()'s SUBSCRIBE is acked, so the
+    // message is published to no one and the new subscriber never sees it.
+    await this.pendingSubscribe.current;
     await this.pub.publish(event, JSON.stringify(data));
   }
 
@@ -70,7 +88,14 @@ export class RedisEventBusAdaptor implements EventBusAdaptor, Lifecycle {
     // across reconnects, so subscribing here is safe. 'end' means shutdown().
     const connectionInitiated = this.sub.status !== 'wait' && this.sub.status !== 'end';
     if (connectionInitiated && isNewSubscription) {
-      void this.sub.subscribe(event);
+      // Stored (not fire-and-forgotten) so emit() can await this SUBSCRIBE
+      // before publishing, closing the race where a publish right after
+      // this on() reaches the server before the SUBSCRIBE is acked. The
+      // extra .catch here only silences the unhandled-rejection warning
+      // for callers who never emit() before the next on(); emit() still
+      // awaits the original promise and propagates a rejection.
+      this.pendingSubscribe.current = this.sub.subscribe(event);
+      this.pendingSubscribe.current.catch(() => {});
     }
 
     return () => {
