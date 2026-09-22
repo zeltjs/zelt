@@ -3008,7 +3008,7 @@
               "signature": "async startup(): Promise<void>",
               "excerpt": {
                 "kind": "code",
-                "text": "async startup(): Promise<void> {\n    const unsub = this.eventBus.on('order:created', (data) => {\n      this.notifications.push({\n        orderId: data.orderId,\n        userId: data.userId,\n      });\n    });\n    this.unsubscribes.push(unsub);\n  }"
+                "text": "async startup(): Promise<void> {\n    const unsub = await this.eventBus.on('order:created', (data) => {\n      this.notifications.push({\n        orderId: data.orderId,\n        userId: data.userId,\n      });\n    });\n    this.unsubscribes.push(unsub);\n  }"
               }
             },
             "unitTests": {
@@ -7927,10 +7927,10 @@
                 "startLine": 6,
                 "endLine": 9
               },
-              "signature": "on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): () => void;",
+              "signature": "on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>;",
               "excerpt": {
                 "kind": "code",
-                "text": "on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): () => void;"
+                "text": "on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>;"
               }
             },
             "unitTests": {
@@ -7960,10 +7960,10 @@
                 "startLine": 10,
                 "endLine": 13
               },
-              "signature": "once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): () => void;",
+              "signature": "once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>;",
               "excerpt": {
                 "kind": "code",
-                "text": "once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): () => void;"
+                "text": "once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>;"
               }
             },
             "unitTests": {
@@ -9153,10 +9153,10 @@
                 "startLine": 17,
                 "endLine": 23
               },
-              "signature": "on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): () => void",
+              "signature": "async on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>",
               "excerpt": {
                 "kind": "code",
-                "text": "on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): () => void {\n    this.emitter.on(event, handler);\n    return () => this.emitter.off(event, handler);\n  }"
+                "text": "async on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void> {\n    this.emitter.on(event, handler);\n    return () => this.emitter.off(event, handler);\n  }"
               }
             },
             "unitTests": {
@@ -9184,12 +9184,12 @@
               "location": {
                 "filePath": "packages/eventbus/src/adaptor-memory/memory-event-bus.adaptor.ts",
                 "startLine": 25,
-                "endLine": 35
+                "endLine": 37
               },
-              "signature": "once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): () => void",
+              "signature": "async once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>",
               "excerpt": {
                 "kind": "code",
-                "text": "once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): () => void {\n    const wrappedHandler = (data: EventBusSchema[K]) => {\n      unsubscribe();\n      handler(data);\n    };\n    const unsubscribe = this.on(event, wrappedHandler);\n    return unsubscribe;\n  }"
+                "text": "async once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void> {\n    // Unsubscribes itself directly instead of going through on()'s returned\n    // function, since that function only resolves after this handler is\n    // already registered.\n    const wrappedHandler = (data: EventBusSchema[K]) => {\n      this.emitter.off(event, wrappedHandler);\n      handler(data);\n    };\n    return this.on(event, wrappedHandler);\n  }"
               }
             },
             "unitTests": {
