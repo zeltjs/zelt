@@ -1,6 +1,7 @@
 # Studio React移行 — データとcomponent
 
 レビューで合意した設計。React SPAへの移行を実施済み。抽出器への接続は対象外。
+抽出の計画・取得方法・plugin契約は[Studio抽出計画](generic-extraction-design.md)の1ファイルに集約する。以下は現在動いているmockの契約を示す。
 実装入口は[README](README.md)、fetch型は[src/snapshot.types.ts](src/snapshot.types.ts)、描画propsは[src/display.types.ts](src/display.types.ts)と[src/presenter.types.ts](src/presenter.types.ts)。
 
 ## fetchするデータ
