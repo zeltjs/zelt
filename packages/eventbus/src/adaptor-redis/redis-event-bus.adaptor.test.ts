@@ -70,14 +70,14 @@ describe('RedisEventBusAdaptor', () => {
     await stopContainer();
   });
 
-  it('on() before lifecycle.startup() does not touch the socket (P1a regression)', () => {
+  it('on() before lifecycle.startup() does not touch the socket (P1a regression)', async () => {
     const pub = new Redis(containerUrl, { lazyConnect: true });
     manualClients.push(pub);
     const redis = { client: pub } as unknown as RedisService;
     const lifecycle = new LifecycleManager();
     const adaptor = new RedisEventBusAdaptor(redis, lifecycle);
 
-    adaptor.on('order.created', () => {});
+    await adaptor.on('order.created', () => {});
 
     expect(asInternals(adaptor).sub.status).toBe('wait');
   });
@@ -89,9 +89,11 @@ describe('RedisEventBusAdaptor', () => {
     const lifecycle = new LifecycleManager();
     const adaptor = new RedisEventBusAdaptor(redis, lifecycle);
 
+    let resolveReceived!: (data: unknown) => void;
     const received = new Promise((resolve) => {
-      adaptor.on('order.created', resolve);
+      resolveReceived = resolve;
     });
+    await adaptor.on('order.created', (data) => resolveReceived(data));
 
     await expect(lifecycle.startup()).resolves.toBeUndefined();
     await adaptor.emit('order.created', { id: 1 });
@@ -107,9 +109,11 @@ describe('RedisEventBusAdaptor', () => {
     });
     const { adaptor } = target;
 
+    let resolveReceived!: (data: unknown) => void;
     const received = new Promise((resolve) => {
-      adaptor.on('order.created', resolve);
+      resolveReceived = resolve;
     });
+    await adaptor.on('order.created', (data) => resolveReceived(data));
     await adaptor.emit('order.created', { id: 2 });
 
     await expect(received).resolves.toEqual({ id: 2 });
@@ -124,11 +128,13 @@ describe('RedisEventBusAdaptor', () => {
     const { adaptor } = target;
 
     const handler = vi.fn();
+    let resolveFirst!: () => void;
     const firstReceived = new Promise<void>((resolve) => {
-      adaptor.once('order.created', (data) => {
-        handler(data);
-        resolve();
-      });
+      resolveFirst = resolve;
+    });
+    await adaptor.once('order.created', (data) => {
+      handler(data);
+      resolveFirst();
     });
 
     await adaptor.emit('order.created', { id: 3 });
@@ -190,5 +196,154 @@ describe('RedisEventBusAdaptor sub connection failure (P1c regression)', () => {
     expect((sub as unknown as { reconnectTimeout: unknown }).reconnectTimeout).toBe(null);
 
     pub.disconnect();
+  });
+});
+
+// on()'s subscribe-completion contract (pending until SUBSCRIBE settles,
+// rejecting leaves no trace) doesn't depend on real ioredis state machine
+// transitions the way the P1a/P1c cases above do - a fake sub client with a
+// controllable subscribe() is enough, and avoids a container for every run.
+describe('RedisEventBusAdaptor on() subscribe-completion contract (fake sub, no Docker)', () => {
+  type SubscribeDeferred = {
+    resolve: () => void;
+    reject: (reason: unknown) => void;
+  };
+
+  type EmitterInternals = {
+    subscriptions: Set<string>;
+    localEmitter: { all: Map<string, unknown[]> };
+  };
+
+  const asEmitterInternals = (adaptor: RedisEventBusAdaptor): EmitterInternals =>
+    adaptor as unknown as EmitterInternals;
+
+  // Channel -> deferred, so each test controls exactly when (and whether)
+  // the fake SUBSCRIBE for a given event settles, from the test body itself
+  // rather than from a static/module-level flag.
+  const createFakeRedisEventBusAdaptor = () => {
+    const subscribeDeferreds = new Map<string, SubscribeDeferred>();
+    const fakeSub = {
+      status: 'ready',
+      on: () => {},
+      subscribe: (channel: string) =>
+        new Promise<void>((resolve, reject) => {
+          subscribeDeferreds.set(channel, { resolve, reject });
+        }),
+    };
+    const fakePub = { duplicate: () => fakeSub };
+    const redis = { client: fakePub } as unknown as RedisService;
+    const lifecycle = new LifecycleManager();
+    const adaptor = new RedisEventBusAdaptor(redis, lifecycle);
+    return { adaptor, subscribeDeferreds };
+  };
+
+  it('stays pending until the Redis SUBSCRIBE resolves, then resolves with an unsubscribe function', async () => {
+    const { adaptor, subscribeDeferreds } = createFakeRedisEventBusAdaptor();
+
+    let settled = false;
+    const onPromise = adaptor
+      .on('order.created', () => {})
+      .then((unsub) => {
+        settled = true;
+        return unsub;
+      });
+
+    expect(settled).toBe(false);
+
+    subscribeDeferreds.get('order.created')?.resolve();
+    const unsub = await onPromise;
+
+    expect(settled).toBe(true);
+    expect(typeof unsub).toBe('function');
+  });
+
+  it('rejects when the Redis SUBSCRIBE rejects, leaving no handler or subscription registered', async () => {
+    const { adaptor, subscribeDeferreds } = createFakeRedisEventBusAdaptor();
+
+    const handler = () => {};
+    const onPromise = adaptor.on('order.created', handler);
+    const failure = new Error('subscribe failed');
+    subscribeDeferreds.get('order.created')?.reject(failure);
+
+    await expect(onPromise).rejects.toThrow('subscribe failed');
+
+    const internals = asEmitterInternals(adaptor);
+    expect(internals.subscriptions.has('order.created')).toBe(false);
+    expect(internals.localEmitter.all.get('order.created') ?? []).not.toContain(handler);
+  });
+
+  it('a second on() for the same channel waits on the first in-flight SUBSCRIBE instead of resolving early', async () => {
+    const { adaptor, subscribeDeferreds } = createFakeRedisEventBusAdaptor();
+
+    let firstSettled = false;
+    let secondSettled = false;
+    const firstPromise = adaptor
+      .on('order.created', () => {})
+      .then((unsub) => {
+        firstSettled = true;
+        return unsub;
+      });
+    const secondPromise = adaptor
+      .on('order.created', () => {})
+      .then((unsub) => {
+        secondSettled = true;
+        return unsub;
+      });
+
+    // Only the first on() should have sent SUBSCRIBE, and neither call can
+    // have settled yet since the fake SUBSCRIBE for this channel hasn't.
+    expect(firstSettled).toBe(false);
+    expect(secondSettled).toBe(false);
+    expect(subscribeDeferreds.size).toBe(1);
+
+    subscribeDeferreds.get('order.created')?.resolve();
+    const [firstUnsub, secondUnsub] = await Promise.all([firstPromise, secondPromise]);
+
+    expect(firstSettled).toBe(true);
+    expect(secondSettled).toBe(true);
+    expect(typeof firstUnsub).toBe('function');
+    expect(typeof secondUnsub).toBe('function');
+  });
+
+  it('a second on() for the same channel rejects with the same error as the first when SUBSCRIBE rejects, leaving no trace', async () => {
+    const { adaptor, subscribeDeferreds } = createFakeRedisEventBusAdaptor();
+
+    const firstHandler = () => {};
+    const secondHandler = () => {};
+    const firstPromise = adaptor.on('order.created', firstHandler);
+    const secondPromise = adaptor.on('order.created', secondHandler);
+    const failure = new Error('subscribe failed');
+
+    subscribeDeferreds.get('order.created')?.reject(failure);
+
+    await expect(firstPromise).rejects.toThrow('subscribe failed');
+    await expect(secondPromise).rejects.toThrow('subscribe failed');
+
+    const internals = asEmitterInternals(adaptor);
+    expect(internals.subscriptions.has('order.created')).toBe(false);
+    expect(internals.localEmitter.all.get('order.created') ?? []).not.toContain(firstHandler);
+    expect(internals.localEmitter.all.get('order.created') ?? []).not.toContain(secondHandler);
+  });
+
+  it('a third on() for an already-established channel resolves immediately without sending SUBSCRIBE again', async () => {
+    const { adaptor, subscribeDeferreds } = createFakeRedisEventBusAdaptor();
+
+    const onPromise = adaptor.on('order.created', () => {});
+    subscribeDeferreds.get('order.created')?.resolve();
+    await onPromise;
+    subscribeDeferreds.clear();
+
+    let settled = false;
+    const thirdPromise = adaptor
+      .on('order.created', () => {})
+      .then((unsub) => {
+        settled = true;
+        return unsub;
+      });
+
+    await thirdPromise;
+
+    expect(settled).toBe(true);
+    expect(subscribeDeferreds.size).toBe(0);
   });
 });

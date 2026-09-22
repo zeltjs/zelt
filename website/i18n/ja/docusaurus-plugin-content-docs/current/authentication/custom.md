@@ -165,8 +165,6 @@ import { Config, Env, Injectable, Middleware, inject, request, setUser, type Nex
 
 @Config
 class OAuthConfig {
-  static readonly Token = OAuthConfig;
-
   constructor(private env = inject(Env)) {}
 
   get clientId() {

@@ -12,8 +12,6 @@ import { Config } from '@zeltjs/core';
 
 @Config
 export class XxxConfig {
-  static readonly Token = XxxConfig;
-
   get someValue(): string {
     return 'default';
   }
@@ -26,9 +24,8 @@ export class XxxConfig {
 
 ## Rules
 
-1. **`static readonly Token = ClassName`** - Self-referencing token for DI
-2. **Getters for defaults** - Use `get` not properties
-3. **Users extend to customize** - Override getters in subclass
+1. **Getters for defaults** - Use `get` not properties
+2. **Users extend to customize** - Override getters in subclass
 
 ## Customization
 
@@ -54,4 +51,3 @@ createApp({
 | Factory function returning class | Extend base class |
 | Constructor params for config | Override getters |
 | `@injectable()` directly | Use `@Config` |
-| Missing static Token | Always include Token |

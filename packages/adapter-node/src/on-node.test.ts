@@ -105,7 +105,6 @@ describe('onNode return types', () => {
 
     const runFn = vi.fn();
     class TestCommand {
-      static schema = cliSchema({});
       run() {
         runFn();
       }
@@ -527,8 +526,6 @@ describe('onNode with commands', () => {
     const runFn = vi.fn();
 
     class TestCommand {
-      static schema = cliSchema({});
-
       run() {
         runFn();
       }
@@ -547,8 +544,6 @@ describe('onNode with commands', () => {
 
   it('returns exitCode 1 when command not found', async () => {
     class ExistingCommand {
-      static schema = cliSchema({});
-
       run() {}
     }
     Command({ name: 'existing' })(ExistingCommand);
@@ -564,8 +559,6 @@ describe('onNode with commands', () => {
 
   it('returns exitCode 1 when no command specified', async () => {
     class TestCommand {
-      static schema = cliSchema({});
-
       run() {}
     }
     Command({ name: 'test' })(TestCommand);
@@ -581,8 +574,6 @@ describe('onNode with commands', () => {
 
   it('returns exitCode 1 when command throws', async () => {
     class FailingCommand {
-      static schema = cliSchema({});
-
       run() {
         throw new Error('Command failed');
       }
@@ -601,13 +592,13 @@ describe('onNode with commands', () => {
   it('args() returns parsed arguments within command', async () => {
     let capturedName: string | undefined;
 
-    class GreetCommand {
-      static schema = cliSchema({
-        args: [{ name: 'name', type: 'string' }],
-      });
+    const greetSchema = cliSchema({
+      args: [{ name: 'name', type: 'string' }],
+    });
 
+    class GreetCommand {
       run() {
-        const parsed = args(GreetCommand);
+        const parsed = args(greetSchema);
         capturedName = parsed.name;
       }
     }
@@ -627,16 +618,16 @@ describe('onNode with commands', () => {
     let capturedVerbose: boolean | undefined;
     let capturedPort: number | undefined;
 
-    class ServeCommand {
-      static schema = cliSchema({
-        options: [
-          { name: 'verbose', type: 'boolean', alias: 'v' },
-          { name: 'port', type: 'number', default: 3000 },
-        ],
-      });
+    const serveSchema = cliSchema({
+      options: [
+        { name: 'verbose', type: 'boolean', alias: 'v' },
+        { name: 'port', type: 'number', default: 3000 },
+      ],
+    });
 
+    class ServeCommand {
       run() {
-        const parsed = args(ServeCommand);
+        const parsed = args(serveSchema);
         capturedVerbose = parsed.verbose;
         capturedPort = parsed.port;
       }
@@ -661,7 +652,6 @@ describe('command transient behavior', () => {
 
     @Command({ name: 'track' })
     class TrackCommand {
-      static schema = cliSchema({});
       private id = Math.random();
 
       run() {

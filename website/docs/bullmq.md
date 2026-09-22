@@ -22,8 +22,6 @@ import { Queue, Worker, type Job } from 'bullmq';
 // ---cut---
 @Config
 class BullMQConfig {
-  static readonly Token = BullMQConfig;
-
   constructor(private env = inject(Env)) {}
 
   get connection(): RedisOptions {
@@ -172,7 +170,6 @@ type ConnectionOptions = { host?: string; port?: number };
 declare class UserController {}
 @Config
 class BullMQConfig {
-  static readonly Token = BullMQConfig;
   constructor(private env = inject(Env)) {}
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }
@@ -191,7 +188,6 @@ declare class UserController {}
 declare class EmailWorker {}
 @Config
 class BullMQConfig {
-  static readonly Token = BullMQConfig;
   constructor(private env = inject(Env)) {}
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }
@@ -212,7 +208,6 @@ import { Config, Env, inject } from '@zeltjs/core';
 type ConnectionOptions = { host?: string; port?: number; password?: string; tls?: object };
 @Config
 class BullMQConfig {
-  static readonly Token = BullMQConfig;
   constructor(protected env = inject(Env)) {}
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }
@@ -319,7 +314,6 @@ declare class GenericContainer {
 type ConnectionOptions = { host?: string; port?: number };
 @Config
 class BullMQConfig {
-  static readonly Token = BullMQConfig;
   constructor(protected env = inject(Env)) {}
   get connection(): ConnectionOptions { return { host: 'localhost', port: 6379 }; }
 }

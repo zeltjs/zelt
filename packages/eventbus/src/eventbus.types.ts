@@ -6,9 +6,9 @@ export interface EventBusAdaptor {
   on<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
-  ): () => void;
+  ): Promise<() => void>;
   once<K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
-  ): () => void;
+  ): Promise<() => void>;
 }

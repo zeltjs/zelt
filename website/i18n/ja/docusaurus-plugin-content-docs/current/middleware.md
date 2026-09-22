@@ -220,8 +220,6 @@ import type { Next } from '@zeltjs/core';
 
 @Config
 class AuthConfig {
-  static readonly Token = AuthConfig;
-
   constructor(private env = inject(Env)) {}
 
   get secret() {

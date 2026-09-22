@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
+import { ZeltCommandExecutionError, ZeltContextNotAvailableError } from '../../../../kernel';
 import type { InferSchema } from '../command-schema.types';
 import { cliSchema } from '../command-schema.types';
 import { runInCommandContext } from '../index';
@@ -9,8 +11,6 @@ const TestCommandSchema1 = cliSchema({
   args: [{ name: 'target', type: 'string' }],
   options: [{ name: 'verbose', type: 'boolean' }],
 });
-
-const TestCommandSchema2 = cliSchema({ args: [] });
 
 const TestCommandSchema3 = cliSchema({
   args: [
@@ -35,28 +35,40 @@ const GreetCommandSchema = cliSchema({
 });
 
 describe('args()', () => {
-  it('retrieves parsedArgs from context', () => {
-    const TestCommand = { schema: TestCommandSchema1 };
+  it('parses argv from context according to the given schema', () => {
+    const ctx = { commandName: 'test', argv: ['world', '--verbose'] };
 
-    const ctx = { parsedArgs: { target: 'world', verbose: true } };
-
-    const result = runInCommandContext(ctx, () => args(TestCommand));
+    const result = runInCommandContext(ctx, () => args(TestCommandSchema1));
 
     expect(result.target).toBe('world');
     expect(result.verbose).toBe(true);
   });
 
-  it('throws error outside command context', () => {
-    const TestCommand = { schema: TestCommandSchema2 };
+  it('throws ZeltContextNotAvailableError outside command context', () => {
+    expect(() => args(TestCommandSchema1)).toThrow(ZeltContextNotAvailableError);
+  });
 
-    expect(() => args(TestCommand)).toThrow();
+  it('throws ZeltCommandExecutionError with reason argv_parse_error on parse failure', () => {
+    const ctx = { commandName: 'test', argv: [] };
+
+    expect(() => runInCommandContext(ctx, () => args(TestCommandSchema1))).toThrow(
+      ZeltCommandExecutionError,
+    );
+
+    try {
+      runInCommandContext(ctx, () => args(TestCommandSchema1));
+      throw new Error('expected args() to throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ZeltCommandExecutionError);
+      const commandError = e as ZeltCommandExecutionError;
+      expect(commandError.context.reason).toBe('argv_parse_error');
+      expect(commandError.context.commandName).toBe('test');
+    }
   });
 
   it('returns typed result matching schema', () => {
-    const TestCommand = { schema: TestCommandSchema3 };
-
-    const ctx = { parsedArgs: { target: 'x', count: 1, port: 3000, verbose: false } };
-    const result = runInCommandContext(ctx, () => args(TestCommand));
+    const ctx = { commandName: 'test', argv: ['x', '1', '--port', '3000', '--verbose=false'] };
+    const result = runInCommandContext(ctx, () => args(TestCommandSchema3));
 
     const check: {
       target: string;
@@ -71,12 +83,10 @@ describe('args()', () => {
     expect(check.verbose).toBe(false);
   });
 
-  it('infers InferSchema correctly for the command', () => {
-    const GreetCommand = { schema: GreetCommandSchema };
-
+  it('infers InferSchema correctly for the schema', () => {
     type Expected = InferSchema<typeof GreetCommandSchema>;
-    const ctx = { parsedArgs: { target: 'x', message: undefined, port: 3000, verbose: false } };
-    const result = runInCommandContext(ctx, () => args(GreetCommand));
+    const ctx = { commandName: 'greet', argv: ['x', '--port', '3000'] };
+    const result = runInCommandContext(ctx, () => args(GreetCommandSchema));
 
     const check: Expected = result;
     expect(check.target).toBe('x');

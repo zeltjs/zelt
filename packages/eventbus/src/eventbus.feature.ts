@@ -17,11 +17,11 @@ export type EventBusCapabilities = {
   readonly on: <K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
-  ) => () => void;
+  ) => Promise<() => void>;
   readonly once: <K extends string & keyof EventBusSchema>(
     event: K,
     handler: (data: EventBusSchema[K]) => void,
-  ) => () => void;
+  ) => Promise<() => void>;
 };
 
 export const eventbus = (
