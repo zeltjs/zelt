@@ -87,7 +87,7 @@ Unitはcase本文が直接呼んだ関数、E2Eは送ったrequestのrouteを登
 
 ### コードに無い値: 誰が決めるか
 
-**P4 見せ方はUIが決める。並び順・座標・チップ（middleware・eventを示す小札）は、UIがJSONの関係から計算する。JSONに表示のための値を置かない。**
+**P4 見せ方はUIが決める。並び順・座標・チップ（middleware・eventを示す小札）は、UIがJSONの関係とソース位置から計算する。JSONに表示のための値を置かない。**
 表示の値をJSONに焼くと、関係と表示の二か所に同じことを持つことになり、ずれる。
 
 **P5 何を収録するか、原文を見せるか、どの列に置くかは、人がconfigで決める。**
@@ -237,7 +237,7 @@ P3より、pluginが無い場合の値は次の2種類に落ちる。
 
 ### 4.4 並び順と座標はUIが計算する
 
-P4より、列内の並び順とy座標はJSONに無く、UIが関係から求める。並び順は既存の決定どおり「callのトポロジカル順、呼ぶ側が上、同順位は名前順」。JSON内の配列の順序には表示の意味を持たせない。
+P4より、列内の並び順とy座標はJSONに無く、UIが各groupのソース位置から求める。並び順は「groupの `filePath`（フォルダを含む完全なパス）の名前順、同じファイル内は `source.location.startLine` の昇順（ソース出現順）」。比較はロケールに依らず文字コード順で、同じ入力なら同じ順序になる。callの向きでは並べない。JSON内の配列の順序には表示の意味を持たせない。
 
 ### 4.5 原文を伏せるのはconfig
 
@@ -330,7 +330,7 @@ TypeScriptブロックには2種類ある。**配信型**（v1、UIが読む）�
 
 | 変更 | 対象 | 理由 |
 | --- | --- | --- |
-| 削除 | `GroupPresentation.expandedY` | 並び順とy座標はUIが計算する。列内の並び順は既存決定「callsのトポロジカル順、呼ぶ側が上、同順位は名前順、構造からのみ計算」に従い、UIがrelationsから求める |
+| 削除 | `GroupPresentation.expandedY` | 並び順とy座標はUIが計算する。列内の並び順は「パスの名前順、同じファイル内はソース出現順」で、UIが各groupの `filePath` と `source.location.startLine` から求める（[4.4](#44-並び順と座標はuiが計算する)） |
 | 削除 | `excerpt.kind: 'redacted'` | UIはcodeと区別していない（[inspector.tsx](src/views/inspector.tsx)は `declaration-only` か否かだけを見る）。原文を見せたくないファイルはconfigの `sourceText` から外し、`declaration-only` にする |
 | 削除 | `presentation.origin`（Map・Group・Declaration） | UI未使用。最上位の `provenance` と重複 |
 | 削除 | `MapPresentation.demoScenarios` | 変更はdiffで表すものであり、JSONの1データではない |
@@ -436,7 +436,7 @@ v1にあるが実コードから抽出できない値5つの扱い。
 
 | v1の値 | 扱い | 理由 |
 | --- | --- | --- |
-| `presentation.expandedY` | 削除。UIが計算 | 手で調整した座標で、実コードに根拠が無い。並び順は構造（relations）から決められる |
+| `presentation.expandedY` | 削除。UIが計算 | 手で調整した座標で、実コードに根拠が無い。並び順はソース位置（パスと開始行）から決められる |
 | `presentation.hint`（人の説明文） | `hints` に置換。人の説明文は消える | 抽出できるのはpluginが見つけた事実だけ |
 | `excerpt.kind: 'redacted'` | 削除。`sourceText` から外して `declaration-only` | 秘密値を自動検出できるとはしない。伏せたい範囲は人がconfigで決める |
 | `presentation.origin` | 削除 | 抽出物は常に `provenance` で表せる。UI未使用 |
@@ -876,7 +876,7 @@ configは、何を収録するか・原文をどこまで出すか・どのplugi
 flowchart LR
   F["実ソースのfilePath"] --> R["順序付きglob rules<br/>最初に合うルール"]
   R --> P["GroupPresentation<br/>columnId / role"]
-  P --> U["UIのlayout<br/>列内の並び順（relationsから）<br/>+ 表示中の高さ"]
+  P --> U["UIのlayout<br/>列内の並び順（パスとソース位置から）<br/>+ 表示中の高さ"]
   C["columns<br/>id / label / width"] --> U
 ~~~
 
@@ -1136,7 +1136,7 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 | 変更 | UIで変える場所 |
 | --- | --- |
 | schema | [snapshot-schema.lib.ts](src/snapshot-schema.lib.ts) に[付録A](#a-出力の形)の差分を反映 |
-| `expandedY` 削除 | [layout.lib.ts](src/layout.lib.ts)。列内のgroupをcallsのトポロジカル順（呼ぶ側が上、同順位は名前順）に並べ、y＝上端＋先行groupの現在の高さ＋gapの累積。高さの計算は既存の宣言・tagの寸法を使う。同じ入力と状態では同じ位置になり、選択による薄表示だけでは並べ替えない |
+| `expandedY` 削除 | [layout.lib.ts](src/layout.lib.ts)。列内のgroupをパスの名前順、同じファイル内はソース出現順（`startLine` の昇順）に並べ、y＝上端＋先行groupの現在の高さ＋gapの累積。高さの計算は既存の宣言・tagの寸法を使う。同じ入力と状態では同じ位置になり、選択による薄表示だけでは並べ替えない |
 | `hint` → `hints` | [map-presenter.lib.ts](src/map-presenter.lib.ts)（宣言の補助ラベル）、[presenter.lib.ts](src/presenter.lib.ts)（検索対象の文字列と検索結果の補助表示）、[group-node.tsx](src/views/group-node.tsx)（表示）。labelを出すだけで、providerで分岐しない |
 | `redacted` 削除 | UIは既に区別していないので型の追従だけ |
 | `origin` 削除 | 参照箇所なし。型の追従だけ |
@@ -1145,7 +1145,7 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 | `entries` 削除: チップ | [relations.lib.ts](src/relations.lib.ts)の `isWarp` から「別groupの、入口を持つ宣言へのcallをチップにする」規則を外す。チップは関係の種類（`middleware`・`event`）だけで決める。fixtureでこの規則が効いている線は0本 |
 | `e2eTests` の移動 | [test-presenter.lib.ts](src/test-presenter.lib.ts)の `endpointModels` を、http entryではなく宣言の `e2eTests` から読む。見出しの `METHOD path` はentryから取っていたので、出し方は[付録N](#n-実装時に決めること) |
 | 注記の複数行 | [group-node.tsx](src/views/group-node.tsx)の `member-hint` を注記ごとの行にし、[layout.lib.ts](src/layout.lib.ts)の行の高さ計算に注記の数を入れる（[4.10](#410-注記は1つずつ行にする)）。ec-backendでは複数の注記は起きない |
-| IDの表示 | IDをそのまま出している箇所を名前の表示に替える（[4.11](#411-idは抽出の形式になり古いurlは引き継がない)）。groupの見出し（[group-node.tsx](src/views/group-node.tsx)）、詳細の見出し（[inspector.tsx](src/views/inspector.tsx)）、検索結果（[toolbar.tsx](src/views/toolbar.tsx)）、検索の対象と lock 中の「固定基準」表示（[presenter.lib.ts](src/presenter.lib.ts)）、ミニマップの `aria-label`（[mini-map.tsx](src/views/mini-map.tsx)） |
+| IDの表示 | IDをそのまま出している箇所を名前の表示に替える（[4.11](#411-idは抽出の形式になり古いurlは引き継がない)）。groupの見出し（[group-node.tsx](src/views/group-node.tsx)）、詳細の見出し（[inspector.tsx](src/views/inspector.tsx)）、検索結果（[toolbar.tsx](src/views/toolbar.tsx)。宣言は `所属groupの名前#宣言名`、groupは名前だけ）、検索の対象と lock 中の「固定基準」表示（[presenter.lib.ts](src/presenter.lib.ts)）、ミニマップの `aria-label`（[mini-map.tsx](src/views/mini-map.tsx)） |
 | 手書きfixture | 自動抽出ができるまでコミットし続ける。UI追従と同時に、上の変更に合わせて形を移す |
 
 維持するもの: middleware / event / config / compositionのtag、表示切替、app.ts非表示、Passive View/Mediatorの構成。
@@ -1187,7 +1187,7 @@ policyの範囲内で、実装しながら詰めればよいもの。policyレ�
 | write / setter / enum | 代入（write）はv1のrelation kindに無い（手書きfixtureでは `this.unsubscribes = []` もreadとして載っている）。setter・enumはv1の宣言kindに無い（ec-backendのsrcでは未発生）。readへ畳むか等 | P1・P2 |
 | 動的なtest名 | v1の `TestIdentity.name` / `suite` はnullを許さない。静的に解けないeachのtemplate等の出し方 | P6 |
 | setupを照合できなかったcall | v1では各callに `setup` が必須で、`UnitSetup` はfactory callの `targetClass` と `location` を要求する。factoryを使わない・由来が解けないcallを何として出すか | P6・P7 |
-| 並び順の循環 | 相互callの扱い。展開class内のmember順も同じ既存決定の対象だが、現mockはmembersの配列順で並べており、今回の追従に含めるか | P4 |
+| 展開class内のmember順 | 現mockはmembersの配列順で並べている。groupと同じくソース出現順に揃えるか | P4 |
 | 手書きfixtureの `hints` 移行 | fixtureの `hint` を `hints` へ移すときの中身。人の説明文を残すか、pluginが付けるはずのlabelだけに絞るか、providerを何と書くか | P2 |
 | config例の列 | [付録H](#h-config)の例は5列で、現fixtureの6列（`Port / interface`・`Config` を含む）と一致していない。fixtureの列に揃えるか | P5 |
 
@@ -1203,6 +1203,7 @@ v1の形では表せないが、今は扱わないもの。構造変更を提案
 | `UnitSetup` の形 | Zeltの `createTestTarget` を写した形（targetClass・configs・overrides）で、他のDI・test基盤のsetupを表せない | ec-backendはZeltなので問題にならない |
 | partialの理由の置き場 | coverageはstatusだけで、何が取れなかったかを載せる場所が無い（報告はCLI出力にだけ残る） | 発生している。理由表示は手触りの変更なので、やるならmockが先 |
 | testのskip / only / todo | `TestIdentity` に置き場が無い | 置き場なし |
+| 列内の最適配置 | 理想はEntry列はパス順、他の列は矢印が最短になる配置。難しいので将来課題（ユーザー発言 2026-09-23）。今は全列をパス順にする | 未対応（全列パス順） |
 | 列の中のサブレイヤー | 列の中をconfigのglob（例 `**/*.lib.ts`）で分ける置き場が無い。`requireUser`（`entry/controllers/current-user.lib.ts`）は入口ではなくEntry層のutilだが、今はcontrollerと同じ列に並ぶ。見た目の変更なので次のmockの課題。できたら「入口層へのcallをチップにするか」を再判断する（今Entry列を基準にチップ化すると `requireUser` への9本がチップになり手触りが変わるので、採らない） | 発生している（Entry列のutil） |
 
 ### P. 確認状況
