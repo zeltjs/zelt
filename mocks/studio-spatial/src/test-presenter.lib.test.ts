@@ -58,12 +58,11 @@ describe('test list semantics use Zelt setup, not package imports', () => {
       summarizeSetup({ ...identity, resolution: 'unresolved', reason: 'dynamic-setup' }),
     ).toEqual({ style: '未判定', mocks: '未確認' });
   });
-  it('lists the six observed JwtService tests as Solitary with no mocked class', () => {
-    const declarations = [...fixture().declarations.values()];
-    expect(unitRows(declarations)).toHaveLength(6);
-    expect(
-      unitRows(declarations).every((row) => row.style === 'Solitary' && row.mocks === 'なし'),
-    ).toBe(true);
+  it('does not collect the tests of external packages, and says so instead of "none"', () => {
+    const graph = fixture();
+    expect(unitRows([...graph.declarations.values()])).toEqual([]);
+    const jwt = graph.groups.get('JwtService');
+    expect(unitCoverage(jwt?.members ?? [])).toBe('未収録（テストの有無は未確認）');
   });
   it('does not equate an empty local list with absence of tests in the project', () => {
     expect(unitCoverage([])).toContain('範囲外は未確認');
@@ -117,6 +116,6 @@ describe('E2E lists are read from the declaration that registered the route', ()
     expect(endpointModels(declarations)).toHaveLength(16);
     expect(
       endpointModels(declarations.filter((d) => d.id === 'ProductController.create')),
-    ).toMatchObject([{ label: 'POST /api/products/' }]);
+    ).toMatchObject([{ label: 'POST /api/products' }]);
   });
 });

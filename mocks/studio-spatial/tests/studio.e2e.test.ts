@@ -20,7 +20,7 @@ test('fetches JSON, shows the map without composition, and keeps every group col
   const response = page.waitForResponse((r) => r.url().endsWith('ec-backend.snapshot.json'));
   await page.goto('/');
   expect((await response).ok()).toBe(true);
-  await expect(page.locator('[data-group]')).toHaveCount(40);
+  await expect(page.locator('[data-group]')).toHaveCount(34);
   await expect(page.locator('[data-group="app.ts"]')).toHaveCount(0);
   await expect(page.locator('[data-declaration]')).toHaveCount(0);
   await expect(page.locator('#root-select, #category, #scenario')).toHaveCount(0);
@@ -91,13 +91,18 @@ test('toggles type/count/config visibility and exposes hidden config relations',
   expect(await page.locator('.wire.edge-table').count()).toBeGreaterThan(0);
   await page.locator('#show-edge-counts').uncheck();
   await expect(page.locator('.bundle-count')).toHaveCount(0);
+  // The fixture's only config relation is a type reference, so type arrows must be shown again.
+  await page.locator('#show-type-arrows').check();
   await page.locator('#show-config').uncheck();
   await expect(page.locator('[data-group="JwtConfig"]')).toHaveCount(0);
-  await page.locator('[data-group="JwtService"] .ref-config').click();
+  await page.locator('[data-group="user.types.ts"] .ref-config').click();
   await expect(page.locator('#reference-dialog')).toBeVisible();
-  await page.locator('#reference-dialog [data-reference-jump="JwtConfig.secret"]').first().click();
+  await page
+    .locator('#reference-dialog [data-reference-jump="EcJwtConfig.resolveUser@callback:0"]')
+    .first()
+    .click();
   await expect(page.locator('#show-config')).toBeChecked();
-  await expect(page.locator('.inspector-heading h2')).toHaveText('secret');
+  await expect(page.locator('.inspector-heading h2')).toHaveText('@callback:0');
   await page.locator('#reference-back').click();
   await expect(page.locator('#show-config')).not.toBeChecked();
   await expect(page.locator('.inspector-heading h2')).toHaveText('schema.ts');
@@ -106,17 +111,16 @@ test('toggles type/count/config visibility and exposes hidden config relations',
 test('shows unit and endpoint test tables separately from source', async ({ page }) => {
   await page.goto('/');
   await find(page, 'JwtService');
-  await expect(page.locator('.unit-test')).toHaveCount(6);
-  await expect(page.locator('.test-style').first()).toHaveText('Solitary');
-  await expect(page.locator('.test-mocks').first()).toHaveText('なし');
+  await expect(page.locator('.unit-test')).toHaveCount(0);
+  await expect(page.locator('.test-coverage').first()).toHaveText('未収録（テストの有無は未確認）');
   await page.locator('[data-tab="source"]').click();
   await expect(page.locator('.source-code')).toContainText('class JwtService');
   await find(page, 'POST /api/products', 'ProductController.create', 'create');
-  await expect(page.locator('.endpoint-tests h4')).toHaveText('POST /api/products/');
+  await expect(page.locator('.endpoint-tests h4')).toHaveText('POST /api/products');
   expect(await page.locator('.e2e-test').count()).toBeGreaterThan(0);
   await expect(
     page.locator('[data-declaration="ProductController.create"] .member-hint'),
-  ).toHaveText(['POST /api/products/']);
+  ).toHaveText(['POST /api/products']);
   await expect(page.locator('.unit-test')).toHaveCount(0);
   await find(page, 'CreateProductSchema');
   await expect(page.locator('.unit-test')).toHaveCount(0);
@@ -127,7 +131,7 @@ test('allocates tag space only while tags are rendered, including dimmed and exp
   page,
 }) => {
   await page.goto('/');
-  const group = page.locator('[data-group="JwtService"]');
+  const group = page.locator('[data-group="user.types.ts"]');
   for (const expanded of [false, true]) {
     if (expanded) await group.locator('[data-toggle]').click();
     const baseHeight = 62 + (await group.locator('[data-declaration]').count()) * 46;
@@ -205,7 +209,7 @@ test('keeps drawing operations local while preserving zoom, bulk folding and key
   await expect(page.locator('[data-tab="source"]')).toBeFocused();
   await expect(page.locator('.source-code')).toContainText('sign');
   await page.locator('[data-action="expand-all"]').click();
-  await expect(page.locator('[data-toggle][aria-expanded="true"]')).toHaveCount(40);
+  await expect(page.locator('[data-toggle][aria-expanded="true"]')).toHaveCount(34);
   await page.locator('[data-action="collapse-all"]').click();
   await expect(page.locator('[data-declaration]')).toHaveCount(0);
   await expect.poll(() => page.locator('#map-scroll').evaluate((el) => el.scrollTop)).toBe(0);

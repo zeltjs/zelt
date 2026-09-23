@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { required } from './graph.lib';
+import { presentInspector } from './inspector-presenter.lib';
 import { layout, position } from './layout.lib';
 import { declaration, graphOf, group } from './snapshot-builder.lib';
 import { initialView } from './state.lib';
@@ -51,6 +52,37 @@ describe('layout orders groups inside a column by source position, not by calls 
     expect(required(boxes, 'Alpha').y).toBe(required(boxes, 'Delta').y);
     expect(columnOrder(['Bravo', 'Alpha'], initialView(), graph)).toEqual(['Alpha', 'Bravo']);
     expect(columnOrder(['Charlie', 'Delta'], initialView(), graph)).toEqual(['Delta', 'Charlie']);
+  });
+});
+
+describe('an expanded group lists its members in source order, not in JSON order', () => {
+  const graph = graphOf([
+    group('Service', [
+      declaration('Service.run', { startLine: 30 }),
+      declaration('Service.constructor', { startLine: 12 }),
+      declaration('Service.run@callback:0', { startLine: 31 }),
+      declaration('Service.store', { startLine: 9 }),
+    ]),
+  ]);
+  it('stacks member rows by their start line', () => {
+    const view = { ...initialView(), expanded: ['Service'] };
+    const geometry = layout(graph, view);
+    const ids = ['Service.run', 'Service.constructor', 'Service.run@callback:0', 'Service.store'];
+    const top = (id: string) => position(graph, view, geometry, id).y;
+    expect([...ids].sort((a, b) => top(a) - top(b))).toEqual([
+      'Service.store',
+      'Service.constructor',
+      'Service.run',
+      'Service.run@callback:0',
+    ]);
+  });
+  it('lists the inspector members in the same order', () => {
+    expect(presentInspector(graph, 'Service')?.members.map((m) => m.id)).toEqual([
+      'Service.store',
+      'Service.constructor',
+      'Service.run',
+      'Service.run@callback:0',
+    ]);
   });
 });
 

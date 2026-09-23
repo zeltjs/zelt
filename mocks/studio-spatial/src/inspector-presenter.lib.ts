@@ -2,6 +2,7 @@ import type { DialogModel, InspectorModel } from './display.types';
 import type { Graph } from './graph.lib';
 import { required, subject } from './graph.lib';
 import { declarationLabels, relationLabels } from './labels';
+import { sourceOrderedMembers } from './layout.lib';
 import type { ReadyState } from './state.types';
 import { endpointModels, unitCoverage, unitRows } from './test-presenter.lib';
 
@@ -11,7 +12,7 @@ export function presentInspector(graph: Graph, id: string | null): InspectorMode
     owner = required(graph.owners, id);
   const group = graph.groups.get(id),
     declaration = graph.declarations.get(id);
-  const declarations = group ? group.members : [required(graph.declarations, id)];
+  const declarations = group ? sourceOrderedMembers(group) : [required(graph.declarations, id)];
   return {
     id,
     name: selected.name,
@@ -19,7 +20,7 @@ export function presentInspector(graph: Graph, id: string | null): InspectorMode
     path: `${selected.source.location.filePath}:${selected.source.location.startLine}`,
     source: selected.source,
     members: group
-      ? group.members.map((m) => ({ id: m.id, label: `${declarationLabels[m.kind]} · ${m.name}` }))
+      ? declarations.map((m) => ({ id: m.id, label: `${declarationLabels[m.kind]} · ${m.name}` }))
       : [],
     unit: {
       rows: unitRows(declarations),

@@ -7,7 +7,7 @@ describe('fetched snapshot contract', () => {
   it('preserves the source-backed groups, declarations and relations', () => {
     const graph = fixture();
     expect([graph.groups.size, graph.declarations.size, graph.relations.length]).toEqual([
-      41, 157, 256,
+      35, 130, 238,
     ]);
     expect(graph.snapshot.provenance).toBe('manual-fixture');
     expect(graph.snapshot.graph).not.toHaveProperty('relations');
@@ -49,17 +49,81 @@ describe('fetched snapshot contract', () => {
       expect(text).not.toContain(removed);
     const graph = fixture();
     const hints = [...graph.declarations.values()].flatMap((d) => d.hints);
-    expect(hints).toHaveLength(53);
+    expect(hints).toHaveLength(48);
     expect(new Set(hints.map((h) => h.provider))).toEqual(new Set(['zelt', 'drizzle', 'valibot']));
     expect([...graph.groups.values()].flatMap((g) => g.hints)).toEqual([]);
-    expect(required(graph.declarations, 'OrderHandlers.startup@order:created').hints).toEqual([
+    expect(required(graph.declarations, 'OrderHandlers.startup@callback:0').hints).toEqual([
       { provider: 'zelt', label: 'EVENT order:created' },
     ]);
     expect(required(graph.declarations, 'OrderHandlers.startup').hints).toEqual([]);
+    for (const hint of hints) expect(hint.label).not.toMatch(/^[A-Z]+ \/.*\/$/);
+  });
+  it('makes every argument callback its own declaration named by its order in the parent', () => {
+    const graph = fixture();
+    const callbacks = [...graph.declarations.values()].filter((d) => d.kind === 'callback');
+    expect(callbacks).toHaveLength(18);
+    for (const callback of callbacks) {
+      const parent = callback.enclosingDeclarationId;
+      if (parent === null) throw new Error(`${callback.id} has no parent`);
+      expect(callback.name).toMatch(/^@callback:\d+$/);
+      expect(callback.id).toBe(`${parent}${callback.name}`);
+    }
+    const createOrder = required(graph.declarations, 'OrderService.createOrder');
+    expect(createOrder.relations.map((r) => r.kind)).not.toContain('table');
+    expect(
+      required(graph.declarations, 'OrderService.createOrder@callback:1').relations.map(
+        (r) => r.to,
+      ),
+    ).toEqual(['products', 'orders', 'orderItems']);
+  });
+  it('puts external packages in one column as boundaries listing only what the app uses', () => {
+    const graph = fixture();
+    const app = [...graph.groups.values()].filter((g) =>
+      g.filePath.startsWith('integration/ec-backend/src/'),
+    );
+    const external = [...graph.groups.values()].filter((g) => !app.includes(g));
+    expect(external).toHaveLength(12);
+    const used = new Set(
+      app.flatMap((g) => [g, ...g.members]).flatMap((s) => s.relations.map((r) => r.to)),
+    );
+    for (const g of external) {
+      expect(g).toMatchObject({ expansion: 'boundary', presentation: { columnId: 'column:6' } });
+      expect(g.relations).toEqual([]);
+      for (const m of g.members) {
+        expect(used.has(m.id), m.id).toBe(true);
+        expect(m.relations).toEqual([]);
+        expect(m.unitTests.cases).toEqual([]);
+      }
+    }
+    expect(graph.snapshot.graph.presentation.columns.at(-1)).toMatchObject({ label: '外部' });
+    expect(graph.snapshot.graph.presentation.columns.map((c) => c.label)).not.toContain(
+      'Port / interface',
+    );
+  });
+  it('keeps one line when a plugin gives a read its meaning', () => {
+    const graph = fixture();
+    for (const s of [...graph.groups.values(), ...graph.declarations.values()]) {
+      const reads = new Set(s.relations.filter((r) => r.kind === 'read').map((r) => r.to));
+      for (const r of s.relations)
+        if (['register', 'schema', 'table'].includes(r.kind))
+          expect(reads.has(r.to), `${s.id} -> ${r.to}`).toBe(false);
+    }
+    expect(
+      required(graph.declarations, 'OrderHandlers.startup')
+        .relations.filter((r) => r.to === 'OrderHandlers.startup@callback:0')
+        .map((r) => r.kind),
+    ).toEqual(['register']);
+  });
+  it('draws contracts only to interface members on the map', () => {
+    const graph = fixture();
+    const contracts = graph.relations.filter((r) => r.kind === 'contract');
+    expect(contracts).toHaveLength(6);
+    for (const r of contracts)
+      expect(required(graph.owners, r.to)).toMatchObject({ id: 'KVStore', kind: 'interface' });
   });
   it('keeps test identities and observed invocation locations under their targets', () => {
     const graph = fixture();
-    expect([...graph.declarations.values()].flatMap((d) => d.unitTests.cases)).toHaveLength(6);
+    expect([...graph.declarations.values()].flatMap((d) => d.unitTests.cases)).toHaveLength(0);
     const routes = [...graph.declarations.values()].filter((d) => d.e2eTests !== null);
     expect(routes).toHaveLength(16);
     const tests = routes.flatMap((d) => d.e2eTests?.cases ?? []);

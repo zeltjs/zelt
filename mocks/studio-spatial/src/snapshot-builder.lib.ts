@@ -22,6 +22,7 @@ interface DeclarationOptions {
   readonly e2eTests: EndpointTests | null;
   readonly calls: readonly string[];
   readonly relations: SourceDeclaration['relations'];
+  readonly startLine: number;
 }
 
 export function declaration(
@@ -34,6 +35,7 @@ export function declaration(
     e2eTests: null,
     calls: [],
     relations: [],
+    startLine: location.startLine,
     ...overrides,
   };
   return {
@@ -42,7 +44,10 @@ export function declaration(
     kind: 'method',
     enclosingDeclarationId: null,
     relations: [...options.calls.map((to) => relation(id, to)), ...options.relations],
-    source,
+    source: {
+      ...source,
+      location: { ...location, startLine: options.startLine, endLine: options.startLine },
+    },
     unitTests: {
       cases: [],
       coverage: { status: 'uncollected', searchScope: [], inspectedFiles: [] },

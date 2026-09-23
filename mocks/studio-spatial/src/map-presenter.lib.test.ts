@@ -25,6 +25,9 @@ const golden = parse(
   JSON.parse(readFileSync(new URL('./test-fixtures/legacy-display.json', import.meta.url), 'utf8')),
 );
 const graph = fixture();
+// The tag appears only when config boxes are hidden and the type relation it stands for is shown.
+const configTagCount = (showConfig: boolean, showTypes: boolean) =>
+  !showConfig && showTypes ? 1 : 0;
 
 describe('Presenter preserves the pre-React display contract', () => {
   it.each(
@@ -91,9 +94,10 @@ describe('Presenter preserves the pre-React display contract', () => {
         const tagHeight = group.tags.length ? 22 + Math.ceil(group.tags.length / 2) * 26 : 0;
         expect(group.rect.height).toBe(62 + group.members.length * 46 + tagHeight);
       }
-      const jwt = model.groups.find((g) => g.id === 'JwtService');
-      expect(jwt?.tags.length).toBe(showConfig ? 0 : 1);
-      expect(jwt).toMatchObject({ dimmed: true });
+      // The only config tag in the fixture: EcJwtConfig's resolveUser callback types EcUser.
+      const users = model.groups.find((g) => g.id === 'user.types.ts');
+      expect(users?.tags.length).toBe(configTagCount(showConfig, showTypes));
+      expect(users).toMatchObject({ dimmed: true });
     }
   });
   it.each([false, true])('keeps subsequent nodes from overlapping: expanded=%s', (expanded) => {
@@ -160,7 +164,7 @@ describe('Presenter shows hints and names instead of identities', () => {
           ],
           calls: ['["helper"]'],
         }),
-        declaration('["helper"]', { name: 'helper' }),
+        declaration('["helper"]', { name: 'helper', startLine: 5 }),
       ],
       { name: 'Routes' },
     ),

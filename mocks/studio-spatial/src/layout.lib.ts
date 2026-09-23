@@ -36,9 +36,15 @@ function rowHeight(declaration: SourceDeclaration): number {
   return ROW_HEIGHT + Math.max(0, declaration.hints.length - 1) * HINT_LINE_HEIGHT;
 }
 
+export function sourceOrderedMembers(group: SourceGroup): readonly SourceDeclaration[] {
+  return [...group.members].sort(
+    (a, b) => a.source.location.startLine - b.source.location.startLine || byCodeUnit(a.id, b.id),
+  );
+}
+
 export function memberBoxes(group: SourceGroup): readonly MemberBox[] {
   let top = HEADER_HEIGHT;
-  return group.members.map((member) => {
+  return sourceOrderedMembers(group).map((member) => {
     const box = { member, top, height: rowHeight(member) - ROW_MARGIN };
     top += rowHeight(member);
     return box;

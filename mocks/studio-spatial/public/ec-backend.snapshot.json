@@ -699,7 +699,7 @@
             "hints": [
               {
                 "provider": "zelt",
-                "label": "GET /api/products/"
+                "label": "GET /api/products"
               }
             ]
           },
@@ -1139,7 +1139,7 @@
             "hints": [
               {
                 "provider": "zelt",
-                "label": "POST /api/products/"
+                "label": "POST /api/products"
               }
             ]
           },
@@ -1629,10 +1629,25 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/entry/controllers/cart.controller.ts",
-                      "startLine": 22,
-                      "endLine": 29
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "@UseMiddleware(JwtMiddleware)"
+                  }
+                ]
+              },
+              {
+                "id": "relation:256",
+                "to": "CartController.getCart@callback:0",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/entry/controllers/cart.controller.ts",
+                      "startLine": 27,
+                      "endLine": 27
+                    },
+                    "expression": "(sum, item) =>"
                   }
                 ]
               }
@@ -1670,7 +1685,7 @@
             "hints": [
               {
                 "provider": "zelt",
-                "label": "GET /api/cart/"
+                "label": "GET /api/cart"
               }
             ]
           },
@@ -1763,8 +1778,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/entry/controllers/cart.controller.ts",
-                      "startLine": 31,
-                      "endLine": 38
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "@UseMiddleware(JwtMiddleware)"
                   }
@@ -1912,8 +1927,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/entry/controllers/cart.controller.ts",
-                      "startLine": 40,
-                      "endLine": 49
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "@UseMiddleware(JwtMiddleware)"
                   }
@@ -2061,8 +2076,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/entry/controllers/cart.controller.ts",
-                      "startLine": 51,
-                      "endLine": 58
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "@UseMiddleware(JwtMiddleware)"
                   }
@@ -2195,8 +2210,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/entry/controllers/cart.controller.ts",
-                      "startLine": 60,
-                      "endLine": 66
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "@UseMiddleware(JwtMiddleware)"
                   }
@@ -2236,7 +2251,7 @@
             "hints": [
               {
                 "provider": "zelt",
-                "label": "DELETE /api/cart/"
+                "label": "DELETE /api/cart"
               }
             ]
           },
@@ -2274,6 +2289,36 @@
                 "label": "DI / 初期化"
               }
             ]
+          },
+          {
+            "id": "CartController.getCart@callback:0",
+            "name": "@callback:0",
+            "kind": "callback",
+            "enclosingDeclarationId": "CartController.getCart",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/entry/controllers/cart.controller.ts",
+                "startLine": 27,
+                "endLine": 27
+              },
+              "signature": "(sum, item) =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "(sum, item) => sum + item.price * item.quantity"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
           }
         ],
         "relations": [],
@@ -2391,8 +2436,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/entry/controllers/order.controller.ts",
-                      "startLine": 21,
-                      "endLine": 27
+                      "startLine": 16,
+                      "endLine": 16
                     },
                     "expression": "@UseMiddleware(JwtMiddleware)"
                   }
@@ -2432,7 +2477,7 @@
             "hints": [
               {
                 "provider": "zelt",
-                "label": "POST /api/orders/"
+                "label": "POST /api/orders"
               }
             ]
           },
@@ -2525,8 +2570,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/entry/controllers/order.controller.ts",
-                      "startLine": 29,
-                      "endLine": 39
+                      "startLine": 16,
+                      "endLine": 16
                     },
                     "expression": "@UseMiddleware(JwtMiddleware)"
                   }
@@ -2566,7 +2611,7 @@
             "hints": [
               {
                 "provider": "zelt",
-                "label": "GET /api/orders/"
+                "label": "GET /api/orders"
               }
             ]
           },
@@ -2674,8 +2719,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/entry/controllers/order.controller.ts",
-                      "startLine": 41,
-                      "endLine": 58
+                      "startLine": 16,
+                      "endLine": 16
                     },
                     "expression": "@UseMiddleware(JwtMiddleware)"
                   }
@@ -2782,8 +2827,8 @@
         "filePath": "integration/ec-backend/src/entry/job/order.handlers.ts",
         "members": [
           {
-            "id": "OrderHandlers.startup@order:created",
-            "name": "(data) => …",
+            "id": "OrderHandlers.startup@callback:0",
+            "name": "@callback:0",
             "kind": "callback",
             "enclosingDeclarationId": "OrderHandlers.startup",
             "relations": [
@@ -2870,7 +2915,7 @@
               },
               {
                 "id": "relation:71",
-                "to": "OrderHandlers.startup@order:created",
+                "to": "OrderHandlers.startup@callback:0",
                 "kind": "register",
                 "evidence": [
                   {
@@ -2879,7 +2924,7 @@
                       "startLine": 20,
                       "endLine": 20
                     },
-                    "expression": "this.eventBus.on('order:created'"
+                    "expression": "(data) =>"
                   }
                 ]
               },
@@ -3220,53 +3265,7 @@
             "name": "use",
             "kind": "method",
             "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:83",
-                "to": "JwtMiddleware.extractToken",
-                "kind": "call",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/auth-jwt/src/jwt.middleware.ts",
-                      "startLine": 20,
-                      "endLine": 20
-                    },
-                    "expression": "this.extractToken(req)"
-                  }
-                ]
-              },
-              {
-                "id": "relation:84",
-                "to": "JwtService.verify",
-                "kind": "call",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/auth-jwt/src/jwt.middleware.ts",
-                      "startLine": 26,
-                      "endLine": 26
-                    },
-                    "expression": "this.jwtService.verify(token)"
-                  }
-                ]
-              },
-              {
-                "id": "relation:85",
-                "to": "JwtConfig.resolveUser",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/auth-jwt/src/jwt.middleware.ts",
-                      "startLine": 35,
-                      "endLine": 35
-                    },
-                    "expression": "this.config.resolveUser"
-                  }
-                ]
-              }
-            ],
+            "relations": [],
             "source": {
               "location": {
                 "filePath": "packages/auth-jwt/src/jwt.middleware.ts",
@@ -3290,106 +3289,10 @@
             "e2eTests": null,
             "unresolved": [],
             "hints": []
-          },
-          {
-            "id": "JwtMiddleware.extractToken",
-            "name": "extractToken",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:86",
-                "to": "JwtConfig.driver",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/auth-jwt/src/jwt.middleware.ts",
-                      "startLine": 42,
-                      "endLine": 42
-                    },
-                    "expression": "this.config.driver"
-                  }
-                ]
-              },
-              {
-                "id": "relation:87",
-                "to": "JwtConfig.cookieName",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/auth-jwt/src/jwt.middleware.ts",
-                      "startLine": 43,
-                      "endLine": 43
-                    },
-                    "expression": "this.config.cookieName"
-                  }
-                ]
-              }
-            ],
-            "source": {
-              "location": {
-                "filePath": "packages/auth-jwt/src/jwt.middleware.ts",
-                "startLine": 41,
-                "endLine": 51
-              },
-              "signature": "private extractToken(req: RequestAccessor): string | null",
-              "excerpt": {
-                "kind": "code",
-                "text": "private extractToken(req: RequestAccessor): string | null {\n    if (this.config.driver === 'cookie') {\n      return req.cookie(this.config.cookieName) ?? null;\n    }\n\n    const authHeader = req.header('Authorization');\n    if (!authHeader?.startsWith('Bearer ')) {\n      return null;\n    }\n    return authHeader.slice(7);\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "JwtMiddleware.constructor",
-            "name": "constructor",
-            "kind": "constructor",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/auth-jwt/src/jwt.middleware.ts",
-                "startLine": 9,
-                "endLine": 12
-              },
-              "signature": "constructor(\n    private readonly jwtService = inject(JwtService),\n    private readonly config = inject(JwtConfig),\n  )",
-              "excerpt": {
-                "kind": "code",
-                "text": "constructor(\n    private readonly jwtService = inject(JwtService),\n    private readonly config = inject(JwtConfig),\n  ) {}"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": [
-              {
-                "provider": "zelt",
-                "label": "DI / 初期化"
-              }
-            ]
           }
         ],
         "relations": [],
-        "expansion": "included",
+        "expansion": "boundary",
         "source": {
           "location": {
             "filePath": "packages/auth-jwt/src/jwt.middleware.ts",
@@ -3404,7 +3307,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:0",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -3419,38 +3322,7 @@
             "name": "use",
             "kind": "method",
             "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:100",
-                "to": "RateLimitService.hit",
-                "kind": "call",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/rate-limit/src/rate-limit.middleware.ts",
-                      "startLine": 42,
-                      "endLine": 42
-                    },
-                    "expression": "this.limiter.hit"
-                  }
-                ]
-              },
-              {
-                "id": "relation:101",
-                "to": "RateLimitConfig.enabled",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/rate-limit/src/rate-limit.middleware.ts",
-                      "startLine": 36,
-                      "endLine": 36
-                    },
-                    "expression": "this.config.enabled"
-                  }
-                ]
-              }
-            ],
+            "relations": [],
             "source": {
               "location": {
                 "filePath": "packages/rate-limit/src/rate-limit.middleware.ts",
@@ -3474,45 +3346,10 @@
             "e2eTests": null,
             "unresolved": [],
             "hints": []
-          },
-          {
-            "id": "RateLimitMiddleware.constructor",
-            "name": "constructor",
-            "kind": "constructor",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/rate-limit/src/rate-limit.middleware.ts",
-                "startLine": 18,
-                "endLine": 23
-              },
-              "signature": "constructor(\n    private readonly limiter = inject(RateLimitService),\n    private readonly config = inject(RateLimitConfig),\n  )",
-              "excerpt": {
-                "kind": "code",
-                "text": "constructor(\n    private readonly limiter = inject(RateLimitService),\n    private readonly config = inject(RateLimitConfig),\n  ) {\n    super();\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": [
-              {
-                "provider": "zelt",
-                "label": "DI / 初期化"
-              }
-            ]
           }
         ],
         "relations": [],
-        "expansion": "included",
+        "expansion": "boundary",
         "source": {
           "location": {
             "filePath": "packages/rate-limit/src/rate-limit.middleware.ts",
@@ -3527,7 +3364,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:0",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -3542,23 +3379,7 @@
             "name": "use",
             "kind": "method",
             "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:110",
-                "to": "CorsMiddleware.delegate",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                      "startLine": 30,
-                      "endLine": 30
-                    },
-                    "expression": "this.delegate"
-                  }
-                ]
-              }
-            ],
+            "relations": [],
             "source": {
               "location": {
                 "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
@@ -3587,227 +3408,10 @@
                 "label": "全HTTP · core自動登録"
               }
             ]
-          },
-          {
-            "id": "CorsMiddleware.isEnabled",
-            "name": "isEnabled",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:109",
-                "to": "CorsConfig.origin",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                      "startLine": 38,
-                      "endLine": 38
-                    },
-                    "expression": "const { origin } = config"
-                  }
-                ]
-              }
-            ],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                "startLine": 37,
-                "endLine": 40
-              },
-              "signature": "private isEnabled(config: CorsConfig): boolean",
-              "excerpt": {
-                "kind": "code",
-                "text": "private isEnabled(config: CorsConfig): boolean {\n    const { origin } = config;\n    return Array.isArray(origin) ? origin.length > 0 : origin !== '';\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "CorsMiddleware.constructor",
-            "name": "constructor",
-            "kind": "constructor",
-            "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:102",
-                "to": "CorsMiddleware.isEnabled",
-                "kind": "call",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                      "startLine": 14,
-                      "endLine": 14
-                    },
-                    "expression": "this.isEnabled(config)"
-                  }
-                ]
-              },
-              {
-                "id": "relation:103",
-                "to": "CorsConfig.origin",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                      "startLine": 18,
-                      "endLine": 18
-                    },
-                    "expression": "config.origin"
-                  }
-                ]
-              },
-              {
-                "id": "relation:104",
-                "to": "CorsConfig.allowMethods",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                      "startLine": 19,
-                      "endLine": 19
-                    },
-                    "expression": "config.allowMethods"
-                  }
-                ]
-              },
-              {
-                "id": "relation:105",
-                "to": "CorsConfig.allowHeaders",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                      "startLine": 20,
-                      "endLine": 20
-                    },
-                    "expression": "config.allowHeaders"
-                  }
-                ]
-              },
-              {
-                "id": "relation:106",
-                "to": "CorsConfig.exposeHeaders",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                      "startLine": 21,
-                      "endLine": 21
-                    },
-                    "expression": "config.exposeHeaders"
-                  }
-                ]
-              },
-              {
-                "id": "relation:107",
-                "to": "CorsConfig.maxAge",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                      "startLine": 22,
-                      "endLine": 22
-                    },
-                    "expression": "config.maxAge"
-                  }
-                ]
-              },
-              {
-                "id": "relation:108",
-                "to": "CorsConfig.credentials",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                      "startLine": 23,
-                      "endLine": 23
-                    },
-                    "expression": "config.credentials"
-                  }
-                ]
-              }
-            ],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                "startLine": 13,
-                "endLine": 27
-              },
-              "signature": "constructor(config: CorsConfig = inject(CorsConfig))",
-              "excerpt": {
-                "kind": "code",
-                "text": "constructor(config: CorsConfig = inject(CorsConfig)) {\n    if (!this.isEnabled(config)) return;\n\n    const HonoCorsMiddleware = fromHonoMiddleware(\n      cors({\n        origin: config.origin,\n        allowMethods: config.allowMethods,\n        allowHeaders: config.allowHeaders,\n        exposeHeaders: config.exposeHeaders,\n        ...(config.maxAge !== undefined && { maxAge: config.maxAge }),\n        credentials: config.credentials,\n      }),\n    );\n    this.delegate = new HonoCorsMiddleware();\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": [
-              {
-                "provider": "zelt",
-                "label": "DI / 初期化"
-              }
-            ]
-          },
-          {
-            "id": "CorsMiddleware.delegate",
-            "name": "delegate",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                "startLine": 11,
-                "endLine": 11
-              },
-              "signature": "private readonly delegate: MiddlewareInstance | undefined;",
-              "excerpt": {
-                "kind": "code",
-                "text": "private readonly delegate: MiddlewareInstance | undefined;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
           }
         ],
         "relations": [],
-        "expansion": "included",
+        "expansion": "boundary",
         "source": {
           "location": {
             "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
@@ -3822,7 +3426,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:0",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -3837,218 +3441,7 @@
             "name": "use",
             "kind": "method",
             "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:111",
-                "to": "SecureHeadersMiddleware.applyHeader",
-                "kind": "call",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 14,
-                      "endLine": 14
-                    },
-                    "expression": "this.applyHeader"
-                  }
-                ]
-              },
-              {
-                "id": "relation:112",
-                "to": "SecureHeadersConfig.crossOriginEmbedderPolicy",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 17,
-                      "endLine": 17
-                    },
-                    "expression": "this.config.crossOriginEmbedderPolicy"
-                  }
-                ]
-              },
-              {
-                "id": "relation:113",
-                "to": "SecureHeadersConfig.crossOriginResourcePolicy",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 23,
-                      "endLine": 23
-                    },
-                    "expression": "this.config.crossOriginResourcePolicy"
-                  }
-                ]
-              },
-              {
-                "id": "relation:114",
-                "to": "SecureHeadersConfig.crossOriginOpenerPolicy",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 29,
-                      "endLine": 29
-                    },
-                    "expression": "this.config.crossOriginOpenerPolicy"
-                  }
-                ]
-              },
-              {
-                "id": "relation:115",
-                "to": "SecureHeadersConfig.originAgentCluster",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 32,
-                      "endLine": 32
-                    },
-                    "expression": "this.config.originAgentCluster"
-                  }
-                ]
-              },
-              {
-                "id": "relation:116",
-                "to": "SecureHeadersConfig.referrerPolicy",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 33,
-                      "endLine": 33
-                    },
-                    "expression": "this.config.referrerPolicy"
-                  }
-                ]
-              },
-              {
-                "id": "relation:117",
-                "to": "SecureHeadersConfig.strictTransportSecurity",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 37,
-                      "endLine": 37
-                    },
-                    "expression": "this.config.strictTransportSecurity"
-                  }
-                ]
-              },
-              {
-                "id": "relation:118",
-                "to": "SecureHeadersConfig.xContentTypeOptions",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 40,
-                      "endLine": 40
-                    },
-                    "expression": "this.config.xContentTypeOptions"
-                  }
-                ]
-              },
-              {
-                "id": "relation:119",
-                "to": "SecureHeadersConfig.xDnsPrefetchControl",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 41,
-                      "endLine": 41
-                    },
-                    "expression": "this.config.xDnsPrefetchControl"
-                  }
-                ]
-              },
-              {
-                "id": "relation:120",
-                "to": "SecureHeadersConfig.xDownloadOptions",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 42,
-                      "endLine": 42
-                    },
-                    "expression": "this.config.xDownloadOptions"
-                  }
-                ]
-              },
-              {
-                "id": "relation:121",
-                "to": "SecureHeadersConfig.xFrameOptions",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 43,
-                      "endLine": 43
-                    },
-                    "expression": "this.config.xFrameOptions"
-                  }
-                ]
-              },
-              {
-                "id": "relation:122",
-                "to": "SecureHeadersConfig.xPermittedCrossDomainPolicies",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 47,
-                      "endLine": 47
-                    },
-                    "expression": "this.config.xPermittedCrossDomainPolicies"
-                  }
-                ]
-              },
-              {
-                "id": "relation:123",
-                "to": "SecureHeadersConfig.xXssProtection",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 50,
-                      "endLine": 50
-                    },
-                    "expression": "this.config.xXssProtection"
-                  }
-                ]
-              },
-              {
-                "id": "relation:124",
-                "to": "SecureHeadersConfig.removePoweredBy",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                      "startLine": 51,
-                      "endLine": 51
-                    },
-                    "expression": "this.config.removePoweredBy"
-                  }
-                ]
-              }
-            ],
+            "relations": [],
             "source": {
               "location": {
                 "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
@@ -4077,75 +3470,10 @@
                 "label": "全HTTP · core自動登録"
               }
             ]
-          },
-          {
-            "id": "SecureHeadersMiddleware.applyHeader",
-            "name": "applyHeader",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                "startLine": 57,
-                "endLine": 65
-              },
-              "signature": "private applyHeader(\n    res: ReturnType<typeof response>,\n    name: string,\n    value: boolean | string,\n    defaultValue: string,\n  ): void",
-              "excerpt": {
-                "kind": "code",
-                "text": "private applyHeader(\n    res: ReturnType<typeof response>,\n    name: string,\n    value: boolean | string,\n    defaultValue: string,\n  ): void {\n    if (value === false) return;\n    res.header(name, value === true ? defaultValue : value);\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersMiddleware.constructor",
-            "name": "constructor",
-            "kind": "constructor",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                "startLine": 9,
-                "endLine": 9
-              },
-              "signature": "constructor(private readonly config: SecureHeadersConfig = inject(SecureHeadersConfig))",
-              "excerpt": {
-                "kind": "code",
-                "text": "constructor(private readonly config: SecureHeadersConfig = inject(SecureHeadersConfig)) {}"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": [
-              {
-                "provider": "zelt",
-                "label": "DI / 初期化"
-              }
-            ]
           }
         ],
         "relations": [],
-        "expansion": "included",
+        "expansion": "boundary",
         "source": {
           "location": {
             "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
@@ -4160,7 +3488,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:0",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -4186,6 +3514,14 @@
                       "filePath": "integration/ec-backend/src/entry/controllers/current-user.lib.ts",
                       "startLine": 6,
                       "endLine": 6
+                    },
+                    "expression": "EcUser"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/entry/controllers/current-user.lib.ts",
+                      "startLine": 9,
+                      "endLine": 9
                     },
                     "expression": "EcUser"
                   }
@@ -4469,6 +3805,14 @@
                       "endLine": 34
                     },
                     "expression": "this.drizzle.db"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/auth.service.ts",
+                      "startLine": 41,
+                      "endLine": 41
+                    },
+                    "expression": "this.drizzle.db"
                   }
                 ]
               },
@@ -4497,6 +3841,14 @@
                       "filePath": "integration/ec-backend/src/usecase/auth.service.ts",
                       "startLine": 34,
                       "endLine": 34
+                    },
+                    "expression": "users"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/auth.service.ts",
+                      "startLine": 42,
+                      "endLine": 42
                     },
                     "expression": "users"
                   }
@@ -4759,6 +4111,14 @@
                       "endLine": 34
                     },
                     "expression": "this.drizzle.db"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/product.service.ts",
+                      "startLine": 40,
+                      "endLine": 40
+                    },
+                    "expression": "this.drizzle.db"
                   }
                 ]
               },
@@ -4787,6 +4147,38 @@
                       "filePath": "integration/ec-backend/src/usecase/product.service.ts",
                       "startLine": 22,
                       "endLine": 22
+                    },
+                    "expression": "products"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/product.service.ts",
+                      "startLine": 25,
+                      "endLine": 25
+                    },
+                    "expression": "products"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/product.service.ts",
+                      "startLine": 28,
+                      "endLine": 28
+                    },
+                    "expression": "products"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/product.service.ts",
+                      "startLine": 36,
+                      "endLine": 36
+                    },
+                    "expression": "products"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/product.service.ts",
+                      "startLine": 40,
+                      "endLine": 40
                     },
                     "expression": "products"
                   }
@@ -5077,6 +4469,14 @@
                       "endLine": 70
                     },
                     "expression": "products"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/product.service.ts",
+                      "startLine": 72,
+                      "endLine": 72
+                    },
+                    "expression": "products"
                   }
                 ]
               }
@@ -5291,6 +4691,14 @@
                       "endLine": 31
                     },
                     "expression": "CartData"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 32,
+                      "endLine": 32
+                    },
+                    "expression": "CartData"
                   }
                 ]
               }
@@ -5397,6 +4805,14 @@
                       "endLine": 36
                     },
                     "expression": "CartData"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 62,
+                      "endLine": 62
+                    },
+                    "expression": "CartData"
                   }
                 ]
               },
@@ -5410,6 +4826,22 @@
                       "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
                       "startLine": 48,
                       "endLine": 48
+                    },
+                    "expression": "CartItem"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 57,
+                      "endLine": 57
+                    },
+                    "expression": "CartItem"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 59,
+                      "endLine": 59
                     },
                     "expression": "CartItem"
                   }
@@ -5427,6 +4859,36 @@
                       "endLine": 63
                     },
                     "expression": "CART_TTL_SEC"
+                  }
+                ]
+              },
+              {
+                "id": "relation:258",
+                "to": "CartService.addItem@callback:0",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 46,
+                      "endLine": 46
+                    },
+                    "expression": "(item) =>"
+                  }
+                ]
+              },
+              {
+                "id": "relation:259",
+                "to": "CartService.addItem@callback:1",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 55,
+                      "endLine": 55
+                    },
+                    "expression": "(item, i) =>"
                   }
                 ]
               }
@@ -5548,6 +5010,14 @@
                       "endLine": 67
                     },
                     "expression": "CartData"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 90,
+                      "endLine": 90
+                    },
+                    "expression": "CartData"
                   }
                 ]
               },
@@ -5578,6 +5048,36 @@
                       "endLine": 91
                     },
                     "expression": "CART_TTL_SEC"
+                  }
+                ]
+              },
+              {
+                "id": "relation:260",
+                "to": "CartService.updateQuantity@callback:0",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 81,
+                      "endLine": 81
+                    },
+                    "expression": "(item) =>"
+                  }
+                ]
+              },
+              {
+                "id": "relation:261",
+                "to": "CartService.updateQuantity@callback:1",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 86,
+                      "endLine": 86
+                    },
+                    "expression": "(item) =>"
                   }
                 ]
               }
@@ -5639,6 +5139,14 @@
                       "endLine": 101
                     },
                     "expression": "this.store"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 103,
+                      "endLine": 103
+                    },
+                    "expression": "this.store"
                   }
                 ]
               },
@@ -5684,6 +5192,14 @@
                       "endLine": 95
                     },
                     "expression": "CartData"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 99,
+                      "endLine": 99
+                    },
+                    "expression": "CartData"
                   }
                 ]
               },
@@ -5714,6 +5230,21 @@
                       "endLine": 103
                     },
                     "expression": "CART_TTL_SEC"
+                  }
+                ]
+              },
+              {
+                "id": "relation:262",
+                "to": "CartService.removeItem@callback:0",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 97,
+                      "endLine": 97
+                    },
+                    "expression": "(item) =>"
                   }
                 ]
               }
@@ -5859,7 +5390,23 @@
             "name": "store",
             "kind": "property",
             "enclosingDeclarationId": null,
-            "relations": [],
+            "relations": [
+              {
+                "id": "relation:276",
+                "to": "KVStore",
+                "kind": "type",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                      "startLine": 22,
+                      "endLine": 22
+                    },
+                    "expression": "KVStore"
+                  }
+                ]
+              }
+            ],
             "source": {
               "location": {
                 "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
@@ -5870,6 +5417,156 @@
               "excerpt": {
                 "kind": "code",
                 "text": "private readonly store: KVStore;"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "CartService.addItem@callback:0",
+            "name": "@callback:0",
+            "kind": "callback",
+            "enclosingDeclarationId": "CartService.addItem",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                "startLine": 46,
+                "endLine": 46
+              },
+              "signature": "(item) =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "(item) => item.productId === productId"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "CartService.addItem@callback:1",
+            "name": "@callback:1",
+            "kind": "callback",
+            "enclosingDeclarationId": "CartService.addItem",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                "startLine": 55,
+                "endLine": 56
+              },
+              "signature": "(item, i) =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "(item, i) =>\n        i === existingIndex ? { ...item, quantity: newQuantity } : item"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "CartService.updateQuantity@callback:0",
+            "name": "@callback:0",
+            "kind": "callback",
+            "enclosingDeclarationId": "CartService.updateQuantity",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                "startLine": 81,
+                "endLine": 81
+              },
+              "signature": "(item) =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "(item) => item.productId === productId"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "CartService.updateQuantity@callback:1",
+            "name": "@callback:1",
+            "kind": "callback",
+            "enclosingDeclarationId": "CartService.updateQuantity",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                "startLine": 86,
+                "endLine": 87
+              },
+              "signature": "(item) =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "(item) =>\n      item.productId === productId ? { ...item, quantity } : item"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "CartService.removeItem@callback:0",
+            "name": "@callback:0",
+            "kind": "callback",
+            "enclosingDeclarationId": "CartService.removeItem",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/usecase/cart.service.ts",
+                "startLine": 97,
+                "endLine": 97
+              },
+              "signature": "(item) =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "(item) => item.productId !== productId"
               }
             },
             "unitTests": {
@@ -5979,7 +5676,7 @@
               },
               {
                 "id": "relation:72",
-                "to": "OrderHandlers.startup@order:created",
+                "to": "OrderHandlers.startup@callback:0",
                 "kind": "event",
                 "evidence": [
                   {
@@ -6008,51 +5705,6 @@
                 ]
               },
               {
-                "id": "relation:237",
-                "to": "products",
-                "kind": "table",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
-                      "startLine": 29,
-                      "endLine": 29
-                    },
-                    "expression": "products"
-                  }
-                ]
-              },
-              {
-                "id": "relation:238",
-                "to": "orders",
-                "kind": "table",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
-                      "startLine": 44,
-                      "endLine": 44
-                    },
-                    "expression": "orders"
-                  }
-                ]
-              },
-              {
-                "id": "relation:241",
-                "to": "orderItems",
-                "kind": "table",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
-                      "startLine": 55,
-                      "endLine": 55
-                    },
-                    "expression": "orderItems"
-                  }
-                ]
-              },
-              {
                 "id": "relation:254",
                 "to": "order:created",
                 "kind": "type",
@@ -6064,6 +5716,51 @@
                       "endLine": 3
                     },
                     "expression": "'order:created'"
+                  }
+                ]
+              },
+              {
+                "id": "relation:263",
+                "to": "OrderService.createOrder@callback:0",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 25,
+                      "endLine": 25
+                    },
+                    "expression": "(sum, item) =>"
+                  }
+                ]
+              },
+              {
+                "id": "relation:264",
+                "to": "OrderService.createOrder@callback:1",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 27,
+                      "endLine": 27
+                    },
+                    "expression": "(tx) =>"
+                  }
+                ]
+              },
+              {
+                "id": "relation:265",
+                "to": "OrderService.createOrder@callback:2",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 73,
+                      "endLine": 73
+                    },
+                    "expression": "(item) =>"
                   }
                 ]
               }
@@ -6110,6 +5807,14 @@
                       "endLine": 87
                     },
                     "expression": "this.drizzle.db"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 96,
+                      "endLine": 96
+                    },
+                    "expression": "this.drizzle.db"
                   }
                 ]
               },
@@ -6138,6 +5843,38 @@
                       "filePath": "integration/ec-backend/src/usecase/order.service.ts",
                       "startLine": 89,
                       "endLine": 89
+                    },
+                    "expression": "orders"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 90,
+                      "endLine": 90
+                    },
+                    "expression": "orders"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 91,
+                      "endLine": 91
+                    },
+                    "expression": "orders"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 98,
+                      "endLine": 98
+                    },
+                    "expression": "orders"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 99,
+                      "endLine": 99
                     },
                     "expression": "orders"
                   }
@@ -6339,6 +6076,166 @@
                 "label": "DI / 初期化"
               }
             ]
+          },
+          {
+            "id": "OrderService.createOrder@callback:0",
+            "name": "@callback:0",
+            "kind": "callback",
+            "enclosingDeclarationId": "OrderService.createOrder",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                "startLine": 25,
+                "endLine": 25
+              },
+              "signature": "(sum, item) =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "(sum, item) => sum + item.price * item.quantity"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "OrderService.createOrder@callback:1",
+            "name": "@callback:1",
+            "kind": "callback",
+            "enclosingDeclarationId": "OrderService.createOrder",
+            "relations": [
+              {
+                "id": "relation:237",
+                "to": "products",
+                "kind": "table",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 29,
+                      "endLine": 29
+                    },
+                    "expression": "products"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 37,
+                      "endLine": 37
+                    },
+                    "expression": "products"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 38,
+                      "endLine": 38
+                    },
+                    "expression": "products"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 39,
+                      "endLine": 39
+                    },
+                    "expression": "products"
+                  }
+                ]
+              },
+              {
+                "id": "relation:238",
+                "to": "orders",
+                "kind": "table",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 44,
+                      "endLine": 44
+                    },
+                    "expression": "orders"
+                  }
+                ]
+              },
+              {
+                "id": "relation:241",
+                "to": "orderItems",
+                "kind": "table",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                      "startLine": 55,
+                      "endLine": 55
+                    },
+                    "expression": "orderItems"
+                  }
+                ]
+              }
+            ],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                "startLine": 27,
+                "endLine": 66
+              },
+              "signature": "(tx) =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "(tx) => {\n      for (const item of cart.items) {\n        const product = tx.select().from(products).where(eq(products.id, item.productId)).get();\n\n        if (!product || product.stock < item.quantity) {\n          throw new HTTPException(409, {\n            message: `Insufficient stock for product ${item.productId}`,\n          });\n        }\n\n        tx.update(products)\n          .set({ stock: sql`${products.stock} - ${item.quantity}` })\n          .where(eq(products.id, item.productId))\n          .run();\n      }\n\n      const newOrder = tx\n        .insert(orders)\n        .values({\n          userId,\n          totalPrice,\n          status: 'confirmed',\n          createdAt: new Date(),\n        })\n        .returning()\n        .get();\n\n      for (const item of cart.items) {\n        tx.insert(orderItems)\n          .values({\n            orderId: newOrder.id,\n            productId: item.productId,\n            quantity: item.quantity,\n            unitPrice: item.price,\n          })\n          .run();\n      }\n\n      return newOrder;\n    }"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "OrderService.createOrder@callback:2",
+            "name": "@callback:2",
+            "kind": "callback",
+            "enclosingDeclarationId": "OrderService.createOrder",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/usecase/order.service.ts",
+                "startLine": 73,
+                "endLine": 76
+              },
+              "signature": "(item) =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "(item) => ({\n        productId: item.productId,\n        quantity: item.quantity,\n      })"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
           }
         ],
         "relations": [],
@@ -7437,257 +7334,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:3",
-          "role": "regular"
-        }
-      },
-      {
-        "id": "AtomicKVStore",
-        "name": "AtomicKVStore",
-        "kind": "interface",
-        "filePath": "packages/kv/src/kv.types.ts",
-        "members": [
-          {
-            "id": "AtomicKVStore.incr",
-            "name": "incr",
-            "kind": "signature",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/kv/src/kv.types.ts",
-                "startLine": 42,
-                "endLine": 42
-              },
-              "signature": "incr(key: string, by?: number, opts?: { ttlSec?: number }): Promise<number>;",
-              "excerpt": {
-                "kind": "code",
-                "text": "incr(key: string, by?: number, opts?: { ttlSec?: number }): Promise<number>;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "AtomicKVStore.setnx",
-            "name": "setnx",
-            "kind": "signature",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/kv/src/kv.types.ts",
-                "startLine": 47,
-                "endLine": 47
-              },
-              "signature": "setnx<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<boolean>;",
-              "excerpt": {
-                "kind": "code",
-                "text": "setnx<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<boolean>;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "AtomicKVStore.namespace",
-            "name": "namespace",
-            "kind": "signature",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/kv/src/kv.types.ts",
-                "startLine": 48,
-                "endLine": 48
-              },
-              "signature": "namespace<const S extends string>(prefix: NonEmptyString<S>): AtomicKVStore;",
-              "excerpt": {
-                "kind": "code",
-                "text": "namespace<const S extends string>(prefix: NonEmptyString<S>): AtomicKVStore;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          }
-        ],
-        "relations": [
-          {
-            "id": "relation:65",
-            "to": "KVStore",
-            "kind": "extends",
-            "evidence": [
-              {
-                "location": {
-                  "filePath": "packages/kv/src/kv.types.ts",
-                  "startLine": 37,
-                  "endLine": 37
-                },
-                "expression": "extends KVStore"
-              }
-            ]
-          }
-        ],
-        "expansion": "boundary",
-        "source": {
-          "location": {
-            "filePath": "packages/kv/src/kv.types.ts",
-            "startLine": 37,
-            "endLine": 49
-          },
-          "signature": "export interface AtomicKVStore extends KVStore",
-          "excerpt": {
-            "kind": "declaration-only"
-          }
-        },
-        "unresolved": [],
-        "hints": [],
-        "presentation": {
-          "columnId": "column:3",
-          "role": "regular"
-        }
-      },
-      {
-        "id": "EventBusAdaptor",
-        "name": "EventBusAdaptor",
-        "kind": "interface",
-        "filePath": "packages/eventbus/src/eventbus.types.ts",
-        "members": [
-          {
-            "id": "EventBusAdaptor.emit",
-            "name": "emit",
-            "kind": "signature",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/eventbus/src/eventbus.types.ts",
-                "startLine": 5,
-                "endLine": 5
-              },
-              "signature": "emit<K extends string & keyof EventBusSchema>(event: K, data: EventBusSchema[K]): Promise<void>;",
-              "excerpt": {
-                "kind": "code",
-                "text": "emit<K extends string & keyof EventBusSchema>(event: K, data: EventBusSchema[K]): Promise<void>;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "EventBusAdaptor.on",
-            "name": "on",
-            "kind": "signature",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/eventbus/src/eventbus.types.ts",
-                "startLine": 6,
-                "endLine": 9
-              },
-              "signature": "on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>;",
-              "excerpt": {
-                "kind": "code",
-                "text": "on<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "EventBusAdaptor.once",
-            "name": "once",
-            "kind": "signature",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/eventbus/src/eventbus.types.ts",
-                "startLine": 10,
-                "endLine": 13
-              },
-              "signature": "once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>;",
-              "excerpt": {
-                "kind": "code",
-                "text": "once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          }
-        ],
-        "relations": [],
-        "expansion": "boundary",
-        "source": {
-          "location": {
-            "filePath": "packages/eventbus/src/eventbus.types.ts",
-            "startLine": 4,
-            "endLine": 14
-          },
-          "signature": "export interface EventBusAdaptor",
-          "excerpt": {
-            "kind": "declaration-only"
-          }
-        },
-        "unresolved": [],
-        "hints": [],
-        "presentation": {
-          "columnId": "column:3",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -7801,8 +7448,16 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/infra/db/drizzle.service.ts",
-                      "startLine": 15,
-                      "endLine": 15
+                      "startLine": 16,
+                      "endLine": 16
+                    },
+                    "expression": "this.sqlite"
+                  },
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/drizzle.service.ts",
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "this.sqlite"
                   }
@@ -7992,7 +7647,23 @@
             "name": "users",
             "kind": "table",
             "enclosingDeclarationId": null,
-            "relations": [],
+            "relations": [
+              {
+                "id": "relation:266",
+                "to": "users@callback:0",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 13,
+                      "endLine": 13
+                    },
+                    "expression": "() =>"
+                  }
+                ]
+              }
+            ],
             "source": {
               "location": {
                 "filePath": "integration/ec-backend/src/infra/db/schema.ts",
@@ -8027,7 +7698,38 @@
             "name": "products",
             "kind": "table",
             "enclosingDeclarationId": null,
-            "relations": [],
+            "relations": [
+              {
+                "id": "relation:267",
+                "to": "products@callback:0",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 25,
+                      "endLine": 25
+                    },
+                    "expression": "() =>"
+                  }
+                ]
+              },
+              {
+                "id": "relation:268",
+                "to": "products@callback:1",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 28,
+                      "endLine": 28
+                    },
+                    "expression": "() =>"
+                  }
+                ]
+              }
+            ],
             "source": {
               "location": {
                 "filePath": "integration/ec-backend/src/infra/db/schema.ts",
@@ -8062,7 +7764,38 @@
             "name": "orders",
             "kind": "table",
             "enclosingDeclarationId": null,
-            "relations": [],
+            "relations": [
+              {
+                "id": "relation:269",
+                "to": "orders@callback:0",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 35,
+                      "endLine": 35
+                    },
+                    "expression": "() =>"
+                  }
+                ]
+              },
+              {
+                "id": "relation:270",
+                "to": "orders@callback:1",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 42,
+                      "endLine": 42
+                    },
+                    "expression": "() =>"
+                  }
+                ]
+              }
+            ],
             "source": {
               "location": {
                 "filePath": "integration/ec-backend/src/infra/db/schema.ts",
@@ -8097,7 +7830,38 @@
             "name": "orderItems",
             "kind": "table",
             "enclosingDeclarationId": null,
-            "relations": [],
+            "relations": [
+              {
+                "id": "relation:271",
+                "to": "orderItems@callback:0",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 49,
+                      "endLine": 49
+                    },
+                    "expression": "() =>"
+                  }
+                ]
+              },
+              {
+                "id": "relation:272",
+                "to": "orderItems@callback:1",
+                "kind": "read",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 52,
+                      "endLine": 52
+                    },
+                    "expression": "() =>"
+                  }
+                ]
+              }
+            ],
             "source": {
               "location": {
                 "filePath": "integration/ec-backend/src/infra/db/schema.ts",
@@ -8534,6 +8298,264 @@
                 "label": "DB schema由来"
               }
             ]
+          },
+          {
+            "id": "users@callback:0",
+            "name": "@callback:0",
+            "kind": "callback",
+            "enclosingDeclarationId": "users",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                "startLine": 13,
+                "endLine": 13
+              },
+              "signature": "() =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "() => new Date()"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "products@callback:0",
+            "name": "@callback:0",
+            "kind": "callback",
+            "enclosingDeclarationId": "products",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                "startLine": 25,
+                "endLine": 25
+              },
+              "signature": "() =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "() => new Date()"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "products@callback:1",
+            "name": "@callback:1",
+            "kind": "callback",
+            "enclosingDeclarationId": "products",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                "startLine": 28,
+                "endLine": 28
+              },
+              "signature": "() =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "() => new Date()"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "orders@callback:0",
+            "name": "@callback:0",
+            "kind": "callback",
+            "enclosingDeclarationId": "orders",
+            "relations": [
+              {
+                "id": "relation:273",
+                "to": "users",
+                "kind": "table",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 35,
+                      "endLine": 35
+                    },
+                    "expression": "users.id"
+                  }
+                ]
+              }
+            ],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                "startLine": 35,
+                "endLine": 35
+              },
+              "signature": "() =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "() => users.id"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "orders@callback:1",
+            "name": "@callback:1",
+            "kind": "callback",
+            "enclosingDeclarationId": "orders",
+            "relations": [],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                "startLine": 42,
+                "endLine": 42
+              },
+              "signature": "() =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "() => new Date()"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "orderItems@callback:0",
+            "name": "@callback:0",
+            "kind": "callback",
+            "enclosingDeclarationId": "orderItems",
+            "relations": [
+              {
+                "id": "relation:274",
+                "to": "orders",
+                "kind": "table",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 49,
+                      "endLine": 49
+                    },
+                    "expression": "orders.id"
+                  }
+                ]
+              }
+            ],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                "startLine": 49,
+                "endLine": 49
+              },
+              "signature": "() =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "() => orders.id"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
+          },
+          {
+            "id": "orderItems@callback:1",
+            "name": "@callback:1",
+            "kind": "callback",
+            "enclosingDeclarationId": "orderItems",
+            "relations": [
+              {
+                "id": "relation:275",
+                "to": "products",
+                "kind": "table",
+                "evidence": [
+                  {
+                    "location": {
+                      "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                      "startLine": 52,
+                      "endLine": 52
+                    },
+                    "expression": "products.id"
+                  }
+                ]
+              }
+            ],
+            "source": {
+              "location": {
+                "filePath": "integration/ec-backend/src/infra/db/schema.ts",
+                "startLine": 52,
+                "endLine": 52
+              },
+              "signature": "() =>",
+              "excerpt": {
+                "kind": "code",
+                "text": "() => products.id"
+              }
+            },
+            "unitTests": {
+              "cases": [],
+              "coverage": {
+                "status": "complete-in-scope",
+                "searchScope": ["integration/ec-backend"],
+                "inspectedFiles": []
+              }
+            },
+            "e2eTests": null,
+            "unresolved": [],
+            "hints": []
           }
         ],
         "relations": [],
@@ -8567,23 +8589,7 @@
             "name": "namespace",
             "kind": "method",
             "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:63",
-                "to": "MemoryKVStore",
-                "kind": "construct",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/kv/src/adaptor-memory/memory-kv.adaptor.ts",
-                      "startLine": 59,
-                      "endLine": 59
-                    },
-                    "expression": "new MemoryKVStore"
-                  }
-                ]
-              }
-            ],
+            "relations": [],
             "source": {
               "location": {
                 "filePath": "packages/kv/src/adaptor-memory/memory-kv.adaptor.ts",
@@ -8625,140 +8631,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:4",
-          "role": "regular"
-        }
-      },
-      {
-        "id": "MemoryKVStore",
-        "name": "MemoryKVStore",
-        "kind": "class",
-        "filePath": "packages/kv/src/adaptor-memory/memory-kv.adaptor.ts",
-        "members": [
-          {
-            "id": "MemoryKVStore.get",
-            "name": "get",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/kv/src/adaptor-memory/memory-kv.adaptor.ts",
-                "startLine": 84,
-                "endLine": 87
-              },
-              "signature": "async get<T>(key: string): Promise<T | undefined>",
-              "excerpt": {
-                "kind": "code",
-                "text": "async get<T>(key: string): Promise<T | undefined> {\n    const entry = this.current(key);\n    return entry ? this.util.deserialize<T>(entry.raw) : undefined;\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "MemoryKVStore.set",
-            "name": "set",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/kv/src/adaptor-memory/memory-kv.adaptor.ts",
-                "startLine": 90,
-                "endLine": 94
-              },
-              "signature": "async set<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<void>",
-              "excerpt": {
-                "kind": "code",
-                "text": "async set<T extends Defined>(key: string, value: T, opts?: SetOptions): Promise<void> {\n    validateTtl(opts?.ttlSec);\n    const raw = this.util.serialize(value);\n    this.data.set(this.k(key), makeEntry(raw, opts?.ttlSec));\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "MemoryKVStore.del",
-            "name": "del",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/kv/src/adaptor-memory/memory-kv.adaptor.ts",
-                "startLine": 96,
-                "endLine": 98
-              },
-              "signature": "async del(key: string): Promise<void>",
-              "excerpt": {
-                "kind": "code",
-                "text": "async del(key: string): Promise<void> {\n    this.data.delete(this.k(key));\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          }
-        ],
-        "relations": [
-          {
-            "id": "relation:64",
-            "to": "AtomicKVStore",
-            "kind": "implements",
-            "evidence": [
-              {
-                "location": {
-                  "filePath": "packages/kv/src/adaptor-memory/memory-kv.adaptor.ts",
-                  "startLine": 63,
-                  "endLine": 63
-                },
-                "expression": "implements AtomicKVStore"
-              }
-            ]
-          }
-        ],
-        "expansion": "boundary",
-        "source": {
-          "location": {
-            "filePath": "packages/kv/src/adaptor-memory/memory-kv.adaptor.ts",
-            "startLine": 63,
-            "endLine": 140
-          },
-          "signature": "class MemoryKVStore implements AtomicKVStore",
-          "excerpt": {
-            "kind": "declaration-only"
-          }
-        },
-        "unresolved": [],
-        "hints": [],
-        "presentation": {
-          "columnId": "column:4",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -8827,55 +8700,9 @@
             "e2eTests": null,
             "unresolved": [],
             "hints": []
-          },
-          {
-            "id": "MemoryEventBusAdaptor.once",
-            "name": "once",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/eventbus/src/adaptor-memory/memory-event-bus.adaptor.ts",
-                "startLine": 25,
-                "endLine": 37
-              },
-              "signature": "async once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void>",
-              "excerpt": {
-                "kind": "code",
-                "text": "async once<K extends string & keyof EventBusSchema>(\n    event: K,\n    handler: (data: EventBusSchema[K]) => void,\n  ): Promise<() => void> {\n    // Unsubscribes itself directly instead of going through on()'s returned\n    // function, since that function only resolves after this handler is\n    // already registered.\n    const wrappedHandler = (data: EventBusSchema[K]) => {\n      this.emitter.off(event, wrappedHandler);\n      handler(data);\n    };\n    return this.on(event, wrappedHandler);\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
           }
         ],
-        "relations": [
-          {
-            "id": "relation:66",
-            "to": "EventBusAdaptor",
-            "kind": "implements",
-            "evidence": [
-              {
-                "location": {
-                  "filePath": "packages/eventbus/src/adaptor-memory/memory-event-bus.adaptor.ts",
-                  "startLine": 7,
-                  "endLine": 7
-                },
-                "expression": "implements EventBusAdaptor"
-              }
-            ]
-          }
-        ],
+        "relations": [],
         "expansion": "boundary",
         "source": {
           "location": {
@@ -8891,7 +8718,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:4",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -8906,53 +8733,7 @@
             "name": "sign",
             "kind": "method",
             "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:88",
-                "to": "JwtConfig.secret",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/auth-jwt/src/jwt.service.ts",
-                      "startLine": 12,
-                      "endLine": 12
-                    },
-                    "expression": "this.config.secret"
-                  }
-                ]
-              },
-              {
-                "id": "relation:90",
-                "to": "JwtConfig.expiresIn",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/auth-jwt/src/jwt.service.ts",
-                      "startLine": 13,
-                      "endLine": 13
-                    },
-                    "expression": "this.config.expiresIn"
-                  }
-                ]
-              },
-              {
-                "id": "relation:91",
-                "to": "JwtService.parseExpiresIn",
-                "kind": "call",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/auth-jwt/src/jwt.service.ts",
-                      "startLine": 13,
-                      "endLine": 13
-                    },
-                    "expression": "this.parseExpiresIn"
-                  }
-                ]
-              }
-            ],
+            "relations": [],
             "source": {
               "location": {
                 "filePath": "packages/auth-jwt/src/jwt.service.ts",
@@ -8966,452 +8747,20 @@
               }
             },
             "unitTests": {
-              "cases": [
-                {
-                  "id": "packages/auth-jwt/src/jwt.service.test.ts:33",
-                  "name": "should generate a valid JWT token",
-                  "suite": ["JwtService", "sign"],
-                  "location": {
-                    "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                    "startLine": 33,
-                    "endLine": 39
-                  },
-                  "calls": [
-                    {
-                      "setup": {
-                        "id": "jwt-default",
-                        "targetClass": {
-                          "name": "JwtService",
-                          "filePath": "packages/auth-jwt/src/jwt.service.ts"
-                        },
-                        "location": {
-                          "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                          "startLine": 22,
-                          "endLine": 24
-                        },
-                        "resolution": "resolved",
-                        "dependencies": [
-                          {
-                            "provide": {
-                              "name": "JwtConfig",
-                              "filePath": "packages/auth-jwt/src/jwt.config.ts"
-                            },
-                            "kind": "config"
-                          }
-                        ],
-                        "configs": [
-                          {
-                            "name": "TestJwtConfig",
-                            "filePath": "packages/auth-jwt/src/jwt.service.test.ts"
-                          }
-                        ],
-                        "overrides": []
-                      },
-                      "invocation": {
-                        "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                        "startLine": 34,
-                        "endLine": 34
-                      }
-                    }
-                  ]
-                }
-              ],
-              "coverage": {
-                "status": "partial",
-                "searchScope": ["packages/auth-jwt/src/jwt.service.test.ts"],
-                "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "JwtService.verify",
-            "name": "verify",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [
-              {
-                "id": "relation:89",
-                "to": "JwtConfig.secret",
-                "kind": "read",
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/auth-jwt/src/jwt.service.ts",
-                      "startLine": 25,
-                      "endLine": 25
-                    },
-                    "expression": "this.config.secret"
-                  }
-                ]
-              }
-            ],
-            "source": {
-              "location": {
-                "filePath": "packages/auth-jwt/src/jwt.service.ts",
-                "startLine": 24,
-                "endLine": 28
-              },
-              "signature": "async verify(token: string): Promise<JwtPayload>",
-              "excerpt": {
-                "kind": "code",
-                "text": "async verify(token: string): Promise<JwtPayload> {\n    const secret = new TextEncoder().encode(this.config.secret);\n    const { payload } = await jwtVerify<JwtPayload>(token, secret);\n    return payload;\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [
-                {
-                  "id": "packages/auth-jwt/src/jwt.service.test.ts:43",
-                  "name": "should verify and return payload for valid token",
-                  "suite": ["JwtService", "verify"],
-                  "location": {
-                    "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                    "startLine": 43,
-                    "endLine": 51
-                  },
-                  "calls": [
-                    {
-                      "setup": {
-                        "id": "jwt-default",
-                        "targetClass": {
-                          "name": "JwtService",
-                          "filePath": "packages/auth-jwt/src/jwt.service.ts"
-                        },
-                        "location": {
-                          "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                          "startLine": 22,
-                          "endLine": 24
-                        },
-                        "resolution": "resolved",
-                        "dependencies": [
-                          {
-                            "provide": {
-                              "name": "JwtConfig",
-                              "filePath": "packages/auth-jwt/src/jwt.config.ts"
-                            },
-                            "kind": "config"
-                          }
-                        ],
-                        "configs": [
-                          {
-                            "name": "TestJwtConfig",
-                            "filePath": "packages/auth-jwt/src/jwt.service.test.ts"
-                          }
-                        ],
-                        "overrides": []
-                      },
-                      "invocation": {
-                        "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                        "startLine": 45,
-                        "endLine": 45
-                      }
-                    }
-                  ]
-                },
-                {
-                  "id": "packages/auth-jwt/src/jwt.service.test.ts:53",
-                  "name": "should throw error for invalid token",
-                  "suite": ["JwtService", "verify"],
-                  "location": {
-                    "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                    "startLine": 53,
-                    "endLine": 55
-                  },
-                  "calls": [
-                    {
-                      "setup": {
-                        "id": "jwt-default",
-                        "targetClass": {
-                          "name": "JwtService",
-                          "filePath": "packages/auth-jwt/src/jwt.service.ts"
-                        },
-                        "location": {
-                          "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                          "startLine": 22,
-                          "endLine": 24
-                        },
-                        "resolution": "resolved",
-                        "dependencies": [
-                          {
-                            "provide": {
-                              "name": "JwtConfig",
-                              "filePath": "packages/auth-jwt/src/jwt.config.ts"
-                            },
-                            "kind": "config"
-                          }
-                        ],
-                        "configs": [
-                          {
-                            "name": "TestJwtConfig",
-                            "filePath": "packages/auth-jwt/src/jwt.service.test.ts"
-                          }
-                        ],
-                        "overrides": []
-                      },
-                      "invocation": {
-                        "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                        "startLine": 54,
-                        "endLine": 54
-                      }
-                    }
-                  ]
-                },
-                {
-                  "id": "packages/auth-jwt/src/jwt.service.test.ts:57",
-                  "name": "should throw error for tampered token",
-                  "suite": ["JwtService", "verify"],
-                  "location": {
-                    "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                    "startLine": 57,
-                    "endLine": 62
-                  },
-                  "calls": [
-                    {
-                      "setup": {
-                        "id": "jwt-default",
-                        "targetClass": {
-                          "name": "JwtService",
-                          "filePath": "packages/auth-jwt/src/jwt.service.ts"
-                        },
-                        "location": {
-                          "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                          "startLine": 22,
-                          "endLine": 24
-                        },
-                        "resolution": "resolved",
-                        "dependencies": [
-                          {
-                            "provide": {
-                              "name": "JwtConfig",
-                              "filePath": "packages/auth-jwt/src/jwt.config.ts"
-                            },
-                            "kind": "config"
-                          }
-                        ],
-                        "configs": [
-                          {
-                            "name": "TestJwtConfig",
-                            "filePath": "packages/auth-jwt/src/jwt.service.test.ts"
-                          }
-                        ],
-                        "overrides": []
-                      },
-                      "invocation": {
-                        "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                        "startLine": 61,
-                        "endLine": 61
-                      }
-                    }
-                  ]
-                }
-              ],
-              "coverage": {
-                "status": "partial",
-                "searchScope": ["packages/auth-jwt/src/jwt.service.test.ts"],
-                "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "JwtService.decode",
-            "name": "decode",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/auth-jwt/src/jwt.service.ts",
-                "startLine": 30,
-                "endLine": 36
-              },
-              "signature": "decode(token: string): JwtPayload | null",
-              "excerpt": {
-                "kind": "code",
-                "text": "decode(token: string): JwtPayload | null {\n    try {\n      return decodeJwt<JwtPayload>(token);\n    } catch {\n      return null;\n    }\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [
-                {
-                  "id": "packages/auth-jwt/src/jwt.service.test.ts:66",
-                  "name": "should decode token without verification",
-                  "suite": ["JwtService", "decode"],
-                  "location": {
-                    "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                    "startLine": 66,
-                    "endLine": 72
-                  },
-                  "calls": [
-                    {
-                      "setup": {
-                        "id": "jwt-default",
-                        "targetClass": {
-                          "name": "JwtService",
-                          "filePath": "packages/auth-jwt/src/jwt.service.ts"
-                        },
-                        "location": {
-                          "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                          "startLine": 22,
-                          "endLine": 24
-                        },
-                        "resolution": "resolved",
-                        "dependencies": [
-                          {
-                            "provide": {
-                              "name": "JwtConfig",
-                              "filePath": "packages/auth-jwt/src/jwt.config.ts"
-                            },
-                            "kind": "config"
-                          }
-                        ],
-                        "configs": [
-                          {
-                            "name": "TestJwtConfig",
-                            "filePath": "packages/auth-jwt/src/jwt.service.test.ts"
-                          }
-                        ],
-                        "overrides": []
-                      },
-                      "invocation": {
-                        "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                        "startLine": 68,
-                        "endLine": 68
-                      }
-                    }
-                  ]
-                },
-                {
-                  "id": "packages/auth-jwt/src/jwt.service.test.ts:74",
-                  "name": "should return null for invalid token",
-                  "suite": ["JwtService", "decode"],
-                  "location": {
-                    "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                    "startLine": 74,
-                    "endLine": 78
-                  },
-                  "calls": [
-                    {
-                      "setup": {
-                        "id": "jwt-default",
-                        "targetClass": {
-                          "name": "JwtService",
-                          "filePath": "packages/auth-jwt/src/jwt.service.ts"
-                        },
-                        "location": {
-                          "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                          "startLine": 22,
-                          "endLine": 24
-                        },
-                        "resolution": "resolved",
-                        "dependencies": [
-                          {
-                            "provide": {
-                              "name": "JwtConfig",
-                              "filePath": "packages/auth-jwt/src/jwt.config.ts"
-                            },
-                            "kind": "config"
-                          }
-                        ],
-                        "configs": [
-                          {
-                            "name": "TestJwtConfig",
-                            "filePath": "packages/auth-jwt/src/jwt.service.test.ts"
-                          }
-                        ],
-                        "overrides": []
-                      },
-                      "invocation": {
-                        "filePath": "packages/auth-jwt/src/jwt.service.test.ts",
-                        "startLine": 75,
-                        "endLine": 75
-                      }
-                    }
-                  ]
-                }
-              ],
-              "coverage": {
-                "status": "partial",
-                "searchScope": ["packages/auth-jwt/src/jwt.service.test.ts"],
-                "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "JwtService.parseExpiresIn",
-            "name": "parseExpiresIn",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/auth-jwt/src/jwt.service.ts",
-                "startLine": 38,
-                "endLine": 52
-              },
-              "signature": "private parseExpiresIn(expiresIn: string): string | number",
-              "excerpt": {
-                "kind": "code",
-                "text": "private parseExpiresIn(expiresIn: string): string | number {\n    const match = /^(\\d+)([smhd])$/.exec(expiresIn);\n    if (match) {\n      const value = parseInt(match[1] ?? '0', 10);\n      const unit = match[2] ?? '';\n      const unitMap: Record<string, string> = {\n        s: 'seconds',\n        m: 'minutes',\n        h: 'hours',\n        d: 'days',\n      };\n      return `${value} ${unitMap[unit]}`;\n    }\n    return expiresIn;\n  }"
-              }
-            },
-            "unitTests": {
               "cases": [],
               "coverage": {
-                "status": "partial",
-                "searchScope": ["packages/auth-jwt/src/jwt.service.test.ts"],
-                "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": []
               }
             },
             "e2eTests": null,
             "unresolved": [],
             "hints": []
-          },
-          {
-            "id": "JwtService.constructor",
-            "name": "constructor",
-            "kind": "constructor",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/auth-jwt/src/jwt.service.ts",
-                "startLine": 9,
-                "endLine": 9
-              },
-              "signature": "constructor(private readonly config = inject(JwtConfig))",
-              "excerpt": {
-                "kind": "code",
-                "text": "constructor(private readonly config = inject(JwtConfig)) {}"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "partial",
-                "searchScope": ["packages/auth-jwt/src/jwt.service.test.ts"],
-                "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": [
-              {
-                "provider": "zelt",
-                "label": "DI / 初期化"
-              }
-            ]
           }
         ],
         "relations": [],
-        "expansion": "included",
+        "expansion": "boundary",
         "source": {
           "location": {
             "filePath": "packages/auth-jwt/src/jwt.service.ts",
@@ -9426,7 +8775,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:4",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -9483,64 +8832,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:4",
-          "role": "regular"
-        }
-      },
-      {
-        "id": "RateLimitService",
-        "name": "RateLimitService",
-        "kind": "class",
-        "filePath": "packages/rate-limit/src/rate-limit.service.ts",
-        "members": [
-          {
-            "id": "RateLimitService.hit",
-            "name": "hit",
-            "kind": "method",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/rate-limit/src/rate-limit.service.ts",
-                "startLine": 23,
-                "endLine": 36
-              },
-              "signature": "async hit(\n    key: string,\n    opts?: { limit?: number; windowSec?: number },\n  ): Promise<RateLimiterHitResult>",
-              "excerpt": {
-                "kind": "code",
-                "text": "async hit(\n    key: string,\n    opts?: { limit?: number; windowSec?: number },\n  ): Promise<RateLimiterHitResult> {\n    const limit = opts?.limit ?? this.config.defaultLimit;\n    const windowSec = opts?.windowSec ?? this.config.defaultWindowSec;\n\n    try {\n      const count = await this.store.incr(key, 1, { ttlSec: windowSec });\n      return { ok: true, value: this.buildResult(count, limit, windowSec) };\n    } catch (err) {\n      return this.handleKVError(err, key, limit);\n    }\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          }
-        ],
-        "relations": [],
-        "expansion": "boundary",
-        "source": {
-          "location": {
-            "filePath": "packages/rate-limit/src/rate-limit.service.ts",
-            "startLine": 12,
-            "endLine": 67
-          },
-          "signature": "@Injectable()\nexport class RateLimitService",
-          "excerpt": {
-            "kind": "declaration-only"
-          }
-        },
-        "unresolved": [],
-        "hints": [],
-        "presentation": {
-          "columnId": "column:4",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -9597,7 +8889,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:4",
+          "columnId": "column:6",
           "role": "regular"
         }
       },
@@ -9720,7 +9012,7 @@
               },
               {
                 "id": "relation:99",
-                "to": "EcJwtConfig.resolveUser@callback",
+                "to": "EcJwtConfig.resolveUser@callback:0",
                 "kind": "returns",
                 "evidence": [
                   {
@@ -9758,8 +9050,8 @@
             "hints": []
           },
           {
-            "id": "EcJwtConfig.resolveUser@callback",
-            "name": "async (payload) => …",
+            "id": "EcJwtConfig.resolveUser@callback:0",
+            "name": "@callback:0",
             "kind": "callback",
             "enclosingDeclarationId": "EcJwtConfig.resolveUser",
             "relations": [
@@ -9906,66 +9198,6 @@
             "hints": []
           },
           {
-            "id": "JwtConfig.driver",
-            "name": "driver",
-            "kind": "getter",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/auth-jwt/src/jwt.config.ts",
-                "startLine": 31,
-                "endLine": 33
-              },
-              "signature": "get driver(): JwtDriver",
-              "excerpt": {
-                "kind": "code",
-                "text": "get driver(): JwtDriver {\n    return 'header';\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "JwtConfig.cookieName",
-            "name": "cookieName",
-            "kind": "getter",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/auth-jwt/src/jwt.config.ts",
-                "startLine": 35,
-                "endLine": 37
-              },
-              "signature": "get cookieName(): string",
-              "excerpt": {
-                "kind": "code",
-                "text": "get cookieName(): string {\n    return 'jwt';\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
             "id": "JwtConfig.resolveUser",
             "name": "resolveUser",
             "kind": "getter",
@@ -10012,7 +9244,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:5",
+          "columnId": "column:6",
           "role": "config"
         }
       },
@@ -10186,126 +9418,6 @@
             "hints": []
           },
           {
-            "id": "CorsConfig.allowMethods",
-            "name": "allowMethods",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/cors/cors.config.ts",
-                "startLine": 7,
-                "endLine": 7
-              },
-              "signature": "readonly allowMethods: string[]",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly allowMethods: string[] = ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH'];"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "CorsConfig.allowHeaders",
-            "name": "allowHeaders",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/cors/cors.config.ts",
-                "startLine": 9,
-                "endLine": 9
-              },
-              "signature": "readonly allowHeaders: string[]",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly allowHeaders: string[] = [];"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "CorsConfig.exposeHeaders",
-            "name": "exposeHeaders",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/cors/cors.config.ts",
-                "startLine": 11,
-                "endLine": 11
-              },
-              "signature": "readonly exposeHeaders: string[]",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly exposeHeaders: string[] = [];"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "CorsConfig.maxAge",
-            "name": "maxAge",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/cors/cors.config.ts",
-                "startLine": 13,
-                "endLine": 13
-              },
-              "signature": "readonly maxAge: number | undefined",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly maxAge: number | undefined = undefined;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
             "id": "CorsConfig.credentials",
             "name": "credentials",
             "kind": "property",
@@ -10337,7 +9449,7 @@
           }
         ],
         "relations": [],
-        "expansion": "included",
+        "expansion": "boundary",
         "source": {
           "location": {
             "filePath": "packages/core/src/features/http/middleware/cors/cors.config.ts",
@@ -10352,481 +9464,7 @@
         "unresolved": [],
         "hints": [],
         "presentation": {
-          "columnId": "column:5",
-          "role": "config"
-        }
-      },
-      {
-        "id": "RateLimitConfig",
-        "name": "RateLimitConfig",
-        "kind": "class",
-        "filePath": "packages/rate-limit/src/rate-limit.config.ts",
-        "members": [
-          {
-            "id": "RateLimitConfig.enabled",
-            "name": "enabled",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/rate-limit/src/rate-limit.config.ts",
-                "startLine": 9,
-                "endLine": 9
-              },
-              "signature": "readonly enabled: boolean",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly enabled: boolean = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          }
-        ],
-        "relations": [],
-        "expansion": "boundary",
-        "source": {
-          "location": {
-            "filePath": "packages/rate-limit/src/rate-limit.config.ts",
-            "startLine": 5,
-            "endLine": 14
-          },
-          "signature": "@Config\nexport class RateLimitConfig",
-          "excerpt": {
-            "kind": "declaration-only"
-          }
-        },
-        "unresolved": [],
-        "hints": [],
-        "presentation": {
-          "columnId": "column:5",
-          "role": "config"
-        }
-      },
-      {
-        "id": "SecureHeadersConfig",
-        "name": "SecureHeadersConfig",
-        "kind": "class",
-        "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-        "members": [
-          {
-            "id": "SecureHeadersConfig.crossOriginEmbedderPolicy",
-            "name": "crossOriginEmbedderPolicy",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 7,
-                "endLine": 7
-              },
-              "signature": "readonly crossOriginEmbedderPolicy: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly crossOriginEmbedderPolicy: OverridableHeader = false;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.crossOriginResourcePolicy",
-            "name": "crossOriginResourcePolicy",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 9,
-                "endLine": 9
-              },
-              "signature": "readonly crossOriginResourcePolicy: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly crossOriginResourcePolicy: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.crossOriginOpenerPolicy",
-            "name": "crossOriginOpenerPolicy",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 11,
-                "endLine": 11
-              },
-              "signature": "readonly crossOriginOpenerPolicy: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly crossOriginOpenerPolicy: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.originAgentCluster",
-            "name": "originAgentCluster",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 13,
-                "endLine": 13
-              },
-              "signature": "readonly originAgentCluster: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly originAgentCluster: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.referrerPolicy",
-            "name": "referrerPolicy",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 15,
-                "endLine": 15
-              },
-              "signature": "readonly referrerPolicy: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly referrerPolicy: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.strictTransportSecurity",
-            "name": "strictTransportSecurity",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 17,
-                "endLine": 17
-              },
-              "signature": "readonly strictTransportSecurity: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly strictTransportSecurity: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.xContentTypeOptions",
-            "name": "xContentTypeOptions",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 19,
-                "endLine": 19
-              },
-              "signature": "readonly xContentTypeOptions: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly xContentTypeOptions: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.xDnsPrefetchControl",
-            "name": "xDnsPrefetchControl",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 21,
-                "endLine": 21
-              },
-              "signature": "readonly xDnsPrefetchControl: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly xDnsPrefetchControl: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.xDownloadOptions",
-            "name": "xDownloadOptions",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 23,
-                "endLine": 23
-              },
-              "signature": "readonly xDownloadOptions: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly xDownloadOptions: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.xFrameOptions",
-            "name": "xFrameOptions",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 25,
-                "endLine": 25
-              },
-              "signature": "readonly xFrameOptions: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly xFrameOptions: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.xPermittedCrossDomainPolicies",
-            "name": "xPermittedCrossDomainPolicies",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 27,
-                "endLine": 27
-              },
-              "signature": "readonly xPermittedCrossDomainPolicies: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly xPermittedCrossDomainPolicies: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.xXssProtection",
-            "name": "xXssProtection",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 29,
-                "endLine": 29
-              },
-              "signature": "readonly xXssProtection: OverridableHeader",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly xXssProtection: OverridableHeader = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          },
-          {
-            "id": "SecureHeadersConfig.removePoweredBy",
-            "name": "removePoweredBy",
-            "kind": "property",
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-                "startLine": 31,
-                "endLine": 31
-              },
-              "signature": "readonly removePoweredBy: boolean",
-              "excerpt": {
-                "kind": "code",
-                "text": "readonly removePoweredBy: boolean = true;"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": []
-          }
-        ],
-        "relations": [],
-        "expansion": "included",
-        "source": {
-          "location": {
-            "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.config.ts",
-            "startLine": 5,
-            "endLine": 32
-          },
-          "signature": "@Config\nexport class SecureHeadersConfig",
-          "excerpt": {
-            "kind": "declaration-only"
-          }
-        },
-        "unresolved": [],
-        "hints": [],
-        "presentation": {
-          "columnId": "column:5",
+          "columnId": "column:6",
           "role": "config"
         }
       }
@@ -10850,18 +9488,18 @@
           "width": 310
         },
         {
-          "id": "column:3",
-          "label": "Port / interface",
-          "width": 310
-        },
-        {
           "id": "column:4",
-          "label": "Adapter / package service",
+          "label": "Adapter / Infrastructure",
           "width": 310
         },
         {
           "id": "column:5",
           "label": "Config",
+          "width": 310
+        },
+        {
+          "id": "column:6",
+          "label": "外部",
           "width": 310
         }
       ]
