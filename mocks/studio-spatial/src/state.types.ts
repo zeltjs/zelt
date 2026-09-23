@@ -1,9 +1,7 @@
 import type { Graph } from './graph.lib';
-import type { EntryPoint } from './snapshot.types';
 
 export type ScopeMode = 'near' | 'flow' | 'all';
 export type InspectorTab = 'contract' | 'source';
-export type EntryKind = EntryPoint['kind'] | 'all';
 export interface Point {
   readonly x: number;
   readonly y: number;
@@ -31,8 +29,6 @@ export interface ViewState {
   readonly expanded: readonly string[];
   readonly options: ViewOptions;
   readonly query: string;
-  readonly category: EntryKind;
-  readonly demo: string | null;
 }
 export type Dialog =
   | { kind: 'composition' }

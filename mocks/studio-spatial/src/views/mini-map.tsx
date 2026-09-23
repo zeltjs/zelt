@@ -55,8 +55,8 @@ function MiniNode({ group: g, emit }: { readonly group: GroupModel; readonly emi
       <button
         type="button"
         className="mini-node"
-        aria-label={g.id}
-        title={g.id}
+        aria-label={g.name}
+        title={g.name}
         onClick={() => send({ type: 'subject.find', id: g.id })}
       />
     </foreignObject>

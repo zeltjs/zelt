@@ -15,7 +15,6 @@ export function DeclarationNode({
     model.callable ? 'function-node' : 'data-node',
     model.selected && 'selected',
     model.dimmed && 'dimmed',
-    model.changed && 'changed',
   ]
     .filter(Boolean)
     .join(' ');
@@ -26,8 +25,7 @@ export function DeclarationNode({
       data-declaration={model.id}
       data-node={model.callable ? model.id : undefined}
       data-select={model.id}
-      style={{ top: model.top }}
-      title={model.id}
+      style={{ top: model.top, height: model.height }}
       aria-pressed={model.selected}
       onClick={() => send({ type: 'subject.select', id: model.id })}
     >
@@ -35,7 +33,11 @@ export function DeclarationNode({
         <small className="kind">{model.kind}</small>
         <strong>{model.label}</strong>
       </span>
-      <span className="member-hint">{model.hint}</span>
+      {model.hints.map((hint) => (
+        <span key={hint.key} className="member-hint">
+          {hint.label}
+        </span>
+      ))}
     </button>
   );
 }
@@ -74,7 +76,6 @@ export function GroupNode({
     !model.expanded && 'collapsed',
     model.dimmed && 'dimmed-group',
     model.selected && 'selected-group',
-    model.changed && 'changed-group',
   ]
     .filter(Boolean)
     .join(' ');
@@ -94,7 +95,7 @@ export function GroupNode({
         <DeclarationNode key={member.id} model={member} emit={send} />
       ))}
       {model.tags.length > 0 && (
-        <fieldset className="group-references" aria-label={`${model.id}の適用・接続先`}>
+        <fieldset className="group-references" aria-label={`${model.name}の適用・接続先`}>
           {model.tags.map((tag) => (
             <RelationTag key={tag.key} model={tag} emit={send} />
           ))}
@@ -116,14 +117,14 @@ function GroupHeading({ model, emit }: { readonly model: GroupModel; readonly em
         onClick={() => send({ type: 'subject.select', id: model.id })}
       >
         <span>{model.kind}</span>
-        <strong>{model.id}</strong>
+        <strong>{model.name}</strong>
       </button>
       <button
         type="button"
         className="group-toggle"
         data-toggle={model.id}
         aria-expanded={model.expanded}
-        aria-label={`${model.id}を${model.expanded ? '折りたたむ' : '展開'}`}
+        aria-label={`${model.name}を${model.expanded ? '折りたたむ' : '展開'}`}
         onClick={() => send({ type: 'group.toggle', id: model.id })}
       >
         {model.expanded ? '−' : '＋'}

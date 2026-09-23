@@ -5,7 +5,7 @@ export type RelationPart = 'wires' | 'middleware' | 'warp' | 'config' | 'composi
 export interface Attachment {
   readonly key: string;
   readonly groupId: string;
-  readonly kind: 'middleware' | 'config' | 'event' | 'call';
+  readonly kind: 'middleware' | 'config' | 'event';
   readonly target: string;
   readonly incoming: boolean;
   readonly relations: readonly Relation[];
@@ -18,16 +18,7 @@ export function relationPart(graph: Graph, edge: Relation, showConfig: boolean):
   if (roles.includes('composition')) return 'composition';
   if (!showConfig && roles.includes('config')) return 'config';
   if (edge.kind === 'middleware') return 'middleware';
-  return isWarp(graph, edge) ? 'warp' : 'wires';
-}
-
-function isWarp(graph: Graph, edge: Relation): boolean {
-  if (edge.kind === 'event') return true;
-  if (edge.kind !== 'call') return false;
-  const entry = graph.declarations.get(edge.to)?.entries.some((e) => e.kind !== 'lifecycle');
-  return (
-    required(graph.owners, edge.from).id !== required(graph.owners, edge.to).id && entry === true
-  );
+  return edge.kind === 'event' ? 'warp' : 'wires';
 }
 
 export function attachments(
@@ -77,9 +68,8 @@ function attachRelation(
   const part = relationPart(graph, edge, showConfig);
   if (part === 'middleware') add(edge.from, 'middleware', edge.to, edge);
   if (part === 'warp') {
-    const kind = edge.kind === 'event' ? 'event' : 'call';
-    add(edge.from, kind, edge.to, edge);
-    add(edge.to, kind, edge.from, edge, true);
+    add(edge.from, 'event', edge.to, edge);
+    add(edge.to, 'event', edge.from, edge, true);
   }
   if (part === 'config') {
     for (const id of [edge.from, edge.to]) {

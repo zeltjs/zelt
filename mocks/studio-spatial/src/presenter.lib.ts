@@ -1,52 +1,36 @@
 import type { ViewportCommand } from './display.types';
-import type { Entry } from './graph.lib';
-import { required } from './graph.lib';
+import { required, subject } from './graph.lib';
 import { presentDialog, presentInspector } from './inspector-presenter.lib';
 import { layout, position } from './layout.lib';
 import { presentMap } from './map-presenter.lib';
 import type { ControlsModel, RootModel, ToolbarModel } from './presenter.types';
 import { focus } from './scope.lib';
+import type { SourceDeclaration, SourceGroup } from './snapshot.types';
 import type { ReadyState, StudioState } from './state.types';
 
-function entryLabel({ entry, targetId }: Entry): string {
-  return match(entry)
-    .with({ kind: 'http' }, (e) => `${e.method} ${e.path} · ${targetId}`)
-    .with({ kind: 'event' }, (e) => `Event ${e.eventName} · ${targetId}`)
-    .with({ kind: 'middleware' }, () => `Middleware · ${targetId}`)
-    .with({ kind: 'lifecycle' }, (e) => `${e.hook} · ${targetId}`)
-    .exhaustive();
+function hintText(s: SourceGroup | SourceDeclaration): string {
+  return s.hints.map((h) => h.label).join(' · ');
 }
 
 function toolbar(state: ReadyState): ToolbarModel {
   const { graph, view } = state,
     query = view.query.trim().toLowerCase();
-  const subjects = [...graph.groups.values(), ...graph.declarations.values()];
+  const subjects = [...graph.groups.values(), ...graph.declarations.values()].map((s) => ({
+    subject: s,
+    label: graph.groups.has(s.id) ? s.name : `${required(graph.owners, s.id).name}#${s.name}`,
+  }));
   const found = query
-    ? subjects.filter((s) =>
-        `${s.id} ${s.presentation.hint ?? ''} ${s.source.location.filePath}`
-          .toLowerCase()
-          .includes(query),
+    ? subjects.filter(({ subject: s, label }) =>
+        `${label} ${hintText(s)} ${s.source.location.filePath}`.toLowerCase().includes(query),
       )
     : [];
-  const entries = [...graph.entries.values()]
-    .filter(
-      (e) =>
-        required(graph.owners, e.targetId).presentation.role !== 'composition' &&
-        (view.category === 'all' || e.entry.kind === view.category),
-    )
-    .map((e) => ({ id: e.entry.id, kind: e.entry.kind, label: entryLabel(e) }));
-  const origin = [...graph.entries.values()].find((e) => e.targetId === focus(view))?.entry.id;
   return {
     projectName: graph.snapshot.project.name,
     query: view.query,
-    category: view.category,
     searchCount: found.length,
     results: found
       .slice(0, 40)
-      .map((s) => ({ id: s.id, label: s.name, hint: s.presentation.hint ?? s.kind })),
-    entries,
-    origin:
-      view.scope.kind === 'locked' && entries.some((e) => e.id === origin) ? (origin ?? '') : '',
+      .map(({ subject: s, label }) => ({ id: s.id, label, hint: hintText(s) || s.kind })),
   };
 }
 
@@ -56,10 +40,11 @@ function controls(state: ReadyState): ControlsModel {
   const selectable =
     view.node !== null && required(graph.owners, view.node).presentation.role !== 'composition';
   const origin = focus(view);
+  const name = origin === null ? null : subject(graph, origin).name;
   const scopeStatus = locked
-    ? `固定基準: ${origin} · クリックは詳細のみ`
-    : origin
-      ? `選択に追従: ${origin}`
+    ? `固定基準: ${name} · クリックは詳細のみ`
+    : name !== null
+      ? `選択に追従: ${name}`
       : '選択に追従 · 箱を選んでください';
   return {
     mode: view.scope.mode,
@@ -83,7 +68,6 @@ function command(state: ReadyState): ViewportCommand | null {
 
 export function present(state: StudioState): RootModel {
   if (state.phase !== 'ready') return state;
-  const scenario = state.graph.snapshot.graph.presentation.demoScenarios.at(0);
   return {
     phase: 'ready',
     toolbar: toolbar(state),
@@ -95,16 +79,7 @@ export function present(state: StudioState): RootModel {
     dialog: presentDialog(state),
     help: state.help,
     notice: state.notice,
-    demo: scenario
-      ? {
-          id: scenario.id,
-          label: state.view.demo ? '仮変更を戻す' : scenario.label,
-          active: state.view.demo === scenario.id,
-        }
-      : null,
     declarationCount: state.graph.declarations.size,
     groupCount: state.graph.groups.size,
   };
 }
-
-import { match } from 'ts-pattern';

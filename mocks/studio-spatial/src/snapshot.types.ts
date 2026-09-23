@@ -5,15 +5,13 @@ import type {
   ColumnIdSchema,
   DeclarationIdSchema,
   DeclarationKindSchema,
-  DeclarationPresentationSchema,
   DependencyBindingSchema,
   EndpointCoverageSchema,
   EndpointTestCaseSchema,
   EndpointTestsSchema,
-  EntryIdSchema,
-  EntryPointSchema,
   GroupIdSchema,
   GroupPresentationSchema,
+  HintSchema,
   MapPresentationSchema,
   RelationEvidenceSchema,
   RelationIdSchema,
@@ -39,7 +37,6 @@ export type GroupId = InferOutput<typeof GroupIdSchema>;
 export type DeclarationId = InferOutput<typeof DeclarationIdSchema>;
 export type SubjectId = InferOutput<typeof SubjectIdSchema>;
 export type RelationId = InferOutput<typeof RelationIdSchema>;
-export type EntryId = InferOutput<typeof EntryIdSchema>;
 export type TestId = InferOutput<typeof TestIdSchema>;
 export type SetupId = InferOutput<typeof SetupIdSchema>;
 export type ColumnId = InferOutput<typeof ColumnIdSchema>;
@@ -54,7 +51,6 @@ export type SourceLocation = InferOutput<typeof SourceLocationSchema>;
 export type RelationEvidence = InferOutput<typeof RelationEvidenceSchema>;
 export type UnresolvedReference = InferOutput<typeof UnresolvedReferenceSchema>;
 export type SourceDetail = InferOutput<typeof SourceDetailSchema>;
-export type EntryPoint = InferOutput<typeof EntryPointSchema>;
 export type UnitTests = InferOutput<typeof UnitTestsSchema>;
 export type UnitTestCase = InferOutput<typeof UnitTestCaseSchema>;
 export type EndpointTests = InferOutput<typeof EndpointTestsSchema>;
@@ -66,5 +62,5 @@ export type UnitSetup = InferOutput<typeof UnitSetupSchema>;
 export type AssociationCoverage = InferOutput<typeof AssociationCoverageSchema>;
 export type EndpointCoverage = InferOutput<typeof EndpointCoverageSchema>;
 export type GroupPresentation = InferOutput<typeof GroupPresentationSchema>;
-export type DeclarationPresentation = InferOutput<typeof DeclarationPresentationSchema>;
+export type Hint = InferOutput<typeof HintSchema>;
 export type MapPresentation = InferOutput<typeof MapPresentationSchema>;

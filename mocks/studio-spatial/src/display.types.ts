@@ -4,15 +4,15 @@ import type { Rect, Viewport } from './state.types';
 export interface VisualState {
   readonly dimmed: boolean;
   readonly selected: boolean;
-  readonly changed: boolean;
 }
 export interface DeclarationModel extends VisualState {
   readonly id: string;
   readonly label: string;
   readonly kind: string;
   readonly callable: boolean;
-  readonly hint: string;
+  readonly hints: readonly { readonly key: string; readonly label: string }[];
   readonly top: number;
+  readonly height: number;
 }
 export interface TagModel {
   readonly key: string;
@@ -23,6 +23,7 @@ export interface TagModel {
 }
 export interface GroupModel extends VisualState {
   readonly id: string;
+  readonly name: string;
   readonly kind: string;
   readonly rect: Rect;
   readonly expanded: boolean;
@@ -80,6 +81,7 @@ export interface EndpointModel {
 }
 export interface InspectorModel {
   readonly id: string;
+  readonly name: string;
   readonly kind: string;
   readonly path: string;
   readonly source: SourceDetail;
@@ -101,7 +103,9 @@ export interface DialogModel {
   readonly rows: readonly {
     readonly id: string;
     readonly from: string;
+    readonly fromName: string;
     readonly to: string;
+    readonly toName: string;
     readonly label: string;
   }[];
 }

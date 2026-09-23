@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import type { ViewIntent } from './events.types';
 import { required } from './graph.lib';
-import { initialReady, locate, select } from './state.lib';
+import { initialReady } from './state.lib';
 import type { ReadyState } from './state.types';
 
 export function preferences(state: ReadyState, event: ViewIntent): ReadyState | null {
@@ -14,18 +14,9 @@ export function preferences(state: ReadyState, event: ViewIntent): ReadyState | 
     }))
     .with({ type: 'options.change' }, (e) => ({ ...state, view: { ...view, options: e.options } }))
     .with({ type: 'search.change' }, (e) => ({ ...state, view: { ...view, query: e.query } }))
-    .with({ type: 'entry.filter' }, (e) => ({ ...state, view: { ...view, category: e.kind } }))
     .with({ type: 'inspector.tab' }, (e) => ({ ...state, view: { ...view, tab: e.tab } }))
     .with({ type: 'help.set' }, (e) => ({ ...state, help: e.open }))
     .otherwise(() => null);
-}
-
-function demo(state: ReadyState, id: string | null): ReadyState {
-  const scenarios = state.graph.snapshot.graph.presentation.demoScenarios;
-  const scenario = scenarios.find((s) => s.id === id);
-  if (id !== null && !scenario) throw new Error(`Unknown scenario: ${id}`);
-  const selected = scenario ? locate(select(state, scenario.selectId), scenario.selectId) : state;
-  return { ...selected, view: { ...selected.view, demo: id } };
 }
 
 export function presentation(state: ReadyState, event: ViewIntent): ReadyState | null {
@@ -47,7 +38,6 @@ export function presentation(state: ReadyState, event: ViewIntent): ReadyState |
         viewport: { ...state.viewport, rect: { ...state.viewport.rect, x: 0, y: 0 } },
       },
     }))
-    .with({ type: 'demo.choose' }, (e) => demo(state, e.id))
     .with({ type: 'view.reset' }, () => ({
       ...initialReady(state.graph, state.requestId),
       command: { sequence: (state.command?.sequence ?? 0) + 1, kind: 'reset' },

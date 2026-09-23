@@ -14,6 +14,7 @@ export function presentInspector(graph: Graph, id: string | null): InspectorMode
   const declarations = group ? group.members : [required(graph.declarations, id)];
   return {
     id,
+    name: selected.name,
     kind: declaration ? declarationLabels[declaration.kind] : owner.kind.toUpperCase(),
     path: `${selected.source.location.filePath}:${selected.source.location.startLine}`,
     source: selected.source,
@@ -44,11 +45,20 @@ export function presentDialog(state: ReadyState): DialogModel | null {
       : dialog.relationIds.includes(e.id),
   );
   return {
-    title: composition ? 'アプリ構成 · app.ts' : `設定との関係: ${dialog.groupId}`,
+    title: composition
+      ? 'アプリ構成 · app.ts'
+      : `設定との関係: ${required(state.graph.groups, dialog.groupId).name}`,
     description: composition
       ? 'createEcAppが登録する構成です。通常の地図には表示しません。'
       : '箱を非表示にしているだけで、関係は残っています。',
     compositionSource: composition,
-    rows: edges.map((e) => ({ id: e.id, from: e.from, to: e.to, label: relationLabels[e.kind] })),
+    rows: edges.map((e) => ({
+      id: e.id,
+      from: e.from,
+      fromName: subject(state.graph, e.from).name,
+      to: e.to,
+      toName: subject(state.graph, e.to).name,
+      label: relationLabels[e.kind],
+    })),
   };
 }

@@ -97,7 +97,7 @@ function MapLegend({ summary }: { readonly summary: string }) {
         <span className="call-key">→ 呼ぶ</span>
         <span className="read-key">─○ 読む</span>
         <span className="middleware-key">タグ: 適用</span>
-        <span className="event-key">↗ warp: event / call</span>
+        <span className="event-key">↗ warp: event</span>
         <span>·· 型・登録・継承</span>
       </div>
     </footer>

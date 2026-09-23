@@ -1,5 +1,5 @@
 import type { Graph } from './graph.lib';
-import { required } from './graph.lib';
+import { required, subject } from './graph.lib';
 import type { ReadyState, UrlState, ViewState } from './state.types';
 
 export function initialView(): ViewState {
@@ -10,8 +10,6 @@ export function initialView(): ViewState {
     expanded: [],
     options: { showTypes: true, showCounts: true, showConfig: true },
     query: '',
-    category: 'all',
-    demo: null,
   };
 }
 
@@ -54,7 +52,7 @@ export function select(state: ReadyState, id: string): ReadyState {
 
 export function requireMapSubject(graph: Graph, id: string): void {
   if (required(graph.owners, id).presentation.role === 'composition')
-    throw new Error(`地図の起点にはできません: ${id}`);
+    throw new Error(`地図の起点にはできません: ${subject(graph, id).name}`);
 }
 
 export function locate(state: ReadyState, id: string): ReadyState {

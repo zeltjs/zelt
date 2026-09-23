@@ -1,6 +1,5 @@
 import { parse } from 'valibot';
 import type {
-  EntryPoint,
   SourceDeclaration,
   SourceGroup,
   SourceRelation,
@@ -11,17 +10,12 @@ import { StudioSnapshotSchema } from './snapshot-schema.lib';
 export interface Relation extends SourceRelation {
   readonly from: string;
 }
-export interface Entry {
-  readonly targetId: string;
-  readonly entry: EntryPoint;
-}
 export interface Graph {
   readonly snapshot: StudioSnapshot;
   readonly groups: ReadonlyMap<string, SourceGroup>;
   readonly declarations: ReadonlyMap<string, SourceDeclaration>;
   readonly owners: ReadonlyMap<string, SourceGroup>;
   readonly relations: readonly Relation[];
-  readonly entries: ReadonlyMap<string, Entry>;
 }
 
 export function required<T>(map: ReadonlyMap<string, T>, id: string): T {
@@ -58,18 +52,11 @@ export function readGraph(input: unknown): Graph {
     s.relations.map((relation) => ({ ...relation, from: s.id })),
   );
   unique(relations, (r) => r.id);
-  const entries = unique(
-    [...declarations.values()].flatMap((d) =>
-      d.entries.map((entry) => ({ targetId: d.id, entry })),
-    ),
-    (e) => e.entry.id,
-  );
   const graph = {
     snapshot,
     groups,
     declarations,
     relations,
-    entries,
     owners: new Map([...owners].map(([id, value]) => [id, value.group])),
   };
   validateReferences(graph);
@@ -83,10 +70,6 @@ function validateReferences(graph: Graph): void {
   for (const declaration of graph.declarations.values()) {
     if (declaration.enclosingDeclarationId !== null)
       required(graph.declarations, declaration.enclosingDeclarationId);
-  }
-  for (const scenario of graph.snapshot.graph.presentation.demoScenarios) {
-    required(graph.owners, scenario.selectId);
-    for (const id of scenario.highlightedIds) required(graph.owners, id);
   }
 }
 

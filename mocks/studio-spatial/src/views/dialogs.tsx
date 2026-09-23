@@ -110,7 +110,7 @@ function ReferenceRows({
             data-reference-jump={row.from}
             onClick={() => send({ type: 'reference.jump', id: row.from })}
           >
-            {row.from}
+            {row.fromName}
           </button>{' '}
           →{' '}
           <button
@@ -119,7 +119,7 @@ function ReferenceRows({
             data-reference-jump={row.to}
             onClick={() => send({ type: 'reference.jump', id: row.to })}
           >
-            {row.to}
+            {row.toName}
           </button>
         </li>
       ))}
@@ -142,7 +142,7 @@ function HelpText() {
         byを起点から別々に辿り、途中で方向を切り替えません。ロックすると矢印とactive範囲を保ったまま詳細を選べます。
       </p>
       <p>
-        middleware適用はタグ、event配送・別entryへの呼出はwarpです。探索範囲を勝手に広げません。参照先へ移動してもロックは維持し、「移動前に戻る」で元の表示へ戻れます。
+        middleware適用はタグ、event配送はwarpです。探索範囲を勝手に広げません。参照先へ移動してもロックは維持し、「移動前に戻る」で元の表示へ戻れます。
       </p>
       <p>
         configの箱と線は表示切替でき、非表示でも関係のタグは残ります。app.tsはアプリ構成から確認できます。設定値は配信前に除いています。

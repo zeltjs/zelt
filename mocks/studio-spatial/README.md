@@ -49,11 +49,13 @@ flowchart LR
 閉じた箱と付属middlewareタグは同じ濃淡になります。
 
 近傍は1段。再帰はuseとused byを別々に辿り、途中で方向を反転しません。
-ロックは矢印とactive範囲を保持します。起点ショートカットは選択＋再帰＋ロックです。
-middleware適用はタグ、別entryへの接続はwarp、configは表示切替、app.tsは「アプリ構成」にあります。
+ロックは矢印とactive範囲を保持します。詳細の「ここから再帰＋ロック」で起点を固定します。
+middleware適用はタグ、event配送はwarp、configは表示切替、app.tsは「アプリ構成」にあります。
+列内のgroupはファイルのパス（フォルダを含む）の名前順、同じファイル内はソース出現順で並べます。JSONは座標を持ちません。
+宣言の下の注記はpluginが付けたもので、1注記1行です。画面には名前を出し（検索結果の宣言は `Group#宣言名`）、IDはURLにだけ保存します。
 
 下部は「契約 / 実コード」。Unit testは対象宣言に対応する一覧で、分類とmock対象はZeltのDI setupから表示します。
-HTTP entryのE2E対応はrequestに基づき、method実行の証明ではありません。
+routeを登録したmethodのE2E対応はrequestに基づき、method実行の証明ではありません。
 未収録・内部未展開は、testや依存が存在しないという意味ではありません。
 
 ## 検証
@@ -74,3 +76,4 @@ Unit検証はルートの`pnpm test`にも含まれます。buildとtypecheckも
 旧script版の検証はVitest / Playwrightへ置き換えました。
 `src/test-fixtures/legacy-display.json`は移行前コードから取得した120状態の表示ハッシュです。
 箱の位置・展開・選択・濃淡・タグ・矢印の退行を検出するため、React側の出力から期待値を再生成しないでください。
+例外として `expandedY` 廃止時と、列内の並び順をパス順に変えた時に再生成しました。どちらも、y座標以外（展開・選択・濃淡・タグ・矢印・x・幅・高さ）が変更前の出力と一致することを確かめています。

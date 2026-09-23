@@ -8,8 +8,6 @@ export const SubjectIdSchema = union([GroupIdSchema, DeclarationIdSchema]);
 
 export const RelationIdSchema = string();
 
-export const EntryIdSchema = string();
-
 export const TestIdSchema = string();
 
 export const SetupIdSchema = string();
@@ -72,10 +70,6 @@ export const SourceDetailSchema = object({
   excerpt: union([
     object({
       kind: literal('code'),
-      text: string(),
-    }),
-    object({
-      kind: literal('redacted'),
       text: string(),
     }),
     object({
@@ -176,31 +170,6 @@ export const EndpointTestsSchema = object({
   coverage: EndpointCoverageSchema,
 });
 
-export const EntryPointSchema = intersect([
-  object({
-    id: EntryIdSchema,
-  }),
-  union([
-    object({
-      kind: literal('http'),
-      method: string(),
-      path: string(),
-      e2eTests: EndpointTestsSchema,
-    }),
-    object({
-      kind: literal('event'),
-      eventName: string(),
-    }),
-    object({
-      kind: literal('middleware'),
-    }),
-    object({
-      kind: literal('lifecycle'),
-      hook: string(),
-    }),
-  ]),
-]);
-
 export const UnresolvedReferenceSchema = object({
   evidence: RelationEvidenceSchema,
   reason: union([
@@ -212,9 +181,9 @@ export const UnresolvedReferenceSchema = object({
   ]),
 });
 
-export const DeclarationPresentationSchema = object({
-  origin: literal('manual'),
-  hint: union([string(), null_()]),
+export const HintSchema = object({
+  provider: string(),
+  label: string(),
 });
 
 export const SourceDeclarationSchema = object({
@@ -225,17 +194,14 @@ export const SourceDeclarationSchema = object({
   relations: array(SourceRelationSchema),
   source: SourceDetailSchema,
   unitTests: UnitTestsSchema,
-  entries: array(EntryPointSchema),
+  e2eTests: union([EndpointTestsSchema, null_()]),
   unresolved: array(UnresolvedReferenceSchema),
-  presentation: DeclarationPresentationSchema,
+  hints: array(HintSchema),
 });
 
 export const GroupPresentationSchema = object({
-  origin: literal('manual'),
   columnId: ColumnIdSchema,
-  expandedY: number(),
   role: union([literal('regular'), literal('config'), literal('composition')]),
-  hint: union([string(), null_()]),
 });
 
 export const SourceGroupSchema = object({
@@ -248,25 +214,17 @@ export const SourceGroupSchema = object({
   expansion: union([literal('included'), literal('boundary')]),
   source: SourceDetailSchema,
   unresolved: array(UnresolvedReferenceSchema),
+  hints: array(HintSchema),
   presentation: GroupPresentationSchema,
 });
 
 export const MapPresentationSchema = object({
   id: string(),
-  origin: literal('manual'),
   columns: array(
     object({
       id: ColumnIdSchema,
       label: string(),
       width: number(),
-    }),
-  ),
-  demoScenarios: array(
-    object({
-      id: string(),
-      label: string(),
-      selectId: SubjectIdSchema,
-      highlightedIds: array(SubjectIdSchema),
     }),
   ),
 });

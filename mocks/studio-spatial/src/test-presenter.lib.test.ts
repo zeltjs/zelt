@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { fixture } from './fixture.lib';
-import type { UnitSetup } from './snapshot.types';
-import { summarizeSetup, unitCoverage, unitRows } from './test-presenter.lib';
+import type { EndpointTests, UnitSetup } from './snapshot.types';
+import { declaration } from './snapshot-builder.lib';
+import { endpointModels, summarizeSetup, unitCoverage, unitRows } from './test-presenter.lib';
 
 const service = { filePath: 'service.ts', name: 'Service' };
 const otherService = { filePath: 'other-service.ts', name: 'Service' };
@@ -67,5 +68,55 @@ describe('test list semantics use Zelt setup, not package imports', () => {
   it('does not equate an empty local list with absence of tests in the project', () => {
     expect(unitCoverage([])).toContain('範囲外は未確認');
     expect(unitCoverage([])).not.toContain('ec-backend内にUnit testファイルなし');
+  });
+});
+
+describe('E2E lists are read from the declaration that registered the route', () => {
+  const tests: EndpointTests = {
+    cases: [
+      {
+        id: 'e2e',
+        name: 'creates an item',
+        suite: ['items.e2e.test.ts', 'POST'],
+        location: { filePath: 'test/items.e2e.test.ts', startLine: 3, endLine: 9 },
+        requests: [],
+      },
+    ],
+    coverage: {
+      status: 'partial',
+      searchScope: [],
+      inspectedFiles: [],
+      includesSharedSetup: false,
+    },
+  };
+  it('titles the list with every hint label of the declaration', () => {
+    const route = declaration('["route"]', {
+      name: 'create',
+      hints: [
+        { provider: 'zelt', label: 'POST /api/items' },
+        { provider: 'zelt', label: 'PUT /api/items' },
+      ],
+      e2eTests: tests,
+    });
+    expect(endpointModels([route])).toMatchObject([
+      {
+        id: '["route"]',
+        label: 'POST /api/items · PUT /api/items',
+        rows: [{ name: 'creates an item' }],
+      },
+    ]);
+  });
+  it('falls back to the declaration name and skips declarations without a route', () => {
+    const route = declaration('["route"]', { name: 'create', e2eTests: tests });
+    expect(endpointModels([route, declaration('["plain"]')]).map((m) => m.label)).toEqual([
+      'create',
+    ]);
+  });
+  it('moves the fixture lists onto the sixteen route methods', () => {
+    const declarations = [...fixture().declarations.values()];
+    expect(endpointModels(declarations)).toHaveLength(16);
+    expect(
+      endpointModels(declarations.filter((d) => d.id === 'ProductController.create')),
+    ).toMatchObject([{ label: 'POST /api/products/' }]);
   });
 });

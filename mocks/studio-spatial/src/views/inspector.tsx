@@ -86,7 +86,7 @@ export function InspectorPanel({
           <span className="eyebrow">EC-BACKEND / WHOLE APPLICATION</span>
           <h2>入口を選び、依存を辿る</h2>
           <p>
-            箱の選択に範囲が追従します。ロックすると矢印・active範囲を保って詳細を読めます。起点ショートカットは再帰＋ロックです。
+            箱の選択に範囲が追従します。ロックすると矢印・active範囲を保って詳細を読めます。詳細の「ここから再帰＋ロック」で起点を固定できます。
           </p>
           <p>
             configはどの起点からも共有される宣言です。右の小地図から全体の各位置へ移動できます。
@@ -121,7 +121,7 @@ function InspectorHeading({
     <header className="inspector-heading">
       <div>
         <span className="eyebrow">{model.kind}</span>
-        <h2>{model.id}</h2>
+        <h2>{model.name}</h2>
         <p className="source-path">{model.path}</p>
       </div>
       <div className="inspector-actions">

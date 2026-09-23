@@ -45,28 +45,26 @@ export function unitCoverage(declarations: readonly SourceDeclaration[]): string
 export function endpointModels(
   declarations: readonly SourceDeclaration[],
 ): readonly EndpointModel[] {
-  return declarations.flatMap((d) =>
-    d.entries.flatMap((entry) => {
-      if (entry.kind !== 'http') return [];
-      const tests = entry.e2eTests;
-      const coverage =
-        tests.coverage.status === 'uncollected'
-          ? '未収録（テストの有無は未確認）'
-          : '収録: test本体内request（準備を含む）。共通setup・他ファイルは未収録。method実行の保証ではありません。';
-      return [
-        {
-          id: entry.id,
-          label: `${entry.method} ${entry.path}`,
-          coverage,
-          rows: tests.cases.map((test) => ({
-            id: test.id,
-            name: test.name,
-            suite: test.suite.slice(1).join(' / '),
-            source: `${test.location.filePath.split('/').at(-1)}:${test.location.startLine}`,
-            title: test.location.filePath,
-          })),
-        },
-      ];
-    }),
-  );
+  return declarations.flatMap((d) => {
+    const tests = d.e2eTests;
+    if (tests === null) return [];
+    const coverage =
+      tests.coverage.status === 'uncollected'
+        ? '未収録（テストの有無は未確認）'
+        : '収録: test本体内request（準備を含む）。共通setup・他ファイルは未収録。method実行の保証ではありません。';
+    return [
+      {
+        id: d.id,
+        label: d.hints.length ? d.hints.map((h) => h.label).join(' · ') : d.name,
+        coverage,
+        rows: tests.cases.map((test) => ({
+          id: test.id,
+          name: test.name,
+          suite: test.suite.slice(1).join(' / '),
+          source: `${test.location.filePath.split('/').at(-1)}:${test.location.startLine}`,
+          title: test.location.filePath,
+        })),
+      },
+    ];
+  });
 }

@@ -7,6 +7,7 @@ import { required } from './graph.lib';
 import { layout } from './layout.lib';
 import { presentMap } from './map-presenter.lib';
 import { scopeRelations } from './scope.lib';
+import { declaration, graphOf, group } from './snapshot-builder.lib';
 import { initialView } from './state.lib';
 import type { ViewState } from './state.types';
 
@@ -37,8 +38,8 @@ describe('Presenter preserves the pre-React display contract', () => {
       options: { showConfig: test.showConfig, showTypes: test.showTypes, showCounts: true },
     };
     const model = presentMap(graph, view);
-    // Normalize only geometry to the legacy reservation policy; keep the original golden hashes.
-    // Actual visible-tag geometry is verified independently below.
+    // Hash geometry under one fixed tag-reservation policy so the golden covers ordering and
+    // stacking; visible-tag geometry is verified independently below.
     const legacyGeometry = layout(graph, {
       ...view,
       options: { ...view.options, showConfig: false, showTypes: true },
@@ -143,5 +144,47 @@ describe('Presenter preserves the pre-React display contract', () => {
     expect(edges.some((e) => e.from === 'ProductService.create')).toBe(true);
     expect(edges.some((e) => e.from === 'OrderController.create')).toBe(false);
     expect(edges.some((e) => e.kind === 'middleware')).toBe(false);
+  });
+});
+
+describe('Presenter shows hints and names instead of identities', () => {
+  const hinted = graphOf([
+    group(
+      '["class","a.ts","Routes"]',
+      [
+        declaration('["route"]', {
+          name: 'create',
+          hints: [
+            { provider: 'zelt', label: 'POST /a' },
+            { provider: 'other', label: 'PUT /a' },
+          ],
+          calls: ['["helper"]'],
+        }),
+        declaration('["helper"]', { name: 'helper' }),
+      ],
+      { name: 'Routes' },
+    ),
+  ]);
+  it('lists every hint label as its own line and pushes later rows down', () => {
+    const model = presentMap(hinted, {
+      ...initialView(),
+      expanded: ['["class","a.ts","Routes"]'],
+    });
+    const [routes] = model.groups;
+    expect(routes).toMatchObject({ name: 'Routes' });
+    expect(
+      routes?.members.map((m) => [m.label, m.hints.map((h) => h.label), m.top, m.height]),
+    ).toEqual([
+      ['create()', ['POST /a', 'PUT /a'], 62, 60],
+      ['helper()', [], 125, 43],
+    ]);
+  });
+  it('titles wires with names', () => {
+    const model = presentMap(hinted, {
+      ...initialView(),
+      node: '["route"]',
+      expanded: ['["class","a.ts","Routes"]'],
+    });
+    expect(model.edges.map((e) => e.title)).toEqual(['create —呼ぶ→ helper']);
   });
 });

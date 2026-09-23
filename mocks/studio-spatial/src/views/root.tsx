@@ -1,5 +1,5 @@
 import type { EventSink } from '../events.types';
-import type { ReadyModel, RootModel } from '../presenter.types';
+import type { RootModel } from '../presenter.types';
 import { HelpDialog, ReferenceDialog } from './dialogs';
 import { GraphViewport } from './graph-viewport';
 import { InspectorPanel } from './inspector';
@@ -32,7 +32,7 @@ export function Root({ model, emit }: { readonly model: RootModel; readonly emit
           command={model.command}
           emit={send}
         />
-        <DetailToolbar model={model.demo} emit={send} />
+        <DetailToolbar />
         <InspectorPanel model={model.inspector} tab={model.tab} emit={send} />
         <footer className="page-footer">
           {model.declarationCount}宣言 / {model.groupCount} group · 静的JSON fixture · 抽出器なし ·
@@ -45,32 +45,10 @@ export function Root({ model, emit }: { readonly model: RootModel; readonly emit
   );
 }
 
-function DetailToolbar({
-  model,
-  emit,
-}: {
-  readonly model: ReadyModel['demo'];
-  readonly emit: EventSink;
-}) {
-  const send = useBoundary(emit);
+function DetailToolbar() {
   return (
     <div className="detail-toolbar">
       <span>列・並び順を維持 · groupの＋/−で展開・折りたたみ · 同じ宣言を共有</span>
-      {model && (
-        <button
-          type="button"
-          id="scenario"
-          aria-pressed={model.active}
-          onClick={() =>
-            send({
-              type: 'demo.choose',
-              id: model.active ? null : model.id,
-            })
-          }
-        >
-          {model.label}
-        </button>
-      )}
     </div>
   );
 }

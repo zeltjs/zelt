@@ -1,5 +1,6 @@
 import type { EdgeModel } from './display.types';
 import type { Graph, Relation } from './graph.lib';
+import { subject } from './graph.lib';
 import { relationLabels } from './labels';
 import type { Layout } from './layout.lib';
 import { displayUnit, position } from './layout.lib';
@@ -11,8 +12,13 @@ interface Bundle {
   readonly kind: Relation['kind'];
   readonly originals: Relation[];
 }
-export function relationTitle(edges: readonly Relation[]): string {
-  return edges.map((e) => `${e.from} —${relationLabels[e.kind]}→ ${e.to}`).join('\n');
+export function relationTitle(graph: Graph, edges: readonly Relation[]): string {
+  return edges
+    .map(
+      (e) =>
+        `${subject(graph, e.from).name} —${relationLabels[e.kind]}→ ${subject(graph, e.to).name}`,
+    )
+    .join('\n');
 }
 
 function bundles(graph: Graph, view: ViewState, edges: readonly Relation[]): readonly Bundle[] {
@@ -71,7 +77,7 @@ export function projectEdges(
       to: edge.to,
       kind: edge.kind,
       ids: edge.originals.map((e) => e.id),
-      title: relationTitle(edge.originals),
+      title: relationTitle(graph, edge.originals),
       path: path.path,
       count:
         view.options.showCounts && edge.originals.length > 1

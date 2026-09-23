@@ -1,6 +1,5 @@
 import { match } from 'ts-pattern';
 import type { ViewIntent } from './events.types';
-import { required } from './graph.lib';
 import { attachments } from './relations.lib';
 import { locate, requireMapSubject, select, startScope } from './state.lib';
 import type { ReadyState } from './state.types';
@@ -27,10 +26,6 @@ export function navigate(state: ReadyState, event: ViewIntent): ReadyState | nul
     .with({ type: 'subject.locate' }, (e) => locate(state, e.id))
     .with({ type: 'scope.start' }, (e) => startScope(state, e.id))
     .with({ type: 'scope.lock' }, (e) => lock(state, e.locked))
-    .with({ type: 'entry.choose' }, (e) => {
-      const entry = required(state.graph.entries, e.id);
-      return locate(startScope(state, entry.targetId), entry.targetId);
-    })
     .otherwise(() => null);
 }
 

@@ -15,11 +15,11 @@ function ready(state: ReadyState, event: StudioEvent): ReadyState {
   return result;
 }
 describe('Mediator transitions', () => {
-  it('selects + recurses + locks an entry atomically', () => {
+  it('selects + recurses + locks a declaration atomically', () => {
     const before = initialReady(graph, 1);
     const result = transition(before, {
-      type: 'entry.choose',
-      id: 'entry:ProductController.create',
+      type: 'scope.start',
+      id: 'ProductController.create',
     });
     expect(result.effects).toEqual([
       {

@@ -1,13 +1,15 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
-async function find(page: Page, id: string) {
-  await page.locator('#search').fill(id);
-  await page
-    .locator('[data-find]')
-    .filter({ has: page.getByText(id, { exact: true }) })
-    .click();
-  await expect(page.locator('.inspector-heading h2')).toHaveText(id);
+async function find(page: Page, query: string, id = query, name = query) {
+  await page.locator('#search').fill(query);
+  await page.locator(`[data-find="${id}"]`).click();
+  await expect(page.locator('.inspector-heading h2')).toHaveText(name);
+}
+
+async function lockFrom(page: Page, query: string, id: string, name: string) {
+  await find(page, query, id, name);
+  await page.locator('[data-action="as-root"]').click();
 }
 
 test('fetches JSON, shows the map without composition, and keeps every group collapsible', async ({
@@ -21,6 +23,7 @@ test('fetches JSON, shows the map without composition, and keeps every group col
   await expect(page.locator('[data-group]')).toHaveCount(40);
   await expect(page.locator('[data-group="app.ts"]')).toHaveCount(0);
   await expect(page.locator('[data-declaration]')).toHaveCount(0);
+  await expect(page.locator('#root-select, #category, #scenario')).toHaveCount(0);
   for (const id of ['ProductController', 'schema.ts', 'user.types.ts']) {
     const toggle = page.locator(`[data-toggle="${id}"]`);
     await toggle.click();
@@ -39,7 +42,7 @@ test('fetches JSON, shows the map without composition, and keeps every group col
 
 test('locks arrows and active scope while inspecting another collapsed group', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#root-select').selectOption('entry:ProductController.create');
+  await lockFrom(page, 'POST /api/products', 'ProductController.create', 'create');
   await expect(page.locator('#scope-lock')).toHaveAttribute('aria-pressed', 'true');
   const arrows = await page
     .locator('.wire')
@@ -94,7 +97,7 @@ test('toggles type/count/config visibility and exposes hidden config relations',
   await expect(page.locator('#reference-dialog')).toBeVisible();
   await page.locator('#reference-dialog [data-reference-jump="JwtConfig.secret"]').first().click();
   await expect(page.locator('#show-config')).toBeChecked();
-  await expect(page.locator('.inspector-heading h2')).toHaveText('JwtConfig.secret');
+  await expect(page.locator('.inspector-heading h2')).toHaveText('secret');
   await page.locator('#reference-back').click();
   await expect(page.locator('#show-config')).not.toBeChecked();
   await expect(page.locator('.inspector-heading h2')).toHaveText('schema.ts');
@@ -108,8 +111,12 @@ test('shows unit and endpoint test tables separately from source', async ({ page
   await expect(page.locator('.test-mocks').first()).toHaveText('なし');
   await page.locator('[data-tab="source"]').click();
   await expect(page.locator('.source-code')).toContainText('class JwtService');
-  await find(page, 'ProductController.create');
+  await find(page, 'POST /api/products', 'ProductController.create', 'create');
+  await expect(page.locator('.endpoint-tests h4')).toHaveText('POST /api/products/');
   expect(await page.locator('.e2e-test').count()).toBeGreaterThan(0);
+  await expect(
+    page.locator('[data-declaration="ProductController.create"] .member-hint'),
+  ).toHaveText(['POST /api/products/']);
   await expect(page.locator('.unit-test')).toHaveCount(0);
   await find(page, 'CreateProductSchema');
   await expect(page.locator('.unit-test')).toHaveCount(0);
@@ -140,15 +147,15 @@ test('allocates tag space only while tags are rendered, including dimmed and exp
 
 test('restores node, lock, mode and tab on reload and browser back/forward', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#root-select').selectOption('entry:ProductController.create');
-  await find(page, 'JwtService.sign');
+  await lockFrom(page, 'POST /api/products', 'ProductController.create', 'create');
+  await find(page, 'sign', 'JwtService.sign');
   await page.locator('[data-tab="source"]').click();
   await expect(page).toHaveURL(/node=JwtService.sign/);
   const url = page.url();
   await page.reload();
-  await expect(page.locator('.inspector-heading h2')).toHaveText('JwtService.sign');
+  await expect(page.locator('.inspector-heading h2')).toHaveText('sign');
   await expect(page.locator('[data-tab="source"]')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('#scope-status')).toContainText('固定基準: ProductController.create');
+  await expect(page.locator('#scope-status')).toContainText('固定基準: create');
   await page.locator('[data-tab="contract"]').click();
   await page.goBack();
   await expect(page).toHaveURL(url);
@@ -192,7 +199,7 @@ test('keeps drawing operations local while preserving zoom, bulk folding and key
   await expect(page.locator('#zoom-level')).toHaveText('100%');
   await page.getByRole('button', { name: '縮小', exact: true }).click();
   await expect(page.locator('#zoom-level')).toHaveText('90%');
-  await find(page, 'JwtService.sign');
+  await find(page, 'sign', 'JwtService.sign');
   await page.locator('[data-tab="contract"]').focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.locator('[data-tab="source"]')).toBeFocused();

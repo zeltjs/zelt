@@ -1,6 +1,5 @@
 import type { Graph } from './graph.lib';
 import type {
-  EntryKind,
   InspectorTab,
   Point,
   ScopeMode,
@@ -16,17 +15,14 @@ export type ViewIntent =
   | { type: 'scope.mode'; readonly mode: ScopeMode }
   | { type: 'scope.lock'; readonly locked: boolean }
   | { type: 'scope.start'; readonly id: string }
-  | { type: 'entry.choose'; readonly id: string }
   | { type: 'group.toggle'; readonly id: string }
   | { type: 'groups.expand'; readonly expanded: boolean }
   | { type: 'options.change'; readonly options: ViewOptions }
   | { type: 'search.change'; readonly query: string }
-  | { type: 'entry.filter'; readonly kind: EntryKind }
   | { type: 'inspector.tab'; readonly tab: InspectorTab }
   | { type: 'tag.activate'; readonly key: string }
   | { type: 'reference.jump'; readonly id: string }
   | { type: 'reference.back' }
-  | { type: 'demo.choose'; readonly id: string | null }
   | { type: 'composition.open' }
   | { type: 'composition.source' }
   | { type: 'dialog.close' }

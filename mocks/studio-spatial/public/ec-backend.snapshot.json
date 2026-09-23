@@ -131,28 +131,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:AuthController.register",
-                "kind": "http",
-                "method": "POST",
-                "path": "/api/auth/register",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "POST /api/auth/register"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "POST /api/auth/register"
+              }
+            ]
           },
           {
             "id": "AuthController.login",
@@ -271,28 +265,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:AuthController.login",
-                "kind": "http",
-                "method": "POST",
-                "path": "/api/auth/login",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "POST /api/auth/login"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "POST /api/auth/login"
+              }
+            ]
           },
           {
             "id": "AuthController.me",
@@ -411,28 +399,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:AuthController.me",
-                "kind": "http",
-                "method": "GET",
-                "path": "/api/auth/me",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "GET /api/auth/me"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "GET /api/auth/me"
+              }
+            ]
           },
           {
             "id": "AuthController.constructor",
@@ -460,12 +442,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -482,12 +466,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 70,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -583,149 +565,143 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:ProductController.list",
-                "kind": "http",
-                "method": "GET",
-                "path": "/api/products/",
-                "e2eTests": {
-                  "cases": [
+            "e2eTests": {
+              "cases": [
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:22",
+                  "name": "returns empty list initially",
+                  "suite": ["Product API", "GET /api/products"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 22,
+                    "endLine": 30
+                  },
+                  "requests": [
                     {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:22",
-                      "name": "returns empty list initially",
-                      "suite": ["Product API", "GET /api/products"],
                       "location": {
                         "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 22,
-                        "endLine": 30
+                        "startLine": 23,
+                        "endLine": 23
                       },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 23,
-                            "endLine": 23
-                          },
-                          "via": "direct"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:32",
-                      "name": "uses default pagination",
-                      "suite": ["Product API", "GET /api/products"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 32,
-                        "endLine": 37
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 33,
-                            "endLine": 33
-                          },
-                          "via": "direct"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:182",
-                      "name": "paginates results",
-                      "suite": ["Product API", "Pagination and filtering"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 182,
-                        "endLine": 189
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 183,
-                            "endLine": 183
-                          },
-                          "via": "direct"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:191",
-                      "name": "filters by category",
-                      "suite": ["Product API", "Pagination and filtering"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 191,
-                        "endLine": 196
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 192,
-                            "endLine": 192
-                          },
-                          "via": "direct"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:198",
-                      "name": "filters by price range",
-                      "suite": ["Product API", "Pagination and filtering"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 198,
-                        "endLine": 204
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 199,
-                            "endLine": 199
-                          },
-                          "via": "direct"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:206",
-                      "name": "ignores invalid query params gracefully",
-                      "suite": ["Product API", "Pagination and filtering"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 206,
-                        "endLine": 212
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 207,
-                            "endLine": 207
-                          },
-                          "via": "direct"
-                        }
-                      ]
+                      "via": "direct"
                     }
-                  ],
-                  "coverage": {
-                    "status": "partial",
-                    "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "includesSharedSetup": false
-                  }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:32",
+                  "name": "uses default pagination",
+                  "suite": ["Product API", "GET /api/products"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 32,
+                    "endLine": 37
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 33,
+                        "endLine": 33
+                      },
+                      "via": "direct"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:182",
+                  "name": "paginates results",
+                  "suite": ["Product API", "Pagination and filtering"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 182,
+                    "endLine": 189
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 183,
+                        "endLine": 183
+                      },
+                      "via": "direct"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:191",
+                  "name": "filters by category",
+                  "suite": ["Product API", "Pagination and filtering"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 191,
+                    "endLine": 196
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 192,
+                        "endLine": 192
+                      },
+                      "via": "direct"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:198",
+                  "name": "filters by price range",
+                  "suite": ["Product API", "Pagination and filtering"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 198,
+                    "endLine": 204
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 199,
+                        "endLine": 199
+                      },
+                      "via": "direct"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:206",
+                  "name": "ignores invalid query params gracefully",
+                  "suite": ["Product API", "Pagination and filtering"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 206,
+                    "endLine": 212
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 207,
+                        "endLine": 207
+                      },
+                      "via": "direct"
+                    }
+                  ]
                 }
+              ],
+              "coverage": {
+                "status": "partial",
+                "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
+                "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "GET /api/products/"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "GET /api/products/"
+              }
+            ]
           },
           {
             "id": "ProductController.detail",
@@ -814,109 +790,103 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:ProductController.detail",
-                "kind": "http",
-                "method": "GET",
-                "path": "/api/products/:id",
-                "e2eTests": {
-                  "cases": [
+            "e2eTests": {
+              "cases": [
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:74",
+                  "name": "returns product detail",
+                  "suite": ["Product API", "GET /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 74,
+                    "endLine": 90
+                  },
+                  "requests": [
                     {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:74",
-                      "name": "returns product detail",
-                      "suite": ["Product API", "GET /api/products/:id"],
                       "location": {
                         "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 74,
-                        "endLine": 90
+                        "startLine": 84,
+                        "endLine": 84
                       },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 84,
-                            "endLine": 84
-                          },
-                          "via": "direct"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:92",
-                      "name": "returns 404 for non-existent product",
-                      "suite": ["Product API", "GET /api/products/:id"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 92,
-                        "endLine": 95
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 93,
-                            "endLine": 93
-                          },
-                          "via": "direct"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:97",
-                      "name": "returns 400 for invalid id",
-                      "suite": ["Product API", "GET /api/products/:id"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 97,
-                        "endLine": 100
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 98,
-                            "endLine": 98
-                          },
-                          "via": "direct"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:135",
-                      "name": "deletes a product",
-                      "suite": ["Product API", "DELETE /api/products/:id"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 135,
-                        "endLine": 155
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 153,
-                            "endLine": 153
-                          },
-                          "via": "direct"
-                        }
-                      ]
+                      "via": "direct"
                     }
-                  ],
-                  "coverage": {
-                    "status": "partial",
-                    "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "includesSharedSetup": false
-                  }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:92",
+                  "name": "returns 404 for non-existent product",
+                  "suite": ["Product API", "GET /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 92,
+                    "endLine": 95
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 93,
+                        "endLine": 93
+                      },
+                      "via": "direct"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:97",
+                  "name": "returns 400 for invalid id",
+                  "suite": ["Product API", "GET /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 97,
+                    "endLine": 100
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 98,
+                        "endLine": 98
+                      },
+                      "via": "direct"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:135",
+                  "name": "deletes a product",
+                  "suite": ["Product API", "DELETE /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 135,
+                    "endLine": 155
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 153,
+                        "endLine": 153
+                      },
+                      "via": "direct"
+                    }
+                  ]
                 }
+              ],
+              "coverage": {
+                "status": "partial",
+                "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
+                "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "GET /api/products/:id"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "GET /api/products/:id"
+              }
+            ]
           },
           {
             "id": "ProductController.create",
@@ -1035,149 +1005,143 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:ProductController.create",
-                "kind": "http",
-                "method": "POST",
-                "path": "/api/products/",
-                "e2eTests": {
-                  "cases": [
+            "e2eTests": {
+              "cases": [
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:41",
+                  "name": "creates a product",
+                  "suite": ["Product API", "POST /api/products"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 41,
+                    "endLine": 57
+                  },
+                  "requests": [
                     {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:41",
-                      "name": "creates a product",
-                      "suite": ["Product API", "POST /api/products"],
                       "location": {
                         "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 41,
-                        "endLine": 57
+                        "startLine": 42,
+                        "endLine": 48
                       },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 42,
-                            "endLine": 48
-                          },
-                          "via": "helper"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:59",
-                      "name": "rejects invalid data",
-                      "suite": ["Product API", "POST /api/products"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 59,
-                        "endLine": 65
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 60,
-                            "endLine": 60
-                          },
-                          "via": "helper"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:67",
-                      "name": "rejects missing required fields",
-                      "suite": ["Product API", "POST /api/products"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 67,
-                        "endLine": 70
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 68,
-                            "endLine": 68
-                          },
-                          "via": "helper"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:74",
-                      "name": "returns product detail",
-                      "suite": ["Product API", "GET /api/products/:id"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 74,
-                        "endLine": 90
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 75,
-                            "endLine": 81
-                          },
-                          "via": "helper"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:104",
-                      "name": "updates a product",
-                      "suite": ["Product API", "PUT /api/products/:id"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 104,
-                        "endLine": 124
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 105,
-                            "endLine": 111
-                          },
-                          "via": "helper"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:135",
-                      "name": "deletes a product",
-                      "suite": ["Product API", "DELETE /api/products/:id"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 135,
-                        "endLine": 155
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 136,
-                            "endLine": 142
-                          },
-                          "via": "helper"
-                        }
-                      ]
+                      "via": "helper"
                     }
-                  ],
-                  "coverage": {
-                    "status": "partial",
-                    "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "includesSharedSetup": false
-                  }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:59",
+                  "name": "rejects invalid data",
+                  "suite": ["Product API", "POST /api/products"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 59,
+                    "endLine": 65
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 60,
+                        "endLine": 60
+                      },
+                      "via": "helper"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:67",
+                  "name": "rejects missing required fields",
+                  "suite": ["Product API", "POST /api/products"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 67,
+                    "endLine": 70
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 68,
+                        "endLine": 68
+                      },
+                      "via": "helper"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:74",
+                  "name": "returns product detail",
+                  "suite": ["Product API", "GET /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 74,
+                    "endLine": 90
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 75,
+                        "endLine": 81
+                      },
+                      "via": "helper"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:104",
+                  "name": "updates a product",
+                  "suite": ["Product API", "PUT /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 104,
+                    "endLine": 124
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 105,
+                        "endLine": 111
+                      },
+                      "via": "helper"
+                    }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:135",
+                  "name": "deletes a product",
+                  "suite": ["Product API", "DELETE /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 135,
+                    "endLine": 155
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 136,
+                        "endLine": 142
+                      },
+                      "via": "helper"
+                    }
+                  ]
                 }
+              ],
+              "coverage": {
+                "status": "partial",
+                "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
+                "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "POST /api/products/"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "POST /api/products/"
+              }
+            ]
           },
           {
             "id": "ProductController.update",
@@ -1296,69 +1260,63 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:ProductController.update",
-                "kind": "http",
-                "method": "PUT",
-                "path": "/api/products/:id",
-                "e2eTests": {
-                  "cases": [
+            "e2eTests": {
+              "cases": [
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:104",
+                  "name": "updates a product",
+                  "suite": ["Product API", "PUT /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 104,
+                    "endLine": 124
+                  },
+                  "requests": [
                     {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:104",
-                      "name": "updates a product",
-                      "suite": ["Product API", "PUT /api/products/:id"],
                       "location": {
                         "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 104,
-                        "endLine": 124
+                        "startLine": 114,
+                        "endLine": 117
                       },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 114,
-                            "endLine": 117
-                          },
-                          "via": "helper"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:126",
-                      "name": "returns 404 for non-existent product",
-                      "suite": ["Product API", "PUT /api/products/:id"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 126,
-                        "endLine": 131
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 127,
-                            "endLine": 129
-                          },
-                          "via": "helper"
-                        }
-                      ]
+                      "via": "helper"
                     }
-                  ],
-                  "coverage": {
-                    "status": "partial",
-                    "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "includesSharedSetup": false
-                  }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:126",
+                  "name": "returns 404 for non-existent product",
+                  "suite": ["Product API", "PUT /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 126,
+                    "endLine": 131
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 127,
+                        "endLine": 129
+                      },
+                      "via": "helper"
+                    }
+                  ]
                 }
+              ],
+              "coverage": {
+                "status": "partial",
+                "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
+                "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "PUT /api/products/:id"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "PUT /api/products/:id"
+              }
+            ]
           },
           {
             "id": "ProductController.remove",
@@ -1462,69 +1420,63 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:ProductController.remove",
-                "kind": "http",
-                "method": "DELETE",
-                "path": "/api/products/:id",
-                "e2eTests": {
-                  "cases": [
+            "e2eTests": {
+              "cases": [
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:135",
+                  "name": "deletes a product",
+                  "suite": ["Product API", "DELETE /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 135,
+                    "endLine": 155
+                  },
+                  "requests": [
                     {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:135",
-                      "name": "deletes a product",
-                      "suite": ["Product API", "DELETE /api/products/:id"],
                       "location": {
                         "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 135,
-                        "endLine": 155
+                        "startLine": 145,
+                        "endLine": 150
                       },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 145,
-                            "endLine": 150
-                          },
-                          "via": "helper"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "integration/ec-backend/e2e/product.spec.ts:157",
-                      "name": "returns 404 for non-existent product",
-                      "suite": ["Product API", "DELETE /api/products/:id"],
-                      "location": {
-                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                        "startLine": 157,
-                        "endLine": 160
-                      },
-                      "requests": [
-                        {
-                          "location": {
-                            "filePath": "integration/ec-backend/e2e/product.spec.ts",
-                            "startLine": 158,
-                            "endLine": 158
-                          },
-                          "via": "helper"
-                        }
-                      ]
+                      "via": "helper"
                     }
-                  ],
-                  "coverage": {
-                    "status": "partial",
-                    "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
-                    "includesSharedSetup": false
-                  }
+                  ]
+                },
+                {
+                  "id": "integration/ec-backend/e2e/product.spec.ts:157",
+                  "name": "returns 404 for non-existent product",
+                  "suite": ["Product API", "DELETE /api/products/:id"],
+                  "location": {
+                    "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                    "startLine": 157,
+                    "endLine": 160
+                  },
+                  "requests": [
+                    {
+                      "location": {
+                        "filePath": "integration/ec-backend/e2e/product.spec.ts",
+                        "startLine": 158,
+                        "endLine": 158
+                      },
+                      "via": "helper"
+                    }
+                  ]
                 }
+              ],
+              "coverage": {
+                "status": "partial",
+                "searchScope": ["integration/ec-backend/e2e/product.spec.ts"],
+                "inspectedFiles": ["integration/ec-backend/e2e/product.spec.ts"],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DELETE /api/products/:id"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DELETE /api/products/:id"
+              }
+            ]
           },
           {
             "id": "ProductController.constructor",
@@ -1552,12 +1504,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -1574,12 +1528,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 370,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -1705,28 +1657,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:CartController.getCart",
-                "kind": "http",
-                "method": "GET",
-                "path": "/api/cart/",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "GET /api/cart/"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "GET /api/cart/"
+              }
+            ]
           },
           {
             "id": "CartController.addItem",
@@ -1860,28 +1806,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:CartController.addItem",
-                "kind": "http",
-                "method": "POST",
-                "path": "/api/cart/items",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "POST /api/cart/items"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "POST /api/cart/items"
+              }
+            ]
           },
           {
             "id": "CartController.updateItem",
@@ -2015,28 +1955,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:CartController.updateItem",
-                "kind": "http",
-                "method": "PUT",
-                "path": "/api/cart/items/:productId",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "PUT /api/cart/items/:productId"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "PUT /api/cart/items/:productId"
+              }
+            ]
           },
           {
             "id": "CartController.removeItem",
@@ -2155,28 +2089,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:CartController.removeItem",
-                "kind": "http",
-                "method": "DELETE",
-                "path": "/api/cart/items/:productId",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DELETE /api/cart/items/:productId"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DELETE /api/cart/items/:productId"
+              }
+            ]
           },
           {
             "id": "CartController.clearCart",
@@ -2295,28 +2223,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:CartController.clearCart",
-                "kind": "http",
-                "method": "DELETE",
-                "path": "/api/cart/",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DELETE /api/cart/"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DELETE /api/cart/"
+              }
+            ]
           },
           {
             "id": "CartController.constructor",
@@ -2344,12 +2266,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -2366,12 +2290,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 780,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -2497,28 +2419,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:OrderController.create",
-                "kind": "http",
-                "method": "POST",
-                "path": "/api/orders/",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "POST /api/orders/"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "POST /api/orders/"
+              }
+            ]
           },
           {
             "id": "OrderController.list",
@@ -2637,28 +2553,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:OrderController.list",
-                "kind": "http",
-                "method": "GET",
-                "path": "/api/orders/",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "GET /api/orders/"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "GET /api/orders/"
+              }
+            ]
           },
           {
             "id": "OrderController.detail",
@@ -2792,28 +2702,22 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:OrderController.detail",
-                "kind": "http",
-                "method": "GET",
-                "path": "/api/orders/:id",
-                "e2eTests": {
-                  "cases": [],
-                  "coverage": {
-                    "status": "uncollected",
-                    "searchScope": [],
-                    "inspectedFiles": [],
-                    "includesSharedSetup": false
-                  }
-                }
+            "e2eTests": {
+              "cases": [],
+              "coverage": {
+                "status": "uncollected",
+                "searchScope": [],
+                "inspectedFiles": [],
+                "includesSharedSetup": false
               }
-            ],
+            },
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "GET /api/orders/:id"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "GET /api/orders/:id"
+              }
+            ]
           },
           {
             "id": "OrderController.constructor",
@@ -2841,12 +2745,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -2863,12 +2769,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 1190,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -2934,18 +2838,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:OrderHandlers.startup@order:created",
-                "kind": "event",
-                "eventName": "order:created"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "EVENT order:created · 無名関数"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "EVENT order:created"
+              }
+            ]
           },
           {
             "id": "OrderHandlers.startup",
@@ -3019,18 +2919,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:OrderHandlers.startup",
-                "kind": "lifecycle",
-                "hook": "OrderHandlers.startup"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "lifecycle · 購読を登録"
-            }
+            "hints": []
           },
           {
             "id": "OrderHandlers.shutdown",
@@ -3074,18 +2965,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:OrderHandlers.shutdown",
-                "kind": "lifecycle",
-                "hook": "OrderHandlers.shutdown"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "lifecycle · 購読解除"
-            }
+            "hints": []
           },
           {
             "id": "OrderHandlers.constructor",
@@ -3129,12 +3011,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           },
           {
             "id": "OrderHandlers.notifications",
@@ -3162,12 +3046,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "受信結果の配列"
-            }
+            "hints": []
           },
           {
             "id": "OrderHandlers.unsubscribes",
@@ -3195,12 +3076,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "解除関数の配列"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -3217,12 +3095,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 1490,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -3273,17 +3149,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:LoggingMiddleware.use",
-                "kind": "middleware"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "全HTTP · next後に記録"
-            }
+            "hints": []
           },
           {
             "id": "LoggingMiddleware.constructor",
@@ -3311,12 +3179,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -3333,12 +3203,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 1900,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -3419,17 +3287,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:JwtMiddleware.use",
-                "kind": "middleware"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "JWT検証 / user設定"
-            }
+            "hints": []
           },
           {
             "id": "JwtMiddleware.extractToken",
@@ -3488,12 +3348,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "header / cookie"
-            }
+            "hints": []
           },
           {
             "id": "JwtMiddleware.constructor",
@@ -3521,12 +3378,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -3543,12 +3402,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 2100,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -3614,17 +3471,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:RateLimitMiddleware.use",
-                "kind": "middleware"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "register / login"
-            }
+            "hints": []
           },
           {
             "id": "RateLimitMiddleware.constructor",
@@ -3652,12 +3501,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -3674,12 +3525,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 2350,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -3730,17 +3579,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:CorsMiddleware.use",
-                "kind": "middleware"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "全HTTP · core自動登録"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "全HTTP · core自動登録"
+              }
+            ]
           },
           {
             "id": "CorsMiddleware.isEnabled",
@@ -3784,12 +3630,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "origin設定の判定"
-            }
+            "hints": []
           },
           {
             "id": "CorsMiddleware.constructor",
@@ -3923,12 +3766,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           },
           {
             "id": "CorsMiddleware.delegate",
@@ -3956,12 +3801,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "Honoのmiddlewareラッパー"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -3978,12 +3820,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 2550,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -4229,17 +4069,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:SecureHeadersMiddleware.use",
-                "kind": "middleware"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "全HTTP · core自動登録"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "全HTTP · core自動登録"
+              }
+            ]
           },
           {
             "id": "SecureHeadersMiddleware.applyHeader",
@@ -4267,12 +4104,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "レスポンスヘッダー"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersMiddleware.constructor",
@@ -4300,12 +4134,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -4322,12 +4158,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 2850,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -4378,12 +4212,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "request context → EcUser"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -4400,12 +4231,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 3100,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -4576,18 +4405,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:createEcApp",
-                "kind": "lifecycle",
-                "hook": "createEcApp"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "HTTP / eventbus / configs"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -4604,12 +4424,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:0",
-          "expandedY": 3250,
-          "role": "composition",
-          "hint": null
+          "role": "composition"
         }
       },
       {
@@ -4705,12 +4523,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "RegisterInput → user"
-            }
+            "hints": []
           },
           {
             "id": "AuthService.login",
@@ -4799,12 +4614,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "email / password → token"
-            }
+            "hints": []
           },
           {
             "id": "AuthService.getProfile",
@@ -4863,12 +4675,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "userId → profile | undefined"
-            }
+            "hints": []
           },
           {
             "id": "AuthService.constructor",
@@ -4896,12 +4705,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -4918,12 +4729,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:1",
-          "expandedY": 70,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -5004,12 +4813,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "条件 / page → items + total"
-            }
+            "hints": []
           },
           {
             "id": "ProductService.findById",
@@ -5083,12 +4889,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "id → Product | undefined"
-            }
+            "hints": []
           },
           {
             "id": "ProductService.create",
@@ -5192,12 +4995,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "CreateProductInput → Product"
-            }
+            "hints": []
           },
           {
             "id": "ProductService.update",
@@ -5301,12 +5101,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "id / input → Product | undefined"
-            }
+            "hints": []
           },
           {
             "id": "ProductService.remove",
@@ -5380,12 +5177,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "id → boolean"
-            }
+            "hints": []
           },
           {
             "id": "ProductService.constructor",
@@ -5413,12 +5207,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -5435,12 +5231,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:1",
-          "expandedY": 370,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -5521,12 +5315,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "userId → CartData"
-            }
+            "hints": []
           },
           {
             "id": "CartService.addItem",
@@ -5660,12 +5451,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "商品 / 数量 → CartData"
-            }
+            "hints": []
           },
           {
             "id": "CartService.updateQuantity",
@@ -5814,12 +5602,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "数量0ならremoveItem"
-            }
+            "hints": []
           },
           {
             "id": "CartService.removeItem",
@@ -5953,12 +5738,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "商品削除 → CartData"
-            }
+            "hints": []
           },
           {
             "id": "CartService.clearCart",
@@ -6017,12 +5799,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "userId → void"
-            }
+            "hints": []
           },
           {
             "id": "CartService.constructor",
@@ -6066,12 +5845,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           },
           {
             "id": "CartService.store",
@@ -6099,12 +5880,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "KVStore · namespace cart:"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -6121,12 +5899,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:1",
-          "expandedY": 780,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -6312,12 +6088,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "userId → Order"
-            }
+            "hints": []
           },
           {
             "id": "OrderService.findByUser",
@@ -6391,12 +6164,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "userId / page → items + total"
-            }
+            "hints": []
           },
           {
             "id": "OrderService.findById",
@@ -6470,12 +6240,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "orderId / userId → Order | undefined"
-            }
+            "hints": []
           },
           {
             "id": "OrderService.getOrderItems",
@@ -6534,12 +6301,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "orderId → orderItems[]"
-            }
+            "hints": []
           },
           {
             "id": "OrderService.constructor",
@@ -6567,12 +6331,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -6589,12 +6355,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:1",
-          "expandedY": 1240,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -6645,12 +6409,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "password → hash"
-            }
+            "hints": []
           },
           {
             "id": "verifyPassword",
@@ -6694,12 +6455,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "password / hash → boolean"
-            }
+            "hints": []
           },
           {
             "id": "scryptAsync",
@@ -6727,12 +6485,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "promisify(scrypt) · 宣言関数ではない"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -6749,12 +6504,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:1",
-          "expandedY": 1630,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -6805,12 +6558,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "readonly items"
-            }
+            "hints": []
           },
           {
             "id": "CartItem",
@@ -6838,12 +6588,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "productId / quantity / price"
-            }
+            "hints": []
           },
           {
             "id": "CART_TTL_SEC",
@@ -6871,12 +6618,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "KV TTL"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -6893,12 +6637,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:1",
-          "expandedY": 1870,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -6933,12 +6675,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "email / password / name"
-            }
+            "hints": []
           },
           {
             "id": "LoginSchema",
@@ -6966,12 +6705,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "email / password"
-            }
+            "hints": []
           },
           {
             "id": "RegisterInput",
@@ -7015,12 +6751,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "InferOutput<RegisterSchema>"
-            }
+            "hints": [
+              {
+                "provider": "valibot",
+                "label": "InferOutput<RegisterSchema>"
+              }
+            ]
           },
           {
             "id": "LoginInput",
@@ -7064,12 +6802,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "InferOutput<LoginSchema>"
-            }
+            "hints": [
+              {
+                "provider": "valibot",
+                "label": "InferOutput<LoginSchema>"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -7086,12 +6826,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:2",
-          "expandedY": 70,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -7126,12 +6864,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "商品入力"
-            }
+            "hints": []
           },
           {
             "id": "UpdateProductSchema",
@@ -7159,12 +6894,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "optionalな商品入力"
-            }
+            "hints": []
           },
           {
             "id": "CreateProductInput",
@@ -7208,12 +6940,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "InferOutput<CreateProductSchema>"
-            }
+            "hints": [
+              {
+                "provider": "valibot",
+                "label": "InferOutput<CreateProductSchema>"
+              }
+            ]
           },
           {
             "id": "UpdateProductInput",
@@ -7257,12 +6991,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "InferOutput<UpdateProductSchema>"
-            }
+            "hints": [
+              {
+                "provider": "valibot",
+                "label": "InferOutput<UpdateProductSchema>"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -7279,12 +7015,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:2",
-          "expandedY": 370,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -7319,12 +7053,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "productId / quantity >= 1"
-            }
+            "hints": []
           },
           {
             "id": "UpdateCartItemSchema",
@@ -7352,12 +7083,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "quantity >= 0"
-            }
+            "hints": []
           },
           {
             "id": "AddToCartInput",
@@ -7401,12 +7129,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "InferOutput<AddToCartSchema>"
-            }
+            "hints": [
+              {
+                "provider": "valibot",
+                "label": "InferOutput<AddToCartSchema>"
+              }
+            ]
           },
           {
             "id": "UpdateCartItemInput",
@@ -7450,12 +7180,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "InferOutput<UpdateCartItemSchema>"
-            }
+            "hints": [
+              {
+                "provider": "valibot",
+                "label": "InferOutput<UpdateCartItemSchema>"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -7472,12 +7204,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:2",
-          "expandedY": 780,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -7512,12 +7242,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "readonly id / email"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -7534,12 +7261,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:2",
-          "expandedY": 1100,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -7574,12 +7299,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "EventBusSchema拡張 / payload"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -7596,12 +7318,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:2",
-          "expandedY": 1280,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -7636,12 +7356,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "key → T | undefined"
-            }
+            "hints": []
           },
           {
             "id": "KVStore.set",
@@ -7669,12 +7386,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "key / value / TTL → void"
-            }
+            "hints": []
           },
           {
             "id": "KVStore.del",
@@ -7702,12 +7416,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "key → void"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -7724,12 +7435,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:3",
-          "expandedY": 780,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -7764,12 +7473,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "atomic increment"
-            }
+            "hints": []
           },
           {
             "id": "AtomicKVStore.setnx",
@@ -7797,12 +7503,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "atomic set if absent"
-            }
+            "hints": []
           },
           {
             "id": "AtomicKVStore.namespace",
@@ -7830,12 +7533,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "prefix → AtomicKVStore"
-            }
+            "hints": []
           }
         ],
         "relations": [
@@ -7868,12 +7568,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:3",
-          "expandedY": 1030,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -7908,12 +7606,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "event / payload"
-            }
+            "hints": []
           },
           {
             "id": "EventBusAdaptor.on",
@@ -7941,12 +7636,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "event / handler → unsubscribe"
-            }
+            "hints": []
           },
           {
             "id": "EventBusAdaptor.once",
@@ -7974,12 +7666,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "event / handler → unsubscribe"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -7996,12 +7685,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:3",
-          "expandedY": 1280,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -8036,12 +7723,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "BetterSQLite3Database<typeof schema>"
-            }
+            "hints": []
           },
           {
             "id": "DrizzleService.sqlite",
@@ -8069,12 +7753,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "Database.Database"
-            }
+            "hints": []
           },
           {
             "id": "DrizzleService.constructor",
@@ -8148,18 +7829,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:DrizzleService.constructor",
-                "kind": "lifecycle",
-                "hook": "DrizzleService.constructor"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           },
           {
             "id": "DrizzleService.initSchema",
@@ -8203,12 +7880,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DDL / tables作成"
-            }
+            "hints": []
           },
           {
             "id": "DrizzleService.startup",
@@ -8236,18 +7910,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:DrizzleService.startup",
-                "kind": "lifecycle",
-                "hook": "DrizzleService.startup"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "lifecycle · 空実装"
-            }
+            "hints": []
           },
           {
             "id": "DrizzleService.shutdown",
@@ -8291,18 +7956,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [
-              {
-                "id": "entry:DrizzleService.shutdown",
-                "kind": "lifecycle",
-                "hook": "DrizzleService.shutdown"
-              }
-            ],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "SQLite接続を閉じる"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -8319,12 +7975,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:4",
-          "expandedY": 70,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -8359,12 +8013,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "users"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "users"
+              }
+            ]
           },
           {
             "id": "products",
@@ -8392,12 +8048,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "products"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "products"
+              }
+            ]
           },
           {
             "id": "orders",
@@ -8425,12 +8083,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "orders"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "orders"
+              }
+            ]
           },
           {
             "id": "orderItems",
@@ -8458,12 +8118,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "order_items"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "order_items"
+              }
+            ]
           },
           {
             "id": "User",
@@ -8507,12 +8169,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DB schema由来"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "DB schema由来"
+              }
+            ]
           },
           {
             "id": "NewUser",
@@ -8556,12 +8220,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DB schema由来"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "DB schema由来"
+              }
+            ]
           },
           {
             "id": "Product",
@@ -8605,12 +8271,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DB schema由来"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "DB schema由来"
+              }
+            ]
           },
           {
             "id": "NewProduct",
@@ -8654,12 +8322,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DB schema由来"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "DB schema由来"
+              }
+            ]
           },
           {
             "id": "Order",
@@ -8703,12 +8373,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DB schema由来"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "DB schema由来"
+              }
+            ]
           },
           {
             "id": "NewOrder",
@@ -8752,12 +8424,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DB schema由来"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "DB schema由来"
+              }
+            ]
           },
           {
             "id": "OrderItem",
@@ -8801,12 +8475,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DB schema由来"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "DB schema由来"
+              }
+            ]
           },
           {
             "id": "NewOrderItem",
@@ -8850,12 +8526,14 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DB schema由来"
-            }
+            "hints": [
+              {
+                "provider": "drizzle",
+                "label": "DB schema由来"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -8872,12 +8550,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:4",
-          "expandedY": 490,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -8928,12 +8604,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "prefix → AtomicKVStore"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -8950,12 +8623,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:4",
-          "expandedY": 1220,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -8990,12 +8661,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "key → T | undefined"
-            }
+            "hints": []
           },
           {
             "id": "MemoryKVStore.set",
@@ -9023,12 +8691,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "key / value / TTL"
-            }
+            "hints": []
           },
           {
             "id": "MemoryKVStore.del",
@@ -9056,12 +8721,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "key → void"
-            }
+            "hints": []
           }
         ],
         "relations": [
@@ -9094,12 +8756,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:4",
-          "expandedY": 1380,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -9134,12 +8794,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "event / payload"
-            }
+            "hints": []
           },
           {
             "id": "MemoryEventBusAdaptor.on",
@@ -9167,12 +8824,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "event / handler → unsubscribe"
-            }
+            "hints": []
           },
           {
             "id": "MemoryEventBusAdaptor.once",
@@ -9200,12 +8854,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "event / handler → unsubscribe"
-            }
+            "hints": []
           }
         ],
         "relations": [
@@ -9238,12 +8889,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:4",
-          "expandedY": 1630,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -9373,12 +9022,9 @@
                 "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "payload → token"
-            }
+            "hints": []
           },
           {
             "id": "JwtService.verify",
@@ -9567,12 +9213,9 @@
                 "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "token → JwtPayload"
-            }
+            "hints": []
           },
           {
             "id": "JwtService.decode",
@@ -9697,12 +9340,9 @@
                 "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "token → JwtPayload | null"
-            }
+            "hints": []
           },
           {
             "id": "JwtService.parseExpiresIn",
@@ -9730,12 +9370,9 @@
                 "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "duration → string | number"
-            }
+            "hints": []
           },
           {
             "id": "JwtService.constructor",
@@ -9763,12 +9400,14 @@
                 "inspectedFiles": ["packages/auth-jwt/src/jwt.service.test.ts"]
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "DI / 初期化"
-            }
+            "hints": [
+              {
+                "provider": "zelt",
+                "label": "DI / 初期化"
+              }
+            ]
           }
         ],
         "relations": [],
@@ -9785,12 +9424,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:4",
-          "expandedY": 1880,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -9825,12 +9462,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "message / context → void"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -9847,12 +9481,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:4",
-          "expandedY": 2240,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -9887,12 +9519,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "key / options → result"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -9909,12 +9538,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:4",
-          "expandedY": 2400,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -9949,12 +9576,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "lifecycle → ReadyValue | undefined"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -9971,12 +9595,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:4",
-          "expandedY": 2580,
-          "role": "regular",
-          "hint": null
+          "role": "regular"
         }
       },
       {
@@ -10015,8 +9637,7 @@
               },
               "signature": "override get secret(): string",
               "excerpt": {
-                "kind": "redacted",
-                "text": "override get secret(): string { /* 設定値・内部実装は非表示 */ }"
+                "kind": "declaration-only"
               }
             },
             "unitTests": {
@@ -10027,12 +9648,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "override · 値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "EcJwtConfig.expiresIn",
@@ -10064,8 +9682,7 @@
               },
               "signature": "override get expiresIn(): string",
               "excerpt": {
-                "kind": "redacted",
-                "text": "override get expiresIn(): string { /* 設定値・内部実装は非表示 */ }"
+                "kind": "declaration-only"
               }
             },
             "unitTests": {
@@ -10076,12 +9693,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "override · 値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "EcJwtConfig.resolveUser",
@@ -10128,8 +9742,7 @@
               },
               "signature": "override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult>",
               "excerpt": {
-                "kind": "redacted",
-                "text": "override get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {\n    return async (payload) => {\n      const user: EcUser = {\n        id: payload.sub ? parseInt(payload.sub, 10) : 0,\n        email: (payload.email as string) ?? '',\n      };\n      return {\n        user,\n        roles: (payload.roles as readonly string[]) ?? [],\n      };\n    };\n  }"
+                "kind": "declaration-only"
               }
             },
             "unitTests": {
@@ -10140,12 +9753,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "payload → Promise<ResolveUserResult>"
-            }
+            "hints": []
           },
           {
             "id": "EcJwtConfig.resolveUser@callback",
@@ -10177,8 +9787,7 @@
               },
               "signature": "async (payload) =>",
               "excerpt": {
-                "kind": "redacted",
-                "text": "async (payload) => {\n      const user: EcUser = {\n        id: payload.sub ? parseInt(payload.sub, 10) : 0,\n        email: (payload.email as string) ?? '',\n      };\n      return {\n        user,\n        roles: (payload.roles as readonly string[]) ?? [],\n      };\n    }"
+                "kind": "declaration-only"
               }
             },
             "unitTests": {
@@ -10189,12 +9798,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "getterが返す無名関数"
-            }
+            "hints": []
           }
         ],
         "relations": [
@@ -10227,12 +9833,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:5",
-          "expandedY": 70,
-          "role": "config",
-          "hint": null
+          "role": "config"
         }
       },
       {
@@ -10255,8 +9859,8 @@
               },
               "signature": "get secret(): string",
               "excerpt": {
-                "kind": "redacted",
-                "text": "get secret(): string { /* 設定値・内部実装は非表示 */ }"
+                "kind": "code",
+                "text": "get secret(): string {\n    const secret = this.env.getString('JWT_SECRET');\n    if (!secret) {\n      throw new ZeltJwtConfigError({ reason: 'missing_secret' });\n    }\n    return secret;\n  }"
               }
             },
             "unitTests": {
@@ -10267,12 +9871,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "注入型のgetter"
-            }
+            "hints": []
           },
           {
             "id": "JwtConfig.expiresIn",
@@ -10288,8 +9889,8 @@
               },
               "signature": "get expiresIn(): string",
               "excerpt": {
-                "kind": "redacted",
-                "text": "get expiresIn(): string { /* 設定値・内部実装は非表示 */ }"
+                "kind": "code",
+                "text": "get expiresIn(): string {\n    return '1h';\n  }"
               }
             },
             "unitTests": {
@@ -10300,12 +9901,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "注入型のgetter"
-            }
+            "hints": []
           },
           {
             "id": "JwtConfig.driver",
@@ -10321,8 +9919,8 @@
               },
               "signature": "get driver(): JwtDriver",
               "excerpt": {
-                "kind": "redacted",
-                "text": "get driver(): JwtDriver { /* 設定値・内部実装は非表示 */ }"
+                "kind": "code",
+                "text": "get driver(): JwtDriver {\n    return 'header';\n  }"
               }
             },
             "unitTests": {
@@ -10333,12 +9931,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "header / cookie"
-            }
+            "hints": []
           },
           {
             "id": "JwtConfig.cookieName",
@@ -10354,8 +9949,8 @@
               },
               "signature": "get cookieName(): string",
               "excerpt": {
-                "kind": "redacted",
-                "text": "get cookieName(): string { /* 設定値・内部実装は非表示 */ }"
+                "kind": "code",
+                "text": "get cookieName(): string {\n    return 'jwt';\n  }"
               }
             },
             "unitTests": {
@@ -10366,12 +9961,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "cookie名"
-            }
+            "hints": []
           },
           {
             "id": "JwtConfig.resolveUser",
@@ -10387,7 +9979,7 @@
               },
               "signature": "get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult>",
               "excerpt": {
-                "kind": "redacted",
+                "kind": "code",
                 "text": "get resolveUser(): (payload: JwtPayload) => Promise<ResolveUserResult> {\n    return async (payload) => ({\n      user: { sub: payload.sub },\n      roles: [],\n    });\n  }"
               }
             },
@@ -10399,12 +9991,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "返却関数の契約"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -10421,12 +10010,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:5",
-          "expandedY": 380,
-          "role": "config",
-          "hint": null
+          "role": "config"
         }
       },
       {
@@ -10465,8 +10052,7 @@
               },
               "signature": "override readonly origin",
               "excerpt": {
-                "kind": "redacted",
-                "text": "override readonly origin; // 設定値は非表示"
+                "kind": "declaration-only"
               }
             },
             "unitTests": {
@@ -10477,12 +10063,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "override · 値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "EcCorsConfig.credentials",
@@ -10514,8 +10097,7 @@
               },
               "signature": "override readonly credentials",
               "excerpt": {
-                "kind": "redacted",
-                "text": "override readonly credentials; // 設定値は非表示"
+                "kind": "declaration-only"
               }
             },
             "unitTests": {
@@ -10526,12 +10108,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "override · 値は非表示"
-            }
+            "hints": []
           }
         ],
         "relations": [
@@ -10564,12 +10143,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:5",
-          "expandedY": 750,
-          "role": "config",
-          "hint": null
+          "role": "config"
         }
       },
       {
@@ -10592,8 +10169,8 @@
               },
               "signature": "readonly origin: string | string[]",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly origin: string | string[]; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly origin: string | string[] = [];"
               }
             },
             "unitTests": {
@@ -10604,12 +10181,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "CorsConfig.allowMethods",
@@ -10625,8 +10199,8 @@
               },
               "signature": "readonly allowMethods: string[]",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly allowMethods: string[]; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly allowMethods: string[] = ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH'];"
               }
             },
             "unitTests": {
@@ -10637,12 +10211,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "CorsConfig.allowHeaders",
@@ -10658,8 +10229,8 @@
               },
               "signature": "readonly allowHeaders: string[]",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly allowHeaders: string[]; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly allowHeaders: string[] = [];"
               }
             },
             "unitTests": {
@@ -10670,12 +10241,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "CorsConfig.exposeHeaders",
@@ -10691,8 +10259,8 @@
               },
               "signature": "readonly exposeHeaders: string[]",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly exposeHeaders: string[]; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly exposeHeaders: string[] = [];"
               }
             },
             "unitTests": {
@@ -10703,12 +10271,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "CorsConfig.maxAge",
@@ -10724,8 +10289,8 @@
               },
               "signature": "readonly maxAge: number | undefined",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly maxAge: number | undefined; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly maxAge: number | undefined = undefined;"
               }
             },
             "unitTests": {
@@ -10736,12 +10301,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "CorsConfig.credentials",
@@ -10757,8 +10319,8 @@
               },
               "signature": "readonly credentials: boolean",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly credentials: boolean; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly credentials: boolean = false;"
               }
             },
             "unitTests": {
@@ -10769,12 +10331,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -10791,12 +10350,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:5",
-          "expandedY": 950,
-          "role": "config",
-          "hint": null
+          "role": "config"
         }
       },
       {
@@ -10819,8 +10376,8 @@
               },
               "signature": "readonly enabled: boolean",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly enabled: boolean; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly enabled: boolean = true;"
               }
             },
             "unitTests": {
@@ -10831,12 +10388,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -10853,12 +10407,10 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:5",
-          "expandedY": 1370,
-          "role": "config",
-          "hint": null
+          "role": "config"
         }
       },
       {
@@ -10881,8 +10433,8 @@
               },
               "signature": "readonly crossOriginEmbedderPolicy: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly crossOriginEmbedderPolicy: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly crossOriginEmbedderPolicy: OverridableHeader = false;"
               }
             },
             "unitTests": {
@@ -10893,12 +10445,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.crossOriginResourcePolicy",
@@ -10914,8 +10463,8 @@
               },
               "signature": "readonly crossOriginResourcePolicy: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly crossOriginResourcePolicy: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly crossOriginResourcePolicy: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -10926,12 +10475,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.crossOriginOpenerPolicy",
@@ -10947,8 +10493,8 @@
               },
               "signature": "readonly crossOriginOpenerPolicy: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly crossOriginOpenerPolicy: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly crossOriginOpenerPolicy: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -10959,12 +10505,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.originAgentCluster",
@@ -10980,8 +10523,8 @@
               },
               "signature": "readonly originAgentCluster: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly originAgentCluster: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly originAgentCluster: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -10992,12 +10535,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.referrerPolicy",
@@ -11013,8 +10553,8 @@
               },
               "signature": "readonly referrerPolicy: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly referrerPolicy: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly referrerPolicy: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -11025,12 +10565,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.strictTransportSecurity",
@@ -11046,8 +10583,8 @@
               },
               "signature": "readonly strictTransportSecurity: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly strictTransportSecurity: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly strictTransportSecurity: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -11058,12 +10595,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.xContentTypeOptions",
@@ -11079,8 +10613,8 @@
               },
               "signature": "readonly xContentTypeOptions: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly xContentTypeOptions: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly xContentTypeOptions: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -11091,12 +10625,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.xDnsPrefetchControl",
@@ -11112,8 +10643,8 @@
               },
               "signature": "readonly xDnsPrefetchControl: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly xDnsPrefetchControl: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly xDnsPrefetchControl: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -11124,12 +10655,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.xDownloadOptions",
@@ -11145,8 +10673,8 @@
               },
               "signature": "readonly xDownloadOptions: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly xDownloadOptions: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly xDownloadOptions: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -11157,12 +10685,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.xFrameOptions",
@@ -11178,8 +10703,8 @@
               },
               "signature": "readonly xFrameOptions: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly xFrameOptions: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly xFrameOptions: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -11190,12 +10715,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.xPermittedCrossDomainPolicies",
@@ -11211,8 +10733,8 @@
               },
               "signature": "readonly xPermittedCrossDomainPolicies: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly xPermittedCrossDomainPolicies: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly xPermittedCrossDomainPolicies: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -11223,12 +10745,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.xXssProtection",
@@ -11244,8 +10763,8 @@
               },
               "signature": "readonly xXssProtection: OverridableHeader",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly xXssProtection: OverridableHeader; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly xXssProtection: OverridableHeader = true;"
               }
             },
             "unitTests": {
@@ -11256,12 +10775,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           },
           {
             "id": "SecureHeadersConfig.removePoweredBy",
@@ -11277,8 +10793,8 @@
               },
               "signature": "readonly removePoweredBy: boolean",
               "excerpt": {
-                "kind": "redacted",
-                "text": "readonly removePoweredBy: boolean; // 設定値は非表示"
+                "kind": "code",
+                "text": "readonly removePoweredBy: boolean = true;"
               }
             },
             "unitTests": {
@@ -11289,12 +10805,9 @@
                 "inspectedFiles": []
               }
             },
-            "entries": [],
+            "e2eTests": null,
             "unresolved": [],
-            "presentation": {
-              "origin": "manual",
-              "hint": "設定値は非表示"
-            }
+            "hints": []
           }
         ],
         "relations": [],
@@ -11311,18 +10824,15 @@
           }
         },
         "unresolved": [],
+        "hints": [],
         "presentation": {
-          "origin": "manual",
           "columnId": "column:5",
-          "expandedY": 1560,
-          "role": "config",
-          "hint": null
+          "role": "config"
         }
       }
     ],
     "presentation": {
       "id": "ec-spatial",
-      "origin": "manual",
       "columns": [
         {
           "id": "column:0",
@@ -11353,22 +10863,6 @@
           "id": "column:5",
           "label": "Config",
           "width": 310
-        }
-      ],
-      "demoScenarios": [
-        {
-          "id": "order-type",
-          "label": "Order型の仮変更",
-          "selectId": "Order",
-          "highlightedIds": [
-            "OrderService.createOrder",
-            "OrderService.findByUser",
-            "OrderService.findById",
-            "OrderController.create",
-            "OrderController.list",
-            "OrderController.detail",
-            "Order"
-          ]
         }
       ]
     }

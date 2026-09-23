@@ -1,22 +1,15 @@
 import type { DialogModel, InspectorModel, MapModel, ViewportCommand } from './display.types';
-import type { EntryKind, InspectorTab, ScopeMode, ViewOptions } from './state.types';
+import type { InspectorTab, ScopeMode, ViewOptions } from './state.types';
 
 export interface ToolbarModel {
   readonly projectName: string;
   readonly query: string;
-  readonly category: EntryKind;
   readonly searchCount: number;
   readonly results: readonly {
     readonly id: string;
     readonly label: string;
     readonly hint: string;
   }[];
-  readonly entries: readonly {
-    readonly id: string;
-    readonly kind: string;
-    readonly label: string;
-  }[];
-  readonly origin: string;
 }
 export interface ControlsModel {
   readonly mode: ScopeMode;
@@ -37,7 +30,6 @@ export interface ReadyModel {
   readonly dialog: DialogModel | null;
   readonly help: boolean;
   readonly notice: string | null;
-  readonly demo: { readonly id: string; readonly label: string; readonly active: boolean } | null;
   readonly declarationCount: number;
   readonly groupCount: number;
 }

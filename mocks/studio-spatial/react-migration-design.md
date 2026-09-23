@@ -19,7 +19,7 @@ erDiagram
     SourceDeclaration |o--o{ SourceRelation : relations
     SourceGraph {
         SourceGroup[] groups
-        MapPresentation presentation "列・仮変更デモ"
+        MapPresentation presentation "列"
     }
     SourceGroup {
         GroupId id
@@ -28,8 +28,9 @@ erDiagram
         SourceDeclaration[] members
         SourceRelation[] relations "この箱自身から出る関係"
         SourceDetail source "この箱の宣言・実コード"
-        GroupPresentation presentation "この箱の配置"
         UnresolvedReference[] unresolved
+        Hint[] hints "pluginが付けた注記"
+        GroupPresentation presentation "この箱の列・役割"
     }
     SourceDeclaration {
         DeclarationId id
@@ -38,9 +39,9 @@ erDiagram
         SourceRelation[] relations "この宣言から出る関係"
         SourceDetail source "この宣言の契約・実コード"
         UnitTests unitTests "この宣言を直接テストする一覧"
-        EntryPoint[] entries "この宣言が起点となる登録"
+        EndpointTests e2eTests "routeを登録したmethodだけ。他はnull"
         UnresolvedReference[] unresolved
-        DeclarationPresentation presentation "補助ラベル"
+        Hint[] hints "pluginが付けた注記"
     }
     SourceRelation {
         RelationId id
@@ -51,7 +52,7 @@ erDiagram
 ```
 
 例えば `OrderService → findById → source / unitTests` と、その宣言の詳細をそのまま辿る。
-groupを選んだときのテスト一覧はmembersから集約する。E2Eは宣言の `entries → HTTP entry → e2eTests` に置き、Unitとは分ける。
+groupを選んだときのテスト一覧はmembersから集約する。E2Eはrouteを登録した宣言の `e2eTests` に置き、Unitとは分ける。
 関係は参照元の `relations` に持つ。各relationの所有者はgroupか宣言のどちらか一つで、`from` はその所有者から決まる。参照先 `to` だけをIDで持ち、同じ宣言を呼出元やflowごとに複製しない。
 class自体の `implements / extends` はgroup側、method内のcall等は宣言側に置く。折りたたみ用にmethodの関係をgroupへ重複保存しない。
 
@@ -64,14 +65,13 @@ erDiagram
     direction LR
     SourceDeclaration ||--|| SourceDetail : source
     SourceDeclaration ||--|| UnitTests : unitTests
-    SourceDeclaration ||--o{ EntryPoint : entries
-    EntryPoint ||--o| EndpointTests : HTTPのみ
+    SourceDeclaration ||--o| EndpointTests : e2eTests
     UnitTests ||--o{ UnitTestCase : cases
     EndpointTests ||--o{ EndpointTestCase : cases
     SourceDetail {
         SourceLocation location
         string signature "宣言の契約"
-        object excerpt "実コード・伏せ字・宣言のみ"
+        object excerpt "実コード・宣言のみ"
     }
     UnitTests {
         UnitTestCase[] cases
@@ -89,7 +89,7 @@ erDiagram
     EndpointTestCase {
         string name
         SourceLocation location
-        object[] requests "このHTTP entryへのrequest"
+        object[] requests "このrouteへのrequest"
     }
 ```
 
@@ -107,7 +107,6 @@ type GroupId = string;
 type DeclarationId = string;
 type SubjectId = GroupId | DeclarationId;
 type RelationId = string;
-type EntryId = string;
 type TestId = string;
 type SetupId = string;
 type ColumnId = string;
@@ -133,6 +132,7 @@ interface SourceGroup {
   readonly expansion: 'included' | 'boundary';
   readonly source: SourceDetail;
   readonly unresolved: readonly UnresolvedReference[];
+  readonly hints: readonly Hint[];
   readonly presentation: GroupPresentation;
 }
 type DeclarationKind =
@@ -147,9 +147,9 @@ interface SourceDeclaration {
   readonly relations: readonly SourceRelation[];
   readonly source: SourceDetail;
   readonly unitTests: UnitTests;
-  readonly entries: readonly EntryPoint[];
+  readonly e2eTests: EndpointTests | null;
   readonly unresolved: readonly UnresolvedReference[];
-  readonly presentation: DeclarationPresentation;
+  readonly hints: readonly Hint[];
 }
 type RelationKind =
   | 'call' | 'read' | 'contract' | 'type' | 'schema' | 'table'
@@ -181,18 +181,8 @@ interface SourceDetail {
   readonly signature: string;
   readonly excerpt:
     | { readonly kind: 'code'; readonly text: string }
-    | { readonly kind: 'redacted'; readonly text: string }
     | { readonly kind: 'declaration-only' };
 }
-type EntryPoint = { readonly id: EntryId } & (
-  | {
-      readonly kind: 'http'; readonly method: string; readonly path: string;
-      readonly e2eTests: EndpointTests;
-    }
-  | { readonly kind: 'event'; readonly eventName: string }
-  | { readonly kind: 'middleware' }
-  | { readonly kind: 'lifecycle'; readonly hook: string }
-);
 interface UnitTests {
   readonly cases: readonly UnitTestCase[];
   readonly coverage: AssociationCoverage;
@@ -251,33 +241,25 @@ interface AssociationCoverage {
 interface EndpointCoverage extends AssociationCoverage {
   readonly includesSharedSetup: boolean;
 }
-interface GroupPresentation {
-  readonly origin: 'manual';
-  readonly columnId: ColumnId;
-  readonly expandedY: number;
-  readonly role: 'regular' | 'config' | 'composition';
-  readonly hint: string | null;
+interface Hint {
+  readonly provider: string;
+  readonly label: string;
 }
-interface DeclarationPresentation {
-  readonly origin: 'manual';
-  readonly hint: string | null;
+interface GroupPresentation {
+  readonly columnId: ColumnId;
+  readonly role: 'regular' | 'config' | 'composition';
 }
 interface MapPresentation {
   readonly id: string;
-  readonly origin: 'manual';
   readonly columns: readonly {
     readonly id: ColumnId; readonly label: string; readonly width: number;
-  }[];
-  readonly demoScenarios: readonly {
-    readonly id: string; readonly label: string;
-    readonly selectId: SubjectId; readonly highlightedIds: readonly SubjectId[];
   }[];
 }
 ```
 
 sourceやtestが属する対象は、JSONの包含関係で決まる。所属先のIDを詳細側に重複保存しない。
 グラフ探索・検索用のID索引、`used by` の逆引き、全関係一覧は読込後に各所有者のrelationsから作る。配信JSONには二重保存しない。
-配置・補助ラベルは各箱のpresentationに置き、手動指定であることを残す。configの秘密値は配信前に除く。
+列と役割だけを各箱のpresentationに置く。列内の並び順とy座標はUIが計算する（ファイルのパスの名前順、同じファイル内はソース出現順）。注記はpluginが付けた `hints` で、画面には1つずつ行にして出す。原文を伏せたいファイルは `declaration-only` にする。
 
 </details>
 
@@ -449,16 +431,13 @@ type ViewIntent =
   | { readonly type: 'scope.mode'; readonly mode: ScopeMode }
   | { readonly type: 'scope.lock'; readonly locked: boolean }
   | { readonly type: 'scope.start'; readonly id: SubjectId }
-  | { readonly type: 'entry.choose'; readonly id: EntryId }
   | { readonly type: 'group.toggle'; readonly id: GroupId }
   | { readonly type: 'groups.expand'; readonly expanded: boolean }
   | { readonly type: 'options.change'; readonly options: ViewOptions }
   | { readonly type: 'search.change'; readonly query: string }
-  | { readonly type: 'entry.filter'; readonly kind: EntryPoint['kind'] | 'all' }
   | { readonly type: 'inspector.tab'; readonly tab: InspectorTab }
   | { readonly type: 'subject.locate'; readonly id: SubjectId }
   | { readonly type: 'tag.activate'; readonly key: string }
-  | { readonly type: 'demo.choose'; readonly id: string | null }
   | { readonly type: 'composition.open' }
   | { readonly type: 'dialog.close' }
   | { readonly type: 'help.set'; readonly open: boolean }
@@ -476,16 +455,12 @@ type BoundaryHandler = (event: ViewEvent) => 'handled' | 'pass';
 interface ToolbarModel {
   readonly projectName: string;
   readonly subjects: readonly SubjectLink[];
-  readonly entries: readonly EntryOption[];
   readonly query: string;
-  readonly entryKind: EntryPoint['kind'] | 'all';
   readonly node: SubjectId | null;
   readonly mode: ScopeMode;
   readonly locked: boolean;
   readonly canLock: boolean;
   readonly options: ViewOptions;
-  readonly demoScenarios: MapPresentation['demoScenarios'];
-  readonly demoId: string | null;
 }
 type RootModel =
   | { readonly phase: 'loading' }
@@ -502,7 +477,6 @@ type RootModel =
       readonly viewportCommand: ViewportCommand | null;
       readonly notice: string | null;
     };
-type EntryOption = EntryPoint & { readonly targetId: DeclarationId };
 interface UnitCoverage extends AssociationCoverage { readonly declarationId: DeclarationId }
 type ScopeMode = 'near' | 'flow' | 'all';
 type InspectorTab = 'contract' | 'source';
@@ -525,11 +499,11 @@ interface ViewState {
 interface Rect { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
 interface Point { readonly x: number; readonly y: number }
 interface SubjectLink { readonly id: SubjectId; readonly label: string }
-interface VisualState { readonly dimmed: boolean; readonly selected: boolean; readonly changed: boolean }
+interface VisualState { readonly dimmed: boolean; readonly selected: boolean }
 interface DisplayDeclaration extends VisualState {
   readonly subject: SubjectLink;
   readonly kind: DeclarationKind;
-  readonly hint: string | null;
+  readonly hints: readonly string[]; // 注記ごとに1行。providerでは分岐しない
   readonly rect: Rect;
 }
 interface DisplayTag {
@@ -582,8 +556,8 @@ interface UnitTestSection {
   readonly showTargetColumn: boolean;
 }
 interface EndpointTestSection {
-  readonly entryId: EntryId;
-  readonly label: string;
+  readonly declarationId: DeclarationId;
+  readonly label: string; // 宣言のhintsのlabelを「 · 」で連結。無ければ宣言名
   readonly rows: readonly EndpointTestRow[];
   readonly coverage: EndpointCoverage;
 }
