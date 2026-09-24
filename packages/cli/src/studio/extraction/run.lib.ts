@@ -20,6 +20,7 @@ import {
   listTestScopeFiles,
   spanReader,
 } from './extraction-program.lib';
+import { defaultInspectEntry } from './plugins';
 import { runPlugins } from './run-plugins.lib';
 
 export type ExtractOptions = {
@@ -27,6 +28,8 @@ export type ExtractOptions = {
   readonly output?: string;
   /** stage-by-stage escape hatch: publish even if `required` features have no plugin yet */
   readonly allowIncomplete?: boolean;
+  /** app を読み込む子プロセスの entry。build 後は dist の .js を渡す(付録D) */
+  readonly zeltEntryPath?: string;
 };
 
 export type ExtractionResult =
@@ -153,6 +156,38 @@ const publishSnapshot = async (
   }
 };
 
+type Collected = {
+  readonly facts: SourceFacts;
+  readonly plugins: readonly PluginContribution[];
+  readonly ignoreRecommendations: readonly IgnoreRecommendation[];
+};
+
+/** 索引を作り、config が有効にした plugin の材料を集めるまで */
+const collect = async (
+  config: ResolvedConfig,
+  program: ts.Program,
+  options: ExtractOptions,
+): Promise<Stage<Collected>> => {
+  const indexed = buildCoreFacts(program, config);
+  const run = await runPlugins({
+    program,
+    config,
+    resolver: indexed.resolver,
+    inspectedFiles: indexed.inspectedFiles,
+    zeltEntryPath: options.zeltEntryPath ?? defaultInspectEntry(),
+  });
+  if (!run.ok) return failed('plugin', run.violations);
+  return {
+    ok: true,
+    // plugin が解決した接点のぶんだけ箱が増えるので、材料を集めたあとに事実を取り直す(4.2)
+    value: {
+      facts: indexed.resolver.facts(),
+      plugins: run.plugins,
+      ignoreRecommendations: run.ignoreRecommendations,
+    },
+  };
+};
+
 export const extract = async (
   configFile: string,
   options: ExtractOptions = {},
@@ -165,20 +200,14 @@ export const extract = async (
   if (!programStage.ok) return programStage.failure;
   const program = programStage.value;
 
-  const indexed = buildCoreFacts(program, config);
-  const run = runPlugins({
-    program,
-    config,
-    resolver: indexed.resolver,
-    inspectedFiles: indexed.inspectedFiles,
-  });
-  if (!run.ok) return { kind: 'failed', phase: 'plugin', diagnostics: run.violations };
+  const collected = await collect(config, program, options);
+  if (!collected.ok) return collected.failure;
+  const run = collected.value;
 
   const snapshotStage = buildSnapshot({
     config,
     program,
-    // plugin が解決した接点のぶんだけ箱が増えるので、材料を集めたあとに事実を取り直す(4.2)
-    facts: indexed.resolver.facts(),
+    facts: run.facts,
     plugins: run.plugins,
     allowIncomplete: options.allowIncomplete === true,
   });

@@ -8,7 +8,7 @@
 
 - **前提1 — 手触りは変えない**: 配信データの契約はv1（[`src/snapshot-schema.lib.ts`](src/snapshot-schema.lib.ts)）。v1からの変更は[4.5](#45-v1からの変更)に挙げたものだけで、形を変えるのは「手触りを保ち、かつ汎用化に効く」と示せたときだけ。
 - **前提2 — 汎用化は抽出器の内部構造の話**: 抽出器を「コア（どのTSコードにも効く）＋任意plugin（Zelt・Vitest・Valibot・Drizzle等の意味）＋組立」に分ける。pluginは付与するだけで、無くても同じ型で地図は出て、意味が粗くなるだけ。
-- **前提3 — 手書きfixtureで先に示す**: 自動抽出ができるまで、手書きの `snapshot.json` をコミットし続ける。この計画の形（4.5）はschema・fixture・UIに反映済みで、fixtureは「[config](ec-backend.extract.json)＋この文書の規則」から説明できる状態にしてある（[付録L](#l-uiの追従)・[付録P](#p-確認状況)）。抽出器のコードはまだ無い。
+- **前提3 — 手書きfixtureで先に示す**: 自動抽出ができるまで、手書きの `snapshot.json` をコミットし続ける。この計画の形（4.5）はschema・fixture・UIに反映済みで、fixtureは「[config](ec-backend.extract.json)＋この文書の規則」から説明できる状態にしてある（[付録L](#l-uiの追従)・[付録P](#p-確認状況)）。
 
 **読み方**: 1節は箱の責務、2節のpolicyが土台。3節はpolicyが1本の例でどう効くか、4節はpolicyから決まる結果。5節（判断が要ること）は空。付録は実装の細則でレビュー不要。
 
@@ -23,7 +23,9 @@
 ~~~mermaid
 flowchart LR
   S["実コード"] --> CO["抽出器のコア"]
-  CO -->|読む| ZP["Zelt plugin"]
+  S --> ZR["Zeltの出力"]
+  CO -->|所在とID| ZP["Zelt plugin"]
+  ZR -->|意味| ZP
   CO -->|読む| VP["Vitest plugin"]
   CO -->|事実| AS["組立"]
   ZP -->|材料| AS
@@ -33,7 +35,7 @@ flowchart LR
   J --> UI["UI"]
 ~~~
 
-Valibot・Drizzleのpluginも、Zelt・Vitestと同じ形でコアを読み、材料を組立に渡す。
+Valibot・Drizzleのpluginも、Vitestと同じ形でコアを読み、材料を組立に渡す。Zelt pluginだけは意味の出どころが違い、**Zelt自身の出力**（appを読み込んで得たblueprintとdecorator metadata）から意味を取る。コアからはIDと所在・原文だけを引き、TSのASTは読まない（[付録D](#d-zelt)）。
 
 | 箱 | 責務 | 責務でないこと | 担う② |
 | --- | --- | --- | --- |
@@ -140,12 +142,12 @@ async register(req = request(RegisterSchema)) {
 | 箱 | registerについて出すもの | 満たす② | 答える問い |
 | --- | --- | --- | --- |
 | コア | `AuthService.register` を呼ぶ線、`RegisterSchema`（変数）を読む線 | ②1 配線、②4 事実だけ | Q1 |
-| plugin:zelt | 注記 `POST /api/auth/register`、middlewareの線4本、setup `@RateLimit(…)` | ②1 処理の入口と配線 | Q1・Q2 |
+| plugin:zelt | 注記 `POST /api/auth/register`、middlewareの線2本、setup `@RateLimit(…)` | ②1 処理の入口と配線 | Q1・Q2 |
 | plugin:valibot | `RegisterSchema` を読む線に、schemaの意味を付与 | ②2 ライブラリの活用 | Q5 |
 | 組立 | 材料を1枚にまとめ、E2E testをrouteの一致で付ける | ②1 検証、②4 | Q6 |
 | Studio | Entry列（configのglob）に置き、列と線を重ねて描く | ②3 | Q2 |
 
-- `register` がどのURLのrouteに登録されているかは、TSだけでは分からない。plugin:zeltが、Zeltが実行時に持つroute・middlewareの登録情報を読んで付与する（②4）。middlewareは、app.tsで登録したLogging、core組込みのCors・SecureHeaders、`@RateLimit` が内部で付けるRateLimitの4本。
+- `register` がどのURLのrouteに登録されているかは、TSだけでは分からない。plugin:zeltが、Zeltが実行時に持つroute・middlewareの登録情報を読んで付与する（②4）。middlewareは、app.tsで登録したLoggingと、`@RateLimit` が内部で付けるRateLimitの2本。appが書かずにcoreがrouterごとに先頭で登録する組込み（Cors・SecureHeaders）は地図に出さない（ユーザー判断 2026-09-24）。
 - 線にしないもの: `this.authService` の読み取り（注入された値の置き場は責務ではない）、`request(…)` の呼出（Zelt pluginのignore推奨をconfigで採用）。`@RateLimit`・`inject(AuthService)` はsetupで、詳細パネルに出す（[4.1](#41-責務と流れから)）。
 
 ### 手書きfixtureとの対応
@@ -156,7 +158,7 @@ async register(req = request(RegisterSchema)) {
 | --- | --- |
 | `AuthService.register` へのcall | コアの線 |
 | `RegisterSchema` への線 | コアの「読む」＋valibotが付与したschemaの意味。表示は今までどおり「入力検証schema参照」 |
-| middleware線4本 | plugin:zeltが付与した線 |
+| middleware線2本 | plugin:zeltが付与した線 |
 | 注記 `POST /api/auth/register` | plugin:zeltの注記 |
 | setup `@RateLimit({ limit: 3, … })` | plugin:zeltのsetup（target: RateLimitMiddleware） |
 | E2E一覧 | configのE2E範囲は `product.spec.ts` のサンプリングなので「一部のみ・0件」 |
@@ -331,7 +333,7 @@ testは、そのtestが直接触った境界にだけ結ぶ（②4: 間接的に
 | 原文を伏せる範囲はconfig（`redacted` の代わりに `declaration-only`） | 運用（秘密の保護） | ユーザー判断 9/23 |
 | `presentation.origin`・`expandedY` の削除 | 前提（抽出で生成する） | ユーザー判断 9/23 |
 | v1の形を保ち、構造変更は論証付きだけ | 前提1 | ユーザー判断 9/23 |
-| workerはapp factoryを1回呼ぶだけで、DBやネットワークに接続しないfactoryを入力条件にする | 運用（抽出を安全に動かす） | [付録D](#d-zelt) |
+| 子プロセスはapp factoryを1回呼ぶだけで、DBやネットワークに接続しないfactoryを入力条件にする | 運用（抽出を安全に動かす） | [付録D](#d-zelt) |
 | 既存の抽出器（DependencyGraph v3）を置き換えるか拡張するかは論点にしない | 前提（やり方の話） | ユーザー判断 9/24 |
 
 ## 5. 判断が要ること
@@ -510,14 +512,13 @@ interface MapPresentation {
 
 ← ②1・②2（注記が示すもの）、②4（確かめた事実だけ）。並び順の規則は出力の再現性のため（②4）。
 
-hintsは、pluginが**自分で見つけた事実**からだけ付ける。人の説明文だったv1のhintは移行で消した（了承済み）。fixtureの `hints` は下表のlabelだけで48件。
+hintsは、pluginが**自分で見つけた事実**からだけ付ける。人の説明文だったv1のhintは移行で消した（了承済み）。fixtureの `hints` は下表のlabelだけで46件。
 
 | plugin | 付与先 | label | 手書きfixtureでの例 |
 | --- | --- | --- | --- |
 | zelt | HTTP routeのcontroller method | `<METHOD> <fullPath>` | `POST /api/auth/register` |
 | zelt | event購読のcallback | `EVENT <eventName>` | `EVENT order:created` |
 | zelt | Injectableのmetadataを持つclass（`@Injectable`・`@Controller`・`@Middleware` はいずれも内部で `injectable()` を付ける）とConfigのconstructor | `DI / 初期化` | `AuthController.constructor` |
-| zelt | core組込みのglobal middlewareの `use` | `全HTTP · core自動登録` | CorsMiddleware / SecureHeadersMiddleware |
 | drizzle | table宣言 | table名（table builderの第1引数） | `order_items` |
 | drizzle | `$inferSelect` / `$inferInsert` から作ったtype | `DB schema由来` | `User`、`NewOrder` |
 | valibot | `InferOutput` から作ったtype | `InferOutput<Schema名>` | `InferOutput<RegisterSchema>` |
@@ -766,82 +767,111 @@ complete-in-scopeは、**configで選んだ範囲内**を列挙できたとい�
 
 `scope.files` はglob展開後の正準path一覧、`inspectedFiles` は実際に読んだ一覧。report IDはprovider・feature・category・scope.filesから作る。コアはsource、runnerは指定test scope、Zeltはsourceと指定Unit scopeを担当し、各担当feature/scopeについて必ずreportを返す。設定されていない組合せはhostがdisabledとして記録する。
 
-hostがplugin.idとreport/evidenceのproviderの一致を検証する。索引にないID、別revision、宣言していないfeature、report欠落、scope外の読み取り、コアの事実を上書きする材料は契約違反。例外・不正ID・metadata worker失敗はpartialではなく生成失敗。失敗した新JSONは配信しない。
+hostがplugin.idとreport/evidenceのproviderの一致を検証する。索引にないID、別revision、宣言していないfeature、report欠落、scope外の読み取り、コアの事実を上書きする材料は契約違反。例外・不正ID・Zeltの子プロセスの失敗はpartialではなく生成失敗。失敗した新JSONは配信しない。
 
 ### D. Zelt
 
-実装する②: ②1（route・middleware・event・appへの登録はフレームワークの配線、DI・decoratorはsetup）、②4（runtimeのmetadataという事実から付与する。名前一致で結ばない）。workerの安全の制約は運用（[4.6](#46-見せ方と運用)）。
+実装する②: ②1（route・middleware・event・appへの登録はフレームワークの配線、DI・decoratorはsetup）、②4（runtimeの記録という事実から付与する。名前一致で結ばない）。子プロセスの安全の制約は運用（[4.6](#46-見せ方と運用)）。
 
-plugin:zeltは、runtimeのmetadata（route・middleware・DI・event・lifecycle）をコアの宣言IDへ結び、意味・付与された線・注記・setupと、testの対応の材料（routeとDIの分類）を出す。コアの事実は書き換えない。contractはコアが引くので、plugin:zeltは扱わない（[4.1](#41-責務と流れから)）。classを値として渡す式とdecoratorの式はコアが線にしないので、その内容（DI・middleware・Configの差し替え）はここでsetupか付与された線として出す。
+plugin:zeltは、Zeltが実行時に残した記録（blueprintのroute・decorator metadata・DI）をコアの宣言IDへ結び、意味・付与された線・注記・setupと、testの対応の材料（routeとDIの分類）を出す。コアの事実は書き換えない。contractはコアが引くので、plugin:zeltは扱わない（[4.1](#41-責務と流れから)）。classを値として渡す式とdecoratorの式はコアが線にしないので、その内容（DI・middleware・Configの差し替え）はここでsetupか付与された線として出す。
+
+**pluginはTSのASTを読まない。** Zeltの意味はZelt自身の出力（blueprintとdecorator metadata）から取り、所在は「root相対path＋1始まりの行」だけを運ぶ。原文が要るところ（setupのlabel・根拠）はコアの所在と原文から引く。既存のStudio解析（[analyzer-entry.ts](../../packages/cli/src/studio/analyzer-entry.ts)）と同じやり方で、子プロセスがappを読む。
 
 ~~~mermaid
 flowchart LR
-  W["隔離worker<br/>指定app・照合対象module<br/>metadata・登録を読む"] --> R["RuntimeReference<br/>module export / 宣言位置<br/>ctor名一致は使わない"]
-  R --> B["TSとの照合<br/>同じsource mapping<br/>Symbol → 共通ID"]
+  C["子プロセス（tsx）<br/>createApp() まで実行"] --> J["JSON<br/>ZeltInspection"]
+  J --> B["コアの宣言に結ぶ<br/>export参照 → ID、行 → 所在"]
   B --> F["Zeltの材料"]
 ~~~
 
-[既存getClassSource](../../packages/decorator-metadata/src/inspect/class-source.lib.ts)は、constructor identityからmodule/exportを取得できる。一方、[現在のHTTP metadata](../../packages/core/src/features/http/http.types.ts)はcontroller名中心、globalMiddlewaresは適用範囲を平坦化する。**既存APIだけでは不足するので、以下のinspectionを実装に含める。** 名前・配列順で帳尻を合わせない。
+子プロセスが使うのは既存のAPIだけで、新設しない。
 
-内部型:
+| 読むもの | 使うAPI |
+| --- | --- |
+| featureが登録したclass（controller・handler・adaptor） | `feature.featureClasses()` |
+| app全体のmiddleware | `feature.globalMiddlewares()` |
+| Config class | `app.configs` |
+| routeのmethodとfullPath | blueprintの `getControllers()` と `getMetadata()` |
+| decoratorの内容（`@UseMiddleware`・`@Authorized`・`@Controller`・`@Injectable` 等） | `getClassMetadata(cls)` |
+| classの所在（module export。node_modulesのclassはpackageの公開entryに正規化される） | `getClassSource(cls)` |
+| decoratorを書いた行 | `getDecoratorApplicationPosition(cls, target, matches)` |
+| `inject()` の依存と行 | `getDependencySources(source, { tsconfig })` |
+| Configが差し替える基底 | `Object.getPrototypeOf(cls)` |
+
+子プロセスが返すJSON（[zelt-inspect-protocol.ts](../../packages/cli/src/studio/extraction/plugins/zelt-inspect-protocol.ts)、schemaを正とする）:
 
 ~~~ts
-type RuntimeReference =
-  | { kind: 'export'; module: ExportReference; member: string | null;
-      memberKind: 'class' | 'method' | 'getter' | 'setter' | 'property';
-      static: boolean }
-  | { kind: 'declaration'; span: Span };
-interface RuntimeHttpRoute {
-  registrationKey: string;
-  controller: RuntimeReference;
-  methodName: string;
-  method: string; path: string;
-  span: Span;
-  middleware: { target: RuntimeReference; span: Span }[];
+// package配下ならpackage名、そうでなければroot相対path
+interface ZeltClassRef { package: string | null; filePath: string; exportName: string }
+interface ZeltPosition { filePath: string; line: number }
+interface ZeltMiddlewareUse {
+  target: ZeltClassRef | null;               // 関数middlewareはnull
+  on: { kind: 'class' } | { kind: 'method'; name: string };
+  position: ZeltPosition | null;             // decoratorを書いた行
 }
-interface RuntimeInspection {
-  applicationId: Id;
-  diagnostics: Diagnostic[];
-  classes: { target: RuntimeReference; role: 'service' | 'config'; span: Span }[];
-  routes: RuntimeHttpRoute[];
-  eventBuses: { registrationKey: string; adaptor: RuntimeReference;
-    handlers: RuntimeReference[]; span: Span }[];
+interface ZeltDependency { target: ZeltClassRef | null; localName: string; line: number }
+interface ZeltClass {
+  ref: ZeltClassRef;
+  decorators: string[];                      // Controller / Injectable / Middleware / Config
+  base: ZeltClassRef | null;
+  dependencies: ZeltDependency[];
+  middlewares: ZeltMiddlewareUse[];
+  authorized: { methodName: string; position: ZeltPosition | null }[];
 }
-interface MetadataInput {
+interface ZeltRoute {
+  controller: ZeltClassRef; methodName: string; method: string; fullPath: string;
+}
+interface ZeltInspection {
   applicationId: Id;
   factory: ExportReference;
-  subjects: ExportReference[];
-  tsconfig: string;
-  sourceModules: Record<string, string>;
-  timeoutMs: number;
+  registered: ZeltClassRef[];                // featureClasses + app middlewares + configs
+  globalMiddlewares: ZeltClassRef[];         // appが書いた登録順
+  classes: ZeltClass[];
+  routes: ZeltRoute[];
+  diagnostics: { code: string; message: string }[];
 }
-declare function inspectZelt(input: MetadataInput): Promise<RuntimeInspection>;
 ~~~
 
 `applicationId` はconfigで付けるappの名前で、内部の照合キー。v1には出ない（1 appの前提。[付録O](#o-今は扱わないもの)）。
 
+コアが出す引き口（pluginがASTを歩かないために必要な最小限）:
+
+~~~ts
+interface CoreSourceSite { span: Span; text: string }        // 所在と原文の1行目
+interface CoreDeclarationSite extends CoreSourceSite { id: Id | null }
+type SetupSiteKind = 'parameter-default' | 'decorator' | 'extends' | 'implements';
+interface CoreSetupSite extends CoreSourceSite { kind: SetupSiteKind }
+// CoreResolver に足すもの
+exportSite(ref: ExportReference): CoreDeclarationSite | null;
+memberSite(ref: ExportReference, member: string): CoreDeclarationSite | null;
+setupSites(id: Id): CoreSetupSite[];                          // 宣言に書かれたdecorator・継承・既定値
+mentionSites(ownerId: Id, ref: ExportReference): CoreSourceSite[];  // classを値として書いた箇所
+~~~
+
 | 境界 | 実装する規則 |
 | --- | --- |
-| workerの起動 | tsxで専用processを起動。指定exportの引数なしfactoryを1回呼ぶ。subjectsは索引で確認したclassのexportであり、moduleをimportしてmetadataを読むだけ。createRuntime/realize・サービス生成・getter評価・test実行は禁止 |
-| runtimeとsource | sourceModulesをTS hostのmodule解決と、node:module.registerで登録するworkerのresolve hookに共通適用。指定specifierは同じsource URL、未指定は通常解決。native module cacheを共有し、同一packageのdistとsrcが混在したら失敗 |
-| 読取対象のclass | featureの登録class/configに、索引から得たexport済みの収録class・参照先classを加える。subjectsへtest moduleは渡さない。test専用config等は静的な継承・定義元Symbolで対応し、不明ならsetupをunresolvedにする |
-| classの同定 | exportはchecker.getExportsOfModule＋alias解決。exportされないclassはdecorator traceの宣言位置へ照合。traceを出す読取APIを追加する。両方不可ならpartial、名前一致で代用しない |
-| HTTP inspection | http blueprintにgetInspectionを追加。controller constructor identity、mountごとのfullPath、method、適用middlewareを保持。workerが上のRuntimeReferenceへ変換する |
-| HTTP route | controller methodに hint `<METHOD> <fullPath>`。E2E照合用に、app・method・pathを持つrouteの材料を返す（配信しない） |
-| middleware | routingが使う登録・skip判定の共通処理をinspectionでも使用。組込みCors/SecureHeaders、親子mount、class/method decoratorを含める。middlewareの実行条件ではなく登録の適用関係を示す |
-| middlewareの線 | routeのcontroller method → middleware実行methodへ、付与された線 `middleware`。chain内の位置（組込み → app → class → method）を `order` に入れる。実行methodを登録の型・Symbolから特定できなければpartial。組込みのglobal middlewareには hint `全HTTP · core自動登録` |
-| DI/config | metadataのInjectable/Configの分類（材料 `di`、配信しない）＋Symbolで識別したinject呼出。constructor default/property initializerを読む。constructor省略時は基底を辿る。動的provider・解けないsuper引数はpartial。Injectableのmetadataを持つclass（`@Injectable`・`@Controller`・`@Middleware` はいずれも内部で `injectable()` を付ける）とConfigのconstructorに hint `DI / 初期化` |
-| setup | inject呼出 → constructorに `inject`（targetは注入するclass、地図に無ければ `null`）。`@UseMiddleware` とmiddlewareを付けるdecorator（`@RateLimit`・`@Authorized` 等） → そのclass・methodに `middleware`（targetはmiddleware class。関数のmiddlewareは `null`）。Configのclassが差し替えるlibraryのConfig → そのclassに `config-override`。ignoreしたZeltへの登録呼出（`lifecycle.register(this)`） → その関数に `lifecycle`。labelはコードの式から作る。地図の線にはしない（[4.1](#41-責務と流れから)） |
-| register | eventbusの `on()`・`once()` に渡した購読callbackへのコアの `read` に、意味 `register` を付与する（線は1本のまま。[4.1](#41-責務と流れから)）。app factoryの登録式 → 登録されたclass（controller・middleware・handler・adaptor・config）はコアの線が無いので、付与された線 `register` として足す |
-| event | eventbus blueprintにもgetInspectionを追加しadaptor/handlersのidentityを公開。emit/onのSymbolと注入先busを照合。同じapp＋一意に解決した登録provider＋静的event名でのみ、emitの所有者 → 購読callbackへ付与された線 `event`。購読callbackに hint `EVENT <eventName>`。`EventBusSchema` 拡張のmemberに意味 `event-type` を付与する（型引数・宣言の解決による。event文字列と同名のtypeを探して結ばない） |
+| 子プロセスの起動 | tsxで専用processを起動し、configの `applications[].factory` の引数なしfactoryを1回呼ぶ。`createApp()` までで、createRuntime/realize・サービス生成・getter評価・test実行はしない。結果はマーカー行のJSON、ログはstderrに分ける。timeout（configの `timeoutMs`）・import失敗・壊れた応答は全featureをpartialにして生成失敗にする |
+| runtimeとsource | 子プロセスはappの位置から解決した `@zeltjs/decorator-metadata` を動的importする。decorator metadataはmoduleごとのWeakMapに入るので、別instanceだと記録が空に見える（AI 判断: CLI側のcopyを静的importすると、file:・workspaceで実体が分かれて記録を読めない。②4の「取れないものを取れたことにしない」） |
+| 読取対象のclass | 登録されたclassとglobal middlewareを起点に、`inject()` の依存をたどって集める。packageのclassは境界の箱なので中の配線はたどらない。意味を付けるのはconfigの `include` に入るclassだけ（ライブラリのclassにDIの意味は付けない） |
+| classの同定 | `getClassSource` のmodule exportで同定する。`package` が付いた参照はconfigの `sourceModules` で索引のmoduleへ移し、`exportSite`／`memberSite` でIDを引く。`sourceModules` に無いpackageは地図に載らないので線を引かず報告に残す。名前一致では結ばない |
+| HTTP route | blueprintの `getControllers()` と `getMetadata()` を同じ位置で対応させる（名前が食い違えば報告してskip）。method・fullPathはblueprintの値をそのまま使い、pathの結合規則を再実装しない。controller methodに hint `<METHOD> <fullPath>`。E2E照合用に、app・method・pathを持つrouteの材料を返す（配信しない） |
+| middlewareの順 | route全体を通る順は、router全体（appの `middlewares`）→ controllerの `@UseMiddleware` → methodの `@UseMiddleware` → `@Authorized`。これはZeltの登録の仕方（http.serviceがrouterに `use`、route-builderがrouteのchainに積む）の組み合わせで、pluginが知っていてよい知識。coreがrouterごとに先頭で登録する組込み（`CorsMiddleware`・`SecureHeadersMiddleware`）はこのchainに入れない（ユーザー判断 2026-09-24: appが書いていないものは地図に出さない）。したがって `order` は、組込みを除いた並びの0始まりの位置 |
+| middlewareの線 | routeのcontroller method → middleware実行method（`use`）へ、付与された線 `middleware`。chain内の位置を `order` に入れ、解決できなかった要素でも位置は詰めない |
+| 根拠の所在 | decoratorはそれを書いた行（`getDecoratorApplicationPosition`）の `setupSites`、appの登録式は `mentionSites`。登録式が引けないときだけmiddlewareの宣言に落とす |
+| DI/config | metadataのInjectable/Configの分類（材料 `di`、配信しない）。Injectableのmetadataを持つclass（`@Injectable`・`@Controller`・`@Middleware` はいずれも内部で `injectable()` を付ける）とConfigのconstructorに hint `DI / 初期化` |
+| setup | inject呼出 → constructorに `inject`（targetは注入するclass、地図に無ければ `null`）。`@UseMiddleware` とmiddlewareを付けるdecorator（`@RateLimit`・`@Authorized` 等） → そのclass・methodに `middleware`（targetはmiddleware class。関数のmiddlewareは `null`）。Configのclassが差し替えるlibraryのConfig → そのclassに `config-override`。ignoreしたZeltへの登録呼出（`lifecycle.register(this)`） → その関数に `lifecycle`。labelはコアが持つ原文の行から作る。地図の線にはしない（[4.1](#41-責務と流れから)） |
+| register | eventbusの `on()`・`once()` に渡した購読callbackへのコアの `read` に、意味 `register` を付与する（線は1本のまま。[4.1](#41-責務と流れから)）。app factoryが登録したclass（controller・middleware・handler・adaptor・config）はコアの線が無いので、付与された線 `register` として足す |
+| event | emit/onのSymbolと注入先busを照合する。同じapp＋一意に解決した登録provider＋静的event名でのみ、emitの所有者 → 購読callbackへ付与された線 `event`。購読callbackに hint `EVENT <eventName>`。`EventBusSchema` 拡張のmemberに意味 `event-type` を付与する（型引数・宣言の解決による。event文字列と同名のtypeを探して結ばない） |
 | lifecycle | 入口としては出さない（`entries` を廃止したため）。注記も付けない（[付録A](#注記の付与規則全表)）。`LifecycleManager` はignore推奨で、`lifecycle.register(this)` はsetup `lifecycle` になる |
 | ignore推奨 | `@zeltjs/core` の `inject`・`request`・`currentUser`・`requestContext`・`LifecycleManager`、route・DI・middlewareのdecorator（`Controller`・`Get`・`Post`・`Put`・`Delete`・`UseMiddleware`・`Authorized`・`Injectable`・`Middleware`・`Config`）、`@zeltjs/rate-limit` の `RateLimit`。CLIの報告に出し、configへの採用は本人が行う（[4.2](#42-ライブラリは接点だけから)） |
 
 event購読のbusはadaptorのgroup ID（内部の照合用）。同じappで同じproviderに複数のbus登録があり、注入先を一意に決められなければpartialにする。busを表す架空の宣言は作らない。
 
-getInspectionは**新設するAPI**であって現在存在するという意味ではない。core内ではctorを保持する型、worker出口ではRuntimeInspectionというJSON型にする。登録位置はfeature生成時のtraceとdecorator位置から取得し、TS宣言位置へ正規化する。組込み登録はその定義位置を根拠にする。
+**coreには何も足さない**: appが書かずにcoreがrouterごとに先頭で登録する組込みmiddleware（`CorsMiddleware`・`SecureHeadersMiddleware`）は地図に出さないと決めた（ユーザー判断 2026-09-24）ので、子プロセスはそれを知る読み取り口を必要としない。[http.service.ts](../../packages/core/src/features/http/http.service.ts) の登録はcreateLocalRouter内のローカル定数のままでよい。
 
-workerはOSのsandboxではなく、moduleのトップレベル副作用は起こりうる。Zelt無効時はworkerもapp importも行わない。IPCに結果、stdout/stderrにログを分離し、timeout・import失敗・壊れた応答は生成失敗。DBやネットワークへ接続しないapp factoryを入力条件とする。
+子プロセスはOSのsandboxではなく、moduleのトップレベル副作用は起こりうる。Zelt無効時は子プロセスもapp importも行わない。DBやネットワークへ接続しないapp factoryを入力条件とする。
+
+**event・lifecycle・Unitのsetupは今回の作り直しに含めない**（別に扱う）。この3つは作り直し前のTSの読み方を[zelt-eventbus.lib.ts](../../packages/cli/src/studio/extraction/plugins/zelt-eventbus.lib.ts)・[zelt-lifecycle.lib.ts](../../packages/cli/src/studio/extraction/plugins/zelt-lifecycle.lib.ts)・[zelt-test-setup.lib.ts](../../packages/cli/src/studio/extraction/plugins/zelt-test-setup.lib.ts)に残している。
 
 ### E. Library
 
@@ -1085,7 +1115,7 @@ configのrootはconfigファイルから解決する。他のpath/globはroot基
 `mapPackages` と `sourceModules` は役割が違う。
 
 - `mapPackages`（ホワイトリスト）は**地図に載せるか**を決める。package名と、そのpackageのentry（`sourceModules` で解決した先）から地図に載せるexport名を指定する（単位はexportまで。[4.2](#42-ライブラリは接点だけから)）。載るのは列挙したclass・interfaceと、アプリが直接参照したそのメンバーだけ（[4.2](#42-ライブラリは接点だけから)）。存在しないexport名はエラー。Node標準・TS標準は指定できない。
-- `sourceModules` は**どこからソースを読むか**（TSの解決とZeltのworkerの解決）を決める。ここにあっても `mapPackages` に無ければ地図には載らない（例の `@zeltjs/testing`・`@zeltjs/decorator-metadata` は解決のためだけにある）。
+- `sourceModules` は**どこからソースを読むか**（TSの解決と、runtimeのpackage参照を索引のmoduleへ移す対応）を決める。ここにあっても `mapPackages` に無ければ地図には載らない（例の `@zeltjs/testing`・`@zeltjs/decorator-metadata` は解決のためだけにある）。
 - `ignore` は**地図で意識しないもの**。pluginのignore推奨から本人が採用する。ホワイトリストより優先し、ignoreしたexport（classならそのmemberも）への線・未解決は出さない。DIのdependenciesからも外す。
 - `mapPackages` にあって `sourceModules` に無いpackageは、通常の解決（`node_modules` の型定義）の所在で箱になる。
 - 載せたpackageのファイルをどの列に置くかは、他のファイルと同じ列ルール（globはsourceModulesで解決した先のpath）で決める。
@@ -1157,8 +1187,8 @@ declare function extract(configFile: string): Promise<ExtractionResult>;
 | 不明な事実 | partial＋診断。配信するrelationは必ず実在IDを参照。不明な相手への線は `unresolved` か報告だけに残す |
 | coverage | scopeごとにrunner＋対応付けのreportを合成。どちらかpartialならpartial、機能が無効ならuncollected。testのsetupの未解決はcall対応を消さずsetup欄に残す |
 | 機能の要求 | requiredの全reportがcomplete-in-scopeでなければpublishしない。設定にあるが未実装のplugin/featureはエラー |
-| 入力の変更 | 読んだ全ソース・設定・metadata workerの入力を再hash。解析中に変わっていれば生成失敗、異なる版を混ぜない |
-| 例外 | config/TS構文・解決の致命的エラー、plugin例外、worker timeout、invalid JSON、IO失敗は失敗として返す。空配列へのfallbackはしない |
+| 入力の変更 | 読んだ全ソース・設定・子プロセスの入力を再hash。解析中に変わっていれば生成失敗、異なる版を混ぜない |
+| 例外 | config/TS構文・解決の致命的エラー、plugin例外、子プロセスのtimeout、invalid JSON、IO失敗は失敗として返す。空配列へのfallbackはしない |
 
 ### J. 生成とpublish
 
@@ -1172,31 +1202,35 @@ revision（内部）は、読み込んだソース・参照d.ts・package解決�
 
 出力順はgroupが正準filePath→ソース順、memberがソース順、relationはID順、testは登録位置/caseKey順、callsと根拠は位置順、hintsは[付録A](#注記の付与規則全表)の順、`meanings`・`setup` はprovider ID順で同provider内は根拠の位置順。JSON上の順序に表示の意味は持たせない（列内の並びはUIが計算）。plugin実行順を入れ替えても同じJSONにする。
 
-順序そのものが事実である関係（middlewareのchain）は `GrantedRelation.order` に値として持ち、UIはそれで並べる（AI 判断: ID順に並べるとJwtがCorsより前に来て実際の適用順と食い違い、Q1の答えを誤らせるため。②1・②4）。同じ相手への線が複数のrouteで位置違いなら、併合後は最も早い位置を残す。
+順序そのものが事実である関係（middlewareのchain）は `GrantedRelation.order` に値として持ち、UIはそれで並べる（AI 判断: ID順に並べるとJwtがLoggingより前に来て実際の適用順と食い違い、Q1の答えを誤らせるため。②1・②4）。同じ相手への線が複数のrouteで位置違いなら、併合後は最も早い位置を残す。
 
 ### K. 作るコードの置き場所
 
 実装する前提: 前提2（コア・組立はZeltを知らない）と1節の処理の形。UIはschemaだけに依存する。既存の抽出器（DependencyGraph v3）を置き換えるか拡張するかは論点にしない（[4.6](#46-見せ方と運用)）。
 
-ここに挙げるのは**次の実装時の変更予定**。今回新しいコードファイルは作らない。初版はCLI内に独立モジュールとして置き、package公開やplugin配布機構は増やさない。
+CLI内の独立モジュールとして置き、package公開やplugin配布機構は増やさない。
 
 ~~~mermaid
 flowchart TB
-  CLI["CLI: studio extract<br/>config読取・publish"] --> CORE["extraction/core<br/>schema / index / assemble<br/>TSの知識。Zelt importなし"]
+  CLI["CLI: studio extract<br/>config読取・publish"] --> CORE["extraction/core<br/>schema / 索引 / 組立<br/>TSの知識。Zelt importなし"]
   CLI --> PLUGINS["extraction/plugins<br/>zelt / vitest / libraries / requests"]
   PLUGINS --> CORE
-  PLUGINS --> BRIDGE["Zelt worker + inspection<br/>core・eventbus・metadataを読む"]
+  PLUGINS --> CHILD["Zeltの子プロセス<br/>appを読みJSONを返す"]
   UI["Studio SPA<br/>v1 schemaを読む"] --> SCHEMA["共通JSON schema<br/>TS/Node/Zeltへのruntime依存なし"]
   CORE --> SCHEMA
 ~~~
 
-| 箱 | 変更予定の場所 |
+| 箱 | 場所 |
 | --- | --- |
-| config・生成入口 | packages/cli/src/studio/extraction/run.lib.ts（段取り）、run-plugins.lib.ts（plugin実行）、extraction-program.lib.ts（Program生成）、core/extract-config.lib.ts。既存studioコマンドにextractを追加。既存serverは置き換えない |
-| コア（TS索引・値追跡） | extraction/core/core-facts.lib.ts（段取り）、core-index.lib.ts（索引・線の登録）、core-declarations.lib.ts（宣言の収集）、core-relations.lib.ts（線の走査）、test-scope.lib.ts（値の由来追跡）。metadataの既存解決処理は再利用可能な箇所だけ移植／共通化し、公開inspect APIは維持 |
-| pluginと組立 | plugins/zelt.lib.ts（zelt-context / -application / -class / -eventbus / -test-setup / -runtime に分割）、vitest.lib.ts、library.lib.ts（valibot.lib.ts・drizzle.lib.ts が共用）、http-requests.lib.ts、core/assemble.lib.ts（assemble-materials / -groups / -tests に分割）。Zeltのruntime importはworker.ts内だけ |
+| config・生成入口 | packages/cli/src/studio/extraction/run.lib.ts（段取り）、run-plugins.lib.ts（plugin実行）、extraction-program.lib.ts（Program生成）、core/extract-config.lib.ts。既存studioコマンドのextract。既存serverは置き換えない |
+| コア（TS索引・値追跡） | extraction/core/core-facts.lib.ts（段取り）、core-index.lib.ts（索引・線の登録）、core-declarations.lib.ts（宣言の収集）、core-relations.lib.ts（線の走査）、core-sites.lib.ts（所在と原文の引き口）、test-scope.lib.ts（値の由来追跡） |
+| Zelt plugin（ASTを読まない） | plugins/zelt.lib.ts（段取り）、zelt-blueprint.lib.ts（runtimeの記録 → 材料）、zelt-inspect-entry.ts（子プロセス）、zelt-inspect-runner.lib.ts（起動・timeout）、zelt-inspect-protocol.ts（JSONのschema）、zelt-inspect-resolve.lib.ts（appと同じinstanceの解決） |
+| Zelt pluginのうち今回作り直さないもの | zelt-eventbus.lib.ts（event）、zelt-lifecycle.lib.ts（`lifecycle.register`）、zelt-test-setup.lib.ts（Unitのsetup）、zelt-context.lib.ts・zelt-runtime.lib.ts（この3つが使うTSの索引と小道具） |
+| 他のpluginと組立 | vitest.lib.ts、library.lib.ts（valibot.lib.ts・drizzle.lib.ts が共用）、http-requests.lib.ts、core/assemble.lib.ts（assemble-materials / -groups / -tests に分割） |
 | JSON契約 | extraction/core/snapshot-schema.lib.ts。Valibot schemaを正とし、公開型はInferOutputで生成。ブラウザ用exportにTS/Node importを混ぜない |
-| Zeltの読取API | [HTTP feature](../../packages/core/src/features/http/http.feature.ts)、[routing metadata](../../packages/core/src/features/http/routing/routing-metadata.lib.ts)、[eventbus feature](../../packages/eventbus/src/eventbus.feature.ts)、[class source](../../packages/decorator-metadata/src/inspect/class-source.lib.ts)。登録規則をruntimeと共有する |
+| Zeltの読取API | [HTTP feature](../../packages/core/src/features/http/http.feature.ts)、[routing metadata](../../packages/core/src/features/http/routing/routing-metadata.lib.ts)、[eventbus feature](../../packages/eventbus/src/eventbus.feature.ts)、[class source](../../packages/decorator-metadata/src/inspect/class-source.lib.ts)。既存の読み取り口だけを使い、coreには何も足さない |
+
+子プロセスはcli.jsに束ねず、`dist/studio/extraction/plugins/zelt-inspect-entry.js` として出してtsxが直接実行する（既存のanalyzer-entryと同じ扱い）。
 
 schemaはCLIの専用subpathからexportし、UIはそこだけimportする。現在の[src/snapshot-schema.lib.ts](src/snapshot-schema.lib.ts)をそこへ移し、coreとUIで二重管理しない。UIへのビルド時依存であり、静的配信時にCLIやNodeは不要。
 
@@ -1207,7 +1241,7 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 | 変更 | mockで変えた場所 | 画面で見えること |
 | --- | --- | --- |
 | schema | [snapshot-schema.lib.ts](src/snapshot-schema.lib.ts)、[snapshot.types.ts](src/snapshot.types.ts) | なし |
-| 適用順（`order`） | [relations.lib.ts](src/relations.lib.ts)（タグに最も早い `order` を持たせる）、[map-presenter.lib.ts](src/map-presenter.lib.ts)（`order` 順に並べ、持たないタグは後ろ） | 「適用:」タグが実際に通る順（Cors → SecureHeaders → Logging → Jwt）で並ぶ |
+| 適用順（`order`） | [relations.lib.ts](src/relations.lib.ts)（タグに最も早い `order` を持たせる）、[map-presenter.lib.ts](src/map-presenter.lib.ts)（`order` 順に並べ、持たないタグは後ろ） | 「適用:」タグが実際に通る順（Logging → Jwt）で並ぶ |
 | 種類と意味の分離 | [labels.ts](src/labels.ts)（`relationKind`・`declarationLabel`: 意味があればそれ、無ければTSの種類）。チップ・middleware判定（[relations.lib.ts](src/relations.lib.ts)・[scope.lib.ts](src/scope.lib.ts)）は付与された線の種類で判定 | 変わらない（線の色・凡例・`SCHEMA`/`TABLE` 表示は今までどおり） |
 | setup | [inspector-presenter.lib.ts](src/inspector-presenter.lib.ts)、[inspector.tsx](src/views/inspector.tsx) | 詳細の「契約」に「Setup」欄。種類・provider・式と、地図にある相手へのリンク。groupではメンバーのsetupも並ぶ |
 | 列の表示切替（roleの廃止） | [state.lib.ts](src/state.lib.ts)（`hiddenColumns`、既定は `initiallyHidden`）、[layout.lib.ts](src/layout.lib.ts)（隠した列は幅を取らない）、[map-controls.tsx](src/views/map-controls.tsx) | 操作列に「列」のチェックボックス（全列）。旧「config」トグルはこれに置き換え。地図の上に隠した列の案内は出さない。列の見出しは列を隠しても中身の箱と同じ位置に出る（幅が変わって拡大率を合わせ直すとき、表示の左上を固定する: [use-viewport.ts](src/views/use-viewport.ts)） |
@@ -1227,7 +1261,7 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 | `EcJwtConfig.resolveUser` → `@callback:0` の `returns` | 外した（戻り型はホワイトリスト外で線は出ない） | [4.1](#41-責務と流れから) |
 | `LifecycleManager` の箱と、そこへのcall 2本 | 外した。`lifecycle.register(this)` はsetupへ | [4.1](#41-責務と流れから)・[4.2](#42-ライブラリは接点だけから) |
 | setup | inject 16・middleware 19・config-override 2・lifecycle 2 を付与 | [付録A](#付与の全表) |
-| middlewareの適用順 | 付与された線62本に `order` を入れ、組込み（Cors 0・SecureHeaders 1）→ app（Logging 2）→ class/method（Jwt・RateLimit 3）に直した | [http.service.ts](../../packages/core/src/features/http/http.service.ts) の `securityMiddlewares` は `options.middlewares` より先に `hono.use` される |
+| middlewareの適用順 | 付与された線30本に `order` を入れ、app（Logging 0）→ class/method（Jwt・RateLimit 1）に直した。coreがrouterごとに先頭で登録する組込み（Cors・SecureHeaders）は箱も線も出さない | ユーザー判断（2026-09-24）。`order` はappが書いた並びの0始まりの位置 |
 | 列 | roleを削除、app.tsをComposition列へ、列名「外部」→「ライブラリ」 | [4.3](#43-意図と事実を重ねるから) |
 | E2E | productを送らない11 routeを「一部のみ・0件」に | [4.4](#44-コードと一致するから) |
 | Unit | 151 case（延べ211行）を25宣言に | [付録F](#f-unit) |
@@ -1250,7 +1284,7 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 | Unit | アプリのtestのcase本文が直接呼んだ宣言にだけ付く。ライブラリの宣言は未収録のまま。setupのtarget由来とconfig差替えを保持し、通常のimport（joseなど）をoverridesへ入れない |
 | E2E | 静的なdirect/helper request（`beforeAll` のapp・テンプレート文字列のURL・局所helperを含む）を、同じappでmethod・pathが一致するrouteを登録したmethodの `e2eTests` へ付ける。範囲がサンプリングなら全routeが「一部のみ」で、一致しないrouteは0件。未対応の経路はpartialとして見える |
 | 任意plugin | Zelt無効でもコアの箱・ID・線・種類は同じで、そのpluginの付与だけが無くなる（[付録A](#pluginが無いときの値全表)）。appをimportしない。runner差替えの共通契約を偽pluginで検証 |
-| 再現性と失敗 | plugin順を変えてbyte一致。不正ID/別revision/競合/worker失敗/required不足でpublishせず旧ファイルのhashが変わらない |
+| 再現性と失敗 | plugin順を変えてbyte一致。不正ID/別revision/競合/子プロセスの失敗/required不足でpublishせず旧ファイルのhashが変わらない |
 | Studio | 生成JSONをfetchし、今の手触り（選択近傍・双方向の独立再帰・lock・折りたたみ・可視tagだけの高さ・Unit/E2E一覧・reload）が保たれることを回帰検証。差分は[4.5](#45-v1からの変更)の変更点（起点ショートカットの削除、詳細パネルのsetupを含む）、列の表示切替（[4.3](#43-意図と事実を重ねるから)）と、[4.6](#46-見せ方と運用)の表示の追従だけ |
 
 実装順は依存する箱に沿って、schema（v1差分）＋UI追従＋fixture移行（済み） → 索引 → plugin＋inspection → 組立/publish → 生成JSONへ切替。各箱の契約テストを先に置く。Vitest以外のrunner、任意JSの実行結果推定、testのin/out値収集、外部plugin配布は初版の完了条件に含めない。
@@ -1297,11 +1331,11 @@ v1の形では表せないが、今は扱わないもの。構造変更を提案
 
 **2026-09-24（この計画の形への反映）**:
 
-- schema・fixture・UIを[付録L](#l-uiの追従)のとおり更新した。検証: `pnpm typecheck`・`pnpm test`（213件）・`pnpm lint`・`pnpm build`・`pnpm test:browser`（39件、PC・タブレット・モバイル）がすべて通る。
-- fixture: 34 group（ライブラリ11）・129宣言・relation 235本（コアの線163、うち意味付き24。付与された線72: middleware 62・event 1・register 9）。setup 39件（inject 16・middleware 19・config-override 2・lifecycle 2）。宣言の `hints` は48件。
+- schema・fixture・UIを[付録L](#l-uiの追従)のとおり更新した。検証: `pnpm typecheck`・`pnpm test`（214件）・`pnpm lint`・`pnpm build`・`pnpm test:browser`（39件、PC・タブレット・モバイル）がすべて通る。
+- fixture: 32 group（ライブラリ9）・127宣言・relation 203本（コアの線163、うち意味付き24。付与された線40: middleware 30・event 1・register 9）。setup 39件（inject 16・middleware 19・config-override 2・lifecycle 2）。宣言の `hints` は46件。coreがrouterごとに先頭で登録する組込みmiddleware（`CorsMiddleware`・`SecureHeadersMiddleware`）は、appが書いていないので地図に出さない（ユーザー判断 2026-09-24）。`CorsConfig` は `EcCorsConfig` が差し替える基底として残る。
 - Unit: ec-backendの12ファイル・212 caseを、TS Compiler APIのスクリプトで[付録F](#f-unit)の規則どおりに結んだ。151 caseが25宣言に付く（延べ211行）。setupは `createTestTarget` 12か所で、分類はSolitary・Sociable・関数のすべてが現れる（例: `CartService.addItem` はSolitary（mock: MemoryKVAdaptor, ProductService）とSociable、`requireUser` は関数）。
 - E2E: routeを登録した16 methodのすべてが「一部のみ」。productを送らない11は0件。
-- 表示の回帰（`src/test-fixtures/legacy-display.json` の120状態）は、変更前後の投影を突き合わせてから再生成した。差は、appに登録された9箱の「Compositionとの関係あり」チップ、`LifecycleManager` と `returns` の線3本の消滅、Config列を隠したときにライブラリのconfig箱が残り列が詰まることだけ（[README](README.md)）。その後、隠した列のチップを廃止したとき（9/24）にもう一度再生成した。差は「<列名>との関係あり」チップの消滅（とその分の高さ・y）だけ。
+- 表示の回帰（`src/test-fixtures/legacy-display.json` の120状態）は、変更前後の投影を突き合わせてから再生成した。差は、appに登録された9箱の「Compositionとの関係あり」チップ、`LifecycleManager` と `returns` の線3本の消滅、Config列を隠したときにライブラリのconfig箱が残り列が詰まることだけ（[README](README.md)）。その後、隠した列のチップを廃止したとき（9/24）にもう一度再生成した。差は「<列名>との関係あり」チップの消滅（とその分の高さ・y）だけ。組込みmiddlewareを地図から外したとき（9/24）にも再生成した。差は、その2箱の消滅と `適用: Cors`・`適用: SecureHeaders` タグ（各状態8個）の消滅、それに伴う高さ・yの移動だけで、矢印・x・幅・展開・選択・濃淡は全状態で一致する。
 
 **2026-09-23までの確認**（数は当時のfixtureのもの）:
 

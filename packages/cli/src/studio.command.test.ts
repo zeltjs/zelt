@@ -219,10 +219,10 @@ describe('runExtract', () => {
       publishedRun,
     );
 
-    expect(publishedRun).toHaveBeenCalledWith('/cwd/a/demo.extract.json', {
-      output: '/cwd/b/out.json',
-      allowIncomplete: true,
-    });
+    expect(publishedRun).toHaveBeenCalledWith(
+      '/cwd/a/demo.extract.json',
+      expect.objectContaining({ output: '/cwd/b/out.json', allowIncomplete: true }),
+    );
     expect(runtime.setExitCode).not.toHaveBeenCalled();
   });
 
@@ -242,7 +242,15 @@ describe('runExtract', () => {
       run,
     );
 
-    expect(run).toHaveBeenCalledWith('/cwd/demo.extract.json', { allowIncomplete: false });
+    // zeltEntryPath は CLI の実体の位置から決まるので、値そのものは問わない
+    expect(run).toHaveBeenCalledWith(
+      '/cwd/demo.extract.json',
+      expect.objectContaining({ allowIncomplete: false }),
+    );
+    expect(run).not.toHaveBeenCalledWith(
+      '/cwd/demo.extract.json',
+      expect.objectContaining({ output: expect.anything() }),
+    );
   });
 
   it('exits 1 when extraction fails', async () => {

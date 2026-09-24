@@ -1,25 +1,18 @@
-import type ts from 'typescript';
-
 import type { AnalysisReport, Feature, Material, PluginResult } from '../core';
 import { resolveScopes } from '../core';
-import type { ChainEntry, ZeltContext, ZeltInput } from './zelt.types';
-import { applicationFacts, globalMiddlewaresOf } from './zelt-application.lib';
-import { classFacts, routeFacts } from './zelt-class.lib';
-import {
-  createZeltContext,
-  evidenceOf,
-  execIdOf,
-  note,
-  ZELT_FEATURES,
-  ZELT_PROVIDER,
-} from './zelt-context.lib';
+import type { ZeltApplicationConfig, ZeltContext, ZeltInput } from './zelt.types';
+import { blueprintMaterials, ZELT_PROVIDER } from './zelt-blueprint.lib';
+import { createZeltContext, note, ZELT_FEATURES } from './zelt-context.lib';
 import { busCallsOf, eventTypeMeanings, subscriptionFacts } from './zelt-eventbus.lib';
+import { runZeltInspect } from './zelt-inspect-runner.lib';
+import { lifecycleSetups } from './zelt-lifecycle.lib';
 import { ZELT_IGNORE_RECOMMENDATIONS } from './zelt-runtime.lib';
 import type { TestSetupOutput } from './zelt-test-setup.lib';
 import { analyzeZeltTestSetups } from './zelt-test-setup.lib';
 
 export type { ZeltApplicationConfig, ZeltInput } from './zelt.types';
-export { ZELT_FEATURES, ZELT_PROVIDER } from './zelt-context.lib';
+export { ZELT_PROVIDER } from './zelt-blueprint.lib';
+export { ZELT_FEATURES } from './zelt-context.lib';
 
 /** source を見る feature。test-setups だけは config の Unit scope を範囲にする */
 const SOURCE_FEATURES: readonly Feature[] = ZELT_FEATURES.filter(
@@ -29,44 +22,42 @@ const SOURCE_FEATURES: readonly Feature[] = ZELT_FEATURES.filter(
 const featureReportId = (feature: Feature, files: readonly string[]): string =>
   `report:${JSON.stringify([ZELT_PROVIDER, feature, 'source', files])}`;
 
-const globalMiddlewareHints = (
+/**
+ * app を子プロセスで読み込み、runtime の記録をコアの宣言に結んで材料にする。
+ * 子プロセスが答えない・壊れた答えを返したときは、全 feature を partial にして
+ * 生成を止める(付録I の all or nothing)。
+ */
+const applicationMaterials = async (
   ctx: ZeltContext,
-  globalMiddlewares: readonly ts.Expression[],
-): readonly Material[] => {
-  if (globalMiddlewares.length === 0) {
-    note(
-      ctx,
-      'relations',
-      'zelt-global-middleware-unresolved',
-      'no built-in global middleware',
-      [],
-    );
+  application: ZeltApplicationConfig,
+): Promise<readonly Material[]> => {
+  const result = await runZeltInspect({
+    request: {
+      root: ctx.config.root,
+      applicationId: application.id,
+      factory: application.factory,
+      tsconfig: ctx.config.tsconfig,
+    },
+    entryPath: ctx.input.entryPath,
+    timeoutMs: ctx.input.timeoutMs,
+  });
+  if (!result.ok) {
+    for (const feature of SOURCE_FEATURES) {
+      note(ctx, feature, 'zelt-inspect-failed', `${application.id}: ${result.errorOutput}`, []);
+    }
+    return [];
   }
-  const materials: Material[] = [];
-  for (const element of globalMiddlewares) {
-    const id = execIdOf(ctx, element, 'hints');
-    if (id === null) continue;
-    materials.push({
-      kind: 'hint',
-      subject: id,
-      label: '全HTTP · core自動登録',
-      evidence: evidenceOf(ctx, element),
-    });
+  for (const diagnostic of result.inspection.diagnostics) {
+    note(ctx, 'relations', diagnostic.code, diagnostic.message, []);
   }
-  return materials;
-};
-
-const classAndRouteMaterials = (
-  ctx: ZeltContext,
-  prefix: readonly ChainEntry[],
-): readonly Material[] => {
-  const materials: Material[] = [];
-  for (const cls of ctx.appClasses) {
-    const facts = classFacts(ctx, cls);
-    materials.push(...facts.materials);
-    for (const route of facts.routes) materials.push(...routeFacts(ctx, route, prefix));
-  }
-  return materials;
+  return blueprintMaterials({
+    config: ctx.config,
+    resolver: ctx.resolver,
+    inspection: result.inspection,
+    note: (feature, code, message, spans) => {
+      note(ctx, feature, code, message, spans);
+    },
+  });
 };
 
 const eventMaterials = (ctx: ZeltContext): readonly Material[] => {
@@ -116,25 +107,17 @@ const testSetupReport = (
 });
 
 /**
- * Zelt の登録規則を TS の静的解析で読み、意味・付与された線・注記・setup の材料を返す。
- * 事実の書き換えはせず、付与だけを行う(1節)。
+ * Zelt の runtime の記録(blueprint と decorator metadata)から、意味・付与された線・
+ * 注記・setup の材料を返す。事実の書き換えはせず、付与だけを行う(1節)。
  */
-export const analyzeZelt = (input: ZeltInput): PluginResult => {
+export const analyzeZelt = async (input: ZeltInput): Promise<PluginResult> => {
   const ctx = createZeltContext(input);
   const materials: Material[] = [];
 
-  // 注記の順序を保つため、元の実行順(組込み → app → class/route → event → test setup)で進める
-  const globalMiddlewares = globalMiddlewaresOf(ctx);
-  materials.push(...globalMiddlewareHints(ctx, globalMiddlewares));
-
-  const application = applicationFacts(ctx);
-  materials.push(...application.materials);
-
-  const prefix: readonly ChainEntry[] = [
-    ...globalMiddlewares.map((expression) => ({ expression, evidence: expression })),
-    ...application.appMiddlewares,
-  ];
-  materials.push(...classAndRouteMaterials(ctx, prefix));
+  for (const application of input.applications) {
+    materials.push(...(await applicationMaterials(ctx, application)));
+  }
+  materials.push(...lifecycleSetups(ctx));
   materials.push(...eventMaterials(ctx));
 
   const unitScopes = resolveScopes(

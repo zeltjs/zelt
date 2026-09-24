@@ -39,48 +39,12 @@
                 ]
               },
               {
-                "id": "relation:126",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:127",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:125",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -98,7 +62,7 @@
                 "to": "RateLimitMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -232,48 +196,12 @@
                 ]
               },
               {
-                "id": "relation:129",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:130",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:128",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -291,7 +219,7 @@
                 "to": "RateLimitMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -442,48 +370,12 @@
                 ]
               },
               {
-                "id": "relation:132",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:133",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:131",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -501,7 +393,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -709,48 +601,12 @@
                 ]
               },
               {
-                "id": "relation:135",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:136",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:134",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -984,48 +840,12 @@
                 ]
               },
               {
-                "id": "relation:138",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:139",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:137",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -1213,48 +1033,12 @@
                 ]
               },
               {
-                "id": "relation:141",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:142",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:140",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -1272,7 +1056,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -1561,48 +1345,12 @@
                 ]
               },
               {
-                "id": "relation:144",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:145",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:143",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -1620,7 +1368,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -1817,48 +1565,12 @@
                 ]
               },
               {
-                "id": "relation:147",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:148",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:146",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -1876,7 +1588,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -2164,48 +1876,12 @@
                 ]
               },
               {
-                "id": "relation:150",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:151",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:149",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -2223,7 +1899,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -2369,48 +2045,12 @@
                 ]
               },
               {
-                "id": "relation:153",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:154",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:152",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -2428,7 +2068,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -2579,48 +2219,12 @@
                 ]
               },
               {
-                "id": "relation:156",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:157",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:155",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -2638,7 +2242,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -2789,48 +2393,12 @@
                 ]
               },
               {
-                "id": "relation:159",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:160",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:158",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -2848,7 +2416,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -2977,48 +2545,12 @@
                 ]
               },
               {
-                "id": "relation:162",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:163",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:161",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -3036,7 +2568,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -3325,48 +2857,12 @@
                 ]
               },
               {
-                "id": "relation:165",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:166",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:164",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -3384,7 +2880,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -3513,48 +3009,12 @@
                 ]
               },
               {
-                "id": "relation:168",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:169",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:167",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -3572,7 +3032,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -3718,48 +3178,12 @@
                 ]
               },
               {
-                "id": "relation:171",
-                "origin": "plugin",
-                "to": "CorsMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 0,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 110,
-                      "endLine": 110
-                    },
-                    "expression": "CorsMiddleware,"
-                  }
-                ]
-              },
-              {
-                "id": "relation:172",
-                "origin": "plugin",
-                "to": "SecureHeadersMiddleware.use",
-                "provider": "zelt",
-                "kind": "middleware",
-                "order": 1,
-                "evidence": [
-                  {
-                    "location": {
-                      "filePath": "packages/core/src/features/http/http.service.ts",
-                      "startLine": 111,
-                      "endLine": 111
-                    },
-                    "expression": "SecureHeadersMiddleware,"
-                  }
-                ]
-              },
-              {
                 "id": "relation:170",
                 "origin": "plugin",
                 "to": "LoggingMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 2,
+                "order": 0,
                 "evidence": [
                   {
                     "location": {
@@ -3777,7 +3201,7 @@
                 "to": "JwtMiddleware.use",
                 "provider": "zelt",
                 "kind": "middleware",
-                "order": 3,
+                "order": 1,
                 "evidence": [
                   {
                     "location": {
@@ -5070,134 +4494,6 @@
             "endLine": 66
           },
           "signature": "@Middleware\nexport class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions>",
-          "excerpt": {
-            "kind": "declaration-only"
-          }
-        },
-        "unresolved": [],
-        "hints": [],
-        "presentation": {
-          "columnId": "column:6"
-        }
-      },
-      {
-        "id": "CorsMiddleware",
-        "name": "CorsMiddleware",
-        "kind": "class",
-        "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-        "members": [
-          {
-            "id": "CorsMiddleware.use",
-            "name": "use",
-            "kind": "method",
-            "meanings": [],
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "setup": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-                "startLine": 29,
-                "endLine": 35
-              },
-              "signature": "async use(next: Next)",
-              "excerpt": {
-                "kind": "code",
-                "text": "async use(next: Next) {\n    if (!this.delegate) {\n      await next();\n      return undefined;\n    }\n    return await this.delegate.use(next);\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": [
-              {
-                "provider": "zelt",
-                "label": "全HTTP · core自動登録"
-              }
-            ]
-          }
-        ],
-        "relations": [],
-        "setup": [],
-        "expansion": "boundary",
-        "source": {
-          "location": {
-            "filePath": "packages/core/src/features/http/middleware/cors/cors.middleware.ts",
-            "startLine": 9,
-            "endLine": 41
-          },
-          "signature": "@Middleware\nexport class CorsMiddleware implements MiddlewareInstance",
-          "excerpt": {
-            "kind": "declaration-only"
-          }
-        },
-        "unresolved": [],
-        "hints": [],
-        "presentation": {
-          "columnId": "column:6"
-        }
-      },
-      {
-        "id": "SecureHeadersMiddleware",
-        "name": "SecureHeadersMiddleware",
-        "kind": "class",
-        "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-        "members": [
-          {
-            "id": "SecureHeadersMiddleware.use",
-            "name": "use",
-            "kind": "method",
-            "meanings": [],
-            "enclosingDeclarationId": null,
-            "relations": [],
-            "setup": [],
-            "source": {
-              "location": {
-                "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-                "startLine": 12,
-                "endLine": 55
-              },
-              "signature": "async use(next: Next, res = response()): Promise<Response | undefined>",
-              "excerpt": {
-                "kind": "code",
-                "text": "async use(next: Next, res = response()): Promise<Response | undefined> {\n    await next();\n    this.applyHeader(\n      res,\n      'Cross-Origin-Embedder-Policy',\n      this.config.crossOriginEmbedderPolicy,\n      'require-corp',\n    );\n    this.applyHeader(\n      res,\n      'Cross-Origin-Resource-Policy',\n      this.config.crossOriginResourcePolicy,\n      'same-origin',\n    );\n    this.applyHeader(\n      res,\n      'Cross-Origin-Opener-Policy',\n      this.config.crossOriginOpenerPolicy,\n      'same-origin',\n    );\n    this.applyHeader(res, 'Origin-Agent-Cluster', this.config.originAgentCluster, '?1');\n    this.applyHeader(res, 'Referrer-Policy', this.config.referrerPolicy, 'no-referrer');\n    this.applyHeader(\n      res,\n      'Strict-Transport-Security',\n      this.config.strictTransportSecurity,\n      'max-age=15552000; includeSubDomains',\n    );\n    this.applyHeader(res, 'X-Content-Type-Options', this.config.xContentTypeOptions, 'nosniff');\n    this.applyHeader(res, 'X-DNS-Prefetch-Control', this.config.xDnsPrefetchControl, 'off');\n    this.applyHeader(res, 'X-Download-Options', this.config.xDownloadOptions, 'noopen');\n    this.applyHeader(res, 'X-Frame-Options', this.config.xFrameOptions, 'SAMEORIGIN');\n    this.applyHeader(\n      res,\n      'X-Permitted-Cross-Domain-Policies',\n      this.config.xPermittedCrossDomainPolicies,\n      'none',\n    );\n    this.applyHeader(res, 'X-XSS-Protection', this.config.xXssProtection, '0');\n    if (this.config.removePoweredBy) {\n      res.removeHeader('X-Powered-By');\n    }\n    return undefined;\n  }"
-              }
-            },
-            "unitTests": {
-              "cases": [],
-              "coverage": {
-                "status": "uncollected",
-                "searchScope": [],
-                "inspectedFiles": []
-              }
-            },
-            "e2eTests": null,
-            "unresolved": [],
-            "hints": [
-              {
-                "provider": "zelt",
-                "label": "全HTTP · core自動登録"
-              }
-            ]
-          }
-        ],
-        "relations": [],
-        "setup": [],
-        "expansion": "boundary",
-        "source": {
-          "location": {
-            "filePath": "packages/core/src/features/http/middleware/secure-headers/secure-headers.middleware.ts",
-            "startLine": 7,
-            "endLine": 66
-          },
-          "signature": "@Middleware\nexport class SecureHeadersMiddleware implements MiddlewareInstance",
           "excerpt": {
             "kind": "declaration-only"
           }

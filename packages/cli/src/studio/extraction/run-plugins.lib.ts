@@ -94,6 +94,8 @@ export type PluginRunContext = {
   readonly config: ResolvedConfig;
   readonly resolver: CoreResolver;
   readonly inspectedFiles: readonly string[];
+  /** app を読み込む子プロセスの entry(付録D) */
+  readonly zeltEntryPath: string;
 };
 
 type Accumulator = {
@@ -129,16 +131,18 @@ const accept = (acc: Accumulator, accepted: Accepted): string[] => {
   return [];
 };
 
-const runZelt = (ctx: PluginRunContext, acc: Accumulator): string[] => {
+const runZelt = async (ctx: PluginRunContext, acc: Accumulator): Promise<string[]> => {
   const zelt = ctx.config.raw.plugins.find((plugin) => plugin.id === 'zelt');
   if (zelt === undefined) return [];
   const revision = revisionOf(ctx.program);
-  const result = analyzeZelt({
+  const result = await analyzeZelt({
     program: ctx.program,
     checker: ctx.program.getTypeChecker(),
     config: ctx.config,
     resolver: ctx.resolver,
     applications: zelt.applications,
+    entryPath: ctx.zeltEntryPath,
+    timeoutMs: zelt.timeoutMs,
     testScopes: ctx.config.raw.plugins.find((plugin) => plugin.id === 'vitest')?.scopes ?? [],
     setupDetails: zelt.setupDetails,
     revision,
@@ -234,7 +238,7 @@ export type PluginRunResult =
   | { ok: false; readonly violations: readonly string[] };
 
 /** config が有効にした plugin を宣言順(zelt → library → vitest → requests)で走らせる */
-export const runPlugins = (ctx: PluginRunContext): PluginRunResult => {
+export const runPlugins = async (ctx: PluginRunContext): Promise<PluginRunResult> => {
   const acc: Accumulator = {
     plugins: [
       {
@@ -245,7 +249,10 @@ export const runPlugins = (ctx: PluginRunContext): PluginRunResult => {
     ],
     ignoreRecommendations: [],
   };
-  for (const run of [runZelt, runLibraries, runVitest, runHttpRequests]) {
+  // zelt だけが子プロセスを待つ。順序は材料の並びを決めるので入れ替えない
+  const zeltViolations = await runZelt(ctx, acc);
+  if (zeltViolations.length > 0) return { ok: false, violations: zeltViolations };
+  for (const run of [runLibraries, runVitest, runHttpRequests]) {
     const violations = run(ctx, acc);
     if (violations.length > 0) return { ok: false, violations };
   }

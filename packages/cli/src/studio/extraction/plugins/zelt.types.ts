@@ -13,32 +13,15 @@ export type ZeltInput = {
   readonly config: ResolvedConfig;
   readonly resolver: CoreResolver;
   readonly applications: readonly ZeltApplicationConfig[];
+  /** app を読み込む子プロセスの entry。build 後は dist の .js を渡す(付録D) */
+  readonly entryPath: string;
+  /** config の timeoutMs。子プロセスがこれを超えたら生成失敗 */
+  readonly timeoutMs: number;
   /** runner が決めた test の範囲。Zelt は登録の形を知らず、範囲だけを受け取る(付録C) */
   readonly testScopes: readonly TestScopeConfig[];
   /** config の setupDetails。false なら factory と target の対応だけを返す(付録H) */
   readonly setupDetails: boolean;
   readonly revision: string;
-};
-
-export type Registration = {
-  /** コードに書かれた decorator。setup の label と根拠はこちら */
-  readonly decorator: ts.Decorator;
-  /** 付与された線の根拠になる式(decorator 本体、または factory 内の UseMiddleware 呼出) */
-  readonly evidence: ts.Node;
-  /** middleware class を指す式。関数 middleware や Authorized は null */
-  readonly middleware: ts.Expression | null;
-};
-
-/** 1本の middleware 適用。根拠は登録を書いた場所 */
-export type ChainEntry = { readonly expression: ts.Expression; readonly evidence: ts.Node };
-
-export type RouteFact = {
-  readonly subject: string;
-  readonly controller: ts.ClassDeclaration;
-  readonly member: ts.MethodDeclaration;
-  readonly method: string;
-  readonly path: string;
-  readonly decorator: ts.Decorator;
 };
 
 export type BusCall = {
@@ -56,10 +39,8 @@ export type ZeltContext = {
   readonly resolver: CoreResolver;
   readonly appFiles: readonly ts.SourceFile[];
   readonly appClasses: readonly ts.ClassDeclaration[];
-  readonly coreDir: string | null;
   readonly eventBusDir: string | null;
   /** package の export declaration から anchor 名を引く表 */
   readonly anchors: ReadonlyMap<ts.Declaration, string>;
-  readonly execIds: Map<ts.ClassDeclaration, string>;
   readonly diagnostics: Map<Feature, Diagnostic[]>;
 };

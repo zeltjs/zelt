@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +17,12 @@ const DEFAULT_PORT = 4400;
 
 // ビルド後は dist/cli.js から見た dist/studio/analyzer-entry.js
 const analyzerPath = fileURLToPath(new URL('./studio/analyzer-entry.js', import.meta.url));
+
+// 同じく dist/cli.js から見た dist の entry。tsx で source から動かすときは隣の .ts になる
+const ZELT_ENTRY = './studio/extraction/plugins/zelt-inspect-entry';
+const zeltEntryPath = [`${ZELT_ENTRY}.js`, `${ZELT_ENTRY}.ts`]
+  .map((candidate) => fileURLToPath(new URL(candidate, import.meta.url)))
+  .find((candidate) => existsSync(candidate));
 const staticDir = fileURLToPath(new URL('./studio-ui', import.meta.url));
 
 // citty の ArgsDef は optional な string 引数も `string` 型に見せるため、
@@ -161,13 +168,24 @@ const logExtraction = (result: Extract<ExtractionResult, { kind: 'published' }>)
   consola.success(`Snapshot ${result.snapshotId.slice(0, 12)} written to ${result.output}`);
 };
 
+type ExtractArgs = {
+  readonly config: string | undefined;
+  readonly output: string | undefined;
+  readonly allowIncomplete: boolean | undefined;
+};
+
+const extractOptions = (cwd: string, args: ExtractArgs): ExtractOptions => {
+  const outputArg = nonEmpty(args.output);
+  return {
+    ...(outputArg === undefined ? {} : { output: resolve(cwd, outputArg) }),
+    allowIncomplete: args.allowIncomplete ?? false,
+    ...(zeltEntryPath === undefined ? {} : { zeltEntryPath }),
+  };
+};
+
 export const runExtract = async (
   cwd: string,
-  args: {
-    readonly config: string | undefined;
-    readonly output: string | undefined;
-    readonly allowIncomplete: boolean | undefined;
-  },
+  args: ExtractArgs,
   runtime: Pick<CliRuntime, 'setExitCode'>,
   run: ExtractRun = extract,
 ): Promise<void> => {
@@ -177,11 +195,7 @@ export const runExtract = async (
     runtime.setExitCode(1);
     return;
   }
-  const outputArg = nonEmpty(args.output);
-  const result = await run(resolve(cwd, configFile), {
-    ...(outputArg === undefined ? {} : { output: resolve(cwd, outputArg) }),
-    allowIncomplete: args.allowIncomplete ?? false,
-  });
+  const result = await run(resolve(cwd, configFile), extractOptions(cwd, args));
   if (result.kind === 'failed') {
     consola.error(`studio extract failed during ${result.phase}`);
     for (const diagnostic of result.diagnostics) consola.error(diagnostic);

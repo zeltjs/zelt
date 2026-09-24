@@ -20,3 +20,6 @@ export const app = createApp(
   [http({ controllers: [GreetingController], middlewares: [AuditMiddleware] })],
   { configs: [GreetingConfig, NotificationHandler] },
 );
+
+// 抽出 config は app の入口として「引数なしの factory」を指す(付録D)
+export const createFixtureApp = () => app;

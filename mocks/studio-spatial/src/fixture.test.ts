@@ -7,7 +7,7 @@ describe('fetched snapshot contract', () => {
   it('preserves the source-backed groups, declarations and relations', () => {
     const graph = fixture();
     expect([graph.groups.size, graph.declarations.size, graph.relations.length]).toEqual([
-      34, 129, 235,
+      32, 127, 203,
     ]);
     expect(graph.snapshot.provenance).toBe('manual-fixture');
     expect(graph.snapshot.graph).not.toHaveProperty('relations');
@@ -49,7 +49,7 @@ describe('fetched snapshot contract', () => {
       expect(text).not.toContain(removed);
     const graph = fixture();
     const hints = [...graph.declarations.values()].flatMap((d) => d.hints);
-    expect(hints).toHaveLength(48);
+    expect(hints).toHaveLength(46);
     expect(new Set(hints.map((h) => h.provider))).toEqual(new Set(['zelt', 'drizzle', 'valibot']));
     expect([...graph.groups.values()].flatMap((g) => g.hints)).toEqual([]);
     expect(required(graph.declarations, 'OrderHandlers.startup@callback:0').hints).toEqual([
@@ -82,7 +82,7 @@ describe('fetched snapshot contract', () => {
       g.filePath.startsWith('integration/ec-backend/src/'),
     );
     const external = [...graph.groups.values()].filter((g) => !app.includes(g));
-    expect(external).toHaveLength(11);
+    expect(external).toHaveLength(9);
     const used = new Set(
       app.flatMap((g) => [g, ...g.members]).flatMap((s) => s.relations.map((r) => r.to)),
     );
@@ -134,7 +134,7 @@ describe('fetched snapshot contract', () => {
           granted.filter((r) => r.kind === k).length,
         ]),
       ),
-    ).toEqual({ middleware: 62, event: 1, register: 9 });
+    ).toEqual({ middleware: 30, event: 1, register: 9 });
     expect(
       required(graph.declarations, 'OrderHandlers.startup')
         .relations.filter((r) => r.to === 'OrderHandlers.startup@callback:0')

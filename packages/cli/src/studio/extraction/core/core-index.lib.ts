@@ -48,6 +48,10 @@ export type CoreIndex = {
   readonly relations: Map<string, MutableRelation>;
   readonly nodeToDecl: Map<ts.Node, string>;
   readonly nodeToGroup: Map<ts.Node, string>;
+  /** id から宣言の node を引く。plugin に所在と原文を返すために要る(付録D) */
+  readonly nodeById: Map<string, ts.Node>;
+  /** class を値として書いた箇所。線にはしないが所在は残す(4.1) */
+  readonly mentions: Map<ts.Declaration, { readonly ownerId: string; readonly node: ts.Node }[]>;
   readonly callbackIds: Map<ts.Node, string>;
   readonly interfaceMembers: Set<string>;
   readonly whitelist: Set<ts.Node>;
@@ -91,13 +95,17 @@ export const sourceDetail = (
 // ── group / declaration registration ────────────────────────────────────────
 const addGroup = (index: CoreIndex, group: CoreGroup, node: ts.Node | null): string => {
   if (!index.groups.has(group.id)) index.groups.set(group.id, group);
-  if (node !== null) index.nodeToGroup.set(node, group.id);
+  if (node !== null) {
+    index.nodeToGroup.set(node, group.id);
+    if (!index.nodeById.has(group.id)) index.nodeById.set(group.id, node);
+  }
   return group.id;
 };
 
 export const addDeclaration = (index: CoreIndex, decl: CoreDeclaration, node: ts.Node): string => {
   if (!index.declarations.has(decl.id)) index.declarations.set(decl.id, decl);
   index.nodeToDecl.set(node, decl.id);
+  if (!index.nodeById.has(decl.id)) index.nodeById.set(decl.id, node);
   return decl.id;
 };
 
@@ -256,6 +264,8 @@ export const createCoreIndex = (program: ts.Program, config: ResolvedConfig): Co
     relations: new Map(),
     nodeToDecl: new Map(),
     nodeToGroup: new Map(),
+    nodeById: new Map(),
+    mentions: new Map(),
     callbackIds: new Map(),
     interfaceMembers: new Set(),
     whitelist: new Set(),
@@ -302,6 +312,21 @@ export const targetFor = (index: CoreIndex, node: ts.Node): Target | null => {
   const group = index.nodeToGroup.get(node);
   if (group !== undefined) return { id: group, isInterfaceMember: false };
   return boundaryTarget(index, node);
+};
+
+/** class を値として書いた箇所を、その class の宣言ごとに控える(線にはしない) */
+export const addMention = (
+  index: CoreIndex,
+  ownerId: string,
+  symbol: ts.Symbol | undefined,
+  node: ts.Node,
+): void => {
+  for (const declaration of symbol?.declarations ?? []) {
+    if (!ts.isClassDeclaration(declaration)) continue;
+    const list = index.mentions.get(declaration) ?? [];
+    list.push({ ownerId, node });
+    index.mentions.set(declaration, list);
+  }
 };
 
 export const targetOfSymbol = (index: CoreIndex, symbol: ts.Symbol | undefined): Target | null => {

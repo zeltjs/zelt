@@ -10,6 +10,7 @@ import {
   targetFor,
 } from './core-index.lib';
 import { emitContainerRelations, visitWalkable } from './core-relations.lib';
+import { exportSite, memberSite, mentionSites, setupSites } from './core-sites.lib';
 import type { ResolvedConfig } from './extract-config.lib';
 
 /**
@@ -46,6 +47,10 @@ export const buildCoreFacts = (program: ts.Program, config: ResolvedConfig): Cor
       end,
     }),
     relativePath: index.rel,
+    exportSite: (ref) => exportSite(index, ref),
+    memberSite: (ref, member) => memberSite(index, ref, member),
+    setupSites: (id) => setupSites(index, id),
+    mentionSites: (ownerId, ref) => mentionSites(index, ownerId, ref),
   };
   return resolver.facts();
 };

@@ -39,6 +39,26 @@ export type CoreGroup = {
   readonly position: number;
 };
 
+/** 索引が持つ所在と原文。plugin はこれで label と根拠を作るので AST を歩かなくてよい */
+export type CoreSourceSite = {
+  readonly span: Span;
+  /** span の1行目。複数行の式でも label は1行に収める */
+  readonly text: string;
+};
+
+export type CoreDeclarationSite = CoreSourceSite & {
+  /** 地図に載らない(ignore・未収録)相手は null */
+  readonly id: string | null;
+};
+
+/** コアが線にしない式。setup の材料になる(付録D) */
+export type SetupSiteKind = 'parameter-default' | 'decorator' | 'extends' | 'implements';
+
+export type CoreSetupSite = CoreSourceSite & { readonly kind: SetupSiteKind };
+
+/** module の export 1件。runtime が返す ClassSource と同じ形 */
+export type ExportRef = { readonly filePath: string; readonly exportName: string };
+
 /**
  * The part of the index a plugin needs to talk about the same subjects as core.
  * Resolving a whitelisted library member registers its boundary box, so a box
@@ -53,6 +73,14 @@ export type CoreResolver = {
   readonly exportsOf: (specifier: string, names: readonly string[]) => readonly ts.Declaration[];
   readonly spanOf: (node: ts.Node, start?: number, end?: number) => Span;
   readonly relativePath: (fileName: string) => string;
+  /** module の export が指す宣言 */
+  readonly exportSite: (ref: ExportRef) => CoreDeclarationSite | null;
+  /** export された class の member(`use`・`constructor` など) */
+  readonly memberSite: (ref: ExportRef, member: string) => CoreDeclarationSite | null;
+  /** 宣言に書かれた decorator・継承・既定値の所在と原文 */
+  readonly setupSites: (id: string) => readonly CoreSetupSite[];
+  /** class を値として書いた箇所。コアは線にしないが、所在は事実として残っている */
+  readonly mentionSites: (ownerId: string, ref: ExportRef) => readonly CoreSourceSite[];
 };
 
 /** 組立が読む事実だけ。索引の解決 API は持たない */

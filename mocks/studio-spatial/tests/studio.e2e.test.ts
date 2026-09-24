@@ -20,7 +20,7 @@ test('fetches JSON, shows the map without composition, and keeps every group col
   const response = page.waitForResponse((r) => r.url().endsWith('ec-backend.snapshot.json'));
   await page.goto('/');
   expect((await response).ok()).toBe(true);
-  await expect(page.locator('[data-group]')).toHaveCount(33);
+  await expect(page.locator('[data-group]')).toHaveCount(31);
   await expect(page.locator('[data-group="app.ts"]')).toHaveCount(0);
   await expect(page.locator('[data-column-toggle="column:composition"]')).not.toBeChecked();
   await expect(page.locator('[data-declaration]')).toHaveCount(0);
@@ -151,7 +151,7 @@ test('keeps every shown column heading in view and above its boxes while columns
   page,
 }) => {
   await page.goto('/');
-  await expect(page.locator('[data-group]')).toHaveCount(33);
+  await expect(page.locator('[data-group]')).toHaveCount(31);
   await expectHeadingsOverTheirBoxes(page, ['column:composition']);
   await page.locator('[data-column-toggle="column:composition"]').check();
   await expectHeadingsOverTheirBoxes(page, []);
@@ -232,18 +232,18 @@ test('allocates tag space only while tags are rendered, including dimmed and exp
   page,
 }) => {
   await page.goto('/');
-  // Hiding the library column takes CartController's library middleware tags away, keeping Logging.
-  const group = page.locator('[data-group="CartController"]');
+  // Hiding the library column takes AuthController's library middleware tags away, keeping Logging.
+  const group = page.locator('[data-group="AuthController"]');
   const library = page.locator('[data-column-toggle="column:6"]');
   for (const expanded of [false, true]) {
     if (expanded) await group.locator('[data-toggle]').click();
     const baseHeight = 62 + (await group.locator('[data-declaration]').count()) * 46;
-    await expect(group.locator('.reference-tag')).toHaveCount(4);
+    await expect(group.locator('.reference-tag')).toHaveCount(3);
     await expect(group).toHaveCSS('height', `${baseHeight + 74}px`);
     await library.uncheck();
     await expect(group.locator('.reference-tag')).toHaveText(['適用: Logging']);
     await expect(group).toHaveCSS('height', `${baseHeight + 48}px`);
-    await page.locator('.group-heading[data-select="AuthService"]').click();
+    await page.locator('.group-heading[data-select="CartService"]').click();
     await expect(group).toHaveClass(/dimmed-group/);
     await expect(group).toHaveCSS('height', `${baseHeight + 48}px`);
     await library.check();
@@ -321,7 +321,7 @@ test('keeps drawing operations local while preserving zoom, bulk folding and key
   await expect(page.locator('[data-tab="source"]')).toBeFocused();
   await expect(page.locator('.source-code')).toContainText('sign');
   await page.locator('[data-action="expand-all"]').click();
-  await expect(page.locator('[data-toggle][aria-expanded="true"]')).toHaveCount(33);
+  await expect(page.locator('[data-toggle][aria-expanded="true"]')).toHaveCount(31);
   await page.locator('[data-action="collapse-all"]').click();
   await expect(page.locator('[data-declaration]')).toHaveCount(0);
   await expect.poll(() => page.locator('#map-scroll').evaluate((el) => el.scrollTop)).toBe(0);

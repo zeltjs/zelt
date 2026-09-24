@@ -2,7 +2,7 @@ import ts from 'typescript';
 
 import type { Target } from './core-facts.types';
 import type { CoreIndex } from './core-index.lib';
-import { emit, resolveSymbol, targetFor, targetOfSymbol } from './core-index.lib';
+import { addMention, emit, resolveSymbol, targetFor, targetOfSymbol } from './core-index.lib';
 import type { TsRelationKind } from './snapshot-schema.lib';
 import {
   asFunctionValue,
@@ -56,7 +56,10 @@ const readPropertyAccess = (
 const readIdentifier = (index: CoreIndex, node: ts.Expression, ownerId: string): void => {
   if (!ts.isIdentifier(node)) return;
   const symbol = resolveSymbol(index, node);
-  if (isClassValue(symbol)) return;
+  if (isClassValue(symbol)) {
+    addMention(index, ownerId, symbol, node);
+    return;
+  }
   const target = targetOfSymbol(index, symbol);
   if (target !== null) emit(index, ownerId, target.id, 'read', node, node.getText());
 };

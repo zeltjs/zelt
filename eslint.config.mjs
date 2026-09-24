@@ -175,6 +175,8 @@ export default tseslint.config(
             // basenames are a contract with the parent process spawn path
             'analyzer-entry.ts',
             'analyzer-protocol.ts',
+            'zelt-inspect-entry.ts',
+            'zelt-inspect-protocol.ts',
             // Vite SPA conventions (studio-ui): the rule strips only a
             // trailing ".ts", so single-dot ".tsx" entry points never satisfy
             // the double-dot check no matter how they're named
@@ -345,9 +347,11 @@ export default tseslint.config(
       // Disposable tsx child process: no DI container exists in this throwaway
       // script, so it IS the process boundary (argv/cwd/stdout/exitCode)
       'packages/cli/src/studio/analyzer-entry.ts',
+      'packages/cli/src/studio/extraction/plugins/zelt-inspect-entry.ts',
       // Spawns the analyzer child process with the parent's own node binary
       // (process.execPath) so it runs regardless of the host's PATH/shell setup
       'packages/cli/src/studio/analyzer-runner.lib.ts',
+      'packages/cli/src/studio/extraction/plugins/zelt-inspect-runner.lib.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
