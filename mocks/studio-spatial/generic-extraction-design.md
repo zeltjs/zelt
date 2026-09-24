@@ -6,12 +6,13 @@
 
 いまのStudio mockは手書きの `public/ec-backend.snapshot.json` を読んで地図を出している。これを **`zelt studio extract` が実コードから生成したJSONに置き換え、今のStudioにそのまま読ませる**。完了の定義は「ec-backendから `zelt studio extract` でJSONを生成し、そのJSONをStudioで表示できること」。受入条件は[付録M](#m-完了判定)。
 
-- **前提1 — 手触りは変えない**: 配信データの契約は現行v1（[`src/snapshot-schema.lib.ts`](src/snapshot-schema.lib.ts)、説明は[react-migration-design.md](react-migration-design.md)の「fetchするデータ」節）。v1からの変更は[4.5](#45-v1からの変更)に挙げたものだけ。形を変える提案は「手触りを保ち、かつ汎用化に効く」と示せたときだけ受け入れる。
+- **前提1 — 手触りは変えない**: 配信データの契約はv1（[`src/snapshot-schema.lib.ts`](src/snapshot-schema.lib.ts)）。v1からの変更は[4.5](#45-v1からの変更)に挙げたものだけで、形を変えるのは「手触りを保ち、かつ汎用化に効く」と示せたときだけ。
 - **前提2 — 汎用化は抽出器の内部構造の話**: 抽出器を「コア（どのTSコードにも効く）＋任意plugin（Zelt・Vitest・Valibot・Drizzle等の意味）＋組立」に分ける。pluginは付与するだけで、無くても同じ型で地図は出て、意味が粗くなるだけ。
-- **前提3 — 手書きfixtureは残す**: 手書きの `snapshot.json` は、自動抽出ができるまでコミットし続ける。fixtureをこの計画に合わせて直すのは別作業で、この文書は直す必要のある箇所を示すだけ（[付録L](#l-uiの追従)）。
-- この文書は設計のみ。抽出器・UIのコードはまだ変更しない。
+- **前提3 — 手書きfixtureで先に示す**: 自動抽出ができるまで、手書きの `snapshot.json` をコミットし続ける。この計画の形（4.5）はschema・fixture・UIに反映済みで、fixtureは「[config](ec-backend.extract.json)＋この文書の規則」から説明できる状態にしてある（[付録L](#l-uiの追従)・[付録P](#p-確認状況)）。抽出器のコードはまだ無い。
 
-**読み方**: 1節は箱の責務、2節のpolicyが土台。3節はpolicyが1本の例でどう効くかの確認、4節はpolicyから決まる結果、5節は判断が要ること（保留中の5件と、policyに根拠が無い項目の一覧）。付録は実装の細則でレビュー不要。
+**読み方**: 1節は箱の責務、2節のpolicyが土台。3節はpolicyが1本の例でどう効くか、4節はpolicyから決まる結果。5節（判断が要ること）は空。付録は実装の細則でレビュー不要。
+
+**「(AI 判断)」**: ユーザーに判断を戻さず、①②に照らして決めた箇所に付ける。理由を1行添える。
 
 ## 1. 全体の箱
 
@@ -36,27 +37,26 @@ Valibot・Drizzleのpluginも、Zelt・Vitestと同じ形でコアを読み、�
 
 | 箱 | 責務 | 責務でないこと | 担う② |
 | --- | --- | --- | --- |
-| config | 人の意図: 境界（列）、気にするライブラリ、地図に載せる範囲、原文を見せる範囲 | コードの事実を書き足すこと | ②3 意図と事実を重ねる、②2 ライブラリは接点だけ |
-| 抽出器のコア | TSとして確かめられる事実だけ: 宣言、呼ぶ・読む・型、所在と原文 | どのフレームワークの意味も知らない | ②1 責務と流れ（配線・契約）、②4 コードと一致 |
-| plugin | 担当ライブラリの意味を付与する（下の付与の種類） | 他pluginの結果の書き換え、事実の書き換え、コードに無いものを作ること | ②1 責務と流れ（配線・検証）、②4 コードと一致 |
-| 組立 | コアとpluginの材料を1枚の地図にまとめる。矛盾があればall or nothingで止める | 分からないことを「無い」に変えること | ②4 コードと一致 |
-| UI | 見せ方: 並び、流れのたどり方、隠す・畳む、付与された意味の表示 | データに表示用の値を持たせること | ②1 責務と流れ |
+| config | 人の意図: 境界（列と既定の表示）、気にするライブラリとignore、地図に載せる範囲、原文を見せる範囲 | コードの事実を書き足すこと | ②3、②2 |
+| 抽出器のコア | TSとして確かめられる事実だけ: 宣言、呼ぶ・読む・型、所在と原文 | どのフレームワークの意味も知らない | ②1、②4 |
+| plugin | 担当ライブラリの意味を付与する（下の5種）。そのライブラリで意識しなくてよいものを「ignore推奨」として出す | 他pluginの結果や事実の書き換え、コードに無いものを作ること、ignoreを勝手に適用すること | ②1、②2、②4 |
+| 組立 | コアとpluginの材料を1枚の地図にまとめる。矛盾があればall or nothingで止める | 分からないことを「無い」に変えること | ②4 |
+| UI | 見せ方: 並び、流れのたどり方、列の表示切替、付与された意味の表示 | データに表示用の値を持たせること | ②1 |
 
-**pluginが付与するもの**: pluginは付与だけをする。コアが出した事実を書き換えない（「読む」を「登録」に置き換える、宣言の種類をschemaにする、といった意味の変換はしない）。
+**pluginが付与するもの**: pluginは付与だけをする。コアの事実を書き換えない（「読む」を「登録」に置き換える、といった意味の変換はしない）。
 
-- **意味**: 既存の線や宣言に意味を付ける。`on()` に渡した関数への「読む」にZeltが「登録」を、Valibotが宣言に「schema」を付ける。
-- **線**: TSに根拠の無い関係を新しい線として付ける。middleware、event、appへの登録。
+- **意味**: 既存の線や宣言に意味を付ける（`on()` に渡した関数への「読む」に「登録」、Valibotのschemaに「schema」）。
+- **線**: TSに根拠の無い関係を新しい線として付ける（middleware、event、appへの登録）。
 - **注記**: 宣言の横に出す短いラベル（`POST /api/auth/register` など）。
-- **testの対応の材料**: Vitestのtest名・直接呼んだ関数、Zeltのtestのsetupの差し替え。組立が突き合わせてUnit・E2Eの一覧を作る。
-- **setup**: 流れとは別種の情報。constructorとdecoratorの内容（inject、`@UseMiddleware`、Configの差し替え等）。地図の線にはせず、詳細パネルで見せる。
+- **testの対応の材料**: test名・直接呼んだ関数、testのsetupの差し替え。組立がUnit・E2Eの一覧を作る。
+- **setup**: 流れとは別種の情報。inject・middleware指定・Configの差し替え・lifecycle登録。線にせず詳細パネルで見せる。
 
-**JSONの書き手**: JSONの各部分は、書き手が1つに決まっている。組立は、コアの事実・pluginごとの材料の一覧・configを受け取り、この対応どおりに組み立てる。
+**JSONの書き手**: 各部分の書き手は1つに決まっている。
 
 | JSONの部分 | 書き手 |
 | --- | --- |
-| 列・project | config |
-| 箱・宣言・原文 | コア |
-| 呼ぶ・読む・型・契約の線 | コア |
+| 列（既定の表示を含む）・project | config |
+| 箱・宣言・原文、呼ぶ・読む・型・契約の線 | コア |
 | 意味・付与された線・注記・setup | plugin |
 | Unit / E2E一覧・取得状況・全体ID | 組立 |
 
@@ -65,9 +65,9 @@ Valibot・Drizzleのpluginも、Zelt・Vitestと同じ形でコアを読み、�
 以降で使う言葉は4つ。
 
 - **事実**: コードを読めば誰がやっても同じになるもの（「AがBを呼ぶ」「このmethodは `POST /api/auth/register` のrouteに登録されている」）。
-- **意味**: 事実のうち、ライブラリやフレームワークを知って初めて分かるもの（「この値はValibotのschema」）。pluginが確かめて付与する。
-- **注記**: 宣言の横に出す短いラベル。pluginが自分の見つけた事実から付ける。
-- **列**: 地図の横位置（`Entry / Middleware`・`Use case` など）。どのファイルをどの列に置くかは、人がconfigのglobで決める。
+- **意味**: 事実のうち、ライブラリを知って初めて分かるもの（「この値はValibotのschema」）。pluginが確かめて付与する。
+- **列**: 地図の横位置（`Entry / Middleware`・`Use case`・`ライブラリ` など）。どのファイルをどの列に置くか、既定で見せるかは、人がconfigで決める。
+- **ignore**: 地図で意識しないライブラリのexport。pluginが推奨を出し、採否は本人がconfigで決める。
 
 ## 2. Policy
 
@@ -115,7 +115,7 @@ flowchart LR
   Q -->|すべての問いの前提| D
 ~~~
 
-**外界とライブラリは別物**: アーキテクチャ上の「外界」はDB・ネットワーク等で、adapter層がその接点（Q4）。ライブラリはnode_modulesの既製の部品（Q5）。ライブラリを別の列に置く理由は「責務が違う」ことで、ライブラリにこのプロジェクトの責務は無く、プロジェクトの責務はライブラリを選び適切に活用すること。この文書ではnode_modules側を「ライブラリ」と呼ぶ（ec-backendのconfigの列名「外部」の変更提案は[4.2](#42-ライブラリは接点だけから)）。
+**外界とライブラリは別物**: アーキテクチャ上の「外界」はDB・ネットワーク等で、adapter層がその接点（Q4）。ライブラリはnode_modulesの既製の部品（Q5）。ライブラリを別の列に置く理由は「責務が違う」ことで、ライブラリにこのプロジェクトの責務は無く、プロジェクトの責務はライブラリを選び適切に活用すること。この文書ではnode_modules側を「ライブラリ」と呼び、ec-backendのconfigの列名も「外部」から「ライブラリ」に変えた（AI 判断: 外界と混同しないため。②2）。
 
 以降、②の各項を「②1〜②4」と書く。
 
@@ -137,64 +137,48 @@ async register(req = request(RegisterSchema)) {
 
 ### 各箱が何を出すか
 
-~~~mermaid
-flowchart LR
-  S["実コード<br/>AuthController.register"]
-  T["コア"]
-  P["plugin"]
-  A["組立"]
-  U["Studio"]
-  S --> T
-  T --> P
-  T --> A
-  P --> A
-  A --> U
-~~~
-
 | 箱 | registerについて出すもの | 満たす② | 答える問い |
 | --- | --- | --- | --- |
 | コア | `AuthService.register` を呼ぶ線、`RegisterSchema`（変数）を読む線 | ②1 配線、②4 事実だけ | Q1 |
-| plugin:zelt | 注記 `POST /api/auth/register`、middlewareの線4本、setup `@RateLimit` | ②1 処理の入口と配線 | Q1・Q2 |
+| plugin:zelt | 注記 `POST /api/auth/register`、middlewareの線4本、setup `@RateLimit(…)` | ②1 処理の入口と配線 | Q1・Q2 |
 | plugin:valibot | `RegisterSchema` を読む線に、schemaの意味を付与 | ②2 ライブラリの活用 | Q5 |
-| 組立 | 材料を1枚にまとめ、E2E testをrouteの一致で付ける。矛盾があれば止める | ②1 検証、②4 | Q6 |
+| 組立 | 材料を1枚にまとめ、E2E testをrouteの一致で付ける | ②1 検証、②4 | Q6 |
 | Studio | Entry列（configのglob）に置き、列と線を重ねて描く | ②3 | Q2 |
 
-- `register` がどのURLのrouteに登録されているかは、TSだけでは分からない。plugin:zeltが、Zeltが実行時に持つroute・middlewareの登録情報を読んで付与する（②4: 確かめた事実だけ）。middlewareは、app.tsで登録したLogging、core組込みのCors・SecureHeaders、`@RateLimit` が内部で付けるRateLimitの4本。
-- 線にしないもの: `this.authService` の読み取り（注入された値の置き場は責務ではない）。`@RateLimit`・`@Post` のdecoratorと `inject(AuthService)` はsetupで、詳細パネルに出す（[4.1](#41-責務と流れから)）。`request(…)` の呼出が線になるかはホワイトリストの単位次第（[5.5](#55-setupと流れの境目)）。
+- `register` がどのURLのrouteに登録されているかは、TSだけでは分からない。plugin:zeltが、Zeltが実行時に持つroute・middlewareの登録情報を読んで付与する（②4）。middlewareは、app.tsで登録したLogging、core組込みのCors・SecureHeaders、`@RateLimit` が内部で付けるRateLimitの4本。
+- 線にしないもの: `this.authService` の読み取り（注入された値の置き場は責務ではない）、`request(…)` の呼出（Zelt pluginのignore推奨をconfigで採用）。`@RateLimit`・`inject(AuthService)` はsetupで、詳細パネルに出す（[4.1](#41-責務と流れから)）。
 
 ### 手書きfixtureとの対応
 
-`public/ec-backend.snapshot.json`（手書きfixture）の `AuthController.register` と照合した結果。
+`public/ec-backend.snapshot.json`（手書きfixture）の `AuthController.register` は、この計画の形に更新済み。
 
-| fixtureにあるもの | 抽出ではどうなるか |
+| fixtureにあるもの | データの形 |
 | --- | --- |
-| `AuthService.register` へのcall | 同じ（コア） |
-| `RegisterSchema` へのschema線 | 見え方は同じ。データはTSの「読む」＋valibotが付与したschemaの意味になる（[4.5](#45-v1からの変更)） |
-| middleware線4本 | 同じ（plugin:zeltが付与する線） |
-| 注記 `POST /api/auth/register` | 同じ（plugin:zeltがrouteから付ける） |
-| E2E一覧（宣言に直接付く）。fixtureは「未収録」 | 置き方は同じ。ただしconfigのE2E範囲は `product.spec.ts` のサンプリングなので、状態は「一部のみ・0件」になる（[4.4](#44-コードと一致するから)）。fixtureは直す必要がある |
-| `this.authService` を読む線（fixtureに無い） | 無いまま（[4.1](#41-責務と流れから)） |
-
-抽出に切り替えると、`AuthController.register` という短いIDは抽出の形式に変わる（[4.6](#46-policyに根拠が無い結果)）。
+| `AuthService.register` へのcall | コアの線 |
+| `RegisterSchema` への線 | コアの「読む」＋valibotが付与したschemaの意味。表示は今までどおり「入力検証schema参照」 |
+| middleware線4本 | plugin:zeltが付与した線 |
+| 注記 `POST /api/auth/register` | plugin:zeltの注記 |
+| setup `@RateLimit({ limit: 3, … })` | plugin:zeltのsetup（target: RateLimitMiddleware） |
+| E2E一覧 | configのE2E範囲は `product.spec.ts` のサンプリングなので「一部のみ・0件」 |
 
 ### pluginを外すと
 
-Zeltのpluginを外すと、middleware線・注記・setup・E2E testの結び付きが消え、`register` は「AuthServiceを呼ぶmethod」としてだけ残る。Valibotのpluginを外すと、schemaの意味が付かず、線は「読む」と表示される。確かめられない意味は出さず、地図の形は同じまま粗くなるだけ（②4、前提2）。
+Zeltのpluginを外すと、middleware線・注記・setup・E2E testの結び付きが消え、`register` は「AuthServiceを呼ぶmethod」としてだけ残る。Valibotのpluginを外すと、schemaの意味が付かず、線は「読む」と表示される。地図の形は同じまま粗くなるだけ（②4、前提2）。
 
-E2Eで同じappに `POST /api/auth/register` を送るtestがあれば、そのtestは、このrouteを登録した `register` に付く。結ぶ根拠は、testが送るmethod・pathと、plugin:zeltがroute登録から取ったmethod・pathの一致。`AuthService.register` には付かない（②1 検証: そのtestが直接試した境界はrouteだけ）。
+E2Eで同じappに `POST /api/auth/register` を送るtestがあれば、そのtestは、このrouteを登録した `register` に付く。`AuthService.register` には付かない（②1 検証: そのtestが直接試した境界はrouteだけ）。
 
 ## 4. Policyから決まること
 
-この節は「②を決めると、何がどう決まるか」に答える。4.1〜4.4は②の各項から決まる結果で、各項目の見出しに「← ②の何番（問い）」を付ける。4.5はv1からの変更、4.6は②に根拠が無い結果で、残すかどうかは[5.6](#56-根拠がpolicyに無い項目)で判断する。規則の細部は付録に置く。
+この節は「②を決めると、何がどう決まるか」に答える。4.1〜4.4は②の各項から決まる結果で、見出しに「← ②の何番（問い）」を付ける。4.5はv1からの変更、4.6は②に紐づかない前提・運用。規則の細部は付録に置く。
 
 ~~~mermaid
 flowchart LR
   A["②1 責務と流れ"] --> R1["4.1 流れの表し方"]
   B["②2 ライブラリは接点だけ"] --> R2["4.2 ライブラリの載せ方"]
-  C["②3 意図と事実を重ねる"] --> R3["4.3 境界の書き方"]
+  C["②3 意図と事実を重ねる"] --> R3["4.3 境界と列の書き方"]
   D["②4 コードと一致する"] --> R4["4.4 確かめ方と止め方"]
   F["前提1 手触り"] --> R5["4.5 v1からの変更"]
-  R6["4.6 ②に根拠が無い結果"] -.->|判断| J["5.6"]
+  G["前提・運用"] --> R6["4.6 見せ方と運用"]
 ~~~
 
 ### 4.1 責務と流れから
@@ -203,77 +187,56 @@ flowchart LR
 
 #### 配線: 呼ぶ・読む・渡す ← ②1（Q1・Q2）
 
-- **呼ぶ・読む**: コアが引く。「読む」はproperty・getter・変数と、値として渡した関数・method（無名callbackでも名前付きでも）。
-- **登録の意味**: eventbusの `on()`・`once()` に渡した関数への「読む」に、plugin:zeltが「登録」の意味を付与する。線はコアの「読む」1本のままで、表示は「登録」。
-- **付与された線**: TSに根拠の無い配線は、plugin:zeltが新しい線として付ける。middlewareの適用、eventの配送、appへの登録（`controllers: [X]` 等。ec-backendでは `createEcApp` から9本）。
-- **classを値として渡す式**: `inject(X)`・`@UseMiddleware(X)`・`controllers: [X]` はコアの線にしない。その意味は、setup（下）か付与された線として出る。この規則は②に根拠が無い（[5.6](#56-根拠がpolicyに無い項目)）。
-
-規則の細部は[付録B](#線の取得規則)・[付録D](#d-zelt)。
+- **呼ぶ・読む**: コアが引く。「読む」はproperty・getter・変数と、値として渡した関数・method。
+- **constructorも同じ関数**: constructorは他のmethodと同じ関数として扱う。本文の呼出（`kv.namespace('cart:')`、DB接続の作成）は流れの線になる（ユーザー確認 9/24）。
+- **付与された線**: TSに根拠の無い配線（middlewareの適用、eventの配送、appへの登録）は、plugin:zeltが付与した線として持つ。
+- **部品の組み方は線にしない**: `inject(X)`・`@UseMiddleware(X)`・`controllers: [X]` のようにclassを値として渡す式と、decoratorの式はコアの線にしない。これは処理の流れではなく部品の組み方で、その内容はsetupか付与された線として出る（②1。旧5.6から紐づけ）。
 
 #### 契約: interfaceと型 ← ②1（Q3）
 
-- **contract**: 呼んだ先の宣言がinterfaceのmemberなら、コアがそのcallを `contract`（地図では破線）として出す。TSの事実だけで決まり、pluginに依存しない。ec-backendでは `CartService` → `KVStore` の6本。
-- **戻り値は型で表す**: 戻り値に関する線は、戻り値の型の宣言でも関数を返す場合でも「型」（`type`）の線にする。「関数を返す」（`returns`）を別の線の種類にしない。fixtureの `EcJwtConfig.resolveUser` → `@callback:0` の `returns` 1本は外す（別作業）。
-
-~~~mermaid
-flowchart LR
-  subgraph CS["CartService"]
-    CT["constructor<br/>store = kv.namespace('cart:')"]
-    GC["getCart<br/>this.store.get(…)"]
-  end
-  KV["KVStore（interface）<br/>get"]
-  GC -->|contract| KV
-~~~
+- **contract**: 呼んだ先がinterfaceのmemberなら、コアがそのcallを `contract`（破線）として出す。ec-backendでは `CartService` → `KVStore` の6本。
+- **戻り値は型で表す**: 戻り値に関する線は「型」の線だけ。「関数を返す」（`returns`）という種類は持たない（ユーザー判断 9/23）。`EcJwtConfig.resolveUser` の戻り型はホワイトリスト外なので線は出ない（fixture反映済み）。
 
 #### setup: 流れとは別に、詳細で見せる ← ②1（Q1）、②4
 
-constructorとdecoratorの内容（`inject(AuthService)`、`@UseMiddleware(X)`、`@RateLimit(…)`、Configの差し替え）は、処理の流れではなく部品の組み方（setup）。
-
-- 地図の線にしない。②1が描くのは流れだけ。
-- 消さない。コードの事実なので（②4）、plugin:zeltが宣言やgroupに付与し、詳細パネルで見せる。9/6の決定「注入は地図に描かないが、詳細には事実として残す」と同じ。
-- 注入された値の置き場（constructorのparameter property）は宣言にせず、途中の `this.authService` の読み取りも線にしない。流れは `AuthService.register` を呼ぶ線1本で表せる。
-- 詳細パネルの見せ方は今のmockに無いので、mockで先に示す（[付録L](#l-uiの追従)）。
+- setupは部品の組み方: constructorの既定引数 `= inject(X)`、decoratorの内容（`@UseMiddleware(X)`・`@RateLimit(…)`・`@Authorized(…)`）、Configの差し替え（`@Config extends JwtConfig`）。
+- 地図の線にしない（②1が描くのは流れだけ）。消さずに、plugin:zeltが宣言・groupに付与して詳細パネルの「Setup」に出す（②4）。
+- `lifecycle.register(this)` のようなZeltへの登録呼出は、Zelt pluginのignore推奨に入れ、代わりにsetup `lifecycle` として付与する（AI 判断: フレームワークへの登録は処理の流れではなく（②1）、setupに残せば事実は消えない（②4））。
+- 注入された値の置き場（parameter property）は宣言にせず、途中の `this.authService` の読み取りも線にしない。
 
 #### 検証: testの結び方 ← ②1（Q6）、②4
 
-testは、そのtestが直接触った境界にだけ結ぶ。間接的に届いた関数まで「このtestが検証している」とは言えない（②4）。
+testは、そのtestが直接触った境界にだけ結ぶ（②4: 間接的に届いた関数まで「検証している」とは言えない）。
 
-- **Unit**: case本文が直接呼んだ関数に付ける。呼んだ先の、さらに先には伝播させない。
-- **E2E**: testが送ったrequestのmethod・pathと、plugin:zeltのroute登録のmethod・pathが同じappで一致したとき、そのrouteを登録したmethodに付ける。
-- **結ぶのは組立**: Vitestとplugin:zeltはそれぞれ対応の材料を出すだけで、互いを知らない。組立が突き合わせる。細部は[付録F](#f-unit)・[付録G](#g-e2e)。
+- **Unit**: case本文が直接呼んだ関数に付ける。本文に書いた無名関数（`expect(() => f()).toThrow()`）の中の呼出と、getterの読み取りも直接の呼出に数える（AI 判断: どちらも本文に書かれた検証コードで、呼んだ先をTSのSymbolで確かめられる。②1・②4）。
+- **Unitの分類**: `createTestTarget` のsetupを値の由来で照合し、Solitary / Sociable とmock一覧を出す。DIを経由しない呼出（モジュール関数）は「関数」と分類する（AI 判断: setupが無いことを未判定と区別して見せる。②4）。
+- **E2E**: testが送ったrequestのmethod・pathと、plugin:zeltのroute登録が同じappで一致したとき、そのrouteを登録したmethodに付ける。
+- 結ぶのは組立。細部は[付録F](#f-unit)・[付録G](#g-e2e)。
 
 #### 注記: 処理の入口と配線を示す ← ②1（Q1）、②2（Q5）
 
-注記は、pluginが自分で確かめた事実からだけ付ける（②4）。1つの宣言に複数pluginが付けたら、並ぶだけで衝突しない。
-
-| plugin | 注記の例 | 示すもの |
-| --- | --- | --- |
-| zelt | routeを登録したmethodに `POST /api/auth/register`、event購読に `EVENT order:created` | 処理の入口と、eventで続く流れ（②1） |
-| zelt | DIで作るclassとConfigのconstructorに `DI / 初期化`、core組込みmiddlewareの `use` に `全HTTP · core自動登録` | 配線の場所（②1）。後者はライブラリが流れに足す部品（②2） |
-| drizzle・valibot | table宣言にtable名、そこから作った型に `DB schema由来`、schemaから作った型に `InferOutput<RegisterSchema>` | ライブラリの活用（②2） |
-
-全規則は[付録A](#注記の付与規則全表)。
+注記は、pluginが自分で確かめた事実からだけ付ける（②4）。routeの `POST /api/auth/register`、event購読の `EVENT order:created`、tableのtable名など。全規則は[付録A](#注記の付与規則全表)。
 
 ### 4.2 ライブラリは接点だけから
 
-②2は「ライブラリにこのプロジェクトの責務はなく、出すのは選び方と活用の接点だけ」と決めた。ここから、どのライブラリを載せるか、箱の中身・置き場所・testの扱いが決まる。
+②2は「ライブラリにこのプロジェクトの責務はなく、出すのは選び方と活用の接点だけ」と決めた。ここから、どのライブラリを載せるか、何を意識しないか、どこに置くかが決まる。
 
-#### 載せるライブラリは、本人がconfigで選ぶ ← ②2（Q5）、②3
+#### 載せる範囲は本人が決める: ホワイトリストとignore ← ②2（Q5）、②3
 
-- ライブラリは「アーキテクトが気にするもの / 気にしないもの」で分ける。どれを気にするかは本人のレベル次第なので、本人がconfigのホワイトリストで選ぶ（②3: 意図は人が書く）。
-- honoのように十分に認知され関心を持たないものは、見えるべきでない（②2: 出すのは気にする接点だけ）。Node標準・TS標準も載せない。
-- ホワイトリストに無い相手への線は引かず、未解決欄にも載せない。Zeltのパッケージも他のライブラリと同じ扱い。
-- ec-backendでは `@zeltjs/core`・`auth-jwt`・`kv`・`eventbus`・`rate-limit` を選び、drizzle-orm・better-sqlite3・jose・honoは載せない。選ぶ単位（packageかexportか）は[5.5](#55-setupと流れの境目)、書き方は[付録H](#h-config)。
+- どのライブラリを気にするかは本人のレベル次第なので、本人がconfigで選ぶ（ユーザー判断 9/24）。honoのように十分に認知され関心を持たないものは見えるべきでない。Node標準・TS標準は載せない。
+- **ホワイトリスト**: 地図に載せるpackageと、そのexportを選ぶ（AI 判断: 単位はexportまで。気にするかは本人が選ぶので、細かい単位の方が意図に合う。②2・②3）。
+- **ignore**: pluginが、そのライブラリで常識として意識しないもの（Zeltなら `inject`・`request`・`currentUser`・`requestContext`・`LifecycleManager`・decorator）を「ignore推奨」として出す。採否は本人がconfigで決め、pluginは自動で適用しない（ユーザー判断 9/24。推奨はCLIの報告に出す（AI 判断: 意図は人が書く。②3））。
+- ホワイトリストに無いもの・ignoreしたものへの線は引かず、未解決欄にも載せない。
 
-#### ライブラリの箱は、使うメンバーだけをライブラリ列に並べる ← ②2（Q5）
+#### ライブラリの箱と列 ← ②2（Q5）
 
-- 箱に並べるのは、アプリのコードから直接参照されているメンバーだけ（「内部未展開」の表示）。箱の中から出る線は辿らない。
-- ライブラリのファイルは右端の1列にまとめる。configの列ルールで表す。ec-backendのconfigの列名「外部」は外界（DB・ネットワーク）と混同を招くので、「ライブラリ」への変更を提案する（configファイルは今回変更しない）。
-- ec-backendの手書きfixtureでは、ライブラリの箱は12個（メンバー計18）。
+- 箱に並べるのは、アプリのコードから直接参照されているメンバーだけ（「内部未展開」）。箱の中から出る線は辿らない。
+- ライブラリは右端の「ライブラリ」列にまとめる。列なので、他の列と同じく隠せる（[4.3](#43-意図と事実を重ねるから)。ユーザー判断 9/24: Q1〜Q4を問うときに接点を隠せる）。
+- ec-backendのライブラリの箱は11個（`LifecycleManager` はignoreで外れた）。
 
-#### ライブラリの活用は、意味の付与で見せる ← ②2（Q5）、②4
+#### 活用は意味の付与で見せる ← ②2（Q5）、②4
 
-- plugin:valibot・plugin:drizzleは、定義元のSymbolで確かめたときだけ、宣言とそれを読む線に `schema`・`table` の意味を付与する。「どの責務がライブラリをどう使っているか」が線の表示で見える。
+- plugin:valibot・plugin:drizzleは、定義元のSymbolで確かめたときだけ、宣言とそれを読む線に `schema`・`table` の意味を付与する。
 - ホワイトリストに入れていないライブラリ（drizzle-orm・valibot）でも、pluginを有効にすれば活用は意味として出る。箱は出ない。
 
 #### ライブラリ自身のtestは収録しない ← ②2
@@ -282,185 +245,114 @@ testは、そのtestが直接触った境界にだけ結ぶ。間接的に届い
 
 ### 4.3 意図と事実を重ねるから
 
-②3は「境界は人が書き、流れはコードの事実から取り、重ねて見せる」と決めた。ここから、configが書くものと書かないものが決まる。
+②3は「境界は人が書き、流れはコードの事実から取り、重ねて見せる」と決めた。ここから、configが書くものと、列の見せ方が決まる。
 
-#### 列とroleは、人がconfigのglobで決める ← ②3（Q2・Q4）
+#### 列は人がconfigで決める。roleは持たない ← ②3（Q2・Q4）
 
-- 列（境界）はアーキテクトの意図。どのファイルをどの列に置くか、role（`config`・`composition`）を、configの順序付きglobで決める。抽出器は推測しない。
-- 列の有無もconfig次第。ec-backendの例は空になる列（`Port / interface`）を置かない。
-- roleの決め方は9/6の決定と食い違う（[5.2](#52-roleの決め方)）。
+- どのファイルをどの列に置くかは、configの順序付きglobで決める。抽出器は推測しない。
+- 列より細かい区別（旧role の `config`・`composition`）は持たない（ユーザー判断 9/24）。
+- 列ごとに「既定で隠すか」をconfigに書く（AI 判断: 最初に何を見せるかも境界の意図なので人が書く。②3）。
 
-#### 入口はEntry列にいる宣言。`entries` を持たない ← ②3
+#### すべての列を表示 / 非表示で切り替える ← ②3、②4
 
-- 入口はEntry列（人がconfigで決める配置）にいる宣言のことで、別の一覧を持たない。HTTPのmethod・pathは注記に、E2E一覧は宣言に移る。
-- 起点ショートカット（右上のselectと種類フィルタ）はmockから外す（ユーザー判断）。lifecycleの入口も一緒に消える。
+- ライブラリ・Config・Compositionを含む全列にトグルを付ける（ユーザー判断 9/24）。隠した列は幅を取らない。
+- 非表示の列とその関係は表示しない。隠した列の箱も、その箱への線も、それを示すチップ（middleware・eventのチップを含む）も出さない（ユーザー判断 9/24: 列を隠すのは、その列を視界から外して残りの列に集中するため。旧「設定との関係あり」チップと、その一般化の「<列名>との関係あり」チップは廃止）。データの関係は消さず、列を表示に戻せば線とチップも戻る。
+- 隠した列があることは、操作列の列チェックボックスで分かる。地図の上に隠した列の案内は出さない（ユーザー判断 9/24）。
+- 隠した列の宣言を検索・参照で選ぶと、その列を表示に戻す。
 
-#### 地図に載せる範囲は、configで決める ← ②1、②3
+#### app.tsはComposition列に置く ← ②3
 
-- `include` は「このプロジェクトのコード」の範囲。②1の「このプロジェクトの責務」がどこまでかを人が指定する。
-- アプリのtestファイルはコアの索引には入るが、箱にはしない。testは検証として宣言に結ぶ（②1）。
+- app.ts（`createEcApp`）はconfigの列ルールで専用の「Composition」列に置き、既定で隠す（AI 判断: roleの代わりに列で表す。appへの登録の線は付与された線としてデータに残る。列を隠している間は線もチップも出ない。②3・②4）。
+- 旧「アプリ構成」ボタンとダイアログは外し、列トグルと検索から辿る（AI 判断: 特別扱いを消す）。
 
-#### 流れは事実からだけ取る。configで線を足さない ← ②3（Q2）
+#### 入口・範囲・線 ← ②1、②3
 
-configは境界だけを書き、線の手入力はできない。意図と逆向きに境界を越える線は、そのまま地図に出る。
+- 入口はEntry列にいる宣言で、別の一覧（`entries`）を持たない。HTTPのmethod・pathは注記に、E2E一覧は宣言に付く。
+- `include` は「このプロジェクトのコード」の範囲。アプリのtestファイルは索引には入るが、箱にしない。
+- configは境界だけを書き、線は足せない。意図と逆向きに境界を越える線は、そのまま地図に出る。
+- `zelt.config.ts` と抽出configは別物のまま（ユーザー判断 9/24）。appのfactoryは抽出configのplugin:zeltに書く。
 
 ### 4.4 コードと一致するから
 
-②4は「確かめられないものは載せない。分からないことは分からないと見せる」と決めた。ここから、事実と意味の分担、分からないときと矛盾したときの扱いが決まる。
+②4は「確かめられないものは載せない。分からないことは分からないと見せる」と決めた。
 
 #### 事実はコア、意味はpluginが付与する ← ②4、前提2
 
-- 宣言・線・包含・所在はコアがTSから取る。どのTSプロジェクトでも取れる事実。
-- 意味は、pluginが定義元のSymbolやZeltのruntime metadataで確かめたときだけ付与する。名前・接尾辞の見た目で判定しない。
-- pluginはコアの事実を書き換えない。付与するだけなので、pluginを外せばそのpluginの付与だけが消え、事実は同じまま残る。
-
-| pluginが無いとき | 対象 |
-| --- | --- |
-| TSの種類で表示される | 意味が付かない線・宣言。schema・tableは「読む」・「値」、登録は「読む」。contractはコアの事実なので残る |
-| 出なくなる | 付与された線（middleware・event・appへの登録）、setup、注記、test一覧 |
+- 宣言・線・包含・所在はコアがTSから取る。意味は、pluginが定義元のSymbolやZeltのruntime metadataで確かめたときだけ付与する。名前・接尾辞の見た目で判定しない。
+- pluginを外せば、そのpluginの付与だけが消え、事実は同じまま残る（[付録A](#pluginが無いときの値全表)）。
 
 #### 分からないものは、分からないと見せる ← ②4
 
-- 解けなかった参照は、v1の「未解決」欄に理由付きで残す。偽の宣言を作って線をつなげない。
-- 取りきれなかった範囲は、test一覧の取得状況を「一部のみ」にする。取っていないものを「0件」や「なし」と見せない。
-- **E2Eのサンプリング**: ec-backendのconfigのE2E範囲は `product.spec.ts` だけ（手書きの手間を減らすサンプリングで、抽出できないから外したのではない）。productを送らないrouteは「一部のみ・0件」で、「未収録」ではない。fixtureは直す必要がある（別作業）。
-- **Unit**: ec-backendに実際のUnit testを12ファイル・約212 case追加済み（未コミット）。fixtureは未反映（別作業）。
+- 解けなかった参照は「未解決」欄に理由付きで残す。偽の宣言を作って線をつなげない。
+- 取りきれなかった範囲は「一部のみ」にする。取っていないものを「0件」や「なし」と見せない。
+- **E2Eのサンプリング**: ec-backendのE2E範囲は `product.spec.ts` だけ（手間を減らすサンプリング）。どのrouteも「一部のみ」で、一致しないrouteは「一部のみ・0件」（ユーザー判断 9/23。fixture反映済み）。
+- **Unit**: ec-backendの212 caseのうち151 caseが規則で宣言に結び付く（延べ211行）。schemaの `safeParse`、本物のapp経由のmiddleware、ライブラリだけを呼ぶcase等は結ばない（fixture反映済み）。
 
 #### 生成はall or nothing ← ②4
 
-- 事実や材料が矛盾したら（例: 同じroute登録に2つの異なるmethod・path）、どちらかを採らずに生成を止める。
-- 結果は「前回のJSONを残す」か「前回も無く、今回も生成しない」のどちらか。部分的な地図は出さない（ユーザー判断）。今の「失敗したら前回を残す」はこれを満たす。
-- 解析中に入力が変わったら止め、異なる版を混ぜない。同じ入力なら、pluginの順を変えても同じJSONになる。
+- 事実や材料が矛盾したら、どちらかを採らずに生成を止める。結果は「前回のJSONを残す」か「前回も無く、今回も生成しない」のどちらか（ユーザー判断 9/24）。
+- 解析中に入力が変わったら止める。同じ入力なら、pluginの順を変えても同じJSONになる。
 
 #### コードに根拠の無い値は外す ← ②4
 
-- 人の説明文だった `hint`（約60件）は消え、pluginが確かめた注記（`hints`）だけが残る。
-- `demoScenarios`（仮の変更）は外す。変更はdiffで表すもので、コードの事実ではない。
-- URLに保存したIDが今の地図に無ければ、通知を出して初期表示にする。別の宣言を黙って選ばない。
+- 人の説明文だった `hint` は消え、pluginが確かめた注記（`hints`）だけが残る。`demoScenarios`（仮の変更）は外す。
+- URLに保存したIDが今の地図に無ければ、通知を出して初期表示にする。
 
 ### 4.5 v1からの変更
 
-前提1より、v1の形を変えるのは、コードに根拠の無い値の除去・移動と、論証付きの構造変更だけ。型の差分は[付録A](#a-出力の形)。
+前提1より、v1の形を変えるのは、コードに根拠の無い値の除去と、論証付きの構造変更だけ。すべてschema・fixture・UIに反映済み。型の差分は[付録A](#a-出力の形)。
 
-**構造の変更（2026-09-24、ユーザー判断）**: 線と宣言の種類には、TSの事実だけを持たせる。
+**構造の変更**:
 
-| v1の今 | 変更後 |
-| --- | --- |
-| 線の種類に、TSの事実（call・read・type 等）とライブラリの意味（register・schema・table・middleware・event）が混ざっている | 線の種類はTSの事実だけ（call・read・type・construct・extends・implements・override・contract）。ライブラリの意味は、付与された意味としてprovider付きで別に持つ |
-| 宣言の種類に、ライブラリの意味（schema・table・event-type）が混ざっている | 宣言の種類はTSの種類だけ。ライブラリの意味は、付与された意味として別に持つ |
-| middleware・event・appへの登録も、線の種類の1つ | 付与された線として、provider付きで持つ |
-| constructor・decoratorの内容の置き場が無い（原文と注記 `DI / 初期化` でだけ見える） | setupとして、group・宣言にprovider付きで持つ |
-
-- **手触り**: UIは、付与された意味があればそれ（「登録」「schema」等）を、無ければTSの種類を表示する。今の地図の見え方は変わらない。setupは詳細パネルの表示が増えるだけで、地図は変わらない（見せ方はmockで先に示す）。
-- **汎用化**: 種類からライブラリ固有の値が消え、どのライブラリの意味も同じ付与の形で足せる。新しいライブラリを扱うためにv1の種類を増やさなくてよく、pluginが事実を書き換える必要も無くなる（1節の処理の形）。
-
-**値の除去・移動**:
-
-| v1の値 | 変更 | 根拠 |
+| v1の今 | 変更後 | 根拠 |
 | --- | --- | --- |
-| `expandedY`（グループの縦位置） | 削除。UIが計算 | ②に無い（[4.6](#46-policyに根拠が無い結果)）。手で決めた座標はコードから作れない |
-| `excerpt.kind: 'redacted'` | 削除。configで原文の範囲から外す | ②に無い（[5.6](#56-根拠がpolicyに無い項目)） |
-| `presentation.origin` | 削除 | ②に無い（5.6）。UI未使用で `provenance` と重複 |
-| `demoScenarios` | 削除 | ②4（仮の変更はコードの事実ではない） |
-| `entries`（入口の一覧） | 削除 | ②3（入口はEntry列にいる宣言） |
-| `hint`（1つの文字列） | `hints: { provider, label }[]` に置換 | ②4（人の説明文は消える）、②1・②2（注記が示すもの） |
-| E2E test一覧（entryの中） | 宣言に直接付ける | ②1（routeを登録したmethodで検証を見せる） |
+| 線・宣言の種類に、TSの事実とライブラリの意味（schema・table・register・event-type）が混ざる | 種類はTSの事実だけ。ライブラリの意味は `meanings`（provider付き） | ユーザー判断 9/24 |
+| middleware・event・appへの登録も線の種類の1つ | 付与された線（`origin: 'plugin'`、provider付き） | ユーザー判断 9/24 |
+| constructor・decoratorの内容の置き場が無い | group・宣言の `setup`（provider付き） | ユーザー判断 9/24 |
+| groupに `role`（regular・config・composition） | 削除。列に `initiallyHidden` | ユーザー判断 9/24、4.3 |
+| 線の種類に `returns` | 削除。戻り値は `type` | ユーザー判断 9/23 |
+| Unitのcallは必ずDIのsetupを持つ | DIを経由しない呼出は `setup: null` | 4.1（AI 判断） |
 
-線の種類の `returns` は出力しない（[4.1](#41-責務と流れから)）。v1の型から外すかは[付録N](#n-実装時に決めること)。
+- **手触り**: UIは、付与された意味があればそれを、無ければTSの種類を表示する。地図の線と宣言の見え方は変わらない。
+- **汎用化**: 種類からライブラリ固有の値が消え、どのライブラリの意味も同じ付与の形で足せる。新しいライブラリのためにv1の種類を増やさなくてよい。
 
-### 4.6 policyに根拠が無い結果
+**値の除去・移動**（9/23までに反映済み）: `expandedY`・`excerpt.kind: 'redacted'`・`presentation.origin`・`demoScenarios`・`entries` を削除、`hint` を `hints: { provider, label }[]` に置換、E2E一覧を宣言に移動。表は[付録A](#配信型の差分)。
 
-次の結果は②のどれにも紐づかない（見せ方・実装・運用の規則）。「確定」はユーザー判断で決まったもの。それ以外は、残すか、policyを足すかを[5.6](#56-根拠がpolicyに無い項目)で判断する。
+### 4.6 見せ方と運用
 
-- **並び順と座標はUIが計算する（確定）**: 列内のgroupはパスの名前順、同じファイル内はソースの出現順（9/23）。展開したclass内のメンバーと詳細欄のメンバー一覧は、ファイルに書かれた順（9/24、実装済み）。JSON内の配列の順序には表示の意味を持たせない。
-- **原文を伏せる範囲はconfig**: 秘密を含みうるファイルは、人がconfigで「原文を出す範囲」から外し、「宣言だけ」の表示にする。ec-backendでは `src/config/` を外す。
-- **注記は1つずつ行にする**: 注記が複数付いたら注記ごとに行を増やす。ec-backendでは2つ以上付く宣言は無い。mock更新で示す。
-- **IDは抽出の形式になる**: IDは[付録B](#箱の切り方とid)の形。古いURLは引き継がない。IDを画面に出している箇所は名前の表示に替え、検索結果は `Group#func` の表記で注記も横に出す。
-- **チップは関係の種類だけで決める**: middleware・eventのチップは、UIが付与された線の種類だけから作る表示。注記には入れない。
+②のどれにも紐づかない、見せ方・実装・運用の規則。policyではなく前提として置く。
+
+| 項目 | 種類 | 根拠 |
+| --- | --- | --- |
+| 並び順と座標はUIが計算する（列内はパス順、同じファイルはソース順、展開したclassはファイルに書かれた順） | 見せ方 | ユーザー判断 9/23・9/24 |
+| 注記は1つずつ行にする | 見せ方 | ユーザー判断 9/23 |
+| IDは抽出の形式、古いURLは引き継がない、検索は `Group#func` 表記 | 実装・見せ方 | ユーザー判断 9/23 |
+| チップは関係の種類だけで決め（相手が隠した列にあれば出さない）、注記には入れない | 見せ方 | ユーザー判断 9/23・9/24、4.3 |
+| 原文を伏せる範囲はconfig（`redacted` の代わりに `declaration-only`） | 運用（秘密の保護） | ユーザー判断 9/23 |
+| `presentation.origin`・`expandedY` の削除 | 前提（抽出で生成する） | ユーザー判断 9/23 |
+| v1の形を保ち、構造変更は論証付きだけ | 前提1 | ユーザー判断 9/23 |
+| workerはapp factoryを1回呼ぶだけで、DBやネットワークに接続しないfactoryを入力条件にする | 運用（抽出を安全に動かす） | [付録D](#d-zelt) |
+| 既存の抽出器（DependencyGraph v3）を置き換えるか拡張するかは論点にしない | 前提（やり方の話） | ユーザー判断 9/24 |
 
 ## 5. 判断が要ること
 
-5.1〜5.5は保留中の判断で、それぞれ②に照らした推奨を付ける（決定ではない）。5.6は、4節と付録の規則のうち②に紐づかないものの一覧。実装しながら決めればよいものは[付録N](#n-実装時に決めること)にある。
+なし。旧5節の論点の行き先:
 
-**今回（9/24）の決定で解消したもの**:
-
-- 旧5.1 app.tsの登録の線 → plugin:zeltが付与する線として付ける（[4.1](#41-責務と流れから)）。fixtureの9本は残る。
-- 旧5.3 詳細パネルでのDIの見せ方 → setupとして詳細パネルに出す（[4.1](#41-責務と流れから)）。
-- 旧5.8のうち4項目 → ホワイトリストの根拠（[4.2](#42-ライブラリは接点だけから)）、生成のall or nothing（[4.4](#44-コードと一致するから)）、並び順（[4.6](#46-policyに根拠が無い結果)）、抽出器の構造（1節の処理の形）。
-
-### 5.1 ライブラリを隠すトグル
-
-**何が起きるか**: 9/6の決定で「地図にexternal非表示オプション」を足すとしたが、今のmockに無い。
-
-- (a) ライブラリの列に付ける。
-- (b) 廃止する。
-
-**推奨: (a)、ただし先にmockで示す**。Q1〜Q4はこのプロジェクトの責務の問いで、ライブラリを問うのはQ5だけ。②2でライブラリは責務ではなく接点なので、Q1〜Q4を問うときに接点を隠せると、①の圧縮が一段進む。データは変えず、既存のconfig表示切替と同じ見せ方の切替。mockに無い表現なので、採るなら9/6の決定どおりmockが先。
-
-### 5.2 roleの決め方
-
-**何が起きるか**: 9/6の決定は「役割はdecorator名とファイルの接尾辞だけから決める」。計画はconfigの `src/config/**` のglobで `config` のroleを付けている。
-
-- (a) 決定の文言を「decorator名・接尾辞・人がconfigのglobで指定したもの」に更新する。
-- (b) `config` のroleは、plugin:zeltが `@Config` のmetadataから意味として付与する。
-
-**推奨: (b)**。②3で人が書くのは境界（層・列）。「このclassは設定である」は境界ではなくコードの事実で、`@Config` に書かれている（ec-backendの2つと、ライブラリの `JwtConfig`・`CorsConfig` のどれにも付いている）。事実はコードから取る（②4）。付与の枠にもそのまま収まる。代わりに、pluginが無いとroleは全部 `regular` になり、config表示の切替が効かなくなる（粗くなるだけ）。
-
-### 5.3 既存の抽出器との関係
-
-**何が起きるか**: 第1サブプロジェクトの抽出器（`packages/cli/src/studio/` のDependencyGraph v3、9/19のcommit 2bebe064）は、関数単位の呼出・classとライブラリのノード・注入の線（`injects`）・入口・ファイルの接尾辞を出す。出力の形はv1ではない。9/6の決定は「既存を拡張」、この計画は実質「新しいもので置き換え」を前提にしている。
-
-- (a) 新しいもので置き換える。
-- (b) 既存を拡張する。
-
-**推奨: 出力は(a)でv1に一本化し、中身は既存を流用する**。②はどちらも決めない。判断材料は、v3が注入を線として持ち（この計画ではsetup）、列（②3）とtest（②1の検証）を持たないこと、7/6の決定「グラフJSONがSSOT」から地図のJSONを2つ持ちたくないこと。v3の呼出解決・子プロセス実行・Programの組立はコアの実装に流用する。
-
-### 5.4 zelt.config.tsとの二重管理
-
-**何が起きるか**: 9/10の決定は「`zelt.config.ts` をProgramの追加rootにする」。ec-backendの `zelt.config.ts` は `app` に `createEcApp` を持つが、抽出configもplugin:zeltのapp factoryとして `createEcApp` を別に書いている。
-
-- (a) plugin:zeltは `zelt.config.ts` の `app` を読み、抽出configには書かない。
-- (b) 今の計画どおり両方に書く。
-
-**推奨: (a)**。地図は実際に動くappと一致する必要があり（②4）、2か所に書くと、ずれたときに別のappの地図になる。既存のanalyzerも `zelt.config.ts` の `app` を読んでいる。E2E用の `createTestApp` は `zelt.config.ts` に無いので、抽出configに残る。
-
-### 5.5 setupと流れの境目
-
-**何が起きるか**: setupの枠で、`inject(X)`・`@UseMiddleware(X)` と、`@Controller`・`@Post` などのdecoratorの内容は詳細パネルに移る（[4.1](#41-責務と流れから)）。残る論点は2つ。
-
-1. **ホワイトリストの単位**: `@zeltjs/core` をpackage単位で載せると、`inject`・`request`・`currentUser`・`requestContext` を呼ぶ線と、decorator関数の箱がライブラリ列に出る。手書きfixtureには無い。
-2. **constructorの本文**: parameterの既定値（`= inject(X)`）はsetupだが、本文の呼出（`CartService` の `kv.namespace('cart:')`、`DrizzleService` の接続の作成）を流れとして線に残すか。
-
-1について:
-
-- (a) package単位のまま線にする。
-- (b) ホワイトリストを「packageのどのexportまでか」まで細かくする（[ec-backend.extract.json](ec-backend.extract.json)の `mapPackages` の提案。`@zeltjs/core` からは `LoggerService`・`LifecycleManager`・`CorsMiddleware`・`SecureHeadersMiddleware`・`CorsConfig` だけ）。
-
-**推奨: 1は(b)、2は線に残す**。1: どれを気にするかは本人が選ぶ（[4.2](#42-ライブラリは接点だけから)）ので、選ぶ単位は細かい方が本人の意図に合う。注意点は、`request(RegisterSchema)` のような「入力をschemaで検証する」活用はQ5の接点そのもので、(b)の提案では地図から消えること。見せたければ `request` をexportsに足す。2: 本文の呼出はTSの事実で、コアはフレームワークを知らないので、既定値とdecorator以外を見分ける根拠が無い。今のfixtureも本文の線を持っている。
-
-decoratorの式をコアの線にしないことは、TSの構文（decorator）で決まり、フレームワークを知らなくてよい。9/24の決定（decoratorの内容はsetup）からの帰結として扱う。
-
-### 5.6 根拠がpolicyに無い項目
-
-4節と付録の規則のうち、②のどれにも紐づかず、まだ決まっていないもの。消すか、policyが足りないかを判断する。
-
-| 項目 | 何の規則か（場所） | なぜ②に紐づかないか | 今の根拠 |
-| --- | --- | --- | --- |
-| classを値として渡す式を線にしない | コアの「読む」の範囲（4.1、付録B） | ②1は配線（渡す）を流れに含めるので、②からはむしろ線にする方向になる | その意味はsetupと付与された線で出る。コアが線を引くと重複し、pluginは付与しかできないので消せない |
-| 原文を伏せる範囲はconfig（`redacted` 削除） | 原文の範囲（4.6、付録H） | 秘密の保護で、地図が何を表すかの話ではない | 運用上の要請 |
-| 注記は1つずつ行にする | 見せ方（4.6、付録L） | 見せ方の選択 | 9/23の決定 |
-| IDの形式、古いURLを引き継がない、検索の `Group#func` 表記 | 実装と見せ方（4.6、付録B・L） | 実装と見せ方の選択 | 9/23の決定 |
-| チップは関係の種類だけで決め、注記に入れない | 見せ方（4.6、付録A・L） | 見せ方と、関係を1か所に持つ設計の原則 | 9/23の決定 |
-| `presentation.origin`・`expandedY` の削除 | v1の変更（4.5） | 使われていない重複の整理と、手で決めた座標をコードから作れないという抽出の都合 | 前提（抽出で生成する） |
-| v1の形を保つ。構造変更は論証付きの提案だけ | 手触り（0節・4.5、付録L・M・O） | 作業の枠 | 前提1 |
-| workerはapp factoryを1回呼ぶだけで、サービスを生成しない。DBやネットワークに接続しないfactoryを入力条件にする | 抽出の実行（付録D） | 抽出を安全に動かすための制約で、地図の内容ではない | 運用上の要請 |
+| 旧 | 行き先 |
+| --- | --- |
+| 5.1 ライブラリを隠すトグル | 4.3（全列のトグル、ユーザー判断） |
+| 5.2 roleの決め方 | 4.3（roleを廃止、ユーザー判断） |
+| 5.3 既存の抽出器との関係 | 4.6（論点にしない、ユーザー判断） |
+| 5.4 zelt.config.tsとの二重管理 | 4.3（別物のまま、ユーザー判断） |
+| 5.5 setupと流れの境目 | 4.1（constructorは同じ関数、setupの範囲）、4.2（exportまでのホワイトリストとignore） |
+| 5.6 policyに根拠が無い項目 | 4.1（部品の組み方は線にしない、②1に紐づけ）、4.6（残り） |
 
 ---
 
 
 ## 付録 実装詳細
 
-**ここは4節の結果を実装に落としたもの。レビュー不要。** 各項の冒頭に、実装する②（と前提）を示す。②に紐づかない規則は[5.6](#56-根拠がpolicyに無い項目)に挙げた。
+**ここは4節の結果を実装に落としたもの。レビュー不要。** 各項の冒頭に、実装する②（と前提）を示す。②に紐づかない規則は[4.6](#46-見せ方と運用)に挙げた。
 
 TypeScriptブロックには2種類ある。**配信型**（v1、UIが読む）と、**抽出器内部の型**（配信しない）。内部型のブロックには見出しで「内部」と書く。
 
@@ -473,64 +365,54 @@ TypeScriptブロックには2種類ある。**配信型**（v1、UIが読む）�
 
 ### A. 出力の形
 
-実装する②: ②4（値の出どころは確かめた事実だけ。事実と付与を分けて持つ）、②1・②2（注記・付与された意味と線が示すもの）、②3（列とroleはconfig）。形の変更の論証は[4.5](#45-v1からの変更)。
+実装する②: ②4（値の出どころは確かめた事実だけ。事実と付与を分けて持つ）、②1・②2（注記・付与された意味と線が示すもの）、②3（列と既定の表示はconfig）。形の変更の論証は[4.5](#45-v1からの変更)。
 
 #### 配信型の差分
 
+[src/snapshot-schema.lib.ts](src/snapshot-schema.lib.ts) に反映済み（Valibot schemaが正、型はInferOutput）。
+
 | 変更 | 対象 | 理由 |
 | --- | --- | --- |
-| 分離 | 線の `kind` → TSの種類だけ＋ `meanings` | 線の種類はTSの事実（`call` `read` `type` `construct` `extends` `implements` `override` `contract`）。`schema` `table` `register` は、`read` に付与された意味になる（[4.5](#45-v1からの変更)） |
-| 分離 | 宣言の `kind` → TSの種類だけ＋ `meanings` | 宣言の種類はTSの種類（`method` `constructor` `function` `callback` `property` `getter` `signature` `type` `value`）。`schema` `table` `event-type` は付与された意味になる |
-| 分離 | 線の `kind` の `middleware` `event` と、appへの登録の `register` → 付与された線 | TSに根拠の無い線。`provider` を持ち、種類はpluginが決める文字列 |
-| 追加 | group・宣言の `setup` | constructor・decoratorの内容。地図に描かず詳細パネルで見せる（[4.1](#41-責務と流れから)） |
-| 削除 | `GroupPresentation.expandedY` | 並び順とy座標はUIが計算する（[4.6](#46-policyに根拠が無い結果)） |
-| 削除 | `excerpt.kind: 'redacted'` | UIはcodeと区別していない（[inspector.tsx](src/views/inspector.tsx)は `declaration-only` か否かだけを見る）。原文を見せたくないファイルはconfigの `sourceText` から外し、`declaration-only` にする |
-| 削除 | `presentation.origin`（Map・Group・Declaration） | UI未使用。最上位の `provenance` と重複 |
-| 削除 | `MapPresentation.demoScenarios` | 変更はdiffで表すものであり、JSONの1データではない |
-| 削除 | `SourceDeclaration.entries`（`EntryPoint`） | 入口はEntry列（configの配置）にいる宣言のことで、別に持たない。HTTPのmethod・pathはplugin:zeltの `hints` に、E2E一覧は宣言の `e2eTests` に移る |
-| 移動 | `EntryPoint.e2eTests` → `SourceDeclaration.e2eTests: EndpointTests \| null` | routeを登録したmethodに付く。`null` はrouteを登録していない宣言（plugin:zeltが無いときは全宣言）。`EndpointTests` の形はv1のまま |
-| 置換 | `presentation.hint: string \| null` → `hints: { provider; label }[]` | pluginが自分の見つけた事実から付ける注記。複数pluginの付与は配列に並ぶだけで衝突しない。UIはラベルを出すだけでZeltを知らない |
-| 維持 | `presentation.columnId`・`role`、`MapPresentation.columns` | 人がconfigのglobで決める配置（②3。roleの決め方は[5.2](#52-roleの決め方)） |
-| 出さない | relation kind `returns` | 戻り値に関する線は `type` にする（[4.1](#41-責務と流れから)）。v1の型から外すかは[付録N](#n-実装時に決めること) |
+| 分離 | 線 → コアの線（`origin: 'ts'`、種類はTSだけ＋ `meanings`）と付与された線（`origin: 'plugin'`、`provider`＋種類） | TSの種類は `call` `read` `type` `construct` `extends` `implements` `override` `contract`。`schema` `table` と `on()` への `register` は `read` に付与された意味、middleware・event・appへの `register` は付与された線（[4.5](#45-v1からの変更)） |
+| 分離 | 宣言の `kind` → TSの種類だけ＋ `meanings` | 宣言の種類は `method` `constructor` `function` `callback` `property` `getter` `signature` `type` `value`。`schema` `table` `event-type` は付与された意味 |
+| 追加 | group・宣言の `setup` | 部品の組み方。地図に描かず詳細パネルで見せる（[4.1](#41-責務と流れから)） |
+| 削除 | `GroupPresentation.role` | 列より細かい区別を持たない（[4.3](#43-意図と事実を重ねるから)） |
+| 追加 | `MapPresentation.columns[].initiallyHidden` | 既定で隠す列（configで人が書く。[4.3](#43-意図と事実を重ねるから)） |
+| 削除 | relation kind `returns` | 戻り値は `type` で表す（[4.1](#41-責務と流れから)） |
+| 変更 | `UnitTestCase.calls[].setup: UnitSetup \| null` | `null` はDIを経由しない呼出（モジュール関数）。UIは「関数」と分類する |
+| 削除 | `GroupPresentation.expandedY`、`excerpt.kind: 'redacted'`、`presentation.origin`、`MapPresentation.demoScenarios`、`SourceDeclaration.entries` | 並び・座標はUIが計算、原文を伏せる範囲はconfig、UI未使用、変更はdiffで表す、入口はEntry列の宣言（9/23） |
+| 移動 | `EntryPoint.e2eTests` → `SourceDeclaration.e2eTests: EndpointTests \| null` | routeを登録したmethodに付く。`null` はrouteを登録していない宣言 |
+| 置換 | `presentation.hint` → `hints: { provider; label }[]` | pluginが自分の見つけた事実から付ける注記。UIはラベルを出すだけ |
 
 配信型の差分（ここに無いv1の型はそのまま）:
 
 ~~~ts
-interface Hint {
-  readonly provider: string;
-  readonly label: string;
-}
-// 付与された意味。UIはあれば kind の表示名を、無ければTSの種類を出す
-interface Meaning {
-  readonly provider: string;
-  readonly kind: string;
-}
+interface Hint { readonly provider: string; readonly label: string }
+// 付与された意味。UIはあれば先頭の kind の表示名を、無ければTSの種類を出す
+interface Meaning { readonly provider: string; readonly kind: string }
 type TsRelationKind =
   | 'call' | 'read' | 'type' | 'construct'
   | 'extends' | 'implements' | 'override' | 'contract';
 type TsDeclarationKind =
   | 'method' | 'constructor' | 'function' | 'callback'
   | 'property' | 'getter' | 'signature' | 'type' | 'value';
-// コアが引いた線
 interface TsRelation {
-  readonly origin: 'ts';
   readonly id: RelationId;
+  readonly origin: 'ts';
   readonly to: SubjectId;
   readonly kind: TsRelationKind;
   readonly meanings: readonly Meaning[];
   readonly evidence: readonly RelationEvidence[];
 }
-// pluginが付与した線
 interface GrantedRelation {
-  readonly origin: 'plugin';
   readonly id: RelationId;
+  readonly origin: 'plugin';
   readonly to: SubjectId;
   readonly provider: string;
   readonly kind: string;
   readonly evidence: readonly RelationEvidence[];
 }
 type SourceRelation = TsRelation | GrantedRelation;
-// 流れとは別種の情報。地図に描かず詳細パネルで見せる
 interface SetupItem {
   readonly provider: string;
   readonly kind: string;
@@ -541,22 +423,21 @@ interface SetupItem {
 interface SourceGroup {
   // v1の他フィールドは不変
   readonly relations: readonly SourceRelation[];
-  readonly hints: readonly Hint[];
   readonly setup: readonly SetupItem[];
-  readonly presentation: GroupPresentation;
-}
-interface GroupPresentation {
-  readonly columnId: ColumnId;
-  readonly role: 'regular' | 'config' | 'composition';
+  readonly hints: readonly Hint[];
+  readonly presentation: { readonly columnId: ColumnId };
 }
 interface SourceDeclaration {
-  // v1の他フィールドは不変。presentationは中身が無くなるため持たない。entriesは持たない
+  // v1の他フィールドは不変。entriesは持たない
   readonly kind: TsDeclarationKind;
   readonly meanings: readonly Meaning[];
   readonly relations: readonly SourceRelation[];
-  readonly hints: readonly Hint[];
   readonly setup: readonly SetupItem[];
+  readonly hints: readonly Hint[];
   readonly e2eTests: EndpointTests | null;
+}
+interface UnitTestCase extends TestIdentity {
+  readonly calls: readonly { readonly setup: UnitSetup | null; readonly invocation: SourceLocation }[];
 }
 interface SourceDetail {
   readonly location: SourceLocation;
@@ -569,11 +450,12 @@ interface MapPresentation {
   readonly id: string;
   readonly columns: readonly {
     readonly id: ColumnId; readonly label: string; readonly width: number;
+    readonly initiallyHidden: boolean;
   }[];
 }
 ~~~
 
-`SetupItem.target` は相手が地図に載っているときだけそのID、載っていなければ `null`（`label` だけで見せる）。`label` はpluginがコードの式から作る（例 `inject(AuthService)`、`@UseMiddleware(RateLimitMiddleware)`）。
+`SetupItem.target` は相手が地図に載っているときだけそのID、載っていなければ `null`（`label` だけで見せる）。`label` はpluginがコードの式から作る（例 `inject(AuthService)`、`@UseMiddleware(JwtMiddleware)`、`lifecycle.register(this)`）。意味・付与された線・setupの `kind` は開いた文字列で、表示名はUIの[labels.ts](src/labels.ts)が持ち、知らない種類は文字列をそのまま出す（AI 判断: 新しいpluginのためにschemaを変えなくてよい。前提2）。1つの対象に意味が複数並んだら先頭（provider ID順）を表示する（AI 判断: ec-backendでは起きず、並び順の規則で結果が一意に決まる。②4）。
 
 #### v1の各フィールドを埋める箱
 
@@ -588,7 +470,7 @@ interface MapPresentation {
 | group `expansion` | コア（configの範囲で） | アプリのコード（include）の宣言は `included`。ホワイトリストのライブラリの宣言は `boundary` で、アプリが直接参照したメンバーだけを持つ（[4.2](#42-ライブラリは接点だけから)） |
 | group `relations` | コア | class自身の `extends` / `implements`。`boundary` の箱は線を持たない |
 | 宣言 `id` `name` `enclosingDeclarationId` `kind` | コア | `kind` はTSの種類だけ |
-| 線（`origin: 'ts'`） | コア | `call` `read` `type` `construct` `extends` `implements` `override` `contract`（呼んだ先がinterfaceのmember）。`returns` は出さない |
+| 線（`origin: 'ts'`） | コア | `call` `read` `type` `construct` `extends` `implements` `override` `contract`（呼んだ先がinterfaceのmember） |
 | `meanings`（線・宣言） | plugin | [下の表](#付与の全表) |
 | 付与された線（`origin: 'plugin'`） | plugin | [下の表](#付与の全表) |
 | `setup`（group・宣言） | plugin | [下の表](#付与の全表) |
@@ -597,33 +479,36 @@ interface MapPresentation {
 | 宣言の `source.excerpt` | コア（configの範囲で） | `sourceText` に合うファイルだけ `code`、他は `declaration-only` |
 | groupの `source.excerpt` | 組立 | 常に `declaration-only`。groupは宣言ヘッダーとして扱い、本文は各メンバーで見る |
 | `unresolved` | コア | 解けなかった参照（理由はv1の5種） |
-| 宣言 `unitTests` | 組立（Vitest・Zeltの材料から） | case一覧はrunner、testのsetupはZelt、対応付けは組立（[付録F](#f-unit)）。ライブラリの宣言は常に未収録（`uncollected`） |
+| 宣言 `unitTests` | 組立（Vitest・Zeltの材料から） | case一覧はrunner、testのsetupはZelt、対応付けは組立（[付録F](#f-unit)）。DIを経由しない呼出は `setup: null`。ライブラリの宣言は常に未収録（`uncollected`） |
 | 宣言 `e2eTests` | 組立（Zelt・Vitest・http-requestsの材料から） | routeを登録したmethodだけに付く（[付録G](#g-e2e)） |
 | `hints`（group・宣言） | plugin | [下の表](#注記の付与規則全表) |
-| `presentation.columnId` / `role`、`MapPresentation` | config | globのrulesとcolumns（[付録H](#h-config)） |
+| `presentation.columnId`、`MapPresentation`（`initiallyHidden` を含む） | config | globのrulesとcolumns（[付録H](#h-config)）。groupの無い列は配信しない（AI 判断: 空の列は何も示さない。②1） |
 
 #### 付与の全表
 
-← ②1・②2（付与が示すもの）、②4（確かめた事実だけ）。
+← ②1・②2（付与が示すもの）、②4（確かめた事実だけ）。件数は手書きfixture（反映済み）のもの。
 
-| provider | 付与の種類 | 付与先 | kind | 今のfixtureでの形 |
+| provider | 付与の種類 | 付与先 | kind | fixtureの件数 |
 | --- | --- | --- | --- | --- |
-| valibot | 意味 | valibotのschemaを作る変数の宣言と、それを読む線 | `schema` | 宣言kind `schema`、線kind `schema` |
-| drizzle | 意味 | table builderで作る変数の宣言と、それを読む線 | `table` | 宣言kind `table`、線kind `table` |
-| zelt | 意味 | `EventBusSchema` 拡張のmember | `event-type` | 宣言kind `event-type` |
-| zelt | 意味 | eventbusの `on()`・`once()` に渡した関数への「読む」 | `register` | 線kind `register` |
-| zelt | 線 | routeのcontroller method → middlewareの実行method | `middleware` | 線kind `middleware` |
-| zelt | 線 | emitの所有者 → 購読callback | `event` | 線kind `event` |
-| zelt | 線 | app factory → 登録したclass（controller・middleware・handler・adaptor・config） | `register` | 線kind `register`（`createEcApp` から9本） |
-| zelt | setup | constructor（`inject(X)` の既定値）、class・method（`@UseMiddleware`・middlewareを付けるdecorator）、Configのclass（差し替えるlibraryのConfig） | `inject`・`middleware`・`config-override` | 無い（原文と注記 `DI / 初期化` でだけ見える） |
+| valibot | 意味 | valibotのschemaを作る変数の宣言と、それを読む線 | `schema` | 宣言6・線6 |
+| drizzle | 意味 | table builderで作る変数の宣言と、それを読む線 | `table` | 宣言4・線17 |
+| zelt | 意味 | `EventBusSchema` 拡張のmember | `event-type` | 宣言1 |
+| zelt | 意味 | eventbusの `on()`・`once()` に渡した関数への「読む」 | `register` | 線1 |
+| zelt | 線 | routeのcontroller method → middlewareの実行method | `middleware` | 62 |
+| zelt | 線 | emitの所有者 → 購読callback | `event` | 1 |
+| zelt | 線 | app factory → 登録したclass（controller・middleware・handler・adaptor・config） | `register` | 9 |
+| zelt | setup | constructorの `inject(X)` の既定値 | `inject` | 16 |
+| zelt | setup | class・methodの `@UseMiddleware(X)` とmiddlewareを付けるdecorator（`@RateLimit`・`@Authorized`） | `middleware` | 19 |
+| zelt | setup | Configのclassが差し替えるlibraryのConfig | `config-override` | 2 |
+| zelt | setup | ignore推奨にしたZeltへの登録呼出（`lifecycle.register(this)`） | `lifecycle` | 2 |
 
-同じ2点にコアの線があるなら、pluginは新しい線ではなく意味を付与する（線を2本にしない）。付与の種類とkindの名前は案で、細部は[付録N](#n-実装時に決めること)。
+同じ2点にコアの線があるなら、pluginは新しい線ではなく意味を付与する（線を2本にしない）。
 
 #### 注記の付与規則（全表）
 
 ← ②1・②2（注記が示すもの）、②4（確かめた事実だけ）。並び順の規則は出力の再現性のため（②4）。
 
-hintsは、pluginが**自分で見つけた事実**からだけ付ける。人の説明文だったv1のhint（例「userId → Order」「header / cookie」）と「設定値は非表示」系は、fixtureの移行で既に消した（了承済み）。移行後のfixtureの `hints` は、下表のpluginが付けるはずのlabelだけ（移行時53件。ライブラリの箱で消えたconstructorの5件を除いて今は48件）。
+hintsは、pluginが**自分で見つけた事実**からだけ付ける。人の説明文だったv1のhintは移行で消した（了承済み）。fixtureの `hints` は下表のlabelだけで48件。
 
 | plugin | 付与先 | label | 手書きfixtureでの例 |
 | --- | --- | --- | --- |
@@ -638,8 +523,8 @@ hintsは、pluginが**自分で見つけた事実**からだけ付ける。人�
 - 同じ宣言に複数pluginが付けたら配列に並べる。並びはprovider ID順、同provider内は根拠の位置順。同じprovider・labelは1件にまとめる。
 - lifecycle（起動・終了時の呼出）の登録には注記を付けない。旧fixtureの `lifecycle · 購読を登録` は人の説明を含むので、移行で外した。
 - 移行後のfixtureのgroupの `hints` は全件空配列。group向けの付与規則は今は無く、型としてgroupにも置けるだけ。
-- middleware / eventのリレーションチップ（UIの[relations.lib.ts](src/relations.lib.ts)の `attachments`）はhintsに入れない（②に根拠が無い。[5.6](#56-根拠がpolicyに無い項目)）。付与された線がSSOTであり、チップにするのはUIが線の種類（`middleware`・`event`）から導出する表示判断のまま。UIの「tag」（`RelationTag`）とJSONの `hints` は別物として名前を分ける。
-- setupができても `DI / 初期化` の注記を残すかは[付録N](#n-実装時に決めること)。
+- middleware / eventのチップ（UIの[relations.lib.ts](src/relations.lib.ts)の `attachments`）はhintsに入れない（[4.6](#46-見せ方と運用)）。付与された線と列の表示がSSOTであり、チップはUIが導出する表示。
+- setupができても `DI / 初期化` の注記は残す（AI 判断: 地図の上で初期化の場所を示す要約で、詳細はsetupが持つ。地図の見え方を変えない。前提1）。
 
 #### pluginが無いときの値（全表）
 
@@ -647,12 +532,13 @@ pluginは付与だけなので、pluginが無ければその付与が無くな�
 
 | 値 | 付けるplugin | pluginが無いとき |
 | --- | --- | --- |
-| `meanings` | valibot / drizzle / zelt | 空配列。UIはTSの種類を出す（schema・tableの宣言は `value`、線は `read`。`register` の線は `read`。event-typeは `signature`） |
+| `meanings` | valibot / drizzle / zelt | 空配列。UIはTSの種類を出す（schema・tableの宣言は `value`、線は `read`。`on()` への `register` は `read`。event-typeは `signature`） |
 | 付与された線 | zelt | 無い |
 | `setup` | zelt | 空配列 |
 | `e2eTests` | zelt＋vitest＋http-requests | 全宣言で `null`（routeが分からず結ぶ先が無い） |
-| `unitTests` | vitest＋zelt | casesは空、coverageは `uncollected` |
+| `unitTests` | vitest＋zelt | casesは空、coverageは `uncollected`。vitestだけあればcaseは出て、callの `setup` は未判定（`unresolved`） |
 | `hints` | 各plugin | 空配列 |
+| ignore推奨 | 各plugin | 出ない。configに書いたignoreはそのまま効く |
 
 #### 抽出で埋まらない値
 
@@ -668,7 +554,7 @@ v1にあるが実コードから抽出できない値5つの扱い。
 
 ### B. コア（TS索引）
 
-実装する②: ②1（流れの線: 呼ぶ・読む・型・contract）、②4（構造はTSの事実から。解けない参照は `unresolved`）、②2（ライブラリの箱は接点だけ）。IDの形式は②に根拠が無い（[5.6](#56-根拠がpolicyに無い項目)）。
+実装する②: ②1（流れの線: 呼ぶ・読む・型・contract）、②4（構造はTSの事実から。解けない参照は `unresolved`）、②2（ライブラリの箱は接点だけ）。IDの形式は見せ方・実装の前提（[4.6](#46-見せ方と運用)）。
 
 コアは、どのTSプロジェクトにも効く部分。宣言・参照・値の由来を1つのProgramから取り（TS索引）、全pluginが読む。出すのはTSの事実だけで、線と宣言の種類にライブラリの意味を入れない（[4.5](#45-v1からの変更)）。
 
@@ -763,7 +649,7 @@ IDは `prefix + JSON.stringify(parts)`。groupは `["class|file|interface", path
 
 callは `["call", path, start, end]`。relationは `[owner, to, kind]`。route（内部）は `[provider, registrationKey, subject]`。testは `[provider, registrationCallId, caseKey]`。すべて同じrevision内で照合する。名前付き宣言は前方への行追加でIDが変わらない。rename・匿名callbackの挿入順変更には永続性を保証しない。
 
-fixtureの短いIDからこの形へ変わることの扱いは[4.6](#46-policyに根拠が無い結果)。
+fixtureの短いIDからこの形へ変わることの扱いは[4.6](#46-見せ方と運用)。
 
 #### 線の取得規則
 
@@ -772,13 +658,13 @@ fixtureの短いIDからこの形へ変わることの扱いは[4.6](#46-policy�
 | call / construct | getResolvedSignatureの宣言、alias解決後のSymbolへ。unionなどで実装候補が複数なら未解決。runtimeのoverride dispatchまでは保証しない |
 | contract | call先の宣言がinterfaceのmemberなら、コアがその線を `call` ではなく `contract` として出す（TSの事実）。対象は地図に載っているinterfaceだけ（[4.1](#41-責務と流れから)・[4.2](#42-ライブラリは接点だけから)） |
 | read | property・getter・変数のSymbolと、値として参照された関数・method。callee自身をreadとして二重化しないが、中間receiverのpropertyは読む。呼んだ先が地図に無い宣言に解決されるとき（`promisify` の戻り値を持つ `scryptAsync(…)` など）はcallを引かず、地図にあるcallee（変数）へのreadを残す。代入の左辺（write）は読みとして数えない（[付録N](#n-実装時に決めること)）。ただし相手がparameter propertyなら、宣言にしないので線を引かない（`unresolved` にも入れない） |
-| classを値として渡す式 | `inject(X)`・`@UseMiddleware(X)`・`controllers: [X]` のように、classを値として参照する式は線にしない（`unresolved` にも入れない）。その意味はplugin:zeltがsetupか付与された線として出す（[4.1](#41-責務と流れから)。根拠は[5.6](#56-根拠がpolicyに無い項目)） |
-| decoratorの式 | decoratorの呼出と引数からは線を引かない（`unresolved` にも入れない）。TSの構文で決まり、フレームワークを知らなくてよい。内容はplugin:zeltがsetupとして付与する（[5.5](#55-setupと流れの境目)） |
-| type | 型構文のSymbolを辿り、明示の戻り型を含めてtypeにする。関数を返す場合も、戻り値に関する線は型だけで、返した関数への `returns` は引かない（[4.1](#41-責務と流れから)。`EcJwtConfig.resolveUser` の戻り型の `JwtPayload`・`ResolveUserResult` は[ec-backend.extract.json](ec-backend.extract.json)の提案では地図に載らないので線は出ず、返した関数はcallbackの宣言として包含で表れる）。型文字列を再parseしない。推論された複合型の内部依存までは収集しない |
+| classを値として渡す式 | `inject(X)`・`@UseMiddleware(X)`・`controllers: [X]` のように、classを値として参照する式は線にしない（`unresolved` にも入れない）。その意味はplugin:zeltがsetupか付与された線として出す（部品の組み方は流れではない。[4.1](#41-責務と流れから)） |
+| decoratorの式 | decoratorの呼出と引数からは線を引かない（`unresolved` にも入れない）。TSの構文で決まり、フレームワークを知らなくてよい。内容はplugin:zeltがsetupとして付与する（[4.1](#41-責務と流れから)） |
+| type | 型構文のSymbolを辿り、明示の戻り型を含めてtypeにする。関数を返す場合も、戻り値に関する線は型だけ（[4.1](#41-責務と流れから)。`EcJwtConfig.resolveUser` の戻り型の `JwtPayload`・`ResolveUserResult` は[ec-backend.extract.json](ec-backend.extract.json)で地図に載らないので線は出ず、返した関数はcallbackの宣言として包含で表れる）。型文字列を再parseしない。推論された複合型の内部依存までは収集しない |
 | extends / implements / override | heritage句と基底memberのSymbolから。基底classの場所を「Port」へ移動しない |
 | callbackへの関係 | 関数を値として渡すときは、無名callbackでも名前付きのmethod・関数でもreadを張る（[4.1](#41-責務と流れから)。plugin:zeltが `register` の意味を付与しうる）。返すときは線を引かない（包含で表す）。callは実行を静的に確認できた場合のみ。callback内の線を外側にも転記しない |
 | 動的property / 関数を保持した変数 | 定数property名・不変aliasまでは解決。可変bindingや複数候補は `unresolved` |
-| ライブラリ | 相手がホワイトリストのライブラリなら、その宣言をboundaryの箱のメンバーにする。箱にはアプリが直接参照したメンバーだけを入れ、箱の中から出る線は取らない。ホワイトリスト外・Node標準・TS標準の相手は線にも `unresolved` にもしない（[4.2](#42-ライブラリは接点だけから)） |
+| ライブラリ | 相手がホワイトリストのライブラリで、configのignoreに入っていなければ、その宣言をboundaryの箱のメンバーにする。箱にはアプリが直接参照したメンバーだけを入れ、箱の中から出る線は取らない。ホワイトリスト外・ignore・Node標準・TS標準の相手は線にも `unresolved` にもしない（[4.2](#42-ライブラリは接点だけから)）。ignoreしたclassのmemberへのcall（`lifecycle.register(this)`）も同じ |
 
 `unresolved.reason` への対応: 動的property → `dynamic-access`、ホワイトリストのライブラリだと分かったが宣言を解決できない参照 → `external-boundary`、関数を保持した変数 → `stored-function-reference`、引数で受けたcallbackの呼出 → `parameter-callback`、その他のapp内の未解決 → `symbol-unresolved`。解けない相手には偽の宣言を作らない。
 
@@ -849,10 +735,13 @@ interface PluginInput {
   source: SourceIndex;
   scopes: readonly AnalysisScope[];
 }
+// pluginが「このライブラリでは意識しなくてよい」とするexport。配信しない
+interface IgnoreRecommendation { package: string; exports: string[] }
 interface PluginResult {
   revision: string;
   materials: Material[];
   reports: AnalysisReport[];
+  ignoreRecommendations: IgnoreRecommendation[];
 }
 interface ExtractionPlugin {
   id: ProviderId;
@@ -879,7 +768,7 @@ hostがplugin.idとreport/evidenceのproviderの一致を検証する。索引�
 
 ### D. Zelt
 
-実装する②: ②1（route・middleware・event・appへの登録はフレームワークの配線、DI・decoratorはsetup）、②4（runtimeのmetadataという事実から付与する。名前一致で結ばない）。workerの安全の制約は②に根拠が無い（[5.6](#56-根拠がpolicyに無い項目)）。
+実装する②: ②1（route・middleware・event・appへの登録はフレームワークの配線、DI・decoratorはsetup）、②4（runtimeのmetadataという事実から付与する。名前一致で結ばない）。workerの安全の制約は運用（[4.6](#46-見せ方と運用)）。
 
 plugin:zeltは、runtimeのmetadata（route・middleware・DI・event・lifecycle）をコアの宣言IDへ結び、意味・付与された線・注記・setupと、testの対応の材料（routeとDIの分類）を出す。コアの事実は書き換えない。contractはコアが引くので、plugin:zeltは扱わない（[4.1](#41-責務と流れから)）。classを値として渡す式とdecoratorの式はコアが線にしないので、その内容（DI・middleware・Configの差し替え）はここでsetupか付与された線として出す。
 
@@ -940,10 +829,11 @@ declare function inspectZelt(input: MetadataInput): Promise<RuntimeInspection>;
 | middleware | routingが使う登録・skip判定の共通処理をinspectionでも使用。組込みCors/SecureHeaders、親子mount、class/method decoratorを含める。middlewareの実行条件ではなく登録の適用関係を示す |
 | middlewareの線 | routeのcontroller method → middleware実行methodへ、付与された線 `middleware`。実行methodを登録の型・Symbolから特定できなければpartial。組込みのglobal middlewareには hint `全HTTP · core自動登録` |
 | DI/config | metadataのInjectable/Configの分類（材料 `di`、配信しない）＋Symbolで識別したinject呼出。constructor default/property initializerを読む。constructor省略時は基底を辿る。動的provider・解けないsuper引数はpartial。Injectableのmetadataを持つclass（`@Injectable`・`@Controller`・`@Middleware` はいずれも内部で `injectable()` を付ける）とConfigのconstructorに hint `DI / 初期化` |
-| setup | inject呼出 → constructorに `inject`（targetは注入するclass）。`@UseMiddleware` とmiddlewareを付けるdecorator（`@RateLimit` 等） → そのclass・methodに `middleware`（targetはmiddleware class）。Configのclassが差し替えるlibraryのConfig → そのclassに `config-override`。labelはコードの式から作る。地図の線にはしない（[4.1](#41-責務と流れから)） |
+| setup | inject呼出 → constructorに `inject`（targetは注入するclass、地図に無ければ `null`）。`@UseMiddleware` とmiddlewareを付けるdecorator（`@RateLimit`・`@Authorized` 等） → そのclass・methodに `middleware`（targetはmiddleware class。関数のmiddlewareは `null`）。Configのclassが差し替えるlibraryのConfig → そのclassに `config-override`。ignoreしたZeltへの登録呼出（`lifecycle.register(this)`） → その関数に `lifecycle`。labelはコードの式から作る。地図の線にはしない（[4.1](#41-責務と流れから)） |
 | register | eventbusの `on()`・`once()` に渡した購読callbackへのコアの `read` に、意味 `register` を付与する（線は1本のまま。[4.1](#41-責務と流れから)）。app factoryの登録式 → 登録されたclass（controller・middleware・handler・adaptor・config）はコアの線が無いので、付与された線 `register` として足す |
 | event | eventbus blueprintにもgetInspectionを追加しadaptor/handlersのidentityを公開。emit/onのSymbolと注入先busを照合。同じapp＋一意に解決した登録provider＋静的event名でのみ、emitの所有者 → 購読callbackへ付与された線 `event`。購読callbackに hint `EVENT <eventName>`。`EventBusSchema` 拡張のmemberに意味 `event-type` を付与する（型引数・宣言の解決による。event文字列と同名のtypeを探して結ばない） |
-| lifecycle | 入口としては出さない（`entries` を廃止したため）。注記も付けない（[付録A](#注記の付与規則全表)）。`LifecycleManager.register` へのcallは、コアの通常のcallとして出る |
+| lifecycle | 入口としては出さない（`entries` を廃止したため）。注記も付けない（[付録A](#注記の付与規則全表)）。`LifecycleManager` はignore推奨で、`lifecycle.register(this)` はsetup `lifecycle` になる |
+| ignore推奨 | `@zeltjs/core` の `inject`・`request`・`currentUser`・`requestContext`・`LifecycleManager`、route・DI・middlewareのdecorator（`Controller`・`Get`・`Post`・`Put`・`Delete`・`UseMiddleware`・`Authorized`・`Injectable`・`Middleware`・`Config`）、`@zeltjs/rate-limit` の `RateLimit`。CLIの報告に出し、configへの採用は本人が行う（[4.2](#42-ライブラリは接点だけから)） |
 
 event購読のbusはadaptorのgroup ID（内部の照合用）。同じappで同じproviderに複数のbus登録があり、注入先を一意に決められなければpartialにする。busを表す架空の宣言は作らない。
 
@@ -1036,18 +926,20 @@ declare function traceOrigin(input: {
 | Vitest登録 | import元・aliasを解決したdescribe/it/test/hook。globalsはconfigで明示した場合のみ。suiteの入れ子・concurrentを保持 |
 | parameterized case | 静的な配列literalのeachはcaseKeyをindexにして展開。動的なtableはtemplate一件・partial。引数に依存するsetup値の代入は初版では未解決 |
 | hook文脈 | configのserial/stackならbeforeEachを外suite→内suite、同suiteは登録順。concurrent・parallel・未知modifierは文脈未解決。Unitのsetupでは、beforeAll由来の共有値は初版の由来追跡対象外（E2Eのappの追跡だけは初版で扱う。[付録G](#g-e2e)） |
-| Unit対象 | case本文のdirectCallsで、収録したapp宣言への直接呼出を一覧化。同じcaseの同じtargetは一行、callsへ集約。helperの先・hook内・未実行callbackはテスト対象に伝播させない |
+| Unit対象 | case本文に字句的に含まれる、収録したapp宣言への呼出を一覧化。本文に書いた無名関数（`expect(() => f()).toThrow()`・`runInContext(() => f())`）の中も含め、getterの読み取りも呼出に数える（[4.1](#41-責務と流れから)、AI 判断）。本文の外で定義したhelperの先・hook内には降りない。同じcaseの同じtargetは一行、callsへ集約 |
 | receiver由来 | binding Symbolを使い、await/括弧/type assertion、変数代入、不変alias、静的property経路を追う。caseごとに外部bindingをunknownへ戻し、beforeEachから開始 |
 | 未対応の由来 | 分岐・loop・動的property・分割代入・helperを経た代入は未解決。alias書換え、closure共有、非await非同期処理、opaque関数へのescapeが関係すればshared-state |
 | setup照合 | factoryCall＋resultPathが一致し、呼出先の所属classとも矛盾しなければ付与。型が同じだけの別instanceへは付けない |
 | Zelt factory | import SymbolでcreateTestTargetを特定。第一引数のclass、optionsのconfigs/overrides、返却値のtarget経路を読む。testを実行しない |
-| Zelt詳細 | targetの直接DI、明示configs、setupFilesのconfigureTestDefaultsを読む。定数array/object/alias/spreadまで。動的値・解けない継承・global defaultsの読取漏れがあればunresolved |
+| Zelt詳細 | targetの直接DI（constructor省略時は基底classのconstructor）、明示configs、setupFilesのconfigureTestDefaultsを読む。定数array/object/alias/spreadまで。動的値・解けない継承・global defaultsの読取漏れがあればunresolved。configでignoreしたclass（`LifecycleManager`）はdependenciesに入れない（AI 判断: 地図で意識しないものでSolitary/Sociableを変えない。②2） |
+| receiverの無い呼出 | モジュール関数の直接呼出（`requireUser()`）は `setup: null`。UIは分類「関数」、mock対象「—」を出す（[4.1](#41-責務と流れから)、AI 判断） |
+| `testTarget.get(X)` | factoryの戻り値の `get(X)` で取り出した値も同じfactoryの由来とし、呼出先の所属classが `X` と一致するときだけsetupを付ける（AI 判断: `target` と同じく値の由来で確かめられる。②4） |
 
 setup機能が無効ならnot-collected。factoryに対応できてもDI等が不明ならunresolved。**未取得のdependenciesを空にしてSolitaryとは判定しない。**
 
 Solitary/Sociableと mock一覧はUIがsetupから算出する（v1のまま）。抽出側は、config差替えとjose等の通常importをoverridesに入れない。overridesはserviceの差替え対象classだけで、useValueの中身は配信しない。
 
-収録するのはアプリのコードのtestだけで、ライブラリ自身のtestは対象外（[4.2](#42-ライブラリは接点だけから)）。ec-backendには実際のUnit testを12ファイル・約212 case追加済み（未コミット。usecase・モジュール関数・middleware等）。手書きfixtureのUnit一覧はまだ0件で、反映は別作業（[付録L](#l-uiの追従)）。
+収録するのはアプリのコードのtestだけで、ライブラリ自身のtestは対象外（[4.2](#42-ライブラリは接点だけから)）。ec-backendのUnit testは12ファイル・212 caseで、この規則で151 caseが25宣言に結び付く（延べ211行、fixture反映済み）。結ばない61 caseは、schemaの `safeParse`（valibotの呼出で、schemaの宣言を呼んでいない）38、本物のapp経由のLoggingMiddleware 8、ライブラリの呼出やpropertyの読取だけのcase 15（`bus.emit` で購読callbackを間接に動かす、`drizzle.db` を読む等）。
 
 照合の形の例として、auth-jwtパッケージ自身をアプリとして抽出する場合の[JwtServiceのtest](../../packages/auth-jwt/src/jwt.service.test.ts)は、beforeEachのcreateTestTarget → testTarget.target → jwtService → case内のsignという由来を照合する。JwtConfig→TestJwtConfigはconfig差替えであってmockではない。CreateProductSchemaが内部から呼ばれるだけなら、そのschemaへUnit対象を伝播しない。
 
@@ -1106,14 +998,14 @@ method/pathはliteral・不変の定数alias・静的に連結できる文字列
 
 ### H. config
 
-実装する②: ②3（列とroleは人の意図。線は書けない）、②2（載せるライブラリの選択）、②1（「このプロジェクト」の範囲）。原文の範囲は②に根拠が無い（[5.6](#56-根拠がpolicyに無い項目)）。列内の並び順をconfigで決めないことは確定（[4.6](#46-policyに根拠が無い結果)）。
+実装する②: ②3（列と既定の表示は人の意図。線は書けない）、②2（載せるライブラリとignoreの選択）、②1（「このプロジェクト」の範囲）。原文の範囲は運用（[4.6](#46-見せ方と運用)）。列内の並び順をconfigで決めないことは確定（[4.6](#46-見せ方と運用)）。
 
 configは、何を収録するか（地図に載せるライブラリを含む）・原文をどこまで出すか・どのpluginを使うか・どの列に置くかを人が決める場所。
 
 ~~~mermaid
 flowchart LR
   F["実ソースのfilePath"] --> R["順序付きglob rules<br/>最初に合うルール"]
-  R --> P["GroupPresentation<br/>columnId / role"]
+  R --> P["GroupPresentation<br/>columnId"]
   P --> U["UIのlayout<br/>列内の並び順（パスとソース位置から）<br/>+ 表示中の高さ"]
   C["columns<br/>id / label / width"] --> U
 ~~~
@@ -1124,16 +1016,20 @@ flowchart LR
 interface PresentationRule {
   files: string[];
   columnId: string;
-  role: 'regular' | 'config' | 'composition';
 }
 interface PresentationConfig {
   id: string;
-  columns: { id: string; label: string; width: number }[];
+  columns: { id: string; label: string; width: number; initiallyHidden: boolean }[];
   rules: PresentationRule[];
   fallbackColumnId: string;
 }
-// 5.5(b)の提案の形。exportsに無いexport（関数・decorator・型）は地図に載せない
+// exportsに無いexport（関数・decorator・型）は地図に載せない
 interface MapPackage {
+  package: string;
+  exports: string[];
+}
+// pluginのignore推奨から本人が採用したもの。線も未解決も出さない
+interface IgnoredExports {
   package: string;
   exports: string[];
 }
@@ -1145,6 +1041,7 @@ interface ExtractConfig {
   include: string[];
   exclude: string[];
   mapPackages: MapPackage[];
+  ignore: IgnoredExports[];
   sourceText: string[];
   sourceModules: Record<string, string>;
   plugins: PluginConfig[];
@@ -1177,16 +1074,17 @@ type PluginConfig =
       helpers: RequestHelper[] };
 ~~~
 
-`presentation` はv1の `MapPresentation { id, columns }` と各groupの `presentation { columnId, role }` にそのまま出る。
+`presentation` は `MapPresentation { id, columns }` と各groupの `presentation { columnId }` にそのまま出る。groupの無い列は配信しない。
 
-globはpicomatchのPOSIX・case-sensitive・dot=true、否定はexcludeだけで扱う。groupには最初に合ったruleのcolumnIdとroleを付ける。fallbackColumnIdを必須にし、未分類を勝手にUse caseへ置かない。
+globはpicomatchのPOSIX・case-sensitive・dot=true、否定はexcludeだけで扱う。groupには最初に合ったruleのcolumnIdを付ける。fallbackColumnIdを必須にし、未分類を勝手にUse caseへ置かない。
 
 configのrootはconfigファイルから解決する。他のpath/globはroot基準。重複column ID・存在しないcolumn・重複plugin ID・project外へのoutputはエラー。sourceModulesは完全一致のpackage specifierをkeyにする。subpathは別keyで指定する。
 
 `mapPackages` と `sourceModules` は役割が違う。
 
-- `mapPackages`（ホワイトリスト）は**地図に載せるか**を決める。package名と、そのpackageのentry（`sourceModules` で解決した先）から地図に載せるexport名を指定する（[5.5](#55-setupと流れの境目)(b)の提案。決定はpackage単位までで、exportまで指定するかは未決。どれを気にするかは本人が選ぶ、という根拠は[4.2](#42-ライブラリは接点だけから)）。載るのは列挙したclass・interfaceと、アプリが直接参照したそのメンバーだけ（[4.2](#42-ライブラリは接点だけから)）。存在しないexport名はエラー。Node標準・TS標準は指定できない。
+- `mapPackages`（ホワイトリスト）は**地図に載せるか**を決める。package名と、そのpackageのentry（`sourceModules` で解決した先）から地図に載せるexport名を指定する（単位はexportまで。[4.2](#42-ライブラリは接点だけから)）。載るのは列挙したclass・interfaceと、アプリが直接参照したそのメンバーだけ（[4.2](#42-ライブラリは接点だけから)）。存在しないexport名はエラー。Node標準・TS標準は指定できない。
 - `sourceModules` は**どこからソースを読むか**（TSの解決とZeltのworkerの解決）を決める。ここにあっても `mapPackages` に無ければ地図には載らない（例の `@zeltjs/testing`・`@zeltjs/decorator-metadata` は解決のためだけにある）。
+- `ignore` は**地図で意識しないもの**。pluginのignore推奨から本人が採用する。ホワイトリストより優先し、ignoreしたexport（classならそのmemberも）への線・未解決は出さない。DIのdependenciesからも外す。
 - `mapPackages` にあって `sourceModules` に無いpackageは、通常の解決（`node_modules` の型定義）の所在で箱になる。
 - 載せたpackageのファイルをどの列に置くかは、他のファイルと同じ列ルール（globはsourceModulesで解決した先のpath）で決める。
 
@@ -1198,13 +1096,14 @@ ec-backendの設定は[ec-backend.extract.json](ec-backend.extract.json)（上�
 | --- | --- | --- |
 | `root` | `../..`（configファイルの置き場所 `mocks/studio-spatial/` から見たrepository root） | srcと参照先のpackage sourceを同じProgramで解決する |
 | `include` / `exclude` | `integration/ec-backend/src/**/*.ts`、`**/*.test.ts` を除く | アプリのコードだけを「全メンバーを載せる宣言」にする。testは索引には入るが地図に出さない |
-| `mapPackages` | `@zeltjs/core`（`LoggerService`・`LifecycleManager`・`CorsMiddleware`・`SecureHeadersMiddleware`・`CorsConfig`）、`@zeltjs/auth-jwt`（`JwtMiddleware`・`JwtService`・`JwtConfig`）、`@zeltjs/kv`（`KVStore`・`MemoryKVAdaptor`）、`@zeltjs/eventbus`（`MemoryEventBusAdaptor`）、`@zeltjs/rate-limit`（`RateLimitMiddleware`） | 5.5(b)の提案の形。関数・decorator・型（`inject`・`request`・`Controller`・`Lifecycle`・`JwtPayload` 等）は載せない |
+| `mapPackages` | `@zeltjs/core`（`LoggerService`・`CorsMiddleware`・`SecureHeadersMiddleware`・`CorsConfig`）、`@zeltjs/auth-jwt`（`JwtMiddleware`・`JwtService`・`JwtConfig`）、`@zeltjs/kv`（`KVStore`・`MemoryKVAdaptor`）、`@zeltjs/eventbus`（`MemoryEventBusAdaptor`）、`@zeltjs/rate-limit`（`RateLimitMiddleware`） | 関数・decorator・型（`inject`・`request`・`Controller`・`Lifecycle`・`JwtPayload` 等）は載せない |
+| `ignore` | Zelt pluginの推奨をそのまま採用（[付録D](#d-zelt)） | 効くのは主に `LifecycleManager`（`lifecycle.register(this)` の線と箱が消え、setupになる）。他はホワイトリストにも無いが、ホワイトリストをpackage単位に広げても出ないように書いておく |
 | `sourceText` | app.ts・domain・entry・infra・usecaseと、載せた5 packageの `src/**` | `src/config/` は外して `declaration-only`（v1の `redacted` の代わり）。ライブラリの箱も原文を見せるのでpackageのsourceを入れる。外部公開時は空にする |
-| `presentation.columns` | `column:0` Entry / Middleware、`column:1` Use case、`column:2` Domain、`column:4` Adapter / Infrastructure、`column:5` Config、`column:6` 外部、`column:other` 未分類（すべて幅310） | 列のIDとlabelは手書きfixtureのもの。`column:3` は旧 `Port / interface` 列の跡で欠番。`column:6` のlabel「外部」は外界（DB・ネットワーク）と混同を招くので、「ライブラリ」への変更を提案する（configファイルは今回変更しない。[4.2](#42-ライブラリは接点だけから)） |
-| `presentation.rules` | app.ts → Entry（composition）、`packages/**/*.config.ts` → ライブラリ（config）、`packages/**` → ライブラリ、`src/config/**` → Config（config）、`src/entry/**` → Entry、`src/usecase/**` → Use case、`src/domain/**` → Domain、`src/infra/**` → Adapter / Infrastructure | 先に合ったruleを使う。ライブラリのconfig classはconfigのroleのままにする（config表示の切替で一緒に隠れる）。roleをglobで決めるか `@Config` から取るかは[5.2](#52-roleの決め方) |
-| plugin `vitest` | Unitは `integration/ec-backend/src/**/*.test.ts`、E2Eは `integration/ec-backend/e2e/product.spec.ts` だけ | E2Eを1ファイルに絞るのは**サンプリング**（手書きの手間を減らすため）であり、抽出できないから外したのではない。抽出器は `e2e/**/*.spec.ts` 全体を対象にできる。範囲が一部なので、E2Eのcoverageは全routeで「一部のみ」（[付録G](#g-e2e)）。Unitは12ファイル・約212 caseを追加済みで、手書きfixtureへの反映は別作業（今のfixtureのUnit一覧は0件のまま） |
+| `presentation.columns` | `column:composition` Composition（既定で非表示）、`column:0` Entry / Middleware、`column:1` Use case、`column:2` Domain、`column:4` Adapter / Infrastructure、`column:5` Config、`column:6` ライブラリ、`column:other` 未分類（すべて幅310） | `column:3` は旧 `Port / interface` 列の跡で欠番。Compositionを左端に置くのは、appの登録が各列へ向かう線になるから（AI 判断: 表示したとき線が左から右へ流れる。②3） |
+| `presentation.rules` | app.ts → Composition、`packages/**` → ライブラリ、`src/config/**` → Config、`src/entry/**` → Entry、`src/usecase/**` → Use case、`src/domain/**` → Domain、`src/infra/**` → Adapter / Infrastructure | 先に合ったruleを使う。ライブラリのconfig class（`JwtConfig`・`CorsConfig`）はライブラリ列にあり、Config列を隠しても隠れない（roleの廃止による） |
+| plugin `vitest` | Unitは `integration/ec-backend/src/**/*.test.ts`、E2Eは `integration/ec-backend/e2e/product.spec.ts` だけ | E2Eを1ファイルに絞るのは**サンプリング**（手書きの手間を減らすため）であり、抽出できないから外したのではない。抽出器は `e2e/**/*.spec.ts` 全体を対象にできる。範囲が一部なので、E2Eのcoverageは全routeで「一部のみ」（[付録G](#g-e2e)）。Unitは12ファイル・212 caseで、fixtureに反映済み（[付録F](#f-unit)） |
 | plugin `http-requests` | appは `createTestApp`、helperは `authRequest`（app引数0・method引数2・path引数3）と `registerUser`・`loginUser`（固定のPOST・path） | [付録G](#g-e2e)の初版の範囲 |
-| plugin `zelt` | appは `createEcApp`、`setupFiles` は空 | 現行のec-backendのVitest設定にsetupFiles指定がない。appを `zelt.config.ts` から読むかは[5.4](#54-zeltconfigtsとの二重管理) |
+| plugin `zelt` | appは `createEcApp`、`setupFiles` は空 | 現行のec-backendのVitest設定にsetupFiles指定がない。`zelt.config.ts` とは別物のまま（ユーザー判断 9/24） |
 
 この例のtest範囲はアプリのコード（ec-backend）のtestだけで、ライブラリ自身のtestは入れない（[4.2](#42-ライブラリは接点だけから)）。未指定のtestまで「なし」と主張しない。requiredはcomplete-in-scopeを要求する機能。他の機能のpartialは配信してよいが、v1で見えるのはcoverageのstatusだけ。ライブラリを地図の内部として全メンバーまで展開したい場合は、includeへそのsourceを追加する（アプリのコードとして扱われる）。
 
@@ -1261,7 +1160,7 @@ declare function extract(configFile: string): Promise<ExtractionResult>;
 
 ### J. 生成とpublish
 
-実装する②: ②4（失敗したら配信しない。同じ入力なら同じJSON）。生成はall or nothingで、失敗したら前回のJSONをそのまま残す（[4.4](#44-コードと一致するから)、ユーザー判断）。JSONの順序に表示の意味を持たせないことも確定（[4.6](#46-policyに根拠が無い結果)）。
+実装する②: ②4（失敗したら配信しない。同じ入力なら同じJSON）。生成はall or nothingで、失敗したら前回のJSONをそのまま残す（[4.4](#44-コードと一致するから)、ユーザー判断）。JSONの順序に表示の意味を持たせないことも確定（[4.6](#46-見せ方と運用)）。
 
 実行コマンドは `zelt studio extract --config <config.json>`。成功はexit 0、生成失敗はexit 1。同じ出力先への同時生成は排他lockで拒否し、同じディレクトリの一時ファイルへ書いてschema再検証後にatomic renameする。失敗時は自分が作った一時ファイルだけ回収する。
 
@@ -1273,7 +1172,7 @@ revision（内部）は、読み込んだソース・参照d.ts・package解決�
 
 ### K. 作るコードの置き場所
 
-実装する前提: 前提2（コア・組立はZeltを知らない）と1節の処理の形。UIはschemaだけに依存する。置き場所そのものは既存の抽出器との関係（[5.3](#53-既存の抽出器との関係)）に左右される。
+実装する前提: 前提2（コア・組立はZeltを知らない）と1節の処理の形。UIはschemaだけに依存する。既存の抽出器（DependencyGraph v3）を置き換えるか拡張するかは論点にしない（[4.6](#46-見せ方と運用)）。
 
 ここに挙げるのは**次の実装時の変更予定**。今回新しいコードファイルは作らない。初版はCLI内に独立モジュールとして置き、package公開やplugin配布機構は増やさない。
 
@@ -1299,40 +1198,33 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 
 ### L. UIの追従
 
-実装する前提: 前提1（変えるのは[4.5](#45-v1からの変更)の変更への追従と、[4.6](#46-policyに根拠が無い結果)の表示の追従だけ）。v1のschema・fixture・UIの変更は、この文書の後の別作業。各行の根拠は4節の該当項目。
+実装する前提: 前提1（変えるのは[4.5](#45-v1からの変更)への追従と、[4.3](#43-意図と事実を重ねるから)・[4.6](#46-見せ方と運用)の表示だけ）。**すべてmockに反映済み**（2026-09-24）。
 
-| 変更 | UIで変える場所 |
-| --- | --- |
-| schema | [snapshot-schema.lib.ts](src/snapshot-schema.lib.ts) に[付録A](#a-出力の形)の差分を反映 |
-| 種類と意味の分離（線） | 線の表示名（[labels.ts](src/labels.ts)）を、`meanings` があればその表示名、無ければTSの種類から引く。付与された線（`origin: 'plugin'`）は種類から表示名を引き、知らない種類は種類の文字列をそのまま出す。線の種類を見ている箇所（[relations.lib.ts](src/relations.lib.ts)のチップ判定、[scope.lib.ts](src/scope.lib.ts)・[map-presenter.lib.ts](src/map-presenter.lib.ts)のmiddleware判定、[edges.lib.ts](src/edges.lib.ts)の併合キー）を、付与された線の種類で判定するよう追従する。見え方は変わらない |
-| 種類と意味の分離（宣言） | 宣言の種類の表示（[labels.ts](src/labels.ts)の `SCHEMA`・`TABLE`・`EVENT TYPE`）を、`meanings` があればその表示名、無ければTSの種類から引く。見え方は変わらない |
-| `setup` の追加 | 詳細パネル（[inspector.tsx](src/views/inspector.tsx)・[inspector-presenter.lib.ts](src/inspector-presenter.lib.ts)）にsetupの一覧を出す。地図は変えない。今のmockに無い表現なので、**先にmockで示す** |
-| `expandedY` 削除 | [layout.lib.ts](src/layout.lib.ts)。列内のgroupをパスの名前順、同じファイル内はソース出現順（`startLine` の昇順）に並べ、y＝上端＋先行groupの現在の高さ＋gapの累積。高さの計算は既存の宣言・tagの寸法を使う。同じ入力と状態では同じ位置になり、選択による薄表示だけでは並べ替えない |
-| `hint` → `hints` | [map-presenter.lib.ts](src/map-presenter.lib.ts)（宣言の補助ラベル）、[presenter.lib.ts](src/presenter.lib.ts)（検索対象の文字列と検索結果の補助表示）、[group-node.tsx](src/views/group-node.tsx)（表示）。labelを出すだけで、providerで分岐しない |
-| `redacted` 削除 | UIは既に区別していないので型の追従だけ |
-| `origin` 削除 | 参照箇所なし。型の追従だけ |
-| `demoScenarios` 削除 | [graph.lib.ts](src/graph.lib.ts)、[presenter.lib.ts](src/presenter.lib.ts)、[map-presenter.lib.ts](src/map-presenter.lib.ts)、[preferences.lib.ts](src/preferences.lib.ts) の参照を外す |
-| `entries` 削除: 起点ショートカット | [toolbar.tsx](src/views/toolbar.tsx)の起点select（`root-select`）と種類フィルタ（`EntryFilter`）、[presenter.lib.ts](src/presenter.lib.ts)の一覧作成、[navigation.lib.ts](src/navigation.lib.ts)の `entry.choose`、[preferences.lib.ts](src/preferences.lib.ts)の `entry.filter`、[graph.lib.ts](src/graph.lib.ts)の `entries` 索引、関連する型（`EntryKind`・イベント型）を外す |
-| `entries` 削除: チップ | [relations.lib.ts](src/relations.lib.ts)の `isWarp` から「別groupの、入口を持つ宣言へのcallをチップにする」規則を外す。チップは関係の種類（`middleware`・`event`）だけで決める。fixtureでこの規則が効いている線は0本 |
-| `e2eTests` の移動 | [test-presenter.lib.ts](src/test-presenter.lib.ts)の `endpointModels` を、http entryではなく宣言の `e2eTests` から読む。見出しは宣言の注記のlabel（複数なら ` · ` でつなぐ）、注記が無ければ宣言名（mockで実装済み） |
-| 注記の複数行 | [group-node.tsx](src/views/group-node.tsx)の `member-hint` を注記ごとの行にし、[layout.lib.ts](src/layout.lib.ts)の行の高さ計算に注記の数を入れる（[4.6](#46-policyに根拠が無い結果)）。ec-backendでは複数の注記は起きない |
-| IDの表示 | IDをそのまま出している箇所を名前の表示に替える（[4.6](#46-policyに根拠が無い結果)）。groupの見出し（[group-node.tsx](src/views/group-node.tsx)）、詳細の見出し（[inspector.tsx](src/views/inspector.tsx)）、検索結果（[toolbar.tsx](src/views/toolbar.tsx)。宣言は `所属groupの名前#宣言名`、groupは名前だけ）、検索の対象と lock 中の「固定基準」表示（[presenter.lib.ts](src/presenter.lib.ts)）、ミニマップの `aria-label`（[mini-map.tsx](src/views/mini-map.tsx)） |
-| 展開class内のmember順 | [layout.lib.ts](src/layout.lib.ts)の行の積み上げと、[inspector-presenter.lib.ts](src/inspector-presenter.lib.ts)の詳細のメンバー一覧を、membersの配列順ではなく `startLine` の昇順にする（[4.6](#46-policyに根拠が無い結果)。mockで実装済み） |
-| 手書きfixture | 自動抽出ができるまでコミットし続ける。UI追従と同時に、上の変更に合わせて形を移す。IDは短い形（`AuthController.register`、callbackは `OrderService.createOrder@callback:1`）のままで、抽出の形式（[付録B](#箱の切り方とid)）に変わるのは抽出器ができてfixtureを置き換えたとき |
+| 変更 | mockで変えた場所 | 画面で見えること |
+| --- | --- | --- |
+| schema | [snapshot-schema.lib.ts](src/snapshot-schema.lib.ts)、[snapshot.types.ts](src/snapshot.types.ts) | なし |
+| 種類と意味の分離 | [labels.ts](src/labels.ts)（`relationKind`・`declarationLabel`: 意味があればそれ、無ければTSの種類）。チップ・middleware判定（[relations.lib.ts](src/relations.lib.ts)・[scope.lib.ts](src/scope.lib.ts)）は付与された線の種類で判定 | 変わらない（線の色・凡例・`SCHEMA`/`TABLE` 表示は今までどおり） |
+| setup | [inspector-presenter.lib.ts](src/inspector-presenter.lib.ts)、[inspector.tsx](src/views/inspector.tsx) | 詳細の「契約」に「Setup」欄。種類・provider・式と、地図にある相手へのリンク。groupではメンバーのsetupも並ぶ |
+| 列の表示切替（roleの廃止） | [state.lib.ts](src/state.lib.ts)（`hiddenColumns`、既定は `initiallyHidden`）、[layout.lib.ts](src/layout.lib.ts)（隠した列は幅を取らない）、[map-controls.tsx](src/views/map-controls.tsx) | 操作列に「列」のチェックボックス（全列）。旧「config」トグルはこれに置き換え。地図の上に隠した列の案内は出さない。列の見出しは列を隠しても中身の箱と同じ位置に出る（幅が変わって拡大率を合わせ直すとき、表示の左上を固定する: [use-viewport.ts](src/views/use-viewport.ts)） |
+| 隠した列との関係 | [relations.lib.ts](src/relations.lib.ts)（`relationPart` が隠した列に端を持つ関係を最初に `hidden` とし、線にもチップにもしない） | 何も出ない（箱・線・チップのどれも）。関係の一覧ダイアログは廃止。隠した列の宣言へ検索で移ると、その列が表示に戻る |
+| Composition列 | fixtureの `app.ts` の列、[toolbar.tsx](src/views/toolbar.tsx)（「アプリ構成」ボタンを削除） | app.tsは既定で出ない。Composition列を隠している間、appへの登録は線にもチップにもならない |
+| Unitの `setup: null` | [test-presenter.lib.ts](src/test-presenter.lib.ts) | 分類「関数」、mock対象「—」 |
+| E2Eの「一部のみ」 | [test-presenter.lib.ts](src/test-presenter.lib.ts) | 「一部のみ · N件（収録範囲: …）」。「未収録」は出ない |
+| Unitの収録範囲 | [test-presenter.lib.ts](src/test-presenter.lib.ts) | 「収録範囲: src/**/*.test.ts（12ファイル）」 |
 
-維持するもの: middleware / event / config / compositionのtag、表示切替、app.ts非表示、Passive View/Mediatorの構成。
+9/23までに反映したもの（`expandedY` 削除とUI計算の並び、`hints`、`entries` と起点ショートカットの削除、`e2eTests` の移動、IDでなく名前の表示、展開classのソース順）は変わらない。
 
-手書きfixtureを、この計画に合わせて直す必要がある箇所（別作業。この文書では直さない）:
+**手書きfixtureで直したもの**（この文書の規則とconfigで説明できる形にした）:
 
 | 箇所 | 直し方 | 根拠 |
 | --- | --- | --- |
-| `EcJwtConfig.resolveUser` → `@callback:0` の `returns` 1本 | 外す | 戻り値は型で表す（[4.1](#41-責務と流れから)） |
-| 線・宣言の種類 | `schema`・`table`・`register`（`on()` への受け渡し）・`event-type` を、TSの種類（`read`・`value`・`signature`）＋ `meanings` に分ける。`middleware`・`event`・appへの `register` は付与された線（provider `zelt`）にする | [4.5](#45-v1からの変更) |
-| `createEcApp` からの `register` 9本 | 付与された線（provider `zelt`）として残す | plugin:zeltが付与する線（[4.1](#41-責務と流れから)） |
-| `setup` | constructorのinject、`@UseMiddleware`・`@RateLimit`、Configの差し替えをsetupとして足す | [4.1](#41-責務と流れから)・[付録D](#d-zelt) |
-| productを送らない11 routeのE2E一覧（今は「未収録」） | 「一部のみ・0件」にする。productの5 routeも、範囲がサンプリングなので「一部のみ」 | [4.4](#44-コードと一致するから)・[付録G](#g-e2e) |
-| Unit一覧（今は0件） | 追加した12ファイル・約212 caseを反映する | [4.4](#44-コードと一致するから)・[付録F](#f-unit) |
-| E2Eの付与 | `beforeAll` のapp・テンプレート文字列のURL・局所helper経由のrequestも付ける | [付録G](#g-e2e) |
+| 線・宣言の種類 | TSの種類＋ `meanings`。middleware・event・appへの `register` は付与された線 | [4.5](#45-v1からの変更) |
+| `EcJwtConfig.resolveUser` → `@callback:0` の `returns` | 外した（戻り型はホワイトリスト外で線は出ない） | [4.1](#41-責務と流れから) |
+| `LifecycleManager` の箱と、そこへのcall 2本 | 外した。`lifecycle.register(this)` はsetupへ | [4.1](#41-責務と流れから)・[4.2](#42-ライブラリは接点だけから) |
+| setup | inject 16・middleware 19・config-override 2・lifecycle 2 を付与 | [付録A](#付与の全表) |
+| 列 | roleを削除、app.tsをComposition列へ、列名「外部」→「ライブラリ」 | [4.3](#43-意図と事実を重ねるから) |
+| E2E | productを送らない11 routeを「一部のみ・0件」に | [4.4](#44-コードと一致するから) |
+| Unit | 151 case（延べ211行）を25宣言に | [付録F](#f-unit) |
 
 ### M. 完了判定
 
@@ -1346,34 +1238,39 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 | 注文取得 | findById→DrizzleService.dbのread、ordersへの `table` 線と `table` 宣言、Orderの型参照。架空のRepository/Portなし |
 | 注文作成 | transaction/map等のcallbackが別の宣言で内部の依存を所有。折りたたみ時だけclass/fileへ集約 |
 | HTTP / middleware | createEcAppの各routeと適用middlewareを、共通登録規則の期待値と照合。親子mount・skip・同名controller・同class複数mountも別fixtureで検証。route methodに `<METHOD> <path>` のhint |
-| config | EcJwtConfig・EcCorsConfigからライブラリのJwtConfig・CorsConfigへのextends/overrideが残る。config表示を切っても実データは消さない。`src/config/` の原文は `declaration-only` |
+| config | EcJwtConfig・EcCorsConfigからライブラリのJwtConfig・CorsConfigへのextends/overrideが残り、setup `config-override` が付く。Config列を隠しても実データは消さない。`src/config/` の原文は `declaration-only` |
 | event | OrderHandlersの購読callbackと同じbusのemitを結ぶ。別busの同名eventは結ばない |
 | hints | [付録A](#注記の付与規則全表)の表のlabelが該当宣言に付き、pluginを外すとそのproviderのhintだけが消える |
 | Unit | アプリのtestのcase本文が直接呼んだ宣言にだけ付く。ライブラリの宣言は未収録のまま。setupのtarget由来とconfig差替えを保持し、通常のimport（joseなど）をoverridesへ入れない |
 | E2E | 静的なdirect/helper request（`beforeAll` のapp・テンプレート文字列のURL・局所helperを含む）を、同じappでmethod・pathが一致するrouteを登録したmethodの `e2eTests` へ付ける。範囲がサンプリングなら全routeが「一部のみ」で、一致しないrouteは0件。未対応の経路はpartialとして見える |
 | 任意plugin | Zelt無効でもコアの箱・ID・線・種類は同じで、そのpluginの付与だけが無くなる（[付録A](#pluginが無いときの値全表)）。appをimportしない。runner差替えの共通契約を偽pluginで検証 |
 | 再現性と失敗 | plugin順を変えてbyte一致。不正ID/別revision/競合/worker失敗/required不足でpublishせず旧ファイルのhashが変わらない |
-| Studio | 生成JSONをfetchし、今の手触り（選択近傍・双方向の独立再帰・lock・折りたたみ・可視tagだけの高さ・Unit/E2E一覧・reload）が保たれることを回帰検証。差分は[4.5](#45-v1からの変更)の変更点（起点ショートカットの削除、詳細パネルのsetupを含む）と、[4.6](#46-policyに根拠が無い結果)の表示の追従だけ |
+| Studio | 生成JSONをfetchし、今の手触り（選択近傍・双方向の独立再帰・lock・折りたたみ・可視tagだけの高さ・Unit/E2E一覧・reload）が保たれることを回帰検証。差分は[4.5](#45-v1からの変更)の変更点（起点ショートカットの削除、詳細パネルのsetupを含む）、列の表示切替（[4.3](#43-意図と事実を重ねるから)）と、[4.6](#46-見せ方と運用)の表示の追従だけ |
 
-実装順は依存する箱に沿って、schema（v1差分）＋UI追従＋fixture移行 → 索引 → plugin＋inspection → 組立/publish → 生成JSONへ切替。各箱の契約テストを先に置く。Vitest以外のrunner、任意JSの実行結果推定、testのin/out値収集、外部plugin配布は初版の完了条件に含めない。
+実装順は依存する箱に沿って、schema（v1差分）＋UI追従＋fixture移行（済み） → 索引 → plugin＋inspection → 組立/publish → 生成JSONへ切替。各箱の契約テストを先に置く。Vitest以外のrunner、任意JSの実行結果推定、testのin/out値収集、外部plugin配布は初版の完了条件に含めない。
 
 ### N. 実装時に決めること
 
-②と前提の範囲内で、実装しながら詰めればよいもの。判断が要るものは[5節](#5-判断が要ること)にある。
+②と前提の範囲内で、実装しながら詰めればよいもの。どれもユーザーの判断は要らない。
 
 | 項目 | 内容 | 関係する②・前提 |
 | --- | --- | --- |
 | `schemaVersion` | 1のまま据え置くか上げるか。UIとfixtureを同時に更新するので旧形式の互換読みは要らない | 前提1 |
-| `event-type` のTSの種類 | [付録A](#pluginが無いときの値全表)の `signature` は、`order:created` がinterface memberであることからの推定。コアが実際に何の種別を返すかを確かめる | ②4 |
-| 意味・付与された線・setupのkind | 付録Aのkind名（`schema`・`register`・`inject`・`config-override` 等）は案。kindを開いた文字列にするか、schemaで既知の値に閉じるか。UIの表示名の置き場（今は[labels.ts](src/labels.ts)） | ②4・前提1 |
-| 1つの対象に異なる意味が並んだとき | 付録Aの形では複数providerの意味が並びうる。表示の仕方（ec-backendでは起きない） | 前提1 |
-| `DI / 初期化` の注記 | setupができた後も注記として残すか | ②4・前提1 |
-| write / setter / enum | 代入（write）はv1のrelation kindに無い（手書きfixtureは代入を線にも根拠にもしていない。`this.db = …`・`this.store = …`・`this.unsubscribes = []`）。setter・enumはv1の宣言kindに無い（ec-backendのsrcでは未発生）。readへ畳むか等 | 前提1・②4 |
-| 動的なtest名 | v1の `TestIdentity.name` / `suite` はnullを許さない。静的に解けないeachのtemplate等の出し方 | ②4 |
-| setupを照合できなかったcall | v1では各callに `setup` が必須で、`UnitSetup` はfactory callの `targetClass` と `location` を要求する。factoryを使わない・由来が解けないcallを何として出すか | ②1・②4 |
-| 空の列 | [ec-backend.extract.json](ec-backend.extract.json)はfixtureの6列に「未分類」（fallback）の列を加えた7列。ec-backendでは未分類のgroupが無いので、fixtureはこの列を持たない。groupの無い列を配信から外すか、UIで詰めるか | ②3 |
-| `returns` の型 | v1のrelation kindに `returns` が残る。抽出は出さない（[4.1](#41-責務と流れから)）。型から外すか、使われないまま残すか | 前提1 |
-| E2E範囲がサンプリングであることの書き方 | [4.4](#44-コードと一致するから)の「一部のみ」を出すには、E2Eの範囲がe2e testの一部であることを抽出器が知る必要がある。configに明示するか、runnerの設定のtest対象と比べるか | ②4 |
+| `event-type` のTSの種類 | fixtureの `signature` は、`order:created` がinterface memberであることからの推定。コアが実際に何の種別を返すかを確かめる | ②4 |
+| write / setter / enum | 代入（write）はv1のrelation kindに無い（fixtureは代入を線にも根拠にもしていない）。setter・enumはv1の宣言kindに無い（ec-backendのsrcでは未発生）。readへ畳むか等 | 前提1・②4 |
+| 動的なtest名 | `TestIdentity.name` / `suite` はnullを許さない。静的に解けないeachのtemplate等の出し方 | ②4 |
+
+実装より前にAI 判断で決めたもの（旧N）:
+
+| 項目 | 決めたこと | 理由 |
+| --- | --- | --- |
+| 意味・付与された線・setupのkind | 開いた文字列。表示名はUIの[labels.ts](src/labels.ts)、知らない種類はそのまま出す | 新しいpluginのためにschemaを変えなくてよい（前提2） |
+| 1つの対象に異なる意味が並んだとき | 先頭（provider ID順）を表示する | 並び順の規則で一意に決まる（②4）。ec-backendでは起きない |
+| `DI / 初期化` の注記 | 残す | 地図の見え方を変えない（前提1）。詳細はsetupが持つ |
+| setupを照合できなかったcall | DIを経由しない呼出は `setup: null`（分類「関数」）。由来が解けないcallは `resolution: 'unresolved'` | 無いことと分からないことを分けて見せる（②4） |
+| 空の列 | groupの無い列は配信しない | 空の列は何も示さない（②1）。fixtureは「未分類」列を持たない |
+| `returns` の型 | v1の型から外した | 出力しないものを型に残さない（②4） |
+| E2E範囲がサンプリングであることの書き方 | configのE2E範囲とrunnerの設定のtest対象を比べ、一部なら「一部のみ」 | 人が書き忘れても一部と分かる（②4） |
 
 ### O. 今は扱わないもの
 
@@ -1392,28 +1289,23 @@ v1の形では表せないが、今は扱わないもの。構造変更を提案
 
 ### P. 確認状況
 
-2026-09-23時点（下の2026-09-24の項を除く）。
+**2026-09-24（この計画の形への反映）**:
 
-2026-09-24の変更（1節の責務の表、処理の形A、plugin は付与だけ、線・宣言の種類と付与された意味の分離、setup）は設計だけで、v1のschema・手書きfixture・UIには未反映（[付録L](#l-uiの追従)）。下の照合結果は、移行前の種類（`schema`・`register` 等を線の種類として持つ形）でのもの。
+- schema・fixture・UIを[付録L](#l-uiの追従)のとおり更新した。検証: `pnpm typecheck`・`pnpm test`（213件）・`pnpm lint`・`pnpm build`・`pnpm test:browser`（39件、PC・タブレット・モバイル）がすべて通る。
+- fixture: 34 group（ライブラリ11）・129宣言・relation 235本（コアの線163、うち意味付き24。付与された線72: middleware 62・event 1・register 9）。setup 39件（inject 16・middleware 19・config-override 2・lifecycle 2）。宣言の `hints` は48件。
+- Unit: ec-backendの12ファイル・212 caseを、TS Compiler APIのスクリプトで[付録F](#f-unit)の規則どおりに結んだ。151 caseが25宣言に付く（延べ211行）。setupは `createTestTarget` 12か所で、分類はSolitary・Sociable・関数のすべてが現れる（例: `CartService.addItem` はSolitary（mock: MemoryKVAdaptor, ProductService）とSociable、`requireUser` は関数）。
+- E2E: routeを登録した16 methodのすべてが「一部のみ」。productを送らない11は0件。
+- 表示の回帰（`src/test-fixtures/legacy-display.json` の120状態）は、変更前後の投影を突き合わせてから再生成した。差は、appに登録された9箱の「Compositionとの関係あり」チップ、`LifecycleManager` と `returns` の線3本の消滅、Config列を隠したときにライブラリのconfig箱が残り列が詰まることだけ（[README](README.md)）。その後、隠した列のチップを廃止したとき（9/24）にもう一度再生成した。差は「<列名>との関係あり」チップの消滅（とその分の高さ・y）だけ。
 
-確認したこと:
+**2026-09-23までの確認**（数は当時のfixtureのもの）:
 
-- v1の型は `src/snapshot-schema.lib.ts` と照合した。[付録A](#a-出力の形)の差分以外は変えていない（mockは差分を反映済み）。
-- 移行後の手書きfixture: 35 group（ライブラリ12）・130宣言・relation 238本。`expandedY`・`entries`・`demoScenarios`・`redacted`・`presentation.origin` は無い。宣言の `hints` は53件（DI 16・route 16・EVENT 1・core自動登録 2・valibot 6・drizzle 12）から、ライブラリの箱で消えたconstructorのDI 5件を引いた48件。groupの `hints` は全件空。excerptは宣言が `code` 124・`declaration-only` 6（すべて `src/config/`）、groupは41→35件すべて `declaration-only`。relation kindに `write` は無い。
-- contractは `CartService` → `KVStore`（interface）の6本だけ。ホワイトリストのパッケージでアプリが呼ぶinterfaceのmemberは `KVStore` の3つだけ（`req.body()` の `RequestAccessor` は型alias、`requestContext()` の戻り値はhonoの型）。
-- callbackの宣言は18個。ec-backendのsrcの引数callback 17個（TS Compiler APIで列挙）と、`EcJwtConfig.resolveUser` が返す関数1個。関係の所有は、各根拠の式の位置を実コードで引き直し、最内のcallbackと一致することを確かめた（186件）。
-- ライブラリの箱（[4.2](#42-ライブラリは接点だけから)）: 移行前の外部18 groupから、アプリが使わない6 groupと、使わないメンバー43個、箱の中から出ていた線38本、ライブラリ自身のUnit test 6 case（`JwtService.sign` 1・`verify` 3・`decode` 2）を外した。
+- v1の型は `src/snapshot-schema.lib.ts` と照合し、[付録A](#a-出力の形)の差分以外は変えていない。
+- contractは `CartService` → `KVStore`（interface）の6本だけ。
+- callbackの宣言は18個（引数callback 17個と、`EcJwtConfig.resolveUser` が返す関数1個）。関係の所有は、各根拠の式の位置を実コードで引き直し、最内のcallbackと一致することを確かめた（186件）。
+- ライブラリの箱: 移行前の外部18 groupから、アプリが使わない6 group、使わないメンバー43個、箱の中から出ていた線38本、ライブラリ自身のUnit test 6 caseを外した。
 - routeの注記は、Zeltの `joinPath` と同じく末尾の `/` を付けない（`@Get('/')` は `GET /api/products`）。
-- 3節の `AuthController.register` は、実コード（auth.controller.ts 13〜19行）とfixtureの該当宣言（call 1本・middleware 4本・schema 1本・注記 `POST /api/auth/register`・E2E「未収録」）を照合した。E2Eは「一部のみ・0件」に直す必要がある（4.4）。fixtureのgroupにparameter propertyの宣言は無い。
-- ec-backendのsrcにsetter・enumは無い。
-- E2E caseは延べ20件で、`product.spec.ts` のサンプリング（routeを登録した16 methodのうち5つに付き、fixtureは他の11を「未収録」にしている。「一部のみ・0件」に直す必要がある）。
-- ec-backendのUnit testは12ファイル・212 case（`it`・`test` の呼出を文字列で数えた概数。`each` の展開を含まない）。fixtureは未反映。
-- 4.1・4.6（旧5節）の件数: ec-backendのsrc（test除く）のparameter propertyはTS Compiler APIで数えて10 class・14件、それを読む組は延べ36（入れ子関数を外側に含めた数）。付録Aの注記規則で2つ以上付く宣言は無い。URLに保存するのは `node`・`root`・`mode`・`tab` で、未知IDは通知を出して初期表示のまま（e2e testあり）。
-- 5.5（旧5.7）の件数は、ec-backendのsrcの文字列検索による概数。
+- ec-backendのsrcにsetter・enumは無い。parameter propertyは10 class・14件。
+- config＋規則との照合（TS Compiler APIで宣言と線を導いてfixtureとdiffするスクリプト）: 列・groupの列・宣言のkind・excerpt・注記は `order:created` 以外で一致。線は238本中236本が一致。
+- config＋規則で説明できないfixtureの箇所（直していない）: `order:created` をfile groupに置いた（declaration merge、[付録O](#o-今は扱わないもの)）、emit/onのevent名から `order:created` への `type` 2本（根拠が相手側の宣言位置）、`DrizzleService.db` の `typeof schema`（namespace import）への線が無い。`@Authorized()` の扱いは、2026-09-24にsetup `middleware`（target無し）として解消した。
 
-- config＋規則との照合（[ec-backend.extract.json](ec-backend.extract.json)を読み、TS Compiler APIで宣言と線を導いてfixtureとdiffするスクリプト。pluginの事実はpackageのSymbolへの解決とdecoratorの構文で近似）: 列（IDとlabelと並び）・groupの列とrole・宣言のkind・excerptの `code` / `declaration-only`・注記はすべて一致（宣言130のうち `order:created` 以外の129）。E2E一覧を持つ宣言は、plugin:zeltのrouteを登録した16 methodと一致。線は238本中236本が一致。
-- 照合で直したfixture: 同じ2点間の `read` と `register` の重複を `register` 1本に（1件、4.1）、classに付いた `@UseMiddleware` のmiddleware線の根拠をclassのdecoratorの行へ（8本）、使用箇所の一部しか並べていなかった根拠を全箇所に（15本）、代入の行を根拠にしていた `DrizzleService.constructor` → `sqlite` の根拠を読む行へ（1本）、`CartService.store: KVStore` の型参照の線を追加（1本）。規則側は、地図外に解決されるcallのcalleeへのreadを明記した（付録B）。このとき `returns` を「関数を返す」とした規則は、9/23の決定（戻り値は型で表す）で置き換えた。
-- config＋規則で説明できないfixtureの箇所（fixtureは直していない）: `order:created` をfile groupに置いた（declaration merge、付録O）、emit/onのevent名から `order:created` への `type` 2本（根拠が相手側の宣言位置で、規則が無い）、overloadの `LifecycleManager.register` の所在を実装側にした（付録O）、`DrizzleService.db` の `typeof schema`（namespace import）への線が無い、`@Authorized()` が足す認可middlewareの扱い（classでなく関数のmiddleware）。
-- 9/23の決定で解消した照合差: `inject(…)`・`@UseMiddleware(…)` に渡したclassへの `read` 22本はfixtureに無くてよい（classを値として渡す式は線にしない）。E2Eの付与（`beforeAll` のapp、テンプレート文字列のURL 4件、局所helper `createProduct` 経由6件）は付録Gの初版で結べるようにした。product以外の11 routeの「未収録」は「一部のみ・0件」に直す（付録L）。
-
-未検証: 型ブロックと設定例の型検査（配信型の差分ブロックはv1の型を前提にしており単独では検査していない）、Mermaidの描画（構文は13図すべてmermaid 11.17.0のparseで確認済み、2026-09-24）、読みやすさのユーザー評価、抽出器の動作。受入条件はすべて未検証。
+未検証: 型ブロックと設定例の型検査（配信型の差分ブロックは単独では検査していない）、Mermaidの描画、読みやすさのユーザー評価、抽出器の動作。受入条件（[付録M](#m-完了判定)）は、抽出器が無いので未検証。
