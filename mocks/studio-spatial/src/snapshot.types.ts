@@ -9,14 +9,16 @@ import type {
   EndpointCoverageSchema,
   EndpointTestCaseSchema,
   EndpointTestsSchema,
+  GrantedRelationSchema,
   GroupIdSchema,
   GroupPresentationSchema,
   HintSchema,
   MapPresentationSchema,
+  MeaningSchema,
   RelationEvidenceSchema,
   RelationIdSchema,
-  RelationKindSchema,
   SetupIdSchema,
+  SetupItemSchema,
   SourceDeclarationSchema,
   SourceDetailSchema,
   SourceGraphSchema,
@@ -27,6 +29,8 @@ import type {
   SubjectIdSchema,
   TestIdentitySchema,
   TestIdSchema,
+  TsRelationKindSchema,
+  TsRelationSchema,
   UnitSetupSchema,
   UnitTestCaseSchema,
   UnitTestsSchema,
@@ -45,7 +49,11 @@ export type SourceGraph = InferOutput<typeof SourceGraphSchema>;
 export type SourceGroup = InferOutput<typeof SourceGroupSchema>;
 export type DeclarationKind = InferOutput<typeof DeclarationKindSchema>;
 export type SourceDeclaration = InferOutput<typeof SourceDeclarationSchema>;
-export type RelationKind = InferOutput<typeof RelationKindSchema>;
+export type TsRelationKind = InferOutput<typeof TsRelationKindSchema>;
+export type TsRelation = InferOutput<typeof TsRelationSchema>;
+export type GrantedRelation = InferOutput<typeof GrantedRelationSchema>;
+export type Meaning = InferOutput<typeof MeaningSchema>;
+export type SetupItem = InferOutput<typeof SetupItemSchema>;
 export type SourceRelation = InferOutput<typeof SourceRelationSchema>;
 export type SourceLocation = InferOutput<typeof SourceLocationSchema>;
 export type RelationEvidence = InferOutput<typeof RelationEvidenceSchema>;

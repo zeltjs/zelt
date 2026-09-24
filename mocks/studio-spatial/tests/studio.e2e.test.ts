@@ -20,8 +20,9 @@ test('fetches JSON, shows the map without composition, and keeps every group col
   const response = page.waitForResponse((r) => r.url().endsWith('ec-backend.snapshot.json'));
   await page.goto('/');
   expect((await response).ok()).toBe(true);
-  await expect(page.locator('[data-group]')).toHaveCount(34);
+  await expect(page.locator('[data-group]')).toHaveCount(33);
   await expect(page.locator('[data-group="app.ts"]')).toHaveCount(0);
+  await expect(page.locator('[data-column-toggle="column:composition"]')).not.toBeChecked();
   await expect(page.locator('[data-declaration]')).toHaveCount(0);
   await expect(page.locator('#root-select, #category, #scenario')).toHaveCount(0);
   for (const id of ['ProductController', 'schema.ts', 'user.types.ts']) {
@@ -80,7 +81,19 @@ test('preserves middleware tags and matches collapsed owner emphasis', async ({ 
   await expect(group.locator('.ref-middleware.dimmed')).toHaveCount(count);
 });
 
-test('toggles type/count/config visibility and exposes hidden config relations', async ({
+// A hidden column leaves nothing behind: every wire and chip must point at a box on the map.
+async function expectOnlyDrawnRelations(page: Page) {
+  const ends = await page
+    .locator('.wire')
+    .evaluateAll((els) =>
+      els.flatMap((e) => [e.getAttribute('data-from'), e.getAttribute('data-to')]),
+    );
+  for (const id of new Set(ends))
+    await expect(page.locator(`[data-group="${id}"], [data-declaration="${id}"]`)).toHaveCount(1);
+  await expect(page.locator('.reference-tag', { hasText: 'との関係' })).toHaveCount(0);
+}
+
+test('toggles type/count/column visibility and drops relations to hidden columns', async ({
   page,
 }) => {
   await page.goto('/');
@@ -93,19 +106,81 @@ test('toggles type/count/config visibility and exposes hidden config relations',
   await expect(page.locator('.bundle-count')).toHaveCount(0);
   // The fixture's only config relation is a type reference, so type arrows must be shown again.
   await page.locator('#show-type-arrows').check();
-  await page.locator('#show-config').uncheck();
-  await expect(page.locator('[data-group="JwtConfig"]')).toHaveCount(0);
-  await page.locator('[data-group="user.types.ts"] .ref-config').click();
-  await expect(page.locator('#reference-dialog')).toBeVisible();
-  await page
-    .locator('#reference-dialog [data-reference-jump="EcJwtConfig.resolveUser@callback:0"]')
-    .first()
-    .click();
-  await expect(page.locator('#show-config')).toBeChecked();
-  await expect(page.locator('.inspector-heading h2')).toHaveText('@callback:0');
-  await page.locator('#reference-back').click();
-  await expect(page.locator('#show-config')).not.toBeChecked();
-  await expect(page.locator('.inspector-heading h2')).toHaveText('schema.ts');
+  const config = page.locator('[data-column-toggle="column:5"]');
+  await config.uncheck();
+  await expect(page.locator('[data-group="EcJwtConfig"]')).toHaveCount(0);
+  await expect(page.locator('[data-group="user.types.ts"] .reference-tag')).toHaveCount(0);
+  await expectOnlyDrawnRelations(page);
+  const library = page.locator('[data-column-toggle="column:6"]');
+  await library.uncheck();
+  await expect(page.locator('[data-group="JwtService"]')).toHaveCount(0);
+  await expect(page.locator('[data-group="AuthService"] .reference-tag')).toHaveCount(0);
+  await expectOnlyDrawnRelations(page);
+  await library.check();
+  await expect(page.locator('[data-group="JwtService"]')).toHaveCount(1);
+});
+
+// One group per column, so each heading can be checked against the boxes drawn beneath it.
+const columnSamples: readonly (readonly [string, string, string])[] = [
+  ['column:composition', 'Composition', 'app.ts'],
+  ['column:0', 'Entry / Middleware', 'AuthController'],
+  ['column:1', 'Use case', 'AuthService'],
+  ['column:2', 'Domain', 'auth.schema.ts'],
+  ['column:4', 'Adapter / Infrastructure', 'DrizzleService'],
+  ['column:5', 'Config', 'EcJwtConfig'],
+  ['column:6', 'ライブラリ', 'JwtConfig'],
+];
+
+async function expectHeadingsOverTheirBoxes(page: Page, hidden: readonly string[]) {
+  const shown = columnSamples.filter(([id]) => !hidden.includes(id));
+  await expect(page.locator('#column-headings span')).toHaveText(shown.map(([, label]) => label));
+  const scroll = await page.locator('#map-scroll').boundingBox();
+  if (!scroll) throw new Error('map is not rendered');
+  for (const [, label, group] of shown) {
+    const heading = await page.locator('#column-headings span', { hasText: label }).boundingBox();
+    const box = await page.locator(`[data-group="${group}"]`).boundingBox();
+    if (!heading || !box) throw new Error(`missing heading or box for ${label}`);
+    expect(heading.y).toBeGreaterThanOrEqual(scroll.y);
+    expect(heading.y + heading.height).toBeLessThanOrEqual(scroll.y + scroll.height);
+    expect(box.x).toBeGreaterThanOrEqual(heading.x);
+    expect(box.x + box.width).toBeLessThanOrEqual(heading.x + heading.width);
+  }
+}
+
+test('keeps every shown column heading in view and above its boxes while columns are toggled', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.locator('[data-group]')).toHaveCount(33);
+  await expectHeadingsOverTheirBoxes(page, ['column:composition']);
+  await page.locator('[data-column-toggle="column:composition"]').check();
+  await expectHeadingsOverTheirBoxes(page, []);
+  await page.locator('[data-column-toggle="column:composition"]').uncheck();
+  await page.locator('[data-column-toggle="column:5"]').uncheck();
+  await expectHeadingsOverTheirBoxes(page, ['column:composition', 'column:5']);
+  await page.locator('[data-column-toggle="column:5"]').check();
+  await page.locator('[data-column-toggle="column:6"]').uncheck();
+  await expectHeadingsOverTheirBoxes(page, ['column:composition', 'column:6']);
+  await expect(page.locator('#hidden-columns-notice')).toHaveCount(0);
+});
+
+test('hiding a column removes its boxes, the wires to them and every chip about them', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('.group-heading[data-select="AuthService"]').click();
+  await expect(page.locator('.wire[data-to="JwtService"]')).not.toHaveCount(0);
+  await expect(page.locator('[data-group="AuthController"] .reference-tag')).toContainText([
+    '適用: Jwt',
+  ]);
+  await page.locator('[data-column-toggle="column:6"]').uncheck();
+  await expect(page.locator('[data-group="JwtService"]')).toHaveCount(0);
+  await expect(page.locator('.wire[data-to="JwtService"]')).toHaveCount(0);
+  await expect(page.locator('[data-group="AuthController"] .reference-tag')).not.toContainText([
+    'Jwt',
+  ]);
+  await expect(page.locator('[data-group="AuthService"] .reference-tag')).toHaveCount(0);
+  await expectOnlyDrawnRelations(page);
 });
 
 test('shows unit and endpoint test tables separately from source', async ({ page }) => {
@@ -125,27 +200,54 @@ test('shows unit and endpoint test tables separately from source', async ({ page
   await find(page, 'CreateProductSchema');
   await expect(page.locator('.unit-test')).toHaveCount(0);
   await expect(page.locator('.e2e-test')).toHaveCount(0);
+  await find(page, 'POST /api/auth/register', 'AuthController.register', 'register');
+  await expect(page.locator('.endpoint-tests .test-coverage')).toContainText('一部のみ · 0件');
+  await expect(page.locator('.e2e-test')).toHaveCount(0);
+  await find(page, 'AuthService#register', 'AuthService.register', 'register');
+  expect(await page.locator('.unit-test').count()).toBeGreaterThan(0);
+  await expect(page.locator('.unit-test .test-style')).toContainText(['Sociable']);
+  await find(page, 'requireUser');
+  await expect(page.locator('.unit-test .test-style').first()).toHaveText('関数');
+});
+
+test('shows setup in the details, not as lines on the map', async ({ page }) => {
+  await page.goto('/');
+  await find(page, 'AuthController#constructor', 'AuthController.constructor', 'constructor');
+  const setup = page.locator('.setup-item');
+  await expect(setup).toHaveCount(1);
+  await expect(setup.locator('code')).toHaveText('inject(AuthService)');
+  await expect(page.locator('.wire[data-to="AuthService"]')).toHaveCount(0);
+  await setup.locator('[data-select="AuthService"]').click();
+  await expect(page.locator('.inspector-heading h2')).toHaveText('AuthService');
+  await find(page, 'AuthController');
+  await expect(page.locator('.setup-item code')).toHaveText([
+    'inject(AuthService)',
+    "@RateLimit({ limit: 3, windowSec: 60, key: 'auth:register' })",
+    "@RateLimit({ limit: 5, windowSec: 60, key: 'auth:login' })",
+    '@UseMiddleware(JwtMiddleware)',
+  ]);
 });
 
 test('allocates tag space only while tags are rendered, including dimmed and expanded nodes', async ({
   page,
 }) => {
   await page.goto('/');
-  const group = page.locator('[data-group="user.types.ts"]');
+  // Hiding the library column takes CartController's library middleware tags away, keeping Logging.
+  const group = page.locator('[data-group="CartController"]');
+  const library = page.locator('[data-column-toggle="column:6"]');
   for (const expanded of [false, true]) {
     if (expanded) await group.locator('[data-toggle]').click();
     const baseHeight = 62 + (await group.locator('[data-declaration]').count()) * 46;
-    await expect(group).toHaveCSS('height', `${baseHeight}px`);
-    await expect(group.locator('.group-references')).toHaveCount(0);
-    await page.locator('#show-config').uncheck();
-    await expect(group.locator('.ref-config')).toHaveText('設定との関係あり');
+    await expect(group.locator('.reference-tag')).toHaveCount(4);
+    await expect(group).toHaveCSS('height', `${baseHeight + 74}px`);
+    await library.uncheck();
+    await expect(group.locator('.reference-tag')).toHaveText(['適用: Logging']);
     await expect(group).toHaveCSS('height', `${baseHeight + 48}px`);
-    await page.locator('.group-heading[data-select="ProductController"]').click();
+    await page.locator('.group-heading[data-select="AuthService"]').click();
     await expect(group).toHaveClass(/dimmed-group/);
     await expect(group).toHaveCSS('height', `${baseHeight + 48}px`);
-    await page.locator('#show-config').check();
-    await expect(group.locator('.group-references')).toHaveCount(0);
-    await expect(group).toHaveCSS('height', `${baseHeight}px`);
+    await library.check();
+    await expect(group).toHaveCSS('height', `${baseHeight + 74}px`);
   }
 });
 
@@ -168,13 +270,23 @@ test('restores node, lock, mode and tab on reload and browser back/forward', asy
   await expect(page.locator('[data-tab="contract"]')).toHaveAttribute('aria-selected', 'true');
 });
 
-test('shows composition and help without introducing graph nodes', async ({ page }) => {
+test('reaches the composition through search and hides it with its wires', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#composition-button').click();
-  await expect(page.locator('#reference-dialog')).toBeVisible();
-  await page.locator('[data-composition-source]').click();
+  await expect(page.locator('[data-group="AuthController"] .reference-tag')).not.toContainText([
+    'Composition',
+  ]);
+  await find(page, 'createEcApp');
+  await expect(page.locator('[data-column-toggle="column:composition"]')).toBeChecked();
+  expect(await page.locator('.wire[data-from="createEcApp"]').count()).toBeGreaterThan(0);
+  await expect(page.locator('[data-group="app.ts"]')).toHaveCount(1);
+  await expect(page.locator('.inspector-heading h2')).toHaveText('createEcApp');
+  await expect(page.locator('[data-action="as-root"]')).toBeEnabled();
+  await page.locator('[data-tab="source"]').click();
   await expect(page.locator('.source-code')).toContainText('createEcApp');
-  await expect(page.locator('[data-action="as-root"]')).toBeDisabled();
+  await page.locator('[data-column-toggle="column:composition"]').uncheck();
+  await expect(page.locator('[data-group="app.ts"]')).toHaveCount(0);
+  await expect(page.locator('.wire[data-from="createEcApp"]')).toHaveCount(0);
+  await expectOnlyDrawnRelations(page);
   await page.locator('[data-action="help"]').click();
   await expect(page.locator('#help-dialog')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -209,7 +321,7 @@ test('keeps drawing operations local while preserving zoom, bulk folding and key
   await expect(page.locator('[data-tab="source"]')).toBeFocused();
   await expect(page.locator('.source-code')).toContainText('sign');
   await page.locator('[data-action="expand-all"]').click();
-  await expect(page.locator('[data-toggle][aria-expanded="true"]')).toHaveCount(34);
+  await expect(page.locator('[data-toggle][aria-expanded="true"]')).toHaveCount(33);
   await page.locator('[data-action="collapse-all"]').click();
   await expect(page.locator('[data-declaration]')).toHaveCount(0);
   await expect.poll(() => page.locator('#map-scroll').evaluate((el) => el.scrollTop)).toBe(0);

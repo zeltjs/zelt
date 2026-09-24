@@ -25,27 +25,32 @@ const golden = parse(
   JSON.parse(readFileSync(new URL('./test-fixtures/legacy-display.json', import.meta.url), 'utf8')),
 );
 const graph = fixture();
-// The tag appears only when config boxes are hidden and the type relation it stands for is shown.
-const configTagCount = (showConfig: boolean, showTypes: boolean) =>
-  !showConfig && showTypes ? 1 : 0;
+const displayOwner = (id: string) => required(graph.owners, id).id;
+// The golden states name the Config column's visibility; Composition stays hidden as it starts.
+const hiddenColumns = (showConfig: boolean) =>
+  showConfig ? ['column:composition'] : ['column:composition', 'column:5'];
 
 describe('Presenter preserves the pre-React display contract', () => {
   it.each(
     golden,
   )('matches legacy projection: $node/$mode expanded=$expanded config=$showConfig types=$showTypes', (test) => {
     const view: ViewState = {
-      ...initialView(),
+      ...initialView(graph),
       node: test.node,
       scope: { kind: 'following', mode: test.mode },
       expanded: test.expanded ? [...graph.groups.keys()] : [],
-      options: { showConfig: test.showConfig, showTypes: test.showTypes, showCounts: true },
+      options: {
+        hiddenColumns: hiddenColumns(test.showConfig),
+        showTypes: test.showTypes,
+        showCounts: true,
+      },
     };
     const model = presentMap(graph, view);
     // Hash geometry under one fixed tag-reservation policy so the golden covers ordering and
     // stacking; visible-tag geometry is verified independently below.
     const legacyGeometry = layout(graph, {
       ...view,
-      options: { ...view.options, showConfig: false, showTypes: true },
+      options: { ...view.options, showTypes: true },
     });
     const groups = model.groups.map((g) => ({
       id: g.id,
@@ -71,7 +76,7 @@ describe('Presenter preserves the pre-React display contract', () => {
   });
   it('keeps every collapsed attachment at the same emphasis as its owner', () => {
     for (const node of graph.owners.keys()) {
-      const model = presentMap(graph, { ...initialView(), node });
+      const model = presentMap(graph, { ...initialView(graph), node });
       for (const group of model.groups)
         for (const tag of group.tags) expect(tag.dimmed).toBe(group.dimmed);
     }
@@ -84,29 +89,28 @@ describe('Presenter preserves the pre-React display contract', () => {
   ])('reserves space only for rendered tags: expanded=%s config=%s', (expanded, showConfig) => {
     for (const showTypes of [false, true]) {
       const view: ViewState = {
-        ...initialView(),
+        ...initialView(graph),
         node: 'ProductController.create',
         expanded: expanded ? [...graph.groups.keys()] : [],
-        options: { showConfig, showTypes, showCounts: true },
+        options: { hiddenColumns: hiddenColumns(showConfig), showTypes, showCounts: true },
       };
       const model = presentMap(graph, view);
       for (const group of model.groups) {
         const tagHeight = group.tags.length ? 22 + Math.ceil(group.tags.length / 2) * 26 : 0;
         expect(group.rect.height).toBe(62 + group.members.length * 46 + tagHeight);
       }
-      // The only config tag in the fixture: EcJwtConfig's resolveUser callback types EcUser.
+      // EcJwtConfig's resolveUser callback types EcUser; hiding Config must leave no trace of it.
       const users = model.groups.find((g) => g.id === 'user.types.ts');
-      expect(users?.tags.length).toBe(configTagCount(showConfig, showTypes));
-      expect(users).toMatchObject({ dimmed: true });
+      expect(users).toMatchObject({ dimmed: true, tags: [] });
     }
   });
   it.each([false, true])('keeps subsequent nodes from overlapping: expanded=%s', (expanded) => {
     for (const showConfig of [false, true]) {
-      const view = initialView();
+      const view = initialView(graph);
       const model = presentMap(graph, {
         ...view,
         expanded: expanded ? [...graph.groups.keys()] : [],
-        options: { ...view.options, showConfig },
+        options: { ...view.options, hiddenColumns: hiddenColumns(showConfig) },
       });
       for (const column of graph.snapshot.graph.presentation.columns) {
         const groups = model.groups.filter(
@@ -124,7 +128,7 @@ describe('Presenter preserves the pre-React display contract', () => {
   it('does not mutate source data or widen traversal when folding or hiding config/types', () => {
     const before = JSON.stringify(graph.snapshot);
     const view: ViewState = {
-      ...initialView(),
+      ...initialView(graph),
       node: 'OrderService.findById',
       scope: { kind: 'following', mode: 'flow' },
     };
@@ -132,7 +136,7 @@ describe('Presenter preserves the pre-React display contract', () => {
     const altered = {
       ...view,
       expanded: [...graph.groups.keys()],
-      options: { showTypes: false, showCounts: false, showConfig: false },
+      options: { showTypes: false, showCounts: false, hiddenColumns: hiddenColumns(false) },
     };
     presentMap(graph, altered);
     expect(scopeRelations(graph, altered)).toEqual(expected);
@@ -140,14 +144,53 @@ describe('Presenter preserves the pre-React display contract', () => {
   });
   it('does not switch direction at shared dependencies', () => {
     const view: ViewState = {
-      ...initialView(),
+      ...initialView(graph),
       node: 'ProductController.create',
       scope: { kind: 'following', mode: 'flow' },
     };
     const edges = scopeRelations(graph, view);
     expect(edges.some((e) => e.from === 'ProductService.create')).toBe(true);
     expect(edges.some((e) => e.from === 'OrderController.create')).toBe(false);
-    expect(edges.some((e) => e.kind === 'middleware')).toBe(false);
+    expect(edges.some((e) => e.origin === 'plugin' && e.kind === 'middleware')).toBe(false);
+  });
+});
+
+describe('Presenter keeps the look of meanings and hides columns with their relations', () => {
+  it('shows the granted meaning on wires and declarations, as before the split', () => {
+    const view: ViewState = {
+      ...initialView(graph),
+      node: 'AuthService.register',
+      expanded: ['AuthService', 'schema.ts'],
+    };
+    const model = presentMap(graph, view);
+    expect(model.edges.map((e) => e.kind)).toContain('table');
+    const users = model.groups
+      .find((g) => g.id === 'schema.ts')
+      ?.members.find((m) => m.id === 'users');
+    expect(users?.kind).toBe('TABLE');
+  });
+  it('starts with the composition column hidden, leaving no box, wire or tag for it', () => {
+    const model = presentMap(graph, initialView(graph));
+    expect(model.groups.map((g) => g.id)).not.toContain('app.ts');
+    expect(model.columns.map((c) => c.label)).not.toContain('Composition');
+    const onMap = new Set(model.groups.map((g) => g.id));
+    expect(
+      model.edges.flatMap((e) => [e.from, e.to]).every((id) => onMap.has(displayOwner(id))),
+    ).toBe(true);
+    const registered = model.groups.find((g) => g.id === 'AuthController')?.tags;
+    expect(registered?.map((t) => t.label)).not.toContain('Compositionとの関係あり');
+  });
+  it('hides the library column like any other column', () => {
+    const view = initialView(graph);
+    const model = presentMap(graph, {
+      ...view,
+      options: { ...view.options, hiddenColumns: ['column:composition', 'column:6'] },
+    });
+    expect(model.groups.map((g) => g.id)).not.toContain('JwtService');
+    expect(model.groups.find((g) => g.id === 'AuthService')?.tags).toEqual([]);
+    const applied = model.groups.find((g) => g.id === 'AuthController')?.tags.map((t) => t.label);
+    expect(applied).toContain('適用: Logging');
+    expect(applied).not.toContain('適用: Jwt');
   });
 });
 
@@ -171,7 +214,7 @@ describe('Presenter shows hints and names instead of identities', () => {
   ]);
   it('lists every hint label as its own line and pushes later rows down', () => {
     const model = presentMap(hinted, {
-      ...initialView(),
+      ...initialView(hinted),
       expanded: ['["class","a.ts","Routes"]'],
     });
     const [routes] = model.groups;
@@ -185,7 +228,7 @@ describe('Presenter shows hints and names instead of identities', () => {
   });
   it('titles wires with names', () => {
     const model = presentMap(hinted, {
-      ...initialView(),
+      ...initialView(hinted),
       node: '["route"]',
       expanded: ['["class","a.ts","Routes"]'],
     });

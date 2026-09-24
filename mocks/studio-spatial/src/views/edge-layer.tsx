@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import type { EdgeModel } from '../display.types';
-import { relationLabels } from '../labels';
+import { relationKinds } from '../labels';
 
 export function EdgeLayer({
   edges,
@@ -13,7 +13,7 @@ export function EdgeLayer({
 }) {
   return (
     <svg id="map-wires" width={width} height={height} aria-hidden="true">
-      <EdgeMarkers />
+      <EdgeMarkers kinds={[...new Set([...relationKinds, ...edges.map((e) => e.kind)])]} />
       {edges.map((edge) => (
         <Fragment key={edge.key}>
           <path
@@ -39,10 +39,10 @@ export function EdgeLayer({
   );
 }
 
-function EdgeMarkers() {
+function EdgeMarkers({ kinds }: { readonly kinds: readonly string[] }) {
   return (
     <defs>
-      {Object.keys(relationLabels).map((kind) => (
+      {kinds.map((kind) => (
         <Fragment key={kind}>
           <marker
             id={`arrow-${kind}`}

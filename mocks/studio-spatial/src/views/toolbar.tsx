@@ -28,13 +28,6 @@ export function StudioToolbar({
         >
           図の読み方
         </button>
-        <button
-          type="button"
-          id="composition-button"
-          onClick={() => send({ type: 'composition.open' })}
-        >
-          アプリ構成
-        </button>
         <button type="button" data-action="reset" onClick={() => send({ type: 'view.reset' })}>
           リセット
         </button>

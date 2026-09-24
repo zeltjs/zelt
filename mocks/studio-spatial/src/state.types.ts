@@ -17,7 +17,7 @@ export interface Viewport {
 export interface ViewOptions {
   readonly showTypes: boolean;
   readonly showCounts: boolean;
-  readonly showConfig: boolean;
+  readonly hiddenColumns: readonly string[];
 }
 export type Scope =
   | { kind: 'following'; readonly mode: ScopeMode }
@@ -30,10 +30,6 @@ export interface ViewState {
   readonly options: ViewOptions;
   readonly query: string;
 }
-export type Dialog =
-  | { kind: 'composition' }
-  | { kind: 'relations'; readonly groupId: string; readonly relationIds: readonly string[] }
-  | null;
 export interface HistoryItem {
   readonly view: ViewState;
   readonly viewport: Viewport;
@@ -47,7 +43,6 @@ export interface ReadyState {
   readonly requestId: number;
   readonly graph: Graph;
   readonly view: ViewState;
-  readonly dialog: Dialog;
   readonly help: boolean;
   readonly history: readonly HistoryItem[];
   readonly viewport: Viewport;

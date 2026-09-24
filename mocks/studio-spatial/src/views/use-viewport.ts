@@ -11,16 +11,17 @@ export function useViewport(width: number, command: ViewportCommand | null, emit
     pending = useRef<Point | null>(null);
   const { view, measure } = useMeasurement(element, zoomRef, emit);
   const changeZoom = useCallback(
-    (value: number | 'fit') => {
+    (value: number | 'fit', anchor: 'center' | 'corner' = 'center') => {
       const el = element.current;
       if (!el) return;
       const next = Math.max(
         0.15,
         Math.min(1.4, value === 'fit' ? (el.clientWidth - 20) / width : value),
       );
+      const at = anchor === 'center' ? 0.5 : 0;
       pending.current = {
-        x: ((el.scrollLeft + el.clientWidth / 2) / zoomRef.current) * next - el.clientWidth / 2,
-        y: ((el.scrollTop + el.clientHeight / 2) / zoomRef.current) * next - el.clientHeight / 2,
+        x: ((el.scrollLeft + el.clientWidth * at) / zoomRef.current) * next - el.clientWidth * at,
+        y: ((el.scrollTop + el.clientHeight * at) / zoomRef.current) * next - el.clientHeight * at,
       };
       zoomRef.current = next;
       setZoom(next);
@@ -121,13 +122,15 @@ function useMeasurement(
 function useInitialFit(
   element: { readonly current: HTMLElement | null },
   width: number,
-  changeZoom: (value: number | 'fit') => void,
+  changeZoom: (value: number | 'fit', anchor: 'center' | 'corner') => void,
   measure: () => void,
 ) {
   useLayoutEffect(() => {
     const el = element.current;
     if (!el) return;
-    changeZoom(el.clientWidth < 600 ? 1 : Math.min(1, (el.clientWidth - 20) / width));
+    // Toggling a column changes the width and refits; anchoring on the centre would push the
+    // column headings above the scroll area, so the refit keeps the top-left edge in place.
+    changeZoom(el.clientWidth < 600 ? 1 : Math.min(1, (el.clientWidth - 20) / width), 'corner');
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();

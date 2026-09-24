@@ -3,6 +3,7 @@ import type { StudioEvent } from './events.types';
 import { fixture } from './fixture.lib';
 import { transition } from './mediator.lib';
 import { present } from './presenter.lib';
+import { attachments } from './relations.lib';
 import { scopeRelations } from './scope.lib';
 import { initialReady, urlState } from './state.lib';
 import type { ReadyState } from './state.types';
@@ -62,8 +63,9 @@ describe('Mediator transitions', () => {
     const state = initialReady(graph, 1);
     for (const event of [
       { type: 'scope.lock', locked: true },
-      { type: 'scope.start', id: 'createEcApp' },
+      { type: 'scope.start', id: 'missing' },
       { type: 'subject.select', id: 'missing' },
+      { type: 'column.toggle', id: 'missing', visible: true },
     ] satisfies StudioEvent[]) {
       const result = transition(state, event);
       expect(result.state).toMatchObject({ view: state.view, graph });
@@ -96,7 +98,12 @@ describe('Mediator transitions', () => {
       type: 'viewport.observed',
       value: { zoom: 0.7, rect: { x: 60, y: 140, width: 900, height: 600 } },
     });
-    const jumped = ready(before, { type: 'reference.jump', id: 'JwtConfig.secret' });
+    const tag = attachments(graph, before.view.options.hiddenColumns).find(
+      (a) => a.kind === 'middleware',
+    );
+    if (!tag) throw new Error('The fixture has no middleware tag');
+    const jumped = ready(before, { type: 'tag.activate', key: tag.key });
+    expect(jumped.view.node).toBe(tag.target);
     const restored = ready(jumped, { type: 'reference.back' });
     expect(restored.view).toEqual(before.view);
     expect(restored.command).toMatchObject({ kind: 'restore', viewport: before.viewport });

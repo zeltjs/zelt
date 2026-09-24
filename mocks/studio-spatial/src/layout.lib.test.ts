@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { required } from './graph.lib';
 import { presentInspector } from './inspector-presenter.lib';
-import { layout, position } from './layout.lib';
+import { isOnMap, layout, position } from './layout.lib';
 import { declaration, graphOf, group } from './snapshot-builder.lib';
 import { initialView } from './state.lib';
 import type { ViewState } from './state.types';
@@ -22,7 +22,7 @@ describe('layout orders groups inside a column by source position, not by calls 
       group('Alpha', [declaration('Alpha.run')], at('packages/x/alpha.ts')),
       group('Gamma', [declaration('Gamma.run', { calls: ['Beta.run'] })], at('src/app.ts')),
     ]);
-    expect(columnOrder(['Zeta', 'Beta', 'Alpha', 'Gamma'], initialView(), graph)).toEqual([
+    expect(columnOrder(['Zeta', 'Beta', 'Alpha', 'Gamma'], initialView(graph), graph)).toEqual([
       'Alpha',
       'Beta',
       'Gamma',
@@ -35,7 +35,7 @@ describe('layout orders groups inside a column by source position, not by calls 
       group('File', [declaration('File.run')], at('src/kv.ts', 1)),
       group('Early', [declaration('Early.run')], at('src/kv.ts', 19)),
     ]);
-    expect(columnOrder(['Late', 'File', 'Early'], initialView(), graph)).toEqual([
+    expect(columnOrder(['Late', 'File', 'Early'], initialView(graph), graph)).toEqual([
       'File',
       'Early',
       'Late',
@@ -48,10 +48,13 @@ describe('layout orders groups inside a column by source position, not by calls 
       group('Delta', [declaration('Delta.run')], { column: 'column:1', ...at('src/a.ts') }),
       group('Charlie', [declaration('Charlie.run')], { column: 'column:1', ...at('src/b.ts') }),
     ]);
-    const boxes = layout(graph, initialView()).boxes;
+    const boxes = layout(graph, initialView(graph)).boxes;
     expect(required(boxes, 'Alpha').y).toBe(required(boxes, 'Delta').y);
-    expect(columnOrder(['Bravo', 'Alpha'], initialView(), graph)).toEqual(['Alpha', 'Bravo']);
-    expect(columnOrder(['Charlie', 'Delta'], initialView(), graph)).toEqual(['Delta', 'Charlie']);
+    expect(columnOrder(['Bravo', 'Alpha'], initialView(graph), graph)).toEqual(['Alpha', 'Bravo']);
+    expect(columnOrder(['Charlie', 'Delta'], initialView(graph), graph)).toEqual([
+      'Delta',
+      'Charlie',
+    ]);
   });
 });
 
@@ -65,7 +68,7 @@ describe('an expanded group lists its members in source order, not in JSON order
     ]),
   ]);
   it('stacks member rows by their start line', () => {
-    const view = { ...initialView(), expanded: ['Service'] };
+    const view = { ...initialView(graph), expanded: ['Service'] };
     const geometry = layout(graph, view);
     const ids = ['Service.run', 'Service.constructor', 'Service.run@callback:0', 'Service.store'];
     const top = (id: string) => position(graph, view, geometry, id).y;
@@ -96,7 +99,7 @@ describe('layout stacks the current group heights', () => {
     group('Service', [declaration('Service.run')], { column: 'column:1' }),
   ]);
   it('starts every column at the same top and keeps one gap between groups', () => {
-    const boxes = layout(graph, initialView()).boxes;
+    const boxes = layout(graph, initialView(graph)).boxes;
     const [alpha, beta, gamma, service] = ['Alpha', 'Beta', 'Gamma', 'Service'].map((id) =>
       required(boxes, id),
     );
@@ -107,8 +110,8 @@ describe('layout stacks the current group heights', () => {
     expect(gamma.y - (beta.y + beta.height)).toBe(gap);
   });
   it('moves only the following groups by the height an expansion adds', () => {
-    const collapsed = layout(graph, initialView()).boxes;
-    const expanded = layout(graph, { ...initialView(), expanded: ['Alpha'] }).boxes;
+    const collapsed = layout(graph, initialView(graph)).boxes;
+    const expanded = layout(graph, { ...initialView(graph), expanded: ['Alpha'] }).boxes;
     const added = required(expanded, 'Alpha').height - required(collapsed, 'Alpha').height;
     expect(added).toBeGreaterThan(0);
     expect(required(expanded, 'Alpha').y).toBe(required(collapsed, 'Alpha').y);
@@ -117,7 +120,7 @@ describe('layout stacks the current group heights', () => {
     expect(required(expanded, 'Service')).toEqual(required(collapsed, 'Service'));
   });
   it('keeps the same positions when only the selection changes', () => {
-    const view = { ...initialView(), expanded: ['Beta'] };
+    const view = { ...initialView(graph), expanded: ['Beta'] };
     const baseline = layout(graph, view);
     for (const node of ['Alpha', 'Beta.run', 'Gamma', 'Service.run'])
       expect(layout(graph, { ...view, node })).toEqual(baseline);
@@ -133,7 +136,7 @@ describe('layout stacks the current group heights', () => {
         declaration('Beta.stop'),
       ]),
     ]);
-    const view = { ...initialView(), expanded: ['Alpha', 'Beta'] };
+    const view = { ...initialView(hinted), expanded: ['Alpha', 'Beta'] };
     const geometry = layout(hinted, view);
     const line = required(geometry.boxes, 'Alpha').height - required(geometry.boxes, 'Beta').height;
     expect(line).toBe(17);
@@ -141,5 +144,38 @@ describe('layout stacks the current group heights', () => {
     expect(offset('Alpha.stop') - offset('Alpha.run')).toBe(
       offset('Beta.stop') - offset('Beta.run') + line,
     );
+  });
+});
+
+describe('a hidden column takes no room and its groups leave the map', () => {
+  const columns = [
+    { id: 'column:app', label: 'Composition', initiallyHidden: true },
+    { id: 'column:0', label: 'Entry' },
+    { id: 'column:1', label: 'Use case' },
+  ];
+  const graph = graphOf(
+    [
+      group('App', [declaration('App.create')], { column: 'column:app' }),
+      group('Controller', [declaration('Controller.run')]),
+      group('Service', [declaration('Service.run')], { column: 'column:1' }),
+    ],
+    columns,
+  );
+  it('starts hidden columns hidden and moves the following columns left', () => {
+    const view = initialView(graph);
+    expect(view.options.hiddenColumns).toEqual(['column:app']);
+    const boxes = layout(graph, view).boxes;
+    expect(required(boxes, 'Controller').x).toBe(14);
+    expect(required(boxes, 'Service').x).toBe(310 + 14);
+    const shown = layout(graph, { ...view, options: { ...view.options, hiddenColumns: [] } });
+    expect(required(shown.boxes, 'Controller').x).toBe(310 + 14);
+    expect(shown.width - layout(graph, view).width).toBe(310);
+  });
+  it('keeps hidden groups off the map', () => {
+    const view = initialView(graph);
+    const onMap = [...graph.groups.values()]
+      .filter((g) => isOnMap(g, view.options))
+      .map((g) => g.id);
+    expect(onMap).toEqual(['Controller', 'Service']);
   });
 });

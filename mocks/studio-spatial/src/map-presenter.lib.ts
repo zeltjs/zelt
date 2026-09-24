@@ -2,7 +2,7 @@ import type { DeclarationModel, GroupModel, MapModel, TagModel } from './display
 import { projectEdges, relationTitle } from './edges.lib';
 import type { Graph, Relation } from './graph.lib';
 import { required, seeds, subject } from './graph.lib';
-import { declarationLabels } from './labels';
+import { declarationLabel, relationKind } from './labels';
 import type { Layout } from './layout.lib';
 import { displayUnit, isOnMap, layout, memberBoxes } from './layout.lib';
 import type { Attachment } from './relations.lib';
@@ -21,7 +21,6 @@ interface Context {
 }
 
 function tagLabel(graph: Graph, note: Attachment): string {
-  if (note.kind === 'config') return '設定との関係あり';
   const owner = required(graph.owners, note.target);
   if (note.kind === 'middleware') return `適用: ${owner.name.replace(/Middleware$/, '')}`;
   return note.incoming
@@ -53,7 +52,7 @@ function declarationModels(ctx: Context, group: SourceGroup): readonly Declarati
   return memberBoxes(group).map(({ member: m, top, height }) => ({
     id: m.id,
     label: m.name + (m.kind === 'method' || m.kind === 'function' ? '()' : ''),
-    kind: declarationLabels[m.kind],
+    kind: declarationLabel(m),
     callable: ['method', 'constructor', 'function', 'callback'].includes(m.kind),
     hints: m.hints.map((h) => ({ key: JSON.stringify([h.provider, h.label]), label: h.label })),
     top,
@@ -91,21 +90,24 @@ function context(graph: Graph, view: ViewState): Context {
     geometry: layout(graph, view),
     active,
     relations,
-    notes: attachments(graph, view.options.showConfig, view.options.showTypes),
+    notes: attachments(graph, view.options.hiddenColumns, view.options.showTypes),
   };
 }
 
 export function presentMap(graph: Graph, view: ViewState): MapModel {
   const ctx = context(graph, view);
-  const allowed = ctx.relations.filter((e) => view.options.showTypes || e.kind !== 'type');
-  const wires = allowed.filter((e) => relationPart(graph, e, view.options.showConfig) === 'wires');
+  const hidden = view.options.hiddenColumns;
+  const allowed = ctx.relations.filter((e) => view.options.showTypes || relationKind(e) !== 'type');
+  const wires = allowed.filter((e) => relationPart(graph, e, hidden) === 'wires');
   const edges = projectEdges(graph, view, ctx.geometry, wires);
   let x = 0;
-  const columns = graph.snapshot.graph.presentation.columns.map((c) => {
-    const column = { label: c.label, x, width: c.width };
-    x += c.width;
-    return column;
-  });
+  const columns = graph.snapshot.graph.presentation.columns
+    .filter((c) => !hidden.includes(c.id))
+    .map((c) => {
+      const column = { label: c.label, x, width: c.width };
+      x += c.width;
+      return column;
+    });
   const visible = [...graph.groups.values()].filter((g) => isOnMap(g, view.options));
   return {
     width: ctx.geometry.width,
@@ -113,7 +115,6 @@ export function presentMap(graph: Graph, view: ViewState): MapModel {
     columns,
     groups: visible.map((g) => groupModel(ctx, g)),
     edges,
-    configHidden: !view.options.showConfig,
     summary: view.node
       ? `詳細の選択: ${subject(graph, view.node).name}`
       : '全体の配置 · 箱を選ぶと、使う先と使う元の線を表示',

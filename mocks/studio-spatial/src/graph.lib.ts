@@ -7,9 +7,7 @@ import type {
 } from './snapshot.types';
 import { StudioSnapshotSchema } from './snapshot-schema.lib';
 
-export interface Relation extends SourceRelation {
-  readonly from: string;
-}
+export type Relation = SourceRelation & { readonly from: string };
 export interface Graph {
   readonly snapshot: StudioSnapshot;
   readonly groups: ReadonlyMap<string, SourceGroup>;
@@ -67,10 +65,16 @@ function validateReferences(graph: Graph): void {
   const columns = unique(graph.snapshot.graph.presentation.columns, (c) => c.id);
   for (const group of graph.groups.values()) required(columns, group.presentation.columnId);
   for (const relation of graph.relations) required(graph.owners, relation.to);
+  validateSetup(graph);
   for (const declaration of graph.declarations.values()) {
     if (declaration.enclosingDeclarationId !== null)
       required(graph.declarations, declaration.enclosingDeclarationId);
   }
+}
+
+function validateSetup(graph: Graph): void {
+  const items = [...graph.groups.values(), ...graph.declarations.values()].flatMap((s) => s.setup);
+  for (const item of items) if (item.target !== null) required(graph.owners, item.target);
 }
 
 export function subject(graph: Graph, id: string): SourceGroup | SourceDeclaration {

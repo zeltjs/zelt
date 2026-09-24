@@ -1,6 +1,6 @@
 import type { EventSink } from '../events.types';
 import type { RootModel } from '../presenter.types';
-import { HelpDialog, ReferenceDialog } from './dialogs';
+import { HelpDialog } from './dialogs';
 import { GraphViewport } from './graph-viewport';
 import { InspectorPanel } from './inspector';
 import { StudioToolbar } from './toolbar';
@@ -40,7 +40,6 @@ export function Root({ model, emit }: { readonly model: RootModel; readonly emit
         </footer>
       </main>
       {model.help && <HelpDialog emit={send} />}
-      {model.dialog !== null && <ReferenceDialog model={model.dialog} emit={send} />}
     </>
   );
 }

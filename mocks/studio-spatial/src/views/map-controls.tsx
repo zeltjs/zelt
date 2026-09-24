@@ -1,6 +1,6 @@
 import type { EventSink } from '../events.types';
 import type { ControlsModel } from '../presenter.types';
-import type { ScopeMode, ViewOptions } from '../state.types';
+import type { ScopeMode } from '../state.types';
 import { useBoundary } from './use-boundary';
 
 const modes: readonly { readonly mode: ScopeMode; readonly label: string }[] = [
@@ -8,14 +8,14 @@ const modes: readonly { readonly mode: ScopeMode; readonly label: string }[] = [
   { mode: 'flow', label: '再帰（use / used by）' },
   { mode: 'all', label: '全関係' },
 ];
+type DisplayValue = ControlsModel['options'];
 const options: readonly {
-  readonly key: keyof ViewOptions;
+  readonly key: keyof DisplayValue;
   readonly id: string;
   readonly label: string;
 }[] = [
   { key: 'showTypes', id: 'show-type-arrows', label: '型の参照arrow' },
   { key: 'showCounts', id: 'show-edge-counts', label: '数字表示（×N）' },
-  { key: 'showConfig', id: 'show-config', label: 'config' },
 ];
 export function MapControls({
   model,
@@ -46,6 +46,7 @@ export function MapControls({
       </span>
       <span id="line-count">{lineCount}</span>
       <DisplayOptions value={model.options} emit={send} />
+      <ColumnOptions columns={model.columns} emit={send} />
       {model.canBack && (
         <button type="button" id="reference-back" onClick={() => send({ type: 'reference.back' })}>
           ↩ 移動前に戻る
@@ -61,7 +62,7 @@ function DisplayOptions({
   value,
   emit,
 }: {
-  readonly value: ViewOptions;
+  readonly value: DisplayValue;
   readonly emit: EventSink;
 }) {
   const send = useBoundary(emit);
@@ -82,6 +83,34 @@ function DisplayOptions({
             }
           />
           {option.label}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+function ColumnOptions({
+  columns,
+  emit,
+}: {
+  readonly columns: ControlsModel['columns'];
+  readonly emit: EventSink;
+}) {
+  const send = useBoundary(emit);
+  return (
+    <fieldset className="display-options column-options" aria-label="列の表示">
+      <span>列</span>
+      {columns.map((column) => (
+        <label key={column.id}>
+          <input
+            type="checkbox"
+            data-column-toggle={column.id}
+            checked={column.visible}
+            onChange={(e) =>
+              send({ type: 'column.toggle', id: column.id, visible: e.currentTarget.checked })
+            }
+          />
+          {column.label}
         </label>
       ))}
     </fieldset>

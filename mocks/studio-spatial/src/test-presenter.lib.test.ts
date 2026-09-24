@@ -53,6 +53,9 @@ describe('test list semantics use Zelt setup, not package imports', () => {
       }),
     ).toEqual({ style: 'Solitary', mocks: 'なし' });
   });
+  it('classifies a module function called directly as a function test', () => {
+    expect(summarizeSetup(null)).toEqual({ style: '関数', mocks: '—' });
+  });
   it('keeps unresolved setup classification unknown', () => {
     expect(
       summarizeSetup({ ...identity, resolution: 'unresolved', reason: 'dynamic-setup' }),
@@ -60,9 +63,39 @@ describe('test list semantics use Zelt setup, not package imports', () => {
   });
   it('does not collect the tests of external packages, and says so instead of "none"', () => {
     const graph = fixture();
-    expect(unitRows([...graph.declarations.values()])).toEqual([]);
     const jwt = graph.groups.get('JwtService');
+    expect(unitRows(jwt?.members ?? [])).toEqual([]);
     expect(unitCoverage(jwt?.members ?? [])).toBe('未収録（テストの有無は未確認）');
+  });
+  it('lists the fixture Unit tests with the classification their Zelt setup gives', () => {
+    const graph = fixture();
+    const rows = (id: string) =>
+      unitRows([...(graph.groups.get(id)?.members ?? [])]).map((r) => [
+        r.targetLabel,
+        r.style,
+        r.mocks,
+      ]);
+    const cart = rows('CartService');
+    expect(cart).toContainEqual(['addItem', 'Solitary', 'MemoryKVAdaptor, ProductService']);
+    expect(cart).toContainEqual(['addItem', 'Sociable', 'なし']);
+    expect(rows('current-user.lib.ts')).toContainEqual(['requireUser', '関数', '—']);
+    expect(rows('LoggingMiddleware')).toEqual([]);
+    expect(unitRows([...(graph.groups.get('auth.schema.ts')?.members ?? [])])).toEqual([]);
+  });
+  it('names the searched scope and how many files were read instead of listing every file', () => {
+    const covered = declaration('Service.run', {
+      unitTests: {
+        cases: [],
+        coverage: {
+          status: 'complete-in-scope',
+          searchScope: ['src/**/*.test.ts'],
+          inspectedFiles: ['src/a.test.ts', 'src/b.test.ts'],
+        },
+      },
+    });
+    expect(unitCoverage([covered])).toBe(
+      '収録範囲: src/**/*.test.ts（2ファイル）。範囲外は未確認。',
+    );
   });
   it('does not equate an empty local list with absence of tests in the project', () => {
     expect(unitCoverage([])).toContain('範囲外は未確認');
@@ -109,6 +142,26 @@ describe('E2E lists are read from the declaration that registered the route', ()
     const route = declaration('["route"]', { name: 'create', e2eTests: tests });
     expect(endpointModels([route, declaration('["plain"]')]).map((m) => m.label)).toEqual([
       'create',
+    ]);
+  });
+  it('says a sampled scope covers only part, even when no test matched', () => {
+    const route = declaration('["route"]', {
+      name: 'create',
+      e2eTests: {
+        cases: [],
+        coverage: {
+          status: 'partial',
+          searchScope: ['e2e/product.spec.ts'],
+          inspectedFiles: ['e2e/product.spec.ts'],
+          includesSharedSetup: false,
+        },
+      },
+    });
+    expect(endpointModels([route])).toMatchObject([
+      {
+        coverage:
+          '一部のみ · 0件（収録範囲: e2e/product.spec.ts）。範囲外は未確認。requestとの対応であり、method実行の保証ではありません。',
+      },
     ]);
   });
   it('moves the fixture lists onto the sixteen route methods', () => {

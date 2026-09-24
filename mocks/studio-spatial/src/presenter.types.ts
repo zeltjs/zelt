@@ -1,5 +1,5 @@
-import type { DialogModel, InspectorModel, MapModel, ViewportCommand } from './display.types';
-import type { InspectorTab, ScopeMode, ViewOptions } from './state.types';
+import type { InspectorModel, MapModel, ViewportCommand } from './display.types';
+import type { InspectorTab, ScopeMode } from './state.types';
 
 export interface ToolbarModel {
   readonly projectName: string;
@@ -16,7 +16,12 @@ export interface ControlsModel {
   readonly locked: boolean;
   readonly canLock: boolean;
   readonly scopeStatus: string;
-  readonly options: ViewOptions;
+  readonly options: { readonly showTypes: boolean; readonly showCounts: boolean };
+  readonly columns: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly visible: boolean;
+  }[];
   readonly canBack: boolean;
 }
 export interface ReadyModel {
@@ -27,7 +32,6 @@ export interface ReadyModel {
   readonly command: ViewportCommand | null;
   readonly inspector: InspectorModel | null;
   readonly tab: InspectorTab;
-  readonly dialog: DialogModel | null;
   readonly help: boolean;
   readonly notice: string | null;
   readonly declarationCount: number;

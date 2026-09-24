@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import type { DialogModel } from '../display.types';
 import type { EventSink } from '../events.types';
 import { useBoundary } from './use-boundary';
 
@@ -11,53 +10,6 @@ function useModal() {
     return () => element?.close();
   }, []);
   return ref;
-}
-
-export function ReferenceDialog({
-  model,
-  emit,
-}: {
-  readonly model: DialogModel;
-  readonly emit: EventSink;
-}) {
-  const send = useBoundary(emit),
-    ref = useModal();
-  return (
-    <dialog
-      ref={ref}
-      id="reference-dialog"
-      aria-labelledby="reference-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        send({ type: 'dialog.close' });
-      }}
-    >
-      <div className="dialog-title">
-        <h2 id="reference-title">{model.title}</h2>
-        <button
-          type="button"
-          id="close-reference"
-          aria-label="閉じる"
-          onClick={() => send({ type: 'dialog.close' })}
-        >
-          ×
-        </button>
-      </div>
-      <div id="reference-content">
-        <p>{model.description}</p>
-        <ReferenceRows rows={model.rows} emit={send} />
-        {model.compositionSource && (
-          <button
-            type="button"
-            data-composition-source
-            onClick={() => send({ type: 'composition.source' })}
-          >
-            createEcAppの実コードを見る
-          </button>
-        )}
-      </div>
-    </dialog>
-  );
 }
 
 export function HelpDialog({ emit }: { readonly emit: EventSink }) {
@@ -91,42 +43,6 @@ export function HelpDialog({ emit }: { readonly emit: EventSink }) {
   );
 }
 
-function ReferenceRows({
-  rows,
-  emit,
-}: {
-  readonly rows: DialogModel['rows'];
-  readonly emit: EventSink;
-}) {
-  const send = useBoundary(emit);
-  return (
-    <ul className="relations">
-      {rows.map((row) => (
-        <li key={row.id}>
-          <span className="relation-kind">{row.label}</span>
-          <button
-            type="button"
-            className="text-link"
-            data-reference-jump={row.from}
-            onClick={() => send({ type: 'reference.jump', id: row.from })}
-          >
-            {row.fromName}
-          </button>{' '}
-          →{' '}
-          <button
-            type="button"
-            className="text-link"
-            data-reference-jump={row.to}
-            onClick={() => send({ type: 'reference.jump', id: row.to })}
-          >
-            {row.toName}
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function HelpText() {
   return (
     <>
@@ -145,7 +61,10 @@ function HelpText() {
         middleware適用はタグ、event配送はwarpです。探索範囲を勝手に広げません。参照先へ移動してもロックは維持し、「移動前に戻る」で元の表示へ戻れます。
       </p>
       <p>
-        configの箱と線は表示切替でき、非表示でも関係のタグは残ります。app.tsはアプリ構成から確認できます。設定値は配信前に除いています。
+        列（ライブラリ・Config・Composition等）はすべて表示切替でき、非表示の列は箱も線もタグも表示しません。app.tsはComposition列にあり、既定では非表示です。設定値は配信前に除いています。
+      </p>
+      <p>
+        inject・middleware指定・設定の差し替えは処理の流れではなく部品の組み方（setup）なので、線にせず詳細の「Setup」に表示します。
       </p>
       <p>
         Unit testは対象宣言の一覧です。分類とmock対象はZeltのDI

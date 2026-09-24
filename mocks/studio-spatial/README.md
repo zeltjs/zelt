@@ -50,13 +50,15 @@ flowchart LR
 
 近傍は1段。再帰はuseとused byを別々に辿り、途中で方向を反転しません。
 ロックは矢印とactive範囲を保持します。詳細の「ここから再帰＋ロック」で起点を固定します。
-middleware適用はタグ、event配送はwarp、configは表示切替、app.tsは「アプリ構成」にあります。
+middleware適用はタグ、event配送はwarpです。列はすべて（ライブラリ・Config・Compositionを含む）表示/非表示を切り替えられます。非表示の列は、箱もその箱への線もタグも表示しません（列を戻せば戻ります）。app.tsはComposition列にあり、既定で非表示です。
 列内のgroupはファイルのパス（フォルダを含む）の名前順、同じファイル内はソース出現順で並べます。展開したgroupの中の宣言もソース出現順です。JSONは座標を持ちません。
-外部パッケージは右端の「外部」列にあり、アプリが直接使うメンバーだけを並べます（内部未展開）。
+ライブラリは右端の「ライブラリ」列にあり、アプリが直接使うメンバーだけを並べます（内部未展開）。configで採用したignore（Zelt pluginの推奨）に入るもの（`inject`・`request`・`LifecycleManager` 等）は地図に出しません。
+線と宣言の種類はTSの事実だけで、schema・table・登録などはpluginが付与した意味として表示します。middleware・event・appへの登録はpluginが付与した線です。
+inject・middleware指定・設定の差し替え・lifecycle登録はsetupとして詳細の「Setup」に出し、線にはしません。
 宣言の下の注記はpluginが付けたもので、1注記1行です。画面には名前を出し（検索結果の宣言は `Group#宣言名`）、IDはURLにだけ保存します。
 
-下部は「契約 / 実コード」。Unit testは対象宣言に対応する一覧で、分類とmock対象はZeltのDI setupから表示します。
-routeを登録したmethodのE2E対応はrequestに基づき、method実行の証明ではありません。
+下部は「契約 / 実コード」。Unit testは、case本文が直接呼んだ宣言に対応する一覧で、分類（Solitary / Sociable / 関数）とmock対象はZeltのDI setup（`createTestTarget`）から表示します。ec-backendの212 caseのうち151 caseが結び付きます（schemaの `safeParse`、本物のapp経由のmiddleware等は結びません）。
+routeを登録したmethodのE2E対応はrequestに基づき、method実行の証明ではありません。E2Eの収録範囲は `product.spec.ts` のサンプリングなので、どのrouteも「一部のみ」です（一致しないrouteは0件）。
 未収録・内部未展開は、testや依存が存在しないという意味ではありません。
 
 ## 検証
@@ -80,3 +82,5 @@ Unit検証はルートの`pnpm test`にも含まれます。buildとtypecheckも
 例外として `expandedY` 廃止時と、列内の並び順をパス順に変えた時に再生成しました。どちらも、y座標以外（展開・選択・濃淡・タグ・矢印・x・幅・高さ）が変更前の出力と一致することを確かめています。
 3回目は、fixtureを抽出規則に合わせた時（callbackの宣言化、外部パッケージの箱を外部列へ移しアプリが使うメンバーだけに絞る、展開時のメンバーをソース順に並べる）に再生成しました。消えた宣言・線（とそれだけから作られていた外部の箱の設定タグ）と、足したcallback・線を除けば、選択・展開・タグ・矢印が変更前と一致し、xは各groupの列の位置に移っただけであることを確かめています。濃淡の差は、線の増減で近傍が変わった2か所（`JwtService.sign` を選んだときの `JwtConfig`、`OrderService.findById` から辿ったときの `users`）だけです。
 4回目は、fixtureをconfig（[ec-backend.extract.json](ec-backend.extract.json)）と抽出規則で照合して直した時に再生成しました。変わったのは矢印だけで、`OrderHandlers.startup` → 購読callbackの `read` が消え（同じ2点の `register` 1本にまとめた）、`CartService.store` → `KVStore` の `type` が増えた30状態です。箱の位置・展開・選択・濃淡・タグは全状態で変更前と一致することを確かめています。
+5回目は、付与だけのモデル（線・宣言の種類をTSの事実と付与された意味に分離）・列の表示切替（roleの廃止、app.tsをComposition列へ）・ignore推奨の採用（`LifecycleManager` を地図から外す）に合わせた時に再生成しました。golden の状態の `showConfig` は Config 列の表示として読み、Composition 列は既定どおり非表示です。変更前後の投影（箱の集合・展開・選択・濃淡・宣言・タグ・矢印・x）を突き合わせ、差は次だけであることを確かめています: appに登録された9箱に「Compositionとの関係あり」タグが付く（その分の高さとyの移動）、`LifecycleManager` への矢印2本と `returns` の矢印1本が消える（それに伴い全関係・展開時の `OrderHandlers.constructor` が薄くなる）、Config列を隠した状態でライブラリのconfig箱（`JwtConfig`・`CorsConfig`）が表示され、ライブラリ列が詰めた分だけ左へ動く。
+6回目は、非表示の列のタグ（「<列名>との関係あり」）を廃止し、非表示の列に端を持つ関係を線にもタグにもしないようにした時に再生成しました。変更前のコードを一時的に復元して120状態すべてで保存済みのハッシュが再現することを確かめたうえで、変更前後の投影を突き合わせ、差は「Compositionとの関係あり」タグ（各状態8個）と、Config列を隠した状態の「Configとの関係あり」タグの消滅、それに伴う箱の高さ・yの移動だけであることを確かめています。矢印・x・幅・展開・選択・濃淡・宣言・残るタグは全状態で変更前と一致します（goldenの状態では、相手が非表示の列にあるmiddleware・eventタグは無い）。

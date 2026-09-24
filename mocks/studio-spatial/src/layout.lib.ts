@@ -26,10 +26,7 @@ const TAG_AREA = 22;
 const TAG_ROW = 26;
 
 export function isOnMap(group: SourceGroup, options: ViewOptions): boolean {
-  return (
-    group.presentation.role !== 'composition' &&
-    (options.showConfig || group.presentation.role !== 'config')
-  );
+  return !options.hiddenColumns.includes(group.presentation.columnId);
 }
 
 function rowHeight(declaration: SourceDeclaration): number {
@@ -67,9 +64,11 @@ function sourceOrder(groups: readonly SourceGroup[]): readonly SourceGroup[] {
 
 export function layout(graph: Graph, view: ViewState): Layout {
   const boxes = new Map<string, Rect>();
-  const visibleNotes = attachments(graph, view.options.showConfig, view.options.showTypes);
-  let x = 0;
+  const visibleNotes = attachments(graph, view.options.hiddenColumns, view.options.showTypes);
+  let x = 0,
+    bottom = 0;
   for (const column of graph.snapshot.graph.presentation.columns) {
+    const shown = !view.options.hiddenColumns.includes(column.id);
     let y = COLUMN_TOP;
     const groups = sourceOrder(
       [...graph.groups.values()].filter((g) => g.presentation.columnId === column.id),
@@ -81,16 +80,17 @@ export function layout(graph: Graph, view: ViewState): Layout {
         ? group.members.reduce((sum, m) => sum + rowHeight(m), 0)
         : 0;
       const height = HEADER_HEIGHT + rows + tags;
+      // Hidden groups keep a box for lookups; a hidden column takes no room on the map.
       boxes.set(group.id, { x: x + 14, y, width: column.width - 28, height });
-      // Hidden groups keep a box for lookups but must not leave a hole in the column.
-      if (isOnMap(group, view.options)) y += height + GROUP_GAP;
+      if (shown) bottom = Math.max(bottom, y + height);
+      y += height + GROUP_GAP;
     }
-    x += column.width;
+    if (shown) x += column.width;
   }
   return {
     boxes,
     width: x + 20,
-    height: Math.max(0, ...[...boxes.values()].map((b) => b.y + b.height)) + 82,
+    height: bottom + 82,
   };
 }
 

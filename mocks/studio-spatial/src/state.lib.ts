@@ -1,14 +1,20 @@
 import type { Graph } from './graph.lib';
-import { required, subject } from './graph.lib';
+import { required } from './graph.lib';
 import type { ReadyState, UrlState, ViewState } from './state.types';
 
-export function initialView(): ViewState {
+export function initialView(graph: Graph): ViewState {
   return {
     node: null,
     scope: { kind: 'following', mode: 'near' },
     tab: 'contract',
     expanded: [],
-    options: { showTypes: true, showCounts: true, showConfig: true },
+    options: {
+      showTypes: true,
+      showCounts: true,
+      hiddenColumns: graph.snapshot.graph.presentation.columns
+        .filter((c) => c.initiallyHidden)
+        .map((c) => c.id),
+    },
     query: '',
   };
 }
@@ -18,8 +24,7 @@ export function initialReady(graph: Graph, requestId: number): ReadyState {
     phase: 'ready',
     requestId,
     graph,
-    view: initialView(),
-    dialog: null,
+    view: initialView(graph),
     help: false,
     history: [],
     viewport: { zoom: 1, rect: { x: 0, y: 0, width: 0, height: 0 } },
@@ -28,61 +33,47 @@ export function initialReady(graph: Graph, requestId: number): ReadyState {
   };
 }
 
-export function select(state: ReadyState, id: string): ReadyState {
+// Reaching a subject must never leave it inside a column the map does not draw.
+function reveal(state: ReadyState, id: string): ViewState {
   const owner = required(state.graph.owners, id);
   const expanded = state.graph.declarations.has(id)
     ? [...new Set([...state.view.expanded, owner.id])]
     : state.view.expanded;
+  const hiddenColumns = state.view.options.hiddenColumns.filter(
+    (c) => c !== owner.presentation.columnId,
+  );
+  return { ...state.view, expanded, options: { ...state.view.options, hiddenColumns } };
+}
+
+export function select(state: ReadyState, id: string): ReadyState {
   return {
     ...state,
-    dialog: null,
-    view: {
-      ...state.view,
-      node: id,
-      tab: 'contract',
-      expanded,
-      query: '',
-      options: {
-        ...state.view.options,
-        showConfig: state.view.options.showConfig || owner.presentation.role === 'config',
-      },
-    },
+    view: { ...reveal(state, id), node: id, tab: 'contract', query: '' },
   };
 }
 
-export function requireMapSubject(graph: Graph, id: string): void {
-  if (required(graph.owners, id).presentation.role === 'composition')
-    throw new Error(`地図の起点にはできません: ${subject(graph, id).name}`);
-}
-
 export function locate(state: ReadyState, id: string): ReadyState {
-  const owner = required(state.graph.owners, id);
-  if (owner.presentation.role === 'composition')
-    return { ...state, dialog: { kind: 'composition' } };
-  const expanded = state.graph.declarations.has(id)
-    ? [...new Set([...state.view.expanded, owner.id])]
-    : state.view.expanded;
   return {
     ...state,
-    view: {
-      ...state.view,
-      expanded,
-      options: {
-        ...state.view.options,
-        showConfig: state.view.options.showConfig || owner.presentation.role === 'config',
-      },
-    },
+    view: reveal(state, id),
     command: { sequence: (state.command?.sequence ?? 0) + 1, kind: 'locate', id },
   };
 }
 
 export function startScope(state: ReadyState, id: string): ReadyState {
-  requireMapSubject(state.graph, id);
   const selected = select(state, id);
   return {
     ...selected,
     view: { ...selected.view, scope: { kind: 'locked', mode: 'flow', anchor: id } },
   };
+}
+
+export function toggleColumn(state: ReadyState, id: string, visible: boolean): ReadyState {
+  const columns = state.graph.snapshot.graph.presentation.columns;
+  if (!columns.some((c) => c.id === id)) throw new Error(`Unknown column: ${id}`);
+  const rest = state.view.options.hiddenColumns.filter((c) => c !== id);
+  const hiddenColumns = visible ? rest : [...rest, id];
+  return { ...state, view: { ...state.view, options: { ...state.view.options, hiddenColumns } } };
 }
 
 export function urlState(view: ViewState): UrlState {
@@ -95,7 +86,7 @@ export function urlState(view: ViewState): UrlState {
 }
 
 export function restoreUrl(state: ReadyState, url: UrlState): ReadyState {
-  if (url.root !== null) requireMapSubject(state.graph, url.root);
+  if (url.root !== null) required(state.graph.owners, url.root);
   const selected = url.node === null ? state : locate(select(state, url.node), url.node);
   const scope =
     url.root === null
@@ -103,7 +94,6 @@ export function restoreUrl(state: ReadyState, url: UrlState): ReadyState {
       : ({ kind: 'locked', mode: url.mode, anchor: url.root } satisfies ViewState['scope']);
   return {
     ...selected,
-    dialog: null,
     notice: null,
     view: { ...selected.view, node: url.node, tab: url.tab, scope },
   };

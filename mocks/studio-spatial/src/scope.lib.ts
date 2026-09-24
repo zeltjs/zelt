@@ -1,5 +1,6 @@
 import type { Graph, Relation } from './graph.lib';
 import { seeds } from './graph.lib';
+import { grantedKind } from './labels';
 import type { ViewState } from './state.types';
 
 function trace(
@@ -29,7 +30,7 @@ export function scopeRelations(graph: Graph, view: ViewState): readonly Relation
   const id = focus(view);
   if (id === null) return [];
   const start = seeds(graph, id);
-  const edges = graph.relations.filter((e) => e.kind !== 'middleware');
+  const edges = graph.relations.filter((e) => grantedKind(e) !== 'middleware');
   if (view.scope.mode === 'near')
     return edges.filter((e) => start.includes(e.from) || start.includes(e.to));
   const use = trace(start, edges, 'from', 'to');

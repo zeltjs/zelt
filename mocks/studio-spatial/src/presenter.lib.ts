@@ -1,6 +1,6 @@
 import type { ViewportCommand } from './display.types';
 import { required, subject } from './graph.lib';
-import { presentDialog, presentInspector } from './inspector-presenter.lib';
+import { presentInspector } from './inspector-presenter.lib';
 import { layout, position } from './layout.lib';
 import { presentMap } from './map-presenter.lib';
 import type { ControlsModel, RootModel, ToolbarModel } from './presenter.types';
@@ -37,8 +37,6 @@ function toolbar(state: ReadyState): ToolbarModel {
 function controls(state: ReadyState): ControlsModel {
   const { view, graph } = state;
   const locked = view.scope.kind === 'locked';
-  const selectable =
-    view.node !== null && required(graph.owners, view.node).presentation.role !== 'composition';
   const origin = focus(view);
   const name = origin === null ? null : subject(graph, origin).name;
   const scopeStatus = locked
@@ -49,9 +47,14 @@ function controls(state: ReadyState): ControlsModel {
   return {
     mode: view.scope.mode,
     locked,
-    canLock: locked || selectable,
+    canLock: locked || view.node !== null,
     scopeStatus,
-    options: view.options,
+    options: { showTypes: view.options.showTypes, showCounts: view.options.showCounts },
+    columns: graph.snapshot.graph.presentation.columns.map((c) => ({
+      id: c.id,
+      label: c.label,
+      visible: !view.options.hiddenColumns.includes(c.id),
+    })),
     canBack: state.history.length > 0,
   };
 }
@@ -76,7 +79,6 @@ export function present(state: StudioState): RootModel {
     command: command(state),
     inspector: presentInspector(state.graph, state.view.node),
     tab: state.view.tab,
-    dialog: presentDialog(state),
     help: state.help,
     notice: state.notice,
     declarationCount: state.graph.declarations.size,

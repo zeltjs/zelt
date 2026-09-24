@@ -1,4 +1,4 @@
-import type { RelationKind, SourceDetail } from './snapshot.types';
+import type { SourceDetail } from './snapshot.types';
 import type { Rect, Viewport } from './state.types';
 
 export interface VisualState {
@@ -34,7 +34,7 @@ export interface EdgeModel {
   readonly key: string;
   readonly from: string;
   readonly to: string;
-  readonly kind: RelationKind;
+  readonly kind: string;
   readonly ids: readonly string[];
   readonly path: string;
   readonly title: string;
@@ -52,7 +52,6 @@ export interface MapModel {
   readonly edges: readonly EdgeModel[];
   readonly summary: string;
   readonly lineCount: string;
-  readonly configHidden: boolean;
 }
 export type ViewportCommand =
   | { readonly sequence: number; kind: 'locate'; readonly rect: Rect }
@@ -79,6 +78,15 @@ export interface EndpointModel {
     readonly title: string;
   }[];
 }
+export interface SetupRow {
+  readonly key: string;
+  // The member the setup belongs to, when a group lists its members' setup.
+  readonly owner: string | null;
+  readonly kind: string;
+  readonly provider: string;
+  readonly label: string;
+  readonly target: { readonly id: string; readonly name: string } | null;
+}
 export interface InspectorModel {
   readonly id: string;
   readonly name: string;
@@ -92,20 +100,6 @@ export interface InspectorModel {
     readonly coverage: string;
   };
   readonly endpoints: readonly EndpointModel[];
-  readonly canUseAsRoot: boolean;
-  readonly locateLabel: string;
+  readonly setup: readonly SetupRow[];
   readonly sourceNotice: string | null;
-}
-export interface DialogModel {
-  readonly title: string;
-  readonly description: string;
-  readonly compositionSource: boolean;
-  readonly rows: readonly {
-    readonly id: string;
-    readonly from: string;
-    readonly fromName: string;
-    readonly to: string;
-    readonly toName: string;
-    readonly label: string;
-  }[];
 }

@@ -1,4 +1,15 @@
-import { array, boolean, intersect, literal, null_, number, object, string, union } from 'valibot';
+import {
+  array,
+  boolean,
+  intersect,
+  literal,
+  null_,
+  number,
+  object,
+  string,
+  union,
+  variant,
+} from 'valibot';
 
 export const GroupIdSchema = string();
 
@@ -23,28 +34,25 @@ export const DeclarationKindSchema = union([
   literal('getter'),
   literal('signature'),
   literal('type'),
-  literal('schema'),
-  literal('table'),
   literal('value'),
-  literal('event-type'),
 ]);
 
-export const RelationKindSchema = union([
+export const TsRelationKindSchema = union([
   literal('call'),
   literal('read'),
   literal('contract'),
   literal('type'),
-  literal('schema'),
-  literal('table'),
-  literal('middleware'),
-  literal('event'),
-  literal('register'),
   literal('extends'),
   literal('implements'),
   literal('override'),
-  literal('returns'),
   literal('construct'),
 ]);
+
+// A library meaning a plugin granted to a TS fact; the fact's own kind stays unchanged.
+export const MeaningSchema = object({
+  provider: string(),
+  kind: string(),
+});
 
 export const SourceLocationSchema = object({
   filePath: string(),
@@ -57,10 +65,33 @@ export const RelationEvidenceSchema = object({
   expression: string(),
 });
 
-export const SourceRelationSchema = object({
+export const TsRelationSchema = object({
   id: RelationIdSchema,
+  origin: literal('ts'),
   to: SubjectIdSchema,
-  kind: RelationKindSchema,
+  kind: TsRelationKindSchema,
+  meanings: array(MeaningSchema),
+  evidence: array(RelationEvidenceSchema),
+});
+
+// A relation TS cannot show (middleware, event delivery, app registration), granted by a plugin.
+export const GrantedRelationSchema = object({
+  id: RelationIdSchema,
+  origin: literal('plugin'),
+  to: SubjectIdSchema,
+  provider: string(),
+  kind: string(),
+  evidence: array(RelationEvidenceSchema),
+});
+
+export const SourceRelationSchema = variant('origin', [TsRelationSchema, GrantedRelationSchema]);
+
+// How parts are assembled (inject, middleware, config override); shown in details, not as a flow.
+export const SetupItemSchema = object({
+  provider: string(),
+  kind: string(),
+  label: string(),
+  target: union([SubjectIdSchema, null_()]),
   evidence: array(RelationEvidenceSchema),
 });
 
@@ -128,7 +159,8 @@ export const UnitTestCaseSchema = intersect([
   object({
     calls: array(
       object({
-        setup: UnitSetupSchema,
+        // null: the case called a module function directly, without a DI container.
+        setup: union([UnitSetupSchema, null_()]),
         invocation: SourceLocationSchema,
       }),
     ),
@@ -190,8 +222,10 @@ export const SourceDeclarationSchema = object({
   id: DeclarationIdSchema,
   name: string(),
   kind: DeclarationKindSchema,
+  meanings: array(MeaningSchema),
   enclosingDeclarationId: union([DeclarationIdSchema, null_()]),
   relations: array(SourceRelationSchema),
+  setup: array(SetupItemSchema),
   source: SourceDetailSchema,
   unitTests: UnitTestsSchema,
   e2eTests: union([EndpointTestsSchema, null_()]),
@@ -201,7 +235,6 @@ export const SourceDeclarationSchema = object({
 
 export const GroupPresentationSchema = object({
   columnId: ColumnIdSchema,
-  role: union([literal('regular'), literal('config'), literal('composition')]),
 });
 
 export const SourceGroupSchema = object({
@@ -211,6 +244,7 @@ export const SourceGroupSchema = object({
   filePath: string(),
   members: array(SourceDeclarationSchema),
   relations: array(SourceRelationSchema),
+  setup: array(SetupItemSchema),
   expansion: union([literal('included'), literal('boundary')]),
   source: SourceDetailSchema,
   unresolved: array(UnresolvedReferenceSchema),
@@ -225,6 +259,7 @@ export const MapPresentationSchema = object({
       id: ColumnIdSchema,
       label: string(),
       width: number(),
+      initiallyHidden: boolean(),
     }),
   ),
 });

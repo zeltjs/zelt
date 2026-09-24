@@ -24,11 +24,6 @@ export function GraphViewport({
   return (
     <section className="map-section" aria-label="固定配置の依存地図">
       <MapControls model={controls} zoom={viewport.zoom} lineCount={model.lineCount} emit={send} />
-      {model.configHidden && (
-        <p id="config-notice">
-          Configの箱と線を非表示中。設定との関係は各箱のタグから確認できます。
-        </p>
-      )}
       <div className="map-shell">
         <section
           id="map-scroll"

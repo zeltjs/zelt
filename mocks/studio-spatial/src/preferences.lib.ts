@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import type { ViewIntent } from './events.types';
 import { required } from './graph.lib';
-import { initialReady } from './state.lib';
+import { initialReady, toggleColumn } from './state.lib';
 import type { ReadyState } from './state.types';
 
 export function preferences(state: ReadyState, event: ViewIntent): ReadyState | null {
@@ -12,7 +12,11 @@ export function preferences(state: ReadyState, event: ViewIntent): ReadyState | 
       ...state,
       view: { ...view, scope: { ...view.scope, mode: e.mode } },
     }))
-    .with({ type: 'options.change' }, (e) => ({ ...state, view: { ...view, options: e.options } }))
+    .with({ type: 'options.change' }, (e) => ({
+      ...state,
+      view: { ...view, options: { ...view.options, ...e.options } },
+    }))
+    .with({ type: 'column.toggle' }, (e) => toggleColumn(state, e.id, e.visible))
     .with({ type: 'search.change' }, (e) => ({ ...state, view: { ...view, query: e.query } }))
     .with({ type: 'inspector.tab' }, (e) => ({ ...state, view: { ...view, tab: e.tab } }))
     .with({ type: 'help.set' }, (e) => ({ ...state, help: e.open }))

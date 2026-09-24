@@ -31,6 +31,7 @@ export function ContractPanel({
       <section>
         <h3>宣言の契約</h3>
         <pre>{model.source.signature}</pre>
+        <SetupList rows={model.setup} emit={send} />
         {model.members.length > 0 && (
           <>
             <h3>メンバー</h3>
@@ -65,6 +66,54 @@ export function ContractPanel({
   );
 }
 
+function SetupList({
+  rows,
+  emit,
+}: {
+  readonly rows: InspectorModel['setup'];
+  readonly emit: EventSink;
+}) {
+  const send = useBoundary(emit);
+  if (rows.length === 0) return null;
+  return (
+    <section aria-label="Setup">
+      <h3>Setup</h3>
+      <ul className="relations setup-list">
+        {rows.map((row) => (
+          <li key={row.key} className="setup-item">
+            <span className="relation-kind">
+              {row.owner !== null && `${row.owner} · `}
+              {row.kind} · {row.provider}
+            </span>
+            <code>{row.label}</code>
+            {row.target !== null && <SetupTarget target={row.target} emit={send} />}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SetupTarget({
+  target,
+  emit,
+}: {
+  readonly target: { readonly id: string; readonly name: string };
+  readonly emit: EventSink;
+}) {
+  const send = useBoundary(emit);
+  return (
+    <button
+      type="button"
+      className="text-link"
+      data-select={target.id}
+      onClick={() => send({ type: 'subject.select', id: target.id })}
+    >
+      → {target.name}
+    </button>
+  );
+}
+
 const tabs: readonly { readonly tab: InspectorTab; readonly label: string }[] = [
   { tab: 'contract', label: '契約' },
   { tab: 'source', label: '実コード' },
@@ -89,7 +138,7 @@ export function InspectorPanel({
             箱の選択に範囲が追従します。ロックすると矢印・active範囲を保って詳細を読めます。詳細の「ここから再帰＋ロック」で起点を固定できます。
           </p>
           <p>
-            configはどの起点からも共有される宣言です。右の小地図から全体の各位置へ移動できます。
+            列は表示切替でき、非表示の列は箱も線もタグも表示しません。右の小地図から全体の各位置へ移動できます。
           </p>
         </div>
       </section>
@@ -130,12 +179,11 @@ function InspectorHeading({
           data-action="locate"
           onClick={() => send({ type: 'subject.locate', id: model.id })}
         >
-          {model.locateLabel}
+          地図の位置へ ↗
         </button>
         <button
           type="button"
           data-action="as-root"
-          disabled={!model.canUseAsRoot}
           onClick={() => send({ type: 'scope.start', id: model.id })}
         >
           ここから再帰＋ロック

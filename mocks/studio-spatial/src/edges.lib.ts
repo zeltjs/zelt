@@ -1,7 +1,7 @@
 import type { EdgeModel } from './display.types';
 import type { Graph, Relation } from './graph.lib';
 import { subject } from './graph.lib';
-import { relationLabels } from './labels';
+import { relationKind, relationLabel } from './labels';
 import type { Layout } from './layout.lib';
 import { displayUnit, position } from './layout.lib';
 import type { Rect, ViewState } from './state.types';
@@ -9,14 +9,14 @@ import type { Rect, ViewState } from './state.types';
 interface Bundle {
   readonly from: string;
   readonly to: string;
-  readonly kind: Relation['kind'];
+  readonly kind: string;
   readonly originals: Relation[];
 }
 export function relationTitle(graph: Graph, edges: readonly Relation[]): string {
   return edges
     .map(
       (e) =>
-        `${subject(graph, e.from).name} —${relationLabels[e.kind]}→ ${subject(graph, e.to).name}`,
+        `${subject(graph, e.from).name} —${relationLabel(relationKind(e))}→ ${subject(graph, e.to).name}`,
     )
     .join('\n');
 }
@@ -27,10 +27,11 @@ function bundles(graph: Graph, view: ViewState, edges: readonly Relation[]): rea
     const from = displayUnit(graph, view, edge.from),
       to = displayUnit(graph, view, edge.to);
     if (from === to && !view.expanded.includes(from)) continue;
-    const key = JSON.stringify([from, to, edge.kind]);
+    const kind = relationKind(edge);
+    const key = JSON.stringify([from, to, kind]);
     const bundle = result.get(key);
     if (bundle) bundle.originals.push(edge);
-    else result.set(key, { from, to, kind: edge.kind, originals: [edge] });
+    else result.set(key, { from, to, kind, originals: [edge] });
   }
   return [...result.values()];
 }
