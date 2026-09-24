@@ -9,7 +9,7 @@
  */
 
 import { readdir, readFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 
 const DOCS_DIR = join(import.meta.dirname, '../docs');
 
@@ -29,9 +29,13 @@ const extractSlug = (content: string): string | null => {
   return slugMatch[1].trim();
 };
 
-const getExpectedFilename = (slug: string): string => {
+const getExpectedFilename = (slug: string, relativeFile: string): string => {
   const normalized = slug.replace(/^\//, '').replace(/\/$/, '');
   if (normalized === '') return 'index.md';
+
+  const normalizedDirectory = dirname(relativeFile).split(sep).join('/');
+  if (normalizedDirectory !== '.' && normalized === normalizedDirectory) return 'index.md';
+
   return `${normalized.split('/').pop()}.md`;
 };
 
@@ -54,10 +58,11 @@ const scanDirectory = async (dir: string): Promise<Violation[]> => {
 
     if (!slug) continue;
 
-    const expectedFilename = getExpectedFilename(slug);
+    const relativeFile = relative(DOCS_DIR, fullPath);
+    const expectedFilename = getExpectedFilename(slug, relativeFile);
     if (entry.name !== expectedFilename) {
       violations.push({
-        file: relative(DOCS_DIR, fullPath),
+        file: relativeFile,
         slug,
         expectedFilename,
       });

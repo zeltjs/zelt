@@ -1,98 +1,145 @@
 ---
-sidebar_label: 全体像
+sidebar_label: アーキテクチャ
 ---
 
-# 全体像
+# アーキテクチャ
 
-Zeltであなたが書くのは、アプリの機能だけです。GraphQLスキーマも、OpenAPI
-ドキュメントも、型付きクライアントも、起動の配線も、すべてコードから導かれます。
-そして同じアプリが、Node・Bun・Cloudflare Workers・Lambda — そしてテストの中
-まで — adapterひとつの差し替えでそのまま動きます。
+ZeltJSでは、アプリ定義と実行環境ごとの起動処理を分けます。アプリ定義にはコントローラー、
+サービス、各機能を記述します。エントリーファイルは、Node.js、Bun、Cloudflare Workers、AWS Lambda、
+Electron、テストのいずれかに対応するアダプターへアプリ定義を渡します。
 
-それがなぜ可能なのかを示すのが、次の地図です。
+実行環境固有のコードは、エントリーファイルとインフラ用サービスに置きます。このページでは、
+その分離とビルド時に生成されるファイルを説明します。
+
+## 構成要素 {#the-30-second-model}
 
 ```mermaid
 flowchart TD
-  APP["app定義<br/>あなたのコード"]
-  APP -- "importして評価すると得られる<br/>(起動はしない)" --> BP["blueprint<br/>設計データ"]
-  BP -- "zelt build で plugin が導出" --> PRE[".zelt/prebuilt<br/>実行時に使う補助生成物<br/>(graphql runtime など)"]
-  BP -- "zelt build で plugin が導出" --> EXT["アプリの外で使う補助生成物<br/>(openapi.json など)"]
-
-  subgraph ENVS["実行環境"]
-    NLIVE["Node で動くアプリ<br/>(onNode)"]
-    WLIVE["Workers で動くアプリ<br/>(onCloudflareWorkers)"]
-    TLIVE["テストの中で動くアプリ<br/>(onTest · in-process)"]
-  end
-
-  APP -- "adapter が realize" --> ENVS
-  BP -- "設計として使われる" --> ENVS
-  PRE -. "あれば entry が束ねる" .-> ENVS
+  APP["アプリ定義<br/>コントローラー · サービス · 機能"]
+  APP --> BP["blueprint<br/>データで表したアプリ構造"]
+  BP -- "任意のbuild plugin" --> PRE["実行時の生成物<br/>.zelt/prebuilt"]
+  BP -- "任意のbuild plugin" --> EXT["外部向け生成物<br/>OpenAPI · 型付きclient"]
+  ENTRY["環境ごとのentry"] --> ADAPTER["runtime adapter"]
+  APP --> ADAPTER
+  BP --> ADAPTER
+  PRE -. "必要な場合" .-> ADAPTER
+  ADAPTER --> LIVE["動作中のアプリ<br/>Node · Bun · Workers · Lambda · tests"]
 ```
 
-## あなたが書くもの
+小さなNode.jsプロジェクトをファイルで表すと、次のようになります。
 
-- **app定義** — `createApp([...])` とその中身のfeature群: HTTPコントローラ、
-  GraphQLリゾルバ、コマンド、スケジューラ、それらを支えるservice。アプリの機能
-  そのものの記述で、`.zelt/` からは何もimportせず、起動ロジックも持ちません
-- **entry** — プラットフォームごとの数行(`node.ts`、`worker.ts`、…)。appと
-  prebuiltをimportしてadapterに渡します。あなたのコードが `.zelt/` に触れる
-  唯一の場所です
-- **テスト** — entryと同じ役割を果たします: appとprebuiltを合流させ、adapterの
-  ひとつである `onTest` に渡す。テストは並行世界ではなく、本番と同じ経路を
-  in-processで通ります
-- **zelt.config.ts** — CLIへの指示書。どのpluginを使うか、buildとdevの設定
+```text
+src/
+├── app.ts          # アプリ定義
+└── node.ts         # Node.js固有のエントリー
+zelt.config.ts      # 必要な場合のビルド・プラグイン設定
+.zelt/
+└── prebuilt.ts     # 必要な場合に生成される実行時データ
+dist/               # バンドル済みのデプロイ成果物
+```
 
-## zelt CLI (build / dev)
+## 1. アプリ定義 {#app-definition}
 
-`zelt build`(および `zelt dev` の再起動のたび)はapp定義をimportして評価します。
-評価はデコレータと型メタデータを収集しますが、何も起動しません — サーバーも
-立たず、接続も開きません。得られるのが **blueprint**: アプリのルート・リゾルバ・
-型が、素のデータとして手に入ったものです。
+`createApp([...])` は、HTTPコントローラー、GraphQLリゾルバー、コマンド、
+スケジューラー、それらを支えるサービスを組み立てます。
 
-pluginはblueprintを消費して派生物を作ります: GraphQLスキーマと実行可能runtime、
-OpenAPI文書、型付きクライアント。源はひとつ、派生は多数 — build時や起動時に
-コードと突き合わされますが、検出できるのは構成レベルのズレ(エンドポイントの
-pathやresolver構成の変化)のみで、resolverのメソッドシグネチャのような深い
-ズレは検出対象外です。appから何かを消せば次のbuildでその派生物も消えます。
-そしてpluginが必須になるのは、そのpluginに依存するfeatureを使う場合だけです
-— 例えば `graphql()` エンドポイントは `graphqlPlugin()` と `zelt build` が
-なければ動きません。
+```typescript
+import { Controller, createApp, http } from '@zeltjs/core';
+@Controller('/')
+class GreetingController {}
 
-最後にbundle(Nodeならtsdown、Workersならwrangler)がentryごと束ねて `dist/` を
-作ります。
+// app.ts
 
-## 生成物
+export const app = createApp([
+  http({ controllers: [GreetingController] }),
+]);
+```
 
-- **`.zelt/`** — *アプリ自身*から派生した成果物。アプリの*外側へ*流れ、import
-  できるのはentryとテストだけです(アプリは自分自身の派生物に依存できません)。
-  使い捨てで再現可能 — ディレクトリごと消しても `zelt build` が作り直します。
-  runtime群は1つの値モジュール `.zelt/prebuilt.ts` に束ねられます
-- **`openapi.json` / 型付きclient** — アプリの外の世界(フロントエンド・API
-  利用者)向けの派生物。コードから導かれているので、実装と食い違う仕様書に
-  なりません
-- **`dist/`** — デプロイ物。entry + app + prebuilt が束ねられた、実行環境に
-  持っていく単位です
+アプリ定義は `.zelt/` からimportせず、サーバーを起動せず、モジュールの評価時に接続を
+開かないでください。CLIはビルド時にこのファイルをimportし、アダプターは起動時にimportします。
 
-## 実行環境
+## 2. Blueprint {#blueprint}
 
-adapterは同じ仕事の交換可能な実装です: appのコードとblueprintの設計データ、
-そしてあれば `.zelt/prebuilt` を受け取り、**realize**する — DIを走らせ、環境変数から設定を読み、DB・KV・外部サービスへの接続を開き、
-サーバーを立てる。`onNode`、`onBun`、`onCloudflareWorkers`、`onLambda`、
-`onElectron`、そして `onTest`。プラットフォームの乗り換えはこの1呼び出しの
-差し替えであり、地図の残りには触れません。
+アプリ定義をimportして評価すると、機能とdecoratorのmetadataが集められます。
+その結果が **blueprint** です。ルート、リゾルバー、型などの構造情報をデータとして
+表します。
 
-デプロイと運用から見ると、地図はこう繋がります:
+ビルドツールとアダプターは、どちらもblueprintを使います。アプリ定義の評価ではサーバーを
+起動せず、インフラへ接続しません。そのため、アプリ側のモジュールも評価時にこれらの処理を
+実行しないでください。
+
+## 3. 生成ファイル {#build-artifacts}
+
+`zelt build` と `zelt dev` の各再起動では、アプリ定義をimportして評価します。その後、
+任意のプラグインがblueprintを使って次のファイルを生成できます。
+
+- **`.zelt/prebuilt.ts`** — GraphQLなどの機能が必要とする実行時データ
+- **OpenAPI文書と型付きクライアント** — アプリの外から使う契約
+- その他、plugin固有の生成物
+
+エントリーとテストは `.zelt/prebuilt` をimportできますが、アプリ定義から自身の生成ファイルを
+importしないでください。`.zelt/` ディレクトリは `zelt build` で再生成できます。
+
+現在、Zeltがbuild時または起動時に検査するのは、endpoint pathやresolverの集合など、
+構造上の整合性です。すべての実装詳細やmethod signatureが全生成物と一致することまでは
+証明しません。アプリを変更したら再buildしてください。構造が古い生成物は、
+`zelt build` を促すメッセージとともに失敗します。
+
+その後、tsdownやWranglerなどのバンドラーが、エントリーとimport先を `dist/` にまとめます。
+
+## 4. 実行環境のアダプター {#runtime-adapter}
+
+entryは実行環境を選び、アプリを渡します。
+
+```typescript
+// node.ts
+import { onNode } from '@zeltjs/adapter-node';
+import { createApp, http } from '@zeltjs/core';
+const app = createApp([http({ controllers: [] })]);
+// ---cut---
+// appは./appからimport
+
+const node = await onNode(app);
+await node.http.listen(3000);
+```
+
+アダプターはDIランタイムを作成し、環境設定を読み、ライフサイクルフックを実行し、実行環境の
+機能を提供します。サービスはライフサイクルフックからDBや外部サービスへ接続できます。
+
+`onNode`、`onBun`、`onCloudflareWorkers`、`onLambda`、`onElectron`、`onTest` は、
+それぞれ異な環境で同じ役割を果たします。実行環境ごとにエントリーファイルを用意し、
+同じアプリ定義を使用できます。
+
+## 実行環境に依存するコード {#portability-boundary}
+
+| 実行環境に依存しないコード | 実行環境に依存するコード |
+| --- | --- |
+| コントローラーとサービス | エントリーファイルとadapter呼び出し |
+| DIの依存関係 | 環境変数とsecret |
+| バリデーションとビジネスルール | デプロイとbundlerの設定 |
+| transportに依存しない機能 | インフラserviceが使うruntime API |
+
+実行環境固有のコードが必要になることもあります。すべての環境に同じAPIがあると仮定せず、
+DIで差し替えるserviceの背後か、環境ごとのentryに置いてください。
+
+## テスト用アダプター {#tests-use-the-same-boundary}
+
+テストはアプリと必要な生成データを `onTest` に渡し、プロセス内で呼び出します。
+ネットワークポートを開かずに、アプリ構成とDIライフサイクルを実行できます。
+
+## ビルドとデプロイ {#source-to-deployment}
+
+デプロイに関係するファイルとサービスを次に示します。
 
 ```mermaid
 flowchart LR
   SRCSET["entry + app + .zelt/prebuilt"] -- "tsdown / wrangler が bundle" --> DIST["dist/<br/>デプロイ物"]
   DIST -- "CI/CD がデプロイ" --> LIVE["実行環境で<br/>動くアプリ"]
-  ENV["環境変数 · secrets"] -- "realize が設定として読む" --> LIVE
+  ENV["環境変数 · secrets"] -- "adapter が設定として読む" --> LIVE
   LIVE -- "実行中に接続" --> INFRA["DB · KV · 外部サービス"]
   USER["フロントエンド · API利用者"] -- "HTTP / GraphQL で呼ぶ" --> LIVE
   API["openapi.json · 型付きclient"] -- "型安全な呼び出しに使う" --> USER
 ```
 
-起動時、各featureは自分のprebuilt entryをコードと突き合わせ、ズレていれば直し方
-(`zelt build`)を名指しして明示的に失敗します — 古い成果物がsilentに動くことは
-ありません。
+アプリを起動する手順は[Getting Started](./getting-started)、プロジェクト全体の例は
+[Node.jsガイド](./getting-started/node)を参照してください。

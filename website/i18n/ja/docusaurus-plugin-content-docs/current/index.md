@@ -1,68 +1,98 @@
-# Introduction
+# はじめに
 
-ZeltJSは、DIを組み込んだポータブルなTypeScriptアプリケーションフレームワークです。アダプターを切り替えることで、Node.js、Bun、Cloudflare Workers、AWS Lambdaで動作します。
-異なるインフラで動作する大規模なアプリケーションを構築すること。それがZeltJSの目指すところです。
+ZeltJSは、DIを備えたTypeScriptバックエンドフレームワークです。コントローラー、
+サービス、設定などのアプリコードと、サーバーの起動処理を分けて記述します。
+Node.js、Bun、Cloudflare Workers、AWS Lambda、Electron、プロセス内テスト用の
+アダプターを提供しています。
 
-## 設計思想 {#philosophy}
-
-TypeScriptによるバックエンド開発には、真の意味での「フレームワーク」がほとんど存在しません。HonoやExpressは優れたライブラリですが、アプリケーションフレームワークとしては不十分です。ライブラリは「便利な道具」ですが、フレームワークは「アプリケーションをどう構築するかへの答え」を提供します。DIの仕組み、ディレクトリ構造、認証・バリデーション・ロギングの統合パターン — これら「構築方法への答え」が揃って初めて、開発者は本質的な機能開発に集中できます。
-
-NestJSはフレームワークと呼べる数少ない存在ですが、独自のモジュールシステムとRxJSベースの抽象化を持ち込むため、標準的なTypeScriptの慣習から外れます。起動時の重いメタデータ解析も、サーバーレス環境では非実用的です。
-
-ZeltJSは、アプリケーションの構築方法に悩まなくて済む「フレームワーク」を目指しています。
-そのために、次の5つの方針で構築しています:
-
-- TS-Native — TSがすでに持っているものを再発明しない。import/exportを使い、async/awaitを使い、typesを使う
-- Web-Standard — Request/Response、Fetch APIなどWeb標準に沿う。独自の抽象化はしない
-- Transport-Agnostic — REST/GraphQL/CLI/Queueは単なる異なるエントリポイントに過ぎない。アプリケーションのコアは変わらない
-- Cold-Start Friendly — serverless/Worker/Edgeで動作する。起動コストのペナルティなし
-- Least Astonishment — エコシステムの標準に従う。追加の学習コストなし
-
-## インストール {#installation}
-
-```bash
-pnpm add @zeltjs/core @zeltjs/adapter-node
-```
-
-:::note
-Zeltは**pre-alpha**です — マイナーバージョン間でAPIが変わることがあります。
+:::caution[Pre-alpha]
+ZeltJSは活発に開発中です。0.xの間はマイナーバージョンでAPIが変わる可能性があります。
+安定したAPIや長期サポートが必要なプロジェクトでは、安定版のリリースを待ってください。
 :::
 
-## クイックサンプル {#quick-example}
+## ZeltJSが提供するもの {#the-problem-zelt-addresses}
+
+HTTPルーターを使えば、サービスをすぐに起動できます。しかしサービスが成長すると、
+DI、設定、ライフサイクル、バリデーション、認証、ロギング、バックグラウンド処理、
+テストをどう組み合わせるかもチームで決めなければなりません。これらはルーティングではなく、
+アプリケーション設計の問題です。
+
+ZeltJSはこれらの機能を提供し、実行環境ごとの起動処理と分けて扱います。
+
+- **アプリ定義:** コントローラー、サービス、各機能
+- **実行環境のエントリー:** アダプターを使ってNode.js、Bun、Workers、Lambda、
+  Electron、テスト環境でアプリを起動
+- **生成ファイル:** 任意のプラグインがアプリ定義からOpenAPI文書、GraphQL実行用
+  データ、型付きクライアントを生成
+
+エントリーファイルとインフラ設定は実行環境ごとに必要です。コントローラー、サービス、
+ビジネスルールとは分けて記述します。
+
+## 想定するユースケース {#when-zelt-fits}
+
+ZeltJSは次のようなアプリを対象としています。
+
+- DIとライフサイクル管理が必要
+- 本番とプロセス内テストで同じアプリ定義を使う
+- Node.js、Bun、Workers、Lambda、Electronのいずれかで実行する
+- HTTP、GraphQL、コマンド、スケジュールジョブなど、複数の入口から振る舞いを提供する
+- アプリのmetadataからOpenAPI文書や型付きクライアントを生成する
+
+ルーティングだけが必要な小さなHTTPハンドラーには、ルーターで十分です。安定したAPIと
+長期サポートが必要な本番システムにも、現時点のZeltJSは適していません。
+
+## 設計原則 {#design-principles}
+
+- **TypeScript API** — module、async/await、型、標準decoratorを使う
+- **HTTPにWeb標準APIを使用** — `Request`、`Response`、Fetch APIを使う
+- **起動処理を分離** — 実行環境固有の処理とインフラを、アダプターや差し替え可能な
+  サービスに置く
+- **明示的な構成** — `createApp([...])` でコントローラーと機能を組み立て、
+  アプリ定義をコード上で確認できるようにする
+- **起動時間を測定** — ベンチマークでスループットとコールドスタート時間を公開する。
+  [測定方法と結果](https://github.com/zeltjs/benchmarks)を参照
+
+## コード例 {#a-small-application}
 
 ```typescript
-import { createApp, Controller, Get, http } from '@zeltjs/core';
-import { onNode } from '@zeltjs/adapter-node';
+import { Controller, Get, Injectable, createApp, http, inject } from '@zeltjs/core';
 
-@Controller('/hello')
-class HelloController {
-  @Get('/')
+@Injectable()
+class GreetingService {
   greet() {
-    return { message: 'Hello, World!' };
+    return 'Hello from ZeltJS!';
   }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
-const nodeApp = await onNode(app);
-await nodeApp.http.listen({ port: 3000 });
+@Controller('/')
+class GreetingController {
+  constructor(private greetings = inject(GreetingService)) {}
+
+  @Get('/')
+  hello() {
+    return { message: this.greetings.greet() };
+  }
+}
+
+export const app = createApp([http({ controllers: [GreetingController] })]);
 ```
 
-順を追った説明は[Getting Started](./getting-started)ガイドを参照してください。
+アプリ定義はサーバーを起動しません。Node.js用のエントリーで起動します。
 
-## ベンチマーク {#benchmark}
+```typescript
+import { onNode } from '@zeltjs/adapter-node';
+import { createApp, http } from '@zeltjs/core';
+const app = createApp([http({ controllers: [] })]);
+// ---cut---
+// node.ts — appは./appからimport
 
-Zeltはランタイム性能とコールドスタート速度のバランスを実現 — サーバーレスに最適です。
+const node = await onNode(app);
+await node.http.listen(3000);
+```
 
-| Framework | Requests/sec | Cold Start (ms) |
-| --------- | -----------: | --------------: |
-| Fastify   |       44,033 |             101 |
-| **Zelt**  |   **37,331** |          **68** |
-| Hono      |       37,262 |              37 |
-| AdonisJS  |       33,548 |             149 |
-| NestJS    |       23,597 |             268 |
+## 次に読むもの {#choose-your-next-step}
 
-[ベンチマーク詳細 →](https://github.com/zeltjs/benchmarks)
-
-## ステータス {#status}
-
-**pre-alpha** — 0.xの間はマイナーバージョンで破壊的変更が発生することがあります。
+- [StackBlitzでZeltJSを試す](https://stackblitz.com/fork/github/zeltjs/zelt/tree/main/examples/stackblitz-node?startScript=dev&title=ZeltJS%20Quickstart) — ブラウザで小さなNode.jsアプリを実行・編集する
+- [Getting Startedを進める](./getting-started) — ローカルへインストールし、実行環境を選ぶ
+- [アーキテクチャの概要を読む](./big-picture) — アプリ定義、生成物、アダプター、実行環境の関係を確認する
+- [完成したサンプルを見る](https://github.com/zeltjs/zelt/tree/main/examples/drizzle-todo) — Drizzleとテストを使うバックエンドを確認する

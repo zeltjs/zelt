@@ -1,4 +1,5 @@
 import { useColorMode } from '@docusaurus/theme-common/internal';
+import type { ReactElement } from 'react';
 import styles from './styles.module.css';
 
 interface Props {
@@ -21,7 +22,7 @@ const MoonIcon = () => (
   </svg>
 );
 
-export default function ColorModeToggle({ className }: Props): JSX.Element {
+export default function ColorModeToggle({ className }: Props): ReactElement {
   const { colorMode, setColorMode } = useColorMode();
   const isDark = colorMode === 'dark';
 

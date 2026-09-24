@@ -1,106 +1,148 @@
 ---
-sidebar_label: The Big Picture
+sidebar_label: Architecture
 ---
 
-# The Big Picture
+# Architecture
 
-With Zelt, what you write is your application's functionality — and only
-that. The GraphQL schema, the OpenAPI document, typed clients, and the
-startup wiring are all derived from your code. And the same app runs on
-Node, Bun, Cloudflare Workers, Lambda — and inside your tests — by swapping
-a single adapter call.
+ZeltJS separates the application definition from runtime startup. The definition contains
+controllers, services, and features. An entry file passes it to the adapter for Node.js,
+Bun, Cloudflare Workers, AWS Lambda, Electron, or tests.
 
-The map below shows why that is possible.
+Runtime-specific code remains in the entry file and infrastructure services. The rest of
+this page explains that separation and the files produced during a build.
+
+## Components
 
 ```mermaid
 flowchart TD
-  APP["app definition<br/>your code"]
-  APP -- "obtained by importing and<br/>evaluating it (never boots)" --> BP["blueprint<br/>the design, as data"]
-  BP -- "a plugin derives, at zelt build" --> PRE[".zelt/prebuilt<br/>auxiliary artifacts used at runtime<br/>(graphql runtime, …)"]
-  BP -- "a plugin derives, at zelt build" --> EXT["auxiliary artifacts used outside the app<br/>(openapi.json, …)"]
-
-  subgraph ENVS["runtime environments"]
-    NLIVE["running app on Node<br/>(onNode)"]
-    WLIVE["running app on Workers<br/>(onCloudflareWorkers)"]
-    TLIVE["running app in your tests<br/>(onTest · in-process)"]
-  end
-
-  APP -- "an adapter realizes" --> ENVS
-  BP -- "used as the design" --> ENVS
-  PRE -. "joined by the entry, when present" .-> ENVS
+  APP["app definition<br/>controllers · services · features"]
+  APP --> BP["blueprint<br/>the app's structure as data"]
+  BP -- "optional build plugins" --> PRE["runtime artifacts<br/>.zelt/prebuilt"]
+  BP -- "optional build plugins" --> EXT["external artifacts<br/>OpenAPI · typed clients"]
+  ENTRY["platform entry"] --> ADAPTER["runtime adapter"]
+  APP --> ADAPTER
+  BP --> ADAPTER
+  PRE -. "when required" .-> ADAPTER
+  ADAPTER --> LIVE["running app<br/>Node · Bun · Workers · Lambda · tests"]
 ```
 
-## What you write
+In concrete files, a small Node.js project looks like this:
 
-- **app definition** — `createApp([...])` with your features: HTTP
-  controllers, GraphQL resolvers, commands, schedulers, and the services
-  behind them. The description of your application's functionality; it
-  imports nothing from `.zelt/` and contains no startup logic.
-- **entry** — a few lines per platform (`node.ts`, `worker.ts`, …) that
-  import the app and the prebuilt and hand both to an adapter. The only
-  place your code touches `.zelt/`.
-- **tests** — they play the same role as an entry: join app + prebuilt and
-  hand them to `onTest`, which is one adapter among the others. Tests are
-  not a parallel world; they go through the same path as production,
-  in-process.
-- **zelt.config.ts** — your instructions to the CLI: which plugins to run,
-  build and dev settings.
+```text
+src/
+├── app.ts          # application definition
+└── node.ts         # Node-specific entry
+zelt.config.ts      # build and plugin configuration, when needed
+.zelt/
+└── prebuilt.ts     # generated runtime artifacts, when needed
+dist/               # bundled deployable
+```
 
-## zelt CLI (build / dev)
+## 1. Application definition
 
-`zelt build` (and every `zelt dev` restart) imports your app definition and
-evaluates it. Evaluation collects decorators and type metadata but boots
-nothing — no server, no connections. The result is the **blueprint**: your
-app's routes, resolvers, and types as plain data.
+`createApp([...])` composes the features of your application: HTTP controllers,
+GraphQL resolvers, commands, schedulers, and the services behind them.
 
-Plugins consume the blueprint and derive artifacts: the GraphQL schema and
-executable runtime, the OpenAPI document, typed clients. One source, many
-derivatives, checked against it at build or startup — though today only
-structural drift is caught (an endpoint's path or resolver set changing),
-not deeper drift such as a resolver's method signature. Removing something
-from the app removes its artifacts on the next build.
-And plugins are optional unless your app uses a feature that depends on
-one — a `graphql()` endpoint, for example, requires `graphqlPlugin()` and
-`zelt build` to run at all.
+```typescript
+import { Controller, createApp, http } from '@zeltjs/core';
+@Controller('/')
+class GreetingController {}
 
-Finally the bundle step (tsdown on Node, wrangler on Workers) packs the
-entry and everything it imports into `dist/`.
+// app.ts
 
-## generated
+export const app = createApp([
+  http({ controllers: [GreetingController] }),
+]);
+```
 
-- **`.zelt/`** — artifacts derived from *the app itself*. They flow *out
-  of* your app: only entries and tests import them (the app cannot depend
-  on its own derivatives). Disposable and reproducible — delete the
-  directory and `zelt build` recreates it. The runtime pieces are bundled
-  into one value module, `.zelt/prebuilt.ts`.
-- **`openapi.json` / typed clients** — derivatives for the world outside
-  your app: frontends and API consumers. Because they are derived from the
-  code, the spec cannot disagree with the implementation.
-- **`dist/`** — the deployable: entry + app + prebuilt packed together, the
-  unit you ship to a runtime environment.
+The application definition must not import from `.zelt/`, start a server, or open
+connections at module scope. The CLI imports this file during builds, and runtime adapters
+import it during startup.
 
-## Runtime environments
+## 2. Blueprint
 
-Adapters are interchangeable implementations of the same job: take your
-app’s code, its blueprint, and — when present — `.zelt/prebuilt`, and
-**realize** them — run DI, read configuration from the
-environment, open connections to databases and external services, start
-servers. `onNode`, `onBun`, `onCloudflareWorkers`, `onLambda`,
-`onElectron` — and `onTest`. Switching platforms means swapping this one
-call; the rest of the map is untouched.
+Importing and evaluating the app definition collects its feature and decorator metadata.
+Zelt represents the result as a **blueprint**: routes, resolvers, types, and other
+structural information expressed as data.
 
-Seen from deployment and operations, the map connects like this:
+Build tools and runtime adapters both use the blueprint. Evaluating the application
+definition does not start a server or connect to infrastructure, so application modules
+must not perform those operations at module scope.
+
+## 3. Generated files
+
+`zelt build` and each `zelt dev` restart import and evaluate the application definition.
+Optional plugins then use the blueprint to generate:
+
+- **`.zelt/prebuilt.ts`** — runtime data required by features such as GraphQL;
+- **OpenAPI documents and typed clients** — contracts used outside the app; and
+- other plugin-specific artifacts.
+
+Entries and tests may import `.zelt/prebuilt`; the application definition must not import
+its generated output. `zelt build` can recreate the `.zelt/` directory.
+
+Today Zelt checks structural consistency, such as endpoint paths or resolver sets, at
+build or startup. It does not yet prove that every implementation detail and method
+signature agrees with every generated artifact. Rebuild after changing the app; stale
+structural artifacts fail with a message directing you to `zelt build`.
+
+A bundler such as tsdown or Wrangler then packages the entry and its imports into `dist/`.
+
+## 4. Runtime adapter
+
+An entry selects the environment and hands it the app:
+
+```typescript
+// node.ts
+import { onNode } from '@zeltjs/adapter-node';
+import { createApp, http } from '@zeltjs/core';
+const app = createApp([http({ controllers: [] })]);
+// ---cut---
+// app is imported from ./app
+
+const node = await onNode(app);
+await node.http.listen(3000);
+```
+
+The adapter creates the DI runtime, reads environment configuration, runs lifecycle hooks,
+and exposes platform capabilities. Services can open database or external-service
+connections from lifecycle hooks.
+
+`onNode`, `onBun`, `onCloudflareWorkers`, `onLambda`, `onElectron`, and `onTest` all
+perform this role for different environments. Each environment has its own entry file and
+can use the same application definition.
+
+## Runtime-independent and runtime-specific code
+
+| Runtime-independent code | Runtime-specific code |
+| --- | --- |
+| Controllers and services | Entry file and adapter call |
+| DI relationships | Environment variables and secrets |
+| Validation and business rules | Deployment and bundler configuration |
+| Transport-independent features | Runtime APIs used by infrastructure services |
+
+Runtime-specific code is sometimes necessary. Put it behind an injected service or in
+the platform entry rather than assuming every API exists in every environment.
+
+## Test adapter
+
+Tests pass the application and any required prebuilt data to `onTest`, then call it
+in-process. This runs the application composition and DI lifecycle without opening a
+network port.
+
+## Build and deployment
+
+The following diagram shows the files and services involved in a deployment:
 
 ```mermaid
 flowchart LR
   SRCSET["entry + app + .zelt/prebuilt"] -- "tsdown / wrangler bundles" --> DIST["dist/<br/>deployable"]
   DIST -- "CI/CD deploys" --> LIVE["running app in a<br/>runtime environment"]
-  ENV["env vars · secrets"] -- "realize reads as configuration" --> LIVE
+  ENV["env vars · secrets"] -- "adapter reads as configuration" --> LIVE
   LIVE -- "connects at runtime" --> INFRA["DB · KV · external services"]
   USER["frontends · API consumers"] -- "call via HTTP / GraphQL" --> LIVE
   API["openapi.json · typed clients"] -- "used for type-safe calls" --> USER
 ```
 
-At startup each feature checks its prebuilt entry against the code and
-fails loudly with the fix (`zelt build`) if they have drifted — stale
-artifacts never run silently.
+See [Getting Started](./getting-started) to run an application or the
+[Node.js guide](./getting-started/node) for a complete project setup.

@@ -1,25 +1,98 @@
 <p align="center">
   <img src="website/static/img/logo.svg" alt="ZeltJS" height="80">
   <br>
-  <b>ZeltJS</b>
+  <strong>A TypeScript backend framework with dependency injection</strong>
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@zeltjs/core"><img src="https://img.shields.io/npm/v/@zeltjs/core.svg" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/status-pre--alpha-orange.svg" alt="Status: pre-alpha">
 </p>
 
-A portable TypeScript application framework with built-in DI. Swap adapters to run on **Node.js**, **Bun**, **Cloudflare Workers**, or **AWS Lambda**. Building large-scale applications that work across different infrastructure — that's what ZeltJS aims for.
+ZeltJS provides controllers, services, configuration, lifecycle hooks, validation, and
+testing. Application code is defined separately from server startup. Runtime adapters are
+available for **Node.js**, **Bun**, **Cloudflare Workers**, **AWS Lambda**, **Electron**,
+and in-process tests.
 
-📖 **Documentation**: [zeltjs.com](https://zeltjs.com)
+<p align="center">
+  <a href="https://zeltjs.com">Documentation</a> ·
+  <a href="https://stackblitz.com/fork/github/zeltjs/zelt/tree/main/examples/stackblitz-node?startScript=dev&title=ZeltJS%20Quickstart">Try in StackBlitz</a> ·
+  <a href="https://zeltjs.com/docs/big-picture">Architecture</a>
+</p>
 
-## Features
+> [!CAUTION]
+> ZeltJS is pre-alpha. APIs may change between minor versions during 0.x.
 
-- **TS-Native** — Use import/export, async/await, and types. No reinventing what TypeScript already provides
-- **Web-Standard** — Align with Request/Response and Fetch API. No custom abstractions
-- **Transport-Agnostic** — REST, GraphQL, CLI, Queue — they're all just entry points. Your application core stays the same
-- **Cold-Start Friendly** — Runs on serverless, Workers, Edge. No startup cost penalty
-- **Built-in DI** — Type-safe dependency injection with `@Injectable` and `inject()`
+## What ZeltJS Provides
+
+- **Dependency injection and lifecycle** — services, configuration, lifecycle hooks,
+  validation, authentication, logging, background work, and tests use the same DI container.
+- **Runtime adapters** — small entry files start the application on Node.js, Bun,
+  Cloudflare Workers, AWS Lambda, Electron, or in-process tests.
+- **In-process testing** — `onTest` starts the application and its DI lifecycle without
+  opening a network port.
+- **Web Standard APIs** — HTTP features use `Request`, `Response`, and Fetch APIs.
+- **Generated API artifacts** — optional plugins generate OpenAPI documents, GraphQL
+  runtime data, and typed clients from the application definition.
+
+ZeltJS is intended for backend applications that need dependency injection and shared
+application structure across controllers, jobs, and tests. For a small HTTP handler that
+only needs routing, a router is likely sufficient.
+
+## Application Definition and Node.js Entry
+
+Controllers and services are defined in the application:
+
+```typescript
+// app.ts
+import { Controller, Get, Injectable, createApp, http, inject } from '@zeltjs/core';
+
+@Injectable()
+class GreetingService {
+  greet() {
+    return 'Hello from ZeltJS!';
+  }
+}
+
+@Controller('/')
+class GreetingController {
+  constructor(private greetings = inject(GreetingService)) {}
+
+  @Get('/')
+  hello() {
+    return { message: this.greetings.greet() };
+  }
+}
+
+export const app = createApp([http({ controllers: [GreetingController] })]);
+```
+
+The Node.js entry starts the server:
+
+```typescript
+// node.ts
+import { onNode } from '@zeltjs/adapter-node';
+import { app } from './app';
+
+const node = await onNode(app);
+await node.http.listen(3000);
+```
+
+Other runtime entries import the same application definition and use a different adapter.
+
+## Try it
+
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/fork/github/zeltjs/zelt/tree/main/examples/stackblitz-node?startScript=dev&title=ZeltJS%20Quickstart)
+
+Or start locally with Node.js:
+
+```bash
+npm install @zeltjs/core @zeltjs/adapter-node
+```
+
+Follow the [Node.js Getting Started guide](https://zeltjs.com/docs/getting-started/node) for
+the project setup, or read the [architecture overview](https://zeltjs.com/docs/big-picture).
 
 ## Supported Runtimes
 
@@ -31,120 +104,9 @@ A portable TypeScript application framework with built-in DI. Swap adapters to r
 | AWS Lambda | `@zeltjs/adapter-lambda` |
 | Electron | `@zeltjs/adapter-electron` |
 
-## Installation
-
-```bash
-npm i @zeltjs/core @zeltjs/adapter-node valibot
-```
-
-## Quick Start
-
-### 1. Define a Controller
-
-```typescript
-import { Controller, Get, Post, request, response } from '@zeltjs/core';
-import * as v from 'valibot';
-
-const CreateUserBody = v.object({
-  name: v.pipe(v.string(), v.minLength(1)),
-  email: v.pipe(v.string(), v.email()),
-});
-
-@Controller('/users')
-class UserController {
-  @Get('/')
-  findAll() {
-    return { users: [] };
-  }
-
-  @Get('/:id')
-  findOne(req = request()) {
-    const id = req.pathParam('id');
-    return { id, name: 'John Doe' };
-  }
-
-  @Post('/')
-  async create(req = request(CreateUserBody), res = response()) {
-    const body = await req.body();
-    return res.json({ id: '1', ...body }, 201);
-  }
-}
-```
-
-### 2. Add a Service with Dependency Injection
-
-```typescript
-import { Injectable, inject } from '@zeltjs/core';
-
-@Injectable()
-class UserService {
-  private users = new Map<string, { id: string; name: string }>();
-
-  findAll() {
-    return Array.from(this.users.values());
-  }
-
-  create(name: string) {
-    const id = crypto.randomUUID();
-    const user = { id, name };
-    this.users.set(id, user);
-    return user;
-  }
-}
-
-@Controller('/users')
-class UserController {
-  constructor(private userService = inject(UserService)) {}
-
-  @Get('/')
-  findAll() {
-    return { users: this.userService.findAll() };
-  }
-}
-```
-
-### 3. Create and Run the Application
-
-```typescript
-import { createApp, http } from '@zeltjs/core';
-import { onNode } from '@zeltjs/adapter-node';
-
-const app = createApp([http({ controllers: [UserController] })]);
-
-const nodeApp = await onNode(app);
-const server = await nodeApp.http.listen({ port: 3000 });
-console.log(`Server running at http://localhost:${server.address.port}`);
-```
-
-## Deploy Anywhere
-
-Same application code, different adapters:
-
-```typescript
-// Node.js
-import { onNode } from '@zeltjs/adapter-node';
-const nodeApp = await onNode(app);
-await nodeApp.http.listen({ port: 3000 });
-
-// Bun
-import { onBun } from '@zeltjs/adapter-bun';
-const bunApp = await onBun(app);
-bunApp.http.serve({ port: 3000 });
-
-// Cloudflare Workers
-import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
-const workers = await onCloudflareWorkers(app);
-export default { fetch: workers.fetch };
-
-// AWS Lambda
-import { onLambda } from '@zeltjs/adapter-lambda';
-const lambdaApp = await onLambda(app);
-export const handler = lambdaApp.handler;
-```
-
 ## Benchmark
 
-Zelt balances runtime performance with cold-start speed — ideal for serverless.
+The current benchmark snapshot measures both steady-state throughput and startup time.
 
 | Framework | Requests/sec | Cold Start (ms) |
 | --------- | -----------: | --------------: |
@@ -155,10 +117,6 @@ Zelt balances runtime performance with cold-start speed — ideal for serverless
 | NestJS    |       23,597 |             268 |
 
 [View full benchmark details →](https://github.com/zeltjs/benchmarks)
-
-## Status
-
-**pre-alpha** — Breaking changes may occur in minor versions during 0.x.
 
 ## License
 

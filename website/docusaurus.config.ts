@@ -56,7 +56,7 @@ const shikiOnly = {
 
 const config: Config = {
   title: 'ZeltJS',
-  tagline: 'Portable application framework with DI — swap adapters for different runtimes',
+  tagline: 'A TypeScript backend framework with dependency injection',
   favicon: 'img/favicon.png',
 
   future: {
@@ -181,10 +181,11 @@ const config: Config = {
         generateLLMsFullTxt: true,
         docsDir: 'docs',
         title: 'Zelt Documentation',
-        description: 'A fast, type-safe application framework for TypeScript',
+        description:
+          'A TypeScript application framework with built-in DI and explicit runtime adapters',
         includeOrder: llmsIncludeOrder.filter((p) => p !== 'index.md'),
         includeUnmatchedLast: false,
-        rootContent: `- [Introduction](https://zeltjs.com/docs/index.md): ZeltJS is a portable TypeScript application framework with built-in DI. Swap adapters to run on Node.js, Bun, Cloudflare Workers, or AWS Lambda.`,
+        rootContent: `- [Introduction](https://zeltjs.com/docs/index.md): ZeltJS is a TypeScript backend framework with dependency injection and runtime adapters for Node.js, Bun, Cloudflare Workers, AWS Lambda, Electron, and tests.`,
       },
     ],
     'docusaurus-markdown-source-plugin',
