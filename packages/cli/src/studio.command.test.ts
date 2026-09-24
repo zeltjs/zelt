@@ -4,7 +4,13 @@ import { join } from 'node:path';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyzeResult, StudioServer } from './studio/index';
-import { handleExport, resolvePort, serveStudio } from './studio.command';
+import {
+  handleExport,
+  isExtractInvocation,
+  resolvePort,
+  runExtract,
+  serveStudio,
+} from './studio.command';
 
 const okResult: AnalyzeResult = {
   ok: true,
@@ -178,5 +184,89 @@ describe('serveStudio', () => {
       serveStudio(analyze, process.cwd(), 4400, false, runtime, startServer, openBrowser),
     ).rejects.toThrow('unexpected');
     expect(runtime.setExitCode).not.toHaveBeenCalled();
+  });
+});
+
+describe('runExtract', () => {
+  const publishedRun = vi.fn(async () => ({
+    kind: 'published' as const,
+    snapshotId: 'a'.repeat(64),
+    output: '/tmp/out.json',
+    reports: [],
+    ignoreRecommendations: [],
+  }));
+
+  it('refuses to run without --config', async () => {
+    const runtime = makeRuntime();
+    const run = vi.fn();
+    await runExtract(
+      '/cwd',
+      { config: undefined, output: undefined, allowIncomplete: undefined },
+      runtime,
+      run,
+    );
+
+    expect(run).not.toHaveBeenCalled();
+    expect(runtime.setExitCode).toHaveBeenCalledWith(1);
+  });
+
+  it('resolves --config and --output against the cwd', async () => {
+    const runtime = makeRuntime();
+    await runExtract(
+      '/cwd',
+      { config: 'a/demo.extract.json', output: 'b/out.json', allowIncomplete: true },
+      runtime,
+      publishedRun,
+    );
+
+    expect(publishedRun).toHaveBeenCalledWith('/cwd/a/demo.extract.json', {
+      output: '/cwd/b/out.json',
+      allowIncomplete: true,
+    });
+    expect(runtime.setExitCode).not.toHaveBeenCalled();
+  });
+
+  it('leaves the output path to the config when --output is absent', async () => {
+    const runtime = makeRuntime();
+    const run = vi.fn(async () => ({
+      kind: 'published' as const,
+      snapshotId: 'b'.repeat(64),
+      output: '/repo/out.json',
+      reports: [],
+      ignoreRecommendations: [],
+    }));
+    await runExtract(
+      '/cwd',
+      { config: 'demo.extract.json', output: '', allowIncomplete: undefined },
+      runtime,
+      run,
+    );
+
+    expect(run).toHaveBeenCalledWith('/cwd/demo.extract.json', { allowIncomplete: false });
+  });
+
+  it('exits 1 when extraction fails', async () => {
+    const runtime = makeRuntime();
+    const run = vi.fn(async () => ({
+      kind: 'failed' as const,
+      phase: 'assembly' as const,
+      diagnostics: ['boom'],
+    }));
+    await runExtract(
+      '/cwd',
+      { config: 'demo.extract.json', output: undefined, allowIncomplete: undefined },
+      runtime,
+      run,
+    );
+
+    expect(runtime.setExitCode).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('isExtractInvocation', () => {
+  it('is true only when extract is the first raw argument', () => {
+    expect(isExtractInvocation(['extract', '--config', 'a.json'])).toBe(true);
+    expect(isExtractInvocation(['--config', 'zelt.config.ts'])).toBe(false);
+    expect(isExtractInvocation([])).toBe(false);
   });
 });

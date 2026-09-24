@@ -53,7 +53,8 @@
     "jiti": "2.6.1",
     "neverthrow": "8.2.0",
     "ts-pattern": "5.7.1",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "valibot": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:peer"
@@ -64,8 +65,7 @@
     "@zeltjs/eventbus": "workspace:*",
     "c12": "3.0.4",
     "tsdown": "catalog:",
-    "typescript": "catalog:",
-    "valibot": "catalog:"
+    "typescript": "catalog:"
   },
   "dependenciesMeta": {
     "@zeltjs/eventbus": {

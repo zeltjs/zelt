@@ -9,7 +9,15 @@ export interface Attachment {
   readonly kind: 'middleware' | 'event';
   readonly target: string;
   readonly incoming: boolean;
+  /** 最も早く通る位置。順序を持たない関係は null */
+  readonly order: number | null;
   readonly relations: readonly Relation[];
+}
+
+function earliestOrder(left: number | null, right: number | null): number | null {
+  if (left === null) return right;
+  if (right === null) return left;
+  return Math.min(left, right);
 }
 
 function columnOf(graph: Graph, id: string): string {
@@ -46,6 +54,10 @@ export function attachments(
       kind,
       target,
       incoming,
+      order: earliestOrder(
+        previous?.order ?? null,
+        relation.origin === 'plugin' ? relation.order : null,
+      ),
       relations: [...(previous?.relations ?? []), relation],
     });
   };

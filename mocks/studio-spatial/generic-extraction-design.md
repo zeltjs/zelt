@@ -383,6 +383,7 @@ TypeScriptブロックには2種類ある。**配信型**（v1、UIが読む）�
 | 削除 | `GroupPresentation.expandedY`、`excerpt.kind: 'redacted'`、`presentation.origin`、`MapPresentation.demoScenarios`、`SourceDeclaration.entries` | 並び・座標はUIが計算、原文を伏せる範囲はconfig、UI未使用、変更はdiffで表す、入口はEntry列の宣言（9/23） |
 | 移動 | `EntryPoint.e2eTests` → `SourceDeclaration.e2eTests: EndpointTests \| null` | routeを登録したmethodに付く。`null` はrouteを登録していない宣言 |
 | 置換 | `presentation.hint` → `hints: { provider; label }[]` | pluginが自分の見つけた事実から付ける注記。UIはラベルを出すだけ |
+| 追加 | `GrantedRelation.order: number \| null` | 実行時に通る順（0始まり。middlewareのchain位置）。順序を持たない付与された線は `null`（AI 判断: Q1「どの順に通るか」は事実なので、JSONの並びでなく値で持つ。②1・②4・[付録J](#j-生成とpublish)） |
 
 配信型の差分（ここに無いv1の型はそのまま）:
 
@@ -410,6 +411,7 @@ interface GrantedRelation {
   readonly to: SubjectId;
   readonly provider: string;
   readonly kind: string;
+  readonly order: number | null;
   readonly evidence: readonly RelationEvidence[];
 }
 type SourceRelation = TsRelation | GrantedRelation;
@@ -827,7 +829,7 @@ declare function inspectZelt(input: MetadataInput): Promise<RuntimeInspection>;
 | HTTP inspection | http blueprintにgetInspectionを追加。controller constructor identity、mountごとのfullPath、method、適用middlewareを保持。workerが上のRuntimeReferenceへ変換する |
 | HTTP route | controller methodに hint `<METHOD> <fullPath>`。E2E照合用に、app・method・pathを持つrouteの材料を返す（配信しない） |
 | middleware | routingが使う登録・skip判定の共通処理をinspectionでも使用。組込みCors/SecureHeaders、親子mount、class/method decoratorを含める。middlewareの実行条件ではなく登録の適用関係を示す |
-| middlewareの線 | routeのcontroller method → middleware実行methodへ、付与された線 `middleware`。実行methodを登録の型・Symbolから特定できなければpartial。組込みのglobal middlewareには hint `全HTTP · core自動登録` |
+| middlewareの線 | routeのcontroller method → middleware実行methodへ、付与された線 `middleware`。chain内の位置（組込み → app → class → method）を `order` に入れる。実行methodを登録の型・Symbolから特定できなければpartial。組込みのglobal middlewareには hint `全HTTP · core自動登録` |
 | DI/config | metadataのInjectable/Configの分類（材料 `di`、配信しない）＋Symbolで識別したinject呼出。constructor default/property initializerを読む。constructor省略時は基底を辿る。動的provider・解けないsuper引数はpartial。Injectableのmetadataを持つclass（`@Injectable`・`@Controller`・`@Middleware` はいずれも内部で `injectable()` を付ける）とConfigのconstructorに hint `DI / 初期化` |
 | setup | inject呼出 → constructorに `inject`（targetは注入するclass、地図に無ければ `null`）。`@UseMiddleware` とmiddlewareを付けるdecorator（`@RateLimit`・`@Authorized` 等） → そのclass・methodに `middleware`（targetはmiddleware class。関数のmiddlewareは `null`）。Configのclassが差し替えるlibraryのConfig → そのclassに `config-override`。ignoreしたZeltへの登録呼出（`lifecycle.register(this)`） → その関数に `lifecycle`。labelはコードの式から作る。地図の線にはしない（[4.1](#41-責務と流れから)） |
 | register | eventbusの `on()`・`once()` に渡した購読callbackへのコアの `read` に、意味 `register` を付与する（線は1本のまま。[4.1](#41-責務と流れから)）。app factoryの登録式 → 登録されたclass（controller・middleware・handler・adaptor・config）はコアの線が無いので、付与された線 `register` として足す |
@@ -1170,6 +1172,8 @@ revision（内部）は、読み込んだソース・参照d.ts・package解決�
 
 出力順はgroupが正準filePath→ソース順、memberがソース順、relationはID順、testは登録位置/caseKey順、callsと根拠は位置順、hintsは[付録A](#注記の付与規則全表)の順、`meanings`・`setup` はprovider ID順で同provider内は根拠の位置順。JSON上の順序に表示の意味は持たせない（列内の並びはUIが計算）。plugin実行順を入れ替えても同じJSONにする。
 
+順序そのものが事実である関係（middlewareのchain）は `GrantedRelation.order` に値として持ち、UIはそれで並べる（AI 判断: ID順に並べるとJwtがCorsより前に来て実際の適用順と食い違い、Q1の答えを誤らせるため。②1・②4）。同じ相手への線が複数のrouteで位置違いなら、併合後は最も早い位置を残す。
+
 ### K. 作るコードの置き場所
 
 実装する前提: 前提2（コア・組立はZeltを知らない）と1節の処理の形。UIはschemaだけに依存する。既存の抽出器（DependencyGraph v3）を置き換えるか拡張するかは論点にしない（[4.6](#46-見せ方と運用)）。
@@ -1188,10 +1192,10 @@ flowchart TB
 
 | 箱 | 変更予定の場所 |
 | --- | --- |
-| config・生成入口 | packages/cli/src/studio/extraction/run.ts、config.ts。既存studioコマンドにextractを追加。既存serverは置き換えない |
-| コア（TS索引・値追跡） | 同ディレクトリのindex.ts、origin.ts。metadataの既存解決処理は再利用可能な箇所だけ移植／共通化し、公開inspect APIは維持 |
-| pluginと組立 | plugins/zelt.ts、vitest.ts、libraries.ts、requests.ts、assemble.ts。Zeltのruntime importはworker.ts内だけ |
-| JSON契約 | 同ディレクトリのschema.ts。Valibot schemaを正とし、公開型はInferOutputで生成。ブラウザ用exportにTS/Node importを混ぜない |
+| config・生成入口 | packages/cli/src/studio/extraction/run.lib.ts（段取り）、run-plugins.lib.ts（plugin実行）、extraction-program.lib.ts（Program生成）、core/extract-config.lib.ts。既存studioコマンドにextractを追加。既存serverは置き換えない |
+| コア（TS索引・値追跡） | extraction/core/core-facts.lib.ts（段取り）、core-index.lib.ts（索引・線の登録）、core-declarations.lib.ts（宣言の収集）、core-relations.lib.ts（線の走査）、test-scope.lib.ts（値の由来追跡）。metadataの既存解決処理は再利用可能な箇所だけ移植／共通化し、公開inspect APIは維持 |
+| pluginと組立 | plugins/zelt.lib.ts（zelt-context / -application / -class / -eventbus / -test-setup / -runtime に分割）、vitest.lib.ts、library.lib.ts（valibot.lib.ts・drizzle.lib.ts が共用）、http-requests.lib.ts、core/assemble.lib.ts（assemble-materials / -groups / -tests に分割）。Zeltのruntime importはworker.ts内だけ |
+| JSON契約 | extraction/core/snapshot-schema.lib.ts。Valibot schemaを正とし、公開型はInferOutputで生成。ブラウザ用exportにTS/Node importを混ぜない |
 | Zeltの読取API | [HTTP feature](../../packages/core/src/features/http/http.feature.ts)、[routing metadata](../../packages/core/src/features/http/routing/routing-metadata.lib.ts)、[eventbus feature](../../packages/eventbus/src/eventbus.feature.ts)、[class source](../../packages/decorator-metadata/src/inspect/class-source.lib.ts)。登録規則をruntimeと共有する |
 
 schemaはCLIの専用subpathからexportし、UIはそこだけimportする。現在の[src/snapshot-schema.lib.ts](src/snapshot-schema.lib.ts)をそこへ移し、coreとUIで二重管理しない。UIへのビルド時依存であり、静的配信時にCLIやNodeは不要。
@@ -1203,6 +1207,7 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 | 変更 | mockで変えた場所 | 画面で見えること |
 | --- | --- | --- |
 | schema | [snapshot-schema.lib.ts](src/snapshot-schema.lib.ts)、[snapshot.types.ts](src/snapshot.types.ts) | なし |
+| 適用順（`order`） | [relations.lib.ts](src/relations.lib.ts)（タグに最も早い `order` を持たせる）、[map-presenter.lib.ts](src/map-presenter.lib.ts)（`order` 順に並べ、持たないタグは後ろ） | 「適用:」タグが実際に通る順（Cors → SecureHeaders → Logging → Jwt）で並ぶ |
 | 種類と意味の分離 | [labels.ts](src/labels.ts)（`relationKind`・`declarationLabel`: 意味があればそれ、無ければTSの種類）。チップ・middleware判定（[relations.lib.ts](src/relations.lib.ts)・[scope.lib.ts](src/scope.lib.ts)）は付与された線の種類で判定 | 変わらない（線の色・凡例・`SCHEMA`/`TABLE` 表示は今までどおり） |
 | setup | [inspector-presenter.lib.ts](src/inspector-presenter.lib.ts)、[inspector.tsx](src/views/inspector.tsx) | 詳細の「契約」に「Setup」欄。種類・provider・式と、地図にある相手へのリンク。groupではメンバーのsetupも並ぶ |
 | 列の表示切替（roleの廃止） | [state.lib.ts](src/state.lib.ts)（`hiddenColumns`、既定は `initiallyHidden`）、[layout.lib.ts](src/layout.lib.ts)（隠した列は幅を取らない）、[map-controls.tsx](src/views/map-controls.tsx) | 操作列に「列」のチェックボックス（全列）。旧「config」トグルはこれに置き換え。地図の上に隠した列の案内は出さない。列の見出しは列を隠しても中身の箱と同じ位置に出る（幅が変わって拡大率を合わせ直すとき、表示の左上を固定する: [use-viewport.ts](src/views/use-viewport.ts)） |
@@ -1222,6 +1227,7 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 | `EcJwtConfig.resolveUser` → `@callback:0` の `returns` | 外した（戻り型はホワイトリスト外で線は出ない） | [4.1](#41-責務と流れから) |
 | `LifecycleManager` の箱と、そこへのcall 2本 | 外した。`lifecycle.register(this)` はsetupへ | [4.1](#41-責務と流れから)・[4.2](#42-ライブラリは接点だけから) |
 | setup | inject 16・middleware 19・config-override 2・lifecycle 2 を付与 | [付録A](#付与の全表) |
+| middlewareの適用順 | 付与された線62本に `order` を入れ、組込み（Cors 0・SecureHeaders 1）→ app（Logging 2）→ class/method（Jwt・RateLimit 3）に直した | [http.service.ts](../../packages/core/src/features/http/http.service.ts) の `securityMiddlewares` は `options.middlewares` より先に `hono.use` される |
 | 列 | roleを削除、app.tsをComposition列へ、列名「外部」→「ライブラリ」 | [4.3](#43-意図と事実を重ねるから) |
 | E2E | productを送らない11 routeを「一部のみ・0件」に | [4.4](#44-コードと一致するから) |
 | Unit | 151 case（延べ211行）を25宣言に | [付録F](#f-unit) |

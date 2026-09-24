@@ -192,6 +192,11 @@ describe('Presenter keeps the look of meanings and hides columns with their rela
     expect(applied).toContain('適用: Logging');
     expect(applied).not.toContain('適用: Jwt');
   });
+  it('orders applied tags by the chain the request runs through, not by the JSON order', () => {
+    const model = presentMap(graph, initialView(graph));
+    const applied = model.groups.find((g) => g.id === 'CartController')?.tags.map((t) => t.label);
+    expect(applied).toEqual(['適用: Cors', '適用: SecureHeaders', '適用: Logging', '適用: Jwt']);
+  });
 });
 
 describe('Presenter shows hints and names instead of identities', () => {

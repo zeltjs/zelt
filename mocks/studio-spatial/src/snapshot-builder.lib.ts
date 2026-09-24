@@ -38,6 +38,7 @@ export function granted(
   to: string,
   kind: string,
   provider = 'zelt',
+  order: number | null = null,
 ): GrantedRelation {
   return {
     id: `${from}->${to}:${provider}:${kind}`,
@@ -45,6 +46,7 @@ export function granted(
     to,
     provider,
     kind,
+    order,
     evidence: [],
   };
 }

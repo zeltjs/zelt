@@ -47,6 +47,16 @@ function tagModel(ctx: Context, note: Attachment, groupDimmed: boolean): TagMode
   };
 }
 
+// 「この処理はどの責務をどの順に通るか」は事実なので、順序を持つタグは JSON の並びでなく
+// snapshot の order で並べる(付録J: 列内の並びは UI が計算)。順序を持たないタグはその後ろへ
+function appliedOrder(notes: readonly Attachment[]): readonly Attachment[] {
+  const rank = (note: Attachment): number => note.order ?? Number.MAX_SAFE_INTEGER;
+  return notes
+    .map((note, index) => ({ note, index }))
+    .sort((a, b) => rank(a.note) - rank(b.note) || a.index - b.index)
+    .map(({ note }) => note);
+}
+
 function declarationModels(ctx: Context, group: SourceGroup): readonly DeclarationModel[] {
   if (!ctx.view.expanded.includes(group.id)) return [];
   return memberBoxes(group).map(({ member: m, top, height }) => ({
@@ -75,7 +85,9 @@ function groupModel(ctx: Context, group: SourceGroup): GroupModel {
     selected:
       ctx.view.node !== null && displayUnit(ctx.graph, ctx.view, ctx.view.node) === group.id,
     members: declarationModels(ctx, group),
-    tags: ctx.notes.filter((n) => n.groupId === group.id).map((n) => tagModel(ctx, n, dimmed)),
+    tags: appliedOrder(ctx.notes.filter((n) => n.groupId === group.id)).map((n) =>
+      tagModel(ctx, n, dimmed),
+    ),
   };
 }
 
