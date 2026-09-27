@@ -6,7 +6,7 @@ import { generateOpenApi } from '@zeltjs/openapi';
 import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
 import { describe, expect, it } from 'vitest';
 
-import { createEcApp } from '../src/app';
+import { app } from '../src/app';
 
 const tsconfig = resolve(__dirname, '../tsconfig.json');
 
@@ -20,7 +20,6 @@ type OpenApiDoc = {
 
 describe('OpenAPI generation', () => {
   it('generates spec with all endpoints', async () => {
-    const app = createEcApp();
     const dist = await mkdtemp(join(tmpdir(), 'ec-openapi-'));
     await generateOpenApi(app.http, {
       distDir: dist,
@@ -51,7 +50,6 @@ describe('OpenAPI generation', () => {
   });
 
   it('includes request body schemas for POST endpoints', async () => {
-    const app = createEcApp();
     const dist = await mkdtemp(join(tmpdir(), 'ec-openapi-'));
     await generateOpenApi(app.http, {
       distDir: dist,

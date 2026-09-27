@@ -105,14 +105,14 @@ type AppLike = {
 const AppSchema = custom<AppLike>(
   (value) =>
     typeof value === 'object' && value !== null && Array.isArray(Reflect.get(value, 'features')),
-  'the factory did not return a zelt app (missing features array)',
+  'the configured export is not a zelt app (missing features array)',
 );
 
-type FactoryModule = { readonly [key: string]: unknown };
+type AppModule = { readonly [key: string]: unknown };
 
-const ModuleSchema = custom<FactoryModule>(
+const ModuleSchema = custom<AppModule>(
   (value) => typeof value === 'object' && value !== null,
-  'the app factory module could not be loaded',
+  'the module holding the app could not be loaded',
 );
 
 // ─── 収集 ───
@@ -409,16 +409,16 @@ const middlewareClassesOf = (feature: FeatureLike): AnyClass[] =>
 const importFromApp = async (from: string, name: string, subpath: string): Promise<unknown> =>
   import(esmEntryUrlFrom(from, name, subpath));
 
-const FactorySchema = custom<() => unknown>(
-  (value) => typeof value === 'function',
-  'the app factory export is not a function',
-);
-
-/** @throws {ValiError} when the factory export is missing or is not a function */
-const callFactory = async (file: string, exportName: string): Promise<AppLike> => {
+/**
+ * config が指した export の値をそのまま app として受け取る。app は createApp() の戻り値
+ * (機能の設計図)であり、実体は createRuntime() のときに作られる。地図は設計図だけを読むので、
+ * module を評価して export を取り出せばよく、app を作る関数を要求する理由はない
+ *
+ * @throws {ValiError} when the export is missing or is not a zelt app
+ */
+const loadApp = async (file: string, exportName: string): Promise<AppLike> => {
   const module = parse(ModuleSchema, await import(pathToFileURL(file).href));
-  const factory = parse(FactorySchema, module[exportName]);
-  return parse(AppSchema, factory());
+  return parse(AppSchema, module[exportName]);
 };
 
 const uniqueRefs = (refs: readonly ZeltClassRef[]): ZeltClassRef[] => {
@@ -432,15 +432,15 @@ const uniqueRefs = (refs: readonly ZeltClassRef[]): ZeltClassRef[] => {
 };
 
 /**
- * @throws {Error} when the app, the inspect API or the factory cannot be loaded
+ * @throws {Error} when the app or the inspect API cannot be loaded
  */
 const inspectApplication = async (request: ZeltInspectRequest): Promise<ZeltInspection> => {
-  const factoryFile = resolve(request.root, request.factory.filePath);
+  const appFile = resolve(request.root, request.app.filePath);
   const inspect = parse(
     InspectApiSchema,
-    await importFromApp(factoryFile, '@zeltjs/decorator-metadata', './inspect'),
+    await importFromApp(appFile, '@zeltjs/decorator-metadata', './inspect'),
   );
-  const app = await callFactory(factoryFile, request.factory.exportName);
+  const app = await loadApp(appFile, request.app.exportName);
 
   const ctx: Context = {
     inspect,
@@ -463,7 +463,7 @@ const inspectApplication = async (request: ZeltInspectRequest): Promise<ZeltInsp
   };
   return {
     applicationId: request.applicationId,
-    factory: request.factory,
+    app: request.app,
     registered: uniqueRefs(registeredClasses.flatMap(refOfClass)),
     globalMiddlewares: uniqueRefs(globalClasses.flatMap(refOfClass)),
     classes,

@@ -2,7 +2,7 @@ import { Config } from '@zeltjs/core';
 import { RateLimitConfig } from '@zeltjs/rate-limit';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 
-import { createEcApp } from '../../src/app';
+import { app } from '../../src/app';
 
 @Config
 class TestRateLimitConfig extends RateLimitConfig {
@@ -11,10 +11,7 @@ class TestRateLimitConfig extends RateLimitConfig {
 
 export type TestApp = Awaited<ReturnType<typeof createTestApp>>;
 
-export const createTestApp = async () => {
-  const app = createEcApp();
-  return onTest(app, { configs: [TestRateLimitConfig] });
-};
+export const createTestApp = async () => onTest(app, { configs: [TestRateLimitConfig] });
 
 export const registerUser = async (
   app: TestApp,

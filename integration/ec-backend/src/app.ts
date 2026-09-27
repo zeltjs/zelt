@@ -10,14 +10,13 @@ import { ProductController } from './entry/controllers/product.controller';
 import { OrderHandlers } from './entry/job/order.handlers';
 import { LoggingMiddleware } from './entry/middleware/logging.middleware';
 
-export const createEcApp = () =>
-  createApp(
-    [
-      http({
-        controllers: [AuthController, ProductController, CartController, OrderController],
-        middlewares: [LoggingMiddleware],
-      }),
-      eventbus({ adaptor: MemoryEventBusAdaptor, handlers: [OrderHandlers] }),
-    ],
-    { configs: [EcJwtConfig, EcCorsConfig] },
-  );
+export const app = createApp(
+  [
+    http({
+      controllers: [AuthController, ProductController, CartController, OrderController],
+      middlewares: [LoggingMiddleware],
+    }),
+    eventbus({ adaptor: MemoryEventBusAdaptor, handlers: [OrderHandlers] }),
+  ],
+  { configs: [EcJwtConfig, EcCorsConfig] },
+);

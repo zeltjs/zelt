@@ -72,8 +72,8 @@ export const ZeltExportRefSchema = object({ filePath: string(), exportName: stri
 
 export const ZeltInspectionSchema = object({
   applicationId: string(),
-  /** config が指した app factory(root 相対) */
-  factory: ZeltExportRefSchema,
+  /** config が指した app の export(root 相対) */
+  app: ZeltExportRefSchema,
   /** feature が登録した class と app の configs */
   registered: array(ZeltClassRefSchema),
   /** 全 route の前を通る、app が feature に書いた middleware。登録順 */
@@ -87,7 +87,8 @@ export const ZeltInspectionSchema = object({
 export const ZeltInspectRequestSchema = object({
   root: string(),
   applicationId: string(),
-  factory: ZeltExportRefSchema,
+  /** createApp() の戻り値を export している場所。関数ではなく app そのものを指す */
+  app: ZeltExportRefSchema,
   tsconfig: string(),
 });
 

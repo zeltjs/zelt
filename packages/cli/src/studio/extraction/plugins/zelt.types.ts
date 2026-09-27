@@ -4,7 +4,8 @@ import type { CoreResolver, Diagnostic, Feature, ResolvedConfig, TestScopeConfig
 
 export type ZeltApplicationConfig = {
   readonly id: string;
-  readonly factory: { readonly filePath: string; readonly exportName: string };
+  /** createApp() の戻り値を export している場所 */
+  readonly app: { readonly filePath: string; readonly exportName: string };
 };
 
 export type ZeltInput = {

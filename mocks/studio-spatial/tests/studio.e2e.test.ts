@@ -296,15 +296,15 @@ test('reaches the composition through search and hides it with its wires', async
   await expect(
     page.locator(`${subjectAttribute('data-group', 'AuthController')} .reference-tag`),
   ).not.toContainText(['Composition']);
-  await find(page, 'createEcApp', 'app.ts#createEcApp');
+  await find(page, 'app', 'app.ts#app');
   await expect(page.locator('[data-column-toggle="column:composition"]')).toBeChecked();
-  const fromApp = `.wire${subjectAttribute('data-from', 'app.ts#createEcApp')}`;
+  const fromApp = `.wire${subjectAttribute('data-from', 'app.ts#app')}`;
   expect(await page.locator(fromApp).count()).toBeGreaterThan(0);
   await expect(page.locator(subjectAttribute('data-group', 'app.ts'))).toHaveCount(1);
-  await expect(page.locator('.inspector-heading h2')).toHaveText('createEcApp');
+  await expect(page.locator('.inspector-heading h2')).toHaveText('app');
   await expect(page.locator('[data-action="as-root"]')).toBeEnabled();
   await page.locator('[data-tab="source"]').click();
-  await expect(page.locator('.source-code')).toContainText('createEcApp');
+  await expect(page.locator('.source-code')).toContainText('createApp');
   await page.locator('[data-column-toggle="column:composition"]').uncheck();
   await expect(page.locator(subjectAttribute('data-group', 'app.ts'))).toHaveCount(0);
   await expect(page.locator(fromApp)).toHaveCount(0);

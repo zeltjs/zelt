@@ -13,7 +13,7 @@ describe('zelt inspector (integration)', () => {
       request: {
         root: ROOT,
         applicationId: 'fixture',
-        factory: { filePath: 'src/app.ts', exportName: 'createFixtureApp' },
+        app: { filePath: 'src/app.ts', exportName: 'app' },
         tsconfig: resolve(ROOT, 'tsconfig.json'),
       },
       entryPath: ENTRY,

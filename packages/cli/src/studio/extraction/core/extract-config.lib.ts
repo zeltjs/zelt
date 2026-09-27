@@ -34,7 +34,7 @@ const TestScopeConfigSchema = object({
 const PluginConfigSchema = variant('id', [
   object({
     id: literal('zelt'),
-    applications: array(object({ id: string(), factory: ExportReferenceSchema })),
+    applications: array(object({ id: string(), app: ExportReferenceSchema })),
     setupFiles: array(string()),
     setupDetails: boolean(),
     timeoutMs: number(),

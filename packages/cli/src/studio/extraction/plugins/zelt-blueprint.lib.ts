@@ -98,9 +98,9 @@ const decoratorSiteAt = (
         (site) => site.span.filePath === position.filePath && site.span.startLine === position.line,
       );
 
-// ─── 登録(app factory → class) ───
+// ─── 登録(app → class) ───
 
-const registerMaterials = (input: BlueprintInput, factoryId: string): Material[] => {
+const registerMaterials = (input: BlueprintInput, appId: string): Material[] => {
   const materials: Material[] = [];
   for (const ref of input.inspection.registered) {
     const target = classSiteOf(input, ref);
@@ -109,14 +109,14 @@ const registerMaterials = (input: BlueprintInput, factoryId: string): Material[]
       input.note('relations', 'zelt-register-unresolved', `${nameOf(ref)} is not on the map`, []);
       continue;
     }
-    const mention = input.resolver.mentionSites(factoryId, exportRef)[0];
+    const mention = input.resolver.mentionSites(appId, exportRef)[0];
     if (mention === undefined) {
       input.note('relations', 'zelt-register-site-unresolved', nameOf(ref), []);
       continue;
     }
     materials.push({
       kind: 'relation',
-      from: factoryId,
+      from: appId,
       to: target.id,
       relation: 'register',
       applicationId: input.inspection.applicationId,
@@ -136,18 +136,17 @@ type ChainEntry = { readonly to: string | null; readonly site: CoreSourceSite | 
 const globalSiteOf = (
   input: BlueprintInput,
   ref: ZeltClassRef,
-  factoryId: string,
+  appId: string,
 ): CoreSourceSite | null => {
   const declaration = classSiteOf(input, ref);
   const exportRef = exportRefOf(input, ref);
-  const mention =
-    exportRef === null ? undefined : input.resolver.mentionSites(factoryId, exportRef)[0];
+  const mention = exportRef === null ? undefined : input.resolver.mentionSites(appId, exportRef)[0];
   return mention ?? declaration;
 };
 
-const globalEntry = (input: BlueprintInput, ref: ZeltClassRef, factoryId: string): ChainEntry => ({
+const globalEntry = (input: BlueprintInput, ref: ZeltClassRef, appId: string): ChainEntry => ({
   to: memberSiteOf(input, ref, MIDDLEWARE_EXEC_METHOD)?.id ?? null,
-  site: globalSiteOf(input, ref, factoryId),
+  site: globalSiteOf(input, ref, appId),
 });
 
 const useEntry = (input: BlueprintInput, subject: string, use: ZeltMiddlewareUse): ChainEntry => ({
@@ -175,12 +174,8 @@ type RouteSite = {
  * controller の `@UseMiddleware` → method の `@UseMiddleware` → `@Authorized` の順に
  * 登録される(http.service.ts と routing/route-builder.lib.ts)。
  */
-const chainOf = (
-  input: BlueprintInput,
-  site: RouteSite,
-  factoryId: string,
-): readonly ChainEntry[] => [
-  ...input.inspection.globalMiddlewares.map((ref) => globalEntry(input, ref, factoryId)),
+const chainOf = (input: BlueprintInput, site: RouteSite, appId: string): readonly ChainEntry[] => [
+  ...input.inspection.globalMiddlewares.map((ref) => globalEntry(input, ref, appId)),
   ...usesOn(site.cls, null).map((use) => useEntry(input, site.controller.id, use)),
   ...usesOn(site.cls, site.methodName).map((use) => useEntry(input, site.method.id, use)),
   ...site.cls.authorized
@@ -220,7 +215,7 @@ const chainMaterials = (
 const routeMaterials = (
   input: BlueprintInput,
   classes: ReadonlyMap<string, ZeltClass>,
-  factoryId: string,
+  appId: string,
 ): Material[] => {
   const materials: Material[] = [];
   for (const route of input.inspection.routes) {
@@ -249,7 +244,7 @@ const routeMaterials = (
         path: route.fullPath,
         evidence: evidenceOf(method),
       },
-      ...chainMaterials(input, method.id, chainOf(input, site, factoryId)),
+      ...chainMaterials(input, method.id, chainOf(input, site, appId)),
     );
   }
   return materials;
@@ -414,22 +409,22 @@ const classMaterials = (input: BlueprintInput, cls: ZeltClass): Material[] => {
 };
 
 export const blueprintMaterials = (input: BlueprintInput): readonly Material[] => {
-  const factory = resolved(input.resolver.exportSite(input.inspection.factory));
-  if (factory === null) {
+  const app = resolved(input.resolver.exportSite(input.inspection.app));
+  if (app === null) {
     input.note(
       'relations',
       'zelt-application-unresolved',
-      `${input.inspection.factory.filePath}#${input.inspection.factory.exportName}`,
+      `${input.inspection.app.filePath}#${input.inspection.app.exportName}`,
       [],
     );
     return [];
   }
   const classes = new Map(input.inspection.classes.map((cls) => [nameOf(cls.ref), cls]));
   return [
-    ...registerMaterials(input, factory.id),
+    ...registerMaterials(input, app.id),
     ...input.inspection.classes
       .filter((cls) => isMapped(input, cls.ref))
       .flatMap((cls) => classMaterials(input, cls)),
-    ...routeMaterials(input, classes, factory.id),
+    ...routeMaterials(input, classes, app.id),
   ];
 };
