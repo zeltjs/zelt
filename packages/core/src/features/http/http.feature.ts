@@ -11,6 +11,7 @@ import type {
   HttpStaticCapabilities,
 } from './http.types';
 import { collectOwnControllerMetadata, prefixHttpMetadata } from './http-children.lib';
+import type { MiddlewareInput } from './middleware/middleware.types';
 import { collectRoutes } from './routing';
 
 export const HTTP_FEATURE_KEY = 'http' as const;
@@ -40,6 +41,22 @@ export class HttpFeature<TName extends string = string>
   readonly featureClasses = (): readonly ControllerClass[] => {
     return [...this.controllers, ...this.children.flatMap((child) => child.featureClasses())];
   };
+
+  // featureClasses() は controllers(+子feature)のみを返し、feature全体に適用される
+  // グローバル middleware(opts.middlewares)は含まない。studio の root 収集がこれらにも
+  // 到達できるよう、読み取り専用の別メソッドとして公開する(feature.types.ts のインターフェースは変えない)。
+  // featureClasses() と同様、children を再帰する(子 feature のグローバル middleware も
+  // 発見できるようにする)。children の要素が globalMiddlewares を持たない実装
+  // (HttpMountableFeatureModule の他の実装)の場合は構造的に無視する
+  readonly globalMiddlewares = (): readonly MiddlewareInput[] => [
+    ...(this.opts.middlewares ?? []),
+    ...this.children.flatMap((child) => {
+      const record: HttpMountableFeatureModule & {
+        readonly globalMiddlewares?: () => readonly MiddlewareInput[];
+      } = child;
+      return record.globalMiddlewares?.() ?? [];
+    }),
+  ];
 
   readonly blueprint = (): HttpStaticCapabilities => {
     const controllers = this.collectControllers();

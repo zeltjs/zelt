@@ -68,6 +68,8 @@ export default tseslint.config(
       'packages/unsafe-type-lib/**',
       'scripts/**',
       'integration/**',
+      // git 管理外(.gitignore 済み)のローカル設計成果物。tsconfig にも含まれないため型付き lint の対象外
+      'docs/superpowers/**',
       ...TOOL_CONFIG_FILES,
     ],
   },
@@ -173,6 +175,8 @@ export default tseslint.config(
             // basenames are a contract with the parent process spawn path
             'analyzer-entry.ts',
             'analyzer-protocol.ts',
+            'zelt-inspect-entry.ts',
+            'zelt-inspect-protocol.ts',
             // Vite SPA conventions (studio-ui): the rule strips only a
             // trailing ".ts", so single-dot ".tsx" entry points never satisfy
             // the double-dot check no matter how they're named
@@ -343,9 +347,11 @@ export default tseslint.config(
       // Disposable tsx child process: no DI container exists in this throwaway
       // script, so it IS the process boundary (argv/cwd/stdout/exitCode)
       'packages/cli/src/studio/analyzer-entry.ts',
+      'packages/cli/src/studio/extraction/plugins/zelt-inspect-entry.ts',
       // Spawns the analyzer child process with the parent's own node binary
       // (process.execPath) so it runs regardless of the host's PATH/shell setup
       'packages/cli/src/studio/analyzer-runner.lib.ts',
+      'packages/cli/src/studio/extraction/plugins/zelt-inspect-runner.lib.ts',
     ],
     rules: {
       '@9wick/strict-type-rules/no-process-access': 'off',
@@ -388,6 +394,19 @@ export default tseslint.config(
     ],
     rules: {
       'zelt/double-dot-naming': 'off',
+    },
+  },
+  {
+    name: 'allow/decorator-metadata-fixtures-import-alias',
+    // no-import-rename protects readable app code (no deceptive local renames).
+    // These files ARE the input fixtures the decorator-metadata inspect layer's
+    // TypeChecker resolution is tested against, so they must be able to
+    // construct the exact code shapes (including import aliases) that the
+    // analyzer has to handle in real code. The rule's readability intent does
+    // not apply to fixtures.
+    files: ['packages/decorator-metadata/src/test/fixtures/**/*.ts'],
+    rules: {
+      '@9wick/strict-type-rules/no-import-rename': 'off',
     },
   },
 
@@ -487,6 +506,22 @@ export default tseslint.config(
     files: ['packages/cli/src/studio/analyzer-runner.lib.ts'],
     rules: {
       '@9wick/strict-type-rules/no-as-assertion': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+    },
+  },
+  {
+    name: 'debt/studio-graph-diff-version-check',
+    // diffGraphs's `actual.version === expected.version` check is statically
+    // always-true (DependencyGraph.version is the single literal 3), but its
+    // real inputs are two independently-parsed JSON files (verify-*.mjs
+    // scripts) that only claim the DependencyGraph type at the read boundary;
+    // the check exists to catch a real-world version mismatch the type
+    // checker cannot see.
+    // Repay: once graph JSON is read through a schema-validated boundary
+    // (see debt/studio-graph-json-cast), this comparison becomes provably
+    // redundant and can be deleted rather than exempted.
+    files: ['packages/cli/src/studio/graph/graph-diff.lib.ts'],
+    rules: {
       '@typescript-eslint/no-unnecessary-condition': 'off',
     },
   },

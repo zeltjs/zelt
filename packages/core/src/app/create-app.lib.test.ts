@@ -1,7 +1,8 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
+import { Config } from '../built-in-service';
 import { Feature } from '../features';
-import { Injectable, ZeltLifecycleStateError } from '../kernel';
+import { Injectable, ZeltAppConfigurationError, ZeltLifecycleStateError } from '../kernel';
 import type { RuntimeApp } from './create-app.lib';
 import { createApp } from './create-app.lib';
 import type { ConfiguredFeature, ServiceResolver, ZeltPrebuilt } from './feature.types';
@@ -386,6 +387,25 @@ describe('createApp', () => {
     expect(seenPrebuilt).toEqual(prebuilt);
 
     await readyApp.shutdown();
+  });
+
+  it('exposes the configs passed to createApp options', () => {
+    @Config
+    class SomeConfig {
+      value = (): string => 'x';
+    }
+    const app = createApp([], { configs: [SomeConfig] });
+    expect(app.configs).toEqual([SomeConfig]);
+  });
+
+  it('exposes an empty array when no configs option is given', () => {
+    const app = createApp([]);
+    expect(app.configs).toEqual([]);
+  });
+
+  it('throws ZeltAppConfigurationError when a feature uses the reserved key "configs"', () => {
+    const feature = createStubFeature('configs', {});
+    expect(() => createApp([feature])).toThrow(ZeltAppConfigurationError);
   });
 
   it('createRuntime() leaves resolver.prebuilt undefined when prebuilt is not provided', async () => {

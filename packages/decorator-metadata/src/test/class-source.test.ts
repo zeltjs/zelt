@@ -111,6 +111,65 @@ describe('getClassSource', () => {
       await rm(base, { recursive: true, force: true });
     }
   });
+
+  // team-lead 決定(Task 10 remaining-diff cause 5、残存分): tsdown/rolldown の
+  // code splitting は、宣言ファイル自体(共有 chunk)を chunk 間の再エクスポート配線用の
+  // 短い内部限定名(例: `t`)で export することがある(実例: @zeltjs/eventbus の
+  // MemoryEventBusAdaptor がルートクラスとして発見される際に `t` になっていた)。
+  // 宣言ファイルへの stack trace(pos.sourceFile)が external(node_modules 配下)を
+  // 指す場合、宣言ファイル自体の export 名を逆引きせず、常にパッケージの公開エントリ
+  // 経由で export 名を決めることを検証する。上のテストと同じ手法(実際の decorator
+  // 適用フローは組まず、ensureClassMeta に手書きの stack trace を渡して
+  // resolveDefinitionPosition の結果を直接コントロールする)で、
+  // 宣言ファイル(chunk)と公開エントリ(index)を別ファイルとして用意し、
+  // 両者が別の名前でこのクラスを export している状況を再現する
+  it("uses the package entry export name, never the declaring chunk file's own (possibly bundler-internal) export name", async () => {
+    const base = await realpath(await mkdtemp(join(tmpdir(), 'class-source-chunk-')));
+    try {
+      const pkgRoot = join(base, 'node_modules', 'chunked-pkg');
+      await mkdir(join(pkgRoot, 'dist'), { recursive: true });
+      await writeFile(
+        join(pkgRoot, 'package.json'),
+        JSON.stringify({
+          name: 'chunked-pkg',
+          type: 'module',
+          exports: { '.': { import: './dist/index.mjs' } },
+        }),
+      );
+      // 宣言ファイル(chunk): 公開エントリとは別のファイルで、chunk 間配線用の
+      // 短い内部限定名 `t` としてこのクラスを export する(rolldown の shared chunk と同じ形)
+      const chunkPath = join(pkgRoot, 'dist', 'chunk.mjs');
+      await writeFile(chunkPath, 'export class RealClass {}\nexport { RealClass as t };\n');
+      // 公開エントリ: chunk からクラスを受け取り、ユーザー向けの名前で re-export する
+      const entryPath = join(pkgRoot, 'dist', 'index.mjs');
+      await writeFile(entryPath, "export { t as PublicName } from './chunk.mjs';\n");
+
+      const entryModule: unknown = await import(pathToFileURL(entryPath).href);
+      const { PublicName } = entryModule as { PublicName: new () => object };
+      const { ensureClassMeta, CaptureStackError } = await import('../runtime/index');
+
+      // stack trace は宣言ファイル(chunk.mjs、公開エントリではない)を指す
+      // (実際の tsdown/rolldown ビルドで、クラス宣言自体は shared chunk にあり、
+      // エントリはそれを re-export するだけ、という構造を再現する)
+      const defineError = new CaptureStackError();
+      defineError.stack = [
+        'CaptureStackError: Capture stack trace',
+        `    at captureStackTrace (${resolve(__dirname, '../runtime/trace.lib.ts')}:16:17)`,
+        `    at ${chunkPath}:1:1`,
+      ].join('\n');
+      ensureClassMeta(PublicName, { _brand: 'StackTrace', error: defineError });
+
+      const result = await getClassSource(PublicName);
+
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) return;
+      // chunk.mjs 自身の export 名(`t`)ではなく、公開エントリ(index.mjs)の
+      // export 名(`PublicName`)が使われることを確認する
+      expect(result.value).toEqual({ filePath: entryPath, exportName: 'PublicName' });
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('resolveClassSource', () => {

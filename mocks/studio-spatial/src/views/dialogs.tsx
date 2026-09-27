@@ -1,0 +1,80 @@
+import { useEffect, useRef } from 'react';
+import type { EventSink } from '../events.types';
+import { useBoundary } from './use-boundary';
+
+function useModal() {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = ref.current;
+    element?.showModal();
+    return () => element?.close();
+  }, []);
+  return ref;
+}
+
+export function HelpDialog({ emit }: { readonly emit: EventSink }) {
+  const send = useBoundary(emit),
+    ref = useModal();
+  return (
+    <dialog
+      ref={ref}
+      id="help-dialog"
+      aria-labelledby="help-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        send({ type: 'help.set', open: false });
+      }}
+    >
+      <div className="dialog-title">
+        <h2 id="help-title">何を表示しているか</h2>
+        <button
+          type="button"
+          aria-label="閉じる"
+          onClick={() => send({ type: 'help.set', open: false })}
+        >
+          ×
+        </button>
+      </div>
+      <HelpText />
+      <button type="button" onClick={() => send({ type: 'help.set', open: false })}>
+        地図に戻る
+      </button>
+    </dialog>
+  );
+}
+
+function HelpText() {
+  return (
+    <>
+      {' '}
+      <p>
+        CLASS・FILE・INTERFACEは実在する宣言元です。最初は折りたたみ、＋で1宣言1nodeへ展開します。閉じたメンバーの線はgroupにつなぎ、同じ向き・同じ種類だけを束ねます。
+      </p>
+      <p>
+        列と並び順を維持し、折りたたみ分だけ縦の空間を詰めます。タグ用の領域は固定で予約します。閉じた箱と付属タグの濃淡は同じです。展開時は宣言の関係に沿います。
+      </p>
+      <p>
+        近傍は使う先と使われる元の1段。再帰はuseとused
+        byを起点から別々に辿り、途中で方向を切り替えません。ロックすると矢印とactive範囲を保ったまま詳細を選べます。
+      </p>
+      <p>
+        middleware適用はタグ、event配送はwarpです。探索範囲を勝手に広げません。参照先へ移動してもロックは維持し、「移動前に戻る」で元の表示へ戻れます。
+      </p>
+      <p>
+        列（ライブラリ・Config・Composition等）はすべて表示切替でき、非表示の列は箱も線もタグも表示しません。app.tsはComposition列にあり、既定では非表示です。設定値は配信前に除いています。
+      </p>
+      <p>
+        inject・middleware指定・設定の差し替えは処理の流れではなく部品の組み方（setup）なので、線にせず詳細の「Setup」に表示します。
+      </p>
+      <p>
+        Unit testは対象宣言の一覧です。分類とmock対象はZeltのDI
+        setupに基づき、ライブラリimportから推測しません。HTTP
+        entryのE2Eはrequestとの対応であり、method実行の保証ではありません。
+      </p>
+      <p>
+        この地図はzelt studio
+        extractが実コードから生成したJSONです。内部未展開は依存なしを意味しません。
+      </p>
+    </>
+  );
+}

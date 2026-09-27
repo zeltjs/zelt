@@ -5,9 +5,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, ResultAsync as ResultAsyncCtor } from 'neverthrow';
-
-import { findClassByName } from './ast.lib';
-import { getClassSource, resolveClassSource } from './class-source.lib';
+import type { ImportRef } from './ast.lib';
+import { buildImportMap, findClassByName } from './ast.lib';
+import { getClassSource, packageFromPath, resolveClassSource } from './class-source.lib';
 import type {
   ClassSource,
   DependencySource,
@@ -23,45 +23,16 @@ type TSClassDeclaration = import('typescript').ClassDeclaration;
 
 const DEFAULT_TSCONFIG = './tsconfig.json';
 
-// ローカル名 → import 元 (specifier + export 名)
-type ImportRef = { readonly specifier: string; readonly exportName: string };
-
-const addNamedImports = (
-  map: Map<string, ImportRef>,
-  clause: import('typescript').ImportClause,
-  specifier: string,
-  ts: TypeScriptModule,
-): void => {
-  const bindings = clause.namedBindings;
-  if (!bindings || !ts.isNamedImports(bindings)) return;
-  for (const element of bindings.elements) {
-    map.set(element.name.text, {
-      specifier,
-      exportName: element.propertyName?.text ?? element.name.text,
-    });
-  }
-};
-
-const buildImportMap = (sourceFile: TSSourceFile, ts: TypeScriptModule): Map<string, ImportRef> => {
-  const map = new Map<string, ImportRef>();
-  for (const stmt of sourceFile.statements) {
-    if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
-    const specifier = stmt.moduleSpecifier.text;
-    const clause = stmt.importClause;
-    if (!clause) continue;
-    if (clause.name) map.set(clause.name.text, { specifier, exportName: 'default' });
-    addNamedImports(map, clause, specifier, ts);
-  }
-  return map;
-};
-
 // `export { Local as Public }` の対応表 (export 名 → ローカル名 / ローカル名 → export 名)
 type ExportAliasMaps = {
   readonly byExport: Map<string, string>;
   readonly byLocal: Map<string, string>;
 };
 
-const buildExportAliasMaps = (sourceFile: TSSourceFile, ts: TypeScriptModule): ExportAliasMaps => {
+export const buildExportAliasMaps = (
+  sourceFile: TSSourceFile,
+  ts: TypeScriptModule,
+): ExportAliasMaps => {
   const byExport = new Map<string, string>();
   const byLocal = new Map<string, string>();
   for (const stmt of sourceFile.statements) {
@@ -110,17 +81,8 @@ const findClassByExportName = (
   return findClassByName(sourceFile, exportName, ts);
 };
 
-// 公開 export 名 (default / alias 含む) からクラス宣言を解決する。
-// getPublicMethodSignatures と共有するため export する
-export const findExportedClass = (
-  sourceFile: TSSourceFile,
-  exportName: string,
-  ts: TypeScriptModule,
-): TSClassDeclaration | undefined =>
-  findClassByExportName(sourceFile, exportName, buildExportAliasMaps(sourceFile, ts), ts);
-
 // 同一ファイル内クラスの export 名。export されていなければ undefined
-const exportNameOfLocalClass = (
+export const exportNameOfLocalClass = (
   sourceFile: TSSourceFile,
   localName: string,
   aliases: ExportAliasMaps,
@@ -136,15 +98,19 @@ const exportNameOfLocalClass = (
 const collectInjectLocalNames = (
   classNode: TSClassDeclaration,
   ts: TypeScriptModule,
-): readonly string[] => {
+): readonly { readonly localName: string; readonly line: number }[] => {
   const ctor = classNode.members.find((m) => ts.isConstructorDeclaration(m));
   if (!ctor || !ts.isConstructorDeclaration(ctor)) return [];
+  const sourceFile = classNode.getSourceFile();
   return ctor.parameters.flatMap((param) => {
     if (!param.initializer || !ts.isCallExpression(param.initializer)) return [];
     const callee = param.initializer.expression;
     if (!ts.isIdentifier(callee) || callee.text !== 'inject') return [];
     const arg = param.initializer.arguments[0];
-    return arg && ts.isIdentifier(arg) ? [arg.text] : [];
+    if (!arg || !ts.isIdentifier(arg)) return [];
+    const line =
+      sourceFile.getLineAndCharacterOfPosition(param.initializer.getStart(sourceFile)).line + 1;
+    return [{ localName: arg.text, line }];
   });
 };
 
@@ -180,7 +146,27 @@ const resolveSpecifierPath = (specifier: string, importerPath: string): string |
 // 実クラス経由で ClassSource を正準化する。エントリ/チャンクのパス差や re-export の
 // 名前差があっても、クラスオブジェクトの trace 由来の値に収束させる。
 // 正準化に失敗した場合 (未デコレートのクラス等) は解決済みの raw 値をそのまま使う
-const canonicalize = async (localName: string, raw: ClassSource): Promise<DependencySource> => {
+//
+// team-lead 決定(Task 10 remaining-diff cause 5): raw.filePath が external(node_modules
+// 配下)なら、この正準化を行わず raw をそのまま使う。正準化は resolveClassSource→getClassSource
+// の往復でクラスオブジェクトを実際に動的 import し、その「宣言ファイルの実体」から exportName を
+// 再導出するが、外部パッケージが tsdown/rolldown でバンドルされた dist を配布している場合、
+// その再導出はバンドラが生成した chunk 内部の一時変数名(例: `t`)を拾ってしまうことがある
+// (@zeltjs/kv が MemoryKVAdaptor を複数の名前で re-export する場合の実例)。external の
+// 場合、rule(a)(import map)から得た raw の exportName(呼び出し元ファイルの import 文に
+// 実際に書かれている名前)がユーザー向けの安定した唯一の名前であり、これ以上正準化する
+// 必要も利点も無い(ExternalNode の id は filePath ではなく (package, member) だけで
+// 決まるため、chunk のパス差を吸収する目的の正準化はそもそも external には無関係)。
+// internal なターゲットは既存どおり正準化する(バレル再エクスポート越しの別名を1つの
+// ClassNode に収束させるために必要)
+const canonicalize = async (
+  localName: string,
+  raw: ClassSource,
+  line: number,
+): Promise<DependencySource> => {
+  if (packageFromPath(raw.filePath) !== undefined) {
+    return { kind: 'class', localName, source: raw, line };
+  }
   const cls = await resolveClassSource(raw);
   if (cls.isErr()) {
     return { kind: 'unresolved', localName, reason: cls.error.message };
@@ -190,11 +176,13 @@ const canonicalize = async (localName: string, raw: ClassSource): Promise<Depend
     kind: 'class',
     localName,
     source: canonical.isOk() ? canonical.value : raw,
+    line,
   };
 };
 
 const toDependencySource = async (
   localName: string,
+  line: number,
   sourceFile: TSSourceFile,
   importMap: Map<string, ImportRef>,
   aliases: ExportAliasMaps,
@@ -210,7 +198,7 @@ const toDependencySource = async (
         reason: `Cannot resolve module specifier '${importRef.specifier}' from ${sourceFile.fileName}`,
       };
     }
-    return canonicalize(localName, { filePath, exportName: importRef.exportName });
+    return canonicalize(localName, { filePath, exportName: importRef.exportName }, line);
   }
   const exportName = exportNameOfLocalClass(sourceFile, localName, aliases, ts);
   if (exportName === undefined) {
@@ -220,7 +208,7 @@ const toDependencySource = async (
       reason: `Class ${localName} in ${sourceFile.fileName} is not exported`,
     };
   }
-  return canonicalize(localName, { filePath: sourceFile.fileName, exportName });
+  return canonicalize(localName, { filePath: sourceFile.fileName, exportName }, line);
 };
 
 const extract = (
@@ -244,10 +232,12 @@ const extract = (
     });
   }
   const importMap = buildImportMap(sourceFile, ts);
-  const localNames = collectInjectLocalNames(classNode, ts);
+  const injectRefs = collectInjectLocalNames(classNode, ts);
   return ResultAsyncCtor.fromSafePromise(
     Promise.all(
-      localNames.map((name) => toDependencySource(name, sourceFile, importMap, aliases, ts)),
+      injectRefs.map(({ localName, line }) =>
+        toDependencySource(localName, line, sourceFile, importMap, aliases, ts),
+      ),
     ),
   );
 };

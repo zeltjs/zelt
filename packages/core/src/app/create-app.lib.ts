@@ -37,6 +37,7 @@ export type CreateRuntimeOptions = {
 
 export type App<F extends readonly ConfiguredFeature[]> = {
   readonly features: Readonly<F>;
+  readonly configs: readonly ConfigClass<object>[];
   readonly hasFeature: (featureClass: FeatureClass) => boolean;
   readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<RuntimeApp<F>>;
 } & StaticNamespacedCaps<F>;
@@ -56,6 +57,7 @@ export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
 
 const reservedFeatureKeys = new Set([
   '__proto__',
+  'configs',
   'createRuntime',
   'constructor',
   'features',
@@ -258,6 +260,7 @@ export const createApp = <const F extends readonly ConfiguredFeature[]>(
   return {
     ...app,
     features,
+    configs: baseConfigs ?? [],
     hasFeature: (featureClass) => hasFeature(features, featureClass),
   };
 };

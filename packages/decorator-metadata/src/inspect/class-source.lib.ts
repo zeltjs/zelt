@@ -65,7 +65,7 @@ const classSourceFromModule = (
   });
 
 // 定義ファイルパスから所属パッケージ (node_modules 配下) を割り出す
-const packageFromPath = (
+export const packageFromPath = (
   sourceFile: string,
 ): { readonly root: string; readonly name: string } | undefined => {
   const normalized = sourceFile.replace(/\\/g, '/');
@@ -77,6 +77,14 @@ const packageFromPath = (
   if (name === undefined || name === '') return undefined;
   return { root: `${normalized.slice(0, index)}${marker}${name}`, name };
 };
+
+const TYPES_PREFIX = '@types/';
+
+// `@types/foo` は型のみのパッケージで実行時の実体は `foo` 側にある。パッケージ名として
+// 報告する際は常に剥がす(get-call-sites.lib.ts の external 判定・build-graph.lib.ts の
+// ExternalNode 生成の両方で同じ正規化が必要なため、ここに集約する。レビュー再指摘11)
+export const normalizePackageName = (name: string): string =>
+  name.startsWith(TYPES_PREFIX) ? name.slice(TYPES_PREFIX.length) : name;
 
 // sourcemap 適用済みスタックは公開パッケージに同梱されない src パスを指すことがある。
 // その場合はパッケージの self-reference 解決でエントリモジュールに落とし、
@@ -112,6 +120,21 @@ export const getClassSource = (cls: AnyClass): ResultAsync<ClassSource, InspectE
     return errAsync({
       code: 'POSITION_INVALID',
       message: `No source position captured for class ${cls.name}`,
+    });
+  }
+  // team-lead 決定(Task 10 remaining-diff cause 5、残存分): 宣言ファイル(pos.sourceFile、
+  // 実行時 stack trace 由来)が external(node_modules 配下)なら、常にパッケージの
+  // 公開エントリ経由で export 名を決める。tsdown/rolldown の code splitting は、
+  // 宣言ファイル自体(共有 chunk)では公開 API とは別の、chunk 間の再エクスポート配線用の
+  // 短い内部限定名(例: `t`)でエクスポートすることがあり、宣言ファイルを直接 import して
+  // export 名を逆引きするとその内部名を拾ってしまう(@zeltjs/eventbus の
+  // MemoryEventBusAdaptor が eventbus 機能のルートクラスとして発見される際の実例)。
+  // パッケージの公開エントリだけがユーザー向けの安定した名前で re-export しているため、
+  // external の場合は宣言ファイル自体からの逆引きを一切行わない
+  if (packageFromPath(pos.sourceFile) !== undefined) {
+    return packageEntryFallback(pos.sourceFile, cls, {
+      code: 'EXPORT_NOT_FOUND',
+      message: `Class ${cls.name} is not exported from the entry point of the package declaring ${pos.sourceFile}`,
     });
   }
   return classSourceFromModule(pos.sourceFile, cls).orElse((error) =>

@@ -24,10 +24,17 @@ export type ClassMeta = {
 // Internal Types (with trace for inspect module)
 // =============================================================================
 
+// `trace` は「このメンバーの代表位置」(get-type-metadata.lib.ts が使う、既存の意味を
+// 維持)であり、同じメンバーに複数 decorator が適用された場合は最初に記録された1件の
+// trace しか残らない。一方 `propTraces` は `props` と同じ添字で対応する、decorator
+// 適用ごとの trace(1件も欠落・collapse させない)。studio の applies-middleware の
+// ように「このメソッドの N 個目の decorator 適用が実際にソース上どこで書かれたか」を
+// 個別に知りたい呼び出し元(get-decorator-application-position.lib.ts)のために追加した
 type InternalMethodMeta = {
   readonly name: string | symbol;
   readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
+  readonly propTraces: readonly (StackTrace | undefined)[];
 };
 
 type InternalPropertyMeta = {
@@ -39,6 +46,8 @@ type InternalPropertyMeta = {
 type InternalClassMeta = {
   readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
+  // クラスレベル decorator 版の propTraces(InternalMethodMeta と同じ理由)
+  readonly propTraces: readonly (StackTrace | undefined)[];
   readonly methods: readonly InternalMethodMeta[];
   readonly properties: readonly InternalPropertyMeta[];
 };
@@ -59,6 +68,7 @@ const propertyRecords = new WeakMap<object, MemberRecord[]>();
 const emptyMeta = (): InternalClassMeta => ({
   trace: undefined,
   props: [],
+  propTraces: [],
   methods: [],
   properties: [],
 });
@@ -90,6 +100,7 @@ export const recordClass = (cls: object, trace: StackTrace | undefined, props: o
   classStore.set(cls, {
     trace: existing.trace ?? trace,
     props: [...existing.props, props],
+    propTraces: [...existing.propTraces, trace],
     methods: existing.methods,
     properties: existing.properties,
   });
@@ -103,12 +114,16 @@ const upsertMethod = (
 ): readonly InternalMethodMeta[] => {
   const existing = methods.find((m) => m.name === record.name);
   if (!existing) {
-    return [...methods, { name: record.name, trace: record.trace, props: [record.props] }];
+    return [
+      ...methods,
+      { name: record.name, trace: record.trace, props: [record.props], propTraces: [record.trace] },
+    ];
   }
   const updated: InternalMethodMeta = {
     name: existing.name,
     trace: existing.trace ?? record.trace,
     props: [...existing.props, record.props],
+    propTraces: [...existing.propTraces, record.trace],
   };
   return methods.map((m) => (m === existing ? updated : m));
 };
@@ -145,6 +160,7 @@ export const aggregateMembers = (cls: object, classKey: object): void => {
   classStore.set(cls, {
     trace: existing.trace,
     props: existing.props,
+    propTraces: existing.propTraces,
     methods,
     properties,
   });
@@ -188,6 +204,7 @@ export const ensureClassMeta = (cls: object, trace: StackTrace): void => {
   classStore.set(cls, {
     trace,
     props: base.props,
+    propTraces: base.propTraces,
     methods: base.methods,
     properties: base.properties,
   });

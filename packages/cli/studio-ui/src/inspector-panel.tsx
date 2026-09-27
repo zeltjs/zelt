@@ -1,9 +1,9 @@
 import type { JSX } from 'react';
 
-import type { GraphNode, RouteInfo } from '../../src/studio/graph/graph.types';
+import type { ViewMethod, ViewNode, ViewRoute } from './graph-view.lib';
 import { formatMethodSignature } from './inspector.lib';
 
-// 値が無いセクションは見出しごと出さない（unresolved ノードは filePath/kind のみになる）
+// 値が無いセクションは見出しごと出さない
 const Section = (props: {
   readonly title: string;
   readonly children: JSX.Element;
@@ -14,19 +14,17 @@ const Section = (props: {
   </section>
 );
 
-const DecoratorsSection = (props: {
-  readonly decorators: readonly string[] | undefined;
-}): JSX.Element => (
+const DecoratorsSection = (props: { readonly decorators: readonly string[] }): JSX.Element => (
   <Section title="decorators">
     <ul>
-      {(props.decorators ?? []).map((name) => (
+      {props.decorators.map((name) => (
         <li key={name}>@{name}</li>
       ))}
     </ul>
   </Section>
 );
 
-const RouteItem = (props: { readonly route: RouteInfo }): JSX.Element => (
+const RouteItem = (props: { readonly route: ViewRoute }): JSX.Element => (
   <li>
     <code>
       {props.route.method} {props.route.path}
@@ -35,22 +33,20 @@ const RouteItem = (props: { readonly route: RouteInfo }): JSX.Element => (
   </li>
 );
 
-const RoutesSection = (props: {
-  readonly routes: readonly RouteInfo[] | undefined;
-}): JSX.Element => (
+const RoutesSection = (props: { readonly routes: readonly ViewRoute[] }): JSX.Element => (
   <Section title="routes">
     <ul>
-      {(props.routes ?? []).map((route) => (
+      {props.routes.map((route) => (
         <RouteItem key={`${route.method} ${route.path}`} route={route} />
       ))}
     </ul>
   </Section>
 );
 
-const ContractSection = (props: { readonly contract: GraphNode['contract'] }): JSX.Element => (
-  <Section title="contract">
+const MethodsSection = (props: { readonly methods: readonly ViewMethod[] }): JSX.Element => (
+  <Section title="methods">
     <ul>
-      {(props.contract ?? []).map((sig) => (
+      {props.methods.map((sig) => (
         <li key={formatMethodSignature(sig)}>
           <code>{formatMethodSignature(sig)}</code>
         </li>
@@ -59,45 +55,35 @@ const ContractSection = (props: { readonly contract: GraphNode['contract'] }): J
   </Section>
 );
 
-// undefined と空配列をまとめて弾く（decorators/routes/contract で共通の「セクション表示するか」判定）
-const hasEntries = <T,>(arr: readonly T[] | undefined): boolean =>
-  arr !== undefined && arr.length > 0;
+// undefined と空配列をまとめて弾く（decorators/routes/methods で共通の「セクション表示するか」判定）
+const hasEntries = <T,>(arr: readonly T[]): boolean => arr.length > 0;
 
-const InspectorFields = (props: { readonly node: GraphNode }): JSX.Element => {
-  const { node } = props;
-  return (
-    <dl>
-      <dt>file</dt>
-      <dd>{node.filePath}</dd>
-      {node.featureKey !== undefined && (
-        <>
-          <dt>feature</dt>
-          <dd>{node.featureKey}</dd>
-        </>
-      )}
-    </dl>
-  );
-};
+const InspectorFields = (props: { readonly node: ViewNode }): JSX.Element => (
+  <dl>
+    <dt>file</dt>
+    <dd>{props.node.filePath}</dd>
+  </dl>
+);
 
 export const InspectorPanel = (props: {
-  readonly node: GraphNode;
+  readonly node: ViewNode;
   readonly onClose: () => void;
 }): JSX.Element => {
   const { node, onClose } = props;
+  const badge = node.external ? 'external' : (node.fileKind ?? 'unknown');
   return (
     <aside className="inspector">
       <header>
-        <span className={`badge kind-${node.kind}`}>{node.kind}</span>
-        <strong>{node.className}</strong>
+        <span className={`badge kind-${badge}`}>{badge}</span>
+        <strong>{node.name}</strong>
         <button type="button" aria-label="close inspector" onClick={onClose}>
           ×
         </button>
       </header>
       <InspectorFields node={node} />
-      {node.unresolved === true && <p className="unresolved-note">unresolved</p>}
       {hasEntries(node.decorators) && <DecoratorsSection decorators={node.decorators} />}
       {hasEntries(node.routes) && <RoutesSection routes={node.routes} />}
-      {hasEntries(node.contract) && <ContractSection contract={node.contract} />}
+      {hasEntries(node.methods) && <MethodsSection methods={node.methods} />}
     </aside>
   );
 };

@@ -1,0 +1,286 @@
+{
+  "version": 1,
+  "project": {
+    "id": "ec-backend",
+    "name": "ec-backend"
+  },
+  "root": "../..",
+  "tsconfig": "integration/ec-backend/tsconfig.json",
+  "include": ["integration/ec-backend/src/**/*.ts"],
+  "exclude": ["**/*.test.ts", "**/dist/**", "**/node_modules/**"],
+  "mapPackages": [
+    {
+      "package": "@zeltjs/core",
+      "exports": ["LoggerService", "CorsMiddleware", "SecureHeadersMiddleware", "CorsConfig"]
+    },
+    {
+      "package": "@zeltjs/auth-jwt",
+      "exports": ["JwtMiddleware", "JwtService", "JwtConfig"]
+    },
+    {
+      "package": "@zeltjs/kv",
+      "exports": ["KVStore", "MemoryKVAdaptor"]
+    },
+    {
+      "package": "@zeltjs/eventbus",
+      "exports": ["MemoryEventBusAdaptor"]
+    },
+    {
+      "package": "@zeltjs/rate-limit",
+      "exports": ["RateLimitMiddleware"]
+    }
+  ],
+  "ignore": [
+    {
+      "package": "@zeltjs/core",
+      "exports": [
+        "inject",
+        "request",
+        "currentUser",
+        "requestContext",
+        "LifecycleManager",
+        "Controller",
+        "Get",
+        "Post",
+        "Put",
+        "Delete",
+        "UseMiddleware",
+        "Authorized",
+        "Injectable",
+        "Middleware",
+        "Config"
+      ]
+    },
+    {
+      "package": "@zeltjs/rate-limit",
+      "exports": ["RateLimit"]
+    }
+  ],
+  "sourceText": [
+    "integration/ec-backend/src/app.ts",
+    "integration/ec-backend/src/domain/**",
+    "integration/ec-backend/src/entry/**",
+    "integration/ec-backend/src/infra/**",
+    "integration/ec-backend/src/usecase/**",
+    "packages/core/src/**",
+    "packages/auth-jwt/src/**",
+    "packages/kv/src/**",
+    "packages/eventbus/src/**",
+    "packages/rate-limit/src/**"
+  ],
+  "sourceModules": {
+    "@zeltjs/core": "packages/core/src/index.ts",
+    "@zeltjs/core/internal-bridge/testing": "packages/core/src/internal-bridge/testing.ts",
+    "@zeltjs/core/internal-bridge/errors": "packages/core/src/internal-bridge/errors.ts",
+    "@zeltjs/eventbus": "packages/eventbus/src/index.ts",
+    "@zeltjs/auth-jwt": "packages/auth-jwt/src/index.ts",
+    "@zeltjs/testing": "packages/testing/src/index.ts",
+    "@zeltjs/decorator-metadata": "packages/decorator-metadata/src/index.ts",
+    "@zeltjs/decorator-metadata/inspect": "packages/decorator-metadata/src/inspect/index.ts",
+    "@zeltjs/kv": "packages/kv/src/index.ts",
+    "@zeltjs/rate-limit": "packages/rate-limit/src/index.ts",
+    "@zeltjs/redis": "packages/redis/src/index.ts",
+    "@zeltjs/redis/testing": "packages/redis/src/testing/index.ts",
+    "@zeltjs/unsafe-type-lib": "packages/unsafe-type-lib/src/index.ts"
+  },
+  "plugins": [
+    {
+      "id": "zelt",
+      "applications": [
+        {
+          "id": "ec",
+          "factory": {
+            "filePath": "integration/ec-backend/src/app.ts",
+            "exportName": "createEcApp"
+          }
+        }
+      ],
+      "setupFiles": [],
+      "setupDetails": true,
+      "timeoutMs": 30000
+    },
+    {
+      "id": "vitest",
+      "scopes": [
+        {
+          "files": ["integration/ec-backend/src/**/*.test.ts"],
+          "category": "unit"
+        },
+        {
+          "files": ["integration/ec-backend/e2e/product.spec.ts"],
+          "category": "e2e"
+        }
+      ],
+      "globals": false,
+      "cases": "serial",
+      "hooks": "stack"
+    },
+    {
+      "id": "valibot"
+    },
+    {
+      "id": "drizzle"
+    },
+    {
+      "id": "http-requests",
+      "scopes": [
+        {
+          "files": ["integration/ec-backend/e2e/product.spec.ts"],
+          "category": "e2e"
+        }
+      ],
+      "applications": [
+        {
+          "id": "ec",
+          "factory": {
+            "filePath": "integration/ec-backend/e2e/helpers/test-setup.ts",
+            "exportName": "createTestApp"
+          },
+          "resultPath": []
+        }
+      ],
+      "helpers": [
+        {
+          "function": {
+            "filePath": "integration/ec-backend/e2e/helpers/test-setup.ts",
+            "exportName": "authRequest"
+          },
+          "applicationArgument": 0,
+          "method": {
+            "kind": "argument",
+            "index": 2
+          },
+          "path": {
+            "kind": "argument",
+            "index": 3
+          }
+        },
+        {
+          "function": {
+            "filePath": "integration/ec-backend/e2e/helpers/test-setup.ts",
+            "exportName": "registerUser"
+          },
+          "applicationArgument": 0,
+          "method": {
+            "kind": "literal",
+            "value": "POST"
+          },
+          "path": {
+            "kind": "literal",
+            "value": "/api/auth/register"
+          }
+        },
+        {
+          "function": {
+            "filePath": "integration/ec-backend/e2e/helpers/test-setup.ts",
+            "exportName": "loginUser"
+          },
+          "applicationArgument": 0,
+          "method": {
+            "kind": "literal",
+            "value": "POST"
+          },
+          "path": {
+            "kind": "literal",
+            "value": "/api/auth/login"
+          }
+        }
+      ]
+    }
+  ],
+  "presentation": {
+    "id": "ec-spatial",
+    "columns": [
+      {
+        "id": "column:composition",
+        "label": "Composition",
+        "width": 310,
+        "initiallyHidden": true
+      },
+      {
+        "id": "column:0",
+        "label": "Entry / Middleware",
+        "width": 310,
+        "initiallyHidden": false
+      },
+      {
+        "id": "column:1",
+        "label": "Use case",
+        "width": 310,
+        "initiallyHidden": false
+      },
+      {
+        "id": "column:2",
+        "label": "Domain",
+        "width": 310,
+        "initiallyHidden": false
+      },
+      {
+        "id": "column:4",
+        "label": "Adapter / Infrastructure",
+        "width": 310,
+        "initiallyHidden": false
+      },
+      {
+        "id": "column:5",
+        "label": "Config",
+        "width": 310,
+        "initiallyHidden": false
+      },
+      {
+        "id": "column:6",
+        "label": "ライブラリ",
+        "width": 310,
+        "initiallyHidden": false
+      },
+      {
+        "id": "column:other",
+        "label": "未分類",
+        "width": 310,
+        "initiallyHidden": false
+      }
+    ],
+    "rules": [
+      {
+        "files": ["integration/ec-backend/src/app.ts"],
+        "columnId": "column:composition"
+      },
+      {
+        "files": ["packages/**"],
+        "columnId": "column:6"
+      },
+      {
+        "files": ["integration/ec-backend/src/config/**"],
+        "columnId": "column:5"
+      },
+      {
+        "files": ["integration/ec-backend/src/entry/**"],
+        "columnId": "column:0"
+      },
+      {
+        "files": ["integration/ec-backend/src/usecase/**"],
+        "columnId": "column:1"
+      },
+      {
+        "files": ["integration/ec-backend/src/domain/**"],
+        "columnId": "column:2"
+      },
+      {
+        "files": ["integration/ec-backend/src/infra/**"],
+        "columnId": "column:4"
+      }
+    ],
+    "fallbackColumnId": "column:other"
+  },
+  "required": [
+    {
+      "provider": "ts",
+      "feature": "declarations"
+    },
+    {
+      "provider": "zelt",
+      "feature": "routes"
+    }
+  ],
+  "output": "mocks/studio-spatial/public/ec-backend.snapshot.json"
+}

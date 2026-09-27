@@ -4,7 +4,7 @@ import type { ResultAsync } from 'neverthrow';
 import { errAsync, okAsync } from 'neverthrow';
 
 import { getInternalClassMetadata } from '../runtime/index';
-import { findClassAtPosition, findClassByName } from './ast.lib';
+import { findClassAtPosition, findClassByName, getDecoratorName } from './ast.lib';
 import type { DependencyInfo, GetDependenciesOptions, InspectError } from './inspect.types';
 import { resolvePosition } from './position.lib';
 import type { CachedProgram, ProgramCacheError } from './program-cache.lib';
@@ -17,18 +17,6 @@ type TSTypeChecker = import('typescript').TypeChecker;
 
 const DEFAULT_TSCONFIG = './tsconfig.json';
 const CONFIG_DECORATOR_NAME = 'Config';
-
-// namespace import 経由 (`@ns.Controller()`) のデコレータは callee が
-// PropertyAccessExpression になるため、Identifier に直接絞らず再帰的に辿る
-const getDecoratorName = (
-  expr: import('typescript').Expression,
-  ts: TypeScriptModule,
-): string | undefined => {
-  if (ts.isIdentifier(expr)) return expr.text;
-  if (ts.isPropertyAccessExpression(expr)) return expr.name.text;
-  if (ts.isCallExpression(expr)) return getDecoratorName(expr.expression, ts);
-  return undefined;
-};
 
 const isConfigDecorator = (expr: import('typescript').Expression, ts: TypeScriptModule): boolean =>
   getDecoratorName(expr, ts) === CONFIG_DECORATOR_NAME;

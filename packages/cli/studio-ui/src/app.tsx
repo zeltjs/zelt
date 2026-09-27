@@ -16,6 +16,8 @@ import { dirOf } from './collapse.lib';
 import { hideNodeModules } from './graph-filter.lib';
 import type { CardData, FlowNode, GroupData, ModuleData } from './graph-to-flow.lib';
 import { graphToFlow } from './graph-to-flow.lib';
+import type { ClassView } from './graph-view.lib';
+import { toClassView } from './graph-view.lib';
 import { findGraphNode } from './inspector.lib';
 import { InspectorPanel } from './inspector-panel';
 import { applyStudioNodeChanges } from './node-changes.lib';
@@ -35,16 +37,24 @@ type AnalyzeResult =
   | { ok: true; readonly graph: DependencyGraph }
   | { ok: false; readonly errorOutput: string };
 
+// v3 には v2 の GraphNodeKind(controller/service 等)への写像が無いため、
+// バッジは fileKind の文字列をそのまま出す(external ノードのみ固定で "external")
+const cardBadgeOf = (data: CardData): string =>
+  data.external ? 'external' : (data.fileKind ?? 'unknown');
+
 // Handle が無いと React Flow はエッジを描画しない（read-only でも必須）
-const CardNode = ({ data }: NodeProps<Node<CardData, 'card'>>): JSX.Element => (
-  <div className={`card kind-${data.kind}${data.unresolved ? ' unresolved' : ''}`}>
-    <Handle type="target" position={Position.Top} />
-    <span className="badge">{data.kind}</span>
-    <strong>{data.className}</strong>
-    <small>{data.filePath}</small>
-    <Handle type="source" position={Position.Bottom} />
-  </div>
-);
+const CardNode = ({ data }: NodeProps<Node<CardData, 'card'>>): JSX.Element => {
+  const badge = cardBadgeOf(data);
+  return (
+    <div className={`card kind-${badge}`}>
+      <Handle type="target" position={Position.Top} />
+      <span className="badge">{badge}</span>
+      <strong>{data.name}</strong>
+      <small>{data.filePath}</small>
+      <Handle type="source" position={Position.Bottom} />
+    </div>
+  );
+};
 
 // nodeTypes はモジュールスコープで一度だけ定義する必要がある（毎レンダー再生成すると
 // React Flow が custom node を再マウントする）ため、折りたたみトグルは props でなく
@@ -136,10 +146,10 @@ const useToggleSetting = (
   return [value, toggle];
 };
 
-// 保存値が無い初回だけ、到着したグラフの dir 一覧から node_modules 系を自動折りたたみする。
+// 保存値が無い初回だけ、到着したグラフの dir 一覧から external 系を自動折りたたみする。
 // 一度でも保存されていれば（空集合＝全展開を含め）以後はユーザーの選択を優先する
 const useCollapsedDirs = (
-  graph: DependencyGraph | undefined,
+  view: ClassView | undefined,
 ): [ReadonlySet<string>, (dir: string) => void] => {
   const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(
     () => loadCollapsedDirs() ?? new Set(),
@@ -147,11 +157,11 @@ const useCollapsedDirs = (
   const hasAppliedDefault = useRef(loadCollapsedDirs() !== undefined);
 
   useEffect(() => {
-    if (hasAppliedDefault.current || graph === undefined) return;
-    const dirs = Array.from(new Set(graph.nodes.map((node) => dirOf(node.filePath))));
+    if (hasAppliedDefault.current || view === undefined) return;
+    const dirs = Array.from(new Set(view.nodes.map((node) => dirOf(node.filePath))));
     setCollapsedDirs(defaultCollapsedDirs(dirs));
     hasAppliedDefault.current = true;
-  }, [graph]);
+  }, [view]);
 
   const toggleDir = useCallback((dir: string) => {
     setCollapsedDirs((prev) => {
@@ -215,27 +225,30 @@ const useStudioGraph = () => {
   const [edges, setEdges] = useState<Edge[]>([]);
   const positionScope: PositionScope = groupByFolder ? 'grouped' : 'flat';
 
-  // インスペクタはフィルタ後のグラフから引く（隠れたノードは選択対象外）。
-  // useMemo は必須（毎レンダー新規オブジェクトになると下の useEffect が無限再実行される）
-  const filteredGraph = useMemo(
-    () => (graph === undefined ? undefined : hideModules ? hideNodeModules(graph) : graph),
-    [graph, hideModules],
+  // UI が扱う view model への変換はここで 1 回だけ行う（DependencyGraph を UI 側で
+  // 直接歩かない）。useMemo は必須（毎レンダー新規オブジェクトになると下の useEffect が無限再実行される）
+  const view = useMemo(() => (graph === undefined ? undefined : toClassView(graph)), [graph]);
+
+  // インスペクタはフィルタ後のビューから引く（隠れたノードは選択対象外）
+  const filteredView = useMemo(
+    () => (view === undefined ? undefined : hideModules ? hideNodeModules(view) : view),
+    [view, hideModules],
   );
-  // デフォルト折りたたみの算出はフィルタ前の graph から行う。filteredGraph 起点だと
-  // hide node_modules 有効時に node_modules 系 dir がデフォルト集合から漏れ、
+  // デフォルト折りたたみの算出はフィルタ前の view から行う。filteredView 起点だと
+  // hide node_modules 有効時に external 系 dir がデフォルト集合から漏れ、
   // フィルタ解除後に全展開で現れてしまう
-  const [collapsedDirs, toggleCollapsedDir] = useCollapsedDirs(graph);
+  const [collapsedDirs, toggleCollapsedDir] = useCollapsedDirs(view);
 
   // フィルタ/グルーピング/折りたたみトグル変更後に nodes/edges を再導出する
   useEffect(() => {
-    if (filteredGraph === undefined) return;
-    const flow = graphToFlow(filteredGraph, loadPositions(positionScope), {
+    if (filteredView === undefined) return;
+    const flow = graphToFlow(filteredView, loadPositions(positionScope), {
       grouped: groupByFolder,
       collapsedDirs,
     });
     setNodes(flow.nodes);
     setEdges(flow.edges);
-  }, [filteredGraph, groupByFolder, positionScope, collapsedDirs]);
+  }, [filteredView, groupByFolder, positionScope, collapsedDirs]);
 
   return {
     nodes,
@@ -249,7 +262,7 @@ const useStudioGraph = () => {
     groupByFolder,
     toggleGroupByFolder,
     positionScope,
-    filteredGraph,
+    filteredView,
     toggleCollapsedDir,
   };
 };
@@ -333,14 +346,14 @@ export const App = (): JSX.Element => {
     groupByFolder,
     toggleGroupByFolder,
     positionScope,
-    filteredGraph,
+    filteredView,
     toggleCollapsedDir,
   } = useStudioGraph();
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   // フィルタ/リロードで消えたノードは自動的にパネルも消える（selectedId 自体はクリアしない）
   const selectedNode =
-    filteredGraph !== undefined && selectedId !== undefined
-      ? findGraphNode(filteredGraph, selectedId)
+    filteredView !== undefined && selectedId !== undefined
+      ? findGraphNode(filteredView, selectedId)
       : undefined;
 
   return (

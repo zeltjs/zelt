@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,12 +9,20 @@ import consola from 'consola';
 
 import type { CliRuntime } from './cli-runtime.lib';
 import { nodeCliRuntime } from './cli-runtime.lib';
+import type { ExtractionResult, ExtractOptions } from './studio/extraction';
+import { extract } from './studio/extraction';
 import { runAnalyzer, startStudioServer } from './studio/index';
 
 const DEFAULT_PORT = 4400;
 
 // ビルド後は dist/cli.js から見た dist/studio/analyzer-entry.js
 const analyzerPath = fileURLToPath(new URL('./studio/analyzer-entry.js', import.meta.url));
+
+// 同じく dist/cli.js から見た dist の entry。tsx で source から動かすときは隣の .ts になる
+const ZELT_ENTRY = './studio/extraction/plugins/zelt-inspect-entry';
+const zeltEntryPath = [`${ZELT_ENTRY}.js`, `${ZELT_ENTRY}.ts`]
+  .map((candidate) => fileURLToPath(new URL(candidate, import.meta.url)))
+  .find((candidate) => existsSync(candidate));
 const staticDir = fileURLToPath(new URL('./studio-ui', import.meta.url));
 
 // citty の ArgsDef は optional な string 引数も `string` 型に見せるため、
@@ -23,7 +32,12 @@ type StudioArgs = {
   readonly port?: string;
   readonly open?: boolean;
   readonly export?: string;
+  readonly output?: string;
+  readonly 'allow-incomplete'?: boolean;
 };
+
+export const isExtractInvocation = (rawArgs: readonly string[]): boolean =>
+  rawArgs[0] === 'extract';
 
 type Analyze = () => ReturnType<typeof runAnalyzer>;
 
@@ -113,6 +127,7 @@ export const handleExport = async (
 /** @throws {Error} from server.lib.ts:startStudioServer (non-EADDRINUSE bind failures) */
 export const serveStudio = async (
   analyze: Analyze,
+  cwd: string,
   port: number,
   open: boolean,
   runtime: Pick<CliRuntime, 'setExitCode'>,
@@ -120,7 +135,7 @@ export const serveStudio = async (
   doOpenBrowser: OpenBrowser = openBrowser,
 ): Promise<void> => {
   try {
-    const server = await startServer({ port, staticDir, analyze });
+    const server = await startServer({ port, staticDir, analyze, cwd });
     consola.success(`zelt studio running at ${server.url}`);
     if (open) doOpenBrowser(server.url);
   } catch (error) {
@@ -133,6 +148,63 @@ export const serveStudio = async (
   }
 };
 
+type ExtractRun = (configFile: string, options: ExtractOptions) => ReturnType<typeof extract>;
+
+const logExtraction = (result: Extract<ExtractionResult, { kind: 'published' }>): void => {
+  for (const report of result.reports) {
+    consola.info(`${report.provider}/${report.feature}: ${report.status}`);
+    for (const diagnostic of report.diagnostics) {
+      consola.warn(
+        `${report.provider}/${report.feature}: ${diagnostic.code} ${diagnostic.message}`,
+      );
+    }
+  }
+  // 採否は人が config に書く。抽出器は勝手に適用しない (4.2)
+  for (const recommendation of result.ignoreRecommendations) {
+    consola.info(
+      `ignore suggestion ${recommendation.package}: ${recommendation.exports.join(', ')}`,
+    );
+  }
+  consola.success(`Snapshot ${result.snapshotId.slice(0, 12)} written to ${result.output}`);
+};
+
+type ExtractArgs = {
+  readonly config: string | undefined;
+  readonly output: string | undefined;
+  readonly allowIncomplete: boolean | undefined;
+};
+
+const extractOptions = (cwd: string, args: ExtractArgs): ExtractOptions => {
+  const outputArg = nonEmpty(args.output);
+  return {
+    ...(outputArg === undefined ? {} : { output: resolve(cwd, outputArg) }),
+    allowIncomplete: args.allowIncomplete ?? false,
+    ...(zeltEntryPath === undefined ? {} : { zeltEntryPath }),
+  };
+};
+
+export const runExtract = async (
+  cwd: string,
+  args: ExtractArgs,
+  runtime: Pick<CliRuntime, 'setExitCode'>,
+  run: ExtractRun = extract,
+): Promise<void> => {
+  const configFile = nonEmpty(args.config);
+  if (configFile === undefined) {
+    consola.error('zelt studio extract requires --config <extract.json>');
+    runtime.setExitCode(1);
+    return;
+  }
+  const result = await run(resolve(cwd, configFile), extractOptions(cwd, args));
+  if (result.kind === 'failed') {
+    consola.error(`studio extract failed during ${result.phase}`);
+    for (const diagnostic of result.diagnostics) consola.error(diagnostic);
+    runtime.setExitCode(1);
+    return;
+  }
+  logExtraction(result);
+};
+
 export const studioCommand = defineCommand({
   meta: {
     name: 'studio',
@@ -142,6 +214,15 @@ export const studioCommand = defineCommand({
     config: { type: 'string', alias: 'c', description: 'Path to zelt.config.ts' },
     port: { type: 'string', description: `Port to listen on (default ${DEFAULT_PORT})` },
     open: { type: 'boolean', description: 'Open the browser after start' },
+    output: {
+      type: 'string',
+      description: 'extract only: override the output path from the extract config',
+    },
+    'allow-incomplete': {
+      type: 'boolean',
+      // 段階実装の間だけ、未実装 plugin の required で止めずに配信するための逃げ道
+      description: 'extract only: publish even if a required provider/feature has no plugin yet',
+    },
     export: {
       type: 'string',
       // citty の引数パーサーは `--export -` のように値が "-" 単体だと
@@ -149,9 +230,23 @@ export const studioCommand = defineCommand({
       description: 'Write graph JSON to a file (use --export=- for stdout) and exit',
     },
   },
-  async run({ args }) {
+  async run({ args, rawArgs }) {
     const typedArgs: StudioArgs = args;
     const cwd = nodeCliRuntime.cwd();
+    // citty の subCommands は親の run も続けて呼ぶため、ここで分岐する
+    // (既存の `zelt studio --config <file>` を壊さないため subCommands は使わない)
+    if (isExtractInvocation(rawArgs)) {
+      await runExtract(
+        cwd,
+        {
+          config: typedArgs.config,
+          output: typedArgs.output,
+          allowIncomplete: typedArgs['allow-incomplete'],
+        },
+        nodeCliRuntime,
+      );
+      return;
+    }
     const analyze: Analyze = () =>
       runAnalyzer({ cwd, analyzerPath, configFile: nonEmpty(typedArgs.config) });
 
@@ -164,6 +259,6 @@ export const studioCommand = defineCommand({
       return;
     }
 
-    await serveStudio(analyze, port, typedArgs.open ?? false, nodeCliRuntime);
+    await serveStudio(analyze, cwd, port, typedArgs.open ?? false, nodeCliRuntime);
   },
 });

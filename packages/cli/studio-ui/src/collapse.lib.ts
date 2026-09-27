@@ -1,8 +1,10 @@
-import type { DependencyGraph, GraphEdgeKind, GraphNode } from '../../src/studio/graph/graph.types';
+import type { ClassView, ViewEdge, ViewNode } from './graph-view.lib';
 
-// filePath はファイル単位、グループはディレクトリ単位。"(unknown)" は
-// スラッシュを含まないため自身がグループ key になり、まとまって表示される
+// filePath はファイル単位、グループはディレクトリ単位。external ノードの filePath は
+// 実ファイルパスではなく `ext:${package}`（graph-view.lib の変換規則）のため、そのまま
+// 1 グループ名として扱う（scoped package の "/" で分割してしまうと意味が変わる）
 export const dirOf = (filePath: string): string => {
+  if (filePath.startsWith('ext:')) return filePath;
   const parts = filePath.split('/');
   return parts.length > 1 ? parts.slice(0, -1).join('/') : filePath;
 };
@@ -28,12 +30,12 @@ export const displayDirLabel = (dir: string): string => {
 export type AggregatedEdge = {
   readonly from: string;
   readonly to: string;
-  readonly kind: GraphEdgeKind;
+  readonly kind: ViewEdge['kind'];
   readonly count: number;
 };
 
 export type CollapsedView = {
-  readonly visibleNodes: readonly GraphNode[];
+  readonly visibleNodes: readonly ViewNode[];
   readonly collapsedGroups: readonly { readonly dir: string; readonly memberCount: number }[];
   readonly edges: readonly AggregatedEdge[];
 };
@@ -51,7 +53,7 @@ const endpointOf = (
 // 丸め込みで両端が同一グループになったエッジのみ自己ループとして除去する。
 // 元から from === to のエッジ(将来のエッジ種別で発生しうる)は表示対象として残す
 const aggregateEdges = (
-  edges: DependencyGraph['edges'],
+  edges: ClassView['edges'],
   dirById: ReadonlyMap<string, string>,
   collapsedDirs: ReadonlySet<string>,
 ): readonly AggregatedEdge[] => {
@@ -76,10 +78,10 @@ const aggregateEdges = (
 // dagre レイアウトの外で使う純粋なビュー変換: 折りたたみ dir のノードを単一グループへ集約し、
 // エッジは丸め込み後の (from, to, kind) 単位で集約する。グラフ JSON 自体は変更しない
 export const collapseView = (
-  graph: DependencyGraph,
+  view: ClassView,
   collapsedDirs: ReadonlySet<string>,
 ): CollapsedView => {
-  const dirById = new Map(graph.nodes.map((node) => [node.id, dirOf(node.filePath)]));
+  const dirById = new Map(view.nodes.map((node) => [node.id, dirOf(node.filePath)]));
 
   // グラフに存在しない dir が collapsedDirs に含まれていても member 0 のため自然に無視される
   const memberCountByDir = new Map<string, number>();
@@ -92,11 +94,11 @@ export const collapseView = (
     memberCount,
   }));
 
-  const visibleNodes = graph.nodes.filter((node) => !collapsedDirs.has(dirById.get(node.id) ?? ''));
+  const visibleNodes = view.nodes.filter((node) => !collapsedDirs.has(dirById.get(node.id) ?? ''));
 
   return {
     visibleNodes,
     collapsedGroups,
-    edges: aggregateEdges(graph.edges, dirById, collapsedDirs),
+    edges: aggregateEdges(view.edges, dirById, collapsedDirs),
   };
 };

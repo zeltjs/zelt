@@ -100,14 +100,12 @@ describe('settings', () => {
   });
 
   describe('defaultCollapsedDirs', () => {
-    it('collapses only node_modules-like dirs, leaving the rest expanded', () => {
-      const dirs = ['src/foo', 'node_modules/pkg', 'src/bar/node_modules/dep'];
-      expect(defaultCollapsedDirs(dirs)).toEqual(
-        new Set(['node_modules/pkg', 'src/bar/node_modules/dep']),
-      );
+    it('collapses only external ("ext:"-prefixed) dirs, leaving the rest expanded', () => {
+      const dirs = ['src/foo', 'ext:pkg', 'ext:@scope/dep'];
+      expect(defaultCollapsedDirs(dirs)).toEqual(new Set(['ext:pkg', 'ext:@scope/dep']));
     });
 
-    it('returns an empty set when no dir looks like node_modules', () => {
+    it('returns an empty set when no dir is external', () => {
       expect(defaultCollapsedDirs(['src/foo', 'src/bar'])).toEqual(new Set());
     });
   });

@@ -1,6 +1,7 @@
 packages:
   - 'packages/*'
   - 'packages/cli/studio-ui'
+  - 'mocks/studio-spatial'
   - 'examples/*'
   - 'website'
 
@@ -33,3 +34,9 @@ onlyBuiltDependencies:
   - better-sqlite3
   - esbuild
   - nx
+
+# injected 依存は install 時点のコピーで、後の build で dist が作られても更新されない。
+# studio のテスト用 app は eventbus を node_modules 配下の実体として読む必要があるため、
+# build のたびにコピーを同期させる
+syncInjectedDepsAfterScripts:
+  - build

@@ -1,4 +1,4 @@
-import { isNodeModulesPath } from './graph-filter.lib';
+import { isExternalDir } from './graph-filter.lib';
 
 // boolean flag の load/save パターンが複数の設定項目で重複するため、
 // 破損データ時のフォールバックと警告メッセージの組み立てだけ共通化する
@@ -67,7 +67,7 @@ export const loadCollapsedDirs = (): ReadonlySet<string> | undefined => {
 export const saveCollapsedDirs = (value: ReadonlySet<string>): void =>
   window.localStorage.setItem(collapsedDirsKey(), JSON.stringify(Array.from(value)));
 
-// node_modules は依存が大量で読む価値が低いため初回のみ折りたたんでおき、
+// external 依存(旧 node_modules 相当)は大量で読む価値が低いため初回のみ折りたたんでおき、
 // それ以外の dir はユーザーが明示的に折りたたむまで展開したままにする
 export const defaultCollapsedDirs = (dirs: readonly string[]): ReadonlySet<string> =>
-  new Set(dirs.filter((dir) => isNodeModulesPath(dir)));
+  new Set(dirs.filter((dir) => isExternalDir(dir)));

@@ -13,7 +13,8 @@
     "@dagrejs/dagre": "3.0.0",
     "@xyflow/react": "12.11.1",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "ts-pattern": "5.7.1"
   },
   "devDependencies": {
     "@types/react": "19.2.17",

@@ -8,7 +8,7 @@ import { GRAPH_MARKER } from './analyzer-protocol';
 import { parseAnalyzerOutput, runAnalyzer } from './analyzer-runner.lib';
 import type { DependencyGraph } from './graph/graph.types';
 
-const graph: DependencyGraph = { version: 2, nodes: [], edges: [] };
+const graph: DependencyGraph = { version: 3, nodes: [], edges: [], tests: [] };
 
 describe('parseAnalyzerOutput', () => {
   it('parses graph from marker line', () => {

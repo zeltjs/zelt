@@ -7,7 +7,7 @@ const node = (id: string): FlowNode => ({
   id,
   type: 'card',
   position: { x: 0, y: 0 },
-  data: { className: id, filePath: `${id}.ts`, kind: 'controller', unresolved: false },
+  data: { name: id, filePath: `${id}.ts`, fileKind: 'controller', external: false },
 });
 
 describe('applyStudioNodeChanges', () => {

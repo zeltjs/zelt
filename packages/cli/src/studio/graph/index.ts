@@ -1,17 +1,36 @@
-export type { BuildGraphOptions } from './build-graph.lib';
-export { buildDependencyGraph, decoratorsToKind, nodeId } from './build-graph.lib';
 export type {
-  AppliedMiddleware,
-  ContractResolver,
-  DependencyGraph,
+  AppliedMiddlewareV3,
+  BuildGraphError,
+  BuildGraphErrorCode,
+  BuildGraphV3Deps,
   DependencyResolution,
   DependencyResolver,
-  GraphEdge,
-  GraphEdgeKind,
-  GraphNode,
-  GraphNodeKind,
-  GraphRoot,
-  MethodSignature,
+  GraphRootV3,
   ResolveResult,
-  RouteInfo,
+  RouteInfoLike,
+} from './build-graph.lib';
+export {
+  buildDependencyGraph,
+  classNodeId,
+  externalNodeId,
+  fileKindOf,
+  fnNodeId,
+  isExternalNode,
+  moduleOf,
+} from './build-graph.lib';
+export type {
+  AppliesMiddlewareEdge,
+  CallsEdge,
+  ClassNode,
+  DependencyGraph,
+  EntryInfo,
+  EventEdge,
+  ExternalNode,
+  FnNode,
+  GraphEdgeV3,
+  GraphNodeV3,
+  InjectsEdge,
+  Loc,
+  TestCaseV3,
+  UnresolvedCall,
 } from './graph.types';

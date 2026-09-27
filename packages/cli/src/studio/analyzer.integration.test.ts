@@ -3,98 +3,164 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { runAnalyzer } from './analyzer-runner.lib';
-import type { DependencyGraph, GraphNode } from './graph/index';
+import type { DependencyGraph, EntryInfo, FnNode, GraphNodeV3 } from './graph/index';
+import { isExternalNode } from './graph/index';
+
+// 判別共用体 GraphNodeV3 の絞り込み。in演算子・型述語・as を使わず、読みたい optional
+// プロパティだけを宣言した型へ代入する。プロダクションコードは ts-pattern の match で
+// 分岐する(レビュー指摘13)ため、この手法はテストからしか使わない
+type NodeFields = {
+  readonly kind?: string;
+  readonly name?: string;
+  readonly entry?: EntryInfo;
+  readonly contract?: FnNode['contract'];
+  readonly visibility?: FnNode['visibility'];
+  // 値は読まない。共用体の全メンバと 1 つ以上プロパティを共有しないと weak type detection が
+  // 代入を拒むため、他の欄を持たない ExternalNode のための一欄を宣言しておく
+  external?: true;
+};
+
+const fieldsOf = (n: GraphNodeV3): NodeFields => n;
+const isClassNode = (n: GraphNodeV3): boolean => fieldsOf(n).kind === 'class';
+const isFnNode = (n: GraphNodeV3): boolean => !isClassNode(n) && !isExternalNode(n);
 
 const FIXTURE_DIR = resolve(__dirname, '../../test-fixtures/studio-app');
 const ANALYZER_SRC = resolve(__dirname, './analyzer-entry.ts');
 
-// optional chaining の連鎖は ESLint complexity にカウントされるため、
-// 見つからなければ throw するルックアップに寄せて分岐を減らす
-const nodeOf = (graph: DependencyGraph, className: string): GraphNode => {
-  const node = graph.nodes.find((n) => n.className === className);
-  if (!node) throw new Error(`node not found in graph: ${className}`);
+const nodeById = (graph: DependencyGraph, id: string): GraphNodeV3 => {
+  const node = graph.nodes.find((n) => n.id === id);
+  if (!node) throw new Error(`node not found in graph: ${id}`);
   return node;
 };
 
 describe('studio analyzer (integration)', () => {
-  it('builds the v2 dependency graph of the fixture app', async () => {
+  it('builds the v3 dependency graph of the fixture app', async () => {
     const result = await runAnalyzer({ cwd: FIXTURE_DIR, analyzerPath: ANALYZER_SRC });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const { graph } = result;
 
-    const classNames = graph.nodes.map((n) => n.className).sort();
+    expect(graph.version).toBe(3);
+    expect(graph.tests).toEqual([]);
+
+    const classNames = graph.nodes
+      .filter(isClassNode)
+      .map((n) => fieldsOf(n).name)
+      .sort();
     expect(classNames).toEqual([
+      'AuditMiddleware',
       'AuthMiddleware',
       'ClockService',
+      'GreetingConfig',
       'GreetingController',
       'GreetingService',
       'LoggingMiddleware',
+      'NotificationHandler',
     ]);
 
-    const controller = nodeOf(graph, 'GreetingController');
-    expect(controller.kind).toBe('controller');
-    expect(controller.featureKey).toBe('http');
+    // entry: http
+    const greet = nodeById(graph, 'src/greeting.controller.ts#GreetingController.greet');
+    expect(fieldsOf(greet).entry).toEqual({ kind: 'http', method: 'GET', path: '/greeting' });
+    expect(fieldsOf(greet).contract).toEqual({ params: [], returnType: '{ message: string; }' });
 
-    // routes: basePath 結合済み
-    expect(controller.routes).toEqual([{ method: 'GET', path: '/greeting', handler: 'greet' }]);
-    expect(controller.decorators).toContain('Controller');
-
-    // contract: instance public メソッドのみ（constructor は含まれない）
-    expect(nodeOf(graph, 'GreetingService').contract).toEqual([
-      { name: 'greet', params: [], returnType: 'string' },
-    ]);
-
-    // middleware ノード: @Middleware は直付け型デコレータ (factory を介さない) のため、
-    // 実ファイルへの解決経路が factory 型と異なる。filePath が実体を指し、unresolved が
-    // 付かないこと、use メソッドの契約が取れていることを検証する
-    const loggingMiddleware = nodeOf(graph, 'LoggingMiddleware');
-    expect(loggingMiddleware.kind).toBe('middleware');
-    expect(loggingMiddleware.filePath).toBe('src/logging.middleware.ts');
-    expect(loggingMiddleware.unresolved).toBeUndefined();
-    expect(loggingMiddleware.contract).toEqual([
-      {
-        name: 'use',
-        // Next<T = void> is a conditional type since the middleware-values
-        // change; TS resolves the default application eagerly and drops the
-        // alias, so the analyzer sees the expanded shape. Restoring the alias
-        // name in the graph is tracked as a separate studio improvement.
-        params: [{ name: 'next', type: '() => Promise<void>' }],
-        returnType: 'Promise<Response | undefined>',
-      },
-    ]);
-
-    const authMiddleware = nodeOf(graph, 'AuthMiddleware');
-    expect(authMiddleware.filePath).toBe('src/auth.middleware.ts');
-    expect(authMiddleware.unresolved).toBeUndefined();
-
-    // エッジ: injects 3 本 (GreetingController→GreetingService, GreetingService→ClockService,
-    // LoggingMiddleware→ClockService) + applies-middleware 2 本
-    expect(graph.edges).toContainEqual({
-      from: controller.id,
-      to: loggingMiddleware.id,
-      kind: 'applies-middleware',
+    // entry: middleware(class-level 適用の LoggingMiddleware、グローバル適用の AuditMiddleware 両方)
+    expect(
+      fieldsOf(nodeById(graph, 'src/logging.middleware.ts#LoggingMiddleware.use')).entry,
+    ).toEqual({
+      kind: 'middleware',
+      name: 'LoggingMiddleware',
     });
+    expect(fieldsOf(nodeById(graph, 'src/audit.middleware.ts#AuditMiddleware.use')).entry).toEqual({
+      kind: 'middleware',
+      name: 'AuditMiddleware',
+    });
+
+    // get accessor も FnNode になる(設計判断メモ12)
+    const prefix = nodeById(graph, 'src/greeting.config.ts#GreetingConfig.prefix');
+    expect(fieldsOf(prefix).contract).toEqual({ params: [], returnType: 'string' });
+
+    // クロスファイルのモジュール関数呼び出し: time.lib.ts の formatTime が新規発見される
+    const formatTime = nodeById(graph, 'src/time.lib.ts#formatTime');
+    expect(fieldsOf(formatTime).visibility).toBe('public'); // export 有りなので public(設計判断メモ1)
+
+    const greetServiceGreet = nodeById(graph, 'src/greeting.service.ts#GreetingService.greet');
+    expect(graph.edges).toContainEqual(
+      expect.objectContaining({ kind: 'calls', from: greetServiceGreet.id, to: formatTime.id }),
+    );
+
+    // 外部パッケージ呼び出し: node:crypto の randomUUID が ExternalNode になる
+    const externalIds = graph.nodes.filter(isExternalNode).map((n) => n.id);
+    expect(externalIds).toContain('ext:node:crypto#randomUUID');
+    expect(graph.edges).toContainEqual(
+      expect.objectContaining({
+        kind: 'calls',
+        from: greetServiceGreet.id,
+        to: 'ext:node:crypto#randomUUID',
+      }),
+    );
+
+    // AuditMiddleware はグローバル middleware のため applies-middleware エッジを持たない
+    expect(
+      graph.edges.filter(
+        (e) => e.kind === 'applies-middleware' && e.to.includes('AuditMiddleware'),
+      ),
+    ).toEqual([]);
+
+    // applies-middleware の line は @UseMiddleware(...) の実際の行と一致する(team-lead 決定の
+    // 検証: build-graph.lib.ts が getClassDeclarations/getFunctionDeclarations の DecoratorInfo
+    // から動的に引く。greeting.controller.ts: 8行目が class-level @UseMiddleware(LoggingMiddleware)、
+    // 13行目が method-level @UseMiddleware(AuthMiddleware))
+    const controllerId = nodeById(graph, 'src/greeting.controller.ts#GreetingController').id;
+    expect(graph.edges).toContainEqual(
+      expect.objectContaining({
+        kind: 'applies-middleware',
+        from: controllerId,
+        to: nodeById(graph, 'src/logging.middleware.ts#LoggingMiddleware').id,
+        line: 8,
+      }),
+    );
     expect(graph.edges).toContainEqual({
-      from: controller.id,
-      to: authMiddleware.id,
       kind: 'applies-middleware',
+      from: controllerId,
+      to: nodeById(graph, 'src/auth.middleware.ts#AuthMiddleware').id,
       methods: ['greet'],
+      line: 13,
     });
-    expect(graph.edges).toContainEqual({
-      from: controller.id,
-      to: nodeOf(graph, 'GreetingService').id,
-      kind: 'injects',
+
+    // injects エッジは既存どおり line を伴って存在する
+    expect(graph.edges).toContainEqual(
+      expect.objectContaining({
+        kind: 'injects',
+        from: nodeById(graph, 'src/greeting.controller.ts#GreetingController').id,
+        to: nodeById(graph, 'src/greeting.service.ts#GreetingService').id,
+      }),
+    );
+
+    const fnCount = graph.nodes.filter(isFnNode).length;
+    expect(fnCount).toBeGreaterThan(0);
+
+    // レビュー指摘10: @zeltjs/eventbus の emit/subscribe 相関(EventEdge + entry:{kind:'event'})が
+    // 実際に発見されることを確認する(greeting.service.ts:GreetingService.greet が emit、
+    // notification.handler.ts:NotificationHandler.subscribe が on の1組)
+    const notificationSubscribe = nodeById(
+      graph,
+      'src/notification.handler.ts#NotificationHandler.subscribe',
+    );
+    expect(fieldsOf(notificationSubscribe).entry).toEqual({
+      kind: 'event',
+      event: 'greeting:sent',
     });
-    // middleware の inject 依存も BFS キューで展開されること (spec の必須要件)
-    expect(graph.edges).toContainEqual({
-      from: loggingMiddleware.id,
-      to: nodeOf(graph, 'ClockService').id,
-      kind: 'injects',
-    });
-    expect(graph.edges).toHaveLength(5);
-    expect(graph.version).toBe(2);
+    const eventEdges = graph.edges.filter((e) => e.kind === 'event');
+    expect(eventEdges).toHaveLength(1);
+    expect(eventEdges).toContainEqual(
+      expect.objectContaining({
+        kind: 'event',
+        from: greetServiceGreet.id,
+        to: notificationSubscribe.id,
+        event: 'greeting:sent',
+      }),
+    );
   }, 60_000);
 
   it('reports load errors via errorOutput', async () => {
@@ -110,7 +176,6 @@ describe('studio analyzer (integration)', () => {
   }, 60_000);
 
   it('propagates user-code import errors via errorOutput instead of crashing', async () => {
-    // broken fixture: app loader が存在しないモジュールを import する
     const result = await runAnalyzer({
       cwd: resolve(__dirname, '../../test-fixtures/studio-app-broken'),
       analyzerPath: ANALYZER_SRC,
