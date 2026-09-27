@@ -175,16 +175,20 @@ const declaredClassOf = (
  */
 const aliasResolved = (cached: CachedProgram, raw: ClassSource): ClassSource => {
   const declaration = declaredClassOf(cached, raw);
-  if (declaration?.name === undefined) return raw;
+  if (declaration === undefined) return raw;
   const declaringFile = declaration.getSourceFile();
   // .d.ts は宣言だけで constructor の inject() を持たないため、型定義へは降ろさない
   if (declaringFile.fileName === raw.filePath || declaringFile.isDeclarationFile) return raw;
-  const exportName = exportNameOfLocalClass(
-    declaringFile,
-    declaration.name.text,
-    buildExportAliasMaps(declaringFile, cached.ts),
-    cached.ts,
-  );
+  // 名前の無いクラス宣言は `export default class {}` しか書けない
+  const exportName =
+    declaration.name === undefined
+      ? 'default'
+      : exportNameOfLocalClass(
+          declaringFile,
+          declaration.name.text,
+          buildExportAliasMaps(declaringFile, cached.ts),
+          cached.ts,
+        );
   return exportName === undefined ? raw : { filePath: declaringFile.fileName, exportName };
 };
 

@@ -17,6 +17,7 @@ const barrelPlainPath = resolve(barrelDir, 'plain.service.ts');
 const barrelRenamedPath = resolve(barrelDir, 'renamed.service.ts');
 const barrelStarPath = resolve(barrelDir, 'star.service.ts');
 const barrelLeafPath = resolve(barrelDir, 'leaf.service.ts');
+const barrelAnonymousDefaultPath = resolve(barrelDir, 'anonymous-default.service.ts');
 
 const byLocalName = (
   deps: readonly DependencySource[],
@@ -155,6 +156,16 @@ describe('getDependencySources', () => {
       localName: 'DeepPlainService',
       source: { filePath: barrelPlainPath, exportName: 'PlainService' },
       line: 18,
+    });
+  });
+
+  it('resolves an unnamed default class re-exported by a barrel to its `default` export', async () => {
+    const deps = await getBarrelConsumerDeps();
+    expect(byLocalName(deps, 'AnonymousDefaultService')).toEqual({
+      kind: 'class',
+      localName: 'AnonymousDefaultService',
+      source: { filePath: barrelAnonymousDefaultPath, exportName: 'default' },
+      line: 19,
     });
   });
 

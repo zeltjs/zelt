@@ -1,6 +1,6 @@
 import { createClassDecorator } from '../../../../index';
 
-import { AliasedService, PlainService, StarService } from './index.barrel';
+import { AliasedService, AnonymousDefaultService, PlainService, StarService } from './index.barrel';
 import { DeepPlainService } from './nested.barrel';
 
 const Service = createClassDecorator({ type: 'service' });
@@ -16,5 +16,6 @@ export class BarrelConsumer {
     _b = inject(AliasedService),
     _c = inject(StarService),
     _d = inject(DeepPlainService),
+    _e = inject(AnonymousDefaultService),
   ) {}
 }
