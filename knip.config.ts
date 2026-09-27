@@ -104,10 +104,12 @@ const config: KnipConfig = {
       // tsx is resolved at runtime via createRequire(...).resolve('tsx/cli')
       // (analyzer-runner.lib.ts) to spawn the analyzer child process, so the
       // import is invisible to knip's static analysis.
-      // test-fixtures apps are run by the studio analyzer as a disposable tsx
-      // child process, not imported statically, so they're invisible to knip.
       ignoreDependencies: ['jiti', '@zeltjs/core', 'tsx'],
-      ignore: ['test-fixtures/**'],
+      // test-fixtures apps are executed by the studio analyzer as a disposable
+      // tsx child process, so nothing imports them statically. They resolve
+      // their dependencies from packages/cli/node_modules, so they must stay
+      // visible to knip (declaring them as entry, not ignoring them).
+      entry: ['test-fixtures/*/src/app.ts'],
     },
     'packages/testing': {
       // node:test requires @types/node for types - referenced via optional peer dependency
