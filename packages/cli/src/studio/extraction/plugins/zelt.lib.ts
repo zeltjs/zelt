@@ -35,7 +35,7 @@ const applicationMaterials = async (
     request: {
       root: ctx.config.root,
       applicationId: application.id,
-      factory: application.factory,
+      app: application.app,
       tsconfig: ctx.config.tsconfig,
     },
     entryPath: ctx.input.entryPath,

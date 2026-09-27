@@ -264,7 +264,7 @@ testは、そのtestが直接触った境界にだけ結ぶ（②4: 間接的に
 
 #### app.tsはComposition列に置く ← ②3
 
-- app.ts（`createEcApp`）はconfigの列ルールで専用の「Composition」列に置き、既定で隠す（AI 判断: roleの代わりに列で表す。appへの登録の線は付与された線としてデータに残る。列を隠している間は線もチップも出ない。②3・②4）。
+- app.ts（`app`）はconfigの列ルールで専用の「Composition」列に置き、既定で隠す（AI 判断: roleの代わりに列で表す。appへの登録の線は付与された線としてデータに残る。列を隠している間は線もチップも出ない。②3・②4）。
 - 旧「アプリ構成」ボタンとダイアログは外し、列トグルと検索から辿る（AI 判断: 特別扱いを消す）。
 
 #### 入口・範囲・線 ← ②1、②3
@@ -272,7 +272,7 @@ testは、そのtestが直接触った境界にだけ結ぶ（②4: 間接的に
 - 入口はEntry列にいる宣言で、別の一覧（`entries`）を持たない。HTTPのmethod・pathは注記に、E2E一覧は宣言に付く。
 - `include` は「このプロジェクトのコード」の範囲。アプリのtestファイルは索引には入るが、箱にしない。
 - configは境界だけを書き、線は足せない。意図と逆向きに境界を越える線は、そのまま地図に出る。
-- `zelt.config.ts` と抽出configは別物のまま（ユーザー判断 9/24）。appのfactoryは抽出configのplugin:zeltに書く。
+- `zelt.config.ts` と抽出configは別物のまま（ユーザー判断 9/24）。appをexportしている場所は抽出configのplugin:zeltに書く。
 
 ### 4.4 コードと一致するから
 
@@ -333,7 +333,7 @@ testは、そのtestが直接触った境界にだけ結ぶ（②4: 間接的に
 | 原文を伏せる範囲はconfig（`redacted` の代わりに `declaration-only`） | 運用（秘密の保護） | ユーザー判断 9/23 |
 | `presentation.origin`・`expandedY` の削除 | 前提（抽出で生成する） | ユーザー判断 9/23 |
 | v1の形を保ち、構造変更は論証付きだけ | 前提1 | ユーザー判断 9/23 |
-| 子プロセスはapp factoryを1回呼ぶだけで、DBやネットワークに接続しないfactoryを入力条件にする | 運用（抽出を安全に動かす） | [付録D](#d-zelt) |
+| 子プロセスはappをexportしたmoduleを1回評価するだけで、DBやネットワークに接続しないappを入力条件にする | 運用（抽出を安全に動かす） | [付録D](#d-zelt) |
 | 既存の抽出器（DependencyGraph v3）を置き換えるか拡張するかは論点にしない | 前提（やり方の話） | ユーザー判断 9/24 |
 
 ## 5. 判断が要ること
@@ -500,7 +500,7 @@ interface MapPresentation {
 | zelt | 意味 | eventbusの `on()`・`once()` に渡した関数への「読む」 | `register` | 線1 |
 | zelt | 線 | routeのcontroller method → middlewareの実行method | `middleware` | 62 |
 | zelt | 線 | emitの所有者 → 購読callback | `event` | 1 |
-| zelt | 線 | app factory → 登録したclass（controller・middleware・handler・adaptor・config） | `register` | 9 |
+| zelt | 線 | app → 登録したclass（controller・middleware・handler・adaptor・config） | `register` | 9 |
 | zelt | setup | constructorの `inject(X)` の既定値 | `inject` | 16 |
 | zelt | setup | class・methodの `@UseMiddleware(X)` とmiddlewareを付けるdecorator（`@RateLimit`・`@Authorized`） | `middleware` | 19 |
 | zelt | setup | Configのclassが差し替えるlibraryのConfig | `config-override` | 2 |
@@ -823,7 +823,7 @@ interface ZeltRoute {
 }
 interface ZeltInspection {
   applicationId: Id;
-  factory: ExportReference;
+  app: ExportReference;
   registered: ZeltClassRef[];                // featureClasses + app middlewares + configs
   globalMiddlewares: ZeltClassRef[];         // appが書いた登録順
   classes: ZeltClass[];
@@ -850,7 +850,7 @@ mentionSites(ownerId: Id, ref: ExportReference): CoreSourceSite[];  // classを�
 
 | 境界 | 実装する規則 |
 | --- | --- |
-| 子プロセスの起動 | tsxで専用processを起動し、configの `applications[].factory` の引数なしfactoryを1回呼ぶ。`createApp()` までで、createRuntime/realize・サービス生成・getter評価・test実行はしない。結果はマーカー行のJSON、ログはstderrに分ける。timeout（configの `timeoutMs`）・import失敗・壊れた応答は全featureをpartialにして生成失敗にする |
+| 子プロセスの起動 | tsxで専用processを起動し、configの `applications[].app` がexportしているappを読む（`createApp()` の戻り値そのもの。appを作る関数は要求しない）。createRuntime/realize・サービス生成・getter評価・test実行はしない。結果はマーカー行のJSON、ログはstderrに分ける。timeout（configの `timeoutMs`）・import失敗・壊れた応答は全featureをpartialにして生成失敗にする |
 | runtimeとsource | 子プロセスはappの位置から解決した `@zeltjs/decorator-metadata` を動的importする。decorator metadataはmoduleごとのWeakMapに入るので、別instanceだと記録が空に見える（AI 判断: CLI側のcopyを静的importすると、file:・workspaceで実体が分かれて記録を読めない。②4の「取れないものを取れたことにしない」） |
 | 読取対象のclass | 登録されたclassとglobal middlewareを起点に、`inject()` の依存をたどって集める。packageのclassは境界の箱なので中の配線はたどらない。意味を付けるのはconfigの `include` に入るclassだけ（ライブラリのclassにDIの意味は付けない） |
 | classの同定 | `getClassSource` のmodule exportで同定する。`package` が付いた参照はconfigの `sourceModules` で索引のmoduleへ移し、`exportSite`／`memberSite` でIDを引く。`sourceModules` に無いpackageは地図に載らないので線を引かず報告に残す。名前一致では結ばない |
@@ -860,7 +860,7 @@ mentionSites(ownerId: Id, ref: ExportReference): CoreSourceSite[];  // classを�
 | 根拠の所在 | decoratorはそれを書いた行（`getDecoratorApplicationPosition`）の `setupSites`、appの登録式は `mentionSites`。登録式が引けないときだけmiddlewareの宣言に落とす |
 | DI/config | metadataのInjectable/Configの分類（材料 `di`、配信しない）。Injectableのmetadataを持つclass（`@Injectable`・`@Controller`・`@Middleware` はいずれも内部で `injectable()` を付ける）とConfigのconstructorに hint `DI / 初期化` |
 | setup | inject呼出 → constructorに `inject`（targetは注入するclass、地図に無ければ `null`）。`@UseMiddleware` とmiddlewareを付けるdecorator（`@RateLimit`・`@Authorized` 等） → そのclass・methodに `middleware`（targetはmiddleware class。関数のmiddlewareは `null`）。Configのclassが差し替えるlibraryのConfig → そのclassに `config-override`。ignoreしたZeltへの登録呼出（`lifecycle.register(this)`） → その関数に `lifecycle`。labelはコアが持つ原文の行から作る。地図の線にはしない（[4.1](#41-責務と流れから)） |
-| register | eventbusの `on()`・`once()` に渡した購読callbackへのコアの `read` に、意味 `register` を付与する（線は1本のまま。[4.1](#41-責務と流れから)）。app factoryが登録したclass（controller・middleware・handler・adaptor・config）はコアの線が無いので、付与された線 `register` として足す |
+| register | eventbusの `on()`・`once()` に渡した購読callbackへのコアの `read` に、意味 `register` を付与する（線は1本のまま。[4.1](#41-責務と流れから)）。appが登録したclass（controller・middleware・handler・adaptor・config）はコアの線が無いので、付与された線 `register` として足す |
 | event | emit/onのSymbolと注入先busを照合する。同じapp＋一意に解決した登録provider＋静的event名でのみ、emitの所有者 → 購読callbackへ付与された線 `event`。購読callbackに hint `EVENT <eventName>`。`EventBusSchema` 拡張のmemberに意味 `event-type` を付与する（型引数・宣言の解決による。event文字列と同名のtypeを探して結ばない） |
 | lifecycle | 入口としては出さない（`entries` を廃止したため）。注記も付けない（[付録A](#注記の付与規則全表)）。`LifecycleManager` はignore推奨で、`lifecycle.register(this)` はsetup `lifecycle` になる |
 | ignore推奨 | `@zeltjs/core` の `inject`・`request`・`currentUser`・`requestContext`・`LifecycleManager`、route・DI・middlewareのdecorator（`Controller`・`Get`・`Post`・`Put`・`Delete`・`UseMiddleware`・`Authorized`・`Injectable`・`Middleware`・`Config`）、`@zeltjs/rate-limit` の `RateLimit`。CLIの報告に出し、configへの採用は本人が行う（[4.2](#42-ライブラリは接点だけから)） |
@@ -869,7 +869,7 @@ event購読のbusはadaptorのgroup ID（内部の照合用）。同じappで同
 
 **coreには何も足さない**: appが書かずにcoreがrouterごとに先頭で登録する組込みmiddleware（`CorsMiddleware`・`SecureHeadersMiddleware`）は地図に出さないと決めた（ユーザー判断 2026-09-24）ので、子プロセスはそれを知る読み取り口を必要としない。[http.service.ts](../../packages/core/src/features/http/http.service.ts) の登録はcreateLocalRouter内のローカル定数のままでよい。
 
-子プロセスはOSのsandboxではなく、moduleのトップレベル副作用は起こりうる。Zelt無効時は子プロセスもapp importも行わない。DBやネットワークへ接続しないapp factoryを入力条件とする。
+子プロセスはOSのsandboxではなく、moduleのトップレベル副作用は起こりうる。Zelt無効時は子プロセスもapp importも行わない。DBやネットワークへ接続しないappを入力条件とする。
 
 **event・lifecycle・Unitのsetupは今回の作り直しに含めない**（別に扱う）。この3つは作り直し前のTSの読み方を[zelt-eventbus.lib.ts](../../packages/cli/src/studio/extraction/plugins/zelt-eventbus.lib.ts)・[zelt-lifecycle.lib.ts](../../packages/cli/src/studio/extraction/plugins/zelt-lifecycle.lib.ts)・[zelt-test-setup.lib.ts](../../packages/cli/src/studio/extraction/plugins/zelt-test-setup.lib.ts)に残している。
 
@@ -1094,7 +1094,7 @@ interface TestScopeConfig {
   category: 'unit' | 'e2e' | 'unclassified';
 }
 type PluginConfig =
-  | { id: 'zelt'; applications: { id: Id; factory: ExportReference }[];
+  | { id: 'zelt'; applications: { id: Id; app: ExportReference }[];
       setupFiles: string[]; setupDetails: boolean; timeoutMs: number }
   | { id: 'vitest'; scopes: TestScopeConfig[]; globals: boolean;
       cases: 'serial' | 'concurrent' | 'unknown';
@@ -1135,7 +1135,7 @@ ec-backendの設定は[ec-backend.extract.json](ec-backend.extract.json)（上�
 | `presentation.rules` | app.ts → Composition、`packages/**` → ライブラリ、`src/config/**` → Config、`src/entry/**` → Entry、`src/usecase/**` → Use case、`src/domain/**` → Domain、`src/infra/**` → Adapter / Infrastructure | 先に合ったruleを使う。ライブラリのconfig class（`JwtConfig`・`CorsConfig`）はライブラリ列にあり、Config列を隠しても隠れない（roleの廃止による） |
 | plugin `vitest` | Unitは `integration/ec-backend/src/**/*.test.ts`、E2Eは `integration/ec-backend/e2e/product.spec.ts` だけ | E2Eを1ファイルに絞るのは**サンプリング**であり（当初は手書きの手間を減らすため。生成へ置き換えたあともconfigは変えていない）、抽出できないから外したのではない。抽出器は `e2e/**/*.spec.ts` 全体を対象にできる。範囲が一部なので、E2Eのcoverageは全routeで「一部のみ」（[付録G](#g-e2e)）。Unitは12ファイル・212 caseで、snapshotに入っている（[付録F](#f-unit)） |
 | plugin `http-requests` | appは `createTestApp`、helperは `authRequest`（app引数0・method引数2・path引数3）と `registerUser`・`loginUser`（固定のPOST・path） | [付録G](#g-e2e)の初版の範囲 |
-| plugin `zelt` | appは `createEcApp`、`setupFiles` は空 | 現行のec-backendのVitest設定にsetupFiles指定がない。`zelt.config.ts` とは別物のまま（ユーザー判断 9/24） |
+| plugin `zelt` | appは `app`（`app.ts` のexport）、`setupFiles` は空 | 現行のec-backendのVitest設定にsetupFiles指定がない。`zelt.config.ts` とは別物のまま（ユーザー判断 9/24） |
 
 この例のtest範囲はアプリのコード（ec-backend）のtestだけで、ライブラリ自身のtestは入れない（[4.2](#42-ライブラリは接点だけから)）。未指定のtestまで「なし」と主張しない。requiredはcomplete-in-scopeを要求する機能。他の機能のpartialは配信してよいが、v1で見えるのはcoverageのstatusだけ。ライブラリを地図の内部として全メンバーまで展開したい場合は、includeへそのsourceを追加する（アプリのコードとして扱われる）。
 
@@ -1277,7 +1277,7 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 | graph全体 | ec-backendのinclude範囲のclass/file/interfaceとmemberを列挙。1関数1宣言、callbackの包含、存在するIDへの参照を検証 |
 | 注文取得 | findById→DrizzleService.dbのread、ordersへの `table` 線と `table` 宣言、Orderの型参照。架空のRepository/Portなし |
 | 注文作成 | transaction/map等のcallbackが別の宣言で内部の依存を所有。折りたたみ時だけclass/fileへ集約 |
-| HTTP / middleware | createEcAppの各routeと適用middlewareを、共通登録規則の期待値と照合。親子mount・skip・同名controller・同class複数mountも別fixtureで検証。route methodに `<METHOD> <path>` のhint |
+| HTTP / middleware | appの各routeと適用middlewareを、共通登録規則の期待値と照合。親子mount・skip・同名controller・同class複数mountも別fixtureで検証。route methodに `<METHOD> <path>` のhint |
 | config | EcJwtConfig・EcCorsConfigからライブラリのJwtConfig・CorsConfigへのextends/overrideが残り、setup `config-override` が付く。Config列を隠しても実データは消さない。`src/config/` の原文は `declaration-only` |
 | event | OrderHandlersの購読callbackと同じbusのemitを結ぶ。別busの同名eventは結ばない |
 | hints | [付録A](#注記の付与規則全表)の表のlabelが該当宣言に付き、pluginを外すとそのproviderのhintだけが消える |

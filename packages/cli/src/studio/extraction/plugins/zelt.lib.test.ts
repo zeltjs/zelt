@@ -167,14 +167,13 @@ import { EcCorsConfig } from './ec.config';
 import { ThingController } from './thing.controller';
 import { ThingHandlers } from './thing.handlers';
 
-export const createTestApp = () =>
-  createApp(
-    [
-      http({ controllers: [ThingController], middlewares: [AuditMiddleware] }),
-      eventbus({ adaptor: MemoryEventBusAdaptor, handlers: [ThingHandlers] }),
-    ],
-    { configs: [EcCorsConfig] },
-  );
+export const app = createApp(
+  [
+    http({ controllers: [ThingController], middlewares: [AuditMiddleware] }),
+    eventbus({ adaptor: MemoryEventBusAdaptor, handlers: [ThingHandlers] }),
+  ],
+  { configs: [EcCorsConfig] },
+);
 `,
 };
 
@@ -319,7 +318,7 @@ const BUS = packageRef('@zeltjs/eventbus', 'MemoryEventBusAdaptor');
 /** ec-backend と同じ形で、fixture の app を読んだ子プロセスが返す JSON */
 const inspection: ZeltInspection = {
   applicationId: 'test',
-  factory: { filePath: 'app/app.ts', exportName: 'createTestApp' },
+  app: { filePath: 'app/app.ts', exportName: 'app' },
   registered: [CONTROLLER, BUS, HANDLERS, AUDIT, EC_CONFIG],
   globalMiddlewares: [AUDIT],
   classes: [
@@ -505,14 +504,14 @@ describe('blueprintMaterials', () => {
     );
   });
 
-  it('grants a register line from the app factory to every registered class', () => {
+  it('grants a register line from the app to every registered class', () => {
     const { lines } = runBlueprint();
     expect(lines.filter((line) => line.startsWith('relation register')).sort()).toEqual([
-      'relation register createTestApp -> AuditMiddleware',
-      'relation register createTestApp -> EcCorsConfig',
-      'relation register createTestApp -> MemoryEventBusAdaptor',
-      'relation register createTestApp -> ThingController',
-      'relation register createTestApp -> ThingHandlers',
+      'relation register app -> AuditMiddleware',
+      'relation register app -> EcCorsConfig',
+      'relation register app -> MemoryEventBusAdaptor',
+      'relation register app -> ThingController',
+      'relation register app -> ThingHandlers',
     ]);
   });
 
@@ -530,7 +529,7 @@ describe('blueprintMaterials', () => {
     );
   });
 
-  it('points the evidence of a register line at the registration in the app factory', () => {
+  it('points the evidence of a register line at the registration in the app', () => {
     const { materials } = runBlueprint();
     const register = materials.find(
       (material) => material.kind === 'relation' && material.relation === 'register',
@@ -631,9 +630,7 @@ describe('analyzeZelt', () => {
       checker: program.getTypeChecker(),
       config,
       resolver: indexed.resolver,
-      applications: [
-        { id: 'test', factory: { filePath: 'app/app.ts', exportName: 'createTestApp' } },
-      ],
+      applications: [{ id: 'test', app: { filePath: 'app/app.ts', exportName: 'app' } }],
       entryPath: '/no/such/entry.ts',
       timeoutMs: 5000,
       testScopes: [],

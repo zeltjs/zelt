@@ -89,9 +89,9 @@
       "applications": [
         {
           "id": "ec",
-          "factory": {
+          "app": {
             "filePath": "integration/ec-backend/src/app.ts",
-            "exportName": "createEcApp"
+            "exportName": "app"
           }
         }
       ],

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "snapshotId": "d9b21ad71b7cf162c5e719868bf38d83a1196c64795d2a76043c405050c0702a",
+  "snapshotId": "e0c510e021aba0c46348c25981d4b0198baa9b00cf1c1e74d131545b424297a8",
   "project": {
     "id": "ec-backend",
     "name": "ec-backend"
@@ -15,14 +15,14 @@
         "filePath": "integration/ec-backend/src/app.ts",
         "members": [
           {
-            "id": "decl:[\"group:[\\\"file\\\",\\\"integration/ec-backend/src/app.ts\\\",\\\"app.ts\\\"]\",null,\"function\",\"instance\",\"createEcApp\"]",
-            "name": "createEcApp",
-            "kind": "function",
+            "id": "decl:[\"group:[\\\"file\\\",\\\"integration/ec-backend/src/app.ts\\\",\\\"app.ts\\\"]\",null,\"value\",\"instance\",\"app\"]",
+            "name": "app",
+            "kind": "value",
             "meanings": [],
             "enclosingDeclarationId": null,
             "relations": [
               {
-                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"function\\\",\\\"instance\\\",\\\"createEcApp\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/config/ec-cors.config.ts\\\",\\\"EcCorsConfig\\\"]\",\"zelt:register\"]",
+                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"value\\\",\\\"instance\\\",\\\"app\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/config/ec-cors.config.ts\\\",\\\"EcCorsConfig\\\"]\",\"zelt:register\"]",
                 "origin": "plugin",
                 "to": "group:[\"class\",\"integration/ec-backend/src/config/ec-cors.config.ts\",\"EcCorsConfig\"]",
                 "provider": "zelt",
@@ -32,15 +32,15 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 22,
-                      "endLine": 22
+                      "startLine": 21,
+                      "endLine": 21
                     },
                     "expression": "EcCorsConfig"
                   }
                 ]
               },
               {
-                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"function\\\",\\\"instance\\\",\\\"createEcApp\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/config/ec-jwt.config.ts\\\",\\\"EcJwtConfig\\\"]\",\"zelt:register\"]",
+                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"value\\\",\\\"instance\\\",\\\"app\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/config/ec-jwt.config.ts\\\",\\\"EcJwtConfig\\\"]\",\"zelt:register\"]",
                 "origin": "plugin",
                 "to": "group:[\"class\",\"integration/ec-backend/src/config/ec-jwt.config.ts\",\"EcJwtConfig\"]",
                 "provider": "zelt",
@@ -50,15 +50,15 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 22,
-                      "endLine": 22
+                      "startLine": 21,
+                      "endLine": 21
                     },
                     "expression": "EcJwtConfig"
                   }
                 ]
               },
               {
-                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"function\\\",\\\"instance\\\",\\\"createEcApp\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/controllers/auth.controller.ts\\\",\\\"AuthController\\\"]\",\"zelt:register\"]",
+                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"value\\\",\\\"instance\\\",\\\"app\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/controllers/auth.controller.ts\\\",\\\"AuthController\\\"]\",\"zelt:register\"]",
                 "origin": "plugin",
                 "to": "group:[\"class\",\"integration/ec-backend/src/entry/controllers/auth.controller.ts\",\"AuthController\"]",
                 "provider": "zelt",
@@ -68,15 +68,15 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 17,
-                      "endLine": 17
+                      "startLine": 16,
+                      "endLine": 16
                     },
                     "expression": "AuthController"
                   }
                 ]
               },
               {
-                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"function\\\",\\\"instance\\\",\\\"createEcApp\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/controllers/cart.controller.ts\\\",\\\"CartController\\\"]\",\"zelt:register\"]",
+                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"value\\\",\\\"instance\\\",\\\"app\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/controllers/cart.controller.ts\\\",\\\"CartController\\\"]\",\"zelt:register\"]",
                 "origin": "plugin",
                 "to": "group:[\"class\",\"integration/ec-backend/src/entry/controllers/cart.controller.ts\",\"CartController\"]",
                 "provider": "zelt",
@@ -86,15 +86,15 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 17,
-                      "endLine": 17
+                      "startLine": 16,
+                      "endLine": 16
                     },
                     "expression": "CartController"
                   }
                 ]
               },
               {
-                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"function\\\",\\\"instance\\\",\\\"createEcApp\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/controllers/order.controller.ts\\\",\\\"OrderController\\\"]\",\"zelt:register\"]",
+                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"value\\\",\\\"instance\\\",\\\"app\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/controllers/order.controller.ts\\\",\\\"OrderController\\\"]\",\"zelt:register\"]",
                 "origin": "plugin",
                 "to": "group:[\"class\",\"integration/ec-backend/src/entry/controllers/order.controller.ts\",\"OrderController\"]",
                 "provider": "zelt",
@@ -104,15 +104,15 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 17,
-                      "endLine": 17
+                      "startLine": 16,
+                      "endLine": 16
                     },
                     "expression": "OrderController"
                   }
                 ]
               },
               {
-                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"function\\\",\\\"instance\\\",\\\"createEcApp\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/controllers/product.controller.ts\\\",\\\"ProductController\\\"]\",\"zelt:register\"]",
+                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"value\\\",\\\"instance\\\",\\\"app\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/controllers/product.controller.ts\\\",\\\"ProductController\\\"]\",\"zelt:register\"]",
                 "origin": "plugin",
                 "to": "group:[\"class\",\"integration/ec-backend/src/entry/controllers/product.controller.ts\",\"ProductController\"]",
                 "provider": "zelt",
@@ -122,15 +122,15 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 17,
-                      "endLine": 17
+                      "startLine": 16,
+                      "endLine": 16
                     },
                     "expression": "ProductController"
                   }
                 ]
               },
               {
-                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"function\\\",\\\"instance\\\",\\\"createEcApp\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/job/order.handlers.ts\\\",\\\"OrderHandlers\\\"]\",\"zelt:register\"]",
+                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"value\\\",\\\"instance\\\",\\\"app\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/job/order.handlers.ts\\\",\\\"OrderHandlers\\\"]\",\"zelt:register\"]",
                 "origin": "plugin",
                 "to": "group:[\"class\",\"integration/ec-backend/src/entry/job/order.handlers.ts\",\"OrderHandlers\"]",
                 "provider": "zelt",
@@ -140,15 +140,15 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 20,
-                      "endLine": 20
+                      "startLine": 19,
+                      "endLine": 19
                     },
                     "expression": "OrderHandlers"
                   }
                 ]
               },
               {
-                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"function\\\",\\\"instance\\\",\\\"createEcApp\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/middleware/logging.middleware.ts\\\",\\\"LoggingMiddleware\\\"]\",\"zelt:register\"]",
+                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"value\\\",\\\"instance\\\",\\\"app\\\"]\",\"group:[\\\"class\\\",\\\"integration/ec-backend/src/entry/middleware/logging.middleware.ts\\\",\\\"LoggingMiddleware\\\"]\",\"zelt:register\"]",
                 "origin": "plugin",
                 "to": "group:[\"class\",\"integration/ec-backend/src/entry/middleware/logging.middleware.ts\",\"LoggingMiddleware\"]",
                 "provider": "zelt",
@@ -158,15 +158,15 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
                 ]
               },
               {
-                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"function\\\",\\\"instance\\\",\\\"createEcApp\\\"]\",\"group:[\\\"class\\\",\\\"packages/eventbus/src/adaptor-memory/memory-event-bus.adaptor.ts\\\",\\\"MemoryEventBusAdaptor\\\"]\",\"zelt:register\"]",
+                "id": "relation:[\"decl:[\\\"group:[\\\\\\\"file\\\\\\\",\\\\\\\"integration/ec-backend/src/app.ts\\\\\\\",\\\\\\\"app.ts\\\\\\\"]\\\",null,\\\"value\\\",\\\"instance\\\",\\\"app\\\"]\",\"group:[\\\"class\\\",\\\"packages/eventbus/src/adaptor-memory/memory-event-bus.adaptor.ts\\\",\\\"MemoryEventBusAdaptor\\\"]\",\"zelt:register\"]",
                 "origin": "plugin",
                 "to": "group:[\"class\",\"packages/eventbus/src/adaptor-memory/memory-event-bus.adaptor.ts\",\"MemoryEventBusAdaptor\"]",
                 "provider": "zelt",
@@ -176,8 +176,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 20,
-                      "endLine": 20
+                      "startLine": 19,
+                      "endLine": 19
                     },
                     "expression": "MemoryEventBusAdaptor"
                   }
@@ -189,12 +189,12 @@
               "location": {
                 "filePath": "integration/ec-backend/src/app.ts",
                 "startLine": 13,
-                "endLine": 23
+                "endLine": 22
               },
-              "signature": "createEcApp = () =>",
+              "signature": "app = createApp(\n  [\n    http({\n      controllers: [AuthController, ProductController, CartController, OrderController],\n      middlewares: [LoggingMiddleware],\n    }),\n    eventbus({ adaptor: MemoryEventBusAdaptor, handlers: [OrderHandlers] }),\n  ],\n  { configs: [EcJwtConfig, EcCorsConfig] },\n)",
               "excerpt": {
                 "kind": "code",
-                "text": "createEcApp = () =>\n  createApp(\n    [\n      http({\n        controllers: [AuthController, ProductController, CartController, OrderController],\n        middlewares: [LoggingMiddleware],\n      }),\n      eventbus({ adaptor: MemoryEventBusAdaptor, handlers: [OrderHandlers] }),\n    ],\n    { configs: [EcJwtConfig, EcCorsConfig] },\n  )"
+                "text": "app = createApp(\n  [\n    http({\n      controllers: [AuthController, ProductController, CartController, OrderController],\n      middlewares: [LoggingMiddleware],\n    }),\n    eventbus({ adaptor: MemoryEventBusAdaptor, handlers: [OrderHandlers] }),\n  ],\n  { configs: [EcJwtConfig, EcCorsConfig] },\n)"
               }
             },
             "unitTests": {
@@ -232,7 +232,7 @@
           "location": {
             "filePath": "integration/ec-backend/src/app.ts",
             "startLine": 1,
-            "endLine": 24
+            "endLine": 23
           },
           "signature": "integration/ec-backend/src/app.ts",
           "excerpt": {
@@ -2373,8 +2373,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -2530,8 +2530,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -2687,8 +2687,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -2952,8 +2952,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -3151,8 +3151,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -3325,8 +3325,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -3499,8 +3499,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -3651,8 +3651,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -4171,8 +4171,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -4323,8 +4323,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -4475,8 +4475,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -4757,8 +4757,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -4996,8 +4996,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -5189,8 +5189,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -5501,8 +5501,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }
@@ -5721,8 +5721,8 @@
                   {
                     "location": {
                       "filePath": "integration/ec-backend/src/app.ts",
-                      "startLine": 18,
-                      "endLine": 18
+                      "startLine": 17,
+                      "endLine": 17
                     },
                     "expression": "LoggingMiddleware"
                   }

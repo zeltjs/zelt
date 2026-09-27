@@ -1,15 +1,12 @@
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createEcApp } from '../src/app';
+import { app } from '../src/app';
 
 describe('Rate Limit', () => {
   let testApp: Awaited<ReturnType<typeof createTestApp>>;
 
-  const createTestApp = async () => {
-    const app = createEcApp();
-    return onTest(app);
-  };
+  const createTestApp = async () => onTest(app);
 
   beforeAll(async () => {
     testApp = await createTestApp();

@@ -143,6 +143,55 @@ const resolveSpecifierPath = (specifier: string, importerPath: string): string |
   }
 };
 
+/** module の export 名から、alias を辿った先にある class 宣言を引く */
+const declaredClassOf = (
+  cached: CachedProgram,
+  source: ClassSource,
+): TSClassDeclaration | undefined => {
+  const { program, ts } = cached;
+  const sourceFile = program.getSourceFile(source.filePath);
+  if (!sourceFile) return undefined;
+  const checker = program.getTypeChecker();
+  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+  if (!moduleSymbol) return undefined;
+  const exported = checker
+    .getExportsOfModule(moduleSymbol)
+    .find((symbol) => symbol.name === source.exportName);
+  if (!exported) return undefined;
+  // `export *` で運ばれた symbol は alias ではなく実体そのものなので、そのまま宣言を見る
+  const target =
+    (exported.flags & ts.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(exported) : exported;
+  return target.declarations?.find((node) => ts.isClassDeclaration(node));
+};
+
+/**
+ * re-export だけを書いた barrel(`export { X } from './y'`・`export { X as Y } from './y'`・
+ * `export * from './y'`、およびそれを重ねた多段)を checker の alias 解決で辿り、
+ * 宣言が実在するファイルとそのファイルでの export 名へ降ろす。
+ *
+ * 実行時の正準化(resolveClassSource→getClassSource)は decorator metadata を持つクラスに
+ * しか効かないため、未デコレートのクラスは barrel のまま残る。barrel には宣言が無く、
+ * 宣言を探す側(getClassDeclarations・findClassByExportName)はそこで必ず失敗する。
+ */
+const aliasResolved = (cached: CachedProgram, raw: ClassSource): ClassSource => {
+  const declaration = declaredClassOf(cached, raw);
+  if (declaration === undefined) return raw;
+  const declaringFile = declaration.getSourceFile();
+  // .d.ts は宣言だけで constructor の inject() を持たないため、型定義へは降ろさない
+  if (declaringFile.fileName === raw.filePath || declaringFile.isDeclarationFile) return raw;
+  // 名前の無いクラス宣言は `export default class {}` しか書けない
+  const exportName =
+    declaration.name === undefined
+      ? 'default'
+      : exportNameOfLocalClass(
+          declaringFile,
+          declaration.name.text,
+          buildExportAliasMaps(declaringFile, cached.ts),
+          cached.ts,
+        );
+  return exportName === undefined ? raw : { filePath: declaringFile.fileName, exportName };
+};
+
 // 実クラス経由で ClassSource を正準化する。エントリ/チャンクのパス差や re-export の
 // 名前差があっても、クラスオブジェクトの trace 由来の値に収束させる。
 // 正準化に失敗した場合 (未デコレートのクラス等) は解決済みの raw 値をそのまま使う
@@ -160,6 +209,7 @@ const resolveSpecifierPath = (specifier: string, importerPath: string): string |
 // internal なターゲットは既存どおり正準化する(バレル再エクスポート越しの別名を1つの
 // ClassNode に収束させるために必要)
 const canonicalize = async (
+  cached: CachedProgram,
   localName: string,
   raw: ClassSource,
   line: number,
@@ -167,7 +217,8 @@ const canonicalize = async (
   if (packageFromPath(raw.filePath) !== undefined) {
     return { kind: 'class', localName, source: raw, line };
   }
-  const cls = await resolveClassSource(raw);
+  const declared = aliasResolved(cached, raw);
+  const cls = await resolveClassSource(declared);
   if (cls.isErr()) {
     return { kind: 'unresolved', localName, reason: cls.error.message };
   }
@@ -175,12 +226,13 @@ const canonicalize = async (
   return {
     kind: 'class',
     localName,
-    source: canonical.isOk() ? canonical.value : raw,
+    source: canonical.isOk() ? canonical.value : declared,
     line,
   };
 };
 
 const toDependencySource = async (
+  cached: CachedProgram,
   localName: string,
   line: number,
   sourceFile: TSSourceFile,
@@ -198,7 +250,7 @@ const toDependencySource = async (
         reason: `Cannot resolve module specifier '${importRef.specifier}' from ${sourceFile.fileName}`,
       };
     }
-    return canonicalize(localName, { filePath, exportName: importRef.exportName }, line);
+    return canonicalize(cached, localName, { filePath, exportName: importRef.exportName }, line);
   }
   const exportName = exportNameOfLocalClass(sourceFile, localName, aliases, ts);
   if (exportName === undefined) {
@@ -208,14 +260,22 @@ const toDependencySource = async (
       reason: `Class ${localName} in ${sourceFile.fileName} is not exported`,
     };
   }
-  return canonicalize(localName, { filePath: sourceFile.fileName, exportName }, line);
+  return canonicalize(cached, localName, { filePath: sourceFile.fileName, exportName }, line);
 };
 
 const extract = (
   cached: CachedProgram,
-  source: ClassSource,
+  requested: ClassSource,
 ): ResultAsync<readonly DependencySource[], InspectError> => {
   const { program, ts } = cached;
+  if (!program.getSourceFile(requested.filePath)) {
+    return errAsync({
+      code: 'SOURCE_NOT_FOUND',
+      message: `Source file not found: ${requested.filePath}`,
+    });
+  }
+  // 依頼された所在が barrel でも、宣言のあるファイルで constructor を読む
+  const source = aliasResolved(cached, requested);
   const sourceFile = program.getSourceFile(source.filePath);
   if (!sourceFile) {
     return errAsync({
@@ -236,7 +296,7 @@ const extract = (
   return ResultAsyncCtor.fromSafePromise(
     Promise.all(
       injectRefs.map(({ localName, line }) =>
-        toDependencySource(localName, line, sourceFile, importMap, aliases, ts),
+        toDependencySource(cached, localName, line, sourceFile, importMap, aliases, ts),
       ),
     ),
   );

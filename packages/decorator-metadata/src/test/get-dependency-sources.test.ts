@@ -10,6 +10,14 @@ const tsconfig = resolve(__dirname, '../../tsconfig.json');
 const consumerPath = resolve(__dirname, './fixtures/class-source/dep-consumer.ts');
 const exportedPath = resolve(__dirname, './fixtures/class-source/exported.ts');
 const defaultDepPath = resolve(__dirname, './fixtures/class-source/default-dep.ts');
+const barrelDir = resolve(__dirname, './fixtures/class-source/barrel');
+const barrelIndexPath = resolve(barrelDir, 'index.barrel.ts');
+const barrelConsumerPath = resolve(barrelDir, 'barrel-consumer.ts');
+const barrelPlainPath = resolve(barrelDir, 'plain.service.ts');
+const barrelRenamedPath = resolve(barrelDir, 'renamed.service.ts');
+const barrelStarPath = resolve(barrelDir, 'star.service.ts');
+const barrelLeafPath = resolve(barrelDir, 'leaf.service.ts');
+const barrelAnonymousDefaultPath = resolve(barrelDir, 'anonymous-default.service.ts');
 
 const byLocalName = (
   deps: readonly DependencySource[],
@@ -24,6 +32,16 @@ describe('getDependencySources', () => {
   const getConsumerDeps = async () => {
     const result = await getDependencySources(
       { filePath: consumerPath, exportName: 'Consumer' },
+      { tsconfig },
+    );
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) throw new Error('expected ok');
+    return result.value;
+  };
+
+  const getBarrelConsumerDeps = async () => {
+    const result = await getDependencySources(
+      { filePath: barrelConsumerPath, exportName: 'BarrelConsumer' },
       { tsconfig },
     );
     expect(result.isOk()).toBe(true);
@@ -96,6 +114,76 @@ describe('getDependencySources', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
     expect(result.value).toEqual([]);
+  });
+
+  it('resolves a dependency imported through a re-export-only barrel to its declaring file', async () => {
+    // barrel(`export { X } from './y'`)は宣言を持たないので、barrel のまま返すと
+    // 宣言を探す側が見つけられない。未デコレートのクラスは実行時の正準化でも救えないため、
+    // checker の alias 解決で宣言のあるファイルまで降ろす
+    const deps = await getBarrelConsumerDeps();
+    expect(byLocalName(deps, 'PlainService')).toEqual({
+      kind: 'class',
+      localName: 'PlainService',
+      source: { filePath: barrelPlainPath, exportName: 'PlainService' },
+      line: 15,
+    });
+  });
+
+  it('keeps the declaring export name when the barrel renames it', async () => {
+    const deps = await getBarrelConsumerDeps();
+    expect(byLocalName(deps, 'AliasedService')).toEqual({
+      kind: 'class',
+      localName: 'AliasedService',
+      source: { filePath: barrelRenamedPath, exportName: 'PublicRenamedService' },
+      line: 16,
+    });
+  });
+
+  it('resolves a dependency re-exported with `export *`', async () => {
+    const deps = await getBarrelConsumerDeps();
+    expect(byLocalName(deps, 'StarService')).toEqual({
+      kind: 'class',
+      localName: 'StarService',
+      source: { filePath: barrelStarPath, exportName: 'StarService' },
+      line: 17,
+    });
+  });
+
+  it('resolves a dependency through barrels of barrels', async () => {
+    const deps = await getBarrelConsumerDeps();
+    expect(byLocalName(deps, 'DeepPlainService')).toEqual({
+      kind: 'class',
+      localName: 'DeepPlainService',
+      source: { filePath: barrelPlainPath, exportName: 'PlainService' },
+      line: 18,
+    });
+  });
+
+  it('resolves an unnamed default class re-exported by a barrel to its `default` export', async () => {
+    const deps = await getBarrelConsumerDeps();
+    expect(byLocalName(deps, 'AnonymousDefaultService')).toEqual({
+      kind: 'class',
+      localName: 'AnonymousDefaultService',
+      source: { filePath: barrelAnonymousDefaultPath, exportName: 'default' },
+      line: 19,
+    });
+  });
+
+  it('reads the constructor of a class asked for through a barrel path', async () => {
+    const result = await getDependencySources(
+      { filePath: barrelIndexPath, exportName: 'PlainService' },
+      { tsconfig },
+    );
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value).toEqual([
+      {
+        kind: 'class',
+        localName: 'LeafService',
+        source: { filePath: barrelLeafPath, exportName: 'LeafService' },
+        line: 9,
+      },
+    ]);
   });
 
   it('returns SOURCE_NOT_FOUND for a file outside the program', async () => {
