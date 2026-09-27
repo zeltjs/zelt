@@ -1,5 +1,3 @@
-import type { Node, Program, SourceFile, TypeChecker } from 'typescript';
-
 import type { Feature } from './extract-config.lib';
 
 export type Id = string;
@@ -26,31 +24,7 @@ export type Diagnostic = {
   readonly spans: readonly Span[];
 };
 
-export type IndexedCall = {
-  readonly id: Id;
-  readonly span: Span;
-  readonly owner: Id | null;
-  readonly target: Id | null;
-  readonly receiver: Span | null;
-};
-
 export type ExportReference = { readonly filePath: string; readonly exportName: string };
-
-export type SourceIndex = {
-  readonly revision: string;
-  readonly program: Program;
-  readonly checker: TypeChecker;
-  readonly files: readonly SourceFile[];
-  readonly declarations: readonly Id[];
-  readonly calls: readonly IndexedCall[];
-  readonly declaration: (id: Id) => Node | undefined;
-  readonly declarationId: (node: Node) => Id | null;
-  readonly call: (id: Id) => IndexedCall | undefined;
-  readonly node: (span: Span) => Node | null;
-  readonly span: (node: Node) => Span;
-  readonly directCalls: (owner: Id) => readonly IndexedCall[];
-  readonly resolveExport: (ref: ExportReference) => Id | null;
-};
 
 export type DiClass = 'service' | 'config';
 
@@ -183,11 +157,6 @@ export type Material =
   | { kind: 'application'; readonly value: ApplicationContribution }
   | { kind: 'request'; readonly value: RequestContribution };
 
-export type PluginInput = {
-  readonly source: SourceIndex;
-  readonly scopes: readonly AnalysisScope[];
-};
-
 /** An export a plugin considers common knowledge for its library; never published. */
 export type IgnoreRecommendation = {
   readonly package: string;
@@ -199,10 +168,4 @@ export type PluginResult = {
   readonly materials: readonly Material[];
   readonly reports: readonly AnalysisReport[];
   readonly ignoreRecommendations: readonly IgnoreRecommendation[];
-};
-
-export type ExtractionPlugin = {
-  readonly id: ProviderId;
-  readonly features: readonly Feature[];
-  readonly analyze: (input: PluginInput) => Promise<PluginResult>;
 };

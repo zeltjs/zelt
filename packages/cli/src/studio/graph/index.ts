@@ -6,7 +6,6 @@ export type {
   DependencyResolution,
   DependencyResolver,
   GraphRootV3,
-  NodeFields,
   ResolveResult,
   RouteInfoLike,
 } from './build-graph.lib';
@@ -14,12 +13,9 @@ export {
   buildDependencyGraph,
   classNodeId,
   externalNodeId,
-  fieldsOf,
   fileKindOf,
   fnNodeId,
-  isClassNode,
   isExternalNode,
-  isFnNode,
   moduleOf,
 } from './build-graph.lib';
 export type {

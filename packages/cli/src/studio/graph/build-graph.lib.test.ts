@@ -22,15 +22,29 @@ import {
   buildDependencyGraph,
   classNodeId,
   externalNodeId,
-  fieldsOf,
   fileKindOf,
   fnNodeId,
-  isClassNode,
   isExternalNode,
-  isFnNode,
   moduleOf,
 } from './build-graph.lib';
-import type { DependencyGraph, GraphNodeV3 } from './graph.types';
+import type { DependencyGraph, EntryInfo, GraphNodeV3, UnresolvedCall } from './graph.types';
+
+// 判別共用体 GraphNodeV3 の絞り込み。in演算子・型述語・as を使わず、読みたい optional
+// プロパティだけを宣言した型へ代入する。プロダクションコードは ts-pattern の match で
+// 分岐する(レビュー指摘13)ため、この手法はテストからしか使わない
+type NodeFields = {
+  readonly kind?: string;
+  readonly name?: string;
+  readonly entry?: EntryInfo;
+  readonly unresolvedCalls?: readonly UnresolvedCall[];
+  // 値は読まない。共用体の全メンバと 1 つ以上プロパティを共有しないと weak type detection が
+  // 代入を拒むため、他の欄を持たない ExternalNode のための一欄を宣言しておく
+  external?: true;
+};
+
+const fieldsOf = (n: GraphNodeV3): NodeFields => n;
+const isClassNode = (n: GraphNodeV3): boolean => fieldsOf(n).kind === 'class';
+const isFnNode = (n: GraphNodeV3): boolean => !isClassNode(n) && !isExternalNode(n);
 
 // buildDependencyGraph は ResultAsync<DependencyGraph, BuildGraphError | InspectError |
 // ProgramCacheError> を返す(レビュー指摘8、レビュー再指摘: エラー体系の統一)。

@@ -115,8 +115,6 @@ export const ExtractConfigSchema = object({
 
 export type ExtractConfig = InferOutput<typeof ExtractConfigSchema>;
 export type Feature = InferOutput<typeof FeatureSchema>;
-export type PluginConfig = InferOutput<typeof PluginConfigSchema>;
-export type PresentationConfig = InferOutput<typeof PresentationConfigSchema>;
 
 export type ConfigIssue = { readonly path: string; readonly message: string };
 

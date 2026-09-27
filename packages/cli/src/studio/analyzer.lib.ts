@@ -27,14 +27,6 @@ export const isAppLike = (value: unknown): value is AppLike => {
 // split('/') 前提のため、グラフ JSON を生成するここで posix 区切りに正準化する
 export const toPosixPath = (filePath: string): string => filePath.replaceAll('\\', '/');
 
-const decoratorNameOf = (prop: object): readonly string[] => {
-  const record: { decorator?: unknown } = prop;
-  return typeof record.decorator === 'string' ? [record.decorator] : [];
-};
-
-export const extractDecoratorNames = (props: readonly object[]): readonly string[] =>
-  props.flatMap(decoratorNameOf);
-
 // getClassMetadata の戻り(ClassMeta)を構造的に受ける。core / decorator-metadata の
 // 型に依存しないのは、この analyzer がユーザープロジェクト内で動くため
 export type ClassMetaLike = {

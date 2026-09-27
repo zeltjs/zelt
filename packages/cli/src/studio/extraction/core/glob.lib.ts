@@ -42,5 +42,3 @@ export const compileGlobs = (patterns: readonly string[]): GlobMatcher => {
   const matchers = patterns.map(compileGlob);
   return (path) => matchers.some((match) => match(path));
 };
-
-export const matchesGlob = (pattern: string, path: string): boolean => compileGlob(pattern)(path);

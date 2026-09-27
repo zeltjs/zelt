@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  extractDecoratorNames,
   extractMiddlewareRefs,
   extractRoutes,
   isAppLike,
@@ -16,18 +15,6 @@ describe('isAppLike', () => {
 
   it.each([null, undefined, 42, {}, { features: 'not-array' }])('rejects %j', (value) => {
     expect(isAppLike(value)).toBe(false);
-  });
-});
-
-describe('extractDecoratorNames', () => {
-  it('collects decorator names from metadata props', () => {
-    expect(
-      extractDecoratorNames([{ decorator: 'Controller', basePath: '/x' }, { other: 1 }]),
-    ).toEqual(['Controller']);
-  });
-
-  it('returns empty array for props without decorator field', () => {
-    expect(extractDecoratorNames([])).toEqual([]);
   });
 });
 

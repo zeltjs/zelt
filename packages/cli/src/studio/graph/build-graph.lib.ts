@@ -21,44 +21,15 @@ import type {
   EntryInfo,
   GraphEdgeV3,
   GraphNodeV3,
-  Loc,
   UnresolvedCall,
 } from './graph.types';
 
-// ─── 判別共用体の絞り込み(in演算子・型述語・as を使わず、対象型の optional プロパティ
-// だけを宣言した変数へ代入する既存コードベースの手法で統一する) ───
+// ─── 判別共用体の絞り込み(in演算子・型述語・as を使わず ts-pattern の match で分岐する) ───
 
-export type NodeFields = {
-  readonly kind?: string;
-  external?: true;
-  readonly name?: string;
-  readonly owner?: string;
-  readonly filePath?: string;
-  readonly module?: string;
-  readonly fileKind?: string | null;
-  readonly decorators?: readonly string[];
-  readonly entry?: EntryInfo;
-  readonly contract?: FunctionContract;
-  readonly visibility?: 'public' | 'private';
-  readonly loc?: Loc;
-  readonly unresolvedCalls?: readonly UnresolvedCall[];
-  readonly package?: string;
-  readonly member?: string;
-};
-
-// テストコード専用。プロダクションコード(本ファイル)は下記 isClassNode/isExternalNode/isFnNode
-// を含め fieldsOf を使わず ts-pattern の match で分岐する(レビュー指摘13)
-export const fieldsOf = (n: GraphNodeV3): NodeFields => n;
-
-export const isClassNode = (n: GraphNodeV3): boolean =>
-  match(n)
-    .with({ kind: 'class' }, () => true)
-    .otherwise(() => false);
 export const isExternalNode = (n: GraphNodeV3): boolean =>
   match(n)
     .with({ external: true }, () => true)
     .otherwise(() => false);
-export const isFnNode = (n: GraphNodeV3): boolean => !isClassNode(n) && !isExternalNode(n);
 
 // ─── 純粋ヘルパー ───
 

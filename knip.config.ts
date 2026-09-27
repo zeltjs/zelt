@@ -9,6 +9,11 @@ const config: KnipConfig = {
     'scripts/**',
     'integration/**',
   ],
+  // mocks/studio-spatial is a private design mock: it is never published and no
+  // package depends on it, so it ships nothing for --production to check. The
+  // trailing '!' makes this a production-mode-only exclusion; the default run
+  // keeps analysing the workspace in full (files, exports, dependencies).
+  ignoreWorkspaces: ['mocks/studio-spatial!'],
   // throw-trace is invoked indirectly via scripts/throw-trace.sh (which wraps
   // it to exclude studio-ui's JSX from its parser), so knip's package.json
   // scripts scan can't see the reference.
@@ -110,6 +115,20 @@ const config: KnipConfig = {
       // their dependencies from packages/cli/node_modules, so they must stay
       // visible to knip (declaring them as entry, not ignoring them).
       entry: ['test-fixtures/*/src/app.ts'],
+      // Production mode analyses the shipped CLI only. The first pattern is
+      // knip's default project glob restated with the production suffix ('!');
+      // the '!...!' entries are negated in production mode only, so they say
+      // "this is not shipped code", not "don't look at it" — the default run
+      // keeps checking all of them.
+      // - test-fixtures: material for the analyzer tests, never bundled.
+      // - graph-diff.lib.ts: verification-only module read straight from src by
+      //   scripts/diff-studio-v3-graph.mjs; it is not a tsdown entry, so it
+      //   never reaches dist.
+      project: [
+        '**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!',
+        '!test-fixtures/**!',
+        '!src/studio/graph/graph-diff.lib.ts!',
+      ],
     },
     'packages/testing': {
       // node:test requires @types/node for types - referenced via optional peer dependency

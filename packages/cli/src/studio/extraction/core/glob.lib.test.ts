@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { compileGlobs, matchesGlob } from './glob.lib';
+import { compileGlob, compileGlobs } from './glob.lib';
 
-describe('matchesGlob', () => {
+// 1パターン1パスの検証を1行で書くためのテスト用ショートハンド
+const matchesGlob = (pattern: string, path: string): boolean => compileGlob(pattern)(path);
+
+describe('compileGlob', () => {
   it('matches a file under a recursive directory glob', () => {
     expect(
       matchesGlob('integration/ec-backend/src/**/*.ts', 'integration/ec-backend/src/app.ts'),
