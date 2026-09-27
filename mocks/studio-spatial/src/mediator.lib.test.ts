@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StudioEvent } from './events.types';
-import { fixture } from './fixture.lib';
+import { fixture, identity } from './fixture';
 import { transition } from './mediator.lib';
 import { present } from './presenter.lib';
 import { attachments } from './relations.lib';
@@ -9,6 +9,7 @@ import { initialReady, urlState } from './state.lib';
 import type { ReadyState } from './state.types';
 
 const graph = fixture();
+const nodeId = (name: string) => identity(graph, name);
 function ready(state: ReadyState, event: StudioEvent): ReadyState {
   const result = transition(state, event).state;
   if (result.phase !== 'ready') throw new Error('Unexpected state');
@@ -20,14 +21,14 @@ describe('Mediator transitions', () => {
     const before = initialReady(graph, 1);
     const result = transition(before, {
       type: 'scope.start',
-      id: 'ProductController.create',
+      id: nodeId('ProductController#create'),
     });
     expect(result.effects).toEqual([
       {
         type: 'url.write',
         value: {
-          node: 'ProductController.create',
-          root: 'ProductController.create',
+          node: nodeId('ProductController#create'),
+          root: nodeId('ProductController#create'),
           mode: 'flow',
           tab: 'contract',
         },
@@ -40,7 +41,10 @@ describe('Mediator transitions', () => {
     'flow',
     'all',
   ] as const)('keeps %s locked scope during every detail selection', (mode) => {
-    let state = ready(initialReady(graph, 1), { type: 'subject.select', id: 'OrderService' });
+    let state = ready(initialReady(graph, 1), {
+      type: 'subject.select',
+      id: nodeId('OrderService'),
+    });
     state = ready(state, { type: 'scope.mode', mode });
     state = ready(state, { type: 'scope.lock', locked: true });
     const expected = scopeRelations(graph, state.view);
@@ -51,12 +55,15 @@ describe('Mediator transitions', () => {
     }
   });
   it('unlocks to the current detail and does not clear the selected source tab', () => {
-    let state = ready(initialReady(graph, 1), { type: 'scope.start', id: 'OrderService' });
-    state = ready(state, { type: 'subject.select', id: 'JwtService' });
+    let state = ready(initialReady(graph, 1), {
+      type: 'scope.start',
+      id: nodeId('OrderService'),
+    });
+    state = ready(state, { type: 'subject.select', id: nodeId('JwtService') });
     state = ready(state, { type: 'inspector.tab', tab: 'source' });
     state = ready(state, { type: 'scope.lock', locked: false });
     expect(state.view.scope).toEqual({ kind: 'following', mode: 'flow' });
-    expect(state.view.node).toBe('JwtService');
+    expect(state.view.node).toBe(nodeId('JwtService'));
     expect(state.view.tab).toBe('source');
   });
   it('rejects invalid requests without partial state changes', () => {
@@ -75,15 +82,15 @@ describe('Mediator transitions', () => {
   });
   it('restores URL state without writing another history entry', () => {
     const value = {
-      node: 'JwtService.sign',
-      root: 'OrderService',
+      node: nodeId('JwtService#sign'),
+      root: nodeId('OrderService'),
       mode: 'flow',
       tab: 'source',
     } as const;
     const result = transition(initialReady(graph, 1), { type: 'url.restore', value });
     if (result.state.phase !== 'ready') throw new Error('Not ready');
     expect(urlState(result.state.view)).toEqual(value);
-    expect(result.state.view.expanded).toContain('JwtService');
+    expect(result.state.view.expanded).toContain(nodeId('JwtService'));
     expect(result.effects).toEqual([]);
     const invalid = transition(result.state, {
       type: 'url.restore',
@@ -93,7 +100,10 @@ describe('Mediator transitions', () => {
     expect(invalid.effects).toEqual([]);
   });
   it('restores reference navigation, options, folds, lock and viewport', () => {
-    let before = ready(initialReady(graph, 1), { type: 'scope.start', id: 'OrderService' });
+    let before = ready(initialReady(graph, 1), {
+      type: 'scope.start',
+      id: nodeId('OrderService'),
+    });
     before = ready(before, {
       type: 'viewport.observed',
       value: { zoom: 0.7, rect: { x: 60, y: 140, width: 900, height: 600 } },
@@ -123,7 +133,7 @@ describe('Mediator transitions', () => {
     expect(present(failed.state)).toEqual({ phase: 'error', requestId: 1, message: 'HTTP 503' });
     const blocked = transition(
       { phase: 'loading', requestId: 1 },
-      { type: 'subject.select', id: 'OrderService' },
+      { type: 'subject.select', id: nodeId('OrderService') },
     );
     expect(blocked.state.phase).toBe('error');
   });

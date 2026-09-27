@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { fixture } from './fixture.lib';
+import { displayNames, fixture, identity } from './fixture';
+import type { Graph } from './graph.lib';
 import { readGraph, required } from './graph.lib';
+
+const nodeId = (graph: Graph, name: string) => identity(graph, name);
 
 describe('fetched snapshot contract', () => {
   it('preserves the source-backed groups, declarations and relations', () => {
@@ -9,7 +12,7 @@ describe('fetched snapshot contract', () => {
     expect([graph.groups.size, graph.declarations.size, graph.relations.length]).toEqual([
       32, 127, 203,
     ]);
-    expect(graph.snapshot.provenance).toBe('manual-fixture');
+    expect(graph.snapshot.provenance).toBe('extracted');
     expect(graph.snapshot.graph).not.toHaveProperty('relations');
     for (const s of [...graph.groups.values(), ...graph.declarations.values()]) {
       expect(s.source.location.filePath).toBe(required(graph.owners, s.id).filePath);
@@ -52,29 +55,31 @@ describe('fetched snapshot contract', () => {
     expect(hints).toHaveLength(46);
     expect(new Set(hints.map((h) => h.provider))).toEqual(new Set(['zelt', 'drizzle', 'valibot']));
     expect([...graph.groups.values()].flatMap((g) => g.hints)).toEqual([]);
-    expect(required(graph.declarations, 'OrderHandlers.startup@callback:0').hints).toEqual([
-      { provider: 'zelt', label: 'EVENT order:created' },
-    ]);
-    expect(required(graph.declarations, 'OrderHandlers.startup').hints).toEqual([]);
+    expect(
+      required(graph.declarations, nodeId(graph, 'OrderHandlers#startup@callback:0')).hints,
+    ).toEqual([{ provider: 'zelt', label: 'EVENT order:created' }]);
+    expect(required(graph.declarations, nodeId(graph, 'OrderHandlers#startup')).hints).toEqual([]);
     for (const hint of hints) expect(hint.label).not.toMatch(/^[A-Z]+ \/.*\/$/);
   });
   it('makes every argument callback its own declaration named by its order in the parent', () => {
     const graph = fixture();
+    const names = displayNames(graph);
     const callbacks = [...graph.declarations.values()].filter((d) => d.kind === 'callback');
     expect(callbacks).toHaveLength(18);
     for (const callback of callbacks) {
       const parent = callback.enclosingDeclarationId;
       if (parent === null) throw new Error(`${callback.id} has no parent`);
       expect(callback.name).toMatch(/^@callback:\d+$/);
-      expect(callback.id).toBe(`${parent}${callback.name}`);
+      expect(required(names, callback.id)).toBe(`${required(names, parent)}${callback.name}`);
     }
-    const createOrder = required(graph.declarations, 'OrderService.createOrder');
+    const createOrder = required(graph.declarations, nodeId(graph, 'OrderService#createOrder'));
     expect(createOrder.relations.map((r) => r.kind)).not.toContain('table');
     expect(
-      required(graph.declarations, 'OrderService.createOrder@callback:1').relations.map(
-        (r) => r.to,
-      ),
-    ).toEqual(['products', 'orders', 'orderItems']);
+      required(graph.declarations, nodeId(graph, 'OrderService#createOrder@callback:1'))
+        .relations.map((r) => required(names, r.to))
+        // JSONの並びに意味は無いので、読む対象の集まりだけを見る
+        .sort(),
+    ).toEqual(['schema.ts#orderItems', 'schema.ts#orders', 'schema.ts#products']);
   });
   it('puts external packages in one column as boundaries listing only what the app uses', () => {
     const graph = fixture();
@@ -136,8 +141,8 @@ describe('fetched snapshot contract', () => {
       ),
     ).toEqual({ middleware: 30, event: 1, register: 9 });
     expect(
-      required(graph.declarations, 'OrderHandlers.startup')
-        .relations.filter((r) => r.to === 'OrderHandlers.startup@callback:0')
+      required(graph.declarations, nodeId(graph, 'OrderHandlers#startup'))
+        .relations.filter((r) => r.to === nodeId(graph, 'OrderHandlers#startup@callback:0'))
         .map((r) => [r.origin, r.kind, r.origin === 'ts' ? r.meanings : []]),
     ).toEqual([['ts', 'read', [{ provider: 'zelt', kind: 'register' }]]]);
     const declarations = [...graph.declarations.values()];
@@ -149,14 +154,16 @@ describe('fetched snapshot contract', () => {
     const graph = fixture();
     expect(graph.relations.map((r) => r.kind)).not.toContain('returns');
     expect(
-      required(graph.declarations, 'EcJwtConfig.resolveUser').relations.map((r) => r.kind),
+      required(graph.declarations, nodeId(graph, 'EcJwtConfig#resolveUser')).relations.map(
+        (r) => r.kind,
+      ),
     ).toEqual(['override']);
   });
   it('drops what the adopted ignore list leaves out, and keeps it as setup instead', () => {
     const graph = fixture();
-    expect(graph.groups.has('LifecycleManager')).toBe(false);
+    expect([...graph.groups.values()].map((g) => g.name)).not.toContain('LifecycleManager');
     expect(
-      required(graph.declarations, 'DrizzleService.constructor').setup.map((s) => [
+      required(graph.declarations, nodeId(graph, 'DrizzleService#constructor')).setup.map((s) => [
         s.kind,
         s.label,
         s.target,
@@ -179,16 +186,18 @@ describe('fetched snapshot contract', () => {
         ]),
       ),
     ).toEqual({ inject: 16, middleware: 19, 'config-override': 2, lifecycle: 2 });
-    expect(required(graph.groups, 'CartController').setup.map((s) => s.label)).toEqual([
-      '@UseMiddleware(JwtMiddleware)',
-    ]);
-    expect(required(graph.declarations, 'AuthController.register').setup).toMatchObject([
-      { kind: 'middleware', target: 'RateLimitMiddleware' },
-    ]);
+    expect(
+      required(graph.groups, nodeId(graph, 'CartController')).setup.map((s) => s.label),
+    ).toEqual(['@UseMiddleware(JwtMiddleware)']);
+    expect(
+      required(graph.declarations, nodeId(graph, 'AuthController#register')).setup,
+    ).toMatchObject([{ kind: 'middleware', target: nodeId(graph, 'RateLimitMiddleware') }]);
   });
   it('places the composition in its own column that starts hidden', () => {
     const graph = fixture();
-    expect(required(graph.groups, 'app.ts').presentation.columnId).toBe('column:composition');
+    expect(required(graph.groups, nodeId(graph, 'app.ts')).presentation.columnId).toBe(
+      'column:composition',
+    );
     expect(
       graph.snapshot.graph.presentation.columns
         .filter((c) => c.initiallyHidden)
@@ -200,7 +209,10 @@ describe('fetched snapshot contract', () => {
     const contracts = graph.relations.filter((r) => r.kind === 'contract');
     expect(contracts).toHaveLength(6);
     for (const r of contracts)
-      expect(required(graph.owners, r.to)).toMatchObject({ id: 'KVStore', kind: 'interface' });
+      expect(required(graph.owners, r.to)).toMatchObject({
+        id: nodeId(graph, 'KVStore'),
+        kind: 'interface',
+      });
   });
   it('keeps test identities and observed invocation locations under their targets', () => {
     const graph = fixture();
@@ -227,7 +239,10 @@ describe('fetched snapshot contract', () => {
         status: 'partial',
         searchScope: ['integration/ec-backend/e2e/product.spec.ts'],
       });
-    expect(required(graph.declarations, 'CreateProductSchema').unitTests.cases).toEqual([]);
+    expect(
+      required(graph.declarations, nodeId(graph, 'product.schema.ts#CreateProductSchema')).unitTests
+        .cases,
+    ).toEqual([]);
     for (const test of tests) {
       const source = readFileSync(
         new URL(`../../../${test.location.filePath}`, import.meta.url),
@@ -242,8 +257,9 @@ describe('fetched snapshot contract', () => {
   });
   it('rejects malformed shapes, duplicate identities, and dangling edges', () => {
     expect(() => readGraph({ schemaVersion: 2 })).toThrow();
-    const snapshot = structuredClone(fixture().snapshot);
-    snapshot.graph.groups.push(required(fixture().groups, 'JwtService'));
+    const graph = fixture();
+    const snapshot = structuredClone(graph.snapshot);
+    snapshot.graph.groups.push(required(graph.groups, nodeId(graph, 'JwtService')));
     expect(() => readGraph(snapshot)).toThrow('Duplicate');
     const dangling = structuredClone(fixture().snapshot);
     const group = dangling.graph.groups[0];

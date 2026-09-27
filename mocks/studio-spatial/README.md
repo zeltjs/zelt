@@ -1,7 +1,17 @@
 # Studio spatial mock
 
 ec-backend全体を、1宣言1nodeとclass/file/interface groupで表示するReact SPA。
-抽出器やCLIへの接続はありません。構造・source・testは手動のJSON fixtureです。
+構造・source・testは`zelt studio extract`がec-backendの実コードから生成したJSONです。
+
+## snapshotの生成
+
+`public/ec-backend.snapshot.json`は生成物です。手で編集せず、[ec-backend.extract.json](ec-backend.extract.json)を入力に生成し直してください（出力先はconfigの`output`）。
+
+```sh
+npx tsx packages/cli/src/cli.ts studio extract --config mocks/studio-spatial/ec-backend.extract.json
+```
+
+同じ入力なら何度生成しても同じJSON（同じ`snapshotId`）になります。生成結果が期待と違うときは、JSONではなくconfigか抽出器を直します。
 
 ## 起動
 
@@ -85,3 +95,5 @@ Unit検証はルートの`pnpm test`にも含まれます。buildとtypecheckも
 5回目は、付与だけのモデル（線・宣言の種類をTSの事実と付与された意味に分離）・列の表示切替（roleの廃止、app.tsをComposition列へ）・ignore推奨の採用（`LifecycleManager` を地図から外す）に合わせた時に再生成しました。golden の状態の `showConfig` は Config 列の表示として読み、Composition 列は既定どおり非表示です。変更前後の投影（箱の集合・展開・選択・濃淡・宣言・タグ・矢印・x）を突き合わせ、差は次だけであることを確かめています: appに登録された9箱に「Compositionとの関係あり」タグが付く（その分の高さとyの移動）、`LifecycleManager` への矢印2本と `returns` の矢印1本が消える（それに伴い全関係・展開時の `OrderHandlers.constructor` が薄くなる）、Config列を隠した状態でライブラリのconfig箱（`JwtConfig`・`CorsConfig`）が表示され、ライブラリ列が詰めた分だけ左へ動く。
 6回目は、非表示の列のタグ（「<列名>との関係あり」）を廃止し、非表示の列に端を持つ関係を線にもタグにもしないようにした時に再生成しました。変更前のコードを一時的に復元して120状態すべてで保存済みのハッシュが再現することを確かめたうえで、変更前後の投影を突き合わせ、差は「Compositionとの関係あり」タグ（各状態8個）と、Config列を隠した状態の「Configとの関係あり」タグの消滅、それに伴う箱の高さ・yの移動だけであることを確かめています。矢印・x・幅・展開・選択・濃淡・宣言・残るタグは全状態で変更前と一致します（goldenの状態では、相手が非表示の列にあるmiddleware・eventタグは無い）。
 7回目は、appが書かずにcoreがrouterごとに先頭で登録する組込みmiddleware（`CorsMiddleware`・`SecureHeadersMiddleware`）を地図に出さないと決めた時（ユーザー判断 2026-09-24）に再生成しました。変更前のfixtureで120状態すべてが保存済みのハッシュを再現することを確かめたうえで、変更前後の投影を突き合わせ、差は「その2箱の消滅（各状態2個）と、4つのcontrollerから消える `適用: Cors`・`適用: SecureHeaders` タグ（各状態8個）、それに伴う箱の高さ（各状態4個）とyの移動（各状態7個）」だけであることを確かめています。矢印・x・幅・展開・選択・濃淡・宣言・残るタグは全状態で変更前と一致します（組込みへの線はタグとしてのみ現れていたため、矢印の増減はありません）。
+
+8回目は、fixtureを`zelt studio extract`の出力へ置き換えた時に再生成しました。goldenの`node`とハッシュは、IDではなく画面と同じ表示名（group名・`Group#宣言名`）で持つようにしています。抽出器のIDは所在と構造を写した文字列で、表示名とは1対1に対応します。置き換え前のfixtureで120状態すべてが保存済みのハッシュを再現することを確かめたうえで、表示名で正規化した投影（箱・展開・選択・濃淡・宣言・タグ・矢印・x・幅・高さ）を突き合わせ、120状態すべてで完全に一致することを確かめています（差はゼロ）。JSON内のgroupの並びには表示の意味が無いため、投影は名前順にそろえてから比べます。

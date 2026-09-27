@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { boundary } from './event-chain';
-import { fixture } from './fixture.lib';
+import { fixture } from './fixture';
 import { transition } from './mediator.lib';
 import { initialReady } from './state.lib';
 

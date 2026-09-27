@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { EventSink } from './events.types';
-import { fixture } from './fixture.lib';
+import { fixture, identity } from './fixture';
 import type { RootModel } from './presenter.types';
 import { mountStudio } from './runtime.lib';
 import { decodeUrl, encodeUrl } from './url.lib';
 
-function harness(url = 'https://example.test/studio/') {
+const graph = fixture();
+const nodeId = (name: string) => identity(graph, name);
+const base = 'https://example.test/studio/';
+
+function harness(url = base) {
   const renders: RootModel[] = [];
   let send: EventSink = () => {
     throw new Error('Not mounted');
@@ -44,19 +48,31 @@ function harness(url = 'https://example.test/studio/') {
 describe('runtime IO boundaries', () => {
   it('restores nuqs URL values without echoing browser history', async () => {
     const app = harness(
-      'https://example.test/studio/?node=JwtService.sign&root=OrderService&mode=flow&tab=source',
+      encodeUrl(base, {
+        node: nodeId('JwtService#sign'),
+        root: nodeId('OrderService'),
+        mode: 'flow',
+        tab: 'source',
+      }),
     );
     const dispose = mountStudio(app.ports);
     await vi.waitFor(() =>
       expect(app.renders.at(-1)).toMatchObject({ phase: 'ready', tab: 'source' }),
     );
     expect(app.ports.writeUrl).not.toHaveBeenCalled();
-    app.send({ type: 'subject.select', id: 'ProductController' });
+    app.send({ type: 'subject.select', id: nodeId('ProductController') });
     expect(app.ports.writeUrl).toHaveBeenCalledTimes(1);
-    app.pop('https://example.test/studio/?node=JwtService.sign');
+    app.pop(
+      encodeUrl(base, {
+        node: nodeId('JwtService#sign'),
+        root: null,
+        mode: 'near',
+        tab: 'contract',
+      }),
+    );
     expect(app.ports.writeUrl).toHaveBeenCalledTimes(1);
     expect(app.renders.at(-1)).toMatchObject({
-      inspector: { id: 'JwtService.sign' },
+      inspector: { id: nodeId('JwtService#sign') },
       controls: { locked: false },
     });
     dispose();
@@ -98,9 +114,9 @@ describe('runtime IO boundaries', () => {
     app.ports.writeUrl.mockImplementation(() => {
       throw new Error('Denied');
     });
-    app.send({ type: 'subject.select', id: 'OrderService' });
+    app.send({ type: 'subject.select', id: nodeId('OrderService') });
     expect(app.renders.at(-1)).toMatchObject({
-      inspector: { id: 'OrderService' },
+      inspector: { id: nodeId('OrderService') },
       notice: 'URL保存失敗: Denied',
     });
     dispose();

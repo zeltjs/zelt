@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { array, boolean, literal, null_, object, parse, string, union } from 'valibot';
 import { describe, expect, it } from 'vitest';
-import { fixture } from './fixture.lib';
+import { displayNames, fixture, identity } from './fixture';
 import { required } from './graph.lib';
 import { layout } from './layout.lib';
 import { presentMap } from './map-presenter.lib';
@@ -25,10 +25,24 @@ const golden = parse(
   JSON.parse(readFileSync(new URL('./test-fixtures/legacy-display.json', import.meta.url), 'utf8')),
 );
 const graph = fixture();
+const nodeId = (name: string) => identity(graph, name);
 const displayOwner = (id: string) => required(graph.owners, id).id;
 // The golden states name the Config column's visibility; Composition stays hidden as it starts.
 const hiddenColumns = (showConfig: boolean) =>
   showConfig ? ['column:composition'] : ['column:composition', 'column:5'];
+
+// 抽出器のIDは所在と構造の写しなので、goldenは表示名で読む。名前は1対1なので
+// 退行の検出力は変わらず、IDの形式が変わってもgoldenを作り直さずに済む。
+const names = displayNames(graph);
+function named(value: string): string {
+  const name = names.get(value);
+  if (name !== undefined) return name;
+  // タグのkeyのように、IDを要素に持つJSON配列も名前へ置き換える
+  if (!value.startsWith('[')) return value;
+  const parts: unknown = JSON.parse(value);
+  if (!Array.isArray(parts)) return value;
+  return JSON.stringify(parts.map((p: unknown) => (typeof p === 'string' ? named(p) : p)));
+}
 
 describe('Presenter preserves the pre-React display contract', () => {
   it.each(
@@ -36,7 +50,7 @@ describe('Presenter preserves the pre-React display contract', () => {
   )('matches legacy projection: $node/$mode expanded=$expanded config=$showConfig types=$showTypes', (test) => {
     const view: ViewState = {
       ...initialView(graph),
-      node: test.node,
+      node: test.node === null ? null : nodeId(test.node),
       scope: { kind: 'following', mode: test.mode },
       expanded: test.expanded ? [...graph.groups.keys()] : [],
       options: {
@@ -52,19 +66,22 @@ describe('Presenter preserves the pre-React display contract', () => {
       ...view,
       options: { ...view.options, showTypes: true },
     });
-    const groups = model.groups.map((g) => ({
-      id: g.id,
-      rect: required(legacyGeometry.boxes, g.id),
-      expanded: g.expanded,
-      selected: g.selected,
-      dimmed: g.dimmed,
-      members: g.members.map((m) => [m.id, m.selected, m.dimmed]),
-      tags: g.tags
-        .map((t) => [t.key, t.dimmed])
-        .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
-    }));
+    // JSONの並びに表示の意味は無い(列内の並びはUIが計算する)ので、名前順にそろえて比べる
+    const groups = model.groups
+      .map((g) => ({
+        id: named(g.id),
+        rect: required(legacyGeometry.boxes, g.id),
+        expanded: g.expanded,
+        selected: g.selected,
+        dimmed: g.dimmed,
+        members: g.members.map((m) => [named(m.id), m.selected, m.dimmed]),
+        tags: g.tags
+          .map((t) => [named(t.key), t.dimmed])
+          .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
     const wires = model.edges
-      .map((e) => [e.from, e.to, e.kind, [...e.ids].sort()])
+      .map((e) => [named(e.from), named(e.to), e.kind, e.ids.map(named).sort()])
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
     const json = JSON.stringify({
       groups,
@@ -90,7 +107,7 @@ describe('Presenter preserves the pre-React display contract', () => {
     for (const showTypes of [false, true]) {
       const view: ViewState = {
         ...initialView(graph),
-        node: 'ProductController.create',
+        node: nodeId('ProductController#create'),
         expanded: expanded ? [...graph.groups.keys()] : [],
         options: { hiddenColumns: hiddenColumns(showConfig), showTypes, showCounts: true },
       };
@@ -100,7 +117,7 @@ describe('Presenter preserves the pre-React display contract', () => {
         expect(group.rect.height).toBe(62 + group.members.length * 46 + tagHeight);
       }
       // EcJwtConfig's resolveUser callback types EcUser; hiding Config must leave no trace of it.
-      const users = model.groups.find((g) => g.id === 'user.types.ts');
+      const users = model.groups.find((g) => g.id === nodeId('user.types.ts'));
       expect(users).toMatchObject({ dimmed: true, tags: [] });
     }
   });
@@ -129,7 +146,7 @@ describe('Presenter preserves the pre-React display contract', () => {
     const before = JSON.stringify(graph.snapshot);
     const view: ViewState = {
       ...initialView(graph),
-      node: 'OrderService.findById',
+      node: nodeId('OrderService#findById'),
       scope: { kind: 'following', mode: 'flow' },
     };
     const expected = scopeRelations(graph, view);
@@ -145,12 +162,12 @@ describe('Presenter preserves the pre-React display contract', () => {
   it('does not switch direction at shared dependencies', () => {
     const view: ViewState = {
       ...initialView(graph),
-      node: 'ProductController.create',
+      node: nodeId('ProductController#create'),
       scope: { kind: 'following', mode: 'flow' },
     };
     const edges = scopeRelations(graph, view);
-    expect(edges.some((e) => e.from === 'ProductService.create')).toBe(true);
-    expect(edges.some((e) => e.from === 'OrderController.create')).toBe(false);
+    expect(edges.some((e) => e.from === nodeId('ProductService#create'))).toBe(true);
+    expect(edges.some((e) => e.from === nodeId('OrderController#create'))).toBe(false);
     expect(edges.some((e) => e.origin === 'plugin' && e.kind === 'middleware')).toBe(false);
   });
 });
@@ -159,25 +176,25 @@ describe('Presenter keeps the look of meanings and hides columns with their rela
   it('shows the granted meaning on wires and declarations, as before the split', () => {
     const view: ViewState = {
       ...initialView(graph),
-      node: 'AuthService.register',
-      expanded: ['AuthService', 'schema.ts'],
+      node: nodeId('AuthService#register'),
+      expanded: [nodeId('AuthService'), nodeId('schema.ts')],
     };
     const model = presentMap(graph, view);
     expect(model.edges.map((e) => e.kind)).toContain('table');
     const users = model.groups
-      .find((g) => g.id === 'schema.ts')
-      ?.members.find((m) => m.id === 'users');
+      .find((g) => g.id === nodeId('schema.ts'))
+      ?.members.find((m) => m.id === nodeId('schema.ts#users'));
     expect(users?.kind).toBe('TABLE');
   });
   it('starts with the composition column hidden, leaving no box, wire or tag for it', () => {
     const model = presentMap(graph, initialView(graph));
-    expect(model.groups.map((g) => g.id)).not.toContain('app.ts');
+    expect(model.groups.map((g) => g.id)).not.toContain(nodeId('app.ts'));
     expect(model.columns.map((c) => c.label)).not.toContain('Composition');
     const onMap = new Set(model.groups.map((g) => g.id));
     expect(
       model.edges.flatMap((e) => [e.from, e.to]).every((id) => onMap.has(displayOwner(id))),
     ).toBe(true);
-    const registered = model.groups.find((g) => g.id === 'AuthController')?.tags;
+    const registered = model.groups.find((g) => g.id === nodeId('AuthController'))?.tags;
     expect(registered?.map((t) => t.label)).not.toContain('Compositionとの関係あり');
   });
   it('hides the library column like any other column', () => {
@@ -186,15 +203,19 @@ describe('Presenter keeps the look of meanings and hides columns with their rela
       ...view,
       options: { ...view.options, hiddenColumns: ['column:composition', 'column:6'] },
     });
-    expect(model.groups.map((g) => g.id)).not.toContain('JwtService');
-    expect(model.groups.find((g) => g.id === 'AuthService')?.tags).toEqual([]);
-    const applied = model.groups.find((g) => g.id === 'AuthController')?.tags.map((t) => t.label);
+    expect(model.groups.map((g) => g.id)).not.toContain(nodeId('JwtService'));
+    expect(model.groups.find((g) => g.id === nodeId('AuthService'))?.tags).toEqual([]);
+    const applied = model.groups
+      .find((g) => g.id === nodeId('AuthController'))
+      ?.tags.map((t) => t.label);
     expect(applied).toContain('適用: Logging');
     expect(applied).not.toContain('適用: Jwt');
   });
   it('orders applied tags by the chain the request runs through, not by the JSON order', () => {
     const model = presentMap(graph, initialView(graph));
-    const applied = model.groups.find((g) => g.id === 'CartController')?.tags.map((t) => t.label);
+    const applied = model.groups
+      .find((g) => g.id === nodeId('CartController'))
+      ?.tags.map((t) => t.label);
     expect(applied).toEqual(['適用: Logging', '適用: Jwt']);
   });
 });

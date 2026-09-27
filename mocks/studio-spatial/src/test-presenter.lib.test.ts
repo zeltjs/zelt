@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fixture } from './fixture.lib';
+import { fixture, identity as subjectId } from './fixture';
 import type { EndpointTests, UnitSetup } from './snapshot.types';
 import { declaration } from './snapshot-builder.lib';
 import { endpointModels, summarizeSetup, unitCoverage, unitRows } from './test-presenter.lib';
@@ -63,14 +63,14 @@ describe('test list semantics use Zelt setup, not package imports', () => {
   });
   it('does not collect the tests of external packages, and says so instead of "none"', () => {
     const graph = fixture();
-    const jwt = graph.groups.get('JwtService');
+    const jwt = graph.groups.get(subjectId(graph, 'JwtService'));
     expect(unitRows(jwt?.members ?? [])).toEqual([]);
     expect(unitCoverage(jwt?.members ?? [])).toBe('未収録（テストの有無は未確認）');
   });
   it('lists the fixture Unit tests with the classification their Zelt setup gives', () => {
     const graph = fixture();
-    const rows = (id: string) =>
-      unitRows([...(graph.groups.get(id)?.members ?? [])]).map((r) => [
+    const rows = (name: string) =>
+      unitRows([...(graph.groups.get(subjectId(graph, name))?.members ?? [])]).map((r) => [
         r.targetLabel,
         r.style,
         r.mocks,
@@ -80,7 +80,9 @@ describe('test list semantics use Zelt setup, not package imports', () => {
     expect(cart).toContainEqual(['addItem', 'Sociable', 'なし']);
     expect(rows('current-user.lib.ts')).toContainEqual(['requireUser', '関数', '—']);
     expect(rows('LoggingMiddleware')).toEqual([]);
-    expect(unitRows([...(graph.groups.get('auth.schema.ts')?.members ?? [])])).toEqual([]);
+    expect(
+      unitRows([...(graph.groups.get(subjectId(graph, 'auth.schema.ts'))?.members ?? [])]),
+    ).toEqual([]);
   });
   it('names the searched scope and how many files were read instead of listing every file', () => {
     const covered = declaration('Service.run', {
@@ -165,10 +167,12 @@ describe('E2E lists are read from the declaration that registered the route', ()
     ]);
   });
   it('moves the fixture lists onto the sixteen route methods', () => {
-    const declarations = [...fixture().declarations.values()];
+    const graph = fixture();
+    const declarations = [...graph.declarations.values()];
     expect(endpointModels(declarations)).toHaveLength(16);
-    expect(
-      endpointModels(declarations.filter((d) => d.id === 'ProductController.create')),
-    ).toMatchObject([{ label: 'POST /api/products' }]);
+    const create = subjectId(graph, 'ProductController#create');
+    expect(endpointModels(declarations.filter((d) => d.id === create))).toMatchObject([
+      { label: 'POST /api/products' },
+    ]);
   });
 });

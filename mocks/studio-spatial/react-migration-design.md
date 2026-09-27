@@ -263,7 +263,7 @@ sourceやtestが属する対象は、JSONの包含関係で決まる。所属先
 
 </details>
 
-これは新しい配信契約案で、[既存CLIのDependencyGraph v3](../../packages/cli/src/studio/graph/graph.types.ts)とは非互換。今回は手動fixtureを使い、抽出側との接続は後で扱う。
+これは新しい配信契約案で、[既存CLIのDependencyGraph v3](../../packages/cli/src/studio/graph/graph.types.ts)とは非互換。React移行時は手動fixtureを使った（抽出側との接続は後回し）。2026-09-24に `zelt studio extract` の出力へ置き換え済み（[generic-extraction-design.md](generic-extraction-design.md)）。
 
 ## componentとprops
 

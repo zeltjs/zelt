@@ -4,11 +4,11 @@
 
 この節では、何を作るかと、作業の前提を決める。前提はpolicy（2節）ではなく、この作業の枠。
 
-いまのStudio mockは手書きの `public/ec-backend.snapshot.json` を読んで地図を出している。これを **`zelt studio extract` が実コードから生成したJSONに置き換え、今のStudioにそのまま読ませる**。完了の定義は「ec-backendから `zelt studio extract` でJSONを生成し、そのJSONをStudioで表示できること」。受入条件は[付録M](#m-完了判定)。
+Studio mockが読む `public/ec-backend.snapshot.json` は、**`zelt studio extract` が実コードから生成したJSON**である（2026-09-24に手書きfixtureから置き換え済み。[付録P](#p-確認状況)）。完了の定義「ec-backendから `zelt studio extract` でJSONを生成し、そのJSONをStudioで表示できること」は満たした。受入条件は[付録M](#m-完了判定)。
 
 - **前提1 — 手触りは変えない**: 配信データの契約はv1（[`src/snapshot-schema.lib.ts`](src/snapshot-schema.lib.ts)）。v1からの変更は[4.5](#45-v1からの変更)に挙げたものだけで、形を変えるのは「手触りを保ち、かつ汎用化に効く」と示せたときだけ。
 - **前提2 — 汎用化は抽出器の内部構造の話**: 抽出器を「コア（どのTSコードにも効く）＋任意plugin（Zelt・Vitest・Valibot・Drizzle等の意味）＋組立」に分ける。pluginは付与するだけで、無くても同じ型で地図は出て、意味が粗くなるだけ。
-- **前提3 — 手書きfixtureで先に示す**: 自動抽出ができるまで、手書きの `snapshot.json` をコミットし続ける。この計画の形（4.5）はschema・fixture・UIに反映済みで、fixtureは「[config](ec-backend.extract.json)＋この文書の規則」から説明できる状態にしてある（[付録L](#l-uiの追従)・[付録P](#p-確認状況)）。
+- **前提3 — snapshotは生成物**: `public/ec-backend.snapshot.json` は「[config](ec-backend.extract.json)＋この文書の規則」から生成する成果物で、手では編集しない。更新は `zelt studio extract` で行う（コマンドは[README](README.md)）。生成結果が期待と違うときは、JSONではなくconfigか抽出器を直す（[付録L](#l-uiの追従)・[付録P](#p-確認状況)）。
 
 **読み方**: 1節は箱の責務、2節のpolicyが土台。3節はpolicyが1本の例でどう効くか、4節はpolicyから決まる結果。5節（判断が要ること）は空。付録は実装の細則でレビュー不要。
 
@@ -150,11 +150,11 @@ async register(req = request(RegisterSchema)) {
 - `register` がどのURLのrouteに登録されているかは、TSだけでは分からない。plugin:zeltが、Zeltが実行時に持つroute・middlewareの登録情報を読んで付与する（②4）。middlewareは、app.tsで登録したLoggingと、`@RateLimit` が内部で付けるRateLimitの2本。appが書かずにcoreがrouterごとに先頭で登録する組込み（Cors・SecureHeaders）は地図に出さない（ユーザー判断 2026-09-24）。
 - 線にしないもの: `this.authService` の読み取り（注入された値の置き場は責務ではない）、`request(…)` の呼出（Zelt pluginのignore推奨をconfigで採用）。`@RateLimit`・`inject(AuthService)` はsetupで、詳細パネルに出す（[4.1](#41-責務と流れから)）。
 
-### 手書きfixtureとの対応
+### 生成したsnapshotとの対応
 
-`public/ec-backend.snapshot.json`（手書きfixture）の `AuthController.register` は、この計画の形に更新済み。
+`public/ec-backend.snapshot.json`（生成物）の `AuthController#register` は、この計画の形になっている。
 
-| fixtureにあるもの | データの形 |
+| snapshotにあるもの | データの形 |
 | --- | --- |
 | `AuthService.register` へのcall | コアの線 |
 | `RegisterSchema` への線 | コアの「読む」＋valibotが付与したschemaの意味。表示は今までどおり「入力検証schema参照」 |
@@ -490,7 +490,7 @@ interface MapPresentation {
 
 #### 付与の全表
 
-← ②1・②2（付与が示すもの）、②4（確かめた事実だけ）。件数は手書きfixture（反映済み）のもの。
+← ②1・②2（付与が示すもの）、②4（確かめた事実だけ）。件数は生成したsnapshotのもの。
 
 | provider | 付与の種類 | 付与先 | kind | fixtureの件数 |
 | --- | --- | --- | --- | --- |
@@ -514,7 +514,7 @@ interface MapPresentation {
 
 hintsは、pluginが**自分で見つけた事実**からだけ付ける。人の説明文だったv1のhintは移行で消した（了承済み）。fixtureの `hints` は下表のlabelだけで46件。
 
-| plugin | 付与先 | label | 手書きfixtureでの例 |
+| plugin | 付与先 | label | 生成したsnapshotでの例 |
 | --- | --- | --- | --- |
 | zelt | HTTP routeのcontroller method | `<METHOD> <fullPath>` | `POST /api/auth/register` |
 | zelt | event購読のcallback | `EVENT <eventName>` | `EVENT order:created` |
@@ -1122,7 +1122,7 @@ configのrootはconfigファイルから解決する。他のpath/globはroot基
 
 設定にないpluginはdisabled。ZeltのsetupDetails=falseはtest-setupsをuncollectedとし、factory/targetの対応だけは返してよい。Vitestの実行設定は自動でserialにせず、利用中のrunner設定を明示する。setupFilesはrunner側の設定と一致させ、未指定のglobal defaultを不存在扱いしない。
 
-ec-backendの設定は[ec-backend.extract.json](ec-backend.extract.json)（上のExtractConfigに適合する）。設定例はこのファイルだけに置き、ここには要点だけを書く。手書きfixtureは「このconfig＋この文書の規則」から説明できる状態を目標にしている（照合の結果は[付録P](#p-確認状況)）。
+ec-backendの設定は[ec-backend.extract.json](ec-backend.extract.json)（上のExtractConfigに適合する）。設定例はこのファイルだけに置き、ここには要点だけを書く。配信しているsnapshotは、このconfigとこの文書の規則から生成したものである（結果は[付録P](#p-確認状況)）。
 
 | 項目 | ec-backendでの値 | 理由 |
 | --- | --- | --- |
@@ -1133,7 +1133,7 @@ ec-backendの設定は[ec-backend.extract.json](ec-backend.extract.json)（上�
 | `sourceText` | app.ts・domain・entry・infra・usecaseと、載せた5 packageの `src/**` | `src/config/` は外して `declaration-only`（v1の `redacted` の代わり）。ライブラリの箱も原文を見せるのでpackageのsourceを入れる。外部公開時は空にする |
 | `presentation.columns` | `column:composition` Composition（既定で非表示）、`column:0` Entry / Middleware、`column:1` Use case、`column:2` Domain、`column:4` Adapter / Infrastructure、`column:5` Config、`column:6` ライブラリ、`column:other` 未分類（すべて幅310） | `column:3` は旧 `Port / interface` 列の跡で欠番。Compositionを左端に置くのは、appの登録が各列へ向かう線になるから（AI 判断: 表示したとき線が左から右へ流れる。②3） |
 | `presentation.rules` | app.ts → Composition、`packages/**` → ライブラリ、`src/config/**` → Config、`src/entry/**` → Entry、`src/usecase/**` → Use case、`src/domain/**` → Domain、`src/infra/**` → Adapter / Infrastructure | 先に合ったruleを使う。ライブラリのconfig class（`JwtConfig`・`CorsConfig`）はライブラリ列にあり、Config列を隠しても隠れない（roleの廃止による） |
-| plugin `vitest` | Unitは `integration/ec-backend/src/**/*.test.ts`、E2Eは `integration/ec-backend/e2e/product.spec.ts` だけ | E2Eを1ファイルに絞るのは**サンプリング**（手書きの手間を減らすため）であり、抽出できないから外したのではない。抽出器は `e2e/**/*.spec.ts` 全体を対象にできる。範囲が一部なので、E2Eのcoverageは全routeで「一部のみ」（[付録G](#g-e2e)）。Unitは12ファイル・212 caseで、fixtureに反映済み（[付録F](#f-unit)） |
+| plugin `vitest` | Unitは `integration/ec-backend/src/**/*.test.ts`、E2Eは `integration/ec-backend/e2e/product.spec.ts` だけ | E2Eを1ファイルに絞るのは**サンプリング**であり（当初は手書きの手間を減らすため。生成へ置き換えたあともconfigは変えていない）、抽出できないから外したのではない。抽出器は `e2e/**/*.spec.ts` 全体を対象にできる。範囲が一部なので、E2Eのcoverageは全routeで「一部のみ」（[付録G](#g-e2e)）。Unitは12ファイル・212 caseで、snapshotに入っている（[付録F](#f-unit)） |
 | plugin `http-requests` | appは `createTestApp`、helperは `authRequest`（app引数0・method引数2・path引数3）と `registerUser`・`loginUser`（固定のPOST・path） | [付録G](#g-e2e)の初版の範囲 |
 | plugin `zelt` | appは `createEcApp`、`setupFiles` は空 | 現行のec-backendのVitest設定にsetupFiles指定がない。`zelt.config.ts` とは別物のまま（ユーザー判断 9/24） |
 
@@ -1253,7 +1253,7 @@ schemaはCLIの専用subpathからexportし、UIはそこだけimportする。�
 
 9/23までに反映したもの（`expandedY` 削除とUI計算の並び、`hints`、`entries` と起点ショートカットの削除、`e2eTests` の移動、IDでなく名前の表示、展開classのソース順）は変わらない。
 
-**手書きfixtureで直したもの**（この文書の規則とconfigで説明できる形にした）:
+**手書きfixtureで直していたもの**（この文書の規則とconfigで説明できる形にした項目。いまは抽出器が同じ形を出す）:
 
 | 箇所 | 直し方 | 根拠 |
 | --- | --- | --- |
@@ -1329,6 +1329,14 @@ v1の形では表せないが、今は扱わないもの。構造変更を提案
 
 ### P. 確認状況
 
+**2026-09-24（生成物への置き換え）**:
+
+- `public/ec-backend.snapshot.json` を `zelt studio extract` の出力に置き換えた。生成コマンドと入力は[README](README.md)・[ec-backend.extract.json](ec-backend.extract.json)。同じ入力で2回生成してbyte一致（`snapshotId` は `d9b21ad71b7c…`、`provenance` は `extracted`）。
+- 手書きfixtureとの差は、`CorsConfig.origin`・`CorsConfig.credentials` の `signature` に初期値（`= [];`・`= false;`）が入る2件だけ。group・宣言・線・意味・注記・setup・Unit・E2Eの件数と中身、列と列の割り当てはすべて一致する。
+- IDは抽出の形式（[4.6](#46-見せ方と運用)のユーザー判断 9/23）になった。表示は名前で行うので画面は変わらない。mockのtestとgoldenは、IDではなく表示名（group名・`Group#宣言名`）で書くようにした。
+- 表示の回帰: 置き換え前のfixtureで120状態すべてが保存済みハッシュを再現することを確かめたうえで、表示名で正規化した投影を突き合わせ、120状態すべてで完全に一致した（差ゼロ）。goldenは表示名で持ち直して再生成した（[README](README.md)の8回目）。
+- 検証: `pnpm typecheck`・`pnpm test`（214件）・`pnpm lint`・`pnpm exec biome check`・`pnpm build`・`pnpm test:browser`（39件）が通る。previewを起動してブラウザで初期表示と `CartController` の選択を確認（31箱・列7つ・console error無し）。
+
 **2026-09-24（この計画の形への反映）**:
 
 - schema・fixture・UIを[付録L](#l-uiの追従)のとおり更新した。検証: `pnpm typecheck`・`pnpm test`（214件）・`pnpm lint`・`pnpm build`・`pnpm test:browser`（39件、PC・タブレット・モバイル）がすべて通る。
@@ -1348,4 +1356,4 @@ v1の形では表せないが、今は扱わないもの。構造変更を提案
 - config＋規則との照合（TS Compiler APIで宣言と線を導いてfixtureとdiffするスクリプト）: 列・groupの列・宣言のkind・excerpt・注記は `order:created` 以外で一致。線は238本中236本が一致。
 - config＋規則で説明できないfixtureの箇所（直していない）: `order:created` をfile groupに置いた（declaration merge、[付録O](#o-今は扱わないもの)）、emit/onのevent名から `order:created` への `type` 2本（根拠が相手側の宣言位置）、`DrizzleService.db` の `typeof schema`（namespace import）への線が無い。`@Authorized()` の扱いは、2026-09-24にsetup `middleware`（target無し）として解消した。
 
-未検証: 型ブロックと設定例の型検査（配信型の差分ブロックは単独では検査していない）、Mermaidの描画、読みやすさのユーザー評価、抽出器の動作。受入条件（[付録M](#m-完了判定)）は、抽出器が無いので未検証。
+未検証: 型ブロックと設定例の型検査（配信型の差分ブロックは単独では検査していない）、Mermaidの描画、読みやすさのユーザー評価。受入条件（[付録M](#m-完了判定)）のうち、ec-backendで確かめられる行は生成物で満たしている（上記）。別fixtureが要る行（親子mount・同名controller・偽pluginでのrunner差替え等）は未検証。

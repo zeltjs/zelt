@@ -72,8 +72,8 @@ function HelpText() {
         entryのE2Eはrequestとの対応であり、method実行の保証ではありません。
       </p>
       <p>
-        手動fixtureです。内部未展開は依存なしを意味しません。抽出器・実行時トレース・test
-        runner連携は未実装です。
+        この地図はzelt studio
+        extractが実コードから生成したJSONです。内部未展開は依存なしを意味しません。
       </p>
     </>
   );
