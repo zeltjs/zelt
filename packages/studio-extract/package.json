@@ -1,0 +1,56 @@
+{
+  "name": "@zeltjs/studio-extract",
+  "version": "0.0.0",
+  "description": "Studio snapshot extractor for Zelt applications",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/studio-extract"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./snapshot": {
+      "types": "./dist/snapshot/index.d.ts",
+      "default": "./dist/snapshot/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "consola": "3.4.2",
+    "ts-pattern": "5.7.1",
+    "tsx": "catalog:",
+    "valibot": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:peer"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@zeltjs/core": "workspace:*",
+    "@zeltjs/decorator-metadata": "workspace:*",
+    "@zeltjs/eventbus": "workspace:*",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  },
+  "dependenciesMeta": {
+    "@zeltjs/eventbus": {
+      "injected": true
+    }
+  },
+  "volta": {
+    "extends": "../../package.json"
+  }
+}

@@ -24,7 +24,7 @@ const fieldsOf = (n: GraphNodeV3): NodeFields => n;
 const isClassNode = (n: GraphNodeV3): boolean => fieldsOf(n).kind === 'class';
 const isFnNode = (n: GraphNodeV3): boolean => !isClassNode(n) && !isExternalNode(n);
 
-const FIXTURE_DIR = resolve(__dirname, '../../test-fixtures/studio-app');
+const FIXTURE_DIR = resolve(__dirname, '../../../studio-extract/test-fixtures/studio-app');
 const ANALYZER_SRC = resolve(__dirname, './analyzer-entry.ts');
 
 const nodeById = (graph: DependencyGraph, id: string): GraphNodeV3 => {

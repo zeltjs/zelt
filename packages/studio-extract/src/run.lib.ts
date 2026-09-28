@@ -23,19 +23,25 @@ import {
 import { defaultInspectEntry } from './plugins';
 import { runPlugins } from './run-plugins.lib';
 
-export type ExtractOptions = {
-  /** overrides config.output; keeps the hand-written fixture safe while staging */
-  readonly output?: string;
+export type SnapshotOptions = {
   /** stage-by-stage escape hatch: publish even if `required` features have no plugin yet */
   readonly allowIncomplete?: boolean;
   /** app を読み込む子プロセスの entry。build 後は dist の .js を渡す(付録D) */
   readonly zeltEntryPath?: string;
 };
 
-export type ExtractionResult =
+export type ExtractOptions = SnapshotOptions & {
+  /** overrides config.output; keeps the hand-written fixture safe while staging */
+  readonly output?: string;
+};
+
+export type ExtractionPhase = 'config' | 'index' | 'plugin' | 'assembly' | 'publish';
+
+export type SnapshotResult =
   | {
-      kind: 'published';
-      readonly snapshotId: string;
+      kind: 'extracted';
+      readonly snapshot: StudioSnapshot;
+      /** config が指定した出力先。ファイルに書くかどうかは呼び出し側が決める */
       readonly output: string;
       readonly reports: readonly AnalysisReport[];
       /** plugin が出した「意識しなくてよい export」。採否は人が config に書く(4.2) */
@@ -43,13 +49,29 @@ export type ExtractionResult =
     }
   | {
       kind: 'failed';
-      readonly phase: 'config' | 'index' | 'plugin' | 'assembly' | 'publish';
+      readonly phase: Exclude<ExtractionPhase, 'publish'>;
       readonly diagnostics: readonly string[];
     };
 
-type Failure = Extract<ExtractionResult, { kind: 'failed' }>;
+export type ExtractionResult =
+  | {
+      kind: 'published';
+      readonly snapshotId: string;
+      readonly output: string;
+      readonly reports: readonly AnalysisReport[];
+      readonly ignoreRecommendations: readonly IgnoreRecommendation[];
+    }
+  | {
+      kind: 'failed';
+      readonly phase: ExtractionPhase;
+      readonly diagnostics: readonly string[];
+    };
 
-/** 各段の結果。失敗はそのまま extract の戻り値になる */
+export type PublishResult = { ok: true } | { ok: false; readonly diagnostics: readonly string[] };
+
+type Failure = Extract<SnapshotResult, { kind: 'failed' }>;
+
+/** 各段の結果。失敗はそのまま extractSnapshot の戻り値になる */
 type Stage<T> = { ok: true; readonly value: T } | { ok: false; readonly failure: Failure };
 
 const failed = (phase: Failure['phase'], diagnostics: readonly string[]): Stage<never> => ({
@@ -122,7 +144,7 @@ const buildSnapshot = (input: {
 };
 
 /** @throws {Error} when the output cannot be written or another run holds the lock */
-const publish = async (output: string, json: string): Promise<void> => {
+const writeAtomically = async (output: string, json: string): Promise<void> => {
   const lock = `${output}.lock`;
   const handle = await open(lock, 'wx');
   try {
@@ -141,18 +163,13 @@ const publish = async (output: string, json: string): Promise<void> => {
   }
 };
 
-const outputPathOf = (config: ResolvedConfig, options: ExtractOptions): string =>
-  options.output === undefined ? config.output : resolve(options.output);
-
-const publishSnapshot = async (
-  output: string,
-  snapshot: StudioSnapshot,
-): Promise<Failure | null> => {
+/** snapshot をファイルへ公開する。同時実行は lock ファイルで1つに絞る */
+export const publish = async (output: string, snapshot: StudioSnapshot): Promise<PublishResult> => {
   try {
-    await publish(output, `${JSON.stringify(snapshot, null, 2)}\n`);
-    return null;
+    await writeAtomically(output, `${JSON.stringify(snapshot, null, 2)}\n`);
+    return { ok: true };
   } catch (error) {
-    return { kind: 'failed', phase: 'publish', diagnostics: [String(error)] };
+    return { ok: false, diagnostics: [String(error)] };
   }
 };
 
@@ -166,7 +183,7 @@ type Collected = {
 const collect = async (
   config: ResolvedConfig,
   program: ts.Program,
-  options: ExtractOptions,
+  options: SnapshotOptions,
 ): Promise<Stage<Collected>> => {
   const indexed = buildCoreFacts(program, config);
   const run = await runPlugins({
@@ -188,10 +205,11 @@ const collect = async (
   };
 };
 
-export const extract = async (
+/** config から snapshot を組み立てるまで。ファイルには触らない */
+export const extractSnapshot = async (
   configFile: string,
-  options: ExtractOptions = {},
-): Promise<ExtractionResult> => {
+  options: SnapshotOptions = {},
+): Promise<SnapshotResult> => {
   const configStage = await readConfig(configFile);
   if (!configStage.ok) return configStage.failure;
   const config = configStage.value;
@@ -213,14 +231,32 @@ export const extract = async (
   });
   if (!snapshotStage.ok) return snapshotStage.failure;
 
-  const output = outputPathOf(config, options);
-  const writeFailure = await publishSnapshot(output, snapshotStage.value);
-  if (writeFailure !== null) return writeFailure;
   return {
-    kind: 'published',
-    snapshotId: snapshotStage.value.snapshotId,
-    output,
+    kind: 'extracted',
+    snapshot: snapshotStage.value,
+    output: config.output,
     reports: run.plugins.flatMap((plugin) => plugin.reports),
     ignoreRecommendations: run.ignoreRecommendations,
+  };
+};
+
+export const extract = async (
+  configFile: string,
+  options: ExtractOptions = {},
+): Promise<ExtractionResult> => {
+  const extracted = await extractSnapshot(configFile, options);
+  if (extracted.kind === 'failed') return extracted;
+
+  const output = options.output === undefined ? extracted.output : resolve(options.output);
+  const published = await publish(output, extracted.snapshot);
+  if (!published.ok) {
+    return { kind: 'failed', phase: 'publish', diagnostics: published.diagnostics };
+  }
+  return {
+    kind: 'published',
+    snapshotId: extracted.snapshot.snapshotId,
+    output,
+    reports: extracted.reports,
+    ignoreRecommendations: extracted.ignoreRecommendations,
   };
 };

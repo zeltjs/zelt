@@ -47,6 +47,7 @@
   },
   "dependencies": {
     "@zeltjs/decorator-metadata": "workspace:*",
+    "@zeltjs/studio-extract": "workspace:*",
     "chokidar": "5.0.0",
     "citty": "0.1.6",
     "consola": "3.4.2",
@@ -62,15 +63,9 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@zeltjs/core": "workspace:*",
-    "@zeltjs/eventbus": "workspace:*",
     "c12": "3.0.4",
     "tsdown": "catalog:",
     "typescript": "catalog:"
-  },
-  "dependenciesMeta": {
-    "@zeltjs/eventbus": {
-      "injected": true
-    }
   },
   "volta": {
     "extends": "../../package.json"

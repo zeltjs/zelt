@@ -1,4 +1,6 @@
-// NOTE: temporary duplicate of mocks/studio-spatial/src/snapshot-schema.lib.ts; the UI will import this module once the two are unified (see generic-extraction-design.md appendix K).
+// この JSON 契約の SoT。node/typescript を引き込まない葉モジュールに保ち、`@zeltjs/studio-extract/snapshot`
+// として UI からも読めるようにしている。mocks/studio-spatial/src/snapshot-schema.lib.ts はまだ手写しの
+// 重複が残っており、UI 移設(T3)でこのモジュールへの import に置き換えて消す(付録K)。
 import type { InferOutput } from 'valibot';
 import {
   array,

@@ -110,11 +110,6 @@ const config: KnipConfig = {
       // (analyzer-runner.lib.ts) to spawn the analyzer child process, so the
       // import is invisible to knip's static analysis.
       ignoreDependencies: ['jiti', '@zeltjs/core', 'tsx'],
-      // test-fixtures apps are executed by the studio analyzer as a disposable
-      // tsx child process, so nothing imports them statically. They resolve
-      // their dependencies from packages/cli/node_modules, so they must stay
-      // visible to knip (declaring them as entry, not ignoring them).
-      entry: ['test-fixtures/*/src/app.ts'],
       // Production mode analyses the shipped CLI only. The first pattern is
       // knip's default project glob restated with the production suffix ('!');
       // the '!...!' entries are negated in production mode only, so they say
@@ -129,6 +124,22 @@ const config: KnipConfig = {
         '!test-fixtures/**!',
         '!src/studio/graph/graph-diff.lib.ts!',
       ],
+    },
+    'packages/studio-extract': {
+      // tsx is resolved at runtime via createRequire(...).resolve('tsx/cli')
+      // (zelt-inspect-runner.lib.ts) to spawn the inspector child process.
+      // @zeltjs/eventbus is only reached by the fixture app below, which the
+      // child process loads through node resolution, not a static import.
+      ignoreDependencies: ['tsx', '@zeltjs/eventbus'],
+      // The fixture app is executed by the inspector as a disposable tsx child
+      // process, so nothing imports it statically. It resolves its dependencies
+      // from packages/studio-extract/node_modules, so it must stay visible to
+      // knip (declaring it as entry, not ignoring it).
+      entry: ['test-fixtures/*/src/app.ts'],
+      // test-fixtures is material for the extractor tests, never bundled. The
+      // first pattern is knip's default project glob restated with the
+      // production suffix ('!'); see packages/cli for the same shape.
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!test-fixtures/**!'],
     },
     'packages/testing': {
       // node:test requires @types/node for types - referenced via optional peer dependency

@@ -4,13 +4,13 @@ import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import type { ExtractionResult, ExtractOptions } from '@zeltjs/studio-extract';
+import { extract } from '@zeltjs/studio-extract';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 
 import type { CliRuntime } from './cli-runtime.lib';
 import { nodeCliRuntime } from './cli-runtime.lib';
-import type { ExtractionResult, ExtractOptions } from './studio/extraction';
-import { extract } from './studio/extraction';
 import { runAnalyzer, startStudioServer } from './studio/index';
 
 const DEFAULT_PORT = 4400;
@@ -18,11 +18,12 @@ const DEFAULT_PORT = 4400;
 // ビルド後は dist/cli.js から見た dist/studio/analyzer-entry.js
 const analyzerPath = fileURLToPath(new URL('./studio/analyzer-entry.js', import.meta.url));
 
-// 同じく dist/cli.js から見た dist の entry。tsx で source から動かすときは隣の .ts になる
-const ZELT_ENTRY = './studio/extraction/plugins/zelt-inspect-entry';
-const zeltEntryPath = [`${ZELT_ENTRY}.js`, `${ZELT_ENTRY}.ts`]
-  .map((candidate) => fileURLToPath(new URL(candidate, import.meta.url)))
-  .find((candidate) => existsSync(candidate));
+// dist/cli.js から見た、tsdown が studio-extract の source から出す子プロセス entry。
+// source から動かすときは存在しないため、studio-extract 自身が隣の .ts を使う
+const distZeltEntry = fileURLToPath(
+  new URL('./studio-extract/zelt-inspect-entry.js', import.meta.url),
+);
+const zeltEntryPath = existsSync(distZeltEntry) ? distZeltEntry : undefined;
 const staticDir = fileURLToPath(new URL('./studio-ui', import.meta.url));
 
 // citty の ArgsDef は optional な string 引数も `string` 型に見せるため、

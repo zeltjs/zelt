@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveExtractConfig } from './extract-config.lib';
 
-// cwd はルート実行と packages/cli 実行で変わるため、このファイルからの相対で辿る
-const REPO_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../../../../..');
+// cwd はルート実行と packages/studio-extract 実行で変わるため、このファイルからの相対で辿る
+const REPO_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../../..');
 const EC_CONFIG = join(REPO_ROOT, 'mocks/studio-spatial/ec-backend.extract.json');
 
 const minimal = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({

@@ -12,9 +12,5 @@
     "erasableSyntaxOnly": false
   },
   "include": ["src/**/*"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../adapter-node" },
-    { "path": "../studio-extract" }
-  ]
+  "references": [{ "path": "../core" }, { "path": "../decorator-metadata" }]
 }

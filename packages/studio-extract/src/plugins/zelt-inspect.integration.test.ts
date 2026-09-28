@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { runZeltInspect } from './zelt-inspect-runner.lib';
 
-const ROOT = resolve(__dirname, '../../../../test-fixtures/studio-app');
+const ROOT = resolve(__dirname, '../../test-fixtures/studio-app');
 const ENTRY = resolve(__dirname, './zelt-inspect-entry.ts');
 
 describe('zelt inspector (integration)', () => {

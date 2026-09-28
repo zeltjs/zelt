@@ -14,7 +14,8 @@
     { "path": "packages/redis" },
     { "path": "packages/eventbus" },
     { "path": "packages/rate-limit" },
-    { "path": "packages/validator-valibot" }
+    { "path": "packages/validator-valibot" },
+    { "path": "packages/studio-extract" }
   ],
   "files": []
 }

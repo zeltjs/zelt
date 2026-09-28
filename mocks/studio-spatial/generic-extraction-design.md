@@ -798,7 +798,7 @@ flowchart LR
 | `inject()` の依存と行 | `getDependencySources(source, { tsconfig })` |
 | Configが差し替える基底 | `Object.getPrototypeOf(cls)` |
 
-子プロセスが返すJSON（[zelt-inspect-protocol.ts](../../packages/cli/src/studio/extraction/plugins/zelt-inspect-protocol.ts)、schemaを正とする）:
+子プロセスが返すJSON（[zelt-inspect-protocol.ts](../../packages/studio-extract/src/plugins/zelt-inspect-protocol.ts)、schemaを正とする）:
 
 ~~~ts
 // package配下ならpackage名、そうでなければroot相対path
@@ -871,7 +871,7 @@ event購読のbusはadaptorのgroup ID（内部の照合用）。同じappで同
 
 子プロセスはOSのsandboxではなく、moduleのトップレベル副作用は起こりうる。Zelt無効時は子プロセスもapp importも行わない。DBやネットワークへ接続しないappを入力条件とする。
 
-**event・lifecycle・Unitのsetupは今回の作り直しに含めない**（別に扱う）。この3つは作り直し前のTSの読み方を[zelt-eventbus.lib.ts](../../packages/cli/src/studio/extraction/plugins/zelt-eventbus.lib.ts)・[zelt-lifecycle.lib.ts](../../packages/cli/src/studio/extraction/plugins/zelt-lifecycle.lib.ts)・[zelt-test-setup.lib.ts](../../packages/cli/src/studio/extraction/plugins/zelt-test-setup.lib.ts)に残している。
+**event・lifecycle・Unitのsetupは今回の作り直しに含めない**（別に扱う）。この3つは作り直し前のTSの読み方を[zelt-eventbus.lib.ts](../../packages/studio-extract/src/plugins/zelt-eventbus.lib.ts)・[zelt-lifecycle.lib.ts](../../packages/studio-extract/src/plugins/zelt-lifecycle.lib.ts)・[zelt-test-setup.lib.ts](../../packages/studio-extract/src/plugins/zelt-test-setup.lib.ts)に残している。
 
 ### E. Library
 
@@ -1212,8 +1212,8 @@ CLI内の独立モジュールとして置き、package公開やplugin配布機�
 
 ~~~mermaid
 flowchart TB
-  CLI["CLI: studio extract<br/>config読取・publish"] --> CORE["extraction/core<br/>schema / 索引 / 組立<br/>TSの知識。Zelt importなし"]
-  CLI --> PLUGINS["extraction/plugins<br/>zelt / vitest / libraries / requests"]
+  CLI["CLI: studio extract<br/>config読取・publish"] --> CORE["studio-extract の src/core<br/>schema / 索引 / 組立<br/>TSの知識。Zelt importなし"]
+  CLI --> PLUGINS["studio-extract の plugins<br/>zelt / vitest / libraries / requests"]
   PLUGINS --> CORE
   PLUGINS --> CHILD["Zeltの子プロセス<br/>appを読みJSONを返す"]
   UI["Studio SPA<br/>v1 schemaを読む"] --> SCHEMA["共通JSON schema<br/>TS/Node/Zeltへのruntime依存なし"]
@@ -1222,15 +1222,15 @@ flowchart TB
 
 | 箱 | 場所 |
 | --- | --- |
-| config・生成入口 | packages/cli/src/studio/extraction/run.lib.ts（段取り）、run-plugins.lib.ts（plugin実行）、extraction-program.lib.ts（Program生成）、core/extract-config.lib.ts。既存studioコマンドのextract。既存serverは置き換えない |
-| コア（TS索引・値追跡） | extraction/core/core-facts.lib.ts（段取り）、core-index.lib.ts（索引・線の登録）、core-declarations.lib.ts（宣言の収集）、core-relations.lib.ts（線の走査）、core-sites.lib.ts（所在と原文の引き口）、test-scope.lib.ts（値の由来追跡） |
+| config・生成入口 | packages/studio-extract/src/run.lib.ts（段取り）、run-plugins.lib.ts（plugin実行）、extraction-program.lib.ts（Program生成）、core/extract-config.lib.ts。既存studioコマンドのextract。既存serverは置き換えない |
+| コア（TS索引・値追跡） | studio-extract の src/core/core-facts.lib.ts（段取り）、core-index.lib.ts（索引・線の登録）、core-declarations.lib.ts（宣言の収集）、core-relations.lib.ts（線の走査）、core-sites.lib.ts（所在と原文の引き口）、test-scope.lib.ts（値の由来追跡） |
 | Zelt plugin（ASTを読まない） | plugins/zelt.lib.ts（段取り）、zelt-blueprint.lib.ts（runtimeの記録 → 材料）、zelt-inspect-entry.ts（子プロセス）、zelt-inspect-runner.lib.ts（起動・timeout）、zelt-inspect-protocol.ts（JSONのschema）、zelt-inspect-resolve.lib.ts（appと同じinstanceの解決） |
 | Zelt pluginのうち今回作り直さないもの | zelt-eventbus.lib.ts（event）、zelt-lifecycle.lib.ts（`lifecycle.register`）、zelt-test-setup.lib.ts（Unitのsetup）、zelt-context.lib.ts・zelt-runtime.lib.ts（この3つが使うTSの索引と小道具） |
 | 他のpluginと組立 | vitest.lib.ts、library.lib.ts（valibot.lib.ts・drizzle.lib.ts が共用）、http-requests.lib.ts、core/assemble.lib.ts（assemble-materials / -groups / -tests に分割） |
-| JSON契約 | extraction/core/snapshot-schema.lib.ts。Valibot schemaを正とし、公開型はInferOutputで生成。ブラウザ用exportにTS/Node importを混ぜない |
+| JSON契約 | studio-extract の src/core/snapshot-schema.lib.ts。Valibot schemaを正とし、公開型はInferOutputで生成。ブラウザ用exportにTS/Node importを混ぜない |
 | Zeltの読取API | [HTTP feature](../../packages/core/src/features/http/http.feature.ts)、[routing metadata](../../packages/core/src/features/http/routing/routing-metadata.lib.ts)、[eventbus feature](../../packages/eventbus/src/eventbus.feature.ts)、[class source](../../packages/decorator-metadata/src/inspect/class-source.lib.ts)。既存の読み取り口だけを使い、coreには何も足さない |
 
-子プロセスはcli.jsに束ねず、`dist/studio/extraction/plugins/zelt-inspect-entry.js` として出してtsxが直接実行する（既存のanalyzer-entryと同じ扱い）。
+子プロセスはcli.jsに束ねず、`dist/studio-extract/zelt-inspect-entry.js` として出してtsxが直接実行する（既存のanalyzer-entryと同じ扱い）。
 
 schemaはCLIの専用subpathからexportし、UIはそこだけimportする。現在の[src/snapshot-schema.lib.ts](src/snapshot-schema.lib.ts)をそこへ移し、coreとUIで二重管理しない。UIへのビルド時依存であり、静的配信時にCLIやNodeは不要。
 
