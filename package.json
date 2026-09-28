@@ -30,7 +30,7 @@
     "verify-dist": "node scripts/verify-dist-imports.mjs",
     "verify-dist:runtime-contracts": "node scripts/verify-dist-runtime-contracts.mjs",
     "verify-generated:openapi": "pnpm --filter @examples/hello generate:openapi && git diff --exit-code -- examples/hello/generated/openapi.json",
-    "verify-generated:studio-snapshot": "node packages/cli/dist/cli.js studio extract --config packages/studio-ui/ec-backend.extract.json && git diff --exit-code -- packages/studio-ui/test-fixtures/ec-backend.snapshot.json"
+    "verify-generated:studio-snapshot": "./scripts/verify-generated-studio-snapshot.sh"
   },
   "devDependencies": {
     "@9wick/eslint-plugin-strict-type-rules": "^1.5.0",

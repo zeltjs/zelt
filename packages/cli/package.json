@@ -41,13 +41,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsdown && pnpm -C studio-ui build",
+    "build": "tsdown && node ./scripts/copy-studio-ui.mjs",
     "test": "vitest run",
     "typecheck": "tsc -b"
   },
   "dependencies": {
     "@zeltjs/decorator-metadata": "workspace:*",
-    "@zeltjs/studio-extract": "workspace:*",
     "chokidar": "5.0.0",
     "citty": "0.1.6",
     "consola": "3.4.2",
@@ -63,6 +62,8 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@zeltjs/core": "workspace:*",
+    "@zeltjs/studio-extract": "workspace:*",
+    "@zeltjs/studio-ui": "workspace:*",
     "c12": "3.0.4",
     "tsdown": "catalog:",
     "typescript": "catalog:"

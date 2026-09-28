@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "project": {
+    "id": "studio-app",
+    "name": "Studio App Fixture"
+  },
+  "root": ".",
+  "tsconfig": "tsconfig.json",
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.test.ts", "**/dist/**", "**/node_modules/**"],
+  "mapPackages": [],
+  "ignore": [
+    {
+      "package": "@zeltjs/core",
+      "exports": [
+        "inject",
+        "Controller",
+        "Get",
+        "UseMiddleware",
+        "Injectable",
+        "Middleware",
+        "Config"
+      ]
+    }
+  ],
+  "sourceText": ["src/**"],
+  "sourceModules": {},
+  "plugins": [
+    {
+      "id": "zelt",
+      "applications": [
+        {
+          "id": "fixture",
+          "app": {
+            "filePath": "src/app.ts",
+            "exportName": "app"
+          }
+        }
+      ],
+      "setupFiles": [],
+      "setupDetails": true,
+      "timeoutMs": 120000
+    }
+  ],
+  "presentation": {
+    "id": "studio-app-spatial",
+    "columns": [
+      {
+        "id": "column:composition",
+        "label": "Composition",
+        "width": 310,
+        "initiallyHidden": false
+      },
+      { "id": "column:app", "label": "App", "width": 310, "initiallyHidden": false },
+      { "id": "column:other", "label": "Other", "width": 310, "initiallyHidden": false }
+    ],
+    "rules": [
+      { "files": ["src/app.ts"], "columnId": "column:composition" },
+      { "files": ["src/**"], "columnId": "column:app" }
+    ],
+    "fallbackColumnId": "column:other"
+  },
+  "required": [
+    { "provider": "ts", "feature": "declarations" },
+    { "provider": "zelt", "feature": "routes" }
+  ],
+  "output": "dist/studio-app.snapshot.json"
+}

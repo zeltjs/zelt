@@ -1,5 +1,6 @@
 import type { ChildProcessByStdio } from 'node:child_process';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import type { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
@@ -90,8 +91,7 @@ export type RunInspectOptions = {
   readonly timeoutMs: number;
 };
 
-/** app を読み込む子プロセスを起動し、JSON を受け取る(付録D) */
-export const runZeltInspect = (options: RunInspectOptions): Promise<InspectResult> =>
+const spawnZeltInspect = (options: RunInspectOptions): Promise<InspectResult> =>
   new Promise((resolvePromise) => {
     let child: ChildProcessByStdio<null, Readable, Readable>;
     try {
@@ -141,3 +141,16 @@ export const runZeltInspect = (options: RunInspectOptions): Promise<InspectResul
       resolvePromise({ ok: false, errorOutput: String(error) });
     });
   });
+
+/** app を読み込む子プロセスを起動し、JSON を受け取る(付録D) */
+export const runZeltInspect = async (options: RunInspectOptions): Promise<InspectResult> => {
+  // entry を取り違えたときは tsx の起動失敗として現れ、原因が読み取れない。
+  // 「entry が無い」ことは spawn する前に名指しで報告する
+  if (!existsSync(options.entryPath)) {
+    return {
+      ok: false,
+      errorOutput: `the zelt inspector entry does not exist: ${options.entryPath}`,
+    };
+  }
+  return spawnZeltInspect(options);
+};

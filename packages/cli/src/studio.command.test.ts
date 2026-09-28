@@ -1,28 +1,46 @@
-import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AnalyzeResult, StudioServer } from './studio/index';
-import {
-  handleExport,
-  isExtractInvocation,
-  resolvePort,
-  runExtract,
-  serveStudio,
-} from './studio.command';
+import { describe, expect, it, vi } from 'vitest';
 
-const okResult: AnalyzeResult = {
-  ok: true,
-  graph: { version: 3, nodes: [], edges: [], tests: [] },
+import type { StudioPlan } from './studio.command';
+import { planStudio, resolvePort, runExtract, runServe } from './studio.command';
+import type { StudioServer } from './studio-serve.lib';
+
+const makeRuntime = () => ({ setExitCode: vi.fn() });
+
+const FIXTURE_CONFIG = resolve(
+  __dirname,
+  '../../studio-extract/test-fixtures/studio-app/studio-app.extract.json',
+);
+
+const servePlan: Extract<StudioPlan, { kind: 'serve' }> = {
+  kind: 'serve',
+  configFile: 'demo.extract.json',
+  port: 4400,
+  open: false,
+  allowIncomplete: false,
 };
 
-const errorResult: AnalyzeResult = { ok: false, errorOutput: 'boom' };
+const extractPlan: Extract<StudioPlan, { kind: 'extract' }> = {
+  kind: 'extract',
+  configFile: 'demo.extract.json',
+  output: undefined,
+  allowIncomplete: false,
+};
 
-const makeRuntime = () => ({
-  setExitCode: vi.fn(),
-  writeStdout: vi.fn(),
+const emptySnapshotJson = JSON.stringify({
+  schemaVersion: 1,
+  snapshotId: 'a'.repeat(64),
+  project: { id: 'demo', name: 'Demo' },
+  provenance: 'extracted',
+  graph: { groups: [], presentation: { id: 'demo', columns: [] } },
 });
+
+const startedServer: StudioServer = {
+  url: 'http://localhost:4400',
+  address: { address: '127.0.0.1', family: 'IPv4', port: 4400 },
+  close: () => Promise.resolve(),
+};
 
 describe('resolvePort', () => {
   it('defaults to 4400 when unspecified', () => {
@@ -54,200 +72,280 @@ describe('resolvePort', () => {
   });
 });
 
-describe('handleExport', () => {
-  let testDir: string;
-
-  beforeEach(async () => {
-    testDir = await mkdtemp(join(tmpdir(), 'zelt-studio-command-test-'));
+describe('planStudio', () => {
+  it('plans a serve run on the default port', () => {
+    expect(planStudio([], { config: 'demo.extract.json' })).toEqual({
+      kind: 'serve',
+      configFile: 'demo.extract.json',
+      port: 4400,
+      open: false,
+      allowIncomplete: false,
+    });
   });
 
-  it('writes the graph JSON to stdout when export path is "-"', async () => {
-    const runtime = makeRuntime();
-    const analyze = vi.fn().mockResolvedValue(okResult);
-
-    const handled = await handleExport(testDir, analyze, '-', runtime);
-
-    expect(handled).toBe(true);
-    expect(runtime.writeStdout).toHaveBeenCalledWith(
-      `${JSON.stringify(okResult.graph, null, 2)}\n`,
-    );
-    expect(runtime.setExitCode).not.toHaveBeenCalled();
+  it('carries --port, --open and --allow-incomplete into the serve plan', () => {
+    expect(
+      planStudio([], {
+        config: 'demo.extract.json',
+        port: '5000',
+        open: true,
+        'allow-incomplete': true,
+      }),
+    ).toEqual({
+      kind: 'serve',
+      configFile: 'demo.extract.json',
+      port: 5000,
+      open: true,
+      allowIncomplete: true,
+    });
   });
 
-  it('writes the graph JSON to a file when export path is a real path', async () => {
-    const runtime = makeRuntime();
-    const analyze = vi.fn().mockResolvedValue(okResult);
-
-    const handled = await handleExport(testDir, analyze, 'out.json', runtime);
-
-    expect(handled).toBe(true);
-    await expect(readFile(join(testDir, 'out.json'), 'utf8')).resolves.toBe(
-      `${JSON.stringify(okResult.graph, null, 2)}\n`,
-    );
-    expect(runtime.setExitCode).not.toHaveBeenCalled();
+  it('plans an extract run only when extract is the first raw argument', () => {
+    expect(
+      planStudio(['extract', '--config', 'demo.extract.json'], {
+        config: 'demo.extract.json',
+        output: 'out.json',
+      }),
+    ).toEqual({
+      kind: 'extract',
+      configFile: 'demo.extract.json',
+      output: 'out.json',
+      allowIncomplete: false,
+    });
   });
 
-  it('reports analyzer failure and sets exit code 1 without writing anything', async () => {
-    const runtime = makeRuntime();
-    const analyze = vi.fn().mockResolvedValue(errorResult);
-
-    const handled = await handleExport(testDir, analyze, '-', runtime);
-
-    expect(handled).toBe(true);
-    expect(runtime.setExitCode).toHaveBeenCalledWith(1);
-    expect(runtime.writeStdout).not.toHaveBeenCalled();
+  it('rejects a missing --config', () => {
+    expect(planStudio([], {})).toEqual({
+      kind: 'invalid',
+      message: 'zelt studio requires --config <name>.extract.json',
+    });
   });
 
-  it('is not requested when export was never passed (undefined)', async () => {
-    const runtime = makeRuntime();
-    const analyze = vi.fn().mockResolvedValue(okResult);
-
-    const handled = await handleExport(testDir, analyze, undefined, runtime);
-
-    expect(handled).toBe(false);
-    expect(analyze).not.toHaveBeenCalled();
-    expect(runtime.setExitCode).not.toHaveBeenCalled();
+  it('names the subcommand when extract is invoked without --config', () => {
+    expect(planStudio(['extract'], { config: '' })).toEqual({
+      kind: 'invalid',
+      message: 'zelt studio extract requires --config <name>.extract.json',
+    });
   });
 
-  // Critical regression: `--export -` (space-separated) makes citty parse "-" as
-  // "no value" rather than the literal string "-", so args.export becomes "" —
-  // identical to what an empty --export= would produce. This must surface as an
-  // explicit user error, never silently fall through to starting the server.
-  it('treats an empty export value as a usage error, not "no export requested"', async () => {
-    const runtime = makeRuntime();
-    const analyze = vi.fn().mockResolvedValue(okResult);
+  it('rejects an invalid --port before anything is extracted', () => {
+    expect(planStudio([], { config: 'demo.extract.json', port: '70000' })).toEqual({
+      kind: 'invalid',
+      message: 'Invalid port: 70000',
+    });
+  });
 
-    const handled = await handleExport(testDir, analyze, '', runtime);
+  it.each([
+    '--export',
+    '--export=-',
+    '--export=out.json',
+  ])('rejects the removed %s flag instead of silently serving', (flag) => {
+    const plan = planStudio([flag, '--config', 'demo.extract.json'], {
+      config: 'demo.extract.json',
+    });
+    expect(plan).toEqual({
+      kind: 'invalid',
+      message: expect.stringContaining('--export was removed'),
+    });
+  });
 
-    expect(handled).toBe(true);
-    expect(analyze).not.toHaveBeenCalled();
-    expect(runtime.setExitCode).toHaveBeenCalledWith(1);
-    expect(runtime.writeStdout).not.toHaveBeenCalled();
+  // 旧 studio は zelt.config.ts を受けていた。同じ引数で呼ばれたときに
+  // 「JSON として読めない」ではなく廃止を伝える
+  it.each([
+    'zelt.config.ts',
+    'zelt.config.mts',
+    'studio.config.js',
+  ])('rejects %s with the removed-format message', (configFile) => {
+    const plan = planStudio([], { config: configFile });
+    expect(plan.kind).toBe('invalid');
+    expect(plan.kind === 'invalid' && plan.message).toContain('zelt.config.ts based studio');
   });
 });
 
-describe('serveStudio', () => {
-  let staticDir: string;
-
-  beforeEach(async () => {
-    staticDir = await mkdtemp(join(tmpdir(), 'zelt-studio-command-serve-test-'));
-    await mkdir(staticDir, { recursive: true });
-  });
-
-  it('starts the server and opens the browser when requested', async () => {
-    const runtime = { setExitCode: vi.fn() };
-    const server: StudioServer = { url: 'http://localhost:4400', close: vi.fn() };
-    const startServer = vi.fn().mockResolvedValue(server);
+describe('runServe', () => {
+  it('starts the server with the extracted snapshot and opens the browser when asked', async () => {
+    const runtime = makeRuntime();
+    const startServer = vi.fn().mockResolvedValue(startedServer);
     const openBrowser = vi.fn();
-    const analyze = vi.fn().mockResolvedValue(okResult);
 
-    await serveStudio(analyze, process.cwd(), 4400, true, runtime, startServer, openBrowser);
+    const server = await runServe('/cwd', { ...servePlan, open: true }, runtime, {
+      extractSnapshotJson: () =>
+        Promise.resolve({
+          kind: 'extracted' as const,
+          json: emptySnapshotJson,
+          output: '/cwd/out.json',
+          reports: [],
+          ignoreRecommendations: [],
+        }),
+      startServer,
+      openBrowser,
+      locateStudioUi: () => '/static',
+    });
 
-    expect(openBrowser).toHaveBeenCalledWith(server.url);
+    expect(server).toBe(startedServer);
+    expect(startServer).toHaveBeenCalledWith({
+      port: 4400,
+      staticDir: '/static',
+      snapshotJson: emptySnapshotJson,
+    });
+    expect(openBrowser).toHaveBeenCalledWith(startedServer.url);
     expect(runtime.setExitCode).not.toHaveBeenCalled();
   });
 
-  it('does not open the browser when not requested', async () => {
-    const runtime = { setExitCode: vi.fn() };
-    const server: StudioServer = { url: 'http://localhost:4400', close: vi.fn() };
-    const startServer = vi.fn().mockResolvedValue(server);
+  it('does not open the browser unless --open was passed', async () => {
+    const runtime = makeRuntime();
     const openBrowser = vi.fn();
-    const analyze = vi.fn().mockResolvedValue(okResult);
-
-    await serveStudio(analyze, process.cwd(), 4400, false, runtime, startServer, openBrowser);
-
+    await runServe('/cwd', servePlan, runtime, {
+      extractSnapshotJson: () =>
+        Promise.resolve({
+          kind: 'extracted' as const,
+          json: emptySnapshotJson,
+          output: '/cwd/out.json',
+          reports: [],
+          ignoreRecommendations: [],
+        }),
+      startServer: () => Promise.resolve(startedServer),
+      openBrowser,
+      locateStudioUi: () => '/static',
+    });
     expect(openBrowser).not.toHaveBeenCalled();
+  });
+
+  it('resolves --config against the cwd', async () => {
+    const runtime = makeRuntime();
+    const extractSnapshotJson = vi.fn().mockResolvedValue({
+      kind: 'extracted',
+      json: emptySnapshotJson,
+      output: '/cwd/out.json',
+      reports: [],
+      ignoreRecommendations: [],
+    });
+    await runServe('/cwd', { ...servePlan, configFile: 'a/demo.extract.json' }, runtime, {
+      extractSnapshotJson,
+      startServer: () => Promise.resolve(startedServer),
+      locateStudioUi: () => '/static',
+    });
+    expect(extractSnapshotJson).toHaveBeenCalledWith(
+      '/cwd/a/demo.extract.json',
+      expect.objectContaining({ allowIncomplete: false }),
+    );
+  });
+
+  it('exits 1 without starting the server when extraction fails', async () => {
+    const runtime = makeRuntime();
+    const startServer = vi.fn();
+
+    const server = await runServe('/cwd', servePlan, runtime, {
+      extractSnapshotJson: () =>
+        Promise.resolve({
+          kind: 'failed' as const,
+          phase: 'assembly' as const,
+          diagnostics: ['required-feature-missing: zelt/routes'],
+        }),
+      startServer,
+      locateStudioUi: () => '/static',
+    });
+
+    expect(server).toBeUndefined();
+    expect(startServer).not.toHaveBeenCalled();
+    expect(runtime.setExitCode).toHaveBeenCalledWith(1);
   });
 
   it('reports EADDRINUSE as a friendly error instead of throwing', async () => {
-    const runtime = { setExitCode: vi.fn() };
+    const runtime = makeRuntime();
     const bindError = Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' });
-    const startServer = vi.fn().mockRejectedValue(bindError);
-    const openBrowser = vi.fn();
-    const analyze = vi.fn().mockResolvedValue(okResult);
 
     await expect(
-      serveStudio(analyze, process.cwd(), 4400, false, runtime, startServer, openBrowser),
+      runServe('/cwd', servePlan, runtime, {
+        extractSnapshotJson: () =>
+          Promise.resolve({
+            kind: 'extracted' as const,
+            json: emptySnapshotJson,
+            output: '/cwd/out.json',
+            reports: [],
+            ignoreRecommendations: [],
+          }),
+        startServer: () => Promise.reject(bindError),
+        locateStudioUi: () => '/static',
+      }),
     ).resolves.toBeUndefined();
 
     expect(runtime.setExitCode).toHaveBeenCalledWith(1);
-    expect(openBrowser).not.toHaveBeenCalled();
   });
 
   it('propagates non-EADDRINUSE bind failures', async () => {
-    const runtime = { setExitCode: vi.fn() };
-    const startServer = vi.fn().mockRejectedValue(new Error('unexpected'));
-    const openBrowser = vi.fn();
-    const analyze = vi.fn().mockResolvedValue(okResult);
-
+    const runtime = makeRuntime();
     await expect(
-      serveStudio(analyze, process.cwd(), 4400, false, runtime, startServer, openBrowser),
+      runServe('/cwd', servePlan, runtime, {
+        extractSnapshotJson: () =>
+          Promise.resolve({
+            kind: 'extracted' as const,
+            json: emptySnapshotJson,
+            output: '/cwd/out.json',
+            reports: [],
+            ignoreRecommendations: [],
+          }),
+        startServer: () => Promise.reject(new Error('unexpected')),
+        locateStudioUi: () => '/static',
+      }),
     ).rejects.toThrow('unexpected');
     expect(runtime.setExitCode).not.toHaveBeenCalled();
+  });
+
+  it('exits 1 when the installation has no bundled studio UI', async () => {
+    const runtime = makeRuntime();
+    const extractSnapshotJson = vi.fn();
+    const server = await runServe('/cwd', servePlan, runtime, {
+      extractSnapshotJson,
+      locateStudioUi: () => undefined,
+    });
+    expect(server).toBeUndefined();
+    expect(extractSnapshotJson).not.toHaveBeenCalled();
+    expect(runtime.setExitCode).toHaveBeenCalledWith(1);
   });
 });
 
 describe('runExtract', () => {
-  const publishedRun = vi.fn(async () => ({
-    kind: 'published' as const,
-    snapshotId: 'a'.repeat(64),
-    output: '/tmp/out.json',
-    reports: [],
-    ignoreRecommendations: [],
-  }));
-
-  it('refuses to run without --config', async () => {
-    const runtime = makeRuntime();
-    const run = vi.fn();
-    await runExtract(
-      '/cwd',
-      { config: undefined, output: undefined, allowIncomplete: undefined },
-      runtime,
-      run,
-    );
-
-    expect(run).not.toHaveBeenCalled();
-    expect(runtime.setExitCode).toHaveBeenCalledWith(1);
-  });
-
   it('resolves --config and --output against the cwd', async () => {
     const runtime = makeRuntime();
+    const extract = vi.fn().mockResolvedValue({
+      kind: 'published',
+      snapshotId: 'a'.repeat(64),
+      output: '/cwd/b/out.json',
+      reports: [],
+      ignoreRecommendations: [],
+    });
     await runExtract(
       '/cwd',
-      { config: 'a/demo.extract.json', output: 'b/out.json', allowIncomplete: true },
+      { ...extractPlan, configFile: 'a/demo.extract.json', output: 'b/out.json' },
       runtime,
-      publishedRun,
+      { extract },
     );
 
-    expect(publishedRun).toHaveBeenCalledWith(
+    expect(extract).toHaveBeenCalledWith(
       '/cwd/a/demo.extract.json',
-      expect.objectContaining({ output: '/cwd/b/out.json', allowIncomplete: true }),
+      expect.objectContaining({ output: '/cwd/b/out.json', allowIncomplete: false }),
     );
     expect(runtime.setExitCode).not.toHaveBeenCalled();
   });
 
   it('leaves the output path to the config when --output is absent', async () => {
     const runtime = makeRuntime();
-    const run = vi.fn(async () => ({
-      kind: 'published' as const,
+    const extract = vi.fn().mockResolvedValue({
+      kind: 'published',
       snapshotId: 'b'.repeat(64),
       output: '/repo/out.json',
       reports: [],
       ignoreRecommendations: [],
-    }));
-    await runExtract(
-      '/cwd',
-      { config: 'demo.extract.json', output: '', allowIncomplete: undefined },
-      runtime,
-      run,
-    );
+    });
+    await runExtract('/cwd', extractPlan, runtime, { extract });
 
     // zeltEntryPath は CLI の実体の位置から決まるので、値そのものは問わない
-    expect(run).toHaveBeenCalledWith(
+    expect(extract).toHaveBeenCalledWith(
       '/cwd/demo.extract.json',
       expect.objectContaining({ allowIncomplete: false }),
     );
-    expect(run).not.toHaveBeenCalledWith(
+    expect(extract).not.toHaveBeenCalledWith(
       '/cwd/demo.extract.json',
       expect.objectContaining({ output: expect.anything() }),
     );
@@ -255,26 +353,40 @@ describe('runExtract', () => {
 
   it('exits 1 when extraction fails', async () => {
     const runtime = makeRuntime();
-    const run = vi.fn(async () => ({
-      kind: 'failed' as const,
-      phase: 'assembly' as const,
+    const extract = vi.fn().mockResolvedValue({
+      kind: 'failed',
+      phase: 'assembly',
       diagnostics: ['boom'],
-    }));
-    await runExtract(
-      '/cwd',
-      { config: 'demo.extract.json', output: undefined, allowIncomplete: undefined },
-      runtime,
-      run,
-    );
+    });
+    await runExtract('/cwd', extractPlan, runtime, { extract });
 
     expect(runtime.setExitCode).toHaveBeenCalledWith(1);
   });
 });
 
-describe('isExtractInvocation', () => {
-  it('is true only when extract is the first raw argument', () => {
-    expect(isExtractInvocation(['extract', '--config', 'a.json'])).toBe(true);
-    expect(isExtractInvocation(['--config', 'zelt.config.ts'])).toBe(false);
-    expect(isExtractInvocation([])).toBe(false);
-  });
+// runServe の既定のポートだけを使い、何も注入しない。cli 本体が「app を読み込む子プロセスの
+// entry」と「同梱 UI の位置」を自力で解決できているかは、ここでしか確かめられない
+// (fixture の required に zelt/routes を入れてあるので、entry を取り違えると抽出が失敗する)
+describe('zelt studio (serve, end to end)', () => {
+  it('extracts the fixture app and serves it with the studio UI', async () => {
+    const runtime = makeRuntime();
+    let server: StudioServer | undefined;
+    try {
+      server = await runServe(
+        process.cwd(),
+        { ...servePlan, configFile: FIXTURE_CONFIG, port: 0 },
+        runtime,
+      );
+      expect(runtime.setExitCode).not.toHaveBeenCalled();
+      expect(server).toBeDefined();
+      if (server === undefined) return;
+
+      const origin = `http://127.0.0.1:${server.address.port}`;
+      const snapshot: unknown = await (await fetch(`${origin}/snapshot.json`)).json();
+      expect(snapshot).toMatchObject({ schemaVersion: 1, project: { id: 'studio-app' } });
+      expect(await (await fetch(`${origin}/`)).text()).toContain('<div id="root"></div>');
+    } finally {
+      await server?.close();
+    }
+  }, 180_000);
 });

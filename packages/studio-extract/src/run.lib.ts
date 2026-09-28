@@ -37,21 +37,31 @@ export type ExtractOptions = SnapshotOptions & {
 
 export type ExtractionPhase = 'config' | 'index' | 'plugin' | 'assembly' | 'publish';
 
+export type SnapshotFailure = {
+  kind: 'failed';
+  readonly phase: Exclude<ExtractionPhase, 'publish'>;
+  readonly diagnostics: readonly string[];
+};
+
+/** 抽出できた snapshot に付いてくる、中身を解釈しなくても使える情報 */
+type ExtractedMeta = {
+  kind: 'extracted';
+  /** config が指定した出力先。ファイルに書くかどうかは呼び出し側が決める */
+  readonly output: string;
+  readonly reports: readonly AnalysisReport[];
+  /** plugin が出した「意識しなくてよい export」。採否は人が config に書く(4.2) */
+  readonly ignoreRecommendations: readonly IgnoreRecommendation[];
+};
+
 export type SnapshotResult =
-  | {
-      kind: 'extracted';
-      readonly snapshot: StudioSnapshot;
-      /** config が指定した出力先。ファイルに書くかどうかは呼び出し側が決める */
-      readonly output: string;
-      readonly reports: readonly AnalysisReport[];
-      /** plugin が出した「意識しなくてよい export」。採否は人が config に書く(4.2) */
-      readonly ignoreRecommendations: readonly IgnoreRecommendation[];
-    }
-  | {
-      kind: 'failed';
-      readonly phase: Exclude<ExtractionPhase, 'publish'>;
-      readonly diagnostics: readonly string[];
-    };
+  | (ExtractedMeta & { readonly snapshot: StudioSnapshot })
+  | SnapshotFailure;
+
+/**
+ * snapshot を JSON 文字列として返す形。schema 由来の型は valibot の推論を深く辿るため、
+ * 中身を解釈しない利用者 (配信するだけの cli 等) がそれを型に持ち込まずに済むようにする
+ */
+export type SnapshotJsonResult = (ExtractedMeta & { readonly json: string }) | SnapshotFailure;
 
 export type ExtractionResult =
   | {
@@ -69,12 +79,10 @@ export type ExtractionResult =
 
 export type PublishResult = { ok: true } | { ok: false; readonly diagnostics: readonly string[] };
 
-type Failure = Extract<SnapshotResult, { kind: 'failed' }>;
-
 /** 各段の結果。失敗はそのまま extractSnapshot の戻り値になる */
-type Stage<T> = { ok: true; readonly value: T } | { ok: false; readonly failure: Failure };
+type Stage<T> = { ok: true; readonly value: T } | { ok: false; readonly failure: SnapshotFailure };
 
-const failed = (phase: Failure['phase'], diagnostics: readonly string[]): Stage<never> => ({
+const failed = (phase: SnapshotFailure['phase'], diagnostics: readonly string[]): Stage<never> => ({
   ok: false,
   failure: { kind: 'failed', phase, diagnostics },
 });
@@ -163,10 +171,13 @@ const writeAtomically = async (output: string, json: string): Promise<void> => {
   }
 };
 
+/** 配信も書き出しも同じ文字列を使う。snapshot の JSON 表現はここが唯一の定義 */
+const snapshotJson = (snapshot: StudioSnapshot): string => `${JSON.stringify(snapshot, null, 2)}\n`;
+
 /** snapshot をファイルへ公開する。同時実行は lock ファイルで1つに絞る */
 export const publish = async (output: string, snapshot: StudioSnapshot): Promise<PublishResult> => {
   try {
-    await writeAtomically(output, `${JSON.stringify(snapshot, null, 2)}\n`);
+    await writeAtomically(output, snapshotJson(snapshot));
     return { ok: true };
   } catch (error) {
     return { ok: false, diagnostics: [String(error)] };
@@ -238,6 +249,20 @@ export const extractSnapshot = async (
     reports: run.plugins.flatMap((plugin) => plugin.reports),
     ignoreRecommendations: run.ignoreRecommendations,
   };
+};
+
+/**
+ * config から snapshot を組み立て、JSON 文字列として返す。localhost へ配信するだけの
+ * 利用者はこちらを使う (snapshot の形を知らずに済み、直列化の定義も1つに保てる)
+ */
+export const extractSnapshotJson = async (
+  configFile: string,
+  options: SnapshotOptions = {},
+): Promise<SnapshotJsonResult> => {
+  const extracted = await extractSnapshot(configFile, options);
+  if (extracted.kind === 'failed') return extracted;
+  const { snapshot, ...meta } = extracted;
+  return { ...meta, json: snapshotJson(snapshot) };
 };
 
 export const extract = async (

@@ -104,7 +104,9 @@ const config: KnipConfig = {
       // tsx is resolved at runtime via createRequire(...).resolve('tsx/cli')
       // (analyzer-runner.lib.ts) to spawn the analyzer child process, so the
       // import is invisible to knip's static analysis.
-      ignoreDependencies: ['jiti', '@zeltjs/core', 'tsx'],
+      // @zeltjs/studio-ui は import されず、build が vite の成果物を dist へ取り込む
+      // だけの関係なので静的解析には現れない (nx/pnpm に build 順を教えるための宣言)
+      ignoreDependencies: ['jiti', '@zeltjs/core', 'tsx', '@zeltjs/studio-ui'],
       // Production mode analyses the shipped CLI only. The first pattern is
       // knip's default project glob restated with the production suffix ('!');
       // the '!...!' entries are negated in production mode only, so they say
@@ -114,16 +116,31 @@ const config: KnipConfig = {
       // - graph-diff.lib.ts: verification-only module read straight from src by
       //   scripts/diff-studio-v3-graph.mjs; it is not a tsdown entry, so it
       //   never reaches dist.
+      // - scripts/copy-studio-ui.mjs: build script only (package.json scripts are
+      //   invisible to production mode), never part of the shipped module graph.
+      // - studio/server.lib.ts, studio/analyzer-runner.lib.ts: the old serve path,
+      //   no longer reachable from the CLI now that `zelt studio` extracts instead.
       project: [
         '**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!',
         '!test-fixtures/**!',
+        '!scripts/**!',
         '!src/studio/graph/graph-diff.lib.ts!',
+        '!src/studio/server.lib.ts!',
+        '!src/studio/analyzer-runner.lib.ts!',
       ],
     },
     'packages/studio-ui': {
       // e2e は playwright が testDir から拾うため、knip の既定 entry には入らない
       // (src/main.tsx は vite plugin が index.html 経由で見つける)
       entry: ['tests/*.e2e.test.ts'],
+      // fixture.ts / snapshot-builder.lib.ts は test だけが使う材料で、SPA の bundle には
+      // 入らない。production mode は test を見ないので「出荷物ではない」と宣言する
+      // (packages/cli と同じ '!...!' の形)
+      project: [
+        '**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!',
+        '!src/fixture.ts!',
+        '!src/snapshot-builder.lib.ts!',
+      ],
     },
     'packages/studio-extract': {
       // tsx is resolved at runtime via createRequire(...).resolve('tsx/cli')

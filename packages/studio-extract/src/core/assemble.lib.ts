@@ -6,28 +6,42 @@ import { collectMaterials } from './assemble-materials.lib';
 import { assembleTests } from './assemble-tests.lib';
 import type { SourceFacts } from './core-facts.types';
 import type { ResolvedConfig } from './extract-config.lib';
+import type { AnalysisReport } from './plugin.types';
 import { canonicalJson, compare, relationIdOf } from './snapshot-canonical.lib';
 import type { Meaning, SourceGroup, SourceRelation, StudioSnapshot } from './snapshot-schema.lib';
 
 const byId = <T extends { readonly id: string }>(items: readonly T[]): Map<string, T> =>
   new Map(items.map((item) => [item.id, item]));
 
+type Requirement = { readonly provider: string; readonly feature: string };
+
+const reportsFor = (input: AssemblyInput, req: Requirement): readonly AnalysisReport[] =>
+  input.plugins.flatMap((plugin) =>
+    plugin.reports.filter(
+      (report) => report.provider === req.provider && report.feature === req.feature,
+    ),
+  );
+
+/**
+ * required を満たせなかった理由は該当 report の diagnostics にしか無い。それを落とすと
+ * 「complete-in-scope でない」だけが残り、子プロセスが起動できなかった等の原因が消える。
+ */
+const missingRequiredDetail = (reports: readonly AnalysisReport[]): string => {
+  if (reports.length === 0) return 'no plugin reported it';
+  return reports
+    .map((report) =>
+      [report.status, ...report.diagnostics.map((d) => `${d.code} ${d.message}`)].join(': '),
+    )
+    .join('; ');
+};
+
 const missingRequiredFailures = (input: AssemblyInput): AssemblyFailure[] =>
   (input.enforceRequired === false ? [] : input.config.raw.required)
-    .filter(
-      (req) =>
-        !input.plugins.some((plugin) =>
-          plugin.reports.some(
-            (report) =>
-              report.provider === req.provider &&
-              report.feature === req.feature &&
-              report.status === 'complete-in-scope',
-          ),
-        ),
-    )
-    .map((req) => ({
+    .map((req) => ({ req, reports: reportsFor(input, req) }))
+    .filter(({ reports }) => !reports.some((report) => report.status === 'complete-in-scope'))
+    .map(({ req, reports }) => ({
       code: 'required-feature-missing',
-      message: `required feature is not complete-in-scope: ${req.provider}/${req.feature}`,
+      message: `required feature is not complete-in-scope: ${req.provider}/${req.feature} (${missingRequiredDetail(reports)})`,
     }));
 
 const relationsBySubjectOf = (

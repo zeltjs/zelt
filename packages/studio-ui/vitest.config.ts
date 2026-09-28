@@ -14,6 +14,8 @@ export default defineConfig({
         import.meta.dirname,
         '../studio-extract/src/core/snapshot-schema.lib.ts',
       ),
+      // subpath より後に置く: prefix 一致なので先に書くと /snapshot も奪ってしまう
+      '@zeltjs/studio-extract': resolve(import.meta.dirname, '../studio-extract/src/index.ts'),
     },
   },
 });

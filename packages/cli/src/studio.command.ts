@@ -1,30 +1,58 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { ExtractionResult, ExtractOptions } from '@zeltjs/studio-extract';
-import { extract } from '@zeltjs/studio-extract';
+import type {
+  AnalysisReport,
+  ExtractionResult,
+  ExtractOptions,
+  SnapshotJsonResult,
+  SnapshotOptions,
+} from '@zeltjs/studio-extract';
+import { extract, extractSnapshotJson } from '@zeltjs/studio-extract';
 import { defineCommand } from 'citty';
 import consola from 'consola';
 
 import type { CliRuntime } from './cli-runtime.lib';
 import { nodeCliRuntime } from './cli-runtime.lib';
-import { runAnalyzer, startStudioServer } from './studio/index';
+import type { StartStudioServerOptions, StudioServer } from './studio-serve.lib';
+import { startStudioServer } from './studio-serve.lib';
 
 const DEFAULT_PORT = 4400;
 
-// ビルド後は dist/cli.js から見た dist/studio/analyzer-entry.js
-const analyzerPath = fileURLToPath(new URL('./studio/analyzer-entry.js', import.meta.url));
+// bundle 後は dist/cli.js の隣、source から動かすときは workspace のそれぞれの成果物。
+// 先に見つかった方を使うので、どちらの起動でも同じ子プロセス/同じ UI が使われる
+const INSPECT_ENTRY_LOCATIONS = [
+  './studio-extract/zelt-inspect-entry.js',
+  '../../studio-extract/src/plugins/zelt-inspect-entry.ts',
+];
+const STUDIO_UI_LOCATIONS = ['./studio-ui', '../../studio-ui/dist'];
 
-// dist/cli.js から見た、tsdown が studio-extract の source から出す子プロセス entry。
-// source から動かすときは存在しないため、studio-extract 自身が隣の .ts を使う
-const distZeltEntry = fileURLToPath(
-  new URL('./studio-extract/zelt-inspect-entry.js', import.meta.url),
-);
-const zeltEntryPath = existsSync(distZeltEntry) ? distZeltEntry : undefined;
-const staticDir = fileURLToPath(new URL('./studio-ui', import.meta.url));
+const firstExisting = (locations: readonly string[]): string | undefined => {
+  for (const location of locations) {
+    const path = fileURLToPath(new URL(location, import.meta.url));
+    if (existsSync(path)) return path;
+  }
+  return undefined;
+};
+
+const inspectEntryPath = firstExisting(INSPECT_ENTRY_LOCATIONS);
+const studioUiDir = firstExisting(STUDIO_UI_LOCATIONS);
+
+// zelt.config.ts を渡す旧 studio は廃止済み。無言で「config が読めない」に落とさず、
+// 移行先を名指しで伝える
+const LEGACY_CONFIG_EXTENSIONS: readonly string[] = ['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs'];
+const LEGACY_CONFIG_MESSAGE =
+  'zelt studio takes an extract config JSON (--config <name>.extract.json). The zelt.config.ts based studio was removed.';
+
+// citty は知らない引数を黙って捨てるので、廃止した --export はここで名指しで断る
+// (放っておくと「書き出すつもりが配信が始まる」ことになる)
+const REMOVED_EXPORT_MESSAGE =
+  '--export was removed. Use `zelt studio extract --config <name>.extract.json [--output <path>]`.';
+
+const hasRemovedExportFlag = (rawArgs: readonly string[]): boolean =>
+  rawArgs.some((arg) => arg === '--export' || arg.startsWith('--export='));
 
 // citty の ArgsDef は optional な string 引数も `string` 型に見せるため、
 // 実際の optionality (未指定時は undefined) を持つ型で受け直す
@@ -32,21 +60,18 @@ type StudioArgs = {
   readonly config?: string;
   readonly port?: string;
   readonly open?: boolean;
-  readonly export?: string;
   readonly output?: string;
   readonly 'allow-incomplete'?: boolean;
 };
 
-export const isExtractInvocation = (rawArgs: readonly string[]): boolean =>
-  rawArgs[0] === 'extract';
-
-type Analyze = () => ReturnType<typeof runAnalyzer>;
-
-// テストでは setExitCode/writeStdout だけを vi.fn() で差し替える（dev-server.lib.ts の
-// Pick<CliRuntime, 'onSignal' | 'offSignal'> と同じ、必要な範囲だけを DI する方針）
-type StudioRuntime = Pick<CliRuntime, 'setExitCode' | 'writeStdout'>;
-type StartServer = typeof startStudioServer;
+type StudioRuntime = Pick<CliRuntime, 'setExitCode'>;
 type OpenBrowser = (url: string) => void;
+type StartServer = (options: StartStudioServerOptions) => Promise<StudioServer>;
+type SnapshotExtract = (
+  configFile: string,
+  options: SnapshotOptions,
+) => Promise<SnapshotJsonResult>;
+type FileExtract = (configFile: string, options: ExtractOptions) => Promise<ExtractionResult>;
 
 const openBrowser: OpenBrowser = (url) => {
   // Windows の start は cmd の built-in なので直接 spawn できない
@@ -83,76 +108,58 @@ export const resolvePort = (portArg: string | undefined): number | undefined => 
   return Number.isInteger(port) && port >= 0 && port <= 65535 ? port : undefined;
 };
 
-const exportGraph = async (
-  cwd: string,
-  analyze: Analyze,
-  exportPath: string,
-  runtime: StudioRuntime,
-): Promise<void> => {
-  const result = await analyze();
-  if (!result.ok) {
-    consola.error(result.errorOutput);
-    runtime.setExitCode(1);
-    return;
-  }
-  const json = JSON.stringify(result.graph, null, 2);
-  if (exportPath === '-') {
-    runtime.writeStdout(`${json}\n`);
-    return;
-  }
-  await writeFile(resolve(cwd, exportPath), `${json}\n`);
-  consola.success(`Graph written to ${exportPath}`);
-};
-
-// citty は `--export -` のように値が "-" 単体だとフラグへの値なしと解釈し、
-// args.export を "" にする（未指定の undefined とは区別できる）。
-// これを nonEmpty() で undefined と同一視すると、export のつもりが無言で
-// サーバ起動にフォールバックしてしまうため、"" は専用のエラーとして扱う。
-// 戻り値 true は「run() はこれ以上進めず return してよい」ことを示す。
-export const handleExport = async (
-  cwd: string,
-  analyze: Analyze,
-  exportArg: string | undefined,
-  runtime: StudioRuntime,
-): Promise<boolean> => {
-  if (exportArg === '') {
-    consola.error('--export requires a value. Use --export=<path> or --export=- for stdout.');
-    runtime.setExitCode(1);
-    return true;
-  }
-  if (exportArg === undefined) return false;
-  await exportGraph(cwd, analyze, exportArg, runtime);
-  return true;
-};
-
-/** @throws {Error} from server.lib.ts:startStudioServer (non-EADDRINUSE bind failures) */
-export const serveStudio = async (
-  analyze: Analyze,
-  cwd: string,
-  port: number,
-  open: boolean,
-  runtime: Pick<CliRuntime, 'setExitCode'>,
-  startServer: StartServer = startStudioServer,
-  doOpenBrowser: OpenBrowser = openBrowser,
-): Promise<void> => {
-  try {
-    const server = await startServer({ port, staticDir, analyze, cwd });
-    consola.success(`zelt studio running at ${server.url}`);
-    if (open) doOpenBrowser(server.url);
-  } catch (error) {
-    if (isEaddrinuse(error)) {
-      consola.error(`Port ${port} is already in use. Try --port <other>`);
-      runtime.setExitCode(1);
-      return;
+export type StudioPlan =
+  | {
+      kind: 'serve';
+      readonly configFile: string;
+      readonly port: number;
+      readonly open: boolean;
+      readonly allowIncomplete: boolean;
     }
-    throw error;
-  }
+  | {
+      kind: 'extract';
+      readonly configFile: string;
+      readonly output: string | undefined;
+      readonly allowIncomplete: boolean;
+    }
+  | { kind: 'invalid'; readonly message: string };
+
+const missingConfigMessage = (extractOnly: boolean): string =>
+  `zelt studio${extractOnly ? ' extract' : ''} requires --config <name>.extract.json`;
+
+const planServe = (args: StudioArgs, configFile: string, allowIncomplete: boolean): StudioPlan => {
+  const port = resolvePort(args.port);
+  if (port === undefined) return { kind: 'invalid', message: `Invalid port: ${args.port ?? ''}` };
+  return { kind: 'serve', configFile, port, open: args.open ?? false, allowIncomplete };
 };
 
-type ExtractRun = (configFile: string, options: ExtractOptions) => ReturnType<typeof extract>;
+/** 引数の解釈だけを行う。IO を伴う判定 (config の実在など) は実行側に残す */
+export const planStudio = (rawArgs: readonly string[], args: StudioArgs): StudioPlan => {
+  // citty の subCommands は親の run も続けて呼ぶため、ここで分岐する
+  // (既存の `zelt studio --config <file>` を壊さないため subCommands は使わない)
+  if (hasRemovedExportFlag(rawArgs)) return { kind: 'invalid', message: REMOVED_EXPORT_MESSAGE };
+  const extractOnly = rawArgs[0] === 'extract';
+  const configFile = nonEmpty(args.config);
+  if (configFile === undefined) {
+    return { kind: 'invalid', message: missingConfigMessage(extractOnly) };
+  }
+  if (LEGACY_CONFIG_EXTENSIONS.includes(extname(configFile))) {
+    return { kind: 'invalid', message: LEGACY_CONFIG_MESSAGE };
+  }
+  const allowIncomplete = args['allow-incomplete'] ?? false;
+  if (extractOnly) {
+    return { kind: 'extract', configFile, output: nonEmpty(args.output), allowIncomplete };
+  }
+  return planServe(args, configFile, allowIncomplete);
+};
 
-const logExtraction = (result: Extract<ExtractionResult, { kind: 'published' }>): void => {
-  for (const report of result.reports) {
+const snapshotOptions = (allowIncomplete: boolean): SnapshotOptions => ({
+  allowIncomplete,
+  ...(inspectEntryPath === undefined ? {} : { zeltEntryPath: inspectEntryPath }),
+});
+
+const logReports = (reports: readonly AnalysisReport[]): void => {
+  for (const report of reports) {
     consola.info(`${report.provider}/${report.feature}: ${report.status}`);
     for (const diagnostic of report.diagnostics) {
       consola.warn(
@@ -160,6 +167,32 @@ const logExtraction = (result: Extract<ExtractionResult, { kind: 'published' }>)
       );
     }
   }
+};
+
+const logFailure = (failure: Extract<ExtractionResult, { kind: 'failed' }>): void => {
+  consola.error(`studio extract failed during ${failure.phase}`);
+  for (const diagnostic of failure.diagnostics) consola.error(diagnostic);
+};
+
+export type ExtractPorts = { readonly extract?: FileExtract };
+
+export const runExtract = async (
+  cwd: string,
+  plan: Extract<StudioPlan, { kind: 'extract' }>,
+  runtime: StudioRuntime,
+  ports: ExtractPorts = {},
+): Promise<void> => {
+  const outputArg = plan.output;
+  const result = await (ports.extract ?? extract)(resolve(cwd, plan.configFile), {
+    ...snapshotOptions(plan.allowIncomplete),
+    ...(outputArg === undefined ? {} : { output: resolve(cwd, outputArg) }),
+  });
+  if (result.kind === 'failed') {
+    logFailure(result);
+    runtime.setExitCode(1);
+    return;
+  }
+  logReports(result.reports);
   // 採否は人が config に書く。抽出器は勝手に適用しない (4.2)
   for (const recommendation of result.ignoreRecommendations) {
     consola.info(
@@ -169,50 +202,81 @@ const logExtraction = (result: Extract<ExtractionResult, { kind: 'published' }>)
   consola.success(`Snapshot ${result.snapshotId.slice(0, 12)} written to ${result.output}`);
 };
 
-type ExtractArgs = {
-  readonly config: string | undefined;
-  readonly output: string | undefined;
-  readonly allowIncomplete: boolean | undefined;
+export type ServePorts = {
+  readonly extractSnapshotJson?: SnapshotExtract;
+  readonly startServer?: StartServer;
+  readonly openBrowser?: OpenBrowser;
+  /** UI の同梱先。壊れたインストールでは見つからないため undefined を返しうる */
+  readonly locateStudioUi?: () => string | undefined;
 };
 
-const extractOptions = (cwd: string, args: ExtractArgs): ExtractOptions => {
-  const outputArg = nonEmpty(args.output);
-  return {
-    ...(outputArg === undefined ? {} : { output: resolve(cwd, outputArg) }),
-    allowIncomplete: args.allowIncomplete ?? false,
-    ...(zeltEntryPath === undefined ? {} : { zeltEntryPath }),
-  };
+const ownStudioUi = (): string | undefined => studioUiDir;
+
+/** @throws {Error} from studio-serve.lib.ts:startStudioServer (non-EADDRINUSE bind failures) */
+const listenAndAnnounce = async (
+  options: StartStudioServerOptions,
+  open: boolean,
+  runtime: StudioRuntime,
+  ports: ServePorts,
+): Promise<StudioServer | undefined> => {
+  try {
+    const server = await (ports.startServer ?? startStudioServer)(options);
+    consola.success(`zelt studio running at ${server.url}`);
+    if (open) (ports.openBrowser ?? openBrowser)(server.url);
+    return server;
+  } catch (error) {
+    if (isEaddrinuse(error)) {
+      consola.error(`Port ${options.port} is already in use. Try --port <other>`);
+      runtime.setExitCode(1);
+      return undefined;
+    }
+    throw error;
+  }
 };
 
-export const runExtract = async (
+/** @throws {Error} from studio.command.ts:listenAndAnnounce */
+export const runServe = async (
   cwd: string,
-  args: ExtractArgs,
-  runtime: Pick<CliRuntime, 'setExitCode'>,
-  run: ExtractRun = extract,
-): Promise<void> => {
-  const configFile = nonEmpty(args.config);
-  if (configFile === undefined) {
-    consola.error('zelt studio extract requires --config <extract.json>');
+  plan: Extract<StudioPlan, { kind: 'serve' }>,
+  runtime: StudioRuntime,
+  ports: ServePorts = {},
+): Promise<StudioServer | undefined> => {
+  const staticDir = (ports.locateStudioUi ?? ownStudioUi)();
+  if (staticDir === undefined) {
+    consola.error('The studio UI assets are missing from this @zeltjs/cli installation.');
     runtime.setExitCode(1);
-    return;
+    return undefined;
   }
-  const result = await run(resolve(cwd, configFile), extractOptions(cwd, args));
+  const result = await (ports.extractSnapshotJson ?? extractSnapshotJson)(
+    resolve(cwd, plan.configFile),
+    snapshotOptions(plan.allowIncomplete),
+  );
+  // 抽出に失敗したら配信しない。古い/欠けた構造を画面に出すと、無いものが無いと読めない
   if (result.kind === 'failed') {
-    consola.error(`studio extract failed during ${result.phase}`);
-    for (const diagnostic of result.diagnostics) consola.error(diagnostic);
+    logFailure(result);
     runtime.setExitCode(1);
-    return;
+    return undefined;
   }
-  logExtraction(result);
+  logReports(result.reports);
+  return listenAndAnnounce(
+    { port: plan.port, staticDir, snapshotJson: result.json },
+    plan.open,
+    runtime,
+    ports,
+  );
 };
 
 export const studioCommand = defineCommand({
   meta: {
     name: 'studio',
-    description: 'Visualize the module dependency graph',
+    description: 'Extract the application structure and browse it on localhost',
   },
   args: {
-    config: { type: 'string', alias: 'c', description: 'Path to zelt.config.ts' },
+    config: {
+      type: 'string',
+      alias: 'c',
+      description: 'Path to the extract config JSON (<name>.extract.json)',
+    },
     port: { type: 'string', description: `Port to listen on (default ${DEFAULT_PORT})` },
     open: { type: 'boolean', description: 'Open the browser after start' },
     output: {
@@ -222,44 +286,23 @@ export const studioCommand = defineCommand({
     'allow-incomplete': {
       type: 'boolean',
       // 段階実装の間だけ、未実装 plugin の required で止めずに配信するための逃げ道
-      description: 'extract only: publish even if a required provider/feature has no plugin yet',
-    },
-    export: {
-      type: 'string',
-      // citty の引数パーサーは `--export -` のように値が "-" 単体だと
-      // フラグに値なしと解釈するため、stdout 出力には `=` 構文が必須
-      description: 'Write graph JSON to a file (use --export=- for stdout) and exit',
+      description: 'publish even if a required provider/feature has no plugin yet',
     },
   },
+  /** @throws {Error} from studio.command.ts:runServe */
   async run({ args, rawArgs }) {
     const typedArgs: StudioArgs = args;
     const cwd = nodeCliRuntime.cwd();
-    // citty の subCommands は親の run も続けて呼ぶため、ここで分岐する
-    // (既存の `zelt studio --config <file>` を壊さないため subCommands は使わない)
-    if (isExtractInvocation(rawArgs)) {
-      await runExtract(
-        cwd,
-        {
-          config: typedArgs.config,
-          output: typedArgs.output,
-          allowIncomplete: typedArgs['allow-incomplete'],
-        },
-        nodeCliRuntime,
-      );
-      return;
-    }
-    const analyze: Analyze = () =>
-      runAnalyzer({ cwd, analyzerPath, configFile: nonEmpty(typedArgs.config) });
-
-    if (await handleExport(cwd, analyze, typedArgs.export, nodeCliRuntime)) return;
-
-    const port = resolvePort(typedArgs.port);
-    if (port === undefined) {
-      consola.error(`Invalid port: ${typedArgs.port}`);
+    const plan = planStudio(rawArgs, typedArgs);
+    if (plan.kind === 'invalid') {
+      consola.error(plan.message);
       nodeCliRuntime.setExitCode(1);
       return;
     }
-
-    await serveStudio(analyze, cwd, port, typedArgs.open ?? false, nodeCliRuntime);
+    if (plan.kind === 'extract') {
+      await runExtract(cwd, plan, nodeCliRuntime);
+      return;
+    }
+    await runServe(cwd, plan, nodeCliRuntime);
   },
 });

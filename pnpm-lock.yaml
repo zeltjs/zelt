@@ -324,9 +324,6 @@ importers:
       '@zeltjs/decorator-metadata':
         specifier: workspace:*
         version: link:../decorator-metadata
-      '@zeltjs/studio-extract':
-        specifier: workspace:*
-        version: link:../studio-extract
       chokidar:
         specifier: 5.0.0
         version: 5.0.0
@@ -358,6 +355,12 @@ importers:
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../core
+      '@zeltjs/studio-extract':
+        specifier: workspace:*
+        version: link:../studio-extract
+      '@zeltjs/studio-ui':
+        specifier: workspace:*
+        version: link:../studio-ui
       c12:
         specifier: 3.0.4
         version: 3.0.4
