@@ -1,0 +1,22 @@
+{
+  "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "types": ["vite/client", "node"],
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "skipLibCheck": true,
+    "paths": {
+      // snapshot schema の SoT は studio-extract の葉モジュール。配信された .d.ts は
+      // valibot の schema 型を丸ごと展開していて型のインスタンス化が深くなりすぎるため、
+      // source を直接見る(ここは vite が bundle する browser 専用 workspace なので dist は不要)
+      "@zeltjs/studio-extract/snapshot": ["../studio-extract/src/core/snapshot-schema.lib.ts"]
+    }
+  },
+  "include": ["src", "tests", "*.config.ts", "*.config.mjs"]
+}

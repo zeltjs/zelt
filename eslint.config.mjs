@@ -380,6 +380,35 @@ export default tseslint.config(
     },
   },
   {
+    name: 'allow/studio-ui-react-modules',
+    // double-dot-naming declares a module's role from the Node/DI vocabulary
+    // (.service / .adaptor / .config / ...). These files ARE React modules,
+    // which that vocabulary cannot express: extractSuffix strips only a
+    // trailing ".ts", so no ".tsx" name can ever satisfy the check, and a
+    // hook's role is already carried by the "use" prefix React itself requires
+    // (the same shape as the rule's own on-*.ts pattern for event handlers).
+    files: ['packages/studio-ui/src/**/*.tsx', 'packages/studio-ui/src/views/use-*.ts'],
+    rules: {
+      'zelt/double-dot-naming': 'off',
+    },
+  },
+  {
+    name: 'allow/studio-ui-shared-modules',
+    // These would be .lib.ts by role, but they ARE shared on purpose across
+    // src/, src/views/ and tests/, and no-cross-directory-lib-import forbids a
+    // .lib name exactly for that shape. Keeping the plain name is the only
+    // naming that satisfies both rules without wrapping 10-line modules in
+    // directory barrels.
+    files: [
+      'packages/studio-ui/src/event-chain.ts',
+      'packages/studio-ui/src/labels.ts',
+      'packages/studio-ui/src/fixture.ts',
+    ],
+    rules: {
+      'zelt/double-dot-naming': 'off',
+    },
+  },
+  {
     name: 'allow/public-entrypoints',
     // double-dot-naming protects internal module-role naming. These files ARE
     // the public API sub-paths declared in package.json exports; their names

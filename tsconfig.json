@@ -1,7 +1,6 @@
 {
   "compilerOptions": {},
   "references": [
-    { "path": "mocks/studio-spatial" },
     { "path": "packages/core" },
     { "path": "packages/graphql" },
     { "path": "packages/openapi" },
@@ -15,7 +14,8 @@
     { "path": "packages/eventbus" },
     { "path": "packages/rate-limit" },
     { "path": "packages/validator-valibot" },
-    { "path": "packages/studio-extract" }
+    { "path": "packages/studio-extract" },
+    { "path": "packages/studio-ui" }
   ],
   "files": []
 }

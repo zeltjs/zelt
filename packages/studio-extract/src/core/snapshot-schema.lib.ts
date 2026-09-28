@@ -1,6 +1,6 @@
-// この JSON 契約の SoT。node/typescript を引き込まない葉モジュールに保ち、`@zeltjs/studio-extract/snapshot`
-// として UI からも読めるようにしている。mocks/studio-spatial/src/snapshot-schema.lib.ts はまだ手写しの
-// 重複が残っており、UI 移設(T3)でこのモジュールへの import に置き換えて消す(付録K)。
+// この JSON 契約の SoT。抽出器(node)とブラウザ UI(@zeltjs/studio-ui)の両方がここだけを読むため、
+// node/typescript を引き込まない葉モジュールに保ち、`@zeltjs/studio-extract/snapshot` で公開する。
+// 型も valibot schema から導出したものをここで export する(UI 側に写しを作らない)。
 import type { InferOutput } from 'valibot';
 import {
   array,
@@ -305,3 +305,5 @@ export type EndpointTests = InferOutput<typeof EndpointTestsSchema>;
 export type UnitSetup = InferOutput<typeof UnitSetupSchema>;
 export type AssociationCoverage = InferOutput<typeof AssociationCoverageSchema>;
 export type Hint = InferOutput<typeof HintSchema>;
+export type TsRelation = InferOutput<typeof TsRelationSchema>;
+export type ClassReference = InferOutput<typeof ClassReferenceSchema>;

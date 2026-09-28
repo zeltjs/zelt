@@ -9,11 +9,6 @@ const config: KnipConfig = {
     'scripts/**',
     'integration/**',
   ],
-  // mocks/studio-spatial is a private design mock: it is never published and no
-  // package depends on it, so it ships nothing for --production to check. The
-  // trailing '!' makes this a production-mode-only exclusion; the default run
-  // keeps analysing the workspace in full (files, exports, dependencies).
-  ignoreWorkspaces: ['mocks/studio-spatial!'],
   // throw-trace is invoked indirectly via scripts/throw-trace.sh (which wraps
   // it to exclude studio-ui's JSX from its parser), so knip's package.json
   // scripts scan can't see the reference.
@@ -124,6 +119,11 @@ const config: KnipConfig = {
         '!test-fixtures/**!',
         '!src/studio/graph/graph-diff.lib.ts!',
       ],
+    },
+    'packages/studio-ui': {
+      // e2e は playwright が testDir から拾うため、knip の既定 entry には入らない
+      // (src/main.tsx は vite plugin が index.html 経由で見つける)
+      entry: ['tests/*.e2e.test.ts'],
     },
     'packages/studio-extract': {
       // tsx is resolved at runtime via createRequire(...).resolve('tsx/cli')
