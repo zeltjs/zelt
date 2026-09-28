@@ -173,16 +173,8 @@ export default tseslint.config(
             'expose-ipc.ts',
             // tsx child-process entry point and its wire protocol; the exact
             // basenames are a contract with the parent process spawn path
-            'analyzer-entry.ts',
-            'analyzer-protocol.ts',
             'zelt-inspect-entry.ts',
             'zelt-inspect-protocol.ts',
-            // Vite SPA conventions (studio-ui): the rule strips only a
-            // trailing ".ts", so single-dot ".tsx" entry points never satisfy
-            // the double-dot check no matter how they're named
-            'main.tsx',
-            'app.tsx',
-            'inspector-panel.tsx',
           ],
           allowedPatterns: ['on-*.ts'],
         },
@@ -346,11 +338,9 @@ export default tseslint.config(
       'packages/adapter-electron/src/preload/expose-ipc.ts',
       // Disposable tsx child process: no DI container exists in this throwaway
       // script, so it IS the process boundary (argv/cwd/stdout/exitCode)
-      'packages/cli/src/studio/analyzer-entry.ts',
       'packages/studio-extract/src/plugins/zelt-inspect-entry.ts',
-      // Spawns the analyzer child process with the parent's own node binary
+      // Spawns the inspector child process with the parent's own node binary
       // (process.execPath) so it runs regardless of the host's PATH/shell setup
-      'packages/cli/src/studio/analyzer-runner.lib.ts',
       'packages/studio-extract/src/plugins/zelt-inspect-runner.lib.ts',
     ],
     rules: {
@@ -362,19 +352,6 @@ export default tseslint.config(
     // no-console protects "log through the logger". ConsoleTransport IS the
     // logger's stdout sink; writing to console is its role.
     files: ['packages/core/src/built-in-service/logger/transport/console.transport.ts'],
-    rules: {
-      'no-console': 'off',
-    },
-  },
-  {
-    name: 'allow/studio-ui-browser-boundary',
-    // no-console protects "log through the logger", but studio-ui is a plain
-    // browser SPA with no zelt DI container and therefore no injected logger
-    // to route through. These files ARE the client-side localStorage boundary.
-    files: [
-      'packages/cli/studio-ui/src/positions.lib.ts',
-      'packages/cli/studio-ui/src/settings.lib.ts',
-    ],
     rules: {
       'no-console': 'off',
     },
@@ -509,67 +486,6 @@ export default tseslint.config(
     ],
     rules: {
       '@9wick/strict-type-rules/no-type-predicate': 'off',
-    },
-  },
-  {
-    name: 'debt/studio-app-shape-guard',
-    // analyzer-entry runs in a disposable child process and must narrow the
-    // user's `app` object (loaded from their zelt.config.ts) without importing
-    // core's runtime types (see design doc). FeatureLike.featureClasses is a
-    // function, which schema libraries (Valibot) cannot validate meaningfully,
-    // so a hand-written predicate is the least-bad option here.
-    // Repay: once core exposes a schema-validated app shape, use that instead.
-    files: ['packages/cli/src/studio/analyzer.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-type-predicate': 'off',
-    },
-  },
-  {
-    name: 'debt/studio-graph-json-cast',
-    // Untrusted JSON from the analyzer child process must become a typed
-    // DependencyGraph at this boundary. A mirrored valibot schema would
-    // duplicate graph.types.ts as a second source of truth for the shape;
-    // a narrow cast after a manual field check is the least-bad option here.
-    // Repay: once DependencyGraph is defined via a valibot schema (single
-    // source of truth), replace this cast with schema-derived validation.
-    files: ['packages/cli/src/studio/analyzer-runner.lib.ts'],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
-      '@typescript-eslint/no-unnecessary-condition': 'off',
-    },
-  },
-  {
-    name: 'debt/studio-graph-diff-version-check',
-    // diffGraphs's `actual.version === expected.version` check is statically
-    // always-true (DependencyGraph.version is the single literal 3), but its
-    // real inputs are two independently-parsed JSON files (verify-*.mjs
-    // scripts) that only claim the DependencyGraph type at the read boundary;
-    // the check exists to catch a real-world version mismatch the type
-    // checker cannot see.
-    // Repay: once graph JSON is read through a schema-validated boundary
-    // (see debt/studio-graph-json-cast), this comparison becomes provably
-    // redundant and can be deleted rather than exempted.
-    files: ['packages/cli/src/studio/graph/graph-diff.lib.ts'],
-    rules: {
-      '@typescript-eslint/no-unnecessary-condition': 'off',
-    },
-  },
-  {
-    name: 'debt/studio-ui-untrusted-json',
-    // Same boundary as debt/studio-graph-json-cast, one hop further down the
-    // pipe: the browser SPA receives the same untrusted JSON over HTTP
-    // (/api/graph, /api/reload) and from its own localStorage. A mirrored
-    // valibot schema would duplicate graph.types.ts as a second source of
-    // truth for the shape; a narrow cast is the least-bad option here.
-    // Repay: once DependencyGraph is defined via a valibot schema (single
-    // source of truth), replace these casts with schema-derived validation.
-    files: [
-      'packages/cli/studio-ui/src/app.tsx',
-      'packages/cli/studio-ui/src/positions.lib.ts',
-      'packages/cli/studio-ui/src/settings.lib.ts',
-    ],
-    rules: {
-      '@9wick/strict-type-rules/no-as-assertion': 'off',
     },
   },
   {

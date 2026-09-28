@@ -1,7 +1,6 @@
-// レビュー指摘10: analyzer.integration.test.ts に @zeltjs/eventbus の emit/subscribe を
-// 1組追加し、EventEdge + entry:{kind:'event'} が実際に発見されることをカバーする。
-// constructor は FnNode に列挙されない(design memo: getFunctionDeclarations がコンストラクタを
-// 除外する)ため、on() 呼び出しは通常のメソッドの中に置く必要がある
+// @zeltjs/eventbus の emit/subscribe を1組だけ持つ fixture。
+// GreetingService.greet の emit と対になる購読側で、抽出器が event の対応を
+// 見つけられることをカバーする
 import { Injectable, inject } from '@zeltjs/core';
 import { MemoryEventBusAdaptor } from '@zeltjs/eventbus';
 

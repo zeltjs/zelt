@@ -8,7 +8,7 @@ const deps = {
 
 export default defineConfig([
   {
-    entry: ['src/cli.ts', 'src/index.ts', 'src/config/index.ts', 'src/studio/analyzer-entry.ts'],
+    entry: ['src/cli.ts', 'src/index.ts', 'src/config/index.ts'],
     format: ['esm', 'cjs'],
     dts: true,
     clean: true,

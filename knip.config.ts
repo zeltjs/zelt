@@ -101,9 +101,8 @@ const config: KnipConfig = {
     'packages/cli': {
       // c12 is bundled into the CLI dist, but it imports jiti at runtime.
       // jiti must stay external because its package assets are not bundle-safe.
-      // tsx is resolved at runtime via createRequire(...).resolve('tsx/cli')
-      // (analyzer-runner.lib.ts) to spawn the analyzer child process, so the
-      // import is invisible to knip's static analysis.
+      // tsx は `spawn('tsx', ...)` と、dist に束ねた studio-extract の
+      // createRequire(...).resolve('tsx/cli') から引かれるだけなので静的解析に現れない。
       // @zeltjs/studio-ui は import されず、build が vite の成果物を dist へ取り込む
       // だけの関係なので静的解析には現れない (nx/pnpm に build 順を教えるための宣言)
       ignoreDependencies: ['jiti', '@zeltjs/core', 'tsx', '@zeltjs/studio-ui'],
@@ -112,22 +111,9 @@ const config: KnipConfig = {
       // the '!...!' entries are negated in production mode only, so they say
       // "this is not shipped code", not "don't look at it" — the default run
       // keeps checking all of them.
-      // - test-fixtures: material for the analyzer tests, never bundled.
-      // - graph-diff.lib.ts: verification-only module read straight from src by
-      //   scripts/diff-studio-v3-graph.mjs; it is not a tsdown entry, so it
-      //   never reaches dist.
       // - scripts/copy-studio-ui.mjs: build script only (package.json scripts are
       //   invisible to production mode), never part of the shipped module graph.
-      // - studio/server.lib.ts, studio/analyzer-runner.lib.ts: the old serve path,
-      //   no longer reachable from the CLI now that `zelt studio` extracts instead.
-      project: [
-        '**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!',
-        '!test-fixtures/**!',
-        '!scripts/**!',
-        '!src/studio/graph/graph-diff.lib.ts!',
-        '!src/studio/server.lib.ts!',
-        '!src/studio/analyzer-runner.lib.ts!',
-      ],
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!scripts/**!'],
     },
     'packages/studio-ui': {
       // e2e は playwright が testDir から拾うため、knip の既定 entry には入らない
