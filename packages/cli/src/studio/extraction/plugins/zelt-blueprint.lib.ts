@@ -4,7 +4,7 @@ import type {
   CoreSetupSite,
   CoreSourceSite,
   Evidence,
-  ExportRef,
+  ExportReference,
   Feature,
   Material,
   ResolvedConfig,
@@ -59,7 +59,7 @@ const evidenceOf = (site: CoreSourceSite): readonly Evidence[] => [
 const nameOf = (ref: ZeltClassRef): string => `${ref.package ?? ref.filePath}#${ref.exportName}`;
 
 /** runtime の class 参照を、config の対応表で索引の module へ移す(付録D) */
-const exportRefOf = (input: BlueprintInput, ref: ZeltClassRef): ExportRef | null => {
+const exportRefOf = (input: BlueprintInput, ref: ZeltClassRef): ExportReference | null => {
   if (ref.package === null) return { filePath: ref.filePath, exportName: ref.exportName };
   const module = input.config.sourceModules[ref.package];
   if (module === undefined) return null;

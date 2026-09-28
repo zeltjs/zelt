@@ -1,11 +1,18 @@
 import type ts from 'typescript';
 
-import type { CoreResolver, Diagnostic, Feature, ResolvedConfig, TestScopeConfig } from '../core';
+import type {
+  CoreResolver,
+  Diagnostic,
+  ExportReference,
+  Feature,
+  ResolvedConfig,
+  TestScopeConfig,
+} from '../core';
 
 export type ZeltApplicationConfig = {
   readonly id: string;
   /** createApp() の戻り値を export している場所 */
-  readonly app: { readonly filePath: string; readonly exportName: string };
+  readonly app: ExportReference;
 };
 
 export type ZeltInput = {

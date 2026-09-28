@@ -1,6 +1,7 @@
 import type { InferOutput } from 'valibot';
 import type {
   ClassReferenceSchema,
+  DeclarationKindSchema,
   EndpointTestsSchema,
   GrantedRelationSchema,
   HintSchema,
@@ -20,6 +21,7 @@ import type {
 export type StudioSnapshot = InferOutput<typeof StudioSnapshotSchema>;
 export type SourceGroup = InferOutput<typeof SourceGroupSchema>;
 export type SourceDeclaration = InferOutput<typeof SourceDeclarationSchema>;
+export type DeclarationKind = InferOutput<typeof DeclarationKindSchema>;
 export type TsRelationKind = InferOutput<typeof TsRelationKindSchema>;
 export type TsRelation = InferOutput<typeof TsRelationSchema>;
 export type GrantedRelation = InferOutput<typeof GrantedRelationSchema>;

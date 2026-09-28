@@ -1,39 +1,52 @@
-import type { SetupItem, SourceDeclaration, SourceRelation } from './snapshot.types';
+import type {
+  DeclarationKind,
+  SetupItem,
+  SourceDeclaration,
+  SourceRelation,
+  TsRelationKind,
+} from './snapshot.types';
 
-// Keys cover TS kinds and the meanings/granted kinds known plugins give; unknown kinds show as-is.
-const relationLabels: ReadonlyMap<string, string> = new Map(
+// The schema's closed unions: a kind added there fails to compile until it is labelled here.
+const tsRelationLabels: Record<TsRelationKind, string> = {
+  call: '呼ぶ',
+  read: '読む / 参照',
+  contract: '契約を呼ぶ',
+  type: '型参照',
+  extends: '継承',
+  implements: '実装',
+  override: 'override',
+  construct: '生成',
+};
+const declarationKindLabels: Record<DeclarationKind, string> = {
+  method: 'METHOD',
+  constructor: 'CTOR',
+  function: 'FUNCTION',
+  callback: 'CALLBACK',
+  property: 'PROP',
+  getter: 'GET',
+  signature: 'SIGNATURE',
+  type: 'TYPE',
+  value: 'VALUE',
+};
+
+// Kinds a plugin grants are open, so no type can cover them; unknown kinds show as-is.
+const grantedRelationLabels: ReadonlyMap<string, string> = new Map(
   Object.entries({
-    call: '呼ぶ',
-    read: '読む / 参照',
-    contract: '契約を呼ぶ',
-    type: '型参照',
     schema: '入力検証schema参照',
     table: 'table参照',
     middleware: 'middleware適用',
     event: 'event配送',
     register: '登録',
-    extends: '継承',
-    implements: '実装',
-    override: 'override',
-    construct: '生成',
   }),
 );
-const declarationLabels: ReadonlyMap<string, string> = new Map(
+const meaningLabels: ReadonlyMap<string, string> = new Map(
   Object.entries({
-    method: 'METHOD',
-    constructor: 'CTOR',
-    function: 'FUNCTION',
-    callback: 'CALLBACK',
-    property: 'PROP',
-    getter: 'GET',
-    signature: 'SIGNATURE',
-    type: 'TYPE',
     schema: 'SCHEMA',
     table: 'TABLE',
-    value: 'VALUE',
     'event-type': 'EVENT TYPE',
   }),
 );
+// SetupItem.kind is a plain string in the schema, so setup has no closed part at all.
 const setupLabels: ReadonlyMap<string, string> = new Map(
   Object.entries({
     inject: '注入',
@@ -43,10 +56,17 @@ const setupLabels: ReadonlyMap<string, string> = new Map(
   }),
 );
 
-export const relationKinds: readonly string[] = [...relationLabels.keys()];
+export const relationKinds: readonly string[] = [
+  ...Object.keys(tsRelationLabels),
+  ...grantedRelationLabels.keys(),
+];
 
-function lookup(labels: ReadonlyMap<string, string>, kind: string): string {
-  return labels.get(kind) ?? kind;
+function lookup(
+  closed: Readonly<Record<string, string>>,
+  open: ReadonlyMap<string, string>,
+  kind: string,
+): string {
+  return closed[kind] ?? open.get(kind) ?? kind;
 }
 
 // A granted meaning replaces only what is shown; the TS fact is kept underneath.
@@ -61,7 +81,7 @@ export function grantedKind(relation: SourceRelation): string | null {
 }
 
 export function relationLabel(kind: string): string {
-  return lookup(relationLabels, kind);
+  return lookup(tsRelationLabels, grantedRelationLabels, kind);
 }
 
 export function declarationKind(declaration: SourceDeclaration): string {
@@ -69,9 +89,9 @@ export function declarationKind(declaration: SourceDeclaration): string {
 }
 
 export function declarationLabel(declaration: SourceDeclaration): string {
-  return lookup(declarationLabels, declarationKind(declaration));
+  return lookup(declarationKindLabels, meaningLabels, declarationKind(declaration));
 }
 
 export function setupLabel(setup: SetupItem): string {
-  return lookup(setupLabels, setup.kind);
+  return setupLabels.get(setup.kind) ?? setup.kind;
 }

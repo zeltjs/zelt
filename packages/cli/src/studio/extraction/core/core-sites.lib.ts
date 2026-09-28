@@ -2,14 +2,10 @@ import { resolve } from 'node:path';
 
 import ts from 'typescript';
 
-import type {
-  CoreDeclarationSite,
-  CoreSetupSite,
-  CoreSourceSite,
-  ExportRef,
-} from './core-facts.types';
+import type { CoreDeclarationSite, CoreSetupSite, CoreSourceSite } from './core-facts.types';
 import type { CoreIndex } from './core-index.lib';
 import { locationOf, targetFor } from './core-index.lib';
+import type { ExportReference } from './extract-config.lib';
 import { asSignature, firstLine, memberNameOf } from './source-text.lib';
 
 /**
@@ -46,7 +42,10 @@ const exportedSymbolOf = (
   return undefined;
 };
 
-const exportedDeclarationOf = (index: CoreIndex, ref: ExportRef): ts.Declaration | undefined => {
+const exportedDeclarationOf = (
+  index: CoreIndex,
+  ref: ExportReference,
+): ts.Declaration | undefined => {
   const file = sourceFileOf(index, ref.filePath);
   if (file === undefined) return undefined;
   const declarations = exportedSymbolOf(index, file, ref.exportName)?.declarations ?? [];
@@ -66,14 +65,14 @@ const declarationSiteOf = (index: CoreIndex, node: ts.Declaration): CoreDeclarat
   return { id: targetFor(index, node)?.id ?? null, ...wholeSite(index, name ?? node) };
 };
 
-export const exportSite = (index: CoreIndex, ref: ExportRef): CoreDeclarationSite | null => {
+export const exportSite = (index: CoreIndex, ref: ExportReference): CoreDeclarationSite | null => {
   const declaration = exportedDeclarationOf(index, ref);
   return declaration === undefined ? null : declarationSiteOf(index, declaration);
 };
 
 export const memberSite = (
   index: CoreIndex,
-  ref: ExportRef,
+  ref: ExportReference,
   member: string,
 ): CoreDeclarationSite | null => {
   const declaration = exportedDeclarationOf(index, ref);
@@ -123,7 +122,7 @@ export const setupSites = (index: CoreIndex, id: string): readonly CoreSetupSite
 export const mentionSites = (
   index: CoreIndex,
   ownerId: string,
-  ref: ExportRef,
+  ref: ExportReference,
 ): readonly CoreSourceSite[] => {
   const declaration = exportedDeclarationOf(index, ref);
   if (declaration === undefined) return [];

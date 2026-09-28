@@ -1,3 +1,4 @@
+import type { AssemblyFailure } from './assemble.types';
 import type { Feature } from './extract-config.lib';
 import type {
   AnalysisReport,
@@ -26,12 +27,10 @@ export type TestMaterialSource = {
   readonly reports: readonly AnalysisReport[];
 };
 
-export type TestAssemblyFailure = { readonly code: string; readonly message: string };
-
 export type TestAssembly = {
   readonly unitTestsOf: (subject: string) => UnitTests;
   readonly e2eTestsOf: (subject: string) => EndpointTests | null;
-  readonly failures: readonly TestAssemblyFailure[];
+  readonly failures: readonly AssemblyFailure[];
 };
 
 const UNIT_FEATURES: readonly Feature[] = ['tests', 'unit-associations'];
@@ -136,7 +135,7 @@ type TestCollection = {
   readonly applications: ApplicationContribution[];
   readonly requests: RequestContribution[];
   readonly routes: Map<string, RouteEntry>;
-  readonly failures: TestAssemblyFailure[];
+  readonly failures: AssemblyFailure[];
 };
 
 const addTestSetup = (collected: TestCollection, value: TestSetupContribution): void => {

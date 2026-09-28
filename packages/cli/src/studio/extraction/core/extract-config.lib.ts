@@ -115,6 +115,8 @@ export const ExtractConfigSchema = object({
 
 export type ExtractConfig = InferOutput<typeof ExtractConfigSchema>;
 export type Feature = InferOutput<typeof FeatureSchema>;
+/** module の export 1件。runtime が返す ClassSource と同じ形 */
+export type ExportReference = Readonly<InferOutput<typeof ExportReferenceSchema>>;
 
 export type ConfigIssue = { readonly path: string; readonly message: string };
 

@@ -1,9 +1,11 @@
+import { match } from 'ts-pattern';
 import type ts from 'typescript';
 
 import type {
   AnalysisReport,
   CoreResolver,
   Evidence,
+  ExtractConfig,
   Feature,
   IgnoreRecommendation,
   Material,
@@ -11,6 +13,7 @@ import type {
   PluginResult,
   ProviderId,
   ResolvedConfig,
+  TestScopeConfig,
 } from './core';
 import { revisionOf } from './extraction-program.lib';
 import type { LibraryInput } from './plugins';
@@ -131,103 +134,70 @@ const accept = (acc: Accumulator, accepted: Accepted): string[] => {
   return [];
 };
 
-const runZelt = async (ctx: PluginRunContext, acc: Accumulator): Promise<string[]> => {
-  const zelt = ctx.config.raw.plugins.find((plugin) => plugin.id === 'zelt');
-  if (zelt === undefined) return [];
-  const revision = revisionOf(ctx.program);
-  const result = await analyzeZelt({
-    program: ctx.program,
-    checker: ctx.program.getTypeChecker(),
-    config: ctx.config,
-    resolver: ctx.resolver,
-    applications: zelt.applications,
-    entryPath: ctx.zeltEntryPath,
-    timeoutMs: zelt.timeoutMs,
-    testScopes: ctx.config.raw.plugins.find((plugin) => plugin.id === 'vitest')?.scopes ?? [],
-    setupDetails: zelt.setupDetails,
-    revision,
-  });
-  return accept(acc, {
-    id: ZELT_PROVIDER,
-    features: ZELT_FEATURES,
-    revision,
-    result,
-    collectIgnores: true,
-  });
+type PluginConfig = ExtractConfig['plugins'][number];
+
+/** どの plugin も受け取る解析の入り口。plugin 固有の設定を持たない LibraryInput と同じ形 */
+const analysisInput = (ctx: PluginRunContext, revision: string): LibraryInput => ({
+  program: ctx.program,
+  checker: ctx.program.getTypeChecker(),
+  config: ctx.config,
+  resolver: ctx.resolver,
+  revision,
+});
+
+/** vitest plugin が無ければ範囲は空。Zelt は登録の形を知らず、範囲だけを受け取る(付録C) */
+const testScopesOf = (ctx: PluginRunContext): readonly TestScopeConfig[] =>
+  match(ctx.config.raw.plugins.find((plugin) => plugin.id === VITEST_PROVIDER))
+    .with({ id: VITEST_PROVIDER }, (vitest) => vitest.scopes)
+    .otherwise(() => []);
+
+/** plugin ごとに違うのは入力の作り方だけ。variant が増えたら exhaustive が compile error にする */
+const analyze = (
+  ctx: PluginRunContext,
+  input: LibraryInput,
+  plugin: PluginConfig,
+): PluginResult | Promise<PluginResult> =>
+  match(plugin)
+    .with({ id: ZELT_PROVIDER }, (zelt) =>
+      analyzeZelt({
+        ...input,
+        applications: zelt.applications,
+        entryPath: ctx.zeltEntryPath,
+        timeoutMs: zelt.timeoutMs,
+        testScopes: testScopesOf(ctx),
+        setupDetails: zelt.setupDetails,
+      }),
+    )
+    .with({ id: VALIBOT_PROVIDER }, () => analyzeValibot(input))
+    .with({ id: DRIZZLE_PROVIDER }, () => analyzeDrizzle(input))
+    .with({ id: VITEST_PROVIDER }, (vitest) =>
+      analyzeVitest({ ...input, scopes: vitest.scopes, globals: vitest.globals }),
+    )
+    .with({ id: HTTP_REQUESTS_PROVIDER }, (requests) =>
+      analyzeHttpRequests({
+        ...input,
+        scopes: requests.scopes,
+        applications: requests.applications,
+        helpers: requests.helpers,
+      }),
+    )
+    .exhaustive();
+
+type Runner = {
+  readonly id: PluginConfig['id'];
+  readonly features: readonly Feature[];
+  /** ignore 提案を出すのは、ホワイトリストを持つ plugin だけ(4.2) */
+  readonly collectIgnores: boolean;
 };
 
-const LIBRARIES = [
-  { id: VALIBOT_PROVIDER, features: VALIBOT_FEATURES, analyze: analyzeValibot },
-  { id: DRIZZLE_PROVIDER, features: DRIZZLE_FEATURES, analyze: analyzeDrizzle },
-] as const;
-
-const runLibraries = (ctx: PluginRunContext, acc: Accumulator): string[] => {
-  for (const library of LIBRARIES) {
-    if (!ctx.config.raw.plugins.some((plugin) => plugin.id === library.id)) continue;
-    const revision = revisionOf(ctx.program);
-    const input: LibraryInput = {
-      program: ctx.program,
-      checker: ctx.program.getTypeChecker(),
-      config: ctx.config,
-      resolver: ctx.resolver,
-      revision,
-    };
-    const violations = accept(acc, {
-      id: library.id,
-      features: library.features,
-      revision,
-      result: library.analyze(input),
-      collectIgnores: true,
-    });
-    if (violations.length > 0) return violations;
-  }
-  return [];
-};
-
-const runVitest = (ctx: PluginRunContext, acc: Accumulator): string[] => {
-  const vitest = ctx.config.raw.plugins.find((plugin) => plugin.id === 'vitest');
-  if (vitest === undefined) return [];
-  const revision = revisionOf(ctx.program);
-  const result = analyzeVitest({
-    program: ctx.program,
-    checker: ctx.program.getTypeChecker(),
-    config: ctx.config,
-    resolver: ctx.resolver,
-    scopes: vitest.scopes,
-    globals: vitest.globals,
-    revision,
-  });
-  return accept(acc, {
-    id: VITEST_PROVIDER,
-    features: VITEST_FEATURES,
-    revision,
-    result,
-    collectIgnores: false,
-  });
-};
-
-const runHttpRequests = (ctx: PluginRunContext, acc: Accumulator): string[] => {
-  const requests = ctx.config.raw.plugins.find((plugin) => plugin.id === 'http-requests');
-  if (requests === undefined) return [];
-  const revision = revisionOf(ctx.program);
-  const result = analyzeHttpRequests({
-    program: ctx.program,
-    checker: ctx.program.getTypeChecker(),
-    config: ctx.config,
-    resolver: ctx.resolver,
-    scopes: requests.scopes,
-    applications: requests.applications,
-    helpers: requests.helpers,
-    revision,
-  });
-  return accept(acc, {
-    id: HTTP_REQUESTS_PROVIDER,
-    features: HTTP_REQUESTS_FEATURES,
-    revision,
-    result,
-    collectIgnores: false,
-  });
-};
+/** 宣言順(zelt → library → vitest → requests)。材料の並びを決めるので入れ替えない */
+const RUNNERS: readonly Runner[] = [
+  { id: ZELT_PROVIDER, features: ZELT_FEATURES, collectIgnores: true },
+  { id: VALIBOT_PROVIDER, features: VALIBOT_FEATURES, collectIgnores: true },
+  { id: DRIZZLE_PROVIDER, features: DRIZZLE_FEATURES, collectIgnores: true },
+  { id: VITEST_PROVIDER, features: VITEST_FEATURES, collectIgnores: false },
+  { id: HTTP_REQUESTS_PROVIDER, features: HTTP_REQUESTS_FEATURES, collectIgnores: false },
+];
 
 export type PluginRunResult =
   | {
@@ -237,7 +207,7 @@ export type PluginRunResult =
     }
   | { ok: false; readonly violations: readonly string[] };
 
-/** config が有効にした plugin を宣言順(zelt → library → vitest → requests)で走らせる */
+/** config が有効にした plugin を RUNNERS の順で走らせる */
 export const runPlugins = async (ctx: PluginRunContext): Promise<PluginRunResult> => {
   const acc: Accumulator = {
     plugins: [
@@ -249,11 +219,19 @@ export const runPlugins = async (ctx: PluginRunContext): Promise<PluginRunResult
     ],
     ignoreRecommendations: [],
   };
-  // zelt だけが子プロセスを待つ。順序は材料の並びを決めるので入れ替えない
-  const zeltViolations = await runZelt(ctx, acc);
-  if (zeltViolations.length > 0) return { ok: false, violations: zeltViolations };
-  for (const run of [runLibraries, runVitest, runHttpRequests]) {
-    const violations = run(ctx, acc);
+  const revision = revisionOf(ctx.program);
+  const input = analysisInput(ctx, revision);
+  for (const runner of RUNNERS) {
+    const plugin = ctx.config.raw.plugins.find((entry) => entry.id === runner.id);
+    if (plugin === undefined) continue;
+    // zelt だけが子プロセスを待つ。await を順番に並べて材料の並びを保つ
+    const violations = accept(acc, {
+      id: runner.id,
+      features: runner.features,
+      revision,
+      result: await analyze(ctx, input, plugin),
+      collectIgnores: runner.collectIgnores,
+    });
     if (violations.length > 0) return { ok: false, violations };
   }
   return { ok: true, plugins: acc.plugins, ignoreRecommendations: acc.ignoreRecommendations };

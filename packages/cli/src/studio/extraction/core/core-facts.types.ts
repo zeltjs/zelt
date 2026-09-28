@@ -1,5 +1,6 @@
 import type ts from 'typescript';
 
+import type { ExportReference } from './extract-config.lib';
 import type { Span } from './plugin.types';
 import type { DeclarationKind, SourceDetail, TsRelationKind } from './snapshot-schema.lib';
 
@@ -56,9 +57,6 @@ export type SetupSiteKind = 'parameter-default' | 'decorator' | 'extends' | 'imp
 
 export type CoreSetupSite = CoreSourceSite & { readonly kind: SetupSiteKind };
 
-/** module の export 1件。runtime が返す ClassSource と同じ形 */
-export type ExportRef = { readonly filePath: string; readonly exportName: string };
-
 /**
  * The part of the index a plugin needs to talk about the same subjects as core.
  * Resolving a whitelisted library member registers its boundary box, so a box
@@ -74,13 +72,13 @@ export type CoreResolver = {
   readonly spanOf: (node: ts.Node, start?: number, end?: number) => Span;
   readonly relativePath: (fileName: string) => string;
   /** module の export が指す宣言 */
-  readonly exportSite: (ref: ExportRef) => CoreDeclarationSite | null;
+  readonly exportSite: (ref: ExportReference) => CoreDeclarationSite | null;
   /** export された class の member(`use`・`constructor` など) */
-  readonly memberSite: (ref: ExportRef, member: string) => CoreDeclarationSite | null;
+  readonly memberSite: (ref: ExportReference, member: string) => CoreDeclarationSite | null;
   /** 宣言に書かれた decorator・継承・既定値の所在と原文 */
   readonly setupSites: (id: string) => readonly CoreSetupSite[];
   /** class を値として書いた箇所。コアは線にしないが、所在は事実として残っている */
-  readonly mentionSites: (ownerId: string, ref: ExportRef) => readonly CoreSourceSite[];
+  readonly mentionSites: (ownerId: string, ref: ExportReference) => readonly CoreSourceSite[];
 };
 
 /** 組立が読む事実だけ。索引の解決 API は持たない */

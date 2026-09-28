@@ -24,8 +24,6 @@ export type Diagnostic = {
   readonly spans: readonly Span[];
 };
 
-export type ExportReference = { readonly filePath: string; readonly exportName: string };
-
 export type DiClass = 'service' | 'config';
 
 export type AnalysisScope = {
