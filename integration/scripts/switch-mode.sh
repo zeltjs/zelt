@@ -257,6 +257,12 @@ EOF
 
 # Mode-level preparation (run once before iterating dirs)
 prepare_dist_mode() {
+  # 呼び出し側が直前に build 済みのときは二重に build しない
+  # (precommit の studio snapshot ドリフト検知がここを通る)
+  if [[ "${ZELT_SKIP_PACKAGE_BUILD:-}" == "1" ]]; then
+    echo "Skipping package build (ZELT_SKIP_PACKAGE_BUILD=1)"
+    return
+  fi
   echo "Building packages..."
   (cd "$ROOT_DIR" && pnpm -r --filter './packages/*' build >/dev/null 2>&1)
 }

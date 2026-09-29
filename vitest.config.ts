@@ -13,7 +13,7 @@ export default defineConfig({
   esbuild: false,
   oxc: false,
   test: {
-    projects: ['packages/*', 'examples/*', 'mocks/studio-spatial'],
+    projects: ['packages/*', 'examples/*'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

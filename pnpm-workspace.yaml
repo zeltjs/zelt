@@ -1,7 +1,5 @@
 packages:
   - 'packages/*'
-  - 'packages/cli/studio-ui'
-  - 'mocks/studio-spatial'
   - 'examples/*'
   - 'website'
 

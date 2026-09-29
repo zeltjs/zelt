@@ -12,5 +12,9 @@
     "erasableSyntaxOnly": false
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../core" }, { "path": "../adapter-node" }]
+  "references": [
+    { "path": "../core" },
+    { "path": "../adapter-node" },
+    { "path": "../studio-extract" }
+  ]
 }

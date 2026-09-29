@@ -9,11 +9,6 @@ const config: KnipConfig = {
     'scripts/**',
     'integration/**',
   ],
-  // mocks/studio-spatial is a private design mock: it is never published and no
-  // package depends on it, so it ships nothing for --production to check. The
-  // trailing '!' makes this a production-mode-only exclusion; the default run
-  // keeps analysing the workspace in full (files, exports, dependencies).
-  ignoreWorkspaces: ['mocks/studio-spatial!'],
   // throw-trace is invoked indirectly via scripts/throw-trace.sh (which wraps
   // it to exclude studio-ui's JSX from its parser), so knip's package.json
   // scripts scan can't see the reference.
@@ -106,29 +101,48 @@ const config: KnipConfig = {
     'packages/cli': {
       // c12 is bundled into the CLI dist, but it imports jiti at runtime.
       // jiti must stay external because its package assets are not bundle-safe.
-      // tsx is resolved at runtime via createRequire(...).resolve('tsx/cli')
-      // (analyzer-runner.lib.ts) to spawn the analyzer child process, so the
-      // import is invisible to knip's static analysis.
-      ignoreDependencies: ['jiti', '@zeltjs/core', 'tsx'],
-      // test-fixtures apps are executed by the studio analyzer as a disposable
-      // tsx child process, so nothing imports them statically. They resolve
-      // their dependencies from packages/cli/node_modules, so they must stay
-      // visible to knip (declaring them as entry, not ignoring them).
-      entry: ['test-fixtures/*/src/app.ts'],
+      // tsx は `spawn('tsx', ...)` と、dist に束ねた studio-extract の
+      // createRequire(...).resolve('tsx/cli') から引かれるだけなので静的解析に現れない。
+      // @zeltjs/studio-ui は import されず、build が vite の成果物を dist へ取り込む
+      // だけの関係なので静的解析には現れない (nx/pnpm に build 順を教えるための宣言)
+      ignoreDependencies: ['jiti', '@zeltjs/core', 'tsx', '@zeltjs/studio-ui'],
       // Production mode analyses the shipped CLI only. The first pattern is
       // knip's default project glob restated with the production suffix ('!');
       // the '!...!' entries are negated in production mode only, so they say
       // "this is not shipped code", not "don't look at it" — the default run
       // keeps checking all of them.
-      // - test-fixtures: material for the analyzer tests, never bundled.
-      // - graph-diff.lib.ts: verification-only module read straight from src by
-      //   scripts/diff-studio-v3-graph.mjs; it is not a tsdown entry, so it
-      //   never reaches dist.
+      // - scripts/copy-studio-ui.mjs: build script only (package.json scripts are
+      //   invisible to production mode), never part of the shipped module graph.
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!scripts/**!'],
+    },
+    'packages/studio-ui': {
+      // e2e は playwright が testDir から拾うため、knip の既定 entry には入らない
+      // (src/main.tsx は vite plugin が index.html 経由で見つける)
+      entry: ['tests/*.e2e.test.ts'],
+      // fixture.ts / snapshot-builder.lib.ts は test だけが使う材料で、SPA の bundle には
+      // 入らない。production mode は test を見ないので「出荷物ではない」と宣言する
+      // (packages/cli と同じ '!...!' の形)
       project: [
         '**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!',
-        '!test-fixtures/**!',
-        '!src/studio/graph/graph-diff.lib.ts!',
+        '!src/fixture.ts!',
+        '!src/snapshot-builder.lib.ts!',
       ],
+    },
+    'packages/studio-extract': {
+      // tsx is resolved at runtime via createRequire(...).resolve('tsx/cli')
+      // (zelt-inspect-runner.lib.ts) to spawn the inspector child process.
+      // @zeltjs/eventbus is only reached by the fixture app below, which the
+      // child process loads through node resolution, not a static import.
+      ignoreDependencies: ['tsx', '@zeltjs/eventbus'],
+      // The fixture app is executed by the inspector as a disposable tsx child
+      // process, so nothing imports it statically. It resolves its dependencies
+      // from packages/studio-extract/node_modules, so it must stay visible to
+      // knip (declaring it as entry, not ignoring it).
+      entry: ['test-fixtures/*/src/app.ts'],
+      // test-fixtures is material for the extractor tests, never bundled. The
+      // first pattern is knip's default project glob restated with the
+      // production suffix ('!'); see packages/cli for the same shape.
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!test-fixtures/**!'],
     },
     'packages/testing': {
       // node:test requires @types/node for types - referenced via optional peer dependency

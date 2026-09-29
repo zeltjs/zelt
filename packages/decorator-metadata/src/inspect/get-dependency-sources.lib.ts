@@ -171,7 +171,7 @@ const declaredClassOf = (
  *
  * 実行時の正準化(resolveClassSource→getClassSource)は decorator metadata を持つクラスに
  * しか効かないため、未デコレートのクラスは barrel のまま残る。barrel には宣言が無く、
- * 宣言を探す側(getClassDeclarations・findClassByExportName)はそこで必ず失敗する。
+ * 宣言を探す側(findClassByExportName)はそこで必ず失敗する。
  */
 const aliasResolved = (cached: CachedProgram, raw: ClassSource): ClassSource => {
   const declaration = declaredClassOf(cached, raw);
