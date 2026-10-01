@@ -6,7 +6,7 @@ import {
 } from '../../../kernel';
 import type { RequestContext } from '../middleware/middleware.types';
 
-const HONO_CONTEXT = createContextKey<RequestContext>('zelt:hono');
+const HONO_CONTEXT = /* @__PURE__ */ createContextKey<RequestContext>('zelt:hono');
 
 /** @throws {ZeltContextNotAvailableError} */
 export const setHonoContext = (ctx: RequestContext): void => {

@@ -7,7 +7,9 @@ type AfterResponseRegistry = {
   flushed: boolean;
 };
 
-const AFTER_RESPONSE_REGISTRY = createContextKey<AfterResponseRegistry>('zelt:http-after-response');
+const AFTER_RESPONSE_REGISTRY = /* @__PURE__ */ createContextKey<AfterResponseRegistry>(
+  'zelt:http-after-response',
+);
 
 /** @throws {ZeltContextNotAvailableError} */
 export const initializeAfterResponseCallbacks = (): void => {

@@ -7,6 +7,7 @@ import { rolldown } from 'rolldown';
 import {
   DI_ONLY_CONSUMER_SOURCE,
   findBundledHonoModules,
+  findBundledCronerModules,
   findForbiddenSpecifiers,
   findSpecifiers,
 } from './tree-shaking-rules.mjs';
@@ -43,17 +44,17 @@ export const bundleConsumer = async ({ corePackageDir, workDir, source, external
       .join('\n');
     const outputFile = path.join(workDir, 'bundle.mjs');
     await writeFile(outputFile, code);
-    return { code, outputFile, honoModules: findBundledHonoModules(output) };
+    return { code, outputFile, honoModules: findBundledHonoModules(output), cronerModules: findBundledCronerModules(output) };
   } finally {
     await build.close();
   }
 };
 
-export const verifyTreeShaking = async ({ corePackageDir, source = DI_ONLY_CONSUMER_SOURCE, externalHono = false }) => {
+export const verifyTreeShaking = async ({ corePackageDir, source = DI_ONLY_CONSUMER_SOURCE, externalHono = false, allowScheduler = false }) => {
   const workDir = await createWorkDir(corePackageDir);
   try {
-    const { code, outputFile, honoModules } = await bundleConsumer({ corePackageDir, workDir, source, externalHono });
-    const forbidden = [...findForbiddenSpecifiers(code), ...honoModules];
+    const { code, outputFile, honoModules, cronerModules } = await bundleConsumer({ corePackageDir, workDir, source, externalHono });
+    const forbidden = [...findForbiddenSpecifiers(code), ...honoModules, ...(allowScheduler ? [] : cronerModules)];
     const runtimeError =
       forbidden.length > 0
         ? undefined
@@ -61,7 +62,7 @@ export const verifyTreeShaking = async ({ corePackageDir, source = DI_ONLY_CONSU
             () => undefined,
             (error) => error,
           );
-    return { specifiers: [...findSpecifiers(code), ...honoModules], forbidden, runtimeError };
+    return { specifiers: [...findSpecifiers(code), ...honoModules, ...cronerModules], forbidden, runtimeError };
   } finally {
     await rm(workDir, { recursive: true, force: true });
   }
@@ -79,7 +80,7 @@ if (isMain) {
   }
   if (forbidden.length > 0) {
     console.error(
-      `\n${forbidden.length} hono specifier(s) survived tree shaking. Check "sideEffects" in packages/core and the kernel → hono edges.`,
+      `\n${forbidden.length} unused feature dependency module(s) survived tree shaking. Check internal chunk boundaries and pure initializers.`,
     );
     process.exit(1);
   }
@@ -90,5 +91,5 @@ if (isMain) {
     console.error(runtimeError);
     process.exit(1);
   }
-  console.log('\n✓ hono is fully tree-shaken and the DI-only bundle runs.');
+  console.log('\n✓ hono and croner are fully tree-shaken and the DI-only bundle runs.');
 }

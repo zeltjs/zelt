@@ -12,7 +12,7 @@ const scheduledPattern = { decorator: 'Scheduled' as const };
 const schedulePattern = {
   decorator: 'Schedule' as const,
   cronExpression: P.string,
-  timezone: P.optional(P.string),
+  timezone: /* @__PURE__ */ P.optional(P.string),
 };
 
 /** @throws {ZeltLifecycleStateError} */

@@ -1,5 +1,6 @@
 import { isClassConstructor, toUnknownCallable } from '@zeltjs/unsafe-type-lib';
-import { match, P } from 'ts-pattern';
+import type { FieldContext, MethodContext } from './decorator-context.lib';
+import { isClassContext, isFieldContext, isMethodContext } from './decorator-context.lib';
 
 import {
   aggregateMembers,
@@ -47,25 +48,6 @@ export type PropertyDecoratorFn = {
 // Adapter Layer - Normalize TC39/Legacy differences
 // =============================================================================
 
-const tc39ClassContextPattern = {
-  kind: 'class' as const,
-  metadata: P.optional(P.nonNullable),
-};
-
-const tc39MethodContextPattern = {
-  kind: 'method' as const,
-  metadata: P.optional(P.nonNullable),
-  static: P.optional(P.boolean),
-  name: P.optional(P.union(P.string, P.symbol)),
-};
-
-const tc39FieldContextPattern = {
-  kind: 'field' as const,
-  metadata: P.optional(P.nonNullable),
-  static: P.optional(P.boolean),
-  name: P.optional(P.union(P.string, P.symbol)),
-};
-
 const getPrototypeKey = (cls: object): object => {
   if (typeof cls !== 'function') return cls;
   const proto: unknown = cls.prototype;
@@ -93,15 +75,13 @@ const adaptClassContext = (handler: ClassHandler): ClassDecoratorFn => {
     const cls = isClassConstructor(args[0]) ? args[0] : undefined;
     if (!cls) return undefined;
 
-    return match(args[1])
-      .with(tc39ClassContextPattern, (ctx) => {
-        handler(cls, ctx.metadata ?? getPrototypeKey(cls));
-        return undefined;
-      })
-      .otherwise(() => {
-        handler(cls, getPrototypeKey(cls));
-        return cls;
-      });
+    const context = args[1];
+    if (isClassContext(context)) {
+      handler(cls, context.metadata ?? getPrototypeKey(cls));
+      return undefined;
+    }
+    handler(cls, getPrototypeKey(cls));
+    return cls;
   }
   return decorate;
 };
@@ -147,10 +127,8 @@ export const dispatchClassOrMethodDecorator = (
     descriptor?: PropertyDescriptor,
   ): void;
   function dispatch(...args: unknown[]): unknown {
-    const isClassDecorator = match(args[1])
-      .with(P.nullish, () => true)
-      .with(tc39ClassContextPattern, () => true)
-      .otherwise(() => false);
+    const context = args[1];
+    const isClassDecorator = context === undefined || context === null || isClassContext(context);
     const fn = isClassDecorator
       ? toUnknownCallable(classDecorate)
       : toUnknownCallable(methodDecorate);
@@ -171,6 +149,42 @@ type MethodHandler = (info: MethodInfo) => void;
 const toDecoratedMethod = (v: unknown): DecoratedMethod | undefined =>
   typeof v === 'function' ? toUnknownCallable(v) : undefined;
 
+const applyMethodContext = (
+  handler: MethodHandler,
+  target: unknown,
+  ctx: MethodContext,
+): undefined => {
+  if (typeof ctx.name !== 'string' && typeof ctx.name !== 'symbol') return undefined;
+  if (!ctx.metadata) return undefined;
+  handler({
+    classKey: ctx.metadata,
+    name: ctx.name,
+    isStatic: ctx.static ?? false,
+    method: toDecoratedMethod(target),
+  });
+  return undefined;
+};
+
+const applyLegacyMethod = (
+  handler: MethodHandler,
+  target: unknown,
+  contextOrName: unknown,
+  descriptor: unknown,
+): undefined => {
+  if (typeof contextOrName !== 'string' && typeof contextOrName !== 'symbol') return undefined;
+  const classKey = asObject(target);
+  if (!classKey) return undefined;
+  const desc: PropertyDescriptor | undefined =
+    typeof descriptor === 'object' && descriptor !== null ? descriptor : undefined;
+  handler({
+    classKey,
+    name: contextOrName,
+    isStatic: typeof target === 'function',
+    method: toDecoratedMethod(desc?.value),
+  });
+  return undefined;
+};
+
 const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
   function decorate(
     value: (...args: never[]) => unknown,
@@ -186,39 +200,33 @@ const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
     const contextOrName = args[1];
     const descriptor = args[2];
 
-    return match(contextOrName)
-      .with(tc39MethodContextPattern, (ctx) => {
-        if (typeof ctx.name !== 'string' && typeof ctx.name !== 'symbol') return undefined;
-        if (!ctx.metadata) return undefined;
-        handler({
-          classKey: ctx.metadata,
-          name: ctx.name,
-          isStatic: ctx.static ?? false,
-          method: toDecoratedMethod(target),
-        });
-        return undefined;
-      })
-      .otherwise(() => {
-        if (typeof contextOrName !== 'string' && typeof contextOrName !== 'symbol') {
-          return undefined;
-        }
-        const classKey = asObject(target);
-        if (!classKey) return undefined;
-        const desc: PropertyDescriptor | undefined =
-          typeof descriptor === 'object' && descriptor !== null ? descriptor : undefined;
-        handler({
-          classKey,
-          name: contextOrName,
-          isStatic: typeof target === 'function',
-          method: toDecoratedMethod(desc?.value),
-        });
-        return undefined;
-      });
+    return isMethodContext(contextOrName)
+      ? applyMethodContext(handler, target, contextOrName)
+      : applyLegacyMethod(handler, target, contextOrName, descriptor);
   }
   return decorate;
 };
 
 type PropertyHandler = (classKey: object, name: string | symbol) => void;
+
+const applyFieldContext = (handler: PropertyHandler, ctx: FieldContext): undefined => {
+  if (typeof ctx.name !== 'string' && typeof ctx.name !== 'symbol') return undefined;
+  if (!ctx.metadata) return undefined;
+  handler(ctx.metadata, ctx.name);
+  return undefined;
+};
+
+const applyLegacyProperty = (
+  handler: PropertyHandler,
+  target: unknown,
+  contextOrName: unknown,
+): undefined => {
+  if (typeof contextOrName !== 'string' && typeof contextOrName !== 'symbol') return undefined;
+  const classKey = asObject(target);
+  if (!classKey) return undefined;
+  handler(classKey, contextOrName);
+  return undefined;
+};
 
 const adaptPropertyContext = (handler: PropertyHandler): PropertyDecoratorFn => {
   function decorate(value: undefined, context: ClassFieldDecoratorContext): void;
@@ -227,22 +235,9 @@ const adaptPropertyContext = (handler: PropertyHandler): PropertyDecoratorFn => 
     const target = args[0];
     const contextOrName = args[1];
 
-    return match(contextOrName)
-      .with(tc39FieldContextPattern, (ctx) => {
-        if (typeof ctx.name !== 'string' && typeof ctx.name !== 'symbol') return undefined;
-        if (!ctx.metadata) return undefined;
-        handler(ctx.metadata, ctx.name);
-        return undefined;
-      })
-      .otherwise(() => {
-        if (typeof contextOrName !== 'string' && typeof contextOrName !== 'symbol') {
-          return undefined;
-        }
-        const classKey = asObject(target);
-        if (!classKey) return undefined;
-        handler(classKey, contextOrName);
-        return undefined;
-      });
+    return isFieldContext(contextOrName)
+      ? applyFieldContext(handler, contextOrName)
+      : applyLegacyProperty(handler, target, contextOrName);
   }
   return decorate;
 };
@@ -335,9 +330,7 @@ export const composeClassDecorators = (...decorators: ClassDecoratorFn[]): Class
       }
     }
 
-    return match(args[1])
-      .with(tc39ClassContextPattern, () => undefined)
-      .otherwise(() => args[0]);
+    return isClassContext(args[1]) ? undefined : args[0];
   }
   return decorate;
 };

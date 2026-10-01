@@ -4,7 +4,7 @@ import { createInjectableClassDecorator } from '../../../kernel';
 // `@ErrorHandler()`), so the decorator function itself is exported. Source
 // position is not needed for ErrorHandler — only the `decorator` tag is used
 // by collectors.
-export const ErrorHandler = createInjectableClassDecorator(
+export const ErrorHandler = /* @__PURE__ */ createInjectableClassDecorator(
   { decorator: 'ErrorHandler' } as const,
   undefined,
   { unique: true },

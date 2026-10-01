@@ -5,7 +5,7 @@ export type CommandContextStore = {
   readonly argv: readonly string[];
 };
 
-const storage = createContextStorage<CommandContextStore>('zelt:command');
+const storage = /* @__PURE__ */ createContextStorage<CommandContextStore>('zelt:command');
 
 export const runInCommandContext = <T>(ctx: CommandContextStore, fn: () => T): T =>
   storage.run(ctx, fn);

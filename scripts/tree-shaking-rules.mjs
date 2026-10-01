@@ -44,3 +44,11 @@ export const findBundledHonoModules = (output) => [...new Set(output
   .flatMap((chunk) => Object.entries(chunk.modules))
   .filter(([id, module]) => /[/\\]node_modules[/\\]hono[/\\]/.test(id) && module.renderedLength > 0)
   .map(([id]) => id))].sort();
+
+
+export const findBundledCronerModules = (output) => [...new Set(output
+  .filter((chunk) => chunk.type === 'chunk')
+  .flatMap((chunk) => Object.entries(chunk.modules))
+  .filter(([id, module]) => (/[/\\]node_modules[/\\]croner[/\\]/.test(id) ||
+    /[/\\]dist[/\\]scheduler-runtime-[^/\\]+\.(?:js|cjs)$/.test(id)) && module.renderedLength > 0)
+  .map(([id]) => id))].sort();
