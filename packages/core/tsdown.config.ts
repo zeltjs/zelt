@@ -1,5 +1,6 @@
 import swc from '@rollup/plugin-swc';
 import { defineConfig } from 'tsdown';
+import { pureClassDecorators } from '../../scripts/pure-class-decorators.mjs';
 
 const swcDecoratorPlugin = swc({
   jsc: {
@@ -9,7 +10,7 @@ const swcDecoratorPlugin = swc({
 });
 
 export default defineConfig({
-  plugins: [swcDecoratorPlugin],
+  plugins: [swcDecoratorPlugin, pureClassDecorators()],
   entry: ['src/index.ts', 'src/internal-bridge/testing.ts', 'src/internal-bridge/errors.ts'],
   format: ['esm', 'cjs'],
   dts: true,

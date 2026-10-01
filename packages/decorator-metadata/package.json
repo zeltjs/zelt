@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Runtime decorator metadata capture and TypeScript type extraction",
   "type": "module",
+  "sideEffects": false,
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -49,9 +50,6 @@
     "typescript": {
       "optional": true
     }
-  },
-  "optionalDependencies": {
-    "typescript-6": "npm:typescript@~6.0.0"
   },
   "dependencies": {
     "import-meta-resolve": "4.2.0",

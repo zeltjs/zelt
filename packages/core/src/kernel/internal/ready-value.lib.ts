@@ -18,7 +18,7 @@ class ReadyValueBase<T extends object> implements DeferredValueHandle<ReadyValue
   declare [READY_VALUE_BRAND]: true;
 }
 
-const protoProxy = new Proxy(ReadyValueBase.prototype, {
+const protoProxy = /* @__PURE__ */ new Proxy(ReadyValueBase.prototype, {
   get(target, prop, receiver: object): unknown {
     if (typeof prop === 'symbol') return Reflect.get(target, prop, receiver);
 
