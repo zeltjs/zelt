@@ -8,7 +8,7 @@ import {
 
 type PathParams = Readonly<Record<string, string>>;
 
-const PATH_PARAMS_CONTEXT = createContextKey<PathParams>('zelt:path-params');
+const PATH_PARAMS_CONTEXT = /* @__PURE__ */ createContextKey<PathParams>('zelt:path-params');
 
 /** @throws {ZeltContextNotAvailableError} */
 export const setPathParams = (params: PathParams): void => {

@@ -16,8 +16,8 @@ import {
 // Identifies which router's bootstrap created the request context store.
 // The creator is the request root: the only error-handling level that must
 // not rethrow, since no parent router exists above it.
-const STORE_CREATOR = createContextKey<symbol>('zelt:request-store-creator');
-const ROOT_REQUEST = createContextKey<Request>('zelt:request-root');
+const STORE_CREATOR = /* @__PURE__ */ createContextKey<symbol>('zelt:request-store-creator');
+const ROOT_REQUEST = /* @__PURE__ */ createContextKey<Request>('zelt:request-root');
 
 // The request context store must exist before any middleware runs (setUser
 // etc. write into it). Only the outermost router actually creates the store;

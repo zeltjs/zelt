@@ -23,7 +23,7 @@ export type StackTrace = {
 // メタデータ全体の共有基盤のため、他の利用箇所への副作用を避ける)
 export const captureStackTrace = (): StackTrace | undefined => {
   const error = new CaptureStackError();
-  if (typeof error.stack !== 'string' || error.stack.length === 0) return undefined;
+  // Preserve registration frames now; inspect formats and validates the stack on demand.
   return { _brand: 'StackTrace', error };
 };
 

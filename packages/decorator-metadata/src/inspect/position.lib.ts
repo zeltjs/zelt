@@ -205,14 +205,19 @@ const findFirstUserPosition = (
   isFrameworkPath: (path: string) => boolean,
 ): Position | undefined => scanForUserPosition(stack.split('\n').slice(2), isFrameworkPath);
 
+const readStack = (error: Error | undefined): string | undefined => {
+  const stack: unknown = error?.stack;
+  return typeof stack === 'string' && stack.length > 0 ? stack : undefined;
+};
+
 // define スタック（デコレータ factory 呼び出し時）にだけ現れるファイルは、factory を
 // 包む wrapper（例: core の createInjectableClassDecorator）とみなして除外対象に加える
 const buildIsExcludedPath = (
   trace: StackTrace,
   baseIsFrameworkPath: (path: string) => boolean,
 ): ((path: string) => boolean) => {
-  const defineStack = trace.error.stack;
-  const callStack = trace.callError?.stack;
+  const defineStack = readStack(trace.error);
+  const callStack = readStack(trace.callError);
   if (!defineStack || !callStack) return baseIsFrameworkPath;
   const wrapperFiles = diffOutsidePackageFiles(defineStack, callStack, baseIsFrameworkPath);
   if (wrapperFiles.length === 0) return baseIsFrameworkPath;
@@ -231,7 +236,7 @@ export const resolvePosition = (
   options?: ResolvePositionOptions,
 ): Position | undefined => {
   if (!trace) return undefined;
-  const stack = trace.error.stack;
+  const stack = readStack(trace.error);
   if (!stack) return undefined;
   return findFirstUserPosition(stack, buildIsFrameworkPath(trace, options));
 };
@@ -289,8 +294,10 @@ const isSandwichedByMachinery = (lines: readonly string[], index: number): boole
  */
 export const resolveDefinitionPosition = (trace: StackTrace | undefined): Position | undefined => {
   if (!trace) return undefined;
+  const stack = readStack(trace.error);
+  if (!stack) return undefined;
   const isExcludedPath = buildIsExcludedPath(trace, isDecoratorMachineryPath);
-  const callStack = trace.callError?.stack;
+  const callStack = readStack(trace.callError);
   if (callStack) {
     const lines = callStack.split('\n').slice(2);
     const pos = scanForUserPosition(lines, isExcludedPath, {
@@ -299,7 +306,5 @@ export const resolveDefinitionPosition = (trace: StackTrace | undefined): Positi
     });
     if (pos) return pos;
   }
-  const stack = trace.error.stack;
-  if (!stack) return undefined;
   return findFirstUserPosition(stack, isExcludedPath);
 };

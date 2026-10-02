@@ -55,7 +55,7 @@ export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
 
 // ─── Helpers ───
 
-const reservedFeatureKeys = new Set([
+const reservedFeatureKeys = /* @__PURE__ */ new Set([
   '__proto__',
   'configs',
   'createRuntime',

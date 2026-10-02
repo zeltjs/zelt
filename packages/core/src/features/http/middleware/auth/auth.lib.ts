@@ -8,7 +8,7 @@ type AuthContext = {
   authRoles?: AuthRoles;
 };
 
-const AUTH_CONTEXT = createContextKey<AuthContext>('zelt:auth-context');
+const AUTH_CONTEXT = /* @__PURE__ */ createContextKey<AuthContext>('zelt:auth-context');
 
 /** @throws {ZeltContextNotAvailableError} */
 export const setUser = (user: AuthUser, roles: AuthRoles = []): void => {

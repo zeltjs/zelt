@@ -9,7 +9,7 @@ export type CommandMetadata = {
 const commandPattern = {
   decorator: 'Command' as const,
   name: P.string,
-  description: P.optional(P.string),
+  description: /* @__PURE__ */ P.optional(P.string),
 };
 
 /** @throws {ZeltLifecycleStateError} */
