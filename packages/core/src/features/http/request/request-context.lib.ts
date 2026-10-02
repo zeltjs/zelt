@@ -1,25 +1,11 @@
-import {
-  createContextKey,
-  getInternal,
-  setInternal,
-  ZeltContextNotAvailableError,
-} from '../../../kernel';
 import type { RequestContext } from '../middleware/middleware.types';
+import { getHonoContext, prepareBodySourceForRawAccess } from './injection';
 
-const HONO_CONTEXT = createContextKey<RequestContext>('zelt:hono');
+export { getHonoContext, setHonoContext } from './injection';
 
-/** @throws {ZeltContextNotAvailableError} */
-export const setHonoContext = (ctx: RequestContext): void => {
-  setInternal(HONO_CONTEXT, ctx);
-};
-
-/** @throws {ZeltContextNotAvailableError} */
+/** @throws {ZeltContextNotAvailableError | TypeError} */
 export const requestContext = (): RequestContext => {
-  const ctx = getInternal(HONO_CONTEXT);
-  if (!ctx)
-    throw new ZeltContextNotAvailableError({
-      primitive: 'requestContext',
-      requiredContext: 'entry',
-    });
+  const ctx = getHonoContext();
+  prepareBodySourceForRawAccess();
   return ctx;
 };

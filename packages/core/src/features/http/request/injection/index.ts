@@ -3,9 +3,11 @@ export {
   bodyRaw,
   getBody,
   hasBodySource,
+  prepareBodySourceForRawAccess,
   readRequestBody,
   setBodySource,
 } from './body.lib';
+export { getHonoContext, setHonoContext } from './hono-context.lib';
 export { middlewareOptions, recordMiddlewareOptions } from './middleware-options.lib';
 export type { MiddlewareValueOf } from './middleware-value.lib';
 export { middlewareValue, recordMiddlewareValue } from './middleware-value.lib';

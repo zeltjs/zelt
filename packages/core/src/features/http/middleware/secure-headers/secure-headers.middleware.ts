@@ -1,5 +1,5 @@
 import { inject } from '../../../../kernel';
-import { requestContext } from '../../request';
+import { getHonoContext } from '../../request';
 import { Middleware } from '../middleware.decorator';
 import type { MiddlewareInstance, Next } from '../middleware.types';
 import { SecureHeadersConfig } from './secure-headers.config';
@@ -46,7 +46,7 @@ export class SecureHeadersMiddleware implements MiddlewareInstance {
   }
 
   /** @throws {ZeltContextNotAvailableError} */
-  async use(next: Next, ctx = requestContext()): Promise<Response | undefined> {
+  async use(next: Next, ctx = getHonoContext()): Promise<Response | undefined> {
     await next();
     const firstHeader = this.firstHeader;
     // Hono's finalized header() makes immutable downstream responses writable.

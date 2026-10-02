@@ -15,7 +15,7 @@ const runInEntryContext = <T>(ctx: TestEntryContext, fn: () => T): T => {
     setHonoContext(ctx.honoContext);
     setBodySource({
       contentType: ctx.honoContext.req.header('content-type') ?? '',
-      request: ctx.honoContext.req.raw.clone(),
+      request: ctx.honoContext.req.raw,
     });
     setPathParams(ctx.pathParams ?? {});
     return fn();

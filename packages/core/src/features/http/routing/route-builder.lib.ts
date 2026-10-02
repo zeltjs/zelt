@@ -172,7 +172,7 @@ const createInjectionMiddleware = (): HonoMiddleware => {
       if (!hasBodySource()) {
         setBodySource({
           contentType: c.req.header('content-type') ?? '',
-          request: c.req.raw.clone(),
+          request: c.req.raw,
         });
       }
       setPathParams(c.req.param());

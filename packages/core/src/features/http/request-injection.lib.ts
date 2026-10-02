@@ -21,7 +21,7 @@ export const createRequestInjectionMiddleware = (): HonoMiddleware => {
     setHonoContext(c);
     setBodySource({
       contentType: c.req.header('content-type') ?? '',
-      request: c.req.raw.clone(),
+      request: c.req.raw,
     });
     setPathParams(c.req.param());
     await next();

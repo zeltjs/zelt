@@ -1,12 +1,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { getCookie } from 'hono/cookie';
 
-import { requestContext } from '../index';
 import {
   AsyncValidationUnsupportedException,
   ValidationFailedException,
 } from '../validated.exceptions';
 import { body, bodyRaw, getBody } from './body.lib';
+import { getHonoContext } from './hono-context.lib';
 import { pathParam } from './path-param.lib';
 import { resolveClientIp } from './resolve-client-ip.lib';
 
@@ -84,7 +84,7 @@ export function request<Schema extends StandardSchemaV1>(
   schema?: Schema,
   opts?: { target?: ValidationTarget },
 ): RequestAccessorBase<unknown> {
-  const ctx = requestContext();
+  const ctx = getHonoContext();
   const bodySchema = schema ?? anySchema;
   const target: ValidationTarget = opts?.target ?? 'json';
 

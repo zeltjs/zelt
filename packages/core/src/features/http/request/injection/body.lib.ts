@@ -16,7 +16,8 @@ export type ParsedBody =
   | { type: 'none'; val: undefined };
 
 type BodyState = {
-  readonly source?: BodySource;
+  source?: BodySource;
+  sourceIsolated?: boolean;
   parsed?: Promise<ParsedBody>;
   raw?: Promise<string | undefined>;
   form?: Promise<ParsedBody>;
@@ -44,24 +45,49 @@ export const setBodySource = (source: BodySource): void => {
   setInternal(BODY_CONTEXT, { source });
 };
 
+const hasCachedBody = (state: BodyState, kind: BodyKind): boolean =>
+  kind === 'multipart' ? Boolean(state.raw && state.form) : Boolean(state.raw);
+
+// Callers of requestContext() may consume or transfer the raw Request.
+// Preserve its body before exposing that context.
+/** @throws {ZeltContextNotAvailableError | TypeError} */
+export const prepareBodySourceForRawAccess = (): void => {
+  const state = getInternal(BODY_CONTEXT);
+  const source = state?.source;
+  if (!state || !source || state.sourceIsolated) return;
+  const kind = resolveBodyKind(source.contentType);
+  if (kind === 'none') return;
+  if (hasCachedBody(state, kind)) return;
+  state.source = { contentType: source.contentType, request: source.request.clone() };
+  state.sourceIsolated = true;
+};
+
 // Lets injection middlewares at different router levels avoid replacing the
 // body source. The request stream is still read lazily by body()/bodyRaw().
 /** @throws {ZeltContextNotAvailableError} */
 export const hasBodySource = (): boolean => getInternal(BODY_CONTEXT) !== undefined;
 
 /** @throws {BadRequestException} */
-export const readRequestBody = async (source: BodySource): Promise<string | undefined> => {
+const readBodyText = async (
+  source: BodySource,
+  preserveSource: boolean,
+): Promise<string | undefined> => {
   if (resolveBodyKind(source.contentType) === 'none') {
     return undefined;
   }
 
   try {
-    return await source.request.clone().text();
+    const request = source.request;
+    return await (preserveSource ? request.clone() : request).text();
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     throw new BadRequestException({ reason: `Invalid body: ${message}` });
   }
 };
+
+/** @throws {BadRequestException} */
+export const readRequestBody = (source: BodySource): Promise<string | undefined> =>
+  readBodyText(source, true);
 
 /** @throws {BadRequestException} */
 const parseJsonBody = (raw: string): ParsedBody => {
@@ -78,7 +104,11 @@ const parseJsonBody = (raw: string): ParsedBody => {
 const parseFormDataBody = async (source: BodySource): Promise<ParsedBody> => {
   try {
     const form: FormBody = {};
-    const formData = await source.request.clone().formData();
+    const request = source.request.clone();
+    if (request.headers.get('content-type') !== source.contentType) {
+      request.headers.set('content-type', source.contentType);
+    }
+    const formData = await request.formData();
     for (const [key, value] of formData) {
       appendFormField(form, key, value);
     }
@@ -160,7 +190,11 @@ const ensureBodySource = (state: BodyState, primitive: string): BodySource => {
 const getBodyRaw = async (): Promise<string | undefined> => {
   const state = getBodyState();
   if (!state.raw) {
-    state.raw = readRequestBody(ensureBodySource(state, 'bodyRaw'));
+    const source = ensureBodySource(state, 'bodyRaw');
+    state.raw = readBodyText(
+      source,
+      !state.sourceIsolated || resolveBodyKind(source.contentType) === 'multipart',
+    );
   }
   return state.raw;
 };
