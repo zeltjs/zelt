@@ -8,6 +8,67 @@ import { request } from './request.lib';
 import { createStandardSchema } from './test.lib';
 
 describe('request() — sync accessors', () => {
+  it('validates every cached body read and preserves the original raw payload', async () => {
+    let validations = 0;
+    const schema = createStandardSchema({
+      validate: (value) => {
+        expect(value).toEqual({ name: 'Ada' });
+        validations++;
+        return { value: { validation: validations } };
+      },
+    });
+    @Controller('/')
+    class C {
+      @Post('/test')
+      async handle() {
+        const req = request(schema);
+        const first = await req.body();
+        const second = await req.body();
+        return { first, second, raw: await req.bodyRaw() };
+      }
+    }
+    const runtime = await createApp([http({ controllers: [C] })]).createRuntime();
+    const raw = '{ "name": "Ada" }';
+
+    const res = await runtime.http.fetch(
+      new Request('http://localhost/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: raw,
+      }),
+    );
+
+    expect(await res.json()).toEqual({
+      first: { validation: 1 },
+      second: { validation: 2 },
+      raw,
+    });
+    expect(validations).toBe(2);
+    await runtime.shutdown();
+  });
+
+  it('keeps schema transformations for an absent body', async () => {
+    const schema = createStandardSchema({
+      validate: (value) => {
+        expect(value).toBeUndefined();
+        return { value: 'empty' };
+      },
+    });
+    @Controller('/')
+    class C {
+      @Get('/test')
+      async handle(req = request(schema)) {
+        return await req.body();
+      }
+    }
+    const runtime = await createApp([http({ controllers: [C] })]).createRuntime();
+
+    const res = await runtime.http.fetch(new Request('http://localhost/test'));
+
+    expect(await res.json()).toBe('empty');
+    await runtime.shutdown();
+  });
+
   it('returns HTTP method', async () => {
     @Controller('/')
     class C {

@@ -1,7 +1,8 @@
 import { inject } from '../../../../kernel';
 import { getHonoContext } from '../../request';
+import { canMutateGeneratedResponse } from '../../response/response-ownership.feature';
 import { Middleware } from '../middleware.decorator';
-import type { MiddlewareInstance, Next } from '../middleware.types';
+import type { MiddlewareInstance, Next, RequestContext } from '../middleware.types';
 import { SecureHeadersConfig } from './secure-headers.config';
 
 type HeaderDefinition = readonly [
@@ -49,12 +50,10 @@ export class SecureHeadersMiddleware implements MiddlewareInstance {
   async use(next: Next, ctx = getHonoContext()): Promise<Response | undefined> {
     await next();
     const firstHeader = this.firstHeader;
-    // Hono's finalized header() makes immutable downstream responses writable.
-    // Use it once, then update the remaining headers without copying the response.
     if (firstHeader) {
-      ctx.header(firstHeader[0], firstHeader[1]);
+      this.setHeader(ctx, firstHeader[0], firstHeader[1]);
     } else if (this.config.removePoweredBy) {
-      ctx.header('X-Powered-By', undefined);
+      this.setHeader(ctx, 'X-Powered-By', undefined);
       return undefined;
     } else {
       return undefined;
@@ -64,5 +63,17 @@ export class SecureHeadersMiddleware implements MiddlewareInstance {
     for (const [name, value] of this.headersToSet) headers.set(name, value);
     if (this.config.removePoweredBy) headers.delete('X-Powered-By');
     return undefined;
+  }
+
+  private setHeader(ctx: RequestContext, name: string, value: string | undefined): void {
+    const res = ctx.res;
+    // Preserve external responses and references held by user middleware.
+    // Newly generated, unobserved JSON responses have writable headers.
+    if (!canMutateGeneratedResponse(ctx, res)) {
+      ctx.header(name, value);
+      return;
+    }
+    if (value === undefined) res.headers.delete(name);
+    else res.headers.set(name, value);
   }
 }

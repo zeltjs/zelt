@@ -1,11 +1,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { getCookie } from 'hono/cookie';
 
+import { UnsupportedMediaTypeException } from '../../http.exceptions';
 import {
   AsyncValidationUnsupportedException,
   ValidationFailedException,
 } from '../validated.exceptions';
-import { body, bodyRaw, getBody } from './body.lib';
+import { bodyRaw, getBody } from './body.lib';
 import { getHonoContext } from './hono-context.lib';
 import { pathParam } from './path-param.lib';
 import { resolveClientIp } from './resolve-client-ip.lib';
@@ -91,9 +92,11 @@ export function request<Schema extends StandardSchemaV1>(
   const accessor: RequestAccessorBase<unknown> = {
     async body() {
       const parsed = await getBody();
-      if (parsed.type === 'none') return validateBody(undefined, bodySchema);
-      const raw = target === 'form' ? await body('form') : await body();
-      return validateBody(raw, bodySchema);
+      if (parsed.type === 'none')
+        return bodySchema === anySchema ? undefined : validateBody(undefined, bodySchema);
+      if (parsed.type !== target)
+        throw new UnsupportedMediaTypeException({ expected: target, actual: parsed.type });
+      return bodySchema === anySchema ? parsed.val : validateBody(parsed.val, bodySchema);
     },
     async bodyRaw() {
       return await bodyRaw();

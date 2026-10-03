@@ -5,6 +5,7 @@ import { findTargetHandler } from 'hono/utils/handler';
 import type { ResolverHandle } from '../../../kernel';
 import { createContextKey, getInternal, setInternal } from '../../../kernel';
 import { recordMiddlewareOptions, recordMiddlewareValue } from '../request/injection';
+import { preserveResponseIsolation } from '../response/response-ownership.feature';
 import type { HonoMiddleware, MiddlewareIdentifier, MiddlewareInput } from './middleware.types';
 
 const SKIPPED_MIDDLEWARES = Symbol('zelt:skipped-middlewares');
@@ -87,6 +88,8 @@ type FoundSkippedSets = {
   readonly methodLevel: ReadonlySet<unknown>;
 };
 
+const skippedByContext = new WeakMap<Context, FoundSkippedSets | false>();
+
 const findSkippedMiddlewares = (c: Context): FoundSkippedSets | undefined => {
   for (const route of matchedRoutes(c)) {
     // route() mounting may wrap handlers for error-handler scoping;
@@ -100,6 +103,14 @@ const findSkippedMiddlewares = (c: Context): FoundSkippedSets | undefined => {
     }
   }
   return undefined;
+};
+
+const getSkippedMiddlewares = (c: Context): FoundSkippedSets | undefined => {
+  const cached = skippedByContext.get(c);
+  if (cached !== undefined) return cached === false ? undefined : cached;
+  const skipped = findSkippedMiddlewares(c);
+  skippedByContext.set(c, skipped ?? false);
+  return skipped;
 };
 
 const shouldSkipMiddleware = (
@@ -118,11 +129,15 @@ const shouldSkipMiddleware = (
 export const guardMiddleware = (
   identifier: MiddlewareIdentifier,
   middleware: HonoMiddleware,
-  options?: { readonly skipScope?: MiddlewareSkipScope },
+  options?: {
+    readonly skipScope?: MiddlewareSkipScope;
+    readonly allowResponseHeaderMutation?: boolean;
+  },
 ): HonoMiddleware => {
   return async (c, next) => {
-    const skipped = findSkippedMiddlewares(c);
+    const skipped = getSkippedMiddlewares(c);
     if (shouldSkipMiddleware(skipped, identifier, options?.skipScope ?? 'default')) return next();
+    if (!options?.allowResponseHeaderMutation) preserveResponseIsolation(c);
     const result = await middleware(c, next);
     if (result instanceof Response) {
       c.res = result;
