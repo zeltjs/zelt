@@ -10,7 +10,7 @@ import { buildRoutes } from '../../routing';
 import { Controller } from '../../routing/controller.decorator';
 import { Get, Post } from '../../routing/http-method.decorator';
 import { requestContext } from '..';
-import { body, bodyRaw, getBody, prepareBodySourceForRawAccess, setBodySource } from './body.lib';
+import { bodyRaw, getBody, prepareBodySourceForRawAccess, setBodySource } from './body.lib';
 import { request } from './request.lib';
 
 const jsonRequest = (payload = '{ "name": "Ada" }'): Request =>
@@ -41,7 +41,7 @@ describe('lazy body source', () => {
       setBodySource({ contentType: 'application/json', request: raw });
       expect(raw.text).toBe(originalText);
       expect(Object.getPrototypeOf(raw)).toBe(originalPrototype);
-      expect(await body()).toEqual({ name: 'Ada' });
+      expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
       expect(await bodyRaw()).toBe('{ "name": "Ada" }');
       expect(await raw.text()).toBe('{ "name": "Ada" }');
     });
@@ -57,7 +57,7 @@ describe('lazy body source', () => {
     await runInContext(async () => {
       setBodySource({ contentType, request: raw });
       raw.headers.set('content-type', 'application/json');
-      expect(await body('form')).toEqual({ name: 'Ada' });
+      expect(await getBody()).toEqual({ type: 'form', val: { name: 'Ada' } });
       expect(await bodyRaw()).toContain('name="name"');
       expect(clone).toHaveBeenCalledTimes(2);
     });
@@ -91,10 +91,10 @@ describe('lazy body source', () => {
       raw,
       async () => {
         if (order === 'raw-first') expect(await raw.text()).toBe(rawText);
-        expect(await body()).toEqual({ name: 'Ada' });
+        expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
         expect(await bodyRaw()).toBe(rawText);
         if (order === 'zelt-first') expect(await raw.text()).toBe(rawText);
-        expect(await body()).toEqual({ name: 'Ada' });
+        expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
         await expect(raw.text()).rejects.toThrow();
       },
       true,
@@ -114,7 +114,7 @@ describe('lazy body source', () => {
       async () => {
         await raw[reader]();
         expect(raw.bodyUsed).toBe(true);
-        expect(await body()).toEqual({ name: 'Ada' });
+        expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
       },
       true,
     );
@@ -129,7 +129,7 @@ describe('lazy body source', () => {
         expect(stream).not.toBeNull();
         if (!stream) throw new Error('Expected a request body');
         expect(await new Response(stream).text()).toBe('{ "name": "Ada" }');
-        expect(await body()).toEqual({ name: 'Ada' });
+        expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
       },
       true,
     );
@@ -150,7 +150,7 @@ describe('lazy body source', () => {
             ? await new Request(raw).text()
             : await Request.prototype.text.call(raw);
         expect(text).toBe('{ "name": "Ada" }');
-        expect(await body()).toEqual({ name: 'Ada' });
+        expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
         expect(await bodyRaw()).toBe(text);
       },
       true,
@@ -167,7 +167,7 @@ describe('lazy body source', () => {
         prepareBodySourceForRawAccess();
         expect(clone).toHaveBeenCalledTimes(1);
         expect(raw.bodyUsed).toBe(false);
-        expect(await body()).toEqual({ name: 'Ada' });
+        expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
         expect(clone).toHaveBeenCalledTimes(1);
       },
       true,
@@ -181,7 +181,7 @@ describe('lazy body source', () => {
       expect(await bodyRaw()).toBe('{ "name": "Ada" }');
       prepareBodySourceForRawAccess();
       expect(await new Request(raw).json()).toEqual({ name: 'Ada' });
-      expect(await body()).toEqual({ name: 'Ada' });
+      expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
       expect(clone).toHaveBeenCalledTimes(1);
     });
   });
@@ -195,13 +195,13 @@ describe('lazy body source', () => {
     const raw = new Request('http://localhost/', { method: 'POST', body: form });
     const clone = vi.spyOn(Request.prototype, 'clone');
     await withBody(raw, async () => {
-      expect(await body('form')).toEqual({ name: 'Ada' });
+      expect(await getBody()).toEqual({ type: 'form', val: { name: 'Ada' } });
       if (mode === 'both') await bodyRaw();
       prepareBodySourceForRawAccess();
       expect(clone).toHaveBeenCalledTimes(2);
       expect((await new Request(raw).formData()).get('name')).toBe('Ada');
       expect(await bodyRaw()).toContain('name="name"');
-      expect(await body('form')).toEqual({ name: 'Ada' });
+      expect(await getBody()).toEqual({ type: 'form', val: { name: 'Ada' } });
       expect(clone).toHaveBeenCalledTimes(mode === 'both' ? 2 : 3);
     });
   });
@@ -238,7 +238,10 @@ describe('lazy body source', () => {
           expect(originalForm.getAll('tags[]')).toEqual(['a', 'b']);
         }
         const text = order === 'text-first' ? await bodyRaw() : undefined;
-        const parsed = await body('form');
+        const parsedBody = await getBody();
+        expect(parsedBody.type).toBe('form');
+        if (parsedBody.type !== 'form') throw new Error('Expected a form body');
+        const parsed = parsedBody.val;
         expect(parsed['tags[]']).toEqual(['a', 'b']);
         const file = parsed['file'];
         expect(file).toBeInstanceOf(File);
@@ -248,7 +251,7 @@ describe('lazy body source', () => {
         expect(file.type).toBe('application/octet-stream');
         expect(await bodyRaw()).toContain('filename="binary.dat"');
         if (text) expect(await bodyRaw()).toBe(text);
-        expect(await body('form')).toBe(parsed);
+        expect(await getBody()).toBe(parsedBody);
       },
       order === 'raw-first',
     );
@@ -280,7 +283,7 @@ describe('lazy body source', () => {
     await withBody(raw, async () => {
       expect(clone).not.toHaveBeenCalled();
       expect(stream.locked).toBe(false);
-      expect(await body()).toEqual({ text });
+      expect(await getBody()).toEqual({ type: 'json', val: { text } });
       expect(await bodyRaw()).toBe(payload);
       expect(await raw.text()).toBe(payload);
       expect(offset).toBe(bytes.length);
@@ -289,7 +292,7 @@ describe('lazy body source', () => {
 
   it('keeps malformed JSON errors and cached raw text', async () => {
     await withBody(jsonRequest('{ invalid }'), async () => {
-      await expect(body()).rejects.toMatchObject({
+      await expect(getBody()).rejects.toMatchObject({
         status: 400,
         context: { reason: expect.stringContaining('Invalid JSON') },
       });
@@ -305,7 +308,7 @@ describe('lazy body source', () => {
       raw,
       async () => {
         expect(raw.text).toBe(originalText);
-        expect(await body()).toEqual({ name: 'Ada' });
+        expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
       },
       true,
     );
@@ -324,11 +327,11 @@ describe('lazy body source', () => {
           raw,
           async () => {
             expect(await raw.json()).toEqual({ name: 'Ada' });
-            expect(await body()).toEqual({ name: 'Ada' });
+            expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
           },
           true,
         );
-        expect(await body()).toEqual({ name: 'Ada' });
+        expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
       },
       true,
     );
@@ -342,7 +345,7 @@ describe('lazy body source', () => {
       withBody(
         raw,
         async () => {
-          await body();
+          await getBody();
           throw new Error('handler failed');
         },
         true,

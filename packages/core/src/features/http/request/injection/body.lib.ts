@@ -63,7 +63,7 @@ export const prepareBodySourceForRawAccess = (): void => {
 };
 
 // Lets injection middlewares at different router levels avoid replacing the
-// body source. The request stream is still read lazily by body()/bodyRaw().
+// body source. The request stream is still read lazily by request().body()/bodyRaw().
 /** @throws {ZeltContextNotAvailableError} */
 export const hasBodySource = (): boolean => getInternal(BODY_CONTEXT) !== undefined;
 
@@ -232,20 +232,3 @@ export const bodyRaw = async (): Promise<string> => {
   }
   return raw;
 };
-
-/** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
-export function body(type?: 'json'): Promise<unknown>;
-/** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
-export function body(type: 'form'): Promise<FormBody>;
-/** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
-export function body(type: 'text'): Promise<string>;
-/** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
-export async function body(type: 'json' | 'form' | 'text' = 'json'): Promise<unknown> {
-  const parsedBody = await getBody();
-
-  if (parsedBody.type !== type) {
-    throw new UnsupportedMediaTypeException({ expected: type, actual: parsedBody.type });
-  }
-
-  return parsedBody.val;
-}
