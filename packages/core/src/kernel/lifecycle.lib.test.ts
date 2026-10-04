@@ -5,6 +5,17 @@ import type { Lifecycle } from './lifecycle.lib';
 import { LifecycleManager } from './lifecycle.lib';
 
 describe('LifecycleManager', () => {
+  it('returns a Promise when empty and rejects after disposal even with no pending hooks', async () => {
+    const manager = new LifecycleManager();
+    const pending = manager.startupPending();
+
+    expect(pending).toBeInstanceOf(Promise);
+    await pending;
+    await manager.shutdown();
+
+    await expect(manager.startupPending()).rejects.toBeInstanceOf(ZeltLifecycleStateError);
+  });
+
   it('calls startup in registration order', async () => {
     const manager = new LifecycleManager();
     const events: string[] = [];

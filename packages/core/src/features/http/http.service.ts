@@ -113,7 +113,9 @@ export class HttpService {
     for (const input of securityMiddlewares) {
       const identity = middlewareIdentity(input);
       hono.use(
-        guardMiddleware(identity, oncePerRequest(identity, resolveMiddleware(input, resolver))),
+        guardMiddleware(identity, oncePerRequest(identity, resolveMiddleware(input, resolver)), {
+          allowResponseHeaderMutation: true,
+        }),
       );
     }
     for (const input of options.middlewares ?? []) {

@@ -17,6 +17,7 @@ import { currentRoles, currentUser } from '../middleware/auth';
 import type { HonoMiddleware, MiddlewareInput } from '../middleware/middleware.types';
 import { setHonoContext } from '../request';
 import { hasBodySource, setBodySource, setPathParams } from '../request/injection';
+import { trackGeneratedResponse } from '../response/response-ownership.feature';
 import { joinPath } from './path-utils.lib';
 import type { ControllerClass, HttpMethod } from './routing-metadata.lib';
 import {
@@ -73,17 +74,15 @@ export const collectRoutes = (controllers: readonly ControllerClass[]): readonly
 };
 
 /** @throws {ZeltLifecycleStateError | ZeltRouteConfigurationError} */
-const resolveHandler = (instance: object, methodName: string | symbol): (() => unknown) => {
+const invokeHandler = (instance: object, methodName: string | symbol): unknown => {
   // Reflect.get returns `any` for dynamic keys; pinning the local to `unknown`
   // forces narrowing before any call, keeping the handler invocation typesafe.
   const value: unknown = Reflect.get(instance, methodName);
   if (typeof value !== 'function') {
     throw new ZeltRouteConfigurationError({ reason: 'invalid_route' });
   }
-  return () => {
-    const result: unknown = value.call(instance);
-    return result;
-  };
+  const result: unknown = value.call(instance);
+  return result;
 };
 
 /** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
@@ -164,25 +163,29 @@ const collectSkippedMiddlewares = (
 // only see their mount-level params) and keeps bare buildRoutes() usage
 // working by registering the lazy body source when nothing registered it yet.
 /** @throws {ZeltContextNotAvailableError | BadRequestException} */
+const injectRequest = (c: MiddlewareContext): void => {
+  setHonoContext(c);
+  if (!hasBodySource()) {
+    setBodySource({
+      contentType: c.req.header('content-type') ?? '',
+      request: c.req.raw,
+    });
+  }
+  setPathParams(c.req.param());
+};
+
+/** @throws {ZeltContextNotAvailableError | BadRequestException} */
 const createInjectionMiddleware = (): HonoMiddleware => {
   return async (c, next) => {
-    /** @throws {ZeltContextNotAvailableError | BadRequestException} */
-    const run = async (): Promise<void> => {
-      setHonoContext(c);
-      if (!hasBodySource()) {
-        setBodySource({
-          contentType: c.req.header('content-type') ?? '',
-          request: c.req.raw.clone(),
-        });
-      }
-      setPathParams(c.req.param());
-      await next();
-    };
     if (hasContext()) {
-      await run();
+      injectRequest(c);
+      await next();
       return;
     }
-    await runInContext(run);
+    await runInContext(async () => {
+      injectRequest(c);
+      await next();
+    });
   };
 };
 
@@ -217,10 +220,9 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
     const instance = getOrCreateInstance(ctx, route.controllerClass);
     await ctx.lifecycle.startupPending();
 
-    const invoke = resolveHandler(instance, route.methodName);
-    const result = await invoke();
+    const result = await invokeHandler(instance, route.methodName);
     if (result instanceof Response) return result;
-    return c.json(result);
+    return trackGeneratedResponse(c, c.json(result));
   };
 
   attachSkippedMiddlewares(

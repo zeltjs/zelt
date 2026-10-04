@@ -22,13 +22,16 @@ describe('after-response callbacks', () => {
     });
   });
 
-  it('returns false after callbacks have been flushed', () => {
+  it('closes an empty registry and returns a completion promise', async () => {
+    let completion: Promise<void> | undefined;
     runInContext(() => {
       initializeAfterResponseCallbacks();
-      void flushAfterResponseCallbacks();
+      completion = flushAfterResponseCallbacks();
 
       expect(registerAfterResponseCallback(() => {})).toBe(false);
     });
+    expect(completion).toBeInstanceOf(Promise);
+    await expect(completion).resolves.toBeUndefined();
   });
 
   it('runs callbacks once for each registration', async () => {

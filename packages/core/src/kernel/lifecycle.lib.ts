@@ -37,6 +37,7 @@ export class LifecycleManager {
   /** @throws {AggregateError | ZeltReadyFailedError | ZeltLifecycleStateError} */
   async startupPending(): Promise<void> {
     this.assertCanStart();
+    if (this.startedIndex === this.lifecycles.length) return;
     await this.startPendingLifecycles();
   }
 

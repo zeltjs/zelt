@@ -4,7 +4,7 @@ import type { HonoMiddleware, MiddlewareClass, MiddlewareInstance, Next } from '
 
 export const fromHonoMiddleware = (middleware: HonoMiddleware): MiddlewareClass => {
   class HonoMiddlewareAdaptor implements MiddlewareInstance {
-    /** @throws {ZeltContextNotAvailableError} */
+    /** @throws {ZeltContextNotAvailableError | TypeError} */
     async use(next: Next): Promise<Response | undefined> {
       const result = await middleware(requestContext(), next);
       return result instanceof Response ? result : undefined;

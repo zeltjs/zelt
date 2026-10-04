@@ -35,6 +35,7 @@ export const flushAfterResponseCallbacks = (onError?: (error: unknown) => void):
   if (!registry || registry.flushed) return Promise.resolve();
 
   registry.flushed = true;
+  if (registry.callbacks.length === 0) return Promise.resolve();
   const callbacks = [...registry.callbacks];
   registry.callbacks.length = 0;
 
