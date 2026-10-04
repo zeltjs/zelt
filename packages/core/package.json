@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Core TypeScript application framework with built-in dependency injection for the Zelt framework",
   "type": "module",
+  "sideEffects": false,
   "license": "MIT",
   "repository": {
     "type": "git",

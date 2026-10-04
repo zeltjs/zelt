@@ -38,7 +38,7 @@ const middlewareDisplayName = (middleware: MiddlewareIdentifier): string =>
   typeof middleware === 'function' ? middleware.name : middleware.middleware.name;
 
 const MIDDLEWARE_VALUES =
-  createContextKey<Map<MiddlewareIdentifier, unknown>>('zelt:middleware-values');
+  /* @__PURE__ */ createContextKey<Map<MiddlewareIdentifier, unknown>>('zelt:middleware-values');
 
 // The store erases each middleware's value to `unknown`; this phantom handle
 // (mirrors ContextKey in context-key.lib.ts) lets unsafeResolveDeferredValue

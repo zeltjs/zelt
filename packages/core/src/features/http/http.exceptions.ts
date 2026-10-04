@@ -1,6 +1,6 @@
 import { defineHttpException } from '../../kernel';
 
-export const BadRequestException = defineHttpException(
+export const BadRequestException = /* @__PURE__ */ defineHttpException(
   'BadRequestException',
   400,
   (ctx: { reason: string }) => ctx.reason,
@@ -10,7 +10,7 @@ export const BadRequestException = defineHttpException(
   },
 );
 
-export const UnsupportedMediaTypeException = defineHttpException(
+export const UnsupportedMediaTypeException = /* @__PURE__ */ defineHttpException(
   'UnsupportedMediaTypeException',
   415,
   (ctx: { expected: string; actual: string }) => `Expected ${ctx.expected} body, got ${ctx.actual}`,

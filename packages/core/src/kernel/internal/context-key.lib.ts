@@ -14,7 +14,7 @@ export const createContextKey = <T>(name: string): ContextKey<T> => new ContextK
 
 type ContextStore = Record<symbol, unknown>;
 
-const storage = new AsyncLocalStorage<ContextStore>();
+const storage = /* @__PURE__ */ new AsyncLocalStorage<ContextStore>();
 
 export const runInContext = <T>(fn: () => T): T => {
   const parent = storage.getStore();

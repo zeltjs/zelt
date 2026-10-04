@@ -13,15 +13,16 @@ const toConfigOptions = (value: unknown): ConfigOptions | undefined => {
 };
 
 /** @throws {E} */
-export const Config = createConfigurableClassDecorator<ConfigOptions>((rawOptions) =>
-  createInjectableClassDecorator(
-    toConfigOptions(rawOptions)?.abstract === true
-      ? { decorator: 'Config', abstract: true }
-      : { decorator: 'Config' },
-    {
-      afterApply: (cls) =>
-        registerConfigClass(cls, { abstract: toConfigOptions(rawOptions)?.abstract === true }),
-    },
-    { unique: true },
-  ),
+export const Config = /* @__PURE__ */ createConfigurableClassDecorator<ConfigOptions>(
+  (rawOptions) =>
+    createInjectableClassDecorator(
+      toConfigOptions(rawOptions)?.abstract === true
+        ? { decorator: 'Config', abstract: true }
+        : { decorator: 'Config' },
+      {
+        afterApply: (cls) =>
+          registerConfigClass(cls, { abstract: toConfigOptions(rawOptions)?.abstract === true }),
+      },
+      { unique: true },
+    ),
 );

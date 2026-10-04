@@ -145,7 +145,9 @@ export const guardMiddleware = (
   };
 };
 
-const APPLIED_MIDDLEWARES = createContextKey<Set<MiddlewareIdentifier>>('zelt:applied-middlewares');
+const APPLIED_MIDDLEWARES = /* @__PURE__ */ createContextKey<Set<MiddlewareIdentifier>>(
+  'zelt:applied-middlewares',
+);
 
 // Every router level registers the built-in security middlewares; this guard
 // keeps one identity to one run per request regardless of nesting depth.

@@ -3,7 +3,7 @@ import type { HonoMiddleware } from './middleware/middleware.types';
 import { setHonoContext } from './request';
 import { setBodySource, setPathParams } from './request/injection';
 
-const REQUEST_INJECTED = createContextKey<true>('zelt:request-injected');
+const REQUEST_INJECTED = /* @__PURE__ */ createContextKey<true>('zelt:request-injected');
 
 // Runs right after the bootstrap middleware, ahead of the router-level
 // (security and user) middlewares, so request helpers like body() / header()

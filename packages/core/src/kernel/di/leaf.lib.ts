@@ -14,7 +14,7 @@ const leafTokenDescription = (cls: AnyClass): string => `zelt:leaf:${cls.name}`;
 const leafClasses = new WeakSet<AnyClass>();
 const abstractLeafClasses = new WeakSet<AnyClass>();
 const leafCategoryCache = new WeakMap<AnyClass, 'direct' | 'inherited'>();
-const leafTokenMap = new UnsafeInjectionTokenWeakMap();
+const leafTokenMap = /* @__PURE__ */ new UnsafeInjectionTokenWeakMap();
 const boundTokens = new WeakMap<Container, Set<LeafInjectionToken>>();
 const abstractDefaultTokens = new WeakMap<Container, Set<LeafInjectionToken>>();
 

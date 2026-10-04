@@ -1,12 +1,14 @@
+import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../../app';
+import { LifecycleManager, ZeltRouteConfigurationError } from '../../../kernel';
 import { http } from '../http.feature';
 import { request } from '../request/injection';
 import { Controller } from './controller.decorator';
 import { Get, Post } from './http-method.decorator';
 
-import { collectRoutes, joinPath } from './route-builder.lib';
+import { buildRoutes, collectRoutes, joinPath } from './route-builder.lib';
 
 describe('joinPath', () => {
   it.each([
@@ -71,6 +73,87 @@ describe('buildRoutes (instanceof Response branch)', () => {
     expect(res.status).toBe(418);
     expect(res.headers.get('X-Custom')).toBe('yes');
     expect(await res.text()).toBe('I am a teapot');
+  });
+});
+
+describe('buildRoutes request and handler contracts', () => {
+  it('looks up changed controller methods on each request and preserves this', async () => {
+    @Controller('/dynamic')
+    class DynamicController {
+      count = 0;
+
+      @Get('/')
+      show() {
+        return { count: ++this.count };
+      }
+    }
+
+    const hono = new Hono();
+    const errors: Error[] = [];
+    hono.onError((error) => {
+      errors.push(error);
+      return new Response('invalid route', { status: 500 });
+    });
+    buildRoutes({
+      hono,
+      controllers: [DynamicController],
+      resolver: { get: (cls) => new cls() },
+      lifecycle: new LifecycleManager(),
+    });
+
+    expect(await (await hono.request('/dynamic')).json()).toEqual({ count: 1 });
+    Reflect.set(DynamicController.prototype, 'show', function (this: DynamicController) {
+      this.count += 2;
+      return { count: this.count };
+    });
+    expect(await (await hono.request('/dynamic')).json()).toEqual({ count: 3 });
+    Reflect.set(DynamicController.prototype, 'show', undefined);
+    expect((await hono.request('/dynamic')).status).toBe(500);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(ZeltRouteConfigurationError);
+  });
+
+  it('isolates body and path params in concurrent requests without router bootstrap', async () => {
+    @Controller('/isolated')
+    class IsolatedController {
+      @Post('/:id')
+      async echo() {
+        const before = request().pathParam('id');
+        const body = await request().body();
+        await Promise.resolve();
+        return { before, after: request().pathParam('id'), body };
+      }
+    }
+
+    const hono = new Hono();
+    buildRoutes({
+      hono,
+      controllers: [IsolatedController],
+      resolver: { get: (cls) => new cls() },
+      lifecycle: new LifecycleManager(),
+    });
+    const responses = await Promise.all([
+      hono.request('/isolated/first', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"value":"A"}',
+      }),
+      hono.request('/isolated/second', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"value":"B"}',
+      }),
+    ]);
+    expect(await responses[0].json()).toEqual({
+      before: 'first',
+      after: 'first',
+      body: { value: 'A' },
+    });
+    expect(await responses[1].json()).toEqual({
+      before: 'second',
+      after: 'second',
+      body: { value: 'B' },
+    });
   });
 });
 

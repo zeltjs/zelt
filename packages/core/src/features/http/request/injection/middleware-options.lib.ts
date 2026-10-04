@@ -15,7 +15,7 @@ import type {
 // self-reference (middlewareOptions(RateLimitMiddleware)) from inside that class's own
 // use(), so at the point it reads, it only ever has the class to look up.
 const MIDDLEWARE_OPTIONS =
-  createContextKey<Map<MiddlewareOptionsClass, unknown>>('zelt:middleware-options');
+  /* @__PURE__ */ createContextKey<Map<MiddlewareOptionsClass, unknown>>('zelt:middleware-options');
 
 // The store erases each middleware's options to `unknown`; this phantom handle
 // (mirrors ValueTypeHandle in middleware-value.lib.ts) lets unsafeResolveDeferredValue

@@ -60,12 +60,12 @@ const controllerPattern = {
 
 const useMiddlewarePattern = {
   decorator: 'UseMiddleware' as const,
-  middlewares: P.array(),
+  middlewares: /* @__PURE__ */ P.array(),
 };
 
 const routePattern = {
   decorator: 'Route' as const,
-  method: P.union(
+  method: /* @__PURE__ */ P.union(
     'GET' as const,
     'POST' as const,
     'PUT' as const,
@@ -77,12 +77,12 @@ const routePattern = {
 
 const skipMiddlewarePattern = {
   decorator: 'SkipMiddleware' as const,
-  skipped: P.array(),
+  skipped: /* @__PURE__ */ P.array(),
 };
 
 const authorizedPattern = {
   decorator: 'Authorized' as const,
-  roles: P.array(P.string),
+  roles: /* @__PURE__ */ P.array(P.string),
 };
 
 export const getControllerMetadata = (cls: object): ControllerMetadata | undefined => {

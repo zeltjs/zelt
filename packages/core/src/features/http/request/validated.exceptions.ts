@@ -7,7 +7,7 @@ export type ValidationFailedContext = {
 };
 
 export const ValidationFailedException: HttpExceptionClass<ValidationFailedContext> =
-  defineHttpException(
+  /* @__PURE__ */ defineHttpException(
     'ValidationFailedException',
     400,
     (ctx: ValidationFailedContext) => `Validation failed: ${ctx.issues.length} issue(s)`,
@@ -19,12 +19,13 @@ export const ValidationFailedException: HttpExceptionClass<ValidationFailedConte
 
 const ASYNC_VALIDATION_MESSAGE = 'request() does not support async validation schemas.';
 
-export const AsyncValidationUnsupportedException: HttpExceptionClass<unknown> = defineHttpException(
-  'AsyncValidationUnsupportedException',
-  500,
-  () => ASYNC_VALIDATION_MESSAGE,
-  {
-    buildResponse: (_ctx, status, message) =>
-      Response.json({ code: 'ASYNC_VALIDATION_UNSUPPORTED', message }, { status }),
-  },
-);
+export const AsyncValidationUnsupportedException: HttpExceptionClass<unknown> =
+  /* @__PURE__ */ defineHttpException(
+    'AsyncValidationUnsupportedException',
+    500,
+    () => ASYNC_VALIDATION_MESSAGE,
+    {
+      buildResponse: (_ctx, status, message) =>
+        Response.json({ code: 'ASYNC_VALIDATION_UNSUPPORTED', message }, { status }),
+    },
+  );

@@ -30,7 +30,7 @@ export type BodySource = {
   readonly request: Request;
 };
 
-const BODY_CONTEXT = createContextKey<BodyState>('zelt:body');
+const BODY_CONTEXT = /* @__PURE__ */ createContextKey<BodyState>('zelt:body');
 
 const resolveBodyKind = (contentType: string): BodyKind => {
   if (contentType.includes('application/json')) return 'json';

@@ -1,6 +1,6 @@
+import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
-import type { LifecycleManager } from '../../kernel';
-import { runInContext } from '../../kernel';
+import { LifecycleManager, runInContext } from '../../kernel';
 import { createBootstrapMiddleware, createRequestRootChecker } from './http-bootstrap.lib';
 import { registerAfterResponseCallback } from './request';
 
@@ -15,6 +15,29 @@ describe('createRequestRootChecker', () => {
 });
 
 describe('createBootstrapMiddleware', () => {
+  it('notifies waitUntil once with an empty, closed callback registry', async () => {
+    const completions: Promise<void>[] = [];
+    const registrations: boolean[] = [];
+    const callback = vi.fn();
+    const waitUntil = vi.fn((completion: Promise<void>) => {
+      completions.push(completion);
+      registrations.push(registerAfterResponseCallback(callback));
+    });
+    const hono = new Hono();
+    hono.use(
+      createBootstrapMiddleware(new LifecycleManager(), Symbol('router'), undefined, waitUntil),
+    );
+    hono.get('/', (c) => c.json({ ok: true }));
+
+    const response = await hono.request('/');
+
+    expect(await response.json()).toEqual({ ok: true });
+    expect(waitUntil).toHaveBeenCalledOnce();
+    expect(registrations).toEqual([false]);
+    await expect(completions[0]).resolves.toBeUndefined();
+    expect(callback).not.toHaveBeenCalled();
+  });
+
   it('flushes after-response callbacks when the request pipeline throws', async () => {
     vi.useFakeTimers();
     try {
