@@ -1,8 +1,8 @@
 import { inject } from '../../../../kernel';
 import { getHonoContext } from '../../request';
-import { canMutateGeneratedResponse } from '../../response/response-ownership.feature';
+import { applyResponseHeaders } from '../../response/response-headers.feature';
 import { Middleware } from '../middleware.decorator';
-import type { MiddlewareInstance, Next, RequestContext } from '../middleware.types';
+import type { MiddlewareInstance, Next } from '../middleware.types';
 import { SecureHeadersConfig } from './secure-headers.config';
 
 type HeaderDefinition = readonly [
@@ -13,7 +13,9 @@ type HeaderDefinition = readonly [
 
 @Middleware
 export class SecureHeadersMiddleware implements MiddlewareInstance {
-  private readonly firstHeader: readonly [string, string] | undefined;
+  private readonly poweredByHeader: readonly string[] = ['X-Powered-By'];
+
+  private readonly noHeaders: readonly string[] = [];
 
   private readonly headersToSet: readonly (readonly [string, string])[];
 
@@ -41,39 +43,17 @@ export class SecureHeadersMiddleware implements MiddlewareInstance {
       const value = config[key];
       if (value !== false) headers.push([name, value === true ? defaultValue : value]);
     }
-    const [firstHeader, ...remainingHeaders] = headers;
-    this.firstHeader = firstHeader;
-    this.headersToSet = remainingHeaders;
+    this.headersToSet = headers;
   }
 
-  /** @throws {ZeltContextNotAvailableError} */
+  /** @throws {ZeltContextNotAvailableError | TypeError} */
   async use(next: Next, ctx = getHonoContext()): Promise<Response | undefined> {
     await next();
-    const firstHeader = this.firstHeader;
-    if (firstHeader) {
-      this.setHeader(ctx, firstHeader[0], firstHeader[1]);
-    } else if (this.config.removePoweredBy) {
-      this.setHeader(ctx, 'X-Powered-By', undefined);
-      return undefined;
-    } else {
-      return undefined;
-    }
-
-    const headers = ctx.res.headers;
-    for (const [name, value] of this.headersToSet) headers.set(name, value);
-    if (this.config.removePoweredBy) headers.delete('X-Powered-By');
+    applyResponseHeaders(
+      ctx,
+      this.headersToSet,
+      this.config.removePoweredBy ? this.poweredByHeader : this.noHeaders,
+    );
     return undefined;
-  }
-
-  private setHeader(ctx: RequestContext, name: string, value: string | undefined): void {
-    const res = ctx.res;
-    // Preserve external responses and references held by user middleware.
-    // Newly generated, unobserved JSON responses have writable headers.
-    if (!canMutateGeneratedResponse(ctx, res)) {
-      ctx.header(name, value);
-      return;
-    }
-    if (value === undefined) res.headers.delete(name);
-    else res.headers.set(name, value);
   }
 }

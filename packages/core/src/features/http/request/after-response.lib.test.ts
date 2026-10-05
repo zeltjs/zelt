@@ -77,6 +77,72 @@ describe('after-response callbacks', () => {
     }
   });
 
+  it('keeps flushed callbacks isolated from registration and another request', async () => {
+    vi.useFakeTimers();
+    try {
+      const events: string[] = [];
+      let first!: Promise<void>;
+      let second!: Promise<void>;
+
+      runInContext(() => {
+        initializeAfterResponseCallbacks();
+        registerAfterResponseCallback(() => {
+          events.push('first');
+          expect(
+            registerAfterResponseCallback(() => {
+              events.push('late');
+            }),
+          ).toBe(false);
+        });
+        first = flushAfterResponseCallbacks();
+        expect(
+          registerAfterResponseCallback(() => {
+            events.push('late');
+          }),
+        ).toBe(false);
+        void flushAfterResponseCallbacks();
+      });
+      runInContext(() => {
+        initializeAfterResponseCallbacks();
+        registerAfterResponseCallback(() => {
+          events.push('second');
+        });
+        second = flushAfterResponseCallbacks();
+      });
+
+      await vi.runOnlyPendingTimersAsync();
+      await Promise.all([first, second]);
+      expect(events).toEqual(['first', 'second']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shares registration and flush state with nested contexts', async () => {
+    vi.useFakeTimers();
+    try {
+      const callback = vi.fn();
+      let completion!: Promise<void>;
+      runInContext(() => {
+        initializeAfterResponseCallbacks();
+        runInContext(() => {
+          expect(registerAfterResponseCallback(callback)).toBe(true);
+        });
+        runInContext(() => {
+          completion = flushAfterResponseCallbacks();
+        });
+        expect(registerAfterResponseCallback(callback)).toBe(false);
+        void flushAfterResponseCallbacks();
+      });
+
+      await vi.runOnlyPendingTimersAsync();
+      await completion;
+      expect(callback).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('flushes registered callbacks once without awaiting them', async () => {
     const events: string[] = [];
     let releaseCallback!: () => void;

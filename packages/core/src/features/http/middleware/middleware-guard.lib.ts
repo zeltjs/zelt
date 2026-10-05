@@ -5,15 +5,14 @@ import { findTargetHandler } from 'hono/utils/handler';
 import type { ResolverHandle } from '../../../kernel';
 import { createContextKey, getInternal, setInternal } from '../../../kernel';
 import { recordMiddlewareOptions, recordMiddlewareValue } from '../request/injection';
-import { preserveResponseIsolation } from '../response/response-ownership.feature';
 import type { HonoMiddleware, MiddlewareIdentifier, MiddlewareInput } from './middleware.types';
-
-const SKIPPED_MIDDLEWARES = Symbol('zelt:skipped-middlewares');
 
 export type SkippedMiddlewareSets = {
   readonly classLevel: ReadonlySet<MiddlewareIdentifier>;
   readonly methodLevel: ReadonlySet<MiddlewareIdentifier>;
 };
+
+const skippedByHandler = new WeakMap<object, SkippedMiddlewareSets>();
 
 type MiddlewareSkipScope = 'default' | 'method';
 
@@ -25,6 +24,8 @@ const hasUseMethod = (proto: unknown): boolean => {
 
 const checkMiddlewareClass = (input: MiddlewareInput): boolean =>
   typeof input === 'function' && input.prototype !== undefined && hasUseMethod(input.prototype);
+
+const completeNext = (): void => {};
 
 export const middlewareIdentity = (input: MiddlewareInput): MiddlewareIdentifier => {
   if (typeof input === 'function') return input;
@@ -41,11 +42,17 @@ const captureNextValue = (
   key: MiddlewareInput,
   next: () => Promise<void>,
 ): ((...args: unknown[]) => Promise<void>) => {
-  return async (...args: unknown[]) => {
-    if (args.length > 0) {
-      recordMiddlewareValue(key, args[0]);
+  return (...args: unknown[]) => {
+    try {
+      if (args.length > 0) {
+        recordMiddlewareValue(key, args[0]);
+      }
+      return next().then(completeNext);
+    } catch (error) {
+      return (async () => {
+        throw error;
+      })();
     }
-    await next();
   };
 };
 
@@ -59,7 +66,7 @@ export const resolveMiddleware = (
       throw new TypeError('Invalid middleware class. Missing use() method.');
     }
     const instance = resolver.get(middleware);
-    return async (_c, next) => await instance.use(captureNextValue(middleware, next));
+    return (_c, next) => Promise.resolve(instance.use(captureNextValue(middleware, next)));
   }
   if (!checkMiddlewareClass(middleware.middleware)) {
     throw new TypeError('Invalid middleware class. Missing use() method.');
@@ -78,34 +85,22 @@ export const resolveMiddleware = (
 };
 
 export const attachSkippedMiddlewares = (handler: object, skipped: SkippedMiddlewareSets): void => {
-  Reflect.set(handler, SKIPPED_MIDDLEWARES, skipped);
+  skippedByHandler.set(handler, skipped);
 };
 
-// Read-side counterpart of SkippedMiddlewareSets: values cross the handler
-// symbol boundary as unknown, and instanceof can only recover Set<unknown>.
-type FoundSkippedSets = {
-  readonly classLevel: ReadonlySet<unknown>;
-  readonly methodLevel: ReadonlySet<unknown>;
-};
+const skippedByContext = new WeakMap<Context, SkippedMiddlewareSets | false>();
 
-const skippedByContext = new WeakMap<Context, FoundSkippedSets | false>();
-
-const findSkippedMiddlewares = (c: Context): FoundSkippedSets | undefined => {
+const findSkippedMiddlewares = (c: Context): SkippedMiddlewareSets | undefined => {
   for (const route of matchedRoutes(c)) {
     // route() mounting may wrap handlers for error-handler scoping;
     // findTargetHandler unwraps to the function the skip set was attached to.
-    const skipped: unknown = Reflect.get(findTargetHandler(route.handler), SKIPPED_MIDDLEWARES);
-    if (typeof skipped !== 'object' || skipped === null) continue;
-    const classLevel: unknown = Reflect.get(skipped, 'classLevel');
-    const methodLevel: unknown = Reflect.get(skipped, 'methodLevel');
-    if (classLevel instanceof Set && methodLevel instanceof Set) {
-      return { classLevel, methodLevel };
-    }
+    const skipped = skippedByHandler.get(findTargetHandler(route.handler));
+    if (skipped) return skipped;
   }
   return undefined;
 };
 
-const getSkippedMiddlewares = (c: Context): FoundSkippedSets | undefined => {
+const getSkippedMiddlewares = (c: Context): SkippedMiddlewareSets | undefined => {
   const cached = skippedByContext.get(c);
   if (cached !== undefined) return cached === false ? undefined : cached;
   const skipped = findSkippedMiddlewares(c);
@@ -114,7 +109,7 @@ const getSkippedMiddlewares = (c: Context): FoundSkippedSets | undefined => {
 };
 
 const shouldSkipMiddleware = (
-  skipped: FoundSkippedSets | undefined,
+  skipped: SkippedMiddlewareSets | undefined,
   identifier: MiddlewareIdentifier,
   scope: MiddlewareSkipScope,
 ): boolean => {
@@ -131,13 +126,11 @@ export const guardMiddleware = (
   middleware: HonoMiddleware,
   options?: {
     readonly skipScope?: MiddlewareSkipScope;
-    readonly allowResponseHeaderMutation?: boolean;
   },
 ): HonoMiddleware => {
   return async (c, next) => {
     const skipped = getSkippedMiddlewares(c);
     if (shouldSkipMiddleware(skipped, identifier, options?.skipScope ?? 'default')) return next();
-    if (!options?.allowResponseHeaderMutation) preserveResponseIsolation(c);
     const result = await middleware(c, next);
     if (result instanceof Response) {
       c.res = result;
