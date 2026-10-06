@@ -187,7 +187,7 @@ const ensureBodySource = (state: BodyState, primitive: string): BodySource => {
 };
 
 /** @throws {ZeltContextNotAvailableError | BadRequestException} */
-const getBodyRaw = async (): Promise<string | undefined> => {
+const getBodyRaw = (): Promise<string | undefined> => {
   const state = getBodyState();
   if (!state.raw) {
     const source = ensureBodySource(state, 'bodyRaw');
@@ -200,7 +200,7 @@ const getBodyRaw = async (): Promise<string | undefined> => {
 };
 
 /** @throws {BadRequestException} */
-const getFormBody = async (state: BodyState, source: BodySource): Promise<ParsedBody> => {
+const getFormBody = (state: BodyState, source: BodySource): Promise<ParsedBody> => {
   if (!state.form) {
     state.form = parseFormDataBody(source);
   }
@@ -216,12 +216,16 @@ const parseCachedRequestBody = async (state: BodyState): Promise<ParsedBody> => 
 };
 
 /** @throws {ZeltContextNotAvailableError | BadRequestException} */
-export const getBody = async (): Promise<ParsedBody> => {
-  const state = getBodyState();
-  if (!state.parsed) {
-    state.parsed = parseCachedRequestBody(state);
+export const getBody = (): Promise<ParsedBody> => {
+  try {
+    const state = getBodyState();
+    state.parsed ??= parseCachedRequestBody(state);
+    return state.parsed;
+  } catch (error) {
+    return (async () => {
+      throw error;
+    })();
   }
-  return state.parsed;
 };
 
 /** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */

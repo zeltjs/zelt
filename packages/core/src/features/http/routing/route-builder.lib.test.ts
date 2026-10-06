@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../../app';
 import { LifecycleManager, ZeltRouteConfigurationError } from '../../../kernel';
 import { http } from '../http.feature';
@@ -77,6 +77,49 @@ describe('buildRoutes (instanceof Response branch)', () => {
 });
 
 describe('buildRoutes request and handler contracts', () => {
+  it('resolves lazily, retries failures, and shares one controller across routes', async () => {
+    @Controller('/shared')
+    class SharedController {
+      count = 0;
+
+      @Get('/first')
+      first() {
+        return { count: ++this.count };
+      }
+
+      @Get('/second')
+      second() {
+        return { count: ++this.count };
+      }
+    }
+
+    let resolutions = 0;
+    const lifecycle = new LifecycleManager();
+    const startup = vi.spyOn(lifecycle, 'startupPending');
+    const hono = new Hono();
+    hono.onError(() => new Response('resolution failed', { status: 500 }));
+    buildRoutes({
+      hono,
+      controllers: [SharedController],
+      resolver: {
+        get: (cls) => {
+          resolutions++;
+          if (resolutions === 1) throw new Error('resolution failed');
+          return new cls();
+        },
+      },
+      lifecycle,
+    });
+
+    expect(resolutions).toBe(0);
+    expect((await hono.request('/shared/first')).status).toBe(500);
+    expect(await (await hono.request('/shared/first')).json()).toEqual({ count: 1 });
+    expect(await (await hono.request('/shared/second')).json()).toEqual({ count: 2 });
+    expect(await (await hono.request('/shared/first')).json()).toEqual({ count: 3 });
+    expect(resolutions).toBe(2);
+    expect(startup).toHaveBeenCalledTimes(3);
+  });
+
   it('looks up changed controller methods on each request and preserves this', async () => {
     @Controller('/dynamic')
     class DynamicController {

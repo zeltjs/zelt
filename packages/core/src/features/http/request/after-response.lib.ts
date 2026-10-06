@@ -3,7 +3,7 @@ import { createContextKey, getInternal, hasContext, setInternal } from '../../..
 type AfterResponseCallback = () => void | Promise<void>;
 
 type AfterResponseRegistry = {
-  readonly callbacks: AfterResponseCallback[];
+  callbacks: AfterResponseCallback[] | undefined;
   flushed: boolean;
 };
 
@@ -13,7 +13,7 @@ const AFTER_RESPONSE_REGISTRY = /* @__PURE__ */ createContextKey<AfterResponseRe
 
 /** @throws {ZeltContextNotAvailableError} */
 export const initializeAfterResponseCallbacks = (): void => {
-  setInternal(AFTER_RESPONSE_REGISTRY, { callbacks: [], flushed: false });
+  setInternal(AFTER_RESPONSE_REGISTRY, { callbacks: undefined, flushed: false });
 };
 
 /** @throws {ZeltContextNotAvailableError} */
@@ -23,6 +23,7 @@ export const registerAfterResponseCallback = (callback: AfterResponseCallback): 
   const registry = getInternal(AFTER_RESPONSE_REGISTRY);
   if (!registry || registry.flushed) return false;
 
+  registry.callbacks ??= [];
   registry.callbacks.push(callback);
   return true;
 };
@@ -35,9 +36,9 @@ export const flushAfterResponseCallbacks = (onError?: (error: unknown) => void):
   if (!registry || registry.flushed) return Promise.resolve();
 
   registry.flushed = true;
-  if (registry.callbacks.length === 0) return Promise.resolve();
-  const callbacks = [...registry.callbacks];
-  registry.callbacks.length = 0;
+  const callbacks = registry.callbacks;
+  if (!callbacks) return Promise.resolve();
+  registry.callbacks = undefined;
 
   const completions = callbacks.map(
     (callback) =>

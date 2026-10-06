@@ -11,7 +11,7 @@ import {
   attachSkippedMiddlewares,
   guardMiddleware,
   middlewareIdentity,
-  resolveMiddleware,
+  resolveIsolatedMiddleware,
 } from '../middleware';
 import { currentRoles, currentUser } from '../middleware/auth';
 import type { HonoMiddleware, MiddlewareInput } from '../middleware/middleware.types';
@@ -34,6 +34,7 @@ export { joinPath };
 
 type MiddlewareContext = Context<Env, string, Input>;
 type RouteHandler = (c: MiddlewareContext) => Promise<Response>;
+const completeInjection = (): void => {};
 type HonoRouter = {
   readonly get: (path: string, ...handlers: (HonoMiddleware | RouteHandler)[]) => unknown;
   readonly post: (path: string, ...handlers: (HonoMiddleware | RouteHandler)[]) => unknown;
@@ -128,11 +129,11 @@ const collectRouteMiddlewares = (
   const methodInputs: MiddlewareInput[] = methodMetas.flatMap((m) => m.middlewares);
 
   const guarded = controllerInputs.map((input) =>
-    guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver)),
+    guardMiddleware(middlewareIdentity(input), resolveIsolatedMiddleware(input, resolver)),
   );
   guarded.push(
     ...methodInputs.map((input) =>
-      guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver), {
+      guardMiddleware(middlewareIdentity(input), resolveIsolatedMiddleware(input, resolver), {
         skipScope: 'method',
       }),
     ),
@@ -176,15 +177,14 @@ const injectRequest = (c: MiddlewareContext): void => {
 
 /** @throws {ZeltContextNotAvailableError | BadRequestException} */
 const createInjectionMiddleware = (): HonoMiddleware => {
-  return async (c, next) => {
+  return (c, next) => {
     if (hasContext()) {
       injectRequest(c);
-      await next();
-      return;
+      return next().then(completeInjection);
     }
-    await runInContext(async () => {
+    return runInContext(() => {
       injectRequest(c);
-      await next();
+      return next().then(completeInjection);
     });
   };
 };
@@ -214,10 +214,11 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
     route.methodName,
     ctx.resolver,
   );
+  let instance: object | undefined;
 
   /** @throws {AggregateError | ZeltContextNotAvailableError | ZeltReadyFailedError | ZeltLifecycleStateError | ZeltRouteConfigurationError} */
   const handler = async (c: MiddlewareContext): Promise<Response> => {
-    const instance = getOrCreateInstance(ctx, route.controllerClass);
+    instance ??= getOrCreateInstance(ctx, route.controllerClass);
     await ctx.lifecycle.startupPending();
 
     const result = await invokeHandler(instance, route.methodName);

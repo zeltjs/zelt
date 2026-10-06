@@ -10,6 +10,7 @@ import {
   guardMiddleware,
   middlewareIdentity,
   oncePerRequest,
+  resolveIsolatedMiddleware,
   resolveMiddleware,
 } from './middleware';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
@@ -113,13 +114,13 @@ export class HttpService {
     for (const input of securityMiddlewares) {
       const identity = middlewareIdentity(input);
       hono.use(
-        guardMiddleware(identity, oncePerRequest(identity, resolveMiddleware(input, resolver)), {
-          allowResponseHeaderMutation: true,
-        }),
+        guardMiddleware(identity, oncePerRequest(identity, resolveMiddleware(input, resolver))),
       );
     }
     for (const input of options.middlewares ?? []) {
-      hono.use(guardMiddleware(middlewareIdentity(input), resolveMiddleware(input, resolver)));
+      hono.use(
+        guardMiddleware(middlewareIdentity(input), resolveIsolatedMiddleware(input, resolver)),
+      );
     }
 
     buildRoutes({

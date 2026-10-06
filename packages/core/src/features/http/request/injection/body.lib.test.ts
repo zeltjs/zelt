@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../../../app';
-import { LifecycleManager, runInContext } from '../../../../kernel';
+import { LifecycleManager, runInContext, ZeltContextNotAvailableError } from '../../../../kernel';
 import { http } from '../../http.feature';
 import { fromHonoMiddleware } from '../../middleware';
 import { Middleware } from '../../middleware/middleware.decorator';
@@ -33,6 +33,17 @@ const withBody = <T>(raw: Request, run: () => T | Promise<T>, exposeRaw = false)
 afterEach(() => vi.restoreAllMocks());
 
 describe('lazy body source', () => {
+  it('rejects missing context or body source through a promise', async () => {
+    const outside = getBody();
+    expect(outside).toBeInstanceOf(Promise);
+    await expect(outside).rejects.toBeInstanceOf(ZeltContextNotAvailableError);
+    await runInContext(async () => {
+      const uninitialized = getBody();
+      expect(uninitialized).toBeInstanceOf(Promise);
+      await expect(uninitialized).rejects.toBeInstanceOf(ZeltContextNotAvailableError);
+    });
+  });
+
   it('leaves raw readers untouched when only Zelt body APIs are used', async () => {
     const raw = jsonRequest();
     const originalText = raw.text;
