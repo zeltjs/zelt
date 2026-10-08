@@ -7,7 +7,7 @@ import {
 } from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service';
-import { ZeltAppConfigurationError, ZeltLifecycleStateError } from '../kernel';
+import { resolve, ZeltAppConfigurationError, ZeltLifecycleStateError } from '../kernel';
 import { AppBootstrap } from './app-bootstrap.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import type {
@@ -22,6 +22,7 @@ import type {
   StaticNamespacedCaps,
   ZeltPrebuilt,
 } from './feature.types';
+import { FeatureInjectionError, FeatureRegistryService } from './feature-registry.service';
 import { attachContainer } from './override.lib';
 
 export type CreateAppOptions = {
@@ -196,7 +197,53 @@ const hasFeature = (
   return features.some((feature) => feature instanceof featureClass);
 };
 
-/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
+/** @throws {FeatureInjectionError} */
+const publishFeatureCapabilities = <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+  caps: KeyedValues<F, 'realize'>,
+  registry: FeatureRegistryService,
+): void => {
+  for (const feature of features) {
+    const value = caps.map.get(feature);
+    if (value === null || (typeof value !== 'object' && typeof value !== 'function')) {
+      throw new FeatureInjectionError('invalid_capabilities', feature.key);
+    }
+    registry.publish(feature, value);
+  }
+};
+
+/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | FeatureInjectionError} */
+const initializeRuntimeFeatures = async <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+  context: {
+    runtime: AppBootstrap;
+    featureRegistry: FeatureRegistryService;
+    resolver: ServiceResolver;
+    shutdown: () => Promise<void>;
+    warmup: boolean;
+  },
+) => {
+  const { runtime, featureRegistry, resolver, shutdown, warmup } = context;
+  try {
+    const caps = await realizeNamespacedCapabilities(resolver, features);
+    publishFeatureCapabilities(features, caps, featureRegistry);
+    if (warmup) await warmupFeatureClasses(resolver, features);
+    featureRegistry.activate();
+    const readyResult = await runtime.ready();
+    return { caps, readyResult };
+  } catch (error) {
+    try {
+      await shutdown();
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'Feature initialization and cleanup failed');
+    } finally {
+      featureRegistry.dispose();
+    }
+    throw error;
+  }
+};
+
+/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError | FeatureInjectionError} */
 const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   features: F,
   baseConfigs: readonly ConfigClass<object>[] | undefined,
@@ -205,23 +252,30 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   const container = new Container();
   const runtime = container.get(AppBootstrap);
   const configRegistry = container.get(ConfigRegistry);
+  const featureRegistry = container.get(FeatureRegistryService);
   const { registerShutdown, shutdown } = createRuntimeShutdown(runtime);
+
+  featureRegistry.prepare(features);
 
   registerConfigs(configRegistry, baseConfigs, undefined);
   registerConfigs(configRegistry, runtimeOptions?.configs, runtimeOptions?.fallbackConfigs);
   runtime.applyRegisteredConfigs();
 
-  const readyResult = await runtime.ready();
   const resolver: ServiceResolver = {
-    ...readyResult,
+    // Realization may construct consumers, but their startup hooks must wait
+    // until every feature has published its capabilities.
+    get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> =>
+      resolve(container, cls),
     registerShutdown,
     prebuilt: runtimeOptions?.prebuilt,
   };
-  const caps = await realizeNamespacedCapabilities(resolver, features);
-
-  if (runtimeOptions?.warmup) {
-    await warmupFeatureClasses(resolver, features);
-  }
+  const { caps, readyResult } = await initializeRuntimeFeatures(features, {
+    runtime,
+    featureRegistry,
+    resolver,
+    shutdown,
+    warmup: runtimeOptions?.warmup ?? false,
+  });
 
   const readyApp: RuntimeApp<F> = {
     ...caps.object,
@@ -235,13 +289,19 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
       })),
     get: readyResult.get,
     registerShutdown,
-    shutdown,
+    shutdown: async () => {
+      try {
+        await shutdown();
+      } finally {
+        featureRegistry.dispose();
+      }
+    },
   };
 
   return attachContainer(readyApp, container);
 };
 
-/** @throws {AggregateError | ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
+/** @throws {AggregateError | ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError | FeatureInjectionError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
   features: F,
   options?: CreateAppOptions,

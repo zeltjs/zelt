@@ -1,4 +1,5 @@
 import type { ServiceResolver } from '../../app';
+import type { HttpListenOptions, HttpServerHandle } from '../../built-in-service';
 import type { ErrorHandlerClass, MiddlewareInput } from './middleware/middleware.types';
 import type { ControllerClass, ControllerRouteInfo } from './routing';
 
@@ -21,6 +22,10 @@ export type HttpMountableCapabilities = {
   readonly router: HttpMountableRouter;
   readonly fetch: (request: Request) => Promise<Response>;
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
+};
+
+export type HttpFeatureCapabilities = HttpMountableCapabilities & {
+  readonly listen: (portOrOptions?: number | HttpListenOptions) => Promise<HttpServerHandle>;
 };
 
 // Same shape as the generic Feature contract: a module returns a

@@ -2,9 +2,11 @@ import MagicString from 'magic-string';
 import { parseSync } from 'rolldown/utils';
 
 const auditedFiles = new Set([
+  'app/feature-registry.service.ts',
   'built-in-service/cli/cli.config.ts',
   'built-in-service/env/env.adaptor.ts',
   'built-in-service/env/env.ts',
+  'built-in-service/http-server/http-server.adaptor.ts',
   'built-in-service/logger/logger.config.ts',
   'built-in-service/logger/logger.service.ts',
   'built-in-service/logger/formatter/jsonl.formatter.ts',

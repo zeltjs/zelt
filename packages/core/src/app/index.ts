@@ -24,4 +24,6 @@ export type {
   ZeltPrebuilt,
 } from './feature.types';
 export { Feature } from './feature.types';
+export { FeatureInjectionError } from './feature-registry.service';
+export { injectFeature } from './inject-feature.lib';
 export { attachContainer, type Override, override } from './override.lib';
