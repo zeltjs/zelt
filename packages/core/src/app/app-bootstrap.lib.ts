@@ -75,15 +75,22 @@ export class AppBootstrap {
   /** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   private buildReadyResult(): ReadyResult {
     return {
-      get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => {
-        if (this.state === 'disposed') {
-          throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });
-        }
-        const instance = resolve(this.container, cls);
-        await this.lifecycleManager.startupPending();
-        return instance;
-      },
+      get: <T extends object>(cls: new (...args: never[]) => T): Promise<T> => this.get(cls),
     };
+  }
+
+  /**
+   * During initialization, startup owns the pending hooks. Once ready, lazy
+   * resolutions must start their resources before returning them to callers.
+   * @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError}
+   */
+  async get<T extends object>(cls: new (...args: never[]) => T): Promise<T> {
+    if (this.state === 'disposed') {
+      throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });
+    }
+    const instance = resolve(this.container, cls);
+    if (this.state === 'ready') await this.lifecycleManager.startupPending();
+    return instance;
   }
 
   /** @throws {AggregateError | ZeltLifecycleStateError} */

@@ -7,7 +7,7 @@ import {
 } from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service';
-import { resolve, ZeltAppConfigurationError, ZeltLifecycleStateError } from '../kernel';
+import { ZeltAppConfigurationError, ZeltLifecycleStateError } from '../kernel';
 import { AppBootstrap } from './app-bootstrap.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import type {
@@ -130,16 +130,17 @@ const runShutdownCallbacks = async (
 
 const createRuntimeShutdown = (
   runtime: AppBootstrap,
+  featureRegistry: FeatureRegistryService,
 ): {
   readonly registerShutdown: RegisterRuntimeShutdown;
   readonly shutdown: () => Promise<void>;
 } => {
   const callbacks = new Set<RegisteredRuntimeShutdown>();
-  let shuttingDown = false;
+  let shutdownPromise: Promise<void> | undefined;
 
   /** @throws {ZeltLifecycleStateError} */
   const registerShutdown = (callback: RuntimeShutdownCallback): RegisteredRuntimeShutdown => {
-    if (shuttingDown) {
+    if (shutdownPromise !== undefined) {
       throw new ZeltLifecycleStateError({
         operation: 'register shutdown callback',
         currentState: 'disposed',
@@ -155,9 +156,7 @@ const createRuntimeShutdown = (
   };
 
   /** @throws {AggregateError | ZeltLifecycleStateError} */
-  const shutdown = async (): Promise<void> => {
-    if (shuttingDown) return;
-    shuttingDown = true;
+  const runShutdown = async (): Promise<void> => {
     const errors: unknown[] = [];
     try {
       await runShutdownCallbacks(callbacks);
@@ -172,6 +171,15 @@ const createRuntimeShutdown = (
     if (errors.length > 0) {
       throw new AggregateError(errors, 'Runtime shutdown encountered errors');
     }
+  };
+
+  /** @throws {AggregateError | ZeltLifecycleStateError} */
+  const shutdown = (): Promise<void> => {
+    // Concurrent callers share cleanup, its errors, and final registry disposal.
+    shutdownPromise ??= Promise.resolve()
+      .then(runShutdown)
+      .finally(() => featureRegistry.dispose());
+    return shutdownPromise;
   };
 
   return { registerShutdown, shutdown };
@@ -236,8 +244,6 @@ const initializeRuntimeFeatures = async <const F extends readonly ConfiguredFeat
       await shutdown();
     } catch (cleanupError) {
       throw new AggregateError([error, cleanupError], 'Feature initialization and cleanup failed');
-    } finally {
-      featureRegistry.dispose();
     }
     throw error;
   }
@@ -253,7 +259,7 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   const runtime = container.get(AppBootstrap);
   const configRegistry = container.get(ConfigRegistry);
   const featureRegistry = container.get(FeatureRegistryService);
-  const { registerShutdown, shutdown } = createRuntimeShutdown(runtime);
+  const { registerShutdown, shutdown } = createRuntimeShutdown(runtime, featureRegistry);
 
   featureRegistry.prepare(features);
 
@@ -264,8 +270,7 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   const resolver: ServiceResolver = {
     // Realization may construct consumers, but their startup hooks must wait
     // until every feature has published its capabilities.
-    get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> =>
-      resolve(container, cls),
+    get: <T extends object>(cls: new (...args: never[]) => T): Promise<T> => runtime.get(cls),
     registerShutdown,
     prebuilt: runtimeOptions?.prebuilt,
   };
@@ -289,13 +294,7 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
       })),
     get: readyResult.get,
     registerShutdown,
-    shutdown: async () => {
-      try {
-        await shutdown();
-      } finally {
-        featureRegistry.dispose();
-      }
-    },
+    shutdown,
   };
 
   return attachContainer(readyApp, container);

@@ -48,6 +48,10 @@ export class FeatureRegistryService {
             // Check the lifetime again when an extracted method is called.
             return (...args: unknown[]): unknown => Reflect.apply(value, target(), args);
           },
+          set: (_, key, value: unknown) => {
+            const instance = target();
+            return Reflect.set(instance, key, value, instance);
+          },
           has: (_, key) => Reflect.has(target(), key),
           ownKeys: () => Reflect.ownKeys(target()),
           getOwnPropertyDescriptor: (_, key) => {

@@ -5,7 +5,7 @@ import type {
 } from '@zeltjs/unsafe-type-lib';
 
 export type ServiceResolver = {
-  /** Resolves instances; startup hooks run after all configured features have realized. */
+  /** Defers startup during initialization; once ready, starts lazily resolved instances before returning. */
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly registerShutdown: RegisterRuntimeShutdown;
   readonly prebuilt?: ZeltPrebuilt | undefined;
