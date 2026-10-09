@@ -5,6 +5,10 @@
 
 Zeltは `@zeltjs/core` を通じて、依存性の注入付きのCLIコマンドサポートを提供します。
 
+:::info[入力schemaの追加機能・未リリース]
+必須オプション、可変長位置引数、schemaのunionによる排他、宣言外入力の拒否、ヘルプ生成については、[Command入力schemaの契約](./command-input-contract.md)を参照してください。これらの追加機能は `@zeltjs/core@0.11.0` には含まれていません。
+:::
+
 ## Commandの作成 {#creating-a-command}
 
 `cliSchema()` でモジュールレベルの定数としてスキーマを定義し、それを `@Command` デコレータを付けたクラス内で `args()` に渡すことで、型安全なCLIコマンドを作ります:
@@ -78,7 +82,7 @@ zelt run -c ./config/zelt.config.ts greet Alice
 
 ## スキーマ定義 {#schema-definition}
 
-`cliSchema()` 関数は、型付きの引数とオプションを定義します。戻り値は単なる値なので、独立したモジュール(例: `greet-schema.lib.ts`)に宣言し、commandにimportして `args()` に渡します。argvは `args(schema)` が呼び出された時にだけパース・検証されます — `args()` を呼ばないcommandは余分なargvを受け取ってもエラーになりません。
+`cliSchema()` 関数は、型付きの引数とオプションを定義します。戻り値は単なる値なので、独立したモジュール(例: `greet-schema.lib.ts`)に宣言し、commandにimportして `args()` に渡します。argvは `args(schema)` が呼び出された時にパース・検証されます。宣言していないオプションや余分な位置引数は拒否され、入力エラーの場合は `run()` の本体には入りません。`args()` を呼ばないcommandへの自動検証は行いません。
 
 ### 位置引数 {#positional-arguments}
 
@@ -157,6 +161,31 @@ export class DeployCommand {
   }
 }
 ```
+
+## 入力契約とヘルプ {#input-contract-and-help}
+
+オプションの `required: true` は明示指定を要求し、`string` / `number` の入力型から `undefined` を除きます。位置引数の `variadic: { min, max }` は残りの値を配列として受け取ります。
+
+```ts
+import { Command, args, cliSchema, formatCommandHelp } from '@zeltjs/core';
+
+const analyzeSchema = cliSchema({
+  args: [{ name: 'directories', type: 'string', variadic: { min: 1 } }],
+  options: [{ name: 'guide', type: 'string', required: true }],
+});
+
+@Command({ name: 'analyze' })
+class AnalyzeCommand {
+  run(input = args(analyzeSchema)) {
+    // directories: string[], guide: string
+    console.log(input.directories, input.guide);
+  }
+}
+
+console.log(formatCommandHelp('analyze', analyzeSchema));
+```
+
+`cliUnion([schemaA, schemaB, ...])` は、有効な入力の選択肢を宣言します。入力全体を受理するschemaが一つだけの場合に成功し、入力型も各schemaのunionになります。排他の宣言例、個数の境界、入力エラー、ヘルプの表示内容は[入力schemaの契約](./command-input-contract.md)を参照してください。
 
 ## スキーマの型 {#schema-types}
 

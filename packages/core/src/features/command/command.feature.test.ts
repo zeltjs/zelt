@@ -4,7 +4,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { ZeltCommandExecutionError, ZeltContextNotAvailableError } from '../../kernel';
 import { CommandFeature, command } from './command.feature';
 import { Command } from './definition/command.decorator';
-import { cliSchema } from './input/command-schema.types';
+import { cliSchema } from './input';
 import { args } from './input/injection';
 
 const createRuntime = (container: Container) => ({

@@ -79,14 +79,21 @@ export type { CommandMetadata } from './features/command/definition';
 export { Command, getCommandMetadata } from './features/command/definition';
 export type { ExecResult } from './features/command/exec-result.types';
 export type { CommandContextStore } from './features/command/input';
-export { runInCommandContext } from './features/command/input';
+export {
+  cliSchema,
+  cliUnion,
+  formatCommandHelp,
+  runInCommandContext,
+} from './features/command/input';
 export type {
   ArgDef,
+  CommandInputSchema,
   InferSchema,
   OptionDef,
   SchemaDefinition,
+  SchemaUnion,
+  VariadicDef,
 } from './features/command/input/command-schema.types';
-export { cliSchema } from './features/command/input/command-schema.types';
 export { args } from './features/command/input/injection';
 export type {
   ErrorBody,
