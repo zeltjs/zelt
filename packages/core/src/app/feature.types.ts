@@ -5,6 +5,7 @@ import type {
 } from '@zeltjs/unsafe-type-lib';
 
 export type ServiceResolver = {
+  /** Defers startup during initialization; once ready, starts lazily resolved instances before returning. */
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly registerShutdown: RegisterRuntimeShutdown;
   readonly prebuilt?: ZeltPrebuilt | undefined;
@@ -33,6 +34,7 @@ export abstract class Feature<
   abstract readonly key: TKey;
   abstract featureClasses(): readonly FeatureManagedClass[];
   abstract blueprint(): TStaticCaps;
+  /** Builds runtime operations without executing injected feature operations during initialization. */
   abstract realize(resolver: ServiceResolver): TReadyCaps | Promise<TReadyCaps>;
 }
 
@@ -42,9 +44,9 @@ export type ConfiguredFeature<
   TStaticCaps extends object = EmptyCapabilities,
 > = Feature<TKey, TReadyCaps, TStaticCaps>;
 
-export type FeatureClass<TFeature extends ConfiguredFeature = ConfiguredFeature> = abstract new (
+export type FeatureClass<TFeature extends ConfiguredFeature = ConfiguredFeature> = (abstract new (
   ...args: never[]
-) => TFeature;
+) => TFeature) & { readonly defaultKey?: string };
 
 export type FeatureReadyCapabilities<TFeature extends ConfiguredFeature> = KeyedMethodValue<
   TFeature,

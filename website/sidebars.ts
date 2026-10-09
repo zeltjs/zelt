@@ -56,6 +56,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'dependency-injection',
+        'feature-injection',
         'services',
         'configuration',
         'error-handling',

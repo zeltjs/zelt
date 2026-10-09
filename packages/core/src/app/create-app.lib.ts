@@ -22,6 +22,7 @@ import type {
   StaticNamespacedCaps,
   ZeltPrebuilt,
 } from './feature.types';
+import { FeatureInjectionError, FeatureRegistryService } from './feature-registry.service';
 import { attachContainer } from './override.lib';
 
 export type CreateAppOptions = {
@@ -129,16 +130,17 @@ const runShutdownCallbacks = async (
 
 const createRuntimeShutdown = (
   runtime: AppBootstrap,
+  featureRegistry: FeatureRegistryService,
 ): {
   readonly registerShutdown: RegisterRuntimeShutdown;
   readonly shutdown: () => Promise<void>;
 } => {
   const callbacks = new Set<RegisteredRuntimeShutdown>();
-  let shuttingDown = false;
+  let shutdownPromise: Promise<void> | undefined;
 
   /** @throws {ZeltLifecycleStateError} */
   const registerShutdown = (callback: RuntimeShutdownCallback): RegisteredRuntimeShutdown => {
-    if (shuttingDown) {
+    if (shutdownPromise !== undefined) {
       throw new ZeltLifecycleStateError({
         operation: 'register shutdown callback',
         currentState: 'disposed',
@@ -154,9 +156,7 @@ const createRuntimeShutdown = (
   };
 
   /** @throws {AggregateError | ZeltLifecycleStateError} */
-  const shutdown = async (): Promise<void> => {
-    if (shuttingDown) return;
-    shuttingDown = true;
+  const runShutdown = async (): Promise<void> => {
     const errors: unknown[] = [];
     try {
       await runShutdownCallbacks(callbacks);
@@ -171,6 +171,15 @@ const createRuntimeShutdown = (
     if (errors.length > 0) {
       throw new AggregateError(errors, 'Runtime shutdown encountered errors');
     }
+  };
+
+  /** @throws {AggregateError | ZeltLifecycleStateError} */
+  const shutdown = (): Promise<void> => {
+    // Concurrent callers share cleanup, its errors, and final registry disposal.
+    shutdownPromise ??= Promise.resolve()
+      .then(runShutdown)
+      .finally(() => featureRegistry.dispose());
+    return shutdownPromise;
   };
 
   return { registerShutdown, shutdown };
@@ -196,7 +205,51 @@ const hasFeature = (
   return features.some((feature) => feature instanceof featureClass);
 };
 
-/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
+/** @throws {FeatureInjectionError} */
+const publishFeatureCapabilities = <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+  caps: KeyedValues<F, 'realize'>,
+  registry: FeatureRegistryService,
+): void => {
+  for (const feature of features) {
+    const value = caps.map.get(feature);
+    if (value === null || (typeof value !== 'object' && typeof value !== 'function')) {
+      throw new FeatureInjectionError('invalid_capabilities', feature.key);
+    }
+    registry.publish(feature, value);
+  }
+};
+
+/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | FeatureInjectionError} */
+const initializeRuntimeFeatures = async <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+  context: {
+    runtime: AppBootstrap;
+    featureRegistry: FeatureRegistryService;
+    resolver: ServiceResolver;
+    shutdown: () => Promise<void>;
+    warmup: boolean;
+  },
+) => {
+  const { runtime, featureRegistry, resolver, shutdown, warmup } = context;
+  try {
+    const caps = await realizeNamespacedCapabilities(resolver, features);
+    publishFeatureCapabilities(features, caps, featureRegistry);
+    if (warmup) await warmupFeatureClasses(resolver, features);
+    featureRegistry.activate();
+    const readyResult = await runtime.ready();
+    return { caps, readyResult };
+  } catch (error) {
+    try {
+      await shutdown();
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'Feature initialization and cleanup failed');
+    }
+    throw error;
+  }
+};
+
+/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError | FeatureInjectionError} */
 const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   features: F,
   baseConfigs: readonly ConfigClass<object>[] | undefined,
@@ -205,23 +258,29 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   const container = new Container();
   const runtime = container.get(AppBootstrap);
   const configRegistry = container.get(ConfigRegistry);
-  const { registerShutdown, shutdown } = createRuntimeShutdown(runtime);
+  const featureRegistry = container.get(FeatureRegistryService);
+  const { registerShutdown, shutdown } = createRuntimeShutdown(runtime, featureRegistry);
+
+  featureRegistry.prepare(features);
 
   registerConfigs(configRegistry, baseConfigs, undefined);
   registerConfigs(configRegistry, runtimeOptions?.configs, runtimeOptions?.fallbackConfigs);
   runtime.applyRegisteredConfigs();
 
-  const readyResult = await runtime.ready();
   const resolver: ServiceResolver = {
-    ...readyResult,
+    // Realization may construct consumers, but their startup hooks must wait
+    // until every feature has published its capabilities.
+    get: <T extends object>(cls: new (...args: never[]) => T): Promise<T> => runtime.get(cls),
     registerShutdown,
     prebuilt: runtimeOptions?.prebuilt,
   };
-  const caps = await realizeNamespacedCapabilities(resolver, features);
-
-  if (runtimeOptions?.warmup) {
-    await warmupFeatureClasses(resolver, features);
-  }
+  const { caps, readyResult } = await initializeRuntimeFeatures(features, {
+    runtime,
+    featureRegistry,
+    resolver,
+    shutdown,
+    warmup: runtimeOptions?.warmup ?? false,
+  });
 
   const readyApp: RuntimeApp<F> = {
     ...caps.object,
@@ -241,7 +300,7 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   return attachContainer(readyApp, container);
 };
 
-/** @throws {AggregateError | ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
+/** @throws {AggregateError | ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError | FeatureInjectionError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
   features: F,
   options?: CreateAppOptions,

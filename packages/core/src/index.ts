@@ -7,7 +7,13 @@ export type {
   ReadyResult,
   RuntimeApp,
 } from './app';
-export { createApp } from './app';
+export { createApp, FeatureInjectionError, injectFeature } from './app';
+export type {
+  HttpListenOptions,
+  HttpServerHandle,
+  HttpServerShutdownRegistration,
+} from './built-in-service';
+export { HttpServerAdaptor } from './built-in-service';
 export type { Signal, SignalHandler } from './built-in-service/cli';
 export { CliConfig } from './built-in-service/cli';
 export type { ConfigClass } from './built-in-service/config';
