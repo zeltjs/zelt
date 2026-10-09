@@ -1,244 +1,273 @@
-import type { ArgDef, OptionDef, SchemaDefinition } from './command-schema.types';
+import type {
+  ArgDef,
+  CommandInputSchema,
+  OptionDef,
+  SchemaDefinition,
+  SchemaUnion,
+  VariadicDef,
+} from './command-schema.types';
+import { validateCommandSchema } from './validate-command-schema.lib';
 
 export type BoundCommandArgs = Record<string, unknown>;
-
 export type BindCommandInputResult =
-  | { ok: true; parsed: BoundCommandArgs }
-  | { ok: false; error: string };
+  | { ok: true; readonly parsed: BoundCommandArgs }
+  | { ok: false; readonly error: string; readonly kind: 'input' | 'schema' };
 
-type ParsedTokens = {
-  readonly values: Record<string, unknown>;
-  readonly positionals: string[];
+type ParseResult<T> = { ok: true; readonly value: T } | { ok: false; readonly error: string };
+type OptionValue = string | number | boolean;
+type ParsedTokens = { readonly values: Map<string, OptionValue>; readonly positionals: string[] };
+type OptionToken = {
+  readonly name: string;
+  readonly inlineValue: string | undefined;
+  readonly long: boolean;
+};
+type TokenStep = { readonly nextIndex: number; readonly done: boolean };
+
+const parseNumber = (value: string, label: string): ParseResult<number> => {
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? { ok: true, value: number }
+    : { ok: false, error: `Invalid number for ${label}: ${value}` };
 };
 
-type MutableParsedTokens = {
-  readonly values: Record<string, unknown>;
-  readonly positionals: string[];
+const isOptionToken = (token: string): boolean =>
+  token.startsWith('-') && token.length > 1 && !Number.isFinite(Number(token));
+
+const parseBoolean = (value: string | undefined, name: string): ParseResult<boolean> => {
+  if (value === undefined || value === 'true') return { ok: true, value: true };
+  if (value === 'false') return { ok: true, value: false };
+  return { ok: false, error: `Invalid boolean value for option --${name}: ${value}` };
 };
 
-type ParseErrorResult = { ok: false; readonly error: string };
-
-type OptionValueReadResult =
-  | { ok: true; readonly value: unknown; readonly nextIndex: number }
-  | ParseErrorResult;
-
-type TokenParseStep =
-  | { ok: true; readonly nextIndex: number; readonly done: boolean }
-  | ParseErrorResult;
-
-type ParseCommandTokensResult = { ok: true; readonly result: ParsedTokens } | ParseErrorResult;
-
-const applyDefaults = (
-  values: Record<string, unknown>,
-  options: readonly OptionDef[],
-): Record<string, unknown> => {
-  const result: Record<string, unknown> = { ...values };
-  for (const opt of options) {
-    if (result[opt.name] === undefined) {
-      if (opt.type === 'boolean') {
-        result[opt.name] = opt.default ?? false;
-      } else if (opt.default !== undefined) {
-        result[opt.name] = opt.default;
-      }
-    }
-  }
-  return result;
-};
-
-const convertNumberOptions = (
-  values: Record<string, unknown>,
-  options: readonly OptionDef[],
-): { ok: true; result: Record<string, unknown> } | { ok: false; error: string } => {
-  const result: Record<string, unknown> = { ...values };
-  for (const opt of options) {
-    if (opt.type === 'number' && typeof result[opt.name] === 'string') {
-      const num = Number(result[opt.name]);
-      if (!Number.isFinite(num)) {
-        return { ok: false, error: `Invalid number for option --${opt.name}: ${result[opt.name]}` };
-      }
-      result[opt.name] = num;
-    }
-  }
-  return { ok: true, result };
-};
-
-const findOptionByAlias = (options: readonly OptionDef[], alias: string): OptionDef | undefined =>
-  options.find((opt) => opt.alias === alias);
-
-const findOptionByName = (options: readonly OptionDef[], name: string): OptionDef | undefined =>
-  options.find((opt) => opt.name === name);
-
-const parseBooleanOptionValue = (
-  optionName: string,
+const readScalarOptionValue = (
+  argv: readonly string[],
+  index: number,
+  name: string,
   inlineValue: string | undefined,
-): { ok: true; value: boolean } | ParseErrorResult => {
-  if (inlineValue === undefined || inlineValue === 'true') return { ok: true, value: true };
-  if (inlineValue === 'false') return { ok: true, value: false };
-  return { ok: false, error: `Invalid boolean value for option --${optionName}: ${inlineValue}` };
+): ParseResult<{ readonly text: string; readonly nextIndex: number }> => {
+  const text = inlineValue ?? argv[index + 1];
+  if (text === undefined || (inlineValue === undefined && isOptionToken(text))) {
+    return { ok: false, error: `Missing value for option --${name}` };
+  }
+  return { ok: true, value: { text, nextIndex: inlineValue === undefined ? index + 1 : index } };
 };
 
 const readOptionValue = (
   argv: readonly string[],
   index: number,
-  option: OptionDef | undefined,
+  option: OptionDef,
   inlineValue: string | undefined,
-): OptionValueReadResult => {
-  if (!option) {
-    return { ok: true, value: inlineValue ?? true, nextIndex: index };
-  }
+): ParseResult<{ readonly value: OptionValue; readonly nextIndex: number }> => {
   if (option.type === 'boolean') {
-    const parsed = parseBooleanOptionValue(option.name, inlineValue);
-    if (!parsed.ok) return parsed;
-    return { ok: true, value: parsed.value, nextIndex: index };
+    const result = parseBoolean(inlineValue, option.name);
+    return result.ok ? { ok: true, value: { value: result.value, nextIndex: index } } : result;
   }
-  if (inlineValue !== undefined) {
-    return { ok: true, value: inlineValue, nextIndex: index };
-  }
-  const value = argv[index + 1];
-  if (value === undefined) {
-    return { ok: false, error: `Missing value for option --${option.name}` };
-  }
-  return { ok: true, value, nextIndex: index + 1 };
+  const text = readScalarOptionValue(argv, index, option.name, inlineValue);
+  if (!text.ok) return text;
+  const parsed =
+    option.type === 'number'
+      ? parseNumber(text.value.text, `option --${option.name}`)
+      : { ok: true as const, value: text.value.text };
+  return parsed.ok
+    ? { ok: true, value: { value: parsed.value, nextIndex: text.value.nextIndex } }
+    : parsed;
 };
 
-const readLongOption = (
+const optionToken = (token: string): OptionToken => {
+  const long = token.startsWith('--');
+  const text = token.slice(long ? 2 : 1);
+  const equals = long ? text.indexOf('=') : -1;
+  return {
+    long,
+    name: equals < 0 ? text : text.slice(0, equals),
+    inlineValue: equals < 0 ? undefined : text.slice(equals + 1),
+  };
+};
+
+const readOption = (
   token: string,
   argv: readonly string[],
   index: number,
   options: readonly OptionDef[],
-  result: MutableParsedTokens,
-): { ok: true; nextIndex: number } | ParseErrorResult => {
-  const optionToken = token.slice(2);
-  const eqIndex = optionToken.indexOf('=');
-  const name = eqIndex >= 0 ? optionToken.slice(0, eqIndex) : optionToken;
-  const inlineValue = eqIndex >= 0 ? optionToken.slice(eqIndex + 1) : undefined;
-  const option = findOptionByName(options, name);
-  const readResult = readOptionValue(argv, index, option, inlineValue);
-  if (!readResult.ok) return readResult;
-  result.values[option?.name ?? name] = readResult.value;
-  return { ok: true, nextIndex: readResult.nextIndex };
+  result: ParsedTokens,
+): ParseResult<TokenStep> => {
+  const { long, name, inlineValue } = optionToken(token);
+  const option = options.find((candidate) =>
+    long ? candidate.name === name : candidate.alias === name,
+  );
+  if (!option) return { ok: false, error: `Unknown option: ${long ? '--' : '-'}${name}` };
+  const parsed = readOptionValue(argv, index, option, inlineValue);
+  if (!parsed.ok) return parsed;
+  result.values.set(option.name, parsed.value.value);
+  return { ok: true, value: { nextIndex: parsed.value.nextIndex, done: false } };
 };
 
-const readShortOption = (
+const parseToken = (
   token: string,
   argv: readonly string[],
   index: number,
   options: readonly OptionDef[],
-  result: MutableParsedTokens,
-): { ok: true; nextIndex: number } | ParseErrorResult => {
-  const alias = token.slice(1);
-  const option = findOptionByAlias(options, alias);
-  const readResult = readOptionValue(argv, index, option, undefined);
-  if (!readResult.ok) return readResult;
-  result.values[option?.name ?? alias] = readResult.value;
-  return { ok: true, nextIndex: readResult.nextIndex };
-};
-
-const isLongOptionToken = (token: string): boolean => token.startsWith('--') && token.length > 2;
-
-const isShortOptionToken = (token: string): boolean => token.startsWith('-') && token.length === 2;
-
-const optionParseStep = (
-  optionResult: { ok: true; nextIndex: number } | ParseErrorResult,
-): TokenParseStep => {
-  if (!optionResult.ok) return optionResult;
-  return { ok: true, nextIndex: optionResult.nextIndex, done: false };
-};
-
-const parseCommandToken = (
-  token: string | undefined,
-  argv: readonly string[],
-  index: number,
-  options: readonly OptionDef[],
-  result: MutableParsedTokens,
-): TokenParseStep => {
-  if (token === undefined) return { ok: true, nextIndex: index, done: false };
+  result: ParsedTokens,
+): ParseResult<TokenStep> => {
   if (token === '--') {
     result.positionals.push(...argv.slice(index + 1));
-    return { ok: true, nextIndex: index, done: true };
+    return { ok: true, value: { nextIndex: index, done: true } };
   }
-  if (isLongOptionToken(token)) {
-    return optionParseStep(readLongOption(token, argv, index, options, result));
-  }
-  if (isShortOptionToken(token)) {
-    return optionParseStep(readShortOption(token, argv, index, options, result));
-  }
+  if (isOptionToken(token)) return readOption(token, argv, index, options, result);
   result.positionals.push(token);
-  return { ok: true, nextIndex: index, done: false };
+  return { ok: true, value: { nextIndex: index, done: false } };
 };
 
 const parseCommandTokens = (
   argv: readonly string[],
   options: readonly OptionDef[],
-): ParseCommandTokensResult => {
-  const result: MutableParsedTokens = { values: {}, positionals: [] };
-
-  for (let i = 0; i < argv.length; i++) {
-    const step = parseCommandToken(argv[i], argv, i, options, result);
+): ParseResult<ParsedTokens> => {
+  const result: ParsedTokens = { values: new Map(), positionals: [] };
+  for (let index = 0; index < argv.length; index++) {
+    const token = argv[index];
+    if (token === undefined) continue;
+    const step = parseToken(token, argv, index, options, result);
     if (!step.ok) return step;
-    i = step.nextIndex;
-    if (step.done) break;
+    index = step.value.nextIndex;
+    if (step.value.done) break;
   }
+  return { ok: true, value: result };
+};
 
-  return { ok: true, result };
+const parseArgumentValue = (value: string, def: ArgDef): ParseResult<string | number> =>
+  def.type === 'number' ? parseNumber(value, `argument ${def.name}`) : { ok: true, value };
+
+const validateArgumentCount = (
+  name: string,
+  count: number,
+  bounds: VariadicDef,
+): ParseResult<undefined> => {
+  const min = bounds.min ?? 0;
+  const max = bounds.max;
+  if (count < min || (max !== undefined && count > max)) {
+    return {
+      ok: false,
+      error: `Argument ${name} requires ${min} to ${max ?? 'unlimited'} values; received ${count}`,
+    };
+  }
+  return { ok: true, value: undefined };
+};
+
+const parseVariadic = (
+  values: readonly string[],
+  def: ArgDef,
+  bounds: VariadicDef,
+): ParseResult<(string | number)[]> => {
+  const count = validateArgumentCount(def.name, values.length, bounds);
+  if (!count.ok) return count;
+  const array: (string | number)[] = [];
+  for (const text of values) {
+    const value = parseArgumentValue(text, def);
+    if (!value.ok) return value;
+    array.push(value.value);
+  }
+  return { ok: true, value: array };
+};
+
+const parseFixedArgument = (
+  value: string | undefined,
+  def: ArgDef,
+  index: number,
+): ParseResult<unknown> => {
+  if (value !== undefined) return parseArgumentValue(value, def);
+  if (def.optional) return { ok: true, value: undefined };
+  return { ok: false, error: `Missing required argument: ${def.name} (position ${index + 1})` };
 };
 
 const parsePositionalArgs = (
-  positionals: string[],
-  argDefs: readonly ArgDef[],
-): { ok: true; result: Record<string, unknown> } | { ok: false; error: string } => {
-  const result: Record<string, unknown> = {};
-  for (const [i, def] of argDefs.entries()) {
-    const value = positionals[i];
-
-    if (value === undefined) {
-      if (!def.optional) {
-        return { ok: false, error: `Missing required argument: ${def.name} (position ${i + 1})` };
-      }
-      result[def.name] = undefined;
-      continue;
-    }
-
-    if (def.type === 'number') {
-      const num = Number(value);
-      if (!Number.isFinite(num)) {
-        return { ok: false, error: `Invalid number for argument ${def.name}: ${value}` };
-      }
-      result[def.name] = num;
-    } else {
-      result[def.name] = value;
-    }
+  positionals: readonly string[],
+  args: readonly ArgDef[],
+): ParseResult<BoundCommandArgs> => {
+  const values = new Map<string, unknown>();
+  let index = 0;
+  for (const def of args) {
+    const parsed = def.variadic
+      ? parseVariadic(positionals.slice(index), def, def.variadic)
+      : parseFixedArgument(positionals[index], def, index);
+    if (!parsed.ok) return parsed;
+    values.set(def.name, parsed.value);
+    index = def.variadic ? positionals.length : index + 1;
   }
-  return { ok: true, result };
+  if (positionals.length > index)
+    return {
+      ok: false,
+      error: `Too many positional arguments: allowed ${args.length}; received ${positionals.length}`,
+    };
+  return { ok: true, value: Object.fromEntries(values) };
+};
+
+const optionDefault = (option: OptionDef): OptionValue | undefined =>
+  option.default ?? (option.type === 'boolean' ? false : undefined);
+
+const completeOptions = (
+  values: ReadonlyMap<string, OptionValue>,
+  options: readonly OptionDef[],
+): ParseResult<BoundCommandArgs> => {
+  const completed = new Map(values);
+  for (const option of options) {
+    if (completed.has(option.name)) continue;
+    if (option.required) return { ok: false, error: `Missing required option: --${option.name}` };
+    const value = optionDefault(option);
+    if (value !== undefined) completed.set(option.name, value);
+  }
+  return { ok: true, value: Object.fromEntries(completed) };
+};
+
+const bindDefinition = (
+  tokens: readonly string[],
+  schema: SchemaDefinition,
+): BindCommandInputResult => {
+  const options = schema.options ?? [];
+  const parsed = parseCommandTokens(tokens, options);
+  if (!parsed.ok) return { ...parsed, kind: 'input' };
+  const values = completeOptions(parsed.value.values, options);
+  if (!values.ok) return { ...values, kind: 'input' };
+  const args = parsePositionalArgs(parsed.value.positionals, schema.args ?? []);
+  if (!args.ok) return { ...args, kind: 'input' };
+  return { ok: true, parsed: { ...args.value, ...values.value } };
+};
+
+const selectUnionResult = (
+  tokens: readonly string[],
+  successes: readonly BoundCommandArgs[],
+  errors: readonly string[],
+): BindCommandInputResult => {
+  const only = successes[0];
+  if (successes.length === 1 && only !== undefined) return { ok: true, parsed: only };
+  if (successes.length > 1)
+    return {
+      ok: false,
+      kind: 'input',
+      error: `Ambiguous command input: ${successes.length} alternatives accept the supplied input (${tokens.join(' ')})`,
+    };
+  return {
+    ok: false,
+    kind: 'input',
+    error: `No alternative accepts the entire input (${tokens.join(' ')}):\n${errors.join('\n')}`,
+  };
+};
+
+const bindUnion = (tokens: readonly string[], schema: SchemaUnion): BindCommandInputResult => {
+  const successes: BoundCommandArgs[] = [];
+  const errors: string[] = [];
+  for (const [index, branch] of schema.schemas.entries()) {
+    const result = bindDefinition(tokens, branch);
+    if (result.ok) successes.push(result.parsed);
+    else errors.push(`Alternative ${index + 1}: ${result.error}`);
+  }
+  return selectUnionResult(tokens, successes, errors);
 };
 
 export const bindCommandInput = (
   tokens: readonly string[],
-  schema: SchemaDefinition,
+  schema: CommandInputSchema,
 ): BindCommandInputResult => {
-  const optionsDef = schema.options ?? [];
-  const argsDef = schema.args ?? [];
-
-  const parsedTokens = parseCommandTokens(tokens, optionsDef);
-  if (!parsedTokens.ok) {
-    return { ok: false, error: parsedTokens.error };
-  }
-  const { values, positionals } = parsedTokens.result;
-
-  const valuesWithDefaults = applyDefaults(values, optionsDef);
-
-  const numberConversion = convertNumberOptions(valuesWithDefaults, optionsDef);
-  if (!numberConversion.ok) {
-    return { ok: false, error: numberConversion.error };
-  }
-
-  const positionalResult = parsePositionalArgs(positionals, argsDef);
-  if (!positionalResult.ok) {
-    return { ok: false, error: positionalResult.error };
-  }
-
-  return {
-    ok: true,
-    parsed: { ...positionalResult.result, ...numberConversion.result },
-  };
+  const validation = validateCommandSchema(schema);
+  if (!validation.ok) return { ...validation, kind: 'schema' };
+  return schema.kind === 'union' ? bindUnion(tokens, schema) : bindDefinition(tokens, schema);
 };

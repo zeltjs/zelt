@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ZeltCommandExecutionError, ZeltContextNotAvailableError } from '../../../../kernel';
 import type { InferSchema } from '../command-schema.types';
-import { cliSchema } from '../command-schema.types';
-import { runInCommandContext } from '../index';
+import { cliSchema, runInCommandContext } from '../index';
 
 import { args } from './args.lib';
 
