@@ -1,6 +1,7 @@
 import type {
   ConfigClass,
   ConfiguredFeature,
+  ContextMode,
   CreateRuntimeOptions,
   HttpCapabilities,
   RuntimeApp,
@@ -11,6 +12,7 @@ import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 import { CloudflareWorkersWaitUntilAdaptor } from './cloudflare-workers-wait-until.adaptor';
 
 export type CloudflareWorkersOptions = {
+  readonly contextMode?: ContextMode;
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
   readonly prebuilt?: ZeltPrebuilt;
@@ -35,6 +37,7 @@ export const onCloudflareWorkers = async (
   options: CloudflareWorkersOptions = {},
 ): Promise<CloudflareWorkersApp> => {
   const readyApp = await app.createRuntime({
+    ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],

@@ -83,6 +83,10 @@ export class OrderService {
 
 `AsyncLocalStorage` を使ってasyncの境界をまたいでコンテキストを伝播するには `withLogContext` を使います:
 
+非同期の暗黙伝播には[async方式の実行コンテキスト](./async-context)が必要です。
+sync方式では、コールバックの同期実行区間だけコンテキストを取得できます。
+両方式で`await`後もログのbindingsを保持したい場合は、`logger.child(bindings)`を使います。
+
 ```typescript
 import { withLogContext, Logger, inject } from '@zeltjs/core';
 

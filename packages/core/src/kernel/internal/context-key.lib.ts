@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
 import type { DeferredValueHandle } from '@zeltjs/unsafe-type-lib';
 import { DEFERRED_VALUE_TYPE, unsafeResolveDeferredValue } from '@zeltjs/unsafe-type-lib';
 
@@ -14,20 +13,116 @@ export const createContextKey = <T>(name: string): ContextKey<T> => new ContextK
 
 type ContextStore = Record<symbol, unknown>;
 
-const storage = /* @__PURE__ */ new AsyncLocalStorage<ContextStore>();
+export type ContextMode = 'sync' | 'async';
 
-export const runInContext = <T>(fn: () => T): T => {
-  const parent = storage.getStore();
-  return storage.run({ ...parent }, fn);
+export type ContextFrame = {
+  readonly mode: ContextMode;
+  readonly values: ContextStore;
 };
 
-export const runInRootContext = <T>(fn: () => T): T => storage.run({}, fn);
+export type AsyncContextCarrier = {
+  get(): ContextFrame | undefined;
+  run<T>(frame: ContextFrame, fn: () => T): T;
+};
 
-export const hasContext = (): boolean => storage.getStore() !== undefined;
+export type CapturedContext = {
+  readonly mode: ContextMode;
+  run<T>(fn: () => T): T;
+};
+
+let synchronousFrame: ContextFrame | undefined;
+let asyncCarrier: AsyncContextCarrier | undefined;
+
+export const hasAsyncContextCarrier = (): boolean => asyncCarrier !== undefined;
+
+/** @throws {TypeError} */
+export const installAsyncContextCarrier = (carrier: AsyncContextCarrier): void => {
+  if (asyncCarrier !== undefined) throw new TypeError('Async context is already enabled');
+  asyncCarrier = carrier;
+};
+
+export const defaultContextMode = (): ContextMode => (asyncCarrier ? 'async' : 'sync');
+
+const currentFrame = (): ContextFrame | undefined => {
+  if (synchronousFrame) return synchronousFrame;
+  const frame = asyncCarrier?.get();
+  return frame?.mode === 'async' ? frame : undefined;
+};
+
+const runSynchronously = <T>(frame: ContextFrame, fn: () => T): T => {
+  const parent = synchronousFrame;
+  synchronousFrame = frame;
+  try {
+    return fn();
+  } finally {
+    synchronousFrame = parent;
+  }
+};
+
+const captureFrame = (frame: ContextFrame): CapturedContext => ({
+  mode: frame.mode,
+  // A sync frame also masks an enclosing ALS frame, so a portable request
+  // cannot accidentally read its async caller's state after suspension.
+  run: (fn) => {
+    const carrier = asyncCarrier;
+    const parent = carrier?.get();
+    if (carrier && parent !== frame && (frame.mode === 'async' || parent?.mode === 'async')) {
+      return carrier.run(frame, () => runSynchronously(frame, fn));
+    }
+    return runSynchronously(frame, fn);
+  },
+});
+
+/** @throws {TypeError} */
+const resolveContextMode = (mode: unknown, parent: ContextFrame | undefined): ContextMode => {
+  const selected = mode ?? parent?.mode ?? defaultContextMode();
+  if (selected === 'sync' || selected === 'async') return selected;
+  throw new TypeError("Context mode must be 'sync' or 'async'");
+};
+
+/** @throws {TypeError} */
+export const createContextScope = (
+  options: { readonly mode?: ContextMode; readonly inherit?: boolean } = {},
+): CapturedContext => {
+  const parent = currentFrame();
+  const mode = resolveContextMode(options.mode, parent);
+  if (mode === 'async' && !asyncCarrier) {
+    throw new TypeError(
+      'Async context requires enableAsyncContext() from @zeltjs/core/async-context',
+    );
+  }
+  return captureFrame({ mode, values: options.inherit === false ? {} : { ...parent?.values } });
+};
+
+export const tryCaptureContext = (): CapturedContext | undefined => {
+  const frame = currentFrame();
+  return frame ? captureFrame(frame) : undefined;
+};
+
+/** @throws {ZeltContextNotAvailableError} */
+export const captureContext = (): CapturedContext => {
+  const captured = tryCaptureContext();
+  if (!captured) {
+    throw new ZeltContextNotAvailableError({
+      primitive: 'captureContext',
+      requiredContext: 'entry',
+    });
+  }
+  return captured;
+};
+
+/** @throws {TypeError} */
+export const runInContext = <T>(fn: () => T): T => createContextScope().run(fn);
+
+/** @throws {TypeError} */
+export const runInRootContext = <T>(fn: () => T): T =>
+  createContextScope({ inherit: false }).run(fn);
+
+export const hasContext = (): boolean => currentFrame() !== undefined;
 
 /** @throws {ZeltContextNotAvailableError} */
 export const getInternal = <T>(key: ContextKey<T>): T | undefined => {
-  const store = storage.getStore();
+  const store = currentFrame()?.values;
   if (!store)
     throw new ZeltContextNotAvailableError({
       primitive: 'getInternal',
@@ -39,7 +134,7 @@ export const getInternal = <T>(key: ContextKey<T>): T | undefined => {
 
 /** @throws {ZeltContextNotAvailableError} */
 export const setInternal = <T>(key: ContextKey<T>, value: T): void => {
-  const store = storage.getStore();
+  const store = currentFrame()?.values;
   if (!store)
     throw new ZeltContextNotAvailableError({
       primitive: 'setInternal',

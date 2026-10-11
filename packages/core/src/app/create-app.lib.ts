@@ -7,7 +7,12 @@ import {
 } from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service';
-import { ZeltAppConfigurationError, ZeltLifecycleStateError } from '../kernel';
+import type { ContextMode } from '../kernel';
+import {
+  ContextRuntimeService,
+  ZeltAppConfigurationError,
+  ZeltLifecycleStateError,
+} from '../kernel';
 import { AppBootstrap } from './app-bootstrap.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import type {
@@ -29,6 +34,7 @@ export type CreateAppOptions = {
 };
 
 export type CreateRuntimeOptions = {
+  readonly contextMode?: ContextMode;
   readonly configs?: readonly ConfigClass<object>[];
   readonly fallbackConfigs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
@@ -203,6 +209,10 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   runtimeOptions: CreateRuntimeOptions | undefined,
 ): Promise<RuntimeApp<F>> => {
   const container = new Container();
+  container.bind({
+    provide: ContextRuntimeService,
+    useValue: new ContextRuntimeService(runtimeOptions?.contextMode),
+  });
   const runtime = container.get(AppBootstrap);
   const configRegistry = container.get(ConfigRegistry);
   const { registerShutdown, shutdown } = createRuntimeShutdown(runtime);

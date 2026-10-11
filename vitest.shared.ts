@@ -1,5 +1,6 @@
 import swc from 'unplugin-swc';
 export const sharedConfig = {
+  test: { setupFiles: [new URL('./scripts/vitest.setup.ts', import.meta.url).pathname] },
   plugins: [
     swc.vite({
       jsc: {

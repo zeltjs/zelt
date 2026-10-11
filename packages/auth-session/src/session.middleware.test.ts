@@ -1,3 +1,4 @@
+import type { ContextMode } from '@zeltjs/core';
 import { Controller, createApp, Get, http, Post, response, UseMiddleware } from '@zeltjs/core';
 import { describe, expect, it } from 'vitest';
 import { SessionConfig } from './session.config';
@@ -70,11 +71,11 @@ class SessionTestController {
 }
 
 describe('SessionMiddleware', () => {
-  const buildApp = async () => {
+  const buildApp = async (contextMode?: ContextMode) => {
     const app = createApp([http({ controllers: [SessionTestController] })], {
       configs: [TestSessionConfig],
     });
-    const readyApp = await app.createRuntime();
+    const readyApp = await app.createRuntime(contextMode === undefined ? {} : { contextMode });
     return readyApp;
   };
 
@@ -84,6 +85,24 @@ describe('SessionMiddleware', () => {
     const match = /sid=([^;]+)/.exec(setCookie);
     return match?.[1];
   };
+
+  it('propagates loaded Session state through asynchronous middleware in sync mode', async () => {
+    const app = await buildApp('sync');
+    try {
+      const login = await app.http.request('/session/login', { method: 'POST' });
+      expect(login.status).toBe(200);
+      const cookie = extractCookie(login);
+      expect(cookie).toBeDefined();
+      const result = await app.http.request('/session/', { headers: { Cookie: `sid=${cookie}` } });
+      expect(result.status).toBe(200);
+      expect(await result.json()).toEqual({
+        session: { userId: 'user-123', count: 1 },
+        isNew: false,
+      });
+    } finally {
+      await app.shutdown();
+    }
+  });
 
   it('should create a new session on first request', async () => {
     const app = await buildApp();

@@ -83,6 +83,10 @@ export class OrderService {
 
 Use `withLogContext` to propagate context across async boundaries using `AsyncLocalStorage`:
 
+This requires [asynchronous context mode](./async-context). In synchronous mode,
+the context is available only during the callback's synchronous execution.
+Use `logger.child(bindings)` to retain log bindings across awaits in either mode.
+
 ```typescript
 import { withLogContext, Logger, inject } from '@zeltjs/core';
 

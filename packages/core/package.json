@@ -14,6 +14,16 @@
     "access": "public"
   },
   "exports": {
+    "./async-context": {
+      "import": {
+        "types": "./dist/async-context.d.ts",
+        "default": "./dist/async-context.js"
+      },
+      "require": {
+        "types": "./dist/async-context.d.cts",
+        "default": "./dist/async-context.cjs"
+      }
+    },
     ".": {
       "import": {
         "types": "./dist/index.d.ts",

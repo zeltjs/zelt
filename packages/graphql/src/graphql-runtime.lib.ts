@@ -1,3 +1,5 @@
+import type { CapturedContext } from '@zeltjs/core';
+import { captureContext, runInContext } from '@zeltjs/core';
 import type { ExecutionResult, GraphQLSchema, ValidationRule } from 'graphql';
 import {
   buildSchema,
@@ -341,20 +343,23 @@ type ResolveBinding = (
   parent: unknown,
   args: Readonly<Record<string, unknown>>,
   isRootField: boolean,
+  context: CapturedContext,
 ) => Promise<unknown>;
 
 /** @throws {Error} */
 const createBindingResolver = (options: CreateGraphqlExecutorOptions): ResolveBinding => {
   const resolverCache = new Map<GraphqlResolverClass, object>();
 
-  return async (binding, parent, args, isRootField) => {
+  return async (binding, parent, args, isRootField, context) => {
     const resolverClass = findResolverClass(options.resolvers, binding);
     const cached = resolverCache.get(resolverClass);
     const instance = cached ?? (await options.resolveResolver(resolverClass));
     if (!cached) resolverCache.set(resolverClass, instance);
 
-    return runWithGraphqlArgs(args, () =>
-      callResolverMethod(instance, binding.method, isRootField ? [] : [parent]),
+    return context.run(() =>
+      runWithGraphqlArgs(args, () =>
+        callResolverMethod(instance, binding.method, isRootField ? [] : [parent]),
+      ),
     );
   };
 };
@@ -372,6 +377,7 @@ const normalizeEnumValue = (value: unknown, mapping: Readonly<Record<string, str
 type BoundFieldResolver = (
   parent: unknown,
   args: Readonly<Record<string, unknown>>,
+  context: CapturedContext,
 ) => Promise<unknown>;
 
 const createBoundFieldResolver = (
@@ -381,10 +387,13 @@ const createBoundFieldResolver = (
   enumMapping: Readonly<Record<string, string>> | undefined,
 ): BoundFieldResolver => {
   if (!enumMapping) {
-    return (parent, args) => resolveBinding(binding, parent, args, isRootField);
+    return (parent, args, context) => resolveBinding(binding, parent, args, isRootField, context);
   }
-  return async (parent, args) =>
-    normalizeEnumValue(await resolveBinding(binding, parent, args, isRootField), enumMapping);
+  return async (parent, args, context) =>
+    normalizeEnumValue(
+      await resolveBinding(binding, parent, args, isRootField, context),
+      enumMapping,
+    );
 };
 
 const attachTypeBindings = (
@@ -522,6 +531,7 @@ export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): Gr
   const extraRules: readonly ValidationRule[] = options.validationRules ?? [];
 
   return async (request) => {
+    const context = runInContext(captureContext);
     if (extraRules.length > 0) {
       let document: import('graphql').DocumentNode;
       try {
@@ -537,6 +547,7 @@ export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): Gr
     return enrichValidationErrors(
       await graphql({
         schema,
+        contextValue: context,
         source: request.query,
         variableValues: request.variables ?? undefined,
         operationName: request.operationName ?? undefined,

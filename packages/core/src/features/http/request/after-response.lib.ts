@@ -1,4 +1,10 @@
-import { createContextKey, getInternal, hasContext, setInternal } from '../../../kernel';
+import {
+  captureContext,
+  createContextKey,
+  getInternal,
+  hasContext,
+  setInternal,
+} from '../../../kernel';
 
 type AfterResponseCallback = () => void | Promise<void>;
 
@@ -24,7 +30,8 @@ export const registerAfterResponseCallback = (callback: AfterResponseCallback): 
   if (!registry || registry.flushed) return false;
 
   registry.callbacks ??= [];
-  registry.callbacks.push(callback);
+  const captured = captureContext();
+  registry.callbacks.push(() => captured.run(callback));
   return true;
 };
 

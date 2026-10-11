@@ -275,3 +275,37 @@ describe('onCloudflareWorkers', () => {
     expect(events).toEqual(['task-started', 'task-finished']);
   });
 });
+
+it('captures per-request Workers bindings under concurrent synchronous-mode requests', async () => {
+  const databases = Array.from({ length: 20 }, () => ({ ...mockD1 }));
+  @Controller('/')
+  class PortableBindingsController {
+    constructor(private readonly bindings = inject(CloudflareBindings)) {}
+    @Get('/')
+    async handle(db = this.bindings.get('DB')) {
+      await Promise.resolve();
+      return { index: databases.indexOf(db) };
+    }
+  }
+  const workers = await onCloudflareWorkers(
+    createApp([http({ controllers: [PortableBindingsController] })]),
+    { contextMode: 'sync' },
+  );
+  try {
+    const responses = await Promise.all(
+      databases.map((db) =>
+        workers.fetch(
+          new Request('https://example.com/'),
+          { ...createMockEnv(), DB: db },
+          createMockExecutionContext(),
+        ),
+      ),
+    );
+    for (const [index, response] of responses.entries()) {
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ index });
+    }
+  } finally {
+    await workers.shutdown();
+  }
+});

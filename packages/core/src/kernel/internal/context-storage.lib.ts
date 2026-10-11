@@ -11,7 +11,7 @@ export interface ContextStorage<T> {
   run<R>(value: T, fn: () => R): R;
 }
 
-/** @throws {ZeltContextNotAvailableError} */
+/** @throws {ZeltContextNotAvailableError | TypeError} */
 export const createContextStorage = <T>(name: string): ContextStorage<T> => {
   const key = createContextKey<T>(name);
 

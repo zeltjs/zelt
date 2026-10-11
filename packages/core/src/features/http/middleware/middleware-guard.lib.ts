@@ -3,9 +3,21 @@ import { matchedRoutes } from 'hono/route';
 import { findTargetHandler } from 'hono/utils/handler';
 
 import type { ResolverHandle } from '../../../kernel';
-import { createContextKey, getInternal, setInternal } from '../../../kernel';
+import {
+  captureContext,
+  createContextKey,
+  getInternal,
+  setInternal,
+  ZeltContextNotAvailableError,
+} from '../../../kernel';
+import { attachRequestScope, isCurrentRequest, runInRequestContext } from '../request';
 import { recordMiddlewareOptions, recordMiddlewareValue } from '../request/injection';
-import type { HonoMiddleware, MiddlewareIdentifier, MiddlewareInput } from './middleware.types';
+import type {
+  HonoMiddleware,
+  MiddlewareIdentifier,
+  MiddlewareInput,
+  RequestContext,
+} from './middleware.types';
 
 export type SkippedMiddlewareSets = {
   readonly classLevel: ReadonlySet<MiddlewareIdentifier>;
@@ -41,18 +53,30 @@ export const middlewareIdentity = (input: MiddlewareInput): MiddlewareIdentifier
 const captureNextValue = (
   key: MiddlewareInput,
   next: () => Promise<void>,
+  ctx: RequestContext,
+  isActive: () => boolean,
 ): ((...args: unknown[]) => Promise<void>) => {
+  const captured = captureContext();
   return (...args: unknown[]) => {
-    try {
-      if (args.length > 0) {
-        recordMiddlewareValue(key, args[0]);
-      }
-      return next().then(completeNext);
-    } catch (error) {
+    if (!isActive()) {
       return (async () => {
-        throw error;
+        throw new ZeltContextNotAvailableError({ primitive: 'next', requiredContext: 'entry' });
       })();
     }
+    const scope = isCurrentRequest(ctx) ? captureContext() : captured;
+    return scope.run(() => {
+      try {
+        if (args.length > 0) {
+          recordMiddlewareValue(key, args[0]);
+        }
+        attachRequestScope(ctx, scope);
+        return next().then(completeNext);
+      } catch (error) {
+        return (async () => {
+          throw error;
+        })();
+      }
+    });
   };
 };
 
@@ -66,22 +90,34 @@ export const resolveMiddleware = (
       throw new TypeError('Invalid middleware class. Missing use() method.');
     }
     const instance = resolver.get(middleware);
-    return (_c, next) => Promise.resolve(instance.use(captureNextValue(middleware, next)));
+    return (c, next) =>
+      runInRequestContext(c, async () => {
+        let active = true;
+        try {
+          return await instance.use(captureNextValue(middleware, next, c, () => active));
+        } finally {
+          active = false;
+        }
+      });
   }
   if (!checkMiddlewareClass(middleware.middleware)) {
     throw new TypeError('Invalid middleware class. Missing use() method.');
   }
   const instance = resolver.get(middleware.middleware);
-  return async (_c, next) => {
-    // recordMiddlewareOptions's contract: restore in a finally around the WHOLE
-    // use() call, not just after next() — see its doc for why.
-    const restoreOptions = recordMiddlewareOptions(middleware.middleware, middleware.options);
-    try {
-      return await instance.use(captureNextValue(middleware, next));
-    } finally {
-      restoreOptions();
-    }
-  };
+  return (c, next) =>
+    runInRequestContext(c, async () => {
+      const captured = captureContext();
+      let active = true;
+      // recordMiddlewareOptions's contract: restore in a finally around the WHOLE
+      // use() call, not just after next() — see its doc for why.
+      const restoreOptions = recordMiddlewareOptions(middleware.middleware, middleware.options);
+      try {
+        return await instance.use(captureNextValue(middleware, next, c, () => active));
+      } finally {
+        active = false;
+        captured.run(restoreOptions);
+      }
+    });
 };
 
 export const attachSkippedMiddlewares = (handler: object, skipped: SkippedMiddlewareSets): void => {
@@ -144,19 +180,21 @@ const APPLIED_MIDDLEWARES = /* @__PURE__ */ createContextKey<Set<MiddlewareIdent
 
 // Every router level registers the built-in security middlewares; this guard
 // keeps one identity to one run per request regardless of nesting depth.
-/** @throws {ZeltContextNotAvailableError} */
+/** @throws {ZeltContextNotAvailableError | TypeError} */
 export const oncePerRequest = (
   identifier: MiddlewareIdentifier,
   middleware: HonoMiddleware,
 ): HonoMiddleware => {
   return (c, next) => {
-    const existing = getInternal(APPLIED_MIDDLEWARES);
-    if (existing) {
-      if (existing.has(identifier)) return next();
-      existing.add(identifier);
-    } else {
-      setInternal(APPLIED_MIDDLEWARES, new Set([identifier]));
-    }
-    return middleware(c, next);
+    return runInRequestContext(c, () => {
+      const existing = getInternal(APPLIED_MIDDLEWARES);
+      if (existing) {
+        if (existing.has(identifier)) return next();
+        existing.add(identifier);
+      } else {
+        setInternal(APPLIED_MIDDLEWARES, new Set([identifier]));
+      }
+      return middleware(c, next);
+    });
   };
 };

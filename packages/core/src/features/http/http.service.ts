@@ -1,7 +1,14 @@
 import { Container } from '@needle-di/core';
 import type { Hono } from 'hono';
 import { LoggerService, WaitUntilAdaptor } from '../../built-in-service';
-import { Injectable, inject, LifecycleManager, resolve, ZeltInternalError } from '../../kernel';
+import {
+  ContextRuntimeService,
+  Injectable,
+  inject,
+  LifecycleManager,
+  resolve,
+  ZeltInternalError,
+} from '../../kernel';
 import { DefaultErrorHandler } from './error/default.error-handler';
 import type { HttpOptions } from './http.types';
 import { createBootstrapMiddleware, createRequestRootChecker } from './http-bootstrap.lib';
@@ -60,6 +67,7 @@ export class HttpService {
     private readonly lifecycleManager: LifecycleManager = inject(LifecycleManager),
     private readonly logger: LoggerService = inject(LoggerService),
     private readonly waitUntilAdaptor: WaitUntilAdaptor = inject(WaitUntilAdaptor),
+    private readonly contextRuntime: ContextRuntimeService = inject(ContextRuntimeService),
   ) {}
 
   /** @throws {ZeltInternalError} */
@@ -93,6 +101,7 @@ export class HttpService {
           this.logger.error('After-response execution failed', { error });
         },
         (promise) => this.waitUntilAdaptor.waitUntil(promise),
+        this.contextRuntime,
       ),
     );
     // Request helpers (body() etc.) must work inside the security and user
