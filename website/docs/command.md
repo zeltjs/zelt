@@ -5,6 +5,10 @@
 
 Zelt provides CLI command support with dependency injection through `@zeltjs/core`.
 
+:::info[Additional input schema features — not released]
+See the [command input schema contract](./command-input-contract.md) for required options, variadic positional arguments, mutual exclusion through schema unions, rejection of undeclared input, and help generation. These additions are not included in `@zeltjs/core@0.11.0`.
+:::
+
 ## Creating a Command
 
 Define the schema with `cliSchema()` as a module-level constant, then pass it to `args()` in the `@Command` decorated class for type-safe CLI commands:
@@ -78,7 +82,7 @@ zelt run -c ./config/zelt.config.ts greet Alice
 
 ## Schema Definition
 
-The `cliSchema()` function defines typed arguments and options. The resulting schema is a plain value: declare it in its own module (for example `greet-schema.lib.ts`), import it into the command, and pass it to `args()`. The argv is only parsed and validated when `args(schema)` is called — a command that never calls `args()` accepts extra argv without error.
+The `cliSchema()` function defines typed arguments and options. The resulting schema is a plain value: declare it in its own module (for example `greet-schema.lib.ts`), import it into the command, and pass it to `args()`. The argv is parsed and validated when `args(schema)` is called. Undeclared options and excess positional arguments are rejected; input errors prevent entry into the `run()` body. Commands that never call `args()` are not automatically validated.
 
 ### Positional Arguments
 
@@ -157,6 +161,31 @@ export class DeployCommand {
   }
 }
 ```
+
+## Input Contracts and Help
+
+An option with `required: true` requires explicit input and removes `undefined` from its inferred `string` or `number` type. A positional argument with `variadic: { min, max }` collects the remaining values into an array.
+
+```ts
+import { Command, args, cliSchema, formatCommandHelp } from '@zeltjs/core';
+
+const analyzeSchema = cliSchema({
+  args: [{ name: 'directories', type: 'string', variadic: { min: 1 } }],
+  options: [{ name: 'guide', type: 'string', required: true }],
+});
+
+@Command({ name: 'analyze' })
+class AnalyzeCommand {
+  run(input = args(analyzeSchema)) {
+    // directories: string[], guide: string
+    console.log(input.directories, input.guide);
+  }
+}
+
+console.log(formatCommandHelp('analyze', analyzeSchema));
+```
+
+`cliUnion([schemaA, schemaB, ...])` declares valid input alternatives. Exactly one schema must accept the entire input, and the inferred input type is also a union. See the [input schema contract](./command-input-contract.md) for exclusion examples, count boundaries, input errors, and help requirements.
 
 ## Schema Types
 
