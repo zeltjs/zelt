@@ -18,6 +18,7 @@ export type ContextMode = 'sync' | 'async';
 export type ContextFrame = {
   readonly mode: ContextMode;
   readonly values: ContextStore;
+  readonly storageValues: Readonly<ContextStore>;
 };
 
 export type AsyncContextCarrier = {
@@ -80,6 +81,13 @@ const resolveContextMode = (mode: unknown, parent: ContextFrame | undefined): Co
   throw new TypeError("Context mode must be 'sync' or 'async'");
 };
 
+const createEntryValues = (
+  parent: ContextFrame | undefined,
+): Pick<ContextFrame, 'values' | 'storageValues'> => ({
+  values: { ...parent?.values },
+  storageValues: parent?.storageValues ?? {},
+});
+
 /** @throws {TypeError} */
 export const createContextScope = (
   options: { readonly mode?: ContextMode; readonly inherit?: boolean } = {},
@@ -91,7 +99,26 @@ export const createContextScope = (
       'Async context requires enableAsyncContext() from @zeltjs/core/async-context',
     );
   }
-  return captureFrame({ mode, values: options.inherit === false ? {} : { ...parent?.values } });
+  return captureFrame({
+    mode,
+    ...createEntryValues(options.inherit === false ? undefined : parent),
+  });
+};
+
+export const getStorageInternal = <T>(key: ContextKey<T>): T | undefined => {
+  const value = currentFrame()?.storageValues[key._symbol];
+  return value === undefined ? undefined : unsafeResolveDeferredValue(key, value);
+};
+
+export const runInStorageContext = <T, R>(key: ContextKey<T>, value: T, fn: () => R): R => {
+  const parent = currentFrame();
+  // Storage scopes replace their own value while sharing mutable entry state.
+  // In particular, logging must not hide downstream auth or request injection.
+  return captureFrame({
+    mode: parent?.mode ?? defaultContextMode(),
+    values: parent?.values ?? {},
+    storageValues: { ...parent?.storageValues, [key._symbol]: value },
+  }).run(fn);
 };
 
 export const tryCaptureContext = (): CapturedContext | undefined => {
