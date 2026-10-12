@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-
+import { cliSchema } from './command-schema.lib';
 import type { InferSchema } from './command-schema.types';
-import { cliSchema } from './command-schema.types';
 
 describe('cliSchema', () => {
   it('returns input unchanged', () => {

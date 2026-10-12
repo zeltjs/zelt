@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bindCommandInput } from './bind-command-input.lib';
-import { cliSchema } from './command-schema.types';
+import { cliSchema } from './command-schema.lib';
 
 describe('bindCommandInput', () => {
   describe('empty schema', () => {

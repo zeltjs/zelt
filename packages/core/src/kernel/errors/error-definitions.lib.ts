@@ -35,10 +35,14 @@ export const formatZeltContextNotAvailableError = (ctx: {
 export const formatZeltAppConfigurationError = (
   ctx:
     | { reason: 'duplicate_command'; details: string }
+    | { reason: 'invalid_command_schema'; details: string }
     | { reason: 'abstract_leaf_without_concrete'; details: string }
     | { reason: 'duplicate_feature_key'; details: string }
     | { reason: 'reserved_feature_key'; details: string },
 ) => {
+  if (ctx.reason === 'invalid_command_schema') {
+    return `Invalid command schema: ${ctx.details}`;
+  }
   if (ctx.reason === 'abstract_leaf_without_concrete') {
     return `Abstract config class ${ctx.details} requires a concrete config class`;
   }
