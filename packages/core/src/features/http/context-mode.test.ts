@@ -4,6 +4,7 @@ import {
   Controller,
   captureContext,
   createApp,
+  createContextStorage,
   ErrorHandler,
   Get,
   http,
@@ -20,6 +21,54 @@ import {
 } from '../../index';
 
 describe.each(['sync', 'async'] as const)('HTTP context mode: %s', (contextMode: ContextMode) => {
+  it('does not revive completed storage scopes when middleware post-processing fails', async () => {
+    const storage = createContextStorage<string>('test:finished-middleware-scope');
+    const failure = new Error('post-processing failed');
+
+    @Middleware
+    class Scoped {
+      async use(next: Next, req = request()): Promise<undefined> {
+        const entry = captureContext();
+        await storage.run(req.pathParam('id'), next);
+        expect(entry.run(storage.get)).toBeUndefined();
+        throw failure;
+      }
+    }
+
+    @ErrorHandler
+    class Errors {
+      onError(error: Error, _ctx: RequestContext, req = request(), value = storage.get()) {
+        expect(error).toBe(failure);
+        return Response.json({ id: req.pathParam('id'), value: value ?? null }, { status: 503 });
+      }
+    }
+
+    @Controller('/')
+    @UseMiddleware(Scoped)
+    class Endpoint {
+      @Get('/:id')
+      async handle(req = request(), value = storage.get()) {
+        expect(value).toBe(req.pathParam('id'));
+        await Promise.resolve();
+        return { value };
+      }
+    }
+
+    const runtime = await createApp([
+      http({ controllers: [Endpoint], errorHandlers: [Errors] }),
+    ]).createRuntime({ contextMode });
+    try {
+      const ids = ['a', 'b', 'c'];
+      const results = await Promise.all(ids.map((id) => runtime.http.request(`/${id}`)));
+      for (const [index, result] of results.entries()) {
+        expect(result.status).toBe(503);
+        expect(await result.json()).toEqual({ id: ids[index], value: null });
+      }
+    } finally {
+      await runtime.shutdown();
+    }
+  });
+
   it('keeps captured request/value/response handles isolated across overlapping requests', async () => {
     type User = { id: string };
     @Middleware

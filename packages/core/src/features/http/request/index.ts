@@ -6,6 +6,7 @@ export {
   isCurrentRequest,
   REQUEST_ROOT,
   REQUEST_STORE_CREATOR,
+  recordRequestScope,
   runInRequestContext,
 } from './request-scope.lib';
 export type { ValidationFailedContext } from './validated.exceptions';

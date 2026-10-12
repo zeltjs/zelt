@@ -75,6 +75,7 @@ class ExampleController {
 
 - ログ：`logger.child(bindings)`のbindingsは、両方式で`await`後も保持します。`withLogContext`の暗黙伝播が`await`を越えるのは`async`のみです。
 - Task：`run()`・`runAndWait()`は両方式で使えます。`sync`では、実行中Taskがあると`shutdown()`が`TaskRunnerSynchronousShutdownError`になります。外部からの終了と、Task自身の終了待ちを区別できないためです。`runAndWait()`の完了後に終了するか、終了時のTask待機には`async`を使います。
+- `afterResponse()`のTaskは、完了したリクエストのflush側スコープで実行します。登録時の一時的なstorageスコープ（DBトランザクションやログbindingsなど）は引き継ぎません。Taskに必要なデータやchild loggerは、handlerから戻る前に受け取っておきます。
 - DB：自動トランザクション伝播には`async`が必要です。この変更でDBのトランザクション設計は変更していません。
 - CLI・GraphQL：`args(...)`をメソッドのデフォルト引数で受け取ります。非同期のresolver解決後にも、呼び出し時の実行コンテキストを復元します。
 

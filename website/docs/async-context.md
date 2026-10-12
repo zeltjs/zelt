@@ -75,6 +75,7 @@ In `sync` mode, `context.run(async () => ...)` restores ambient access only unti
 
 - Logging: `logger.child(bindings)` retains its bindings across awaits in both modes. `withLogContext` only propagates implicitly across awaits in `async` mode.
 - Tasks: `run()` and `runAndWait()` work in both modes. In `sync` mode, `shutdown()` rejects with `TaskRunnerSynchronousShutdownError` while tasks are active, because an external caller cannot be distinguished from a task waiting on itself. Await `runAndWait()` before shutdown, or enable asynchronous context for task draining.
+- `afterResponse()` tasks run in the completed request's flush scope. Temporary storage scopes from registration, including database transactions and log bindings, are not retained. Capture any data or child logger your task needs before returning from the handler.
 - Database: automatic transaction propagation requires `async` mode. This change does not redesign database transactions.
 - CLI and GraphQL: capture `args(...)` in method parameter defaults. Resolver invocation restores its execution context after asynchronous resolver lookup.
 

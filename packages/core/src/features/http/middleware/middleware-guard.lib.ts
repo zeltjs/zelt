@@ -10,7 +10,7 @@ import {
   setInternal,
   ZeltContextNotAvailableError,
 } from '../../../kernel';
-import { attachRequestScope, isCurrentRequest, runInRequestContext } from '../request';
+import { isCurrentRequest, recordRequestScope, runInRequestContext } from '../request';
 import { recordMiddlewareOptions, recordMiddlewareValue } from '../request/injection';
 import type {
   HonoMiddleware,
@@ -37,8 +37,6 @@ const hasUseMethod = (proto: unknown): boolean => {
 const checkMiddlewareClass = (input: MiddlewareInput): boolean =>
   typeof input === 'function' && input.prototype !== undefined && hasUseMethod(input.prototype);
 
-const completeNext = (): void => {};
-
 export const middlewareIdentity = (input: MiddlewareInput): MiddlewareIdentifier => {
   if (typeof input === 'function') return input;
   return input.middleware;
@@ -64,17 +62,16 @@ const captureNextValue = (
       })();
     }
     const scope = isCurrentRequest(ctx) ? captureContext() : captured;
-    return scope.run(() => {
+    return scope.run(async () => {
+      if (args.length > 0) {
+        recordMiddlewareValue(key, args[0]);
+      }
+      const restoreScope = recordRequestScope(ctx, scope);
       try {
-        if (args.length > 0) {
-          recordMiddlewareValue(key, args[0]);
-        }
-        attachRequestScope(ctx, scope);
-        return next().then(completeNext);
-      } catch (error) {
-        return (async () => {
-          throw error;
-        })();
+        await next();
+      } finally {
+        // Re-entry after next must not revive a finished storage or transaction scope.
+        restoreScope();
       }
     });
   };

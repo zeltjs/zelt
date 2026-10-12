@@ -1,7 +1,13 @@
 import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { runInContext, ZeltContextNotAvailableError } from '../../../kernel';
+import {
+  createContextScope,
+  createContextStorage,
+  runInContext,
+  ZeltContextNotAvailableError,
+} from '../../../kernel';
+import { attachRequestScope, getRequestScope, runInRequestContext } from '../request';
 
 import { CorsMiddleware } from './cors/cors.middleware';
 import type { Next } from './middleware.types';
@@ -88,6 +94,76 @@ describe('middleware skip metadata cache', () => {
 });
 
 describe('middleware error propagation', () => {
+  it.each([
+    'resolve',
+    'reject',
+    'throw',
+  ] as const)('restores the previous request scope when next will %s', async (outcome) => {
+    const storage = createContextStorage<string>('test:next-scope');
+    const failure = new Error('next failed');
+    const original = createContextScope({ mode: 'async', inherit: false });
+    class Scoped {
+      async use(next: Next): Promise<undefined> {
+        const completion = storage.run('inner', next);
+        if (outcome === 'resolve') await completion;
+        else await expect(completion).rejects.toBe(failure);
+        expect(storage.get()).toBeUndefined();
+        return undefined;
+      }
+    }
+    const middleware = resolveMiddleware(Scoped, { get: (cls) => new cls() });
+    const app = new Hono();
+    app.get('/test', async (ctx) => {
+      attachRequestScope(ctx, original);
+      await middleware(ctx, () => {
+        expect(storage.get()).toBe('inner');
+        if (outcome === 'throw') throw failure;
+        return outcome === 'reject' ? Promise.reject(failure) : Promise.resolve();
+      });
+      expect(getRequestScope(ctx)).toBe(original);
+      expect(runInRequestContext(ctx, storage.get)).toBeUndefined();
+      return ctx.json({ ok: true });
+    });
+    expect((await app.request('/test')).status).toBe(200);
+  });
+
+  it('restores nested next scopes in reverse order', async () => {
+    const storage = createContextStorage<string>('test:nested-next');
+    const seen: (string | undefined)[] = [];
+    const original = createContextScope({ mode: 'async', inherit: false });
+    const app = new Hono();
+    app.get('/test', async (ctx) => {
+      attachRequestScope(ctx, original);
+      class Inner {
+        async use(next: Next): Promise<undefined> {
+          await storage.run('inner', next);
+          seen.push(runInRequestContext(ctx, storage.get));
+          return undefined;
+        }
+      }
+      class Outer {
+        async use(next: Next): Promise<undefined> {
+          await storage.run('outer', next);
+          seen.push(runInRequestContext(ctx, storage.get));
+          return undefined;
+        }
+      }
+      const resolver = { get: <T>(cls: new () => T): T => new cls() };
+      const inner = resolveMiddleware(Inner, resolver);
+      const outer = resolveMiddleware(Outer, resolver);
+      await outer(ctx, async () => {
+        await inner(ctx, () => {
+          seen.push(storage.get());
+          return Promise.resolve();
+        });
+      });
+      expect(seen).toEqual(['inner', 'outer', undefined]);
+      expect(getRequestScope(ctx)).toBe(original);
+      return ctx.json({ ok: true });
+    });
+    expect((await app.request('/test')).status).toBe(200);
+  });
+
   it('resolves next() with undefined even when Hono dispatch returns a Context', async () => {
     let completion: unknown = 'pending';
     class ObserverMiddleware {

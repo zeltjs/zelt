@@ -30,8 +30,7 @@ export const registerAfterResponseCallback = (callback: AfterResponseCallback): 
   if (!registry || registry.flushed) return false;
 
   registry.callbacks ??= [];
-  const captured = captureContext();
-  registry.callbacks.push(() => captured.run(callback));
+  registry.callbacks.push(callback);
   return true;
 };
 
@@ -46,13 +45,15 @@ export const flushAfterResponseCallbacks = (onError?: (error: unknown) => void):
   const callbacks = registry.callbacks;
   if (!callbacks) return Promise.resolve();
   registry.callbacks = undefined;
+  // The request flush scope outlives temporary middleware storage and transactions.
+  const captured = captureContext();
 
   const completions = callbacks.map(
     (callback) =>
       new Promise<void>((resolveDone) => {
         setTimeout(() => {
           void Promise.resolve()
-            .then(callback)
+            .then(() => captured.run(callback))
             .catch((error: unknown) => {
               try {
                 onError?.(error);

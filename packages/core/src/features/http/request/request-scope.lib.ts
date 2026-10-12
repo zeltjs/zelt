@@ -24,6 +24,15 @@ export const attachRequestScope = (ctx: RequestContext, scope: CapturedContext):
   scopes.set(ctx, scope);
 };
 
+export const recordRequestScope = (ctx: RequestContext, scope: CapturedContext): (() => void) => {
+  const previous = scopes.get(ctx);
+  scopes.set(ctx, scope);
+  return () => {
+    if (previous) scopes.set(ctx, previous);
+    else scopes.delete(ctx);
+  };
+};
+
 /** @throws {ZeltContextNotAvailableError} */
 export const isCurrentRequest = (ctx: RequestContext): boolean =>
   hasContext() && getInternal(REQUEST_EXECUTION) === ctx;
