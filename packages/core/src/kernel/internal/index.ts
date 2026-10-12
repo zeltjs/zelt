@@ -9,7 +9,6 @@ export {
   hasContext,
   installAsyncContextCarrier,
   runInContext,
-  runInRootContext,
   setInternal,
   tryCaptureContext,
 } from './context-key.lib';

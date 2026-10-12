@@ -36,7 +36,6 @@ export {
   installAsyncContextCarrier,
   type ReadyValue,
   runInContext,
-  runInRootContext,
   sealReadyValue,
   setInternal,
   tryCaptureContext,
