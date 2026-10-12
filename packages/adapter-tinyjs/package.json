@@ -1,0 +1,57 @@
+{
+  "name": "@zeltjs/adapter-tinyjs",
+  "version": "0.0.0",
+  "description": "tinyjs desktop adapter with a Fetch-shaped native bridge for Zelt applications",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/adapter-tinyjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./renderer": {
+      "import": {
+        "types": "./dist/renderer/index.d.ts",
+        "default": "./dist/renderer/index.js"
+      },
+      "require": {
+        "types": "./dist/renderer/index.d.cts",
+        "default": "./dist/renderer/index.cjs"
+      }
+    }
+  },
+  "main": "./dist/index.cjs",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@zeltjs/adapter-txiki": "workspace:*",
+    "valibot": "catalog:"
+  },
+  "peerDependencies": {
+    "@zeltjs/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@zeltjs/core": "workspace:*"
+  }
+}

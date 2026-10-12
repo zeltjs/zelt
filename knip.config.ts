@@ -18,6 +18,14 @@ const config: KnipConfig = {
   // CreateUserBody/User: used by fixture file consumed via ts-morph at runtime, not traceable by static analysis
   ignoreMembers: ['GreetBody', 'GreetResponse', 'CreateUserBody', 'User'],
   workspaces: {
+    'examples/tinyjs-desktop': {
+      // Installed from the official native distribution, rather than npm.
+      ignoreBinaries: ['tinyjs'],
+    },
+    'examples/txiki-http': {
+      // The txiki.js runtime is an external executable.
+      ignoreBinaries: ['tjs'],
+    },
     'examples/hello': {
       entry: [
         'src/main.ts',

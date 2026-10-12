@@ -1,0 +1,19 @@
+{
+  "name": "@examples/txiki-http",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsdown",
+    "start": "tjs run dist/main.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@zeltjs/core": "workspace:*",
+    "@zeltjs/adapter-txiki": "workspace:*"
+  },
+  "devDependencies": {
+    "@txikijs/types": "26.6.0",
+    "tsdown": "catalog:"
+  }
+}
