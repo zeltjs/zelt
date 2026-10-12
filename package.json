@@ -6,7 +6,7 @@
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": ">=22.x"
+    "node": ">=24.x"
   },
   "scripts": {
     "build": "nx run-many -t build",
@@ -19,7 +19,8 @@
     "lint:fix": "node --max-old-space-size=6144 ./node_modules/eslint/bin/eslint.js . --fix && oxlint . --fix",
     "knip": "knip",
     "codepolicy": "time codepolicy --filter=all 2>&1 | tee codepolicy.log",
-    "test": "vitest run",
+    "test": "pnpm run test:prepare && vitest run",
+    "test:prepare": "node scripts/prepare-vitest.mjs",
     "test:integration": "./integration/scripts/run-tests.sh dist",
     "verify:txiki": "node scripts/verify-txiki-runtime.mjs",
     "verify:tinyjs": "node scripts/verify-tinyjs-desktop.mjs",

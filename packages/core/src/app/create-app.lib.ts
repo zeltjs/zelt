@@ -159,9 +159,10 @@ const createRuntimeShutdown = (
     return registered;
   };
 
-  /** @throws {AggregateError | ZeltLifecycleStateError} */
+  /** @throws {AggregateError | ZeltLifecycleStateError | Error} */
   const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
+    runtime.assertCanShutdown();
     shuttingDown = true;
     const errors: unknown[] = [];
     try {
@@ -172,6 +173,7 @@ const createRuntimeShutdown = (
     try {
       await runtime.shutdown();
     } catch (error) {
+      if (!runtime.isDisposed) shuttingDown = false;
       errors.push(error);
     }
     if (errors.length > 0) {

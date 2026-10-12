@@ -141,10 +141,6 @@ export const captureContext = (): CapturedContext => {
 /** @throws {TypeError} */
 export const runInContext = <T>(fn: () => T): T => createContextScope().run(fn);
 
-/** @throws {TypeError} */
-export const runInRootContext = <T>(fn: () => T): T =>
-  createContextScope({ inherit: false }).run(fn);
-
 export const hasContext = (): boolean => currentFrame() !== undefined;
 
 /** @throws {ZeltContextNotAvailableError} */

@@ -60,11 +60,13 @@ export const onTinyjs = async <const F extends readonly ConfiguredFeature[]>(
   const adaptor = await runtime.get(TinyjsAppAdaptor);
   let shutdownPromise: Promise<void> | undefined;
   const shutdown = (): Promise<void> =>
-    (shutdownPromise ??= runtime.shutdown().finally(() => adaptor.dispose()));
+    (shutdownPromise ??= runtime.shutdown().finally(() => {
+      shutdownPromise = undefined;
+    }));
   const fetch = createFetchBridge(fetchers, origin);
   /** @throws {ZeltLifecycleStateError | TypeError} */
   const bridgeFetch: TinyjsFetchHandler = async (payload) => {
-    if (shutdownPromise)
+    if (shutdownPromise || adaptor.isDisposed)
       throw new ZeltLifecycleStateError({
         operation: 'call tinyjs bridge',
         currentState: 'disposed',
@@ -74,7 +76,7 @@ export const onTinyjs = async <const F extends readonly ConfiguredFeature[]>(
   let initialized = false;
   /** @throws {ZeltLifecycleStateError} */
   const init = (native: TinyjsNativeApp): void => {
-    if (initialized || shutdownPromise)
+    if (initialized || shutdownPromise || adaptor.isDisposed)
       throw new ZeltLifecycleStateError({
         operation: 'initialize tinyjs app',
         currentState: 'ready',

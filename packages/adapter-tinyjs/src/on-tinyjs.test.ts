@@ -5,9 +5,11 @@ import {
   http,
   Injectable,
   inject,
+  LifecycleManager,
   Post,
   request,
   response,
+  TaskService,
   ZeltLifecycleStateError,
 } from '@zeltjs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -67,6 +69,95 @@ afterEach(() => vi.unstubAllGlobals());
 const stubEnvironment = () => vi.stubGlobal('tjs', { env: {} });
 
 describe('tinyjs Fetch bridge', () => {
+  it('keeps IPC and native app available after a refused shutdown and permits retry', async () => {
+    stubEnvironment();
+    const app = await onTinyjs(createApp([http({ controllers: [ApiController] })]));
+    const native: TinyjsNativeApp = {
+      done: new Promise<void>(() => {}),
+      setTitle: vi.fn(),
+      push: vi.fn(),
+      quit: vi.fn(),
+    };
+    app.init(native);
+    const adaptor = await app.get(TinyjsAppAdaptor);
+    const tasks = await app.get(TaskService);
+    const fetch = createTinyFetch({
+      bridge: { call: async (_method, payload) => app.api['zelt.fetch'](payload) },
+    });
+    let finish!: () => void;
+    const completion = tasks.runAndWait(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await Promise.resolve();
+    await expect(app.shutdown()).rejects.toThrow('Cannot wait for active tasks');
+    expect(adaptor.native).toBe(native);
+    expect(await (await fetch('/api/count')).json()).toEqual({ count: 1 });
+    finish();
+    await completion;
+    await Promise.all([app.shutdown(), app.shutdown()]);
+    expect(() => adaptor.native).toThrow(ZeltLifecycleStateError);
+    await expect(fetch('/api/count')).rejects.toThrow(ZeltLifecycleStateError);
+  });
+
+  it('retains native state when a task starts during a shutdown callback', async () => {
+    stubEnvironment();
+    const app = await onTinyjs(createApp([http({ controllers: [ApiController] })]));
+    const native: TinyjsNativeApp = {
+      done: new Promise<void>(() => {}),
+      setTitle: vi.fn(),
+      push: vi.fn(),
+      quit: vi.fn(),
+    };
+    app.init(native);
+    const adaptor = await app.get(TinyjsAppAdaptor);
+    const tasks = await app.get(TaskService);
+    let finish!: () => void;
+    let completion: Promise<void> | undefined;
+    const cleanup = vi.fn(() => {
+      completion = tasks.runAndWait(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          }),
+      );
+    });
+    app.registerShutdown(cleanup);
+    await expect(app.shutdown()).rejects.toThrow('Runtime shutdown encountered errors');
+    expect(adaptor.native).toBe(native);
+    finish();
+    await completion;
+    await app.shutdown();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(() => adaptor.native).toThrow(ZeltLifecycleStateError);
+  });
+
+  it('disposes native state when actual lifecycle cleanup fails', async () => {
+    stubEnvironment();
+    const app = await onTinyjs(createApp([http({ controllers: [ApiController] })]));
+    const native: TinyjsNativeApp = {
+      done: new Promise<void>(() => {}),
+      setTitle: vi.fn(),
+      push: vi.fn(),
+      quit: vi.fn(),
+    };
+    app.init(native);
+    const adaptor = await app.get(TinyjsAppAdaptor);
+    const lifecycle = await app.get(LifecycleManager);
+    lifecycle.register({
+      startup: () => {},
+      shutdown: () => {
+        throw new Error('cleanup failed');
+      },
+    });
+    await lifecycle.startupPending();
+    await expect(app.shutdown()).rejects.toThrow('Runtime shutdown encountered errors');
+    expect(() => adaptor.native).toThrow(ZeltLifecycleStateError);
+    await expect(app.api['zelt.fetch']({})).rejects.toThrow(ZeltLifecycleStateError);
+  });
+
   it('round trips HTTP semantics and JSON-serializable binary bodies without a TCP listener', async () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] })]));

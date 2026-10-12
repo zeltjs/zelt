@@ -7,6 +7,7 @@ import {
   Get,
   http,
   request,
+  TaskService,
 } from '@zeltjs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { onTxiki } from './on-txiki';
@@ -32,6 +33,32 @@ const nativeRuntime = () => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe('onTxiki', () => {
+  it('preserves serving after shutdown rejects an active sync task and permits retry', async () => {
+    const native = nativeRuntime();
+    vi.stubGlobal('tjs', native);
+    const app = await onTxiki(createApp([http({ controllers: [EchoController] })]));
+    app.http.serve();
+    const tasks = await app.get(TaskService);
+    let finish!: () => void;
+    const completion = tasks.runAndWait(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await Promise.resolve();
+    await expect(app.shutdown()).rejects.toThrow('Cannot wait for active tasks');
+    expect(native.serve.mock.results[0]?.value.close).not.toHaveBeenCalled();
+    expect(native.removeSignalListener).not.toHaveBeenCalled();
+    expect((await app.http.request('/echo?id=retry')).status).toBe(200);
+    expect(await app.get(TaskService)).toBe(tasks);
+    finish();
+    await completion;
+    await Promise.all([app.shutdown(), app.shutdown()]);
+    expect(native.serve.mock.results[0]?.value.close).toHaveBeenCalledTimes(1);
+    expect(native.removeSignalListener).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps native serving per HTTP feature and closes servers only once', async () => {
     const native = nativeRuntime();
     vi.stubGlobal('tjs', native);

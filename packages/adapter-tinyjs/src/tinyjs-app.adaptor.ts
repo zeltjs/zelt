@@ -1,11 +1,27 @@
-import { Injectable, ZeltLifecycleStateError } from '@zeltjs/core';
+import type { Lifecycle } from '@zeltjs/core';
+import { Injectable, inject, LifecycleManager, ZeltLifecycleStateError } from '@zeltjs/core';
 import type { TinyjsNativeApp } from './shared/bridge.types';
 
 type TinyjsAppState = { app: TinyjsNativeApp | undefined; disposed: boolean };
 
 @Injectable()
-export class TinyjsAppAdaptor {
-  constructor(private readonly state: TinyjsAppState = { app: undefined, disposed: false }) {}
+export class TinyjsAppAdaptor implements Lifecycle {
+  constructor(
+    private readonly state: TinyjsAppState = { app: undefined, disposed: false },
+    lifecycleManager = inject(LifecycleManager),
+  ) {
+    lifecycleManager.register(this);
+  }
+
+  startup(): void {}
+
+  shutdown(): void {
+    this.dispose();
+  }
+
+  get isDisposed(): boolean {
+    return this.state.disposed;
+  }
 
   /** @throws {ZeltLifecycleStateError} */
   get native(): TinyjsNativeApp {

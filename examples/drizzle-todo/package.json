@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/node.ts",
-    "test": "vitest run",
+    "test": "pnpm -w run test:prepare && vitest run",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"

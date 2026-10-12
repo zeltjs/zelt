@@ -124,7 +124,10 @@ export async function onTxiki<const F extends readonly ConfiguredFeature[]>(
   const originalShutdown = runtime.shutdown;
   const txikiRuntime = {
     ...runtime,
-    shutdown: (): Promise<void> => (shutdownPromise ??= originalShutdown()),
+    shutdown: (): Promise<void> =>
+      (shutdownPromise ??= originalShutdown().finally(() => {
+        shutdownPromise = undefined;
+      })),
   };
   try {
     attachHttpServers(txikiRuntime);
