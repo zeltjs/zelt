@@ -91,14 +91,15 @@ export class AppBootstrap {
     this.lifecycleManager.assertCanShutdown();
   }
 
+  get isDisposed(): boolean {
+    return this.state === 'disposed';
+  }
+
   /** @throws {AggregateError | ZeltLifecycleStateError | Error} */
   async shutdown(): Promise<void> {
     if (this.state === 'disposed') {
       return;
     }
-    this.assertCanShutdown();
-    this.state = 'disposed';
-
     if (this.readyPromise) {
       try {
         await this.readyPromise;
@@ -107,6 +108,8 @@ export class AppBootstrap {
       }
     }
 
+    this.assertCanShutdown();
+    this.state = 'disposed';
     await this.lifecycleManager.shutdown();
   }
 

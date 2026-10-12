@@ -173,6 +173,7 @@ const createRuntimeShutdown = (
     try {
       await runtime.shutdown();
     } catch (error) {
+      if (!runtime.isDisposed) shuttingDown = false;
       errors.push(error);
     }
     if (errors.length > 0) {

@@ -10,6 +10,78 @@ import { TaskService } from './task.service';
 import { TaskRunnerSynchronousShutdownError } from './task-runner.lib';
 
 describe('TaskService', () => {
+  it('keeps the runtime disposed after an actual lifecycle shutdown failure', async () => {
+    const runtime = await createApp([]).createRuntime({ contextMode: 'sync' });
+    const tasks = await runtime.get(TaskService);
+    const lifecycle = await runtime.get(LifecycleManager);
+    const shutdownError = new Error('resource shutdown failed');
+    lifecycle.register({
+      startup: () => {},
+      shutdown: () => {
+        throw shutdownError;
+      },
+    });
+    await lifecycle.startupPending();
+
+    await expect(runtime.shutdown()).rejects.toMatchObject({
+      errors: [{ errors: [shutdownError] }],
+    });
+    expect(() => runtime.registerShutdown(() => {})).toThrow(ZeltLifecycleStateError);
+    expect(() => tasks.run(() => {})).toThrow(ZeltLifecycleStateError);
+    await expect(runtime.get(TaskService)).rejects.toBeInstanceOf(ZeltLifecycleStateError);
+  });
+
+  it('retries shutdown when a task starts while a shutdown callback is awaited', async () => {
+    const runtime = await createApp([]).createRuntime({ contextMode: 'sync' });
+    const tasks = await runtime.get(TaskService);
+    const lifecycle = await runtime.get(LifecycleManager);
+    const events: string[] = [];
+    const resource = lifecycle.register({
+      startup: () => ({ client: 'available' }),
+      shutdown: () => {
+        events.push('resource-stopped');
+      },
+    });
+    await lifecycle.startupPending();
+    let finishCallback!: () => void;
+    const callbackGate = new Promise<void>((resolve) => {
+      finishCallback = resolve;
+    });
+    let notifyCallbackStarted!: () => void;
+    const callbackStarted = new Promise<void>((resolve) => {
+      notifyCallbackStarted = resolve;
+    });
+    runtime.registerShutdown(async () => {
+      events.push('callback-started');
+      notifyCallbackStarted();
+      await callbackGate;
+      events.push('callback-finished');
+    });
+    let finishTask!: () => void;
+    const taskGate = new Promise<void>((resolve) => {
+      finishTask = resolve;
+    });
+    const stopping = runtime.shutdown();
+    await callbackStarted;
+    const completion = tasks.runAndWait(() => taskGate);
+    finishCallback();
+
+    await expect(stopping).rejects.toMatchObject({
+      errors: [expect.any(TaskRunnerSynchronousShutdownError)],
+    });
+    expect(resource.client).toBe('available');
+    expect(await runtime.get(TaskService)).toBe(tasks);
+    expect(events).toEqual(['callback-started', 'callback-finished']);
+
+    finishTask();
+    await completion;
+    await runtime.shutdown();
+    await runtime.shutdown();
+    expect(events).toEqual(['callback-started', 'callback-finished', 'resource-stopped']);
+    expect(() => resource.client).toThrow(ZeltLifecycleStateError);
+    expect(() => runtime.registerShutdown(() => {})).toThrow(ZeltLifecycleStateError);
+  });
+
   it('preserves the runtime and services when shutdown rejects active synchronous tasks', async () => {
     const runtime = await createApp([]).createRuntime({ contextMode: 'sync' });
     const tasks = await runtime.get(TaskService);
