@@ -13,6 +13,8 @@
     "@zeltjs/adapter-txiki": "workspace:*"
   },
   "devDependencies": {
+    "@rollup/plugin-swc": "0.4.0",
+    "@swc/core": "1.15.33",
     "@txikijs/types": "26.6.0",
     "tsdown": "catalog:"
   }

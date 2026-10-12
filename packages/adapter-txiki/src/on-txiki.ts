@@ -67,10 +67,20 @@ const attachHttpServers = (runtime: RuntimeApp<readonly ConfiguredFeature[]>): v
     const fetch = async (request: Request): Promise<Response> =>
       originalFetch(await prepareTxikiRequest(request));
     /** @throws {TypeError} */
-    const request: typeof entry.capabilities.request = (input, init) =>
-      fetch(
-        typeof input === 'string' ? new Request(new URL(input, 'http://localhost'), init) : input,
+    const request: typeof entry.capabilities.request = (input, init) => {
+      // txiki.js treats an inherited Request body as a stream and requires duplex.
+      const overriddenInit: RequestInit & { duplex: 'half' } = {
+        ...init,
+        duplex: 'half',
+      };
+      return fetch(
+        typeof input === 'string'
+          ? new Request(new URL(input, 'http://localhost'), init)
+          : init === undefined
+            ? input
+            : new Request(input, overriddenInit),
       );
+    };
     Object.defineProperties(entry.capabilities, {
       fetch: { value: fetch, enumerable: true, configurable: true },
       request: { value: request, enumerable: true, configurable: true },

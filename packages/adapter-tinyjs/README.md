@@ -62,4 +62,4 @@ An AbortSignal rejects renderer-side waiting promptly; an already-dispatched bac
 
 Redirect responses are returned with their original status and Location header; the IPC client does not follow them automatically.
 
-Tested with tinyjs 0.50.1 / txiki.js 26.6.0 on Linux, including native WebView CRUD and window-title control. Build on each target OS; macOS and Windows have not been verified in this Ubuntu workspace.
+Tested with tinyjs 0.50.1 / txiki.js 26.6.0 on Linux. A user also verified native WebView CRUD and window-title control with tinyjs 0.50.1 on macOS. Build on each target OS; the macOS txiki.js verification rerun, packaged `.app` launch/signing, and Windows verification remain outstanding.

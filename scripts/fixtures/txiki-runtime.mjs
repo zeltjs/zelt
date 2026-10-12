@@ -6,6 +6,9 @@ import { Controller, createApp, Get, http, Post, request, response } from '../..
 const check = (condition, message) => { if (!condition) throw new Error(message); };
 
 class Endpoint {
+  async override(req = request()) {
+    return { marker: req.header('X-Override'), body: await req.body() };
+  }
   async echo(req = request()) {
     await Promise.resolve();
     return { id: req.queryParam('id'), body: await req.body(), path: req.path() };
@@ -14,6 +17,7 @@ class Endpoint {
   error(res = response()) { return res.json({ reason: 'invalid' }, 422); }
 }
 Post('/echo')(Endpoint.prototype, 'echo', Object.getOwnPropertyDescriptor(Endpoint.prototype, 'echo'));
+Post('/override')(Endpoint.prototype, 'override', Object.getOwnPropertyDescriptor(Endpoint.prototype, 'override'));
 Get('/binary')(Endpoint.prototype, 'binary', Object.getOwnPropertyDescriptor(Endpoint.prototype, 'binary'));
 Get('/error')(Endpoint.prototype, 'error', Object.getOwnPropertyDescriptor(Endpoint.prototype, 'error'));
 Controller('/api')(Endpoint);
@@ -24,6 +28,23 @@ check(await copy.text() === 'independent' && await prepared.text() === 'independ
 
 const definition = createApp([http({ controllers: [Endpoint] }), http({ name: 'admin', controllers: [Endpoint] })]);
 const desktop = await onTinyjs(definition);
+const overridden = await desktop.http.request(new Request('http://localhost/api/override'), {
+  method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Override': 'updated' },
+  body: JSON.stringify({ value: 'replacement' }),
+});
+check(overridden.status === 200, 'RequestInit method override was ignored');
+const overriddenBody = await overridden.json();
+check(overriddenBody.marker === 'updated' && overriddenBody.body.value === 'replacement', 'RequestInit headers or body override was ignored');
+const original = new Request('http://localhost/api/override', {
+  method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Override': 'original' },
+  body: JSON.stringify({ value: 'retained' }),
+});
+const retained = await desktop.http.request(original, {
+  headers: { 'Content-Type': 'application/json', 'X-Override': 'changed' },
+});
+check(retained.status === 200, 'RequestInit header override lost the original method');
+const retainedBody = await retained.json();
+check(retainedBody.marker === 'changed' && retainedBody.body.value === 'retained', 'RequestInit header override lost the original body');
 const bridge = { call: async (_method, payload) => JSON.parse(JSON.stringify(await desktop.api['zelt.fetch'](JSON.parse(JSON.stringify(payload))))) };
 const fetch = createTinyFetch({ bridge });
 const results = await Promise.all(Array.from({ length: 25 }, (_, id) => fetch(`/api/echo?id=${id}`, {

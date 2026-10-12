@@ -6,6 +6,7 @@ import {
   Feature,
   Get,
   http,
+  Post,
   request,
   TaskService,
 } from '@zeltjs/core';
@@ -14,6 +15,11 @@ import { onTxiki } from './on-txiki';
 
 @Controller('/echo')
 class EchoController {
+  @Post('/override')
+  async override(req = request()) {
+    return { marker: req.header('X-Override'), body: await req.body() };
+  }
+
   @Get('/')
   async echo(req = request()) {
     const mode = captureContext().mode;
@@ -33,6 +39,31 @@ const nativeRuntime = () => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe('onTxiki', () => {
+  it('applies RequestInit method, headers and body to a Request input', async () => {
+    vi.stubGlobal('tjs', nativeRuntime());
+    const app = await onTxiki(createApp([http({ controllers: [EchoController] })]), {
+      signals: false,
+    });
+    const result = await app.http.request(new Request('http://localhost/echo/override'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Override': 'updated' },
+      body: JSON.stringify({ value: 'replacement' }),
+    });
+    expect(result.status).toBe(200);
+    expect(await result.json()).toEqual({ marker: 'updated', body: { value: 'replacement' } });
+    const original = new Request('http://localhost/echo/override', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Override': 'original' },
+      body: JSON.stringify({ value: 'retained' }),
+    });
+    const retained = await app.http.request(original, {
+      headers: { 'Content-Type': 'application/json', 'X-Override': 'changed' },
+    });
+    expect(retained.status).toBe(200);
+    expect(await retained.json()).toEqual({ marker: 'changed', body: { value: 'retained' } });
+    await app.shutdown();
+  });
+
   it('preserves serving after shutdown rejects an active sync task and permits retry', async () => {
     const native = nativeRuntime();
     vi.stubGlobal('tjs', native);
