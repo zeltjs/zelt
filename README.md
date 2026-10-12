@@ -30,6 +30,8 @@ A portable TypeScript application framework with built-in DI. Swap adapters to r
 | Cloudflare Workers | `@zeltjs/adapter-cloudflare-workers` |
 | AWS Lambda | `@zeltjs/adapter-lambda` |
 | Electron | `@zeltjs/adapter-electron` |
+| txiki.js | `@zeltjs/adapter-txiki` |
+| tinyjs desktop | `@zeltjs/adapter-tinyjs` |
 
 ## Installation
 

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zelt Tasks</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header><span class="brand">ZELT / TINYJS</span><span id="connection">接続中</span></header>
+      <section class="intro"><p class="eyebrow">小さなデスクトップ、いつものTypeScript。</p><h1>今日のタスク</h1><p>この起動中のタスクを、軽く整理する。</p></section>
+      <form id="task-form"><label class="sr-only" for="title">新しいタスク</label><input id="title" name="title" placeholder="次にやることは？" maxlength="200" required /><button type="submit">追加する</button></form>
+      <p id="error" role="alert" hidden></p>
+      <section aria-label="タスク一覧"><div class="list-heading"><h2>あなたのリスト</h2><span id="summary"></span></div><ul id="tasks"></ul></section>
+      <footer><p>txiki.js ＋ ネイティブWebView</p><button id="window-title" type="button">ウィンドウ名を更新</button></footer>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

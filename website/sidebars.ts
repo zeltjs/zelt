@@ -15,6 +15,8 @@ const sidebars: SidebarsConfig = {
         'getting-started/cloudflare-workers',
         'getting-started/lambda',
         'getting-started/electron',
+        'getting-started/txiki',
+        'getting-started/tinyjs',
       ],
     },
     {

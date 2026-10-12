@@ -1,0 +1,22 @@
+{
+  "name": "@examples/tinyjs-desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsdown",
+    "dev": "pnpm build && tinyjs dev",
+    "package": "pnpm build && tinyjs build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@zeltjs/core": "workspace:*",
+    "@zeltjs/adapter-tinyjs": "workspace:*",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@rollup/plugin-swc": "0.4.0",
+    "@swc/core": "1.15.33",
+    "tsdown": "catalog:"
+  }
+}

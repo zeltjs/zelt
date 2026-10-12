@@ -50,6 +50,7 @@ export const twoslasher = createTwoslasher({
     // Corresponding devDependencies in package.json ensure nx builds them first.
     paths: {
       '@zeltjs/core/async-context': ['./packages/core/dist/async-context/index.d.ts'],
+      '@zeltjs/adapter-tinyjs/renderer': ['./packages/adapter-tinyjs/dist/renderer/index.d.ts'],
       '@zeltjs/adapter-electron': ['./packages/adapter-electron/dist/main/index.d.ts'],
       '@zeltjs/adapter-electron/preload': ['./packages/adapter-electron/dist/preload/index.d.ts'],
       '@zeltjs/adapter-electron/renderer': ['./packages/adapter-electron/dist/renderer/index.d.ts'],
