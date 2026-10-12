@@ -98,7 +98,9 @@ export PATH="$HOME/.local/bin:$PATH"
 tinyjs version
 ```
 
-tinyjsのインストーラは `tinyjs` をPATHへ追加するが、付属の `tjs` はPATHにない場合がある。検証では実行ファイルを明示する。標準のインストール先は `$HOME/.tinyjs`。別の `TINYJS_HOME` に導入した場合はそのパスを使う。
+tinyjsのインストーラは `tinyjs` をPATHへ追加するが、付属の `tjs` はPATHにない場合がある。`pnpm verify:txiki` はPATHの `tjs`、`TINYJS_HOME`、PATH上のtinyjsの実体、標準の `$HOME/.tinyjs` から実行ファイルを探し、使用したパスを表示する。通常は追加設定なしで実行できる。
+
+別のruntimeを検証したい場合は `TJS_BIN` を明示する。無効な指定はエラーになる。
 
 ```sh
 export TJS_BIN="${TINYJS_HOME:-$HOME/.tinyjs}/bin/tjs"

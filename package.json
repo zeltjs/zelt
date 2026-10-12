@@ -23,7 +23,7 @@
     "test:integration": "./integration/scripts/run-tests.sh dist",
     "verify:txiki": "node scripts/verify-txiki-runtime.mjs",
     "verify:tinyjs": "node scripts/verify-tinyjs-desktop.mjs",
-    "test:runtime-contracts": "node --test scripts/verify-dist-runtime-contracts.test.mjs scripts/verify-dist-tree-shaking.test.mjs scripts/pure-class-decorators.test.mjs scripts/verify-portable-context.test.mjs",
+    "test:runtime-contracts": "node --test scripts/verify-dist-runtime-contracts.test.mjs scripts/verify-dist-tree-shaking.test.mjs scripts/pure-class-decorators.test.mjs scripts/verify-portable-context.test.mjs scripts/resolve-txiki-runtime.test.mjs",
     "typecheck": "tsc -b",
     "precommit": "pnpm --filter @zeltjs/eslint-plugin build && ./scripts/format-staged.sh && pnpx lint-staged && pnpm typecheck && pnpm lint:cycle && pnpm nx run-many -t build --skip-nx-cache && pnpm test:runtime-contracts && pnpm verify-dist:runtime-contracts && pnpm lint && pnpm --filter '@examples/*' typecheck && pnpm verify-generated:openapi && pnpm verify-generated:studio-snapshot && pnpm --filter website verify:docs && pnpm verify-dist && pnpm verify-dist:tree-shaking && pnpm check:no-neverthrow-leak && pnpm throw-trace && pnpm test && npx precommit-verify save",
     "prepare": "pnpx lefthook install",

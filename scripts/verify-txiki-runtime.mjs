@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rolldown } from 'rolldown';
+import { resolveTxikiRuntime } from './resolve-txiki-runtime.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+const resolved = await resolveTxikiRuntime();
+if (!resolved.ok) {
+  console.error(resolved.error);
+  process.exit(1);
+}
+const binary = resolved.binary;
+console.log(`txiki.js runtime: ${binary}`);
 const temporary = await mkdtemp(path.join(tmpdir(), 'zelt-txiki-verify-'));
-const binary = process.env.TJS_BIN ?? 'tjs';
 let child;
 try {
   const bundle = await rolldown({ input: path.join(root, 'scripts/fixtures/txiki-runtime.mjs'), platform: 'neutral' });
@@ -20,10 +26,10 @@ try {
   let output = '';
   let errors = '';
   child.stderr.on('data', data => { errors += data; });
-  const exited = once(child, 'exit');
+  const exited = new Promise(resolve => child.once('exit', (code, signal) => resolve([code, signal])));
   const ready = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error(`txiki.js did not become ready: ${errors}\n${output}`)), 20000);
-    child.once('error', error => { clearTimeout(timeout); reject(error); });
+    child.once('error', error => { clearTimeout(timeout); reject(new Error(`Failed to start txiki.js: ${binary}`, { cause: error })); });
     child.once('exit', code => { clearTimeout(timeout); reject(new Error(`txiki.js exited ${code}: ${errors}\n${output}`)); });
     child.stdout.on('data', data => {
       output += data;
@@ -51,6 +57,6 @@ try {
   assert.equal(signal, null);
   console.log('txiki.js: 25 native bridge calls, 25 TCP requests, binary/error responses, lifecycle and SIGTERM passed.');
 } finally {
-  if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  if (child?.pid && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
   await rm(temporary, { recursive: true, force: true });
 }

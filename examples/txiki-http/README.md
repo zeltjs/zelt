@@ -23,5 +23,9 @@ Set `PORT=0` to select a free port; startup prints the actual address. SIGINT/SI
 Verify both adapters against a real txiki.js binary:
 
 ```sh
+pnpm verify:txiki
+# For a runtime installed elsewhere:
 TJS_BIN=/path/to/tjs pnpm verify:txiki
 ```
+
+The verifier uses `TJS_BIN` when specified; otherwise it finds `tjs` on PATH or the runtime bundled with tinyjs (`TINYJS_HOME`, the tinyjs launcher on PATH, or `~/.tinyjs`). It prints the executable being tested. An invalid explicit `TJS_BIN` fails with an actionable message.
