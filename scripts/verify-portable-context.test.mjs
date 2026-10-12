@@ -66,8 +66,8 @@ describe('portable context distribution', () => {
         ? "await import('./packages/core/dist/index.js')"
         : "createRequire(import.meta.url)('./packages/core/dist/index.cjs')";
       const asyncLoad = format === 'esm'
-        ? "await import('./packages/core/dist/async-context.js')"
-        : "createRequire(import.meta.url)('./packages/core/dist/async-context.cjs')";
+        ? "await import('./packages/core/dist/async-context/index.js')"
+        : "createRequire(import.meta.url)('./packages/core/dist/async-context/index.cjs')";
       const source = `
         import assert from 'node:assert/strict';
         import { createRequire } from 'node:module';

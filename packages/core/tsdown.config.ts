@@ -13,7 +13,7 @@ export default defineConfig({
   plugins: [swcDecoratorPlugin, pureClassDecorators()],
   entry: {
     index: 'src/index.ts',
-    'async-context': 'src/async-context/index.ts',
+    'async-context/index': 'src/async-context/index.ts',
     'internal-bridge/testing': 'src/internal-bridge/testing.ts',
     'internal-bridge/errors': 'src/internal-bridge/errors.ts',
   },

@@ -16,12 +16,12 @@
   "exports": {
     "./async-context": {
       "import": {
-        "types": "./dist/async-context.d.ts",
-        "default": "./dist/async-context.js"
+        "types": "./dist/async-context/index.d.ts",
+        "default": "./dist/async-context/index.js"
       },
       "require": {
-        "types": "./dist/async-context.d.cts",
-        "default": "./dist/async-context.cjs"
+        "types": "./dist/async-context/index.d.cts",
+        "default": "./dist/async-context/index.cjs"
       }
     },
     ".": {
