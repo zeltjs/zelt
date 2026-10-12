@@ -62,6 +62,8 @@ const runInTaskContext = (
 ): Promise<void> | void =>
   scope.run(() => state.taskExecutionContext.run(TASK_EXECUTION_CONTEXT, task));
 
+const startup = (): void => {};
+
 export type CreateTaskRunnerOptions = {
   readonly contextMode?: ContextMode;
   readonly onFailure: TaskFailureHandler;
@@ -79,8 +81,6 @@ export const createTaskRunner = (options: CreateTaskRunnerOptions): TaskRunner =
     activeTasks: new Set<Promise<void>>(),
     shutdownRequested: false,
   };
-
-  const startup = (): void => {};
 
   /** @throws {ZeltLifecycleStateError | TypeError} */
   const run = (task: TaskFunction, taskOptions: TaskOptions = {}): void => {
@@ -127,11 +127,14 @@ export const createTaskRunner = (options: CreateTaskRunnerOptions): TaskRunner =
   };
 
   /** @throws {TaskRunnerReentrantShutdownError | TaskRunnerSynchronousShutdownError} */
+  const assertCanShutdown = (): void => assertNotInsideTask(state);
+
+  /** @throws {TaskRunnerReentrantShutdownError | TaskRunnerSynchronousShutdownError} */
   const shutdown = async (): Promise<void> => {
-    assertNotInsideTask(state);
+    assertCanShutdown();
     state.shutdownRequested = true;
     await Promise.allSettled(state.activeTasks);
   };
 
-  return { startup, shutdown, run, runAndWait };
+  return { startup, assertCanShutdown, shutdown, run, runAndWait };
 };

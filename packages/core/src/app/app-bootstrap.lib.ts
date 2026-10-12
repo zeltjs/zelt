@@ -86,11 +86,17 @@ export class AppBootstrap {
     };
   }
 
-  /** @throws {AggregateError | ZeltLifecycleStateError} */
+  /** @throws {Error} from lifecycle shutdown guards */
+  assertCanShutdown(): void {
+    this.lifecycleManager.assertCanShutdown();
+  }
+
+  /** @throws {AggregateError | ZeltLifecycleStateError | Error} */
   async shutdown(): Promise<void> {
     if (this.state === 'disposed') {
       return;
     }
+    this.assertCanShutdown();
     this.state = 'disposed';
 
     if (this.readyPromise) {

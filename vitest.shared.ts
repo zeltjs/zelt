@@ -1,6 +1,7 @@
+import { fileURLToPath } from 'node:url';
 import swc from 'unplugin-swc';
 export const sharedConfig = {
-  test: { setupFiles: [new URL('./scripts/vitest.setup.ts', import.meta.url).pathname] },
+  test: { setupFiles: [fileURLToPath(new URL('./scripts/vitest.setup.ts', import.meta.url))] },
   plugins: [
     swc.vite({
       jsc: {

@@ -2,13 +2,54 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createApp } from '../../app';
 import { Config, WaitUntilAdaptor } from '../../built-in-service';
-import { inject, ZeltLifecycleStateError } from '../../kernel';
+import { inject, LifecycleManager, ZeltLifecycleStateError } from '../../kernel';
 import { http } from '../http/http.feature';
 import { Controller } from '../http/routing/controller.decorator';
 import { Get } from '../http/routing/http-method.decorator';
 import { TaskService } from './task.service';
+import { TaskRunnerSynchronousShutdownError } from './task-runner.lib';
 
 describe('TaskService', () => {
+  it('preserves the runtime and services when shutdown rejects active synchronous tasks', async () => {
+    const runtime = await createApp([]).createRuntime({ contextMode: 'sync' });
+    const tasks = await runtime.get(TaskService);
+    const lifecycle = await runtime.get(LifecycleManager);
+    const events: string[] = [];
+    const resource = lifecycle.register({
+      startup: () => ({ client: 'available' }),
+      shutdown: () => {
+        events.push('resource-stopped');
+      },
+    });
+    await lifecycle.startupPending();
+    runtime.registerShutdown(() => {
+      events.push('callback-stopped');
+    });
+    let finishTask!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      finishTask = resolve;
+    });
+    const completion = tasks.runAndWait(() => gate);
+
+    await expect(runtime.shutdown()).rejects.toBeInstanceOf(TaskRunnerSynchronousShutdownError);
+    expect(events).toEqual([]);
+    expect(resource.client).toBe('available');
+    expect(await runtime.get(TaskService)).toBe(tasks);
+    runtime.registerShutdown(() => {
+      events.push('late-callback-stopped');
+    });
+
+    finishTask();
+    await completion;
+    await tasks.runAndWait(() => {});
+    await runtime.shutdown();
+    await runtime.shutdown();
+
+    expect(events).toEqual(['callback-stopped', 'late-callback-stopped', 'resource-stopped']);
+    expect(() => resource.client).toThrow(ZeltLifecycleStateError);
+    await expect(runtime.get(TaskService)).rejects.toBeInstanceOf(ZeltLifecycleStateError);
+  });
+
   it('run() via runtime.get executes a task in the background', async () => {
     const app = createApp([]);
     const runtime = await app.createRuntime();
