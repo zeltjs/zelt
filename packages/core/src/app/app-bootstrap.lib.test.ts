@@ -5,6 +5,39 @@ import { LifecycleManager, ZeltLifecycleStateError, ZeltReadyFailedError } from 
 import { AppBootstrap } from './app-bootstrap.lib';
 
 describe('AppBootstrap', () => {
+  it('keeps readiness usable when shutdown becomes blocked during its readiness wait', async () => {
+    const container = new Container();
+    const lifecycle = container.get(LifecycleManager);
+    const runtime = container.get(AppBootstrap);
+    const shutdownError = new Error('shutdown is blocked');
+    let blocked = false;
+    let shutdownCalls = 0;
+    const resource = lifecycle.register({
+      startup: () => ({ client: 'available' }),
+      assertCanShutdown: () => {
+        if (blocked) throw shutdownError;
+      },
+      shutdown: () => {
+        shutdownCalls++;
+      },
+    });
+    const ready = await runtime.ready();
+    const stopping = runtime.shutdown();
+    blocked = true;
+
+    await expect(stopping).rejects.toBe(shutdownError);
+    expect(runtime.isDisposed).toBe(false);
+    expect(shutdownCalls).toBe(0);
+    expect(resource.client).toBe('available');
+    expect(await ready.get(AppBootstrap)).toBe(runtime);
+
+    blocked = false;
+    await runtime.shutdown();
+    expect(runtime.isDisposed).toBe(true);
+    expect(shutdownCalls).toBe(1);
+    expect(() => resource.client).toThrow(ZeltLifecycleStateError);
+  });
+
   it('should call lifecycle startup on ready', async () => {
     const container = new Container();
     const runtime = container.get(AppBootstrap);

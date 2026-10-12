@@ -12,13 +12,14 @@ Cloudflare Workers adapter for Zelt.
 pnpm add @zeltjs/adapter-cloudflare-workers
 ```
 
-Zelt's core context propagation uses `AsyncLocalStorage`, so the
-`nodejs_compat` compatibility flag (or the narrower `nodejs_als`) must still
-be enabled in your `wrangler.toml` / `wrangler.jsonc`:
+Zelt's core uses portable synchronous context by default and does not require
+`nodejs_compat` or `nodejs_als`. Capture request accessors and middleware values
+in method parameter defaults; the captured values remain usable after `await`.
+Other application dependencies may still require Node compatibility flags.
 
-```toml
-compatibility_flags = ["nodejs_compat"]
-```
+To opt into ambient context reads after `await`, enable
+`@zeltjs/core/async-context` before creating the runtime and enable `nodejs_als`
+or `nodejs_compat` in Wrangler. See [Execution Context](https://zeltjs.com/docs/async-context).
 
 ## Usage
 

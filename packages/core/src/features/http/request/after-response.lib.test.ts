@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { runInContext } from '../../../kernel';
+import {
+  createContextKey,
+  createContextScope,
+  createContextStorage,
+  getInternal,
+  runInContext,
+  setInternal,
+} from '../../../kernel';
 import {
   flushAfterResponseCallbacks,
   initializeAfterResponseCallbacks,
@@ -8,6 +15,38 @@ import {
 } from './after-response.lib';
 
 describe('after-response callbacks', () => {
+  it.each([
+    'sync',
+    'async',
+  ] as const)('runs deferred callbacks in the flush scope in %s mode', async (mode) => {
+    const storage = createContextStorage<string>('test:after-response-storage');
+    const key = createContextKey<string>('test:after-response-request');
+    const observed: { request: string | undefined; binding: string | undefined }[] = [];
+    await Promise.all(
+      ['a', 'b'].map((id) => {
+        const scope = createContextScope({ mode, inherit: false });
+        return scope.run(() =>
+          storage.run('request', () => {
+            initializeAfterResponseCallbacks();
+            storage.run('temporary', () => {
+              expect(
+                registerAfterResponseCallback(() => {
+                  observed.push({ request: getInternal(key), binding: storage.get() });
+                }),
+              ).toBe(true);
+            });
+            setInternal(key, id);
+            return flushAfterResponseCallbacks();
+          }),
+        );
+      }),
+    );
+    expect(observed).toEqual([
+      { request: 'a', binding: 'request' },
+      { request: 'b', binding: 'request' },
+    ]);
+  });
+
   it('does not throw when flushing outside any context', () => {
     expect(() => flushAfterResponseCallbacks()).not.toThrow();
   });

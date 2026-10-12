@@ -16,8 +16,9 @@ const ENTRYPOINT_POLICIES = {
     globals: ['__dirname', '__filename'],
   },
   '@zeltjs/cli/config': { nodeBuiltins: ALL_NODE_BUILTINS, globals: ['__filename'] },
-  '@zeltjs/core': { nodeBuiltins: ['async_hooks'] },
-  '@zeltjs/core/internal-bridge/testing': { nodeBuiltins: ['async_hooks'] },
+  '@zeltjs/core': { nodeBuiltins: [] },
+  '@zeltjs/core/async-context': { nodeBuiltins: ['async_hooks'] },
+  '@zeltjs/core/internal-bridge/testing': { nodeBuiltins: [] },
   '@zeltjs/core/internal-bridge/errors': { nodeBuiltins: [] },
   '@zeltjs/decorator-metadata/inspect': {
     nodeBuiltins: ALL_NODE_BUILTINS,

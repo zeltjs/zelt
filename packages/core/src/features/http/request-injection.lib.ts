@@ -1,6 +1,6 @@
 import { createContextKey, getInternal, setInternal } from '../../kernel';
 import type { HonoMiddleware } from './middleware/middleware.types';
-import { setHonoContext } from './request';
+import { runInRequestContext, setHonoContext } from './request';
 import { setBodySource, setPathParams } from './request/injection';
 
 const REQUEST_INJECTED = /* @__PURE__ */ createContextKey<true>('zelt:request-injected');
@@ -12,19 +12,21 @@ const completeInjection = (): void => {};
 // / pathParam() work inside them. Only the outermost router performs the
 // injection; nested routers stay transparent. Path params are re-applied per
 // matched route by the route-level injection for accuracy under nesting.
-/** @throws {ZeltContextNotAvailableError | BadRequestException} */
+/** @throws {ZeltContextNotAvailableError | BadRequestException | TypeError} */
 export const createRequestInjectionMiddleware = (): HonoMiddleware => {
   return (c, next) => {
-    if (getInternal(REQUEST_INJECTED)) {
+    return runInRequestContext(c, () => {
+      if (getInternal(REQUEST_INJECTED)) {
+        return next().then(completeInjection);
+      }
+      setInternal(REQUEST_INJECTED, true);
+      setHonoContext(c);
+      setBodySource({
+        contentType: c.req.header('content-type') ?? '',
+        request: c.req.raw,
+      });
+      setPathParams(c.req.param());
       return next().then(completeInjection);
-    }
-    setInternal(REQUEST_INJECTED, true);
-    setHonoContext(c);
-    setBodySource({
-      contentType: c.req.header('content-type') ?? '',
-      request: c.req.raw,
     });
-    setPathParams(c.req.param());
-    return next().then(completeInjection);
   };
 };

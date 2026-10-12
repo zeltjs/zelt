@@ -1,11 +1,11 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
+import { createContextStorage } from '../../kernel';
 
 import type { LogContext } from './logger.types';
 
-const storage = /* @__PURE__ */ new AsyncLocalStorage<LogContext>();
+const storage = /* @__PURE__ */ createContextStorage<LogContext>('zelt:log');
 
 export const getLogContext = (): LogContext => {
-  return storage.getStore() ?? {};
+  return storage.get() ?? {};
 };
 
 export const withLogContext = <T>(ctx: LogContext, fn: () => T): T => {

@@ -1,5 +1,6 @@
 import { Container } from '@needle-di/core';
 import {
+  ContextRuntimeService,
   Injectable,
   inject,
   resolve,
@@ -16,7 +17,10 @@ export type CommandRegistry = ReadonlyMap<string, CommandClass>;
 
 @Injectable()
 export class CommandService {
-  constructor(private readonly container: Container = inject(Container)) {}
+  constructor(
+    private readonly container: Container = inject(Container),
+    private readonly contextRuntime: ContextRuntimeService = inject(ContextRuntimeService),
+  ) {}
 
   /** @throws {ZeltDecoratorUsageError | ZeltAppConfigurationError} */
   buildRegistry(commands: readonly CommandClass[]): CommandRegistry {
@@ -66,7 +70,9 @@ export class CommandService {
   ): Promise<ExecResult> {
     try {
       const instance = resolve(this.container, CommandClass);
-      const result = runInCommandContext({ commandName, argv }, () => instance.run());
+      const result = this.contextRuntime
+        .createScope()
+        .run(() => runInCommandContext({ commandName, argv }, () => instance.run()));
       await Promise.resolve(result);
       return { exitCode: 0 as const };
     } catch (e: unknown) {

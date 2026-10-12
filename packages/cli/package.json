@@ -42,7 +42,7 @@
   ],
   "scripts": {
     "build": "tsdown && node ./scripts/copy-studio-ui.mjs",
-    "test": "vitest run",
+    "test": "pnpm -w run test:prepare && vitest run",
     "typecheck": "tsc -b"
   },
   "dependencies": {
