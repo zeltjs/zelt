@@ -8,6 +8,7 @@ import {
   HttpFeature,
   http,
   injectFeature,
+  response,
 } from '@zeltjs/core';
 import { describe, expect, it, vi } from 'vitest';
 import { onNode } from './on-node';
@@ -17,13 +18,13 @@ describe('feature injection on Node', () => {
     @Controller('/')
     class Admin {
       @Get('/') get() {
-        return new Response('admin');
+        return response().text('admin');
       }
     }
     @Controller('/')
     class User {
       @Get('/') get() {
-        return new Response('user');
+        return response().text('user');
       }
     }
     const admin = http({ name: 'admin', controllers: [Admin] });

@@ -1,7 +1,15 @@
-import type { ExtractRequestBody, HasRequestBody, ValidationErrorBody } from '@zeltjs/core';
+import type {
+  ExtractRequestBody,
+  HasRequestBody,
+  HttpReply,
+  HttpReplyFormat,
+  HttpStatusCode,
+  ValidationErrorBody,
+} from '@zeltjs/core';
 import type { Hono } from 'hono';
 import type { BlankEnv, Schema, TypedResponse } from 'hono/types';
 import type { StatusCode } from 'hono/utils/http-status';
+import type { JSONParsed } from 'hono/utils/types';
 
 // === Extract types ===
 
@@ -28,13 +36,24 @@ export type ExtractHandlerBody<H extends (...args: never[]) => unknown> = H exte
     : ExtractRequestBody<A0>
   : never;
 
-type WrapRaw<T> = [T] extends [
-  TypedResponse<infer _D, infer _S extends StatusCode, infer _F extends string>,
-]
-  ? T
-  : [T] extends [Response]
-    ? never
-    : TypedResponse<T, 200, 'json'>;
+type ReplyData = HttpReply<unknown, HttpStatusCode, HttpReplyFormat>;
+
+type ConvertReply<T> =
+  T extends HttpReply<infer Body, infer Status, infer Format>
+    ? Format extends 'json'
+      ? TypedResponse<JSONParsed<Body>, Status, 'json'>
+      : Format extends 'redirect'
+        ? TypedResponse<undefined, Status, 'redirect'>
+        : Format extends 'empty'
+          ? TypedResponse<undefined, Status, 'body'>
+          : Format extends 'stream' | 'streamText' | 'sse'
+            ? TypedResponse<unknown, Status, 'body'>
+            : TypedResponse<Body, Status, Format>
+    : never;
+
+type WrapJson<T> = [T] extends [never] ? never : TypedResponse<JSONParsed<T>, 200, 'json'>;
+
+type WrapRaw<T> = ConvertReply<Extract<T, ReplyData>> | WrapJson<Exclude<T, ReplyData | Response>>;
 
 export type ExtractResponse<H extends (...args: never[]) => unknown> = WrapRaw<
   Awaited<ReturnType<H>>

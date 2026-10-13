@@ -7,6 +7,10 @@ import type {
   RequestContext,
 } from './middleware/middleware.types';
 import { runInRequestContext } from './request';
+import { renderReplyResult } from './response/response-rendering.feature';
+
+const defaultInternalError = (): Response =>
+  Response.json({ code: 'INTERNAL_ERROR', message: 'internal server error' }, { status: 500 });
 
 // Bubbling falls out of Hono's composition: a rethrown error crosses into
 // the parent router's compose layer and reaches the parent's onError. Only
@@ -23,14 +27,12 @@ export const createRouterErrorHandler =
   async (err: Error, c: RequestContext): Promise<Response> => {
     for (const handler of errorHandlers) {
       const result = await runInRequestContext(c, () => handler.onError(err, c));
-      if (result) return result;
+      const rendered = renderReplyResult(c, result);
+      if (rendered) return rendered;
     }
     if (!runInRequestContext(c, isRequestRoot) && err instanceof Error) throw err;
     const fallbackResult = await runInRequestContext(c, () => fallback.onError(err, c));
-    return (
-      fallbackResult ??
-      Response.json({ code: 'INTERNAL_ERROR', message: 'internal server error' }, { status: 500 })
-    );
+    return renderReplyResult(c, fallbackResult) ?? defaultInternalError();
   };
 
 export const resolveErrorHandlers = (

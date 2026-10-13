@@ -209,7 +209,7 @@ class UserController {
 
   @Get('/health')
   health() {
-    return 'OK'; // → 200 OK, Content-Type: text/plain
+    return 'OK'; // → 200 OK, Content-Type: application/json
   }
 }
 ```
@@ -235,17 +235,29 @@ class UserController {
   @Delete('/:id')
   remove(req = request()) {
     const id = req.pathParam('id');
-    return new Response(null, { status: 204 }); // 204 No Content
+    return response().status(204).empty(); // 204 No Content
   }
 }
 ```
+
+`response()` is a context-independent, immutable builder. `header()`, `status()`, and cookie methods return a new builder. Terminal methods such as `json()` return typed HTTP reply data; Zelt renders it into a Web `Response` during HTTP execution. Native `Response` values and unfinished builders are not accepted as controller return values.
+
+```typescript
+import { response } from '@zeltjs/core';
+const base = response().header('Cache-Control', 'no-store');
+const success = base.json({ ok: true }); // 200
+const failure = base.status(400).json({ code: 'INVALID_INPUT' }); // 400
+```
+
+The status literal survives chaining and can be converted by `@zeltjs/hono-client` for client-side narrowing. Bare values remain JSON responses with status 200.
 
 ### When to Use Which
 
 | Scenario | Approach |
 |----------|----------|
 | Return JSON with 200 | `return { data }` |
-| Return with custom status (201, 204, etc.) | `response().json(data, status)` |
+| Return JSON with custom status (201, 400, 500, etc.) | `response().status(status).json(data)` |
+| Return 204/304 without a body | `response().status(status).empty()` |
 | Set custom headers | `response().header(name, value).json(data)` |
 | Redirect | `response().redirect(url)` |
 | Set cookies | `response().setCookie(name, value).json(data)` |
@@ -276,7 +288,7 @@ class ItemController {
   remove(req = request()) {
     const id = req.pathParam('id');
     // Perform delete operation
-    return new Response(null, { status: 204 }); // Returns 204 No Content
+    return response().status(204).empty(); // Returns 204 No Content
   }
 }
 ```

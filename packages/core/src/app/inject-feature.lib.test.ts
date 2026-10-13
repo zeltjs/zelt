@@ -4,6 +4,7 @@ import { Command } from '../features/command/definition';
 import { HttpFeature, http } from '../features/http/http.feature';
 import { Middleware } from '../features/http/middleware/middleware.decorator';
 import type { Next } from '../features/http/middleware/middleware.types';
+import { response } from '../features/http/response';
 import { Controller } from '../features/http/routing/controller.decorator';
 import { Get } from '../features/http/routing/http-method.decorator';
 import { SchedulerFeature, scheduler } from '../features/scheduler/scheduler.feature';
@@ -203,7 +204,7 @@ describe('injectFeature contracts', () => {
       private readonly commands = injectFeature(CommandFeature);
       private readonly jobs = injectFeature(SchedulerFeature);
       @Get('/health') health() {
-        return new Response('healthy');
+        return response().text('healthy');
       }
       @Get('/refresh') async refresh() {
         await this.jobs.startScheduler();
@@ -218,8 +219,8 @@ describe('injectFeature contracts', () => {
     ]).createRuntime();
     try {
       expect(runtime.schedulers.isSchedulerRunning()).toBe(false);
-      const response = await runtime.http.request('/refresh');
-      expect(await response.json()).toEqual({ code: 0, running: true });
+      const httpResponse = await runtime.http.request('/refresh');
+      expect(await httpResponse.json()).toEqual({ code: 0, running: true });
       expect(ran).toHaveBeenCalledWith('healthy');
     } finally {
       await runtime.shutdown();

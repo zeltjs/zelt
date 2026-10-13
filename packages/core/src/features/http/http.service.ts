@@ -1,6 +1,7 @@
 import { Container } from '@needle-di/core';
 import type { Hono } from 'hono';
 import { LoggerService, WaitUntilAdaptor } from '../../built-in-service';
+import type { ResolverHandle } from '../../kernel';
 import {
   ContextRuntimeService,
   Injectable,
@@ -18,12 +19,12 @@ import {
   middlewareIdentity,
   oncePerRequest,
   resolveIsolatedMiddleware,
-  resolveMiddleware,
+  resolveNativeMiddleware,
 } from './middleware';
 import { CorsMiddleware } from './middleware/cors/cors.middleware';
 import type {
   HonoMiddleware,
-  MiddlewareInput,
+  NativeMiddlewareClass,
   RequestContext,
 } from './middleware/middleware.types';
 import { SecureHeadersMiddleware } from './middleware/secure-headers/secure-headers.middleware';
@@ -79,9 +80,7 @@ export class HttpService {
     }
   }
 
-  /** @throws {Error | ZeltNotImplementedError | ZeltContextNotAvailableError | ZeltDecoratorUsageError | ZeltLifecycleStateError | ZeltReadyFailedError | BadRequestException}
-   * @throws {unknown} from http-error-handlers.lib.ts:createRouterErrorHandler
-   */
+  /** @throws {unknown} */
   private async initializeHono(options: HttpOptions): Promise<HonoInstance> {
     const Hono = await this.loadHonoConstructor();
     const fallbackHandler = resolve(this.container, DefaultErrorHandler);
@@ -116,16 +115,7 @@ export class HttpService {
     );
     hono.onError(routerErrorHandler);
 
-    const securityMiddlewares: readonly MiddlewareInput[] = [
-      CorsMiddleware,
-      SecureHeadersMiddleware,
-    ];
-    for (const input of securityMiddlewares) {
-      const identity = middlewareIdentity(input);
-      hono.use(
-        guardMiddleware(identity, oncePerRequest(identity, resolveMiddleware(input, resolver))),
-      );
-    }
+    this.registerSecurityMiddlewares(hono, resolver);
     for (const input of options.middlewares ?? []) {
       hono.use(
         guardMiddleware(middlewareIdentity(input), resolveIsolatedMiddleware(input, resolver)),
@@ -140,6 +130,23 @@ export class HttpService {
     });
 
     return hono;
+  }
+
+  /** @throws {ZeltContextNotAvailableError | TypeError} */
+  private registerSecurityMiddlewares(hono: HonoInstance, resolver: ResolverHandle): void {
+    const securityMiddlewares: readonly NativeMiddlewareClass[] = [
+      CorsMiddleware,
+      SecureHeadersMiddleware,
+    ];
+    for (const input of securityMiddlewares) {
+      const identity = middlewareIdentity(input);
+      hono.use(
+        guardMiddleware(
+          identity,
+          oncePerRequest(identity, resolveNativeMiddleware(input, resolver)),
+        ),
+      );
+    }
   }
 
   private async loadHonoConstructor(): Promise<HonoConstructor> {

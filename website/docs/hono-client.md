@@ -182,3 +182,20 @@ describe('Hello API', () => {
 3. **Client Integration** — The generated type integrates with Hono's `hc` client
 
 The generated `AppType` maps your controller routes to Hono's route types, enabling the `hc` client to infer parameter and response types automatically.
+
+## Mixed success and error replies
+
+Return plain data for JSON 200 and use `response()` for an explicit status. The plugin preserves each status/body pair instead of wrapping the whole union as JSON 200. The server reply data does not depend on Hono; this package translates it to Hono's client schema.
+
+```typescript
+import { response } from '@zeltjs/core';
+
+function findUser(found: boolean, res = response()) {
+  if (!found) return res.status(404).json({ code: 'NOT_FOUND' });
+  return { id: 'user-1' };
+}
+```
+
+A generated client sees status `200 | 404` and narrows `res.json()` to the matching body. JSON serialization is reflected in the client type, including `Date` values becoming strings. Redirects and empty replies do not declare a JSON body.
+
+Unexpected exceptions and responses introduced by global middleware/error handlers are separate contracts; they are not inferred from the handler's return type.

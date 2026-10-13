@@ -8,5 +8,6 @@ export {
   middlewareIdentity,
   oncePerRequest,
   resolveMiddleware,
+  resolveNativeMiddleware,
 } from './middleware-guard.lib';
 export { MiddlewareWithOptions } from './middleware-with-options.lib';

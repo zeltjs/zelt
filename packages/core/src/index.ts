@@ -161,13 +161,17 @@ export type {
 } from './features/http/request/validated.types';
 export type {
   CookieOptions,
+  HttpReply,
+  HttpReplyFormat,
+  HttpStatusCode,
   ResponseBuilder,
+  ResponseHeadersAccessor,
   TypedResponse,
   ZeltSSEMessage,
   ZeltSSEWriter,
   ZeltStreamWriter,
 } from './features/http/response';
-export { response } from './features/http/response';
+export { response, responseHeaders } from './features/http/response';
 export type { ControllerRouteInfo, HttpMethod, RouteInfo } from './features/http/routing';
 export { getControllerMetadata } from './features/http/routing';
 export { Controller } from './features/http/routing/controller.decorator';

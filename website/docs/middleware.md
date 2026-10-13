@@ -406,7 +406,7 @@ class MethodMiddleware {
 
 ## Common Patterns
 
-Middleware is written as classes. Use `request()`, `response()`, and `middlewareValue()` for framework primitives.
+Middleware is written as classes. Use `request()`, `responseHeaders()`, and `middlewareValue()` for framework primitives.
 
 ### Restrict Access
 
@@ -434,15 +434,15 @@ export class RequireAdmin {
 
 ### Add Response Headers
 
-Use `response()` for response headers:
+Use `responseHeaders()` for response headers:
 
 ```typescript
-import { Middleware, response, type Next } from '@zeltjs/core';
+import { Middleware, responseHeaders, type Next } from '@zeltjs/core';
 // ---cut---
 @Middleware
 class PoweredByMiddleware {
-  async use(next: Next, res = response()) {
-    res.header('X-Powered-By', 'zelt');
+  async use(next: Next, headers = responseHeaders()) {
+    headers.set('X-Powered-By', 'zelt');
     await next();
   }
 }
@@ -451,13 +451,13 @@ class PoweredByMiddleware {
 Use `{ type: 'append' }` when multiple values for the same header should be preserved:
 
 ```typescript
-import { Middleware, response, type Next } from '@zeltjs/core';
+import { Middleware, responseHeaders, type Next } from '@zeltjs/core';
 // ---cut---
 @Middleware
 class CacheTagMiddleware {
-  async use(next: Next, res = response()) {
-    res.header('Cache-Tag', 'api');
-    res.header('Cache-Tag', 'users', { type: 'append' });
+  async use(next: Next, headers = responseHeaders()) {
+    headers.set('Cache-Tag', 'api');
+    headers.set('Cache-Tag', 'users', { type: 'append' });
     await next();
   }
 }
@@ -466,14 +466,14 @@ class CacheTagMiddleware {
 ### Measure Response Time
 
 ```typescript
-import { Middleware, response, type Next } from '@zeltjs/core';
+import { Middleware, responseHeaders, type Next } from '@zeltjs/core';
 // ---cut---
 @Middleware
 class TimingMiddleware {
-  async use(next: Next, res = response()) {
+  async use(next: Next, headers = responseHeaders()) {
     const start = Date.now();
     await next();
-    res.header('X-Response-Time', `${Date.now() - start}ms`);
+    headers.set('X-Response-Time', `${Date.now() - start}ms`);
   }
 }
 ```

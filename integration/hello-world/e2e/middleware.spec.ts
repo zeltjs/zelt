@@ -1,5 +1,5 @@
 import type { Next } from '@zeltjs/core';
-import { createApp, http, Middleware, response } from '@zeltjs/core';
+import { createApp, http, Middleware, responseHeaders } from '@zeltjs/core';
 import { onTest, shutdownAll } from '@zeltjs/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -44,8 +44,8 @@ describe('Middleware (global)', () => {
   it('global middleware applies to all routes', async () => {
     @Middleware
     class GlobalMiddleware {
-      async use(next: Next, res = response()): Promise<Response | undefined> {
-        res.header('X-Global', 'applied');
+      async use(next: Next, headers = responseHeaders()): Promise<Response | undefined> {
+        headers.set('X-Global', 'applied');
         await next();
         return undefined;
       }
@@ -67,8 +67,8 @@ describe('Middleware (global)', () => {
   it('global middleware applies to nested routes', async () => {
     @Middleware
     class GlobalMiddleware {
-      async use(next: Next, res = response()): Promise<Response | undefined> {
-        res.header('X-Global', 'applied');
+      async use(next: Next, headers = responseHeaders()): Promise<Response | undefined> {
+        headers.set('X-Global', 'applied');
         await next();
         return undefined;
       }

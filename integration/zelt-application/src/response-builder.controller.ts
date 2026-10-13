@@ -12,6 +12,26 @@ export class ResponseBuilderController {
     return res.json({ created: true }, 201);
   }
 
+  @Get('/bad-request')
+  badRequest(res = response()) {
+    return res.status(400).header('X-Reason', 'invalid').json({ code: 'INVALID' });
+  }
+
+  @Get('/unavailable')
+  unavailable(res = response()) {
+    return res.status(503).json({ code: 'UNAVAILABLE' });
+  }
+
+  @Get('/no-content')
+  noContent(res = response()) {
+    return res.status(204).empty();
+  }
+
+  @Get('/not-modified')
+  notModified(res = response()) {
+    return res.status(304).header('ETag', 'cached').empty();
+  }
+
   @Get('/text')
   text(res = response()) {
     return res.text('plain text', 200);

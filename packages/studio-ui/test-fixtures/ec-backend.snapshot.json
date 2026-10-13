@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "snapshotId": "e0c510e021aba0c46348c25981d4b0198baa9b00cf1c1e74d131545b424297a8",
+  "snapshotId": "ac112e4458e0acedc2e695ca4e676d43255d57aa53115ea0519b8c22de8ab06b",
   "project": {
     "id": "ec-backend",
     "name": "ec-backend"
@@ -25252,13 +25252,13 @@
             "source": {
               "location": {
                 "filePath": "packages/rate-limit/src/rate-limit.middleware.ts",
-                "startLine": 31,
-                "endLine": 65
+                "startLine": 32,
+                "endLine": 66
               },
-              "signature": "async use(\n    next: Next,\n    opts = middlewareOptions(RateLimitMiddleware),\n    res = response(),\n  ): Promise<Response | undefined>",
+              "signature": "async use(\n    next: Next,\n    opts = middlewareOptions(RateLimitMiddleware),\n    headers = responseHeaders(),\n  ): Promise<Response | undefined>",
               "excerpt": {
                 "kind": "code",
-                "text": "async use(\n    next: Next,\n    opts = middlewareOptions(RateLimitMiddleware),\n    res = response(),\n  ): Promise<Response | undefined> {\n    if (!this.config.enabled) {\n      await next();\n      return undefined;\n    }\n\n    const key = typeof opts.key === 'string' ? opts.key : await opts.key();\n    const r = await this.limiter.hit(key, {\n      limit: opts.limit,\n      windowSec: opts.windowSec,\n    });\n\n    if (!r.ok) {\n      throw new RateLimitUnavailableException({});\n    }\n\n    const result = r.value;\n    res.header('X-RateLimit-Limit', String(result.limit));\n    res.header('X-RateLimit-Remaining', String(result.remaining));\n\n    if (!result.allowed) {\n      throw new RateLimitExceededException({\n        limit: result.limit,\n        remaining: result.remaining,\n        retryAfterSec: result.retryAfterSec,\n      });\n    }\n\n    await next();\n    return undefined;\n  }"
+                "text": "async use(\n    next: Next,\n    opts = middlewareOptions(RateLimitMiddleware),\n    headers = responseHeaders(),\n  ): Promise<Response | undefined> {\n    if (!this.config.enabled) {\n      await next();\n      return undefined;\n    }\n\n    const key = typeof opts.key === 'string' ? opts.key : await opts.key();\n    const r = await this.limiter.hit(key, {\n      limit: opts.limit,\n      windowSec: opts.windowSec,\n    });\n\n    if (!r.ok) {\n      throw new RateLimitUnavailableException({});\n    }\n\n    const result = r.value;\n    headers.set('X-RateLimit-Limit', String(result.limit));\n    headers.set('X-RateLimit-Remaining', String(result.remaining));\n\n    if (!result.allowed) {\n      throw new RateLimitExceededException({\n        limit: result.limit,\n        remaining: result.remaining,\n        retryAfterSec: result.retryAfterSec,\n      });\n    }\n\n    await next();\n    return undefined;\n  }"
               }
             },
             "unitTests": {
@@ -25281,7 +25281,7 @@
           "location": {
             "filePath": "packages/rate-limit/src/rate-limit.middleware.ts",
             "startLine": 16,
-            "endLine": 66
+            "endLine": 67
           },
           "signature": "@Middleware\nexport class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions>",
           "excerpt": {

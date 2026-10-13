@@ -94,8 +94,9 @@ describe.each(['sync', 'async'] as const)('HTTP context mode: %s', (contextMode:
         await Promise.resolve();
         const body = await req.body();
         const raw = await req.bodyRaw();
-        res.header('X-Request-Id', user.id);
-        return res.json({ id: user.id, path: req.pathParam('id'), body, raw });
+        return res
+          .header('X-Request-Id', user.id)
+          .json({ id: user.id, path: req.pathParam('id'), body, raw });
       }
     }
     const runtime = await createApp([http({ controllers: [Endpoint] })]).createRuntime({
@@ -257,8 +258,7 @@ describe.each(['sync', 'async'] as const)('HTTP context mode: %s', (contextMode:
         res = response(),
       ) {
         await Promise.resolve();
-        res.header('X-Error-Value', value);
-        return _ctx.json({ value }, 409);
+        return res.header('X-Error-Value', value).json({ value }, 409);
       }
     }
     @Controller('/')
