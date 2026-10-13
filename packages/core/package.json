@@ -14,6 +14,16 @@
     "access": "public"
   },
   "exports": {
+    "./async-context": {
+      "import": {
+        "types": "./dist/async-context/index.d.ts",
+        "default": "./dist/async-context/index.js"
+      },
+      "require": {
+        "types": "./dist/async-context/index.d.cts",
+        "default": "./dist/async-context/index.cjs"
+      }
+    },
     ".": {
       "import": {
         "types": "./dist/index.d.ts",
@@ -50,7 +60,7 @@
   ],
   "scripts": {
     "build": "tsdown",
-    "test": "vitest run",
+    "test": "pnpm -w run test:prepare && vitest run",
     "typecheck": "tsc -b"
   },
   "dependencies": {

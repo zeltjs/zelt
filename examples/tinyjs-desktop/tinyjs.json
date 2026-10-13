@@ -1,0 +1,11 @@
+{
+  "name": "zelt-tinyjs-tasks",
+  "title": "Zelt Tasks",
+  "id": "com.zeltjs.tinyjs.tasks",
+  "version": "0.1.0",
+  "minTinyjsVersion": "0.50.1",
+  "size": "960x720",
+  "backend": "backend/main.js",
+  "frontend": { "dir": "frontend" },
+  "debug": true
+}

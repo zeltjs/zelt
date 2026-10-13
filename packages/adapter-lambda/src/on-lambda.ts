@@ -1,11 +1,13 @@
 import type {
   ConfigClass,
   ConfiguredFeature,
+  ContextMode,
   CreateRuntimeOptions,
   HttpCapabilities,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
+import { enableAsyncContext } from '@zeltjs/core/async-context';
 import type {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
@@ -17,6 +19,7 @@ import type {
 import { LambdaEnvAdaptor } from './lambda-env.adaptor';
 
 export type LambdaAppOptions = {
+  readonly contextMode?: ContextMode;
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
   readonly prebuilt?: ZeltPrebuilt;
@@ -198,11 +201,14 @@ type HttpApp = {
   readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<HttpRuntimeApp>;
 };
 
+/** @throws {TypeError} */
 export const onLambda = async (
   app: HttpApp,
   options: LambdaAppOptions = {},
 ): Promise<LambdaApp> => {
+  enableAsyncContext();
   const readyApp = await app.createRuntime({
+    ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [LambdaEnvAdaptor],

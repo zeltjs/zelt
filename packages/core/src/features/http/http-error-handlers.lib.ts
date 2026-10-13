@@ -6,6 +6,7 @@ import type {
   ErrorHandlerInstance,
   RequestContext,
 } from './middleware/middleware.types';
+import { runInRequestContext } from './request';
 import { renderReplyResult } from './response/response-rendering.feature';
 
 const defaultInternalError = (): Response =>
@@ -25,13 +26,13 @@ export const createRouterErrorHandler =
   /** @throws {Error} */
   async (err: Error, c: RequestContext): Promise<Response> => {
     for (const handler of errorHandlers) {
-      const result = await handler.onError(err, c);
+      const result = await runInRequestContext(c, () => handler.onError(err, c));
       const rendered = renderReplyResult(c, result);
       if (rendered) return rendered;
     }
-    if (!isRequestRoot() && err instanceof Error) throw err;
-    const fallbackResult = renderReplyResult(c, await fallback.onError(err, c));
-    return fallbackResult ?? defaultInternalError();
+    if (!runInRequestContext(c, isRequestRoot) && err instanceof Error) throw err;
+    const fallbackResult = await runInRequestContext(c, () => fallback.onError(err, c));
+    return renderReplyResult(c, fallbackResult) ?? defaultInternalError();
   };
 
 export const resolveErrorHandlers = (

@@ -11,10 +11,18 @@ const swcDecoratorPlugin = swc({
 
 export default defineConfig({
   plugins: [swcDecoratorPlugin, pureClassDecorators()],
-  entry: ['src/index.ts', 'src/internal-bridge/testing.ts', 'src/internal-bridge/errors.ts'],
+  entry: {
+    index: 'src/index.ts',
+    'async-context/index': 'src/async-context/index.ts',
+    'internal-bridge/testing': 'src/internal-bridge/testing.ts',
+    'internal-bridge/errors': 'src/internal-bridge/errors.ts',
+  },
   format: ['esm', 'cjs'],
   dts: true,
   outputOptions: {
+    // Hono's route helpers and router must share their module instance and
+    // private symbols; the CJS build must not dynamically load its ESM router.
+    dynamicImportInCjs: false,
     // Keep the scheduler's library removable as a module; its internal assignments
     // otherwise survive in the shared DI/HTTP chunk even when Scheduler is unused.
     codeSplitting: {

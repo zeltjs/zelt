@@ -1,5 +1,6 @@
 import { match } from 'ts-pattern';
 import {
+  captureContext,
   createContextKey,
   getInternal,
   setInternal,
@@ -230,9 +231,13 @@ export const getBody = (): Promise<ParsedBody> => {
 
 /** @throws {ZeltContextNotAvailableError | BadRequestException | UnsupportedMediaTypeException} */
 export const bodyRaw = async (): Promise<string> => {
+  const captured = captureContext();
   const raw = await getBodyRaw();
   if (raw === undefined) {
-    throw new UnsupportedMediaTypeException({ expected: 'raw', actual: (await getBody()).type });
+    throw new UnsupportedMediaTypeException({
+      expected: 'raw',
+      actual: (await captured.run(getBody)).type,
+    });
   }
   return raw;
 };

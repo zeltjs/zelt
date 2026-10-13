@@ -5,7 +5,7 @@ import type {
   HttpStaticCapabilities,
   ServiceResolver,
 } from '@zeltjs/core';
-import { Controller, http, Post, request, response } from '@zeltjs/core';
+import { Controller, captureContext, http, Post, request, response } from '@zeltjs/core';
 
 import type { GqlSchemaRef, GraphqlResolverClass } from './graphql-metadata.lib';
 import { setGraphqlControllerMetadata } from './graphql-metadata.lib';
@@ -164,6 +164,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
     class GraphqlEndpointController {
       /** @throws {Error} */
       async handle(req = request(), res = response()) {
+        const captured = captureContext();
         const state = getGraphqlRuntimeState(this);
         if (!state) {
           throw new Error(
@@ -179,7 +180,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
           );
         }
 
-        const result = await state.execute(payload);
+        const result = await captured.run(() => state.execute(payload));
 
         return res.json(result);
       }

@@ -15,6 +15,8 @@ const sidebars: SidebarsConfig = {
         'getting-started/cloudflare-workers',
         'getting-started/lambda',
         'getting-started/electron',
+        'getting-started/txiki',
+        'getting-started/tinyjs',
       ],
     },
     {
@@ -56,6 +58,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'dependency-injection',
+        'async-context',
         'services',
         'configuration',
         'error-handling',

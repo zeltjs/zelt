@@ -1,5 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { getCookie } from 'hono/cookie';
+import { captureContext } from '../../../../kernel';
 
 import { UnsupportedMediaTypeException } from '../../http.exceptions';
 import {
@@ -86,22 +87,27 @@ export function request<Schema extends StandardSchemaV1>(
   opts?: { target?: ValidationTarget },
 ): RequestAccessorBase<unknown> {
   const ctx = getHonoContext();
+  const captured = captureContext();
   const bodySchema = schema ?? anySchema;
   const target: ValidationTarget = opts?.target ?? 'json';
 
   const accessor: RequestAccessorBase<unknown> = {
     async body() {
-      const parsed = await getBody();
+      const parsed = await captured.run(getBody);
       if (parsed.type === 'none')
-        return bodySchema === anySchema ? undefined : validateBody(undefined, bodySchema);
+        return bodySchema === anySchema
+          ? undefined
+          : captured.run(() => validateBody(undefined, bodySchema));
       if (parsed.type !== target)
         throw new UnsupportedMediaTypeException({ expected: target, actual: parsed.type });
-      return bodySchema === anySchema ? parsed.val : validateBody(parsed.val, bodySchema);
+      return bodySchema === anySchema
+        ? parsed.val
+        : captured.run(() => validateBody(parsed.val, bodySchema));
     },
     async bodyRaw() {
-      return await bodyRaw();
+      return await captured.run(bodyRaw);
     },
-    pathParam: (name: string) => pathParam(name),
+    pathParam: (name: string) => captured.run(() => pathParam(name)),
     queryParam: (name: string) => ctx.req.query(name),
     queryParams: (name: string) => ctx.req.queries(name) ?? [],
     header: (name: string) => ctx.req.header(name),

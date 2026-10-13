@@ -17,8 +17,8 @@
     "check:examples": "bun scripts/check-example-excerpts.ts",
     "verify:docs": "bun scripts/typecheck-docs.ts && bun scripts/check-example-excerpts.ts",
     "lint:slugs": "bun scripts/check-doc-slugs.ts",
-    "test:docs": "bun scripts/extract-doc-tests.ts && vitest run",
-    "test:docs:watch": "bun scripts/extract-doc-tests.ts && vitest"
+    "test:docs": "pnpm -w run test:prepare && bun scripts/extract-doc-tests.ts && vitest run",
+    "test:docs:watch": "pnpm -w run test:prepare && bun scripts/extract-doc-tests.ts && vitest"
   },
   "dependencies": {
     "@docusaurus/core": "3.10.1",

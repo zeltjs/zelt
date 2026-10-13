@@ -6,6 +6,11 @@ import { createReadyValue, disposeReadyValue, sealReadyValue } from './internal'
 export interface Lifecycle<TReady = void> {
   /** @throws {Error} */
   startup(): Promise<TReady> | TReady;
+  /**
+   * Validate shutdown synchronously without changing lifecycle state.
+   * @throws {Error}
+   */
+  assertCanShutdown?(): void;
   shutdown(): Promise<void> | void;
 }
 
@@ -124,9 +129,18 @@ export class LifecycleManager {
     return errors;
   }
 
-  /** @throws {AggregateError} */
-  shutdown(): Promise<void> {
+  /** @throws {Error} from lifecycle shutdown guards */
+  assertCanShutdown(): void {
+    if (this.disposed) return;
+    for (let index = 0; index < this.startedIndex; index++) {
+      this.lifecycles[index]?.lc.assertCanShutdown?.();
+    }
+  }
+
+  /** @throws {AggregateError | Error} */
+  async shutdown(): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
+    this.assertCanShutdown();
     this.disposed = true;
     this.shutdownPromise = this.doShutdown();
     return this.shutdownPromise;

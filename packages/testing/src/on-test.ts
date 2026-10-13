@@ -1,6 +1,7 @@
 import type {
   ConfigClass,
   ConfiguredFeature,
+  ContextMode,
   FeatureApp,
   RuntimeApp,
   ZeltPrebuilt,
@@ -12,6 +13,7 @@ import { registerShutdown } from './shutdown-registry.lib';
 type AnyConfigClass = ConfigClass<object>;
 
 type OnTestOptions = {
+  readonly contextMode?: ContextMode;
   readonly configs?: readonly AnyConfigClass[];
   readonly prebuilt?: ZeltPrebuilt;
 };
@@ -24,6 +26,7 @@ export const onTest = async <const F extends readonly ConfiguredFeature[]>(
   const allConfigs = [...defaults.configs, ...(options.configs ?? [])];
 
   const readyApp = await app.createRuntime({
+    ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     configs: allConfigs,
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
   });

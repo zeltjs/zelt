@@ -1,11 +1,6 @@
 import type { Context, Env, Input } from 'hono';
 import type { LifecycleManager, ResolverHandle } from '../../../kernel';
-import {
-  hasContext,
-  runInContext,
-  ZeltDecoratorUsageError,
-  ZeltRouteConfigurationError,
-} from '../../../kernel';
+import { ZeltDecoratorUsageError, ZeltRouteConfigurationError } from '../../../kernel';
 import type { SkippedMiddlewareSets } from '../middleware';
 import {
   attachSkippedMiddlewares,
@@ -15,7 +10,7 @@ import {
 } from '../middleware';
 import { currentRoles, currentUser } from '../middleware/auth';
 import type { HonoMiddleware, MiddlewareInput } from '../middleware/middleware.types';
-import { setHonoContext } from '../request';
+import { runInRequestContext, setHonoContext } from '../request';
 import { hasBodySource, setBodySource, setPathParams } from '../request/injection';
 import { renderControllerResult } from '../response/response-rendering.feature';
 import { joinPath } from './path-utils.lib';
@@ -86,31 +81,32 @@ const invokeHandler = (instance: object, methodName: string | symbol): unknown =
   return result;
 };
 
-/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError} */
+/** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError | TypeError} */
 const createAuthorizationMiddleware = (requiredRoles: readonly string[]): HonoMiddleware => {
-  return async (_c, next) => {
-    const user = currentUser();
-    if (user === undefined) {
-      return Response.json(
-        { code: 'UNAUTHORIZED', message: 'Authentication required' },
-        { status: 401 },
-      );
-    }
-
-    if (requiredRoles.length > 0) {
-      const userRoles = currentRoles();
-      const hasRequiredRole = requiredRoles.some((role) => userRoles.includes(role));
-      if (!hasRequiredRole) {
+  return (c, next) =>
+    runInRequestContext(c, async () => {
+      const user = currentUser();
+      if (user === undefined) {
         return Response.json(
-          { code: 'FORBIDDEN', message: 'Insufficient permissions' },
-          { status: 403 },
+          { code: 'UNAUTHORIZED', message: 'Authentication required' },
+          { status: 401 },
         );
       }
-    }
 
-    await next();
-    return undefined;
-  };
+      if (requiredRoles.length > 0) {
+        const userRoles = currentRoles();
+        const hasRequiredRole = requiredRoles.some((role) => userRoles.includes(role));
+        if (!hasRequiredRole) {
+          return Response.json(
+            { code: 'FORBIDDEN', message: 'Insufficient permissions' },
+            { status: 403 },
+          );
+        }
+      }
+
+      await next();
+      return undefined;
+    });
 };
 
 /** @throws {ZeltContextNotAvailableError | ZeltLifecycleStateError | TypeError} */
@@ -175,14 +171,10 @@ const injectRequest = (c: MiddlewareContext): void => {
   setPathParams(c.req.param());
 };
 
-/** @throws {ZeltContextNotAvailableError | BadRequestException} */
+/** @throws {ZeltContextNotAvailableError | BadRequestException | TypeError} */
 const createInjectionMiddleware = (): HonoMiddleware => {
   return (c, next) => {
-    if (hasContext()) {
-      injectRequest(c);
-      return next().then(completeInjection);
-    }
-    return runInContext(() => {
+    return runInRequestContext(c, () => {
       injectRequest(c);
       return next().then(completeInjection);
     });
@@ -216,12 +208,13 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
   );
   let instance: object | undefined;
 
-  /** @throws {TypeError} */
+  /** @throws {AggregateError | ZeltContextNotAvailableError | ZeltReadyFailedError | ZeltLifecycleStateError | ZeltRouteConfigurationError | TypeError} */
   const handler = async (c: MiddlewareContext): Promise<Response> => {
-    instance ??= getOrCreateInstance(ctx, route.controllerClass);
+    const controller = instance ?? getOrCreateInstance(ctx, route.controllerClass);
+    instance = controller;
     await ctx.lifecycle.startupPending();
 
-    const result = await invokeHandler(instance, route.methodName);
+    const result = await runInRequestContext(c, () => invokeHandler(controller, route.methodName));
     return renderControllerResult(c, result);
   };
 

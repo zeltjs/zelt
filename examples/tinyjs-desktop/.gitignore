@@ -1,0 +1,5 @@
+/backend/
+/dist/
+/.build/
+/frontend/app.js
+/frontend/app.js.map

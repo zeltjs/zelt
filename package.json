@@ -6,7 +6,7 @@
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": ">=22.x"
+    "node": ">=24.x"
   },
   "scripts": {
     "build": "nx run-many -t build",
@@ -19,9 +19,12 @@
     "lint:fix": "node --max-old-space-size=6144 ./node_modules/eslint/bin/eslint.js . --fix && oxlint . --fix",
     "knip": "knip",
     "codepolicy": "time codepolicy --filter=all 2>&1 | tee codepolicy.log",
-    "test": "vitest run",
+    "test": "pnpm run test:prepare && vitest run",
+    "test:prepare": "node scripts/prepare-vitest.mjs",
     "test:integration": "./integration/scripts/run-tests.sh dist",
-    "test:runtime-contracts": "node --test scripts/verify-dist-runtime-contracts.test.mjs scripts/verify-dist-tree-shaking.test.mjs scripts/pure-class-decorators.test.mjs",
+    "verify:txiki": "node scripts/verify-txiki-runtime.mjs",
+    "verify:tinyjs": "node scripts/verify-tinyjs-desktop.mjs",
+    "test:runtime-contracts": "node --test scripts/verify-dist-runtime-contracts.test.mjs scripts/verify-dist-tree-shaking.test.mjs scripts/pure-class-decorators.test.mjs scripts/verify-portable-context.test.mjs scripts/resolve-txiki-runtime.test.mjs",
     "typecheck": "tsc -b",
     "precommit": "pnpm --filter @zeltjs/eslint-plugin build && ./scripts/format-staged.sh && pnpx lint-staged && pnpm typecheck && pnpm lint:cycle && pnpm nx run-many -t build --skip-nx-cache && pnpm test:runtime-contracts && pnpm verify-dist:runtime-contracts && pnpm lint && pnpm --filter '@examples/*' typecheck && pnpm verify-generated:openapi && pnpm verify-generated:studio-snapshot && pnpm --filter website verify:docs && pnpm verify-dist && pnpm verify-dist:tree-shaking && pnpm check:no-neverthrow-leak && pnpm throw-trace && pnpm test && npx precommit-verify save",
     "prepare": "pnpx lefthook install",

@@ -1,0 +1,44 @@
+{
+  "name": "@zeltjs/adapter-txiki",
+  "version": "0.0.0",
+  "description": "txiki.js runtime adapter for Zelt applications",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/adapter-txiki"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "main": "./dist/index.cjs",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "pnpm -w run test:prepare && vitest run",
+    "typecheck": "tsc -b"
+  },
+  "peerDependencies": {
+    "@zeltjs/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@zeltjs/core": "workspace:*",
+    "@txikijs/types": "26.6.0"
+  }
+}

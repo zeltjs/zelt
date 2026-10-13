@@ -2,12 +2,14 @@ import type {
   CommandCapabilities,
   ConfigClass,
   ConfiguredFeature,
+  ContextMode,
   FeatureApp,
   FeatureReadyCapabilities,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
 import { HttpFeature } from '@zeltjs/core';
+import { enableAsyncContext } from '@zeltjs/core/async-context';
 
 import { BunCliConfig } from './bun-cli.config';
 import { BunEnvAdaptor } from './bun-env.adaptor';
@@ -23,6 +25,7 @@ export type ServerHandle = {
 };
 
 export type BunAppOptions = {
+  readonly contextMode?: ContextMode;
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
   readonly prebuilt?: ZeltPrebuilt;
@@ -128,12 +131,14 @@ export function onBun<const F extends readonly ConfiguredFeature[]>(
   options?: BunAppOptions,
 ): Promise<BunAppForFeatures<F>>;
 
-/** @throws {ZeltLifecycleStateError} */
+/** @throws {ZeltLifecycleStateError | TypeError} */
 export async function onBun<const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
   options: BunAppOptions = {},
 ): Promise<BunApp> {
+  enableAsyncContext();
   const readyApp = await app.createRuntime({
+    ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
