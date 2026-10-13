@@ -4,7 +4,7 @@ import {
   Middleware,
   MiddlewareWithOptions,
   middlewareOptions,
-  response,
+  responseHeaders,
   UseMiddleware,
 } from '@zeltjs/core';
 
@@ -27,11 +27,12 @@ export class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions>
    * @throws {RateLimitUnavailableException} When rate limit service is unavailable (503)
    * @throws {ZeltContextNotAvailableError}
    * @throws {ZeltMiddlewareOptionsUnavailableError}
+   * @throws {TypeError}
    */
   async use(
     next: Next,
     opts = middlewareOptions(RateLimitMiddleware),
-    res = response(),
+    headers = responseHeaders(),
   ): Promise<Response | undefined> {
     if (!this.config.enabled) {
       await next();
@@ -49,8 +50,8 @@ export class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions>
     }
 
     const result = r.value;
-    res.header('X-RateLimit-Limit', String(result.limit));
-    res.header('X-RateLimit-Remaining', String(result.remaining));
+    headers.set('X-RateLimit-Limit', String(result.limit));
+    headers.set('X-RateLimit-Remaining', String(result.remaining));
 
     if (!result.allowed) {
       throw new RateLimitExceededException({

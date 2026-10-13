@@ -27,6 +27,30 @@ describe('Response builder', () => {
     expect(await res.json()).toEqual({ created: true });
   });
 
+  it('keeps a chained error status, header and JSON body together', async () => {
+    const res = await testApp.http.request('/response/bad-request');
+    expect(res.status).toBe(400);
+    expect(res.headers.get('x-reason')).toBe('invalid');
+    expect(await res.json()).toEqual({ code: 'INVALID' });
+  });
+
+  it('returns an explicit server error', async () => {
+    const res = await testApp.http.request('/response/unavailable');
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ code: 'UNAVAILABLE' });
+  });
+
+  it.each([
+    ['/response/no-content', 204, null],
+    ['/response/not-modified', 304, 'cached'],
+  ] as const)('returns an empty body for %s', async (path, status, etag) => {
+    const res = await testApp.http.request(path);
+    expect(res.status).toBe(status);
+    expect(res.body).toBeNull();
+    expect(res.headers.get('etag')).toBe(etag);
+    expect(await res.text()).toBe('');
+  });
+
   it('returns text/plain payload', async () => {
     const res = await testApp.http.request('/response/text');
     expect(res.status).toBe(200);

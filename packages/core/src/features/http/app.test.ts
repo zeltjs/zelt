@@ -16,7 +16,7 @@ import { SkipMiddleware } from './middleware/skip-middleware.decorator';
 import { UseMiddleware } from './middleware/use-middleware.decorator';
 import { registerAfterResponseCallback } from './request';
 import { middlewareOptions, middlewareValue, request } from './request/injection';
-import { response } from './response';
+import { response, responseHeaders } from './response';
 import { Controller } from './routing/controller.decorator';
 import { Get, Post } from './routing/http-method.decorator';
 
@@ -854,7 +854,10 @@ describe('errorHandlers', () => {
     class CustomErrorHandler {
       onError(error: Error, _c: Context) {
         if (error instanceof CustomError) {
-          return Response.json({ code: error.code, message: error.message }, { status: 400 });
+          return response()
+            .status(400)
+            .header('X-Error', 'custom')
+            .json({ code: error.code, message: error.message });
         }
         return undefined;
       }
@@ -878,6 +881,7 @@ describe('errorHandlers', () => {
 
     const res = await readyApp.http.request('/test/');
     expect(res.status).toBe(400);
+    expect(res.headers.get('x-error')).toBe('custom');
     expect(await res.json()).toEqual({ code: 'INVALID_INPUT', message: 'invalid input' });
   });
 
@@ -1817,10 +1821,10 @@ describe('warmup option', () => {
 
     @Middleware
     class RateLimitMiddleware extends MiddlewareWithOptions<RateLimitOptions> {
-      async use(next: Next, res = response()): Promise<Response | undefined> {
+      async use(next: Next, headers = responseHeaders()): Promise<Response | undefined> {
         const options = middlewareOptions(RateLimitMiddleware);
-        res.header('X-RateLimit-Limit', String(options.limit));
-        res.header('X-RateLimit-Window', String(options.windowSec));
+        headers.set('X-RateLimit-Limit', String(options.limit));
+        headers.set('X-RateLimit-Window', String(options.windowSec));
         await next();
         return undefined;
       }

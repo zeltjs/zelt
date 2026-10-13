@@ -182,3 +182,20 @@ describe('Hello API', () => {
 3. **Client統合** — 生成された型がHonoの `hc` clientと統合する
 
 生成された `AppType` はcontrollerのrouteをHonoのroute型にマッピングし、`hc` clientがパラメータとレスポンスの型を自動的に推論できるようにします。
+
+## 成功データとエラー応答を混ぜる
+
+200のJSONは素のデータを返し、それ以外は `response()` でstatusを明示します。プラグインはstatusと本文の対応を保持し、union全体を200のJSONとして包みません。サーバーの応答データはHonoに依存せず、このパッケージがHono client用のスキーマへ変換します。
+
+```typescript
+import { response } from '@zeltjs/core';
+
+function findUser(found: boolean, res = response()) {
+  if (!found) return res.status(404).json({ code: 'NOT_FOUND' });
+  return { id: 'user-1' };
+}
+```
+
+生成したクライアントではstatusが `200 | 404` となり、`res.json()` の型を対応する本文へ絞れます。Dateが文字列になることなど、JSONのシリアライズもクライアントの型へ反映します。リダイレクトと空応答はJSON本文を宣言しません。
+
+予期しない例外やグローバルなミドルウェア・エラーハンドラーの応答は別の契約であり、ハンドラーの戻り値からは推論されません。

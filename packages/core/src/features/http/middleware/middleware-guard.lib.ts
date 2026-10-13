@@ -12,10 +12,13 @@ import {
 } from '../../../kernel';
 import { isCurrentRequest, recordRequestScope, runInRequestContext } from '../request';
 import { recordMiddlewareOptions, recordMiddlewareValue } from '../request/injection';
+import type { AnyHttpReply } from '../response/http-reply.types';
+import { renderReplyResult } from '../response/response-rendering.feature';
 import type {
   HonoMiddleware,
   MiddlewareIdentifier,
   MiddlewareInput,
+  NativeMiddlewareClass,
   RequestContext,
 } from './middleware.types';
 
@@ -36,6 +39,14 @@ const hasUseMethod = (proto: unknown): boolean => {
 
 const checkMiddlewareClass = (input: MiddlewareInput): boolean =>
   typeof input === 'function' && input.prototype !== undefined && hasUseMethod(input.prototype);
+
+const completeNext = (): void => {};
+
+/** @throws {TypeError} */
+const renderMiddlewareResult = (
+  ctx: RequestContext,
+  result: Response | AnyHttpReply | undefined,
+): Response | undefined => renderReplyResult(ctx, result);
 
 export const middlewareIdentity = (input: MiddlewareInput): MiddlewareIdentifier => {
   if (typeof input === 'function') return input;
@@ -91,7 +102,8 @@ export const resolveMiddleware = (
       runInRequestContext(c, async () => {
         let active = true;
         try {
-          return await instance.use(captureNextValue(middleware, next, c, () => active));
+          const result = await instance.use(captureNextValue(middleware, next, c, () => active));
+          return renderMiddlewareResult(c, result);
         } finally {
           active = false;
         }
@@ -109,10 +121,30 @@ export const resolveMiddleware = (
       // use() call, not just after next() — see its doc for why.
       const restoreOptions = recordMiddlewareOptions(middleware.middleware, middleware.options);
       try {
-        return await instance.use(captureNextValue(middleware, next, c, () => active));
+        const result = await instance.use(captureNextValue(middleware, next, c, () => active));
+        return renderMiddlewareResult(c, result);
       } finally {
         active = false;
         captured.run(restoreOptions);
+      }
+    });
+};
+
+// Built-in Hono middleware already returns a transport Response. Its type excludes
+// reply data, so it does not need a second asynchronous rendering step.
+/** @throws {ZeltContextNotAvailableError | TypeError} */
+export const resolveNativeMiddleware = (
+  middleware: NativeMiddlewareClass,
+  resolver: ResolverHandle,
+): HonoMiddleware => {
+  const instance = resolver.get(middleware);
+  return (c, next) =>
+    runInRequestContext(c, async () => {
+      let active = true;
+      try {
+        return await instance.use(captureNextValue(middleware, next, c, () => active));
+      } finally {
+        active = false;
       }
     });
 };
@@ -165,7 +197,10 @@ export const guardMiddleware = (
     const skipped = getSkippedMiddlewares(c);
     if (shouldSkipMiddleware(skipped, identifier, options?.skipScope ?? 'default')) return next();
     const result = await middleware(c, next);
-    if (result instanceof Response) {
+    if (
+      result &&
+      (result instanceof Response || Object.prototype.toString.call(result) === '[object Response]')
+    ) {
       c.res = result;
     }
   };
@@ -186,7 +221,7 @@ export const oncePerRequest = (
     return runInRequestContext(c, () => {
       const existing = getInternal(APPLIED_MIDDLEWARES);
       if (existing) {
-        if (existing.has(identifier)) return next();
+        if (existing.has(identifier)) return next().then(completeNext);
         existing.add(identifier);
       } else {
         setInternal(APPLIED_MIDDLEWARES, new Set([identifier]));

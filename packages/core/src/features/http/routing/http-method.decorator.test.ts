@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { Controller } from './controller.decorator';
 import { Delete, Get, Patch, Post, Put } from './http-method.decorator';
 import { getRouteMetadata } from './routing-metadata.lib';
@@ -41,5 +41,26 @@ describe('HTTP method decorators', () => {
       }
       void S;
     }).toThrow(/static/);
+  });
+
+  it('checks asynchronous and mixed native Response return types', () => {
+    const checkInvalidReturns = () => {
+      @Controller('/')
+      class InvalidReturns {
+        // @ts-expect-error An asynchronous native Response is not an HTTP reply contract.
+        @Get('/async')
+        async native() {
+          return new Response('unsupported');
+        }
+
+        // @ts-expect-error A native Response cannot be hidden in a union with JSON data.
+        @Get('/mixed')
+        mixed() {
+          return Math.random() > 0.5 ? new Response('unsupported') : { ok: true };
+        }
+      }
+      void InvalidReturns;
+    };
+    expectTypeOf(checkInvalidReturns).toBeFunction();
   });
 });

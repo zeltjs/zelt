@@ -43,19 +43,21 @@ class ApiController {
 
   @Get('/binary')
   binary() {
-    return new Response(new Uint8Array([0, 127, 128, 255]), {
-      headers: { 'Content-Type': 'application/octet-stream' },
-    });
+    return response()
+      .header('Content-Type', 'application/octet-stream')
+      .body(new Uint8Array([0, 127, 128, 255]));
   }
 
   @Post('/binary')
   async binaryEcho(req = request()) {
-    return new Response(await req.bodyRaw());
+    return response()
+      .header('Content-Type', 'text/plain;charset=UTF-8')
+      .body(await req.bodyRaw());
   }
 
   @Get('/empty')
   empty() {
-    return new Response(null, { status: 204 });
+    return response().status(204).empty();
   }
 
   @Get('/error')

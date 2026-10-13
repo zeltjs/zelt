@@ -153,8 +153,8 @@ describe('http feature', () => {
     @Controller('/')
     class ApiController {
       @Get('/health')
-      health(): Response {
-        return Response.json({ ok: true });
+      health() {
+        return { ok: true };
       }
     }
 
@@ -197,8 +197,8 @@ describe('http feature', () => {
     @Controller('/')
     class ApiController {
       @Get('/health')
-      health(): Response {
-        return Response.json({ ok: true });
+      health() {
+        return { ok: true };
       }
     }
 

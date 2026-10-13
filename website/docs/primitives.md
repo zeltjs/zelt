@@ -209,6 +209,8 @@ export class ApiController {
 
 | Method | Description |
 |--------|-------------|
+| `status(code)` | New builder retaining the literal status type |
+| `empty(status?)` | Reply without a body, including 204/304 |
 | `json(data, status?, headers?)` | JSON response with optional status code and headers |
 | `text(data, status?)` | Plain text response |
 | `redirect(url, status?)` | HTTP redirect (default: 302) |
@@ -371,7 +373,7 @@ class StreamController {
 
 ## Chaining Response Methods
 
-Response methods that modify state (`header`, `setCookie`, `deleteCookie`) return the builder, allowing method chaining:
+Builder methods (`status`, `header`, `setCookie`, `deleteCookie`) return a new builder without changing the original. Use the returned builder when chaining:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -388,3 +390,22 @@ class FileController {
   }
 }
 ```
+
+## Headers in middleware
+
+Use `responseHeaders()` for request-scoped header effects. Unlike the immutable `response()` builder, this accessor changes the running HTTP response.
+
+```typescript
+import { Middleware, responseHeaders } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
+
+@Middleware
+class HeaderMiddleware {
+  async use(next: Next, headers = responseHeaders()) {
+    headers.set('X-Example', 'yes');
+    await next();
+  }
+}
+```
+
+`response().header(...)` only describes a reply. Discarding that builder does not set a header on a later bare return value.

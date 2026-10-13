@@ -12,7 +12,7 @@ import { currentRoles, currentUser } from '../middleware/auth';
 import type { HonoMiddleware, MiddlewareInput } from '../middleware/middleware.types';
 import { runInRequestContext, setHonoContext } from '../request';
 import { hasBodySource, setBodySource, setPathParams } from '../request/injection';
-import { trackGeneratedResponse } from '../response/response-ownership.feature';
+import { renderControllerResult } from '../response/response-rendering.feature';
 import { joinPath } from './path-utils.lib';
 import type { ControllerClass, HttpMethod } from './routing-metadata.lib';
 import {
@@ -215,8 +215,7 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
     await ctx.lifecycle.startupPending();
 
     const result = await runInRequestContext(c, () => invokeHandler(controller, route.methodName));
-    if (result instanceof Response) return result;
-    return trackGeneratedResponse(c, c.json(result));
+    return renderControllerResult(c, result);
   };
 
   attachSkippedMiddlewares(
