@@ -5,7 +5,7 @@ import type {
   HttpStaticCapabilities,
   ServiceResolver,
 } from '@zeltjs/core';
-import { Controller, http, Post, request } from '@zeltjs/core';
+import { Controller, http, Post, request, response } from '@zeltjs/core';
 
 import type { GqlSchemaRef, GraphqlResolverClass } from './graphql-metadata.lib';
 import { setGraphqlControllerMetadata } from './graphql-metadata.lib';
@@ -64,19 +64,6 @@ const createResolverLookup = (instances: ReadonlyMap<string, object>) => {
     }
     return instance;
   };
-};
-
-/** @throws {Error} */
-const applyLegacyMethodDecorator = (
-  decorator: MethodDecorator,
-  target: object,
-  propertyKey: string,
-): void => {
-  const descriptor = Object.getOwnPropertyDescriptor(target, propertyKey);
-  if (!descriptor) {
-    throw new Error(`Missing method descriptor: ${propertyKey}`);
-  }
-  decorator(target, propertyKey, descriptor);
 };
 
 export class GraphqlHttpFeature implements HttpMountableFeatureModule {
@@ -176,7 +163,7 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
   private createController(): ControllerClass {
     class GraphqlEndpointController {
       /** @throws {Error} */
-      async handle(req = request()): Promise<Response> {
+      async handle(req = request(), res = response()) {
         const state = getGraphqlRuntimeState(this);
         if (!state) {
           throw new Error(
@@ -186,19 +173,21 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
 
         const payload = parseGraphqlRequestPayload(await req.body());
         if (!payload) {
-          return Response.json(
+          return res.json(
             { errors: [{ message: 'GraphQL request body must include a query string.' }] },
-            { status: 400 },
+            400,
           );
         }
 
         const result = await state.execute(payload);
 
-        return Response.json(result);
+        return res.json(result);
       }
     }
 
-    applyLegacyMethodDecorator(Post('/'), GraphqlEndpointController.prototype, 'handle');
+    Post('/')(GraphqlEndpointController.prototype, 'handle', {
+      value: GraphqlEndpointController.prototype.handle,
+    });
     Controller('/')(GraphqlEndpointController);
     return GraphqlEndpointController;
   }

@@ -1,5 +1,5 @@
 import type { Next, RequestAccessor } from '@zeltjs/core';
-import { inject, Middleware, request, response } from '@zeltjs/core';
+import { inject, Middleware, request, responseHeaders } from '@zeltjs/core';
 import type { KVStore } from '@zeltjs/kv';
 
 import { SessionConfig } from './session.config';
@@ -15,8 +15,12 @@ export class SessionMiddleware {
     this.store = config.kv.namespace(config.kvStoreNamespace);
   }
 
-  /** @throws {ZeltContextNotAvailableError} */
-  async use(next: Next, req = request(), res = response()): Promise<Response | undefined> {
+  /** @throws {TypeError} */
+  async use(
+    next: Next,
+    req = request(),
+    headers = responseHeaders(),
+  ): Promise<Response | undefined> {
     const { sessionId, session, isNew } = await this.loadOrCreateSession(req);
 
     const context = {
@@ -31,7 +35,7 @@ export class SessionMiddleware {
 
     const cookieHeader = await this.getCookieHeader(sessionId, context);
     if (cookieHeader) {
-      res.header('Set-Cookie', cookieHeader, { type: 'append' });
+      headers.set('Set-Cookie', cookieHeader, { type: 'append' });
     }
 
     return undefined;

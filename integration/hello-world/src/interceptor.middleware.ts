@@ -4,7 +4,7 @@ import {
   MiddlewareWithOptions,
   middlewareOptions,
   requestContext,
-  response,
+  responseHeaders,
 } from '@zeltjs/core';
 
 @Middleware
@@ -39,8 +39,12 @@ export class HeaderMiddleware extends MiddlewareWithOptions<{
   headerName: string;
   headerValue: string;
 }> {
-  async use(next: Next, options = middlewareOptions(HeaderMiddleware), res = response()) {
-    res.header(options.headerName, options.headerValue);
+  async use(
+    next: Next,
+    options = middlewareOptions(HeaderMiddleware),
+    headers = responseHeaders(),
+  ) {
+    headers.set(options.headerName, options.headerValue);
     await next();
     return undefined;
   }

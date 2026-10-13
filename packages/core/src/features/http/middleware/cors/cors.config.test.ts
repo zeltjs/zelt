@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Config, Controller, CorsConfig, createApp, Get, http } from '../../../../index';
+import { Config, Controller, CorsConfig, createApp, Get, http, response } from '../../../../index';
 
 @Controller('/test')
 class TestController {
@@ -10,7 +10,7 @@ class TestController {
 
   @Get('/raw')
   raw() {
-    return new Response('ok');
+    return response().text('ok');
   }
 }
 
@@ -66,7 +66,7 @@ describe('CorsConfig', () => {
     await readyApp.shutdown();
   });
 
-  it('adds CORS headers to raw Response results', async () => {
+  it('adds CORS headers to reply data results', async () => {
     @Config
     class MyCorsConfig extends CorsConfig {
       override readonly origin = 'http://example.com';

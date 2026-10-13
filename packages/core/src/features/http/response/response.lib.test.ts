@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { createApp } from '../../../app';
 import { http } from '../http.feature';
 import { Controller } from '../routing/controller.decorator';
 import { Get, Post } from '../routing/http-method.decorator';
-
+import type { HttpReply } from './http-reply.types';
 import { response } from './response.lib';
 
 @Controller('/r')
@@ -134,8 +134,60 @@ describe('response()', () => {
     expect(await res.json()).toEqual({ wrapped: true });
   });
 
-  it('throws when called outside entry execution', () => {
-    expect(() => response()).toThrow(/called outside entry execution/);
+  it('builds reply data without an entry context or a native Response', () => {
+    const reply = response().json({ ok: true });
+    expect(reply).not.toBeInstanceOf(Response);
+    expect(reply).toMatchObject({ status: 200, format: 'json', body: { ok: true } });
+  });
+
+  it('branches status and headers without changing the original builder or reply', () => {
+    const base = response().header('X-Base', 'original');
+    const first = base.json({ ok: true });
+    const changed = base.status(400).header('X-Base', 'changed').json({ code: 'INVALID' });
+    expect(base.json({ ok: true })).toEqual(first);
+    expect(first.status).toBe(200);
+    expect(changed.status).toBe(400);
+    expect(first.headerOperations).toEqual([
+      { kind: 'header', name: 'X-Base', value: 'original', append: false },
+    ]);
+    expect(changed.headerOperations).toHaveLength(2);
+  });
+
+  it('retains literal status through header and cookie chaining', () => {
+    const reply = response()
+      .status(400)
+      .header('X-Reason', 'bad')
+      .setCookie('seen', 'yes')
+      .json({ code: 'INVALID' });
+    expectTypeOf(reply).toEqualTypeOf<HttpReply<{ code: string }, 400, 'json'>>();
+    expectTypeOf(response().status(307).redirect('/next').status).toEqualTypeOf<307>();
+  });
+
+  it('describes bodyless replies explicitly', () => {
+    expect(response().status(204).empty()).toMatchObject({
+      status: 204,
+      format: 'empty',
+      body: undefined,
+    });
+    expect(response().empty(304)).toMatchObject({ status: 304, format: 'empty', body: undefined });
+    const checkInvalidBodies = () => {
+      // @ts-expect-error Bodyless statuses cannot be used for JSON bodies.
+      response().status(204).json({ ok: true });
+      // @ts-expect-error A bodyless status cannot override a JSON response status.
+      response().json({ ok: true }, 304);
+      // @ts-expect-error Redirects require a redirect status.
+      response().redirect('/next', 400);
+    };
+    expectTypeOf(checkInvalidBodies).toBeFunction();
+  });
+
+  it('does not execute streaming callbacks while building a reply', () => {
+    let called = false;
+    const reply = response().stream(async () => {
+      called = true;
+    });
+    expect(reply.format).toBe('stream');
+    expect(called).toBe(false);
   });
 
   it('stream returns chunked response', async () => {

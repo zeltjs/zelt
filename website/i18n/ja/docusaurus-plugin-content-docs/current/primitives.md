@@ -209,6 +209,8 @@ export class ApiController {
 
 | Method | Description |
 |--------|-------------|
+| `status(code)` | statusのリテラル型を保持する新しいbuilder |
+| `empty(status?)` | 204/304など本文なしの応答 |
 | `json(data, status?, headers?)` | ステータスコードとヘッダーを任意で指定できるJSONレスポンス |
 | `text(data, status?)` | プレーンテキストレスポンス |
 | `redirect(url, status?)` | HTTPリダイレクト(デフォルト: 302) |
@@ -371,7 +373,7 @@ class StreamController {
 
 ## Chaining Response Methods {#chaining-response-methods}
 
-状態を変更するResponseメソッド(`header`、`setCookie`、`deleteCookie`)はbuilderを返すため、メソッドチェーンが可能です:
+builderのメソッド(`status`、`header`、`setCookie`、`deleteCookie`)は元のbuilderを変更せず、新しいbuilderを返します。戻り値を使ってチェーンしてください:
 
 ```typescript
 import { Controller, Get, response } from '@zeltjs/core';
@@ -388,3 +390,22 @@ class FileController {
   }
 }
 ```
+
+## ミドルウェアでのヘッダー変更
+
+リクエスト単位のヘッダー変更には `responseHeaders()` を使います。不変builderの `response()` と異なり、このアクセサーは実行中のHTTP応答を変更します。
+
+```typescript
+import { Middleware, responseHeaders } from '@zeltjs/core';
+import type { Next } from '@zeltjs/core';
+
+@Middleware
+class HeaderMiddleware {
+  async use(next: Next, headers = responseHeaders()) {
+    headers.set('X-Example', 'yes');
+    await next();
+  }
+}
+```
+
+`response().header(...)` は応答データを組み立てる操作です。戻されたbuilderを捨てると、そのヘッダーは後続の素の戻り値には適用されません。

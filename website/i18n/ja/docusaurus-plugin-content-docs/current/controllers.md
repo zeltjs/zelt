@@ -209,7 +209,7 @@ class UserController {
 
   @Get('/health')
   health() {
-    return 'OK'; // → 200 OK, Content-Type: text/plainを返す
+    return 'OK'; // → 200 OK, Content-Type: application/jsonを返す
   }
 }
 ```
@@ -235,17 +235,28 @@ class UserController {
   @Delete('/:id')
   remove(req = request()) {
     const id = req.pathParam('id');
-    return new Response(null, { status: 204 }); // 204 No Contentを返す
+    return response().status(204).empty(); // 204 No Contentを返す
   }
 }
 ```
+
+`response()` はContextに依存しない不変builderです。`header()`、`status()`、Cookie操作は新しいbuilderを返します。`json()` などの終端メソッドは型付きのHTTP応答データを返し、ZeltがHTTP実行時にWeb標準のResponseへ変換します。コントローラーから生のResponseや未完成のbuilderを返すことはできません。
+
+```typescript
+import { response } from '@zeltjs/core';
+const base = response().header('Cache-Control', 'no-store');
+const success = base.json({ ok: true }); // 200
+const failure = base.status(400).json({ code: 'INVALID_INPUT' }); // 400
+```
+
+statusのリテラル型はチェーン後も保持され、`@zeltjs/hono-client` がクライアント用の型へ変換できます。素の戻り値は引き続き200のJSON応答になります。
 
 ### When to Use Which {#when-to-use-which}
 
 | Scenario | Approach |
 |----------|----------|
 | 200でJSONを返す | `return { data }` |
-| カスタムステータス(201、204など)で返す | `response().json(data, status)` |
+| カスタムステータス(201、204など)で返す | `response().status(status).json(data)` |
 | カスタムヘッダーを設定する | `response().header(name, value).json(data)` |
 | リダイレクトする | `response().redirect(url)` |
 | Cookieを設定する | `response().setCookie(name, value).json(data)` |
@@ -276,7 +287,7 @@ class ItemController {
   remove(req = request()) {
     const id = req.pathParam('id');
     // 削除処理を実行する
-    return new Response(null, { status: 204 }); // 204 No Contentを返す
+    return response().status(204).empty(); // 204 No Contentを返す
   }
 }
 ```

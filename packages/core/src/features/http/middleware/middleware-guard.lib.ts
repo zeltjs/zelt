@@ -5,7 +5,15 @@ import { findTargetHandler } from 'hono/utils/handler';
 import type { ResolverHandle } from '../../../kernel';
 import { createContextKey, getInternal, setInternal } from '../../../kernel';
 import { recordMiddlewareOptions, recordMiddlewareValue } from '../request/injection';
-import type { HonoMiddleware, MiddlewareIdentifier, MiddlewareInput } from './middleware.types';
+import type { AnyHttpReply } from '../response/http-reply.types';
+import { renderReplyResult } from '../response/response-rendering.feature';
+import type {
+  HonoMiddleware,
+  MiddlewareIdentifier,
+  MiddlewareInput,
+  NativeMiddlewareClass,
+  RequestContext,
+} from './middleware.types';
 
 export type SkippedMiddlewareSets = {
   readonly classLevel: ReadonlySet<MiddlewareIdentifier>;
@@ -26,6 +34,12 @@ const checkMiddlewareClass = (input: MiddlewareInput): boolean =>
   typeof input === 'function' && input.prototype !== undefined && hasUseMethod(input.prototype);
 
 const completeNext = (): void => {};
+
+/** @throws {TypeError} */
+const renderMiddlewareResult = (
+  ctx: RequestContext,
+  result: Response | AnyHttpReply | undefined,
+): Response | undefined => renderReplyResult(ctx, result);
 
 export const middlewareIdentity = (input: MiddlewareInput): MiddlewareIdentifier => {
   if (typeof input === 'function') return input;
@@ -66,22 +80,34 @@ export const resolveMiddleware = (
       throw new TypeError('Invalid middleware class. Missing use() method.');
     }
     const instance = resolver.get(middleware);
-    return (_c, next) => Promise.resolve(instance.use(captureNextValue(middleware, next)));
+    return async (c, next) =>
+      renderMiddlewareResult(c, await instance.use(captureNextValue(middleware, next)));
   }
   if (!checkMiddlewareClass(middleware.middleware)) {
     throw new TypeError('Invalid middleware class. Missing use() method.');
   }
   const instance = resolver.get(middleware.middleware);
-  return async (_c, next) => {
+  return async (c, next) => {
     // recordMiddlewareOptions's contract: restore in a finally around the WHOLE
     // use() call, not just after next() — see its doc for why.
     const restoreOptions = recordMiddlewareOptions(middleware.middleware, middleware.options);
     try {
-      return await instance.use(captureNextValue(middleware, next));
+      return renderMiddlewareResult(c, await instance.use(captureNextValue(middleware, next)));
     } finally {
       restoreOptions();
     }
   };
+};
+
+// Built-in Hono middleware already returns a transport Response. Its type excludes
+// reply data, so it does not need a second asynchronous rendering step.
+/** @throws {ZeltContextNotAvailableError} */
+export const resolveNativeMiddleware = (
+  middleware: NativeMiddlewareClass,
+  resolver: ResolverHandle,
+): HonoMiddleware => {
+  const instance = resolver.get(middleware);
+  return (_c, next) => Promise.resolve(instance.use(captureNextValue(middleware, next)));
 };
 
 export const attachSkippedMiddlewares = (handler: object, skipped: SkippedMiddlewareSets): void => {
@@ -132,7 +158,10 @@ export const guardMiddleware = (
     const skipped = getSkippedMiddlewares(c);
     if (shouldSkipMiddleware(skipped, identifier, options?.skipScope ?? 'default')) return next();
     const result = await middleware(c, next);
-    if (result instanceof Response) {
+    if (
+      result &&
+      (result instanceof Response || Object.prototype.toString.call(result) === '[object Response]')
+    ) {
       c.res = result;
     }
   };
@@ -152,7 +181,7 @@ export const oncePerRequest = (
   return (c, next) => {
     const existing = getInternal(APPLIED_MIDDLEWARES);
     if (existing) {
-      if (existing.has(identifier)) return next();
+      if (existing.has(identifier)) return next().then(completeNext);
       existing.add(identifier);
     } else {
       setInternal(APPLIED_MIDDLEWARES, new Set([identifier]));

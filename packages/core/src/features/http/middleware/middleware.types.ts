@@ -1,4 +1,5 @@
 import type { Context, Env, Input, MiddlewareHandler } from 'hono';
+import type { AnyHttpReply } from '../response/http-reply.types';
 
 export type HonoMiddleware = MiddlewareHandler<Env, string, Input>;
 
@@ -18,13 +19,19 @@ export type Next<T = void> = [T] extends [void]
 
 type MaybePromise<T> = T | Promise<T>;
 
-export type MiddlewareResult = MaybePromise<Response | undefined>;
+export type MiddlewareResult = MaybePromise<Response | AnyHttpReply | undefined>;
 
 // Middleware that needs options extends MiddlewareWithOptions<TOptions> and
 // reads them via middlewareOptions() inside use().
 export type MiddlewareInstance = {
   use(next: Next): MiddlewareResult;
 };
+
+export type NativeMiddlewareInstance = {
+  use(next: Next): MaybePromise<Response | undefined>;
+};
+
+export type NativeMiddlewareClass = new (...args: never[]) => NativeMiddlewareInstance;
 
 export type MiddlewareClass = new (...args: never[]) => MiddlewareInstance;
 
@@ -96,5 +103,5 @@ export type MiddlewareIdentifier = MiddlewareClass | BoundMiddleware;
 export type ErrorHandlerClass = new (...args: never[]) => ErrorHandlerInstance;
 
 export type ErrorHandlerInstance = {
-  onError(error: Error, c: RequestContext): Response | Promise<Response | undefined> | undefined;
+  onError(error: Error, c: RequestContext): MiddlewareResult;
 };

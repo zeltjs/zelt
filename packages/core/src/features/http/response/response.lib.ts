@@ -1,184 +1,228 @@
-import type { Context, TypedResponse } from 'hono';
-import { deleteCookie, setCookie } from 'hono/cookie';
-import { stream, streamSSE, streamText } from 'hono/streaming';
-import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { contentfulStatus, redirectStatus } from './http-reply.lib';
+import type {
+  ContentfulStatusCode,
+  CookieOptions,
+  HeaderOptions,
+  HttpReply,
+  HttpStatusCode,
+  RedirectStatusCode,
+  ResponseHeaderOperation,
+  StreamBody,
+  ZeltSSEWriter,
+  ZeltStreamWriter,
+} from './http-reply.types';
+import {
+  BodyReply,
+  EmptyReply,
+  JsonReply,
+  RedirectReply,
+  SSEReply,
+  StreamReply,
+  TextReply,
+} from './http-reply-data.lib';
 
-export type { TypedResponse };
+export type {
+  CookieOptions,
+  HeaderOptions,
+  HttpReply,
+  HttpReplyFormat,
+  HttpStatusCode,
+  TypedResponse,
+  ZeltSSEMessage,
+  ZeltSSEWriter,
+  ZeltStreamWriter,
+} from './http-reply.types';
 
-export type ZeltStreamWriter = {
-  readonly aborted: boolean;
-  readonly closed: boolean;
-  write(input: Uint8Array | string): Promise<ZeltStreamWriter>;
-  writeln(input: string): Promise<ZeltStreamWriter>;
-  sleep(ms: number): Promise<unknown>;
-  close(): Promise<void>;
-  pipe(body: ReadableStream): Promise<void>;
-  onAbort(listener: () => void | Promise<void>): void;
-  abort(): void;
+type BuilderState<S extends HttpStatusCode> = {
+  readonly status: S;
+  readonly headerOperations: readonly ResponseHeaderOperation[];
 };
 
-export type ZeltSSEMessage = {
-  data: string | Promise<string>;
-  event?: string;
-  id?: string;
-  retry?: number;
+type DefaultRedirectStatus<S extends HttpStatusCode> = S extends RedirectStatusCode ? S : 302;
+
+/** @throws {TypeError} */
+const assertStatus = (status: HttpStatusCode): void => {
+  if (!Number.isInteger(status) || status < 200 || status > 599) {
+    throw new TypeError('HTTP reply status must be an integer between 200 and 599.');
+  }
 };
 
-export type ZeltSSEWriter = ZeltStreamWriter & {
-  writeSSE(message: ZeltSSEMessage): Promise<void>;
-};
+export class ResponseBuilder<S extends HttpStatusCode = 200> {
+  constructor(private readonly state: BuilderState<S>) {}
 
-import { getHonoContext } from '../request';
+  /** @throws {TypeError} */
+  status<N extends HttpStatusCode>(status: N): ResponseBuilder<N> {
+    assertStatus(status);
+    return new ResponseBuilder({ status, headerOperations: this.state.headerOperations });
+  }
 
-// zelt は 300 multi-choice / 304 not-modified / 305-306 deprecated を除外し、
-// AppType / OpenAPI consumer 向けに本物の redirect 3xx だけに narrow する。
-type KoyaRedirectStatusCode = 301 | 302 | 303 | 307 | 308;
+  header(name: string, value: string, options?: HeaderOptions): ResponseBuilder<S> {
+    return this.withHeader({ kind: 'header', name, value, append: options?.type === 'append' });
+  }
 
-export type CookieOptions = {
-  domain?: string;
-  expires?: Date;
-  httpOnly?: boolean;
-  maxAge?: number;
-  path?: string;
-  secure?: boolean;
-  sameSite?: 'Strict' | 'Lax' | 'None';
-};
+  removeHeader(name: string): ResponseBuilder<S> {
+    return this.withHeader({ kind: 'remove-header', name });
+  }
 
-export type HeaderOptions = {
-  readonly type?: 'override' | 'append';
-};
+  setCookie(name: string, value: string, options: CookieOptions = {}): ResponseBuilder<S> {
+    return this.withHeader({ kind: 'cookie', name, value, options: { ...options } });
+  }
 
-export type ResponseBuilder = {
-  json<T, S extends ContentfulStatusCode = 200>(
+  deleteCookie(name: string, options: CookieOptions = {}): ResponseBuilder<S> {
+    return this.withHeader({ kind: 'delete-cookie', name, options: { ...options } });
+  }
+
+  json<T>(
+    this: ResponseBuilder<ContentfulStatusCode>,
     data: T,
-    status?: S,
+    status?: undefined,
     headers?: Record<string, string>,
-  ): TypedResponse<T, S, 'json'>;
+  ): HttpReply<T, Extract<S, ContentfulStatusCode>, 'json'>;
+  json<T, N extends ContentfulStatusCode>(
+    data: T,
+    status: N,
+    headers?: Record<string, string>,
+  ): HttpReply<T, N, 'json'>;
+  /** @throws {TypeError} */
+  json<T>(
+    data: T,
+    status?: ContentfulStatusCode,
+    headers?: Record<string, string>,
+  ): HttpReply<T, ContentfulStatusCode, 'json'> {
+    return new JsonReply(
+      contentfulStatus(status ?? this.state.status),
+      data,
+      this.state.headerOperations,
+      headers,
+    );
+  }
 
-  redirect<S extends KoyaRedirectStatusCode = 302>(
+  text<T extends string>(
+    this: ResponseBuilder<ContentfulStatusCode>,
+    data: T,
+    status?: undefined,
+  ): HttpReply<T, Extract<S, ContentfulStatusCode>, 'text'>;
+  text<T extends string, N extends ContentfulStatusCode>(
+    data: T,
+    status: N,
+  ): HttpReply<T, N, 'text'>;
+  /** @throws {TypeError} */
+  text<T extends string>(
+    data: T,
+    status?: ContentfulStatusCode,
+  ): HttpReply<T, ContentfulStatusCode, 'text'> {
+    return new TextReply(
+      contentfulStatus(status ?? this.state.status),
+      data,
+      this.state.headerOperations,
+    );
+  }
+
+  body<T extends BodyInit>(
+    this: ResponseBuilder<ContentfulStatusCode>,
+    data: T,
+    status?: undefined,
+  ): HttpReply<T, Extract<S, ContentfulStatusCode>, 'body'>;
+  body<T extends BodyInit, N extends ContentfulStatusCode>(
+    data: T,
+    status: N,
+  ): HttpReply<T, N, 'body'>;
+  /** @throws {TypeError} */
+  body<T extends BodyInit>(
+    data: T,
+    status?: ContentfulStatusCode,
+  ): HttpReply<T, ContentfulStatusCode, 'body'> {
+    return new BodyReply(
+      contentfulStatus(status ?? this.state.status),
+      data,
+      this.state.headerOperations,
+    );
+  }
+
+  redirect(
+    this: ResponseBuilder<200 | RedirectStatusCode>,
     url: string,
-    status?: S,
-  ): TypedResponse<undefined, S, 'redirect'>;
+    status?: undefined,
+  ): HttpReply<string, DefaultRedirectStatus<S>, 'redirect'>;
+  redirect<N extends RedirectStatusCode>(url: string, status: N): HttpReply<string, N, 'redirect'>;
+  /** @throws {TypeError} */
+  redirect(
+    url: string,
+    status?: RedirectStatusCode,
+  ): HttpReply<string, RedirectStatusCode, 'redirect'> {
+    const selected =
+      status ?? (this.state.status === 200 ? 302 : redirectStatus(this.state.status));
+    return new RedirectReply(redirectStatus(selected), url, this.state.headerOperations);
+  }
 
-  text<T extends string, S extends ContentfulStatusCode = 200>(
-    data: T,
-    status?: S,
-  ): TypedResponse<T, S, 'text'>;
-
-  body<T extends BodyInit, S extends ContentfulStatusCode = 200>(
-    data: T,
-    status?: S,
-  ): TypedResponse<T, S, 'body'>;
-
-  header(name: string, value: string, options?: HeaderOptions): ResponseBuilder;
-
-  removeHeader(name: string): ResponseBuilder;
-
-  setCookie(name: string, value: string, options?: CookieOptions): ResponseBuilder;
-
-  deleteCookie(name: string, options?: CookieOptions): ResponseBuilder;
+  empty(): HttpReply<undefined, S, 'empty'>;
+  empty<N extends HttpStatusCode>(status: N): HttpReply<undefined, N, 'empty'>;
+  /** @throws {TypeError} */
+  empty(status: HttpStatusCode = this.state.status): HttpReply<undefined, HttpStatusCode, 'empty'> {
+    assertStatus(status);
+    return new EmptyReply(status, this.state.headerOperations);
+  }
 
   stream(
-    cb: (stream: ZeltStreamWriter) => Promise<void>,
-    onError?: (e: Error, stream: ZeltStreamWriter) => Promise<void>,
-  ): Response;
+    this: ResponseBuilder<ContentfulStatusCode>,
+    run: (writer: ZeltStreamWriter) => Promise<void>,
+    onError?: (error: Error, writer: ZeltStreamWriter) => Promise<void>,
+  ): HttpReply<StreamBody, Extract<S, ContentfulStatusCode>, 'stream'>;
+  /** @throws {TypeError} */
+  stream(
+    run: (writer: ZeltStreamWriter) => Promise<void>,
+    onError?: (error: Error, writer: ZeltStreamWriter) => Promise<void>,
+  ): HttpReply<StreamBody, ContentfulStatusCode, 'stream'> {
+    return new StreamReply(
+      contentfulStatus(this.state.status),
+      'stream',
+      { run, onError },
+      this.state.headerOperations,
+    );
+  }
 
   streamText(
-    cb: (stream: ZeltStreamWriter) => Promise<void>,
-    onError?: (e: Error, stream: ZeltStreamWriter) => Promise<void>,
-  ): Response;
+    this: ResponseBuilder<ContentfulStatusCode>,
+    run: (writer: ZeltStreamWriter) => Promise<void>,
+    onError?: (error: Error, writer: ZeltStreamWriter) => Promise<void>,
+  ): HttpReply<StreamBody, Extract<S, ContentfulStatusCode>, 'streamText'>;
+  /** @throws {TypeError} */
+  streamText(
+    run: (writer: ZeltStreamWriter) => Promise<void>,
+    onError?: (error: Error, writer: ZeltStreamWriter) => Promise<void>,
+  ): HttpReply<StreamBody, ContentfulStatusCode, 'streamText'> {
+    return new StreamReply(
+      contentfulStatus(this.state.status),
+      'streamText',
+      { run, onError },
+      this.state.headerOperations,
+    );
+  }
 
   sse(
-    cb: (stream: ZeltSSEWriter) => Promise<void>,
-    onError?: (e: Error, stream: ZeltSSEWriter) => Promise<void>,
-  ): Response;
-};
-
-// Minimal structural view of hono Context for building responses.
-type ResponseContext = Pick<Context, 'json' | 'redirect' | 'text' | 'body' | 'header'>;
-
-// Function overloads declare the public contract; the implementation signature is
-// intentionally wider so that delegation to hono's overloaded methods type-checks
-// without requiring an `as` assertion on the return value.
-function makeJson(c: ResponseContext): ResponseBuilder['json'] {
-  function json<T, S extends ContentfulStatusCode = 200>(
-    data: T,
-    status?: S,
-    headers?: Record<string, string>,
-  ): TypedResponse<T, S, 'json'>;
-  function json(data: unknown, status?: ContentfulStatusCode, headers?: Record<string, string>) {
-    return c.json(data, status, headers);
+    this: ResponseBuilder<ContentfulStatusCode>,
+    run: (writer: ZeltSSEWriter) => Promise<void>,
+    onError?: (error: Error, writer: ZeltSSEWriter) => Promise<void>,
+  ): HttpReply<StreamBody<ZeltSSEWriter>, Extract<S, ContentfulStatusCode>, 'sse'>;
+  /** @throws {TypeError} */
+  sse(
+    run: (writer: ZeltSSEWriter) => Promise<void>,
+    onError?: (error: Error, writer: ZeltSSEWriter) => Promise<void>,
+  ): HttpReply<StreamBody<ZeltSSEWriter>, ContentfulStatusCode, 'sse'> {
+    return new SSEReply(
+      contentfulStatus(this.state.status),
+      { run, onError },
+      this.state.headerOperations,
+    );
   }
-  return json;
+
+  private withHeader(operation: ResponseHeaderOperation): ResponseBuilder<S> {
+    return new ResponseBuilder({
+      status: this.state.status,
+      headerOperations: [...this.state.headerOperations, operation],
+    });
+  }
 }
 
-function makeRedirect(c: ResponseContext): ResponseBuilder['redirect'] {
-  function redirect<S extends KoyaRedirectStatusCode = 302>(
-    url: string,
-    status?: S,
-  ): TypedResponse<undefined, S, 'redirect'>;
-  function redirect(url: string, status?: KoyaRedirectStatusCode) {
-    return c.redirect(url, status);
-  }
-  return redirect;
-}
-
-function makeText(c: ResponseContext): ResponseBuilder['text'] {
-  function text<T extends string, S extends ContentfulStatusCode = 200>(
-    data: T,
-    status?: S,
-  ): TypedResponse<T, S, 'text'>;
-  function text(data: string, status?: ContentfulStatusCode) {
-    return c.text(data, status);
-  }
-  return text;
-}
-
-function makeBody(c: ResponseContext): ResponseBuilder['body'] {
-  function body<T extends BodyInit, S extends ContentfulStatusCode = 200>(
-    data: T,
-    status?: S,
-  ): TypedResponse<T, S, 'body'>;
-  function body(data: string | ArrayBuffer | ReadableStream, status?: ContentfulStatusCode) {
-    return c.body(data, status);
-  }
-  return body;
-}
-
-const buildResponseBuilder = (c: Context): ResponseBuilder => {
-  const builder: ResponseBuilder = {
-    json: makeJson(c),
-    redirect: makeRedirect(c),
-    text: makeText(c),
-    body: makeBody(c),
-    header: (name, value, options) => {
-      if (options?.type === 'append') {
-        c.header(name, value, { append: true });
-      } else {
-        c.header(name, value);
-      }
-      return builder;
-    },
-    removeHeader: (name) => {
-      c.header(name, undefined);
-      return builder;
-    },
-    setCookie: (name, value, options) => {
-      setCookie(c, name, value, options);
-      return builder;
-    },
-    deleteCookie: (name, options) => {
-      deleteCookie(c, name, options);
-      return builder;
-    },
-    stream: (cb, onError) => stream(c, cb, onError),
-    streamText: (cb, onError) => streamText(c, cb, onError),
-    sse: (cb, onError) => streamSSE(c, cb, onError),
-  };
-  return builder;
-};
-
-/** @throws {ZeltContextNotAvailableError} */
-export const response = (): ResponseBuilder => {
-  return buildResponseBuilder(getHonoContext());
-};
+export const response = (): ResponseBuilder =>
+  new ResponseBuilder({ status: 200, headerOperations: [] });

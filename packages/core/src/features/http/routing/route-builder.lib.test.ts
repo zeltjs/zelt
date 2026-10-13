@@ -57,10 +57,11 @@ describe('collectRoutes', () => {
   });
 });
 
-describe('buildRoutes (instanceof Response branch)', () => {
-  it('returns a hand-built Response as-is (instanceof Response branch)', async () => {
+describe('buildRoutes controller return contract', () => {
+  it('rejects a native Response instead of treating it as JSON data', async () => {
     @Controller('/passthrough')
     class PassthroughController {
+      // @ts-expect-error Native Responses are not a supported controller return contract.
       @Get('/teapot')
       teapot() {
         return new Response('I am a teapot', { status: 418, headers: { 'X-Custom': 'yes' } });
@@ -70,9 +71,9 @@ describe('buildRoutes (instanceof Response branch)', () => {
     const app = createApp([http({ controllers: [PassthroughController] })]);
     const readyApp = await app.createRuntime();
     const res = await readyApp.http.fetch(new Request('http://localhost/passthrough/teapot'));
-    expect(res.status).toBe(418);
-    expect(res.headers.get('X-Custom')).toBe('yes');
-    expect(await res.text()).toBe('I am a teapot');
+    expect(res.status).toBe(500);
+    expect(res.headers.get('X-Custom')).toBeNull();
+    expect(await res.json()).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 

@@ -7,6 +7,7 @@ import type { ControllerClass, HttpMetadata } from './generator.types';
 import { PortableAppTypeEmitterService } from './portable-app-type-emitter.service';
 import { PortableDtoController } from './test/fixtures/portable-dto.controller';
 import { PortableLicenseController } from './test/fixtures/portable-license.controller';
+import { PortableReplyController } from './test/fixtures/portable-reply.controller';
 
 @Controller('/users')
 export class UserController {
@@ -351,6 +352,39 @@ describe('emitPortableAppType', () => {
       if (result.ok) return;
 
       expect(result.error.kind).toBe('tsconfig_error');
+    },
+    portableTestTimeout,
+  );
+
+  it(
+    'emits portable status/body pairs for implicit JSON and reply data',
+    async () => {
+      const metadata: HttpMetadata = {
+        controllers: [
+          {
+            basePath: '/portable-reply',
+            name: 'PortableReplyController',
+            routes: [
+              { method: 'GET', path: '/:id', fullPath: '/portable-reply/:id', methodName: 'show' },
+            ],
+          },
+        ],
+      };
+      const result = await emitter.emit({
+        metadata,
+        controllers: [PortableReplyController],
+        distDir,
+        tsconfig,
+        projectRoot,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error.kind);
+      expect(result.value).toContain('status: 200');
+      expect(result.value).toContain('status: 404');
+      expect(result.value).toContain('status: 500');
+      expect(result.value).not.toContain('HTTP_REPLY_BRAND');
+      expect(result.value).not.toContain('headerOperations');
+      await expectGeneratedAppTypeToTypeCheck(result.value);
     },
     portableTestTimeout,
   );

@@ -48,9 +48,8 @@ class SessionTestController {
 
   @Post('/login-with-cookie')
   loginWithCookie(res = response()) {
-    res.setCookie('app', 'value', { path: '/' });
     setSession({ userId: 'user-123', count: 1 });
-    return { success: true };
+    return res.setCookie('app', 'value', { path: '/' }).json({ success: true });
   }
 
   @Post('/increment')

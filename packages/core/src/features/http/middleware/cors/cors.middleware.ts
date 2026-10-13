@@ -3,12 +3,12 @@ import { cors } from 'hono/cors';
 import { inject } from '../../../../kernel';
 import { fromHonoMiddleware } from '..';
 import { Middleware } from '../middleware.decorator';
-import type { MiddlewareInstance, Next } from '../middleware.types';
+import type { NativeMiddlewareInstance, Next } from '../middleware.types';
 import { CorsConfig } from './cors.config';
 
 @Middleware
-export class CorsMiddleware implements MiddlewareInstance {
-  private readonly delegate: MiddlewareInstance | undefined;
+export class CorsMiddleware implements NativeMiddlewareInstance {
+  private readonly delegate: NativeMiddlewareInstance | undefined;
 
   constructor(config: CorsConfig = inject(CorsConfig)) {
     if (!this.isEnabled(config)) return;

@@ -59,11 +59,11 @@ export class TodoController {
   }
 
   @Delete('/:id')
-  delete(req = request()) {
+  delete(req = request(), res = response()) {
     const deleted = this.todoService.delete(Number(req.pathParam('id')));
     if (!deleted) {
       throw new HTTPException(404, { message: 'Todo not found' });
     }
-    return new Response(null, { status: 204 });
+    return res.status(204).empty();
   }
 }

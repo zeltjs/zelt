@@ -202,13 +202,27 @@ const literalProperty = (type: TypeInfo, name: string): string | number | boolea
   return property?.type.kind === 'literal' ? property.type.value : undefined;
 };
 
-const typedResponseInfo = (type: TypeInfo): TypedResponseInfo | undefined => {
-  if (type.kind !== 'object') return undefined;
-  const body = type.properties.find((property) => property.name === '_data')?.type;
-  const status = literalProperty(type, '_status');
-  const format = literalProperty(type, '_format');
+const responseProperties = (
+  type: Extract<TypeInfo, { kind: 'object' }>,
+  bodyKey: string,
+  statusKey: string,
+  formatKey: string,
+): TypedResponseInfo | undefined => {
+  const body = type.properties.find((property) => property.name === bodyKey)?.type;
+  const status = literalProperty(type, statusKey);
+  const format = literalProperty(type, formatKey);
   if (!body || typeof status !== 'number' || typeof format !== 'string') return undefined;
   return { body, status, format };
+};
+
+const typedResponseInfo = (type: TypeInfo): TypedResponseInfo | undefined => {
+  if (type.kind !== 'object') return undefined;
+  const branded = type.properties.some((property) =>
+    property.name.startsWith('__@HTTP_REPLY_BRAND@'),
+  );
+  return branded
+    ? responseProperties(type, 'body', 'status', 'format')
+    : responseProperties(type, '_data', '_status', '_format');
 };
 
 const flattenResponseTypes = (type: TypeInfo): readonly TypeInfo[] => {
@@ -219,8 +233,9 @@ const flattenResponseTypes = (type: TypeInfo): readonly TypeInfo[] => {
 
 const responseContentType = (format: string): string | undefined => {
   if (format === 'json') return 'application/json';
-  if (format === 'text') return 'text/plain';
-  return format === 'body' ? 'application/octet-stream' : undefined;
+  if (format === 'text' || format === 'streamText') return 'text/plain';
+  if (format === 'sse') return 'text/event-stream';
+  return format === 'body' || format === 'stream' ? 'application/octet-stream' : undefined;
 };
 
 const normalizeResponseType = (type: TypeInfo): TypedResponseInfo => {
