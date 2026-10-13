@@ -1,13 +1,21 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-
 import { Injectable } from './di/index';
 import { ZeltLifecycleStateError, ZeltReadyFailedError } from './errors';
 import type { ReadyValue } from './internal';
-import { createReadyValue, disposeReadyValue, sealReadyValue } from './internal';
+import {
+  createContextStorage,
+  createReadyValue,
+  disposeReadyValue,
+  sealReadyValue,
+} from './internal';
 
 export interface Lifecycle<TReady = void> {
   /** @throws {Error} */
   startup(): Promise<TReady> | TReady;
+  /**
+   * Validate shutdown synchronously without changing lifecycle state.
+   * @throws {Error}
+   */
+  assertCanShutdown?(): void;
   shutdown(): Promise<void> | void;
 }
 
@@ -21,7 +29,7 @@ export class LifecycleManager {
   private readonly lifecycles: LifecycleEntry[] = [];
   private startedIndex = 0;
   private disposed = false;
-  private readonly startupContext = new AsyncLocalStorage<symbol>();
+  private readonly startupContext = createContextStorage<symbol>('zelt:lifecycle-startup');
   private activeStartup: symbol | undefined;
   private startupPromise: Promise<void> | undefined;
   private shutdownPromise: Promise<void> | undefined;
@@ -44,7 +52,7 @@ export class LifecycleManager {
     this.assertCanStart();
     // A hook cannot await its own completion. Independent callers still wait
     // for the entire batch, including hooks registered while it is running.
-    if (this.activeStartup !== undefined && this.startupContext.getStore() === this.activeStartup)
+    if (this.activeStartup !== undefined && this.startupContext.get() === this.activeStartup)
       return;
     while (this.startupPromise || this.startedIndex < this.lifecycles.length) {
       if (!this.startupPromise) {
@@ -148,9 +156,18 @@ export class LifecycleManager {
     return errors;
   }
 
-  /** @throws {AggregateError} */
-  shutdown(): Promise<void> {
+  /** @throws {Error} from lifecycle shutdown guards */
+  assertCanShutdown(): void {
+    if (this.disposed) return;
+    for (let index = 0; index < this.startedIndex; index++) {
+      this.lifecycles[index]?.lc.assertCanShutdown?.();
+    }
+  }
+
+  /** @throws {AggregateError | Error} */
+  async shutdown(): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
+    this.assertCanShutdown();
     this.disposed = true;
     this.shutdownPromise = this.doShutdown();
     return this.shutdownPromise;

@@ -1,5 +1,4 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-import { runInContext } from '@zeltjs/core';
+import { createContextStorage, runInContext } from '@zeltjs/core';
 import type { IpcMainInvokeEvent } from 'electron';
 import { match } from 'ts-pattern';
 
@@ -63,7 +62,7 @@ export const toIpcResponse = async (
   };
 };
 
-const ipcEventStorage = new AsyncLocalStorage<IpcMainInvokeEvent>();
+const ipcEventStorage = createContextStorage<IpcMainInvokeEvent>('zelt:ipc-event');
 
 type IpcMainLike = {
   handle(
@@ -73,8 +72,9 @@ type IpcMainLike = {
   removeHandler(channel: string): void;
 };
 
-export const ipcEvent = (): IpcMainInvokeEvent | undefined => ipcEventStorage.getStore();
+export const ipcEvent = (): IpcMainInvokeEvent | undefined => ipcEventStorage.get();
 
+/** @throws {TypeError} */
 export const setupIpcBridge = (
   ipcMain: IpcMainLike,
   fetch: (request: Request) => Promise<Response>,

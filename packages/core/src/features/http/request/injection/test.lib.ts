@@ -10,7 +10,7 @@ type TestEntryContext = {
   pathParams?: Readonly<Record<string, string>>;
 };
 
-/** @throws {ZeltContextNotAvailableError} */
+/** @throws {ZeltContextNotAvailableError | TypeError} */
 export const runInEntryContext = <T>(ctx: TestEntryContext, fn: () => T): T => {
   return runInContext(() => {
     setHonoContext(ctx.honoContext);

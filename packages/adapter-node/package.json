@@ -29,7 +29,7 @@
   ],
   "scripts": {
     "build": "tsdown",
-    "test": "vitest run",
+    "test": "pnpm -w run test:prepare && vitest run",
     "typecheck": "tsc -b"
   },
   "dependencies": {

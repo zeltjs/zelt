@@ -218,6 +218,40 @@ describe('LifecycleManager', () => {
     expect(shutdownCalls).toBe(1);
   });
 
+  it('checks all started lifecycles before disposal and allows retry after a guard rejects', async () => {
+    const manager = new LifecycleManager();
+    const events: string[] = [];
+    const shutdownError = new Error('shutdown is blocked');
+    let blocked = true;
+    const ready = manager.register({
+      startup: () => ({ client: 'available' }),
+      assertCanShutdown: () => {
+        if (blocked) throw shutdownError;
+      },
+      shutdown: () => {
+        events.push('guarded-stop');
+      },
+    });
+    manager.register({
+      startup: () => {},
+      shutdown: () => {
+        events.push('last-stop');
+      },
+    });
+    await manager.startup();
+
+    await expect(manager.shutdown()).rejects.toBe(shutdownError);
+    expect(events).toEqual([]);
+    expect(ready.client).toBe('available');
+    await manager.startupPending();
+
+    blocked = false;
+    await manager.shutdown();
+    await manager.shutdown();
+    expect(events).toEqual(['last-stop', 'guarded-stop']);
+    expect(() => ready.client).toThrow(ZeltLifecycleStateError);
+  });
+
   it('executes startup sequentially (waits for each to complete)', async () => {
     const manager = new LifecycleManager();
     let concurrent = 0;

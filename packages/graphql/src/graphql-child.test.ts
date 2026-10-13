@@ -1,8 +1,8 @@
-import type { ServiceResolver, ZeltPrebuilt } from '@zeltjs/core';
-import { createApp, http } from '@zeltjs/core';
+import type { Next, ServiceResolver, ZeltPrebuilt } from '@zeltjs/core';
+import { createApp, http, Middleware, middlewareValue, request } from '@zeltjs/core';
 import { getClassMetadata } from '@zeltjs/decorator-metadata';
 import { describe, expect, it } from 'vitest';
-
+import { readGraphqlArgs } from './args.lib';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { getGraphqlControllerMetadata, getResolverMetadata } from './graphql-metadata.lib';
 import { graphql, Mutation, Query, ResolveField, Resolver } from './index';
@@ -296,5 +296,68 @@ describe('graphql realize() prebuilt requirements', () => {
     });
 
     await expect(response.json()).resolves.toEqual({ data: { user: { id: '1' } } });
+  });
+});
+
+describe.each(['sync', 'async'] as const)('GraphQL HTTP context mode: %s', (contextMode) => {
+  it('preserves HTTP middleware values and resolver args across asynchronous execution', async () => {
+    @Middleware
+    class Identity {
+      async use(next: Next<string>, req = request()): Promise<undefined> {
+        await Promise.resolve();
+        await next(req.header('X-Request-Id') ?? '');
+        return undefined;
+      }
+    }
+    @Resolver()
+    class PortableResolver {
+      @Query()
+      async value(input = readGraphqlArgs<{ id: string }>(), identity = middlewareValue(Identity)) {
+        await Promise.resolve();
+        return `${input.id}:${identity}`;
+      }
+    }
+    const resolversHash = await computeGraphqlPrebuiltHash('/graphql', [PortableResolver]);
+    const prebuilt: ZeltPrebuilt = {
+      version: 1,
+      features: {
+        graphql: {
+          graphql: {
+            runtime: {
+              schemaSdl: 'type Query { value(id: ID!): String! }',
+              bindings: { Query: { value: { resolver: 'PortableResolver', method: 'value' } } },
+            },
+            resolversHash,
+          },
+        },
+      },
+    };
+    const app = createApp([
+      http({
+        middlewares: [Identity],
+        children: [graphql({ path: '/graphql', resolvers: [PortableResolver] })],
+      }),
+    ]);
+    const running = await app.createRuntime({ prebuilt, contextMode });
+    try {
+      const responses = await Promise.all(
+        Array.from({ length: 20 }, (_, id) =>
+          running.http.request('/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Request-Id': String(id) },
+            body: JSON.stringify({
+              query: 'query($id: ID!) { value(id: $id) }',
+              variables: { id: String(id) },
+            }),
+          }),
+        ),
+      );
+      for (const [id, response] of responses.entries()) {
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ data: { value: `${id}:${id}` } });
+      }
+    } finally {
+      await running.shutdown();
+    }
   });
 });

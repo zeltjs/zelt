@@ -85,14 +85,21 @@ export type { CommandMetadata } from './features/command/definition';
 export { Command, getCommandMetadata } from './features/command/definition';
 export type { ExecResult } from './features/command/exec-result.types';
 export type { CommandContextStore } from './features/command/input';
-export { runInCommandContext } from './features/command/input';
+export {
+  cliSchema,
+  cliUnion,
+  formatCommandHelp,
+  runInCommandContext,
+} from './features/command/input';
 export type {
   ArgDef,
+  CommandInputSchema,
   InferSchema,
   OptionDef,
   SchemaDefinition,
+  SchemaUnion,
+  VariadicDef,
 } from './features/command/input/command-schema.types';
-export { cliSchema } from './features/command/input/command-schema.types';
 export { args } from './features/command/input/injection';
 export type {
   ErrorBody,
@@ -175,8 +182,8 @@ export { Weekly } from './features/scheduler/schedule/weekly.decorator';
 export type { SchedulerClass } from './features/scheduler/scheduler.types';
 export type { TaskFunction, TaskOptions } from './features/task';
 export { TaskService } from './features/task';
-export type { ContextStorage, Lifecycle } from './kernel';
-export { createContextStorage, LifecycleManager, runInContext } from './kernel';
+export type { CapturedContext, ContextMode, ContextStorage, Lifecycle } from './kernel';
+export { captureContext, createContextStorage, LifecycleManager, runInContext } from './kernel';
 // DI primitives
 // DI
 export { Injectable, inject } from './kernel/di';

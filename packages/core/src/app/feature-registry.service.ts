@@ -1,5 +1,6 @@
 import { Injectable } from '../kernel';
 import type { ConfiguredFeature, FeatureClass } from './feature.types';
+import { createFeatureCapabilityHandle } from './feature-capability-handle.lib';
 
 export type FeatureInjectionFailure =
   | 'not_registered'
@@ -31,49 +32,7 @@ export class FeatureRegistryService {
     for (const feature of features) {
       /** @throws {FeatureInjectionError} */
       const target = (): object => this.getCapabilities(feature);
-      // Realization has not revealed whether the capability is callable yet.
-      // A bound target has no non-configurable own properties, even when
-      // a compiler lowers arrows to ordinary functions.
-      const handle: object = new Proxy(
-        ((..._args: unknown[]): unknown => undefined).bind(undefined),
-        {
-          apply: (_, receiver: unknown, args: unknown[]): unknown => {
-            const instance = target();
-            if (typeof instance !== 'function') throw new TypeError('Feature is not callable');
-            return Reflect.apply(instance, receiver, args);
-          },
-          get: (_, key): unknown => {
-            const instance = target();
-            const value: unknown = Reflect.get(instance, key);
-            if (typeof value !== 'function') return value;
-            // Keep call/apply/bind routed through the handle, including bound
-            // functions retained beyond the runtime's lifetime.
-            if (
-              typeof instance === 'function' &&
-              (value === Function.prototype.call ||
-                value === Function.prototype.apply ||
-                value === Function.prototype.bind)
-            ) {
-              return (...args: unknown[]): unknown => {
-                target();
-                return Reflect.apply(value, handle, args);
-              };
-            }
-            // Check the lifetime again when an extracted method is called.
-            return (...args: unknown[]): unknown => Reflect.apply(value, target(), args);
-          },
-          set: (_, key, value: unknown) => {
-            const instance = target();
-            return Reflect.set(instance, key, value, instance);
-          },
-          has: (_, key) => Reflect.has(target(), key),
-          ownKeys: () => Reflect.ownKeys(target()),
-          getOwnPropertyDescriptor: (_, key) => {
-            const descriptor = Reflect.getOwnPropertyDescriptor(target(), key);
-            return descriptor === undefined ? undefined : { ...descriptor, configurable: true };
-          },
-        },
-      );
+      const handle = createFeatureCapabilityHandle(target);
       this.slots.set(feature, { handle });
     }
   }

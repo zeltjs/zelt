@@ -6,6 +6,8 @@
     { "path": "packages/openapi" },
     { "path": "packages/testing" },
     { "path": "packages/adapter-node" },
+    { "path": "packages/adapter-txiki" },
+    { "path": "packages/adapter-tinyjs" },
     { "path": "packages/cli" },
     { "path": "packages/auth-jwt" },
     { "path": "packages/auth-session" },

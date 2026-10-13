@@ -3,12 +3,14 @@ import { createListenForHttp } from '@zeltjs/adapter-node';
 import type {
   ConfigClass,
   ConfiguredFeature,
+  ContextMode,
   FeatureApp,
   FeatureReadyCapabilities,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
 import { HTTP_FEATURE_KEY, HttpFeature } from '@zeltjs/core';
+import { enableAsyncContext } from '@zeltjs/core/async-context';
 
 import { ElectronAdaptor } from './electron.adaptor';
 import { ElectronEnvAdaptor } from './electron-env.adaptor';
@@ -21,6 +23,7 @@ export { ZeltElectronIpcFeatureNotFoundError } from './on-electron.exceptions';
 type IpcChannel = `http://${string}` | `https://${string}`;
 
 export type ElectronAppOptions<TIpcFeature extends string = string> = {
+  readonly contextMode?: ContextMode;
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
   readonly prebuilt?: ZeltPrebuilt;
@@ -111,12 +114,14 @@ export function onElectron<const F extends readonly ConfiguredFeature[]>(
   options?: ElectronAppOptions<HttpFeatureKeys<F>>,
 ): Promise<ElectronAppForFeatures<F>>;
 
-/** @throws {ZeltContextNotAvailableError | ZeltElectronIpcFeatureNotFoundError | AggregateError} */
+/** @throws {ZeltContextNotAvailableError | ZeltElectronIpcFeatureNotFoundError | AggregateError | TypeError} */
 export async function onElectron<const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
   options: ElectronAppOptions = {},
 ): Promise<OnElectronApp> {
+  enableAsyncContext();
   const readyApp = await app.createRuntime({
+    ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [ElectronEnvAdaptor],

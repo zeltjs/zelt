@@ -6,6 +6,7 @@ import { sharedConfig } from '../../vitest.shared';
 export default defineConfig({
   ...sharedConfig,
   test: {
+    ...sharedConfig.test,
     name: '@zeltjs/auth-session',
     include: ['src/**/*.test.ts'],
   },

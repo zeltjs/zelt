@@ -1,4 +1,10 @@
-import { createContextKey, getInternal, hasContext, setInternal } from '../../../kernel';
+import {
+  captureContext,
+  createContextKey,
+  getInternal,
+  hasContext,
+  setInternal,
+} from '../../../kernel';
 
 type AfterResponseCallback = () => void | Promise<void>;
 
@@ -39,13 +45,15 @@ export const flushAfterResponseCallbacks = (onError?: (error: unknown) => void):
   const callbacks = registry.callbacks;
   if (!callbacks) return Promise.resolve();
   registry.callbacks = undefined;
+  // The request flush scope outlives temporary middleware storage and transactions.
+  const captured = captureContext();
 
   const completions = callbacks.map(
     (callback) =>
       new Promise<void>((resolveDone) => {
         setTimeout(() => {
           void Promise.resolve()
-            .then(callback)
+            .then(() => captured.run(callback))
             .catch((error: unknown) => {
               try {
                 onError?.(error);

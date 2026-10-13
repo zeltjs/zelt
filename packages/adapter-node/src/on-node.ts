@@ -1,12 +1,14 @@
 import type {
   ConfigClass,
   ConfiguredFeature,
+  ContextMode,
   FeatureApp,
   FeatureReadyCapabilities,
   HttpFeature,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
+import { enableAsyncContext } from '@zeltjs/core/async-context';
 
 import type { ListenOptions, ServerHandle } from './listen.lib';
 import { NodeCliConfig } from './node-cli.config';
@@ -16,6 +18,7 @@ import { ProcessEnvAdaptor } from './process-env.adaptor';
 export type { ServerHandle } from './listen.lib';
 
 export type NodeAppOptions = {
+  readonly contextMode?: ContextMode;
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
   readonly prebuilt?: ZeltPrebuilt;
@@ -69,12 +72,14 @@ export function onNode<const F extends readonly ConfiguredFeature[]>(
   options?: NodeAppOptions,
 ): Promise<NodeAppForFeatures<F>>;
 
-/** @throws {ZeltLifecycleStateError} */
+/** @throws {ZeltLifecycleStateError | TypeError} */
 export async function onNode<const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
   options: NodeAppOptions = {},
 ): Promise<NodeApp> {
+  enableAsyncContext();
   const readyApp = await app.createRuntime({
+    ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor, NodeHttpServerAdaptor],

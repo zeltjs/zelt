@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createContextKey,
+  createContextScope,
   getInternal,
   runInContext,
-  runInRootContext,
   setInternal,
 } from './context-key.lib';
 
@@ -71,11 +71,11 @@ describe('context-key', () => {
       });
     });
 
-    it('does not inherit parent context in nested runInRootContext', () => {
+    it('does not inherit parent context in an explicitly rooted scope', () => {
       const KEY = createContextKey<string>('test:root');
       runInContext(() => {
         setInternal(KEY, 'outer');
-        runInRootContext(() => {
+        createContextScope({ inherit: false }).run(() => {
           expect(getInternal(KEY)).toBeUndefined();
           setInternal(KEY, 'inner');
           expect(getInternal(KEY)).toBe('inner');

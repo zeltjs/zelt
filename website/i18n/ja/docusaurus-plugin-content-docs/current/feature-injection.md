@@ -80,6 +80,8 @@ class FeatureConsumer {
 
 対象はその runtime のトップレベルに登録されている必要があります。HTTP の `children` はルート合成の単位であり、自動では独立した注入対象になりません。同じオプションで作り直した別オブジェクトは登録済み定義と一致しません。名前の重複は従来どおり `createApp()` でエラーになります。
 
+名前は Feature の capabilities を選ぶためのキーです。DI コンテナーや内部のサービスを分離するものではありません。たとえば同じアダプタークラスを指定した名前付き EventBus は、その runtime のアダプターとイベント・購読を共有します。アダプターを直接注入したコードとも連携でき、別 runtime のインスタンスとは分離します。独立したバスが必要な場合はアダプターと接続先・チャンネルの分離を明示的に構成してください。`name` を変えるだけではバスは分離されません。
+
 ## 初期化と寿命
 
 runtime は全 Feature の注入用参照を先に登録します。constructor では、まだ realize が終わっていない Feature への参照も保持できます。まず `configs` に明示した設定を生成し、そのリソースの startup を完了させます。これにより Feature の constructor は startup で準備された設定値を読み取れます。その後、全 Feature の realize と、有効なら warmup によるインスタンス生成を済ませてから、Feature のライフサイクルの startup を実行します。realize 中の `ServiceResolver.get()` はインスタンスを解決しますが、その時点でそのインスタンスの startup は実行しません。
@@ -87,5 +89,7 @@ runtime は全 Feature の注入用参照を先に登録します。constructor 
 constructor、設定の startup、`realize()` 中に注入先の操作を実行しないでください。全 Feature の準備前の操作は `FeatureInjectionError` の `not_ready` として失敗し、循環する初期化を待ち続けません。Feature の startup ではイベントの購読登録など、準備済みの操作を使えます。ただし互いの startup 完了を要求する循環までは解決しません。
 
 注入用参照は公開 runtime API と同じ capabilities に委譲しますが、公開プロパティと `===` になる保証はありません。同じ runtime 内では同じ参照を返し、別 runtime の状態とは分離します。shutdown hook の実行中までは利用でき、runtime の終了後は事前に取り出したメソッドを含めてアクセスがエラーになります。未登録は `not_registered`、既定名のないクラスへの名前省略は `default_not_defined` です。
+
+`http.router` のようなオブジェクト型のプロパティも、別の変数へ保存した後まで同じ寿命チェックが適用されます。注入用参照の内部では、同じ対象への複数の参照や循環参照も同一性を保ちます。HTTP レスポンスやサーバーハンドルなど、操作の戻り値にはそれぞれのリソースの契約が適用されます。
 
 Feature 注入はアプリ全体の遅延初期化ではありません。バージョン表示だけのコマンドで待ち受けが始まることはありませんが、runtime を作れば realize と通常の startup は実行します。それらも避けたい場合は、runtime を作る前にバージョン表示を処理してください。

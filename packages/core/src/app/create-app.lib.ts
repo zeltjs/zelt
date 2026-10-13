@@ -7,7 +7,12 @@ import {
 } from '@zeltjs/unsafe-type-lib';
 
 import type { ConfigClass } from '../built-in-service';
-import { ZeltAppConfigurationError, ZeltLifecycleStateError } from '../kernel';
+import type { ContextMode } from '../kernel';
+import {
+  ContextRuntimeService,
+  ZeltAppConfigurationError,
+  ZeltLifecycleStateError,
+} from '../kernel';
 import { AppBootstrap } from './app-bootstrap.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import type {
@@ -30,6 +35,7 @@ export type CreateAppOptions = {
 };
 
 export type CreateRuntimeOptions = {
+  readonly contextMode?: ContextMode;
   readonly configs?: readonly ConfigClass<object>[];
   readonly fallbackConfigs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
@@ -128,6 +134,20 @@ const runShutdownCallbacks = async (
   }
 };
 
+/** @throws {ZeltLifecycleStateError} */
+const registerRuntimeShutdown = (
+  callbacks: Set<RegisteredRuntimeShutdown>,
+  callback: RuntimeShutdownCallback,
+): RegisteredRuntimeShutdown => {
+  /** @throws {ZeltLifecycleStateError} */
+  const registered = async (): Promise<void> => {
+    if (!callbacks.delete(registered)) return;
+    await callback();
+  };
+  callbacks.add(registered);
+  return registered;
+};
+
 const createRuntimeShutdown = (
   runtime: AppBootstrap,
   featureRegistry: FeatureRegistryService,
@@ -146,17 +166,12 @@ const createRuntimeShutdown = (
         currentState: 'disposed',
       });
     }
-    /** @throws {ZeltLifecycleStateError} */
-    const registered = async (): Promise<void> => {
-      if (!callbacks.delete(registered)) return;
-      await callback();
-    };
-    callbacks.add(registered);
-    return registered;
+    return registerRuntimeShutdown(callbacks, callback);
   };
 
-  /** @throws {AggregateError | ZeltLifecycleStateError} */
+  /** @throws {AggregateError | ZeltLifecycleStateError | Error} */
   const runShutdown = async (): Promise<void> => {
+    runtime.assertCanShutdown();
     const errors: unknown[] = [];
     try {
       await runShutdownCallbacks(callbacks);
@@ -178,7 +193,10 @@ const createRuntimeShutdown = (
     // Concurrent callers share cleanup, its errors, and final registry disposal.
     shutdownPromise ??= Promise.resolve()
       .then(runShutdown)
-      .finally(() => featureRegistry.dispose());
+      .finally(() => {
+        if (runtime.isDisposed) featureRegistry.dispose();
+        else shutdownPromise = undefined;
+      });
     return shutdownPromise;
   };
 
@@ -257,6 +275,10 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   runtimeOptions: CreateRuntimeOptions | undefined,
 ): Promise<RuntimeApp<F>> => {
   const container = new Container();
+  container.bind({
+    provide: ContextRuntimeService,
+    useValue: new ContextRuntimeService(runtimeOptions?.contextMode),
+  });
   const runtime = container.get(AppBootstrap);
   const configRegistry = container.get(ConfigRegistry);
   const featureRegistry = container.get(FeatureRegistryService);

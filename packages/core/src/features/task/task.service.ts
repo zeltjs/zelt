@@ -1,5 +1,5 @@
 import { LoggerService, WaitUntilAdaptor } from '../../built-in-service';
-import { Injectable, inject, LifecycleManager } from '../../kernel';
+import { ContextRuntimeService, Injectable, inject, LifecycleManager } from '../../kernel';
 import { registerAfterResponseCallback } from '../http/request';
 import type { TaskFunction, TaskOptions } from './task.types';
 import type { TaskRunner } from './task-runner.lib';
@@ -9,12 +9,15 @@ import { createTaskRunner } from './task-runner.lib';
 export class TaskService {
   private readonly runner: TaskRunner;
 
+  /** @throws {ZeltContextNotAvailableError | TypeError} */
   constructor(
     lifecycleManager: LifecycleManager = inject(LifecycleManager),
     logger: LoggerService = inject(LoggerService),
     waitUntilAdaptor: WaitUntilAdaptor = inject(WaitUntilAdaptor),
+    contextRuntime: ContextRuntimeService = inject(ContextRuntimeService),
   ) {
     this.runner = createTaskRunner({
+      contextMode: contextRuntime.mode,
       onFailure: (taskName, error) => {
         logger.error('Background task failed', { taskName, error });
       },

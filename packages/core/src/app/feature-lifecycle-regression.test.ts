@@ -8,6 +8,136 @@ import type { ServiceResolver } from './feature.types';
 import { injectFeature } from './inject-feature.lib';
 
 describe('feature lifecycle regressions', () => {
+  it('keeps feature handles usable and shutdown retryable when a lifecycle guard rejects', async () => {
+    let blocked = true;
+    const cause = new Error('shutdown blocked');
+    const stopped = vi.fn();
+    const callback = vi.fn();
+    const counter = {
+      key: 'counter' as const,
+      featureClasses: () => [],
+      blueprint: () => ({}),
+      realize: () => ({ nested: { read: () => 7 } }),
+    };
+    @Injectable()
+    class Consumer {
+      readonly counter = injectFeature(counter);
+      constructor(lifecycle = inject(LifecycleManager)) {
+        lifecycle.register({
+          startup: () => {},
+          assertCanShutdown: () => {
+            if (blocked) throw cause;
+          },
+          shutdown: () => {
+            stopped(this.counter.nested.read());
+          },
+        });
+      }
+    }
+    const runtime = await createApp([counter]).createRuntime();
+    const consumer = await runtime.get(Consumer);
+    const nested = consumer.counter.nested;
+    runtime.registerShutdown(callback);
+    try {
+      await expect(runtime.shutdown()).rejects.toBe(cause);
+      expect(callback).not.toHaveBeenCalled();
+      expect(stopped).not.toHaveBeenCalled();
+      expect(nested.read()).toBe(7);
+      expect(await runtime.get(Consumer)).toBe(consumer);
+    } finally {
+      blocked = false;
+      await runtime.shutdown();
+    }
+    expect(callback).toHaveBeenCalledOnce();
+    expect(stopped).toHaveBeenCalledExactlyOnceWith(7);
+    expect(() => nested.read()).toThrow(/disposed/);
+  });
+
+  it('guards retained nested routers and extracted fetch methods after shutdown', async () => {
+    const web = http({ controllers: [] });
+    @Injectable()
+    class Consumer {
+      readonly http = injectFeature(web);
+    }
+    const runtime = await createApp([web]).createRuntime();
+    const consumer = await runtime.get(Consumer);
+    const router = consumer.http.router;
+    const fetch = router.fetch;
+    try {
+      expect(router).toBe(consumer.http.router);
+      expect((await fetch(new Request('http://localhost/'))).status).toBe(404);
+    } finally {
+      await runtime.shutdown();
+    }
+    expect(() => router.fetch).toThrow(/disposed/);
+    expect(() => fetch(new Request('http://localhost/'))).toThrow(/disposed/);
+    expect(() => Object.keys(router)).toThrow(/disposed/);
+  });
+
+  it('preserves nested aliases, cycles, arrays and private receivers while guarding their lifetime', async () => {
+    class State {
+      #count = 0;
+      self: State = this;
+      get count() {
+        return this.#count;
+      }
+      set count(value: number) {
+        this.#count = value;
+      }
+      increment() {
+        return ++this.#count;
+      }
+    }
+    const feature = {
+      key: 'nested' as const,
+      featureClasses: () => [],
+      blueprint: () => ({}),
+      realize: () => {
+        const state = new State();
+        return {
+          state,
+          alias: state,
+          list: [state],
+          frozen: Object.freeze({ state }),
+          date: new Date(0),
+        };
+      },
+    };
+    @Injectable()
+    class Consumer {
+      readonly nested = injectFeature(feature);
+    }
+    const runtime = await createApp([feature]).createRuntime();
+    const nested = (await runtime.get(Consumer)).nested;
+    const state = nested.state;
+    const increment = state.increment;
+    const list = nested.list;
+    try {
+      expect(state).toBeInstanceOf(State);
+      expect(state).toBe(nested.alias);
+      expect(state).toBe(state.self);
+      expect(Array.isArray(list)).toBe(true);
+      expect(list[0]).toBe(state);
+      expect(Object.keys(list)).toEqual(['0']);
+      expect(nested.frozen.state).toBe(state);
+      expect(Object.getOwnPropertyDescriptor(nested.frozen, 'state')?.value).toBe(state);
+      expect(nested.date.getTime()).toBe(0);
+      state.count = 8;
+      state.self = state;
+      expect(runtime.nested.state.self).toBe(runtime.nested.state);
+      expect(increment()).toBe(9);
+      expect(runtime.nested.state.count).toBe(9);
+    } finally {
+      await runtime.shutdown();
+    }
+    expect(() => state.count).toThrow(/disposed/);
+    expect(() => {
+      state.count = 10;
+    }).toThrow(/disposed/);
+    expect(() => increment()).toThrow(/disposed/);
+    expect(() => list[0]).toThrow(/disposed/);
+  });
+
   it.each([
     ['request', 'initial'],
     ['fetch', 'initial'],

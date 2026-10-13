@@ -17,6 +17,36 @@ import type { EventBusCapabilities } from './eventbus.feature';
 import { EventBusFeature, eventbus } from './eventbus.feature';
 
 describe('event feature injection', () => {
+  it('uses names to select capabilities while sharing the configured adaptor within a runtime', async () => {
+    const alpha = eventbus({ name: 'alpha', adaptor: MemoryEventBusAdaptor });
+    const beta = eventbus({ name: 'beta', adaptor: MemoryEventBusAdaptor });
+    @Injectable()
+    class Consumer {
+      readonly alpha = injectFeature(alpha);
+      readonly beta = injectFeature(EventBusFeature, 'beta');
+      readonly adaptor = inject(MemoryEventBusAdaptor);
+    }
+    const app = createApp([alpha, beta]);
+    const runtime = await app.createRuntime();
+    const other = await app.createRuntime();
+    try {
+      const consumer = await runtime.get(Consumer);
+      const received = vi.fn();
+      const unsubscribe = await consumer.alpha.on('message', received);
+      await consumer.beta.emit('message', 'injected');
+      await runtime.beta.emit('message', 'public');
+      await consumer.adaptor.emit('message', 'adaptor');
+      await other.alpha.emit('message', 'other runtime');
+      expect(received.mock.calls).toEqual([['injected'], ['public'], ['adaptor']]);
+      unsubscribe();
+      await runtime.beta.emit('message', 'unsubscribed');
+      expect(received).toHaveBeenCalledTimes(3);
+    } finally {
+      await runtime.shutdown();
+      await other.shutdown();
+    }
+  });
+
   it('subscribes at startup and shares events between HTTP, commands, handlers and the public API', async () => {
     const received = vi.fn();
     @Injectable()
