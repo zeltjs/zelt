@@ -82,9 +82,9 @@ The selected definition must be registered at the top level of this runtime. An 
 
 ## Initialization and lifetime
 
-Each runtime registers its injection handles before realizing any features. A constructor can hold an injected handle even if that feature has not finished realization. All configured features are realized, warmup constructors run when enabled, and then lifecycle startup hooks execute. `ServiceResolver.get()` during realization constructs an instance without running its startup hook yet.
+Each runtime registers its injection handles before realizing any features. A constructor can hold an injected handle even if that feature has not finished realization. Configurations explicitly supplied through `configs` are constructed and their resource startup hooks complete first, so feature constructors can read values prepared by those hooks. All features are then realized, warmup constructors run when enabled, and finally feature lifecycle startup hooks execute. `ServiceResolver.get()` during realization constructs an instance without running its startup hook yet.
 
-Do not call feature operations during constructors or `realize()`. An operation attempted before all features are prepared throws `FeatureInjectionError` with reason `not_ready`; it does not wait on an initialization cycle. Lifecycle hooks can use prepared operations, for example registering an event subscription. This does not make mutually dependent startup operations safe.
+Do not call feature operations during constructors, configuration startup, or `realize()`. An operation attempted before all features are prepared throws `FeatureInjectionError` with reason `not_ready`; it does not wait on an initialization cycle. Feature lifecycle hooks can use prepared operations, for example registering an event subscription. This does not make mutually dependent startup operations safe.
 
 Injected handles delegate to the same capabilities as the public runtime namespace, but their object identity is not guaranteed to equal that namespace. Handles are stable within a runtime, separate across runtimes, and reject access after runtime shutdown, including calls through previously extracted methods. Shutdown hooks can use the handles until shutdown completes. Missing definitions report `not_registered`; a class with no default namespace reports `default_not_defined`.
 

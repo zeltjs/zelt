@@ -220,7 +220,7 @@ const publishFeatureCapabilities = <const F extends readonly ConfiguredFeature[]
   }
 };
 
-/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | FeatureInjectionError} */
+/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | FeatureInjectionError | ZeltAppConfigurationError} */
 const initializeRuntimeFeatures = async <const F extends readonly ConfiguredFeature[]>(
   features: F,
   context: {
@@ -233,6 +233,7 @@ const initializeRuntimeFeatures = async <const F extends readonly ConfiguredFeat
 ) => {
   const { runtime, featureRegistry, resolver, shutdown, warmup } = context;
   try {
+    await runtime.prepareConfigs();
     const caps = await realizeNamespacedCapabilities(resolver, features);
     publishFeatureCapabilities(features, caps, featureRegistry);
     if (warmup) await warmupFeatureClasses(resolver, features);
@@ -249,7 +250,7 @@ const initializeRuntimeFeatures = async <const F extends readonly ConfiguredFeat
   }
 };
 
-/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError | FeatureInjectionError} */
+/** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError | FeatureInjectionError | TypeError} */
 const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   features: F,
   baseConfigs: readonly ConfigClass<object>[] | undefined,
@@ -265,8 +266,6 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
 
   registerConfigs(configRegistry, baseConfigs, undefined);
   registerConfigs(configRegistry, runtimeOptions?.configs, runtimeOptions?.fallbackConfigs);
-  runtime.applyRegisteredConfigs();
-
   const resolver: ServiceResolver = {
     // Realization may construct consumers, but their startup hooks must wait
     // until every feature has published its capabilities.
@@ -300,7 +299,7 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   return attachContainer(readyApp, container);
 };
 
-/** @throws {AggregateError | ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError | FeatureInjectionError} */
+/** @throws {AggregateError | ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError | FeatureInjectionError | TypeError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
   features: F,
   options?: CreateAppOptions,

@@ -82,9 +82,9 @@ class FeatureConsumer {
 
 ## 初期化と寿命
 
-runtime は全 Feature の注入用参照を先に登録します。constructor では、まだ realize が終わっていない Feature への参照も保持できます。全 Feature の realize と、有効なら warmup によるインスタンス生成を済ませてから、ライフサイクルの startup を実行します。realize 中の `ServiceResolver.get()` はインスタンスを解決しますが、その時点で startup は実行しません。
+runtime は全 Feature の注入用参照を先に登録します。constructor では、まだ realize が終わっていない Feature への参照も保持できます。まず `configs` に明示した設定を生成し、そのリソースの startup を完了させます。これにより Feature の constructor は startup で準備された設定値を読み取れます。その後、全 Feature の realize と、有効なら warmup によるインスタンス生成を済ませてから、Feature のライフサイクルの startup を実行します。realize 中の `ServiceResolver.get()` はインスタンスを解決しますが、その時点でそのインスタンスの startup は実行しません。
 
-constructor や `realize()` 中に注入先の操作を実行しないでください。全 Feature の準備前の操作は `FeatureInjectionError` の `not_ready` として失敗し、循環する初期化を待ち続けません。startup ではイベントの購読登録など、準備済みの操作を使えます。ただし互いの startup 完了を要求する循環までは解決しません。
+constructor、設定の startup、`realize()` 中に注入先の操作を実行しないでください。全 Feature の準備前の操作は `FeatureInjectionError` の `not_ready` として失敗し、循環する初期化を待ち続けません。Feature の startup ではイベントの購読登録など、準備済みの操作を使えます。ただし互いの startup 完了を要求する循環までは解決しません。
 
 注入用参照は公開 runtime API と同じ capabilities に委譲しますが、公開プロパティと `===` になる保証はありません。同じ runtime 内では同じ参照を返し、別 runtime の状態とは分離します。shutdown hook の実行中までは利用でき、runtime の終了後は事前に取り出したメソッドを含めてアクセスがエラーになります。未登録は `not_registered`、既定名のないクラスへの名前省略は `default_not_defined` です。
 

@@ -26,25 +26,39 @@ export class FeatureRegistryService {
   private readonly slots = new Map<ConfiguredFeature, FeatureSlot>();
   private readonly lifecycle: { state: 'pending' | 'ready' | 'disposed' } = { state: 'pending' };
 
-  /** @throws {FeatureInjectionError} */
+  /** @throws {FeatureInjectionError | TypeError} */
   prepare(features: readonly ConfiguredFeature[]): void {
     for (const feature of features) {
       /** @throws {FeatureInjectionError} */
-      const target = (): object => {
-        if (this.lifecycle.state === 'disposed')
-          throw new FeatureInjectionError('disposed', feature.key);
-        const value = this.slots.get(feature)?.value;
-        if (this.lifecycle.state !== 'ready' || value === undefined) {
-          throw new FeatureInjectionError('not_ready', feature.key);
-        }
-        return value;
-      };
-      const handle = new Proxy(
-        {},
+      const target = (): object => this.getCapabilities(feature);
+      // Realization has not revealed whether the capability is callable yet.
+      // A bound target has no non-configurable own properties, even when
+      // a compiler lowers arrows to ordinary functions.
+      const handle: object = new Proxy(
+        ((..._args: unknown[]): unknown => undefined).bind(undefined),
         {
+          apply: (_, receiver: unknown, args: unknown[]): unknown => {
+            const instance = target();
+            if (typeof instance !== 'function') throw new TypeError('Feature is not callable');
+            return Reflect.apply(instance, receiver, args);
+          },
           get: (_, key): unknown => {
-            const value: unknown = Reflect.get(target(), key);
+            const instance = target();
+            const value: unknown = Reflect.get(instance, key);
             if (typeof value !== 'function') return value;
+            // Keep call/apply/bind routed through the handle, including bound
+            // functions retained beyond the runtime's lifetime.
+            if (
+              typeof instance === 'function' &&
+              (value === Function.prototype.call ||
+                value === Function.prototype.apply ||
+                value === Function.prototype.bind)
+            ) {
+              return (...args: unknown[]): unknown => {
+                target();
+                return Reflect.apply(value, handle, args);
+              };
+            }
             // Check the lifetime again when an extracted method is called.
             return (...args: unknown[]): unknown => Reflect.apply(value, target(), args);
           },
@@ -62,6 +76,17 @@ export class FeatureRegistryService {
       );
       this.slots.set(feature, { handle });
     }
+  }
+
+  /** @throws {FeatureInjectionError} */
+  private getCapabilities(feature: ConfiguredFeature): object {
+    if (this.lifecycle.state === 'disposed')
+      throw new FeatureInjectionError('disposed', feature.key);
+    const value = this.slots.get(feature)?.value;
+    if (this.lifecycle.state !== 'ready' || value === undefined) {
+      throw new FeatureInjectionError('not_ready', feature.key);
+    }
+    return value;
   }
 
   /** @throws {FeatureInjectionError} */

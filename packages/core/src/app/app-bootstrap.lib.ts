@@ -53,6 +53,16 @@ export class AppBootstrap {
     return this.cachedResult;
   }
 
+  /**
+   * Config resources must be ready before feature constructors read them.
+   * Keep the app unready so feature realization still defers its own hooks.
+   * @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError}
+   */
+  async prepareConfigs(): Promise<void> {
+    this.applyRegisteredConfigs();
+    await this.lifecycleManager.startupPending();
+  }
+
   /** @throws {ZeltLifecycleStateError | ZeltAppConfigurationError} */
   applyRegisteredConfigs(): void {
     this.assertCanModifyConfig('applyRegisteredConfigs');

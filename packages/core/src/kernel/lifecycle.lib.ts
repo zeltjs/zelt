@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import { Injectable } from './di/index';
 import { ZeltLifecycleStateError, ZeltReadyFailedError } from './errors';
 import type { ReadyValue } from './internal';
@@ -19,6 +21,9 @@ export class LifecycleManager {
   private readonly lifecycles: LifecycleEntry[] = [];
   private startedIndex = 0;
   private disposed = false;
+  private readonly startupContext = new AsyncLocalStorage<symbol>();
+  private activeStartup: symbol | undefined;
+  private startupPromise: Promise<void> | undefined;
   private shutdownPromise: Promise<void> | undefined;
 
   register(lifecycle: Lifecycle<void>): void;
@@ -37,8 +42,27 @@ export class LifecycleManager {
   /** @throws {AggregateError | ZeltReadyFailedError | ZeltLifecycleStateError} */
   async startupPending(): Promise<void> {
     this.assertCanStart();
-    if (this.startedIndex === this.lifecycles.length) return;
-    await this.startPendingLifecycles();
+    // A hook cannot await its own completion. Independent callers still wait
+    // for the entire batch, including hooks registered while it is running.
+    if (this.activeStartup !== undefined && this.startupContext.getStore() === this.activeStartup)
+      return;
+    while (this.startupPromise || this.startedIndex < this.lifecycles.length) {
+      if (!this.startupPromise) {
+        this.assertCanStart();
+        const token = Symbol('startup');
+        this.activeStartup = token;
+        this.startupPromise = this.startupContext
+          .run(token, () => this.startPendingLifecycles())
+          .finally(() => {
+            this.activeStartup = undefined;
+            this.startupPromise = undefined;
+          });
+      }
+      await this.startupPromise;
+      // Registration can occur after the batch drains but before its Promise
+      // settles. Every waiter must check for that work before returning.
+    }
+    this.assertCanStart();
   }
 
   /** @throws {ZeltLifecycleStateError} */

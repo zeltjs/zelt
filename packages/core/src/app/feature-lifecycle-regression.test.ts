@@ -1,10 +1,139 @@
 import { describe, expect, it, vi } from 'vitest';
+import { http } from '../features/http/http.feature';
+import { Controller } from '../features/http/routing/controller.decorator';
+import { Get } from '../features/http/routing/http-method.decorator';
 import { Injectable, inject, LifecycleManager } from '../kernel';
 import { createApp } from './create-app.lib';
 import type { ServiceResolver } from './feature.types';
 import { injectFeature } from './inject-feature.lib';
 
 describe('feature lifecycle regressions', () => {
+  it.each([
+    ['request', 'initial'],
+    ['fetch', 'initial'],
+    ['request', 'lazy'],
+    ['fetch', 'lazy'],
+  ] as const)('allows HTTP %s from %s startup without reentry', async (method, phase) => {
+    @Controller('')
+    class HelloController {
+      @Get('/')
+      hello() {
+        return { ok: true };
+      }
+    }
+    const api = http({ controllers: [HelloController] });
+    let starts = 0;
+    const responses: Response[] = [];
+    const stopped = vi.fn();
+    @Injectable()
+    class Consumer {
+      readonly http = injectFeature(api);
+      constructor(lifecycle = inject(LifecycleManager)) {
+        lifecycle.register({
+          startup: async () => {
+            starts++;
+            // Bound a regression instead of overflowing the test process.
+            if (starts > 1) throw new Error('startup reentered');
+            responses.push(
+              await (method === 'request'
+                ? this.http.request('/')
+                : this.http.fetch(new Request('http://localhost/'))),
+            );
+          },
+          shutdown: stopped,
+        });
+      }
+    }
+    const hooks = {
+      key: 'hooks' as const,
+      blueprint: () => ({}),
+      featureClasses: () => [],
+      realize: async (resolver: ServiceResolver) => {
+        if (phase === 'initial') await resolver.get(Consumer);
+        return {};
+      },
+    };
+    const runtime = await createApp([api, hooks]).createRuntime({ warmup: false });
+    try {
+      await runtime.get(Consumer);
+      expect(starts).toBe(1);
+      expect(responses).toHaveLength(1);
+      expect(responses[0]?.status).toBe(200);
+      expect(await responses[0]?.json()).toEqual({ ok: true });
+      expect((await runtime.http.request('/')).status).toBe(200);
+      expect(starts).toBe(1);
+    } finally {
+      await runtime.shutdown();
+    }
+    expect(stopped).toHaveBeenCalledOnce();
+  });
+
+  it('preserves callable capabilities, receivers, properties and lifetime checks', async () => {
+    const feature = {
+      key: 'callable' as const,
+      blueprint: () => ({}),
+      featureClasses: () => [],
+      realize: () =>
+        Object.assign(
+          function (this: unknown, value: number) {
+            return { receiver: this, value: value + 1 };
+          },
+          { count: 0 },
+        ),
+    };
+    @Injectable()
+    class Consumer {
+      readonly call = injectFeature(feature);
+    }
+    const app = createApp([feature]);
+    const runtime = await app.createRuntime();
+    const other = await app.createRuntime();
+    try {
+      const consumer = await runtime.get(Consumer);
+      const call = consumer.call;
+      const receiver = { name: 'receiver' };
+      const bound = call.bind(receiver, 4);
+      expect(call(1)).toEqual({ receiver: undefined, value: 2 });
+      expect(consumer.call(2)).toEqual({ receiver: consumer, value: 3 });
+      expect(call.call(receiver, 3)).toEqual(runtime.callable.call(receiver, 3));
+      expect(call.apply(receiver, [3])).toEqual(runtime.callable.apply(receiver, [3]));
+      expect(bound()).toEqual({ receiver, value: 5 });
+      call.count = 9;
+      expect(runtime.callable.count).toBe(9);
+      expect(Object.keys(call)).toEqual(['count']);
+      expect(other.callable.count).toBe(0);
+      await runtime.shutdown();
+      expect(() => call(1)).toThrow(/disposed/);
+      expect(() => bound()).toThrow(/disposed/);
+      expect((await other.get(Consumer)).call(1).value).toBe(2);
+    } finally {
+      await runtime.shutdown();
+      await other.shutdown();
+    }
+  });
+
+  it('rejects callable capabilities before realization completes', async () => {
+    const feature = {
+      key: 'callable' as const,
+      blueprint: () => ({}),
+      featureClasses: () => [],
+      realize: () => () => 1,
+    };
+    @Injectable()
+    class EarlyConsumer {
+      readonly value = injectFeature(feature)();
+    }
+    const early = {
+      key: 'early' as const,
+      blueprint: () => ({}),
+      featureClasses: () => [],
+      realize: async (resolver: ServiceResolver) => ({
+        consumer: await resolver.get(EarlyConsumer),
+      }),
+    };
+    await expect(createApp([early, feature]).createRuntime()).rejects.toThrow(/not_ready/);
+  });
+
   it('starts lazily resolved resources and rejects captured resolvers after shutdown', async () => {
     const started = vi.fn();
     const constructed = vi.fn();
