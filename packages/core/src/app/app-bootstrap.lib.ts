@@ -53,6 +53,16 @@ export class AppBootstrap {
     return this.cachedResult;
   }
 
+  /**
+   * Config resources must be ready before feature constructors read them.
+   * Keep the app unready so feature realization still defers its own hooks.
+   * @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError}
+   */
+  async prepareConfigs(): Promise<void> {
+    this.applyRegisteredConfigs();
+    await this.lifecycleManager.startupPending();
+  }
+
   /** @throws {ZeltLifecycleStateError | ZeltAppConfigurationError} */
   applyRegisteredConfigs(): void {
     this.assertCanModifyConfig('applyRegisteredConfigs');
@@ -75,15 +85,22 @@ export class AppBootstrap {
   /** @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError} */
   private buildReadyResult(): ReadyResult {
     return {
-      get: async <T extends object>(cls: new (...args: never[]) => T): Promise<T> => {
-        if (this.state === 'disposed') {
-          throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });
-        }
-        const instance = resolve(this.container, cls);
-        await this.lifecycleManager.startupPending();
-        return instance;
-      },
+      get: <T extends object>(cls: new (...args: never[]) => T): Promise<T> => this.get(cls),
     };
+  }
+
+  /**
+   * During initialization, startup owns the pending hooks. Once ready, lazy
+   * resolutions must start their resources before returning them to callers.
+   * @throws {AggregateError | ZeltLifecycleStateError | ZeltReadyFailedError | ZeltAppConfigurationError}
+   */
+  async get<T extends object>(cls: new (...args: never[]) => T): Promise<T> {
+    if (this.state === 'disposed') {
+      throw new ZeltLifecycleStateError({ operation: 'get', currentState: 'disposed' });
+    }
+    const instance = resolve(this.container, cls);
+    if (this.state === 'ready') await this.lifecycleManager.startupPending();
+    return instance;
   }
 
   /** @throws {Error} from lifecycle shutdown guards */

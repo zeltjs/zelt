@@ -1,11 +1,10 @@
-import { Injectable, inject, LifecycleManager } from '@zeltjs/core';
-import type { RedisService } from '@zeltjs/redis';
-import { RedisConfig } from '@zeltjs/redis';
+import { createApp, Injectable, inject, LifecycleManager } from '@zeltjs/core';
+import { RedisConfig, RedisService } from '@zeltjs/redis';
 import { RedisTestContainerConfig } from '@zeltjs/redis/testing';
 import { createTestTarget } from '@zeltjs/testing';
 import Redis from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-
+import { eventbus } from '../eventbus.feature';
 import { RedisEventBusAdaptor } from './redis-event-bus.adaptor';
 
 // P1a/P1c regressions are about real ioredis state transitions (lazyConnect
@@ -69,6 +68,26 @@ describe('RedisEventBusAdaptor', () => {
     }
     await stopContainer();
   });
+
+  it('realizes the event bus using the endpoint prepared by config startup', async () => {
+    const runtime = await createApp([eventbus({ adaptor: RedisEventBusAdaptor })], {
+      configs: [RedisTestContainerConfig],
+    }).createRuntime();
+    try {
+      const config = await runtime.get(RedisConfig);
+      const redis = await runtime.get(RedisService);
+      expect(redis.client.options.port).toBe(Number(new URL(config.url).port));
+      expect(redis.client.options.host).toBe(new URL(config.url).hostname);
+      expect(await redis.client.ping()).toBe('PONG');
+      const received = Promise.withResolvers<unknown>();
+      const unsubscribe = await runtime.eventbus.on('order.created', received.resolve);
+      await runtime.eventbus.emit('order.created', { id: 42 });
+      expect(await received.promise).toEqual({ id: 42 });
+      unsubscribe();
+    } finally {
+      await runtime.shutdown();
+    }
+  }, 60_000);
 
   it('on() before lifecycle.startup() does not touch the socket (P1a regression)', async () => {
     const pub = new Redis(containerUrl, { lazyConnect: true });

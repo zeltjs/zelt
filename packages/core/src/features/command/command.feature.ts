@@ -11,6 +11,9 @@ export type CommandCapabilities = {
 };
 
 export class CommandFeature extends Feature<'commands', CommandCapabilities> {
+  static get defaultKey(): 'commands' {
+    return 'commands';
+  }
   readonly key = 'commands' as const;
 
   constructor(private readonly commands: readonly CommandClass[]) {

@@ -16,6 +16,46 @@ const blocker = 'data:text/javascript,' + encodeURIComponent(`
 
 describe('portable context distribution', () => {
   for (const format of ['esm', 'cjs']) {
+    it(`calls injected HTTP during ${format} startup without async_hooks`, () => {
+      const source = `
+        import assert from 'node:assert/strict';
+        import { createRequire } from 'node:module';
+        const core = ${format === 'esm'
+          ? "await import('./packages/core/dist/index.js')"
+          : "createRequire(import.meta.url)('./packages/core/dist/index.cjs')"};
+        class Endpoint { handle() { return { ok: true }; } }
+        core.Get('/')(Endpoint.prototype, 'handle', Object.getOwnPropertyDescriptor(Endpoint.prototype, 'handle'));
+        core.Controller('/')(Endpoint);
+        const web = core.http({ controllers: [Endpoint] });
+        let starts = 0;
+        class Consumer {
+          constructor() {
+            const api = core.injectFeature(web);
+            core.inject(core.LifecycleManager).register({
+              startup: async () => {
+                assert.equal(++starts, 1);
+                const scope = core.captureContext();
+                assert.equal((await api.request('/')).status, 200);
+                const response = await scope.run(() => api.request('/'));
+                assert.deepEqual(await response.json(), { ok: true });
+              },
+              shutdown() {},
+            });
+          }
+        }
+        core.Injectable()(Consumer);
+        const hooks = { key: 'hooks', blueprint: () => ({}), featureClasses: () => [],
+          realize: async resolver => ({ consumer: await resolver.get(Consumer) }) };
+        const runtime = await core.createApp([web, hooks]).createRuntime();
+        assert.equal(starts, 1);
+        await runtime.shutdown();
+      `;
+      const result = spawnSync(process.execPath, ['--import', blocker, '--input-type=module', '--eval', source], {
+        cwd: rootDir, encoding: 'utf8', timeout: 15000,
+      });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+    });
+
     it(`runs the ${format} core without importing async_hooks`, () => {
       const source = `
         import assert from 'node:assert/strict';

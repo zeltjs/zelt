@@ -11,10 +11,12 @@ import {
   HTTP_FEATURE_KEY,
   HttpFeature,
   http,
+  injectFeature,
 } from '@zeltjs/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { BunCliConfig } from './bun-cli.config';
 import { BunEnvAdaptor } from './bun-env.adaptor';
+import { BunHttpServerAdaptor } from './bun-http-server.adaptor';
 import { onBun } from './on-bun';
 
 const originalBun = globalThis.Bun;
@@ -81,6 +83,30 @@ class CustomHttpFeature extends HttpFeature<typeof HTTP_FEATURE_KEY> {
 }
 
 describe('onBun return types', () => {
+  it('provides listen to an injected HTTP feature without serving during injection', async () => {
+    let closed: Promise<void> | undefined;
+    @Command({ name: 'serve' })
+    class Serve {
+      private readonly http = injectFeature(HttpFeature);
+      async run() {
+        const server = await this.http.listen({ port: 3456 });
+        closed = server.closed;
+        expect(server.address).toEqual({ port: 3456, address: '0.0.0.0' });
+      }
+    }
+    const app = await onBun(createApp([command([Serve]), http({ controllers: [] })]));
+    try {
+      expect(serveMock).not.toHaveBeenCalled();
+      expect((await app.commands.execCommand(['serve'])).exitCode).toBe(0);
+      expect(serveMock).toHaveBeenCalledOnce();
+      await app.shutdown();
+      await closed;
+      expect(servedServers[0]?.stop).toHaveBeenCalledOnce();
+    } finally {
+      await app.shutdown();
+    }
+  });
+
   it('narrows adapter methods from configured features and keeps feature capabilities working', async () => {
     @Controller('/')
     class TestController {
@@ -150,7 +176,8 @@ describe('onBun return types', () => {
     const maybeHttpFeatures: readonly HttpFeature[] = [];
     const maybeHttpApp = await onBun(createApp(maybeHttpFeatures));
 
-    expectTypeOf(maybeHttpApp).not.toHaveProperty('serve');
+    // Widened feature keys can include "serve" as a namespace, so only its
+    // absence on this particular empty runtime can be asserted.
     expect('serve' in maybeHttpApp).toBe(false);
 
     await maybeHttpApp.shutdown();
@@ -272,7 +299,7 @@ describe('onBun return types', () => {
 
     expect(readySpy).toHaveBeenCalledWith({
       configs: [TestEnvAdaptor],
-      fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
+      fallbackConfigs: [BunCliConfig, BunEnvAdaptor, BunHttpServerAdaptor],
       warmup: true,
     });
     const env = await bunApp.get(EnvAdaptor);
@@ -290,7 +317,7 @@ describe('onBun return types', () => {
 
     expect(readySpy).toHaveBeenCalledWith({
       prebuilt,
-      fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
+      fallbackConfigs: [BunCliConfig, BunEnvAdaptor, BunHttpServerAdaptor],
       warmup: true,
     });
 

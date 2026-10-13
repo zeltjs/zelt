@@ -36,6 +36,7 @@ afterAll(() => {
 });
 
 import { NodeCliConfig } from './node-cli.config';
+import { NodeHttpServerAdaptor } from './node-http-server.adaptor';
 import type { NodeApp, ServerHandle } from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
@@ -390,7 +391,7 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     expect(readySpy).toHaveBeenCalledWith({
-      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
+      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor, NodeHttpServerAdaptor],
       warmup: true,
     });
   });
@@ -410,7 +411,7 @@ describe('onNode with HTTP', () => {
 
     expect(readySpy).toHaveBeenCalledWith({
       configs: [TestEnvAdaptor],
-      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
+      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor, NodeHttpServerAdaptor],
       warmup: true,
     });
     const env = await nodeApp.get(EnvAdaptor);
@@ -426,7 +427,7 @@ describe('onNode with HTTP', () => {
 
     expect(readySpy).toHaveBeenCalledWith({
       prebuilt,
-      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
+      fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor, NodeHttpServerAdaptor],
       warmup: true,
     });
   });

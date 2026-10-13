@@ -8,6 +8,7 @@ export type ListenOptions = {
 
 export type ServerHandle = {
   readonly address: { port: number; address: string };
+  readonly closed: Promise<void>;
   readonly shutdown: () => Promise<void>;
 };
 
@@ -29,6 +30,17 @@ export const createListenForHttp = (
     const hostname = listenOptions.hostname ?? '0.0.0.0';
 
     let server!: ServerType;
+    let resolveClosed!: () => void;
+    const closed = new Promise<void>((resolve) => {
+      resolveClosed = resolve;
+    });
+    // Register before opening the socket so disposed runtimes cannot leak a listener.
+    let ready: Promise<'listening' | 'failed'>;
+    const shutdown = registerShutdown(async () => {
+      if ((await ready) === 'failed') return;
+      if (!server.listening) return;
+      await closeServer(server);
+    });
     const serverReady = new Promise<{ port: number; address: string }>((resolve, reject) => {
       const onError = (err: Error): void => reject(err);
       server = serve({ fetch: appFetch, port, hostname }, (info) => {
@@ -36,11 +48,22 @@ export const createListenForHttp = (
         resolve({ port: info.port, address: info.address });
       });
       server.once('error', onError);
+      server.once('close', resolveClosed);
     });
-
-    const address = await serverReady;
-    const shutdown = registerShutdown(() => closeServer(server));
-
-    return { address, shutdown };
+    // This outcome coordinates cleanup only; callers still await serverReady's rejection.
+    ready = serverReady.then(
+      () => 'listening',
+      () => 'failed',
+    );
+    let address: { port: number; address: string };
+    try {
+      address = await serverReady;
+    } catch (error) {
+      // Remove the registered callback while preserving the original bind failure.
+      await shutdown();
+      resolveClosed();
+      throw error;
+    }
+    return { address, shutdown, closed };
   };
 };

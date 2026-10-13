@@ -1,9 +1,11 @@
 import type { ServiceResolver } from '../../app';
 import { Feature } from '../../app';
+import { HttpServerAdaptor } from '../../built-in-service';
 import { HttpService } from './http.service';
 import type {
   ControllerClass,
   HttpCapabilities,
+  HttpFeatureCapabilities,
   HttpMetadata,
   HttpModuleOptions,
   HttpMountableCapabilities,
@@ -18,9 +20,12 @@ export const HTTP_FEATURE_KEY = 'http' as const;
 
 /** @throws {ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError} */
 export class HttpFeature<TName extends string = string>
-  extends Feature<TName, HttpMountableCapabilities, HttpStaticCapabilities>
+  extends Feature<TName, HttpFeatureCapabilities, HttpStaticCapabilities>
   implements HttpMountableFeatureModule
 {
+  static get defaultKey(): typeof HTTP_FEATURE_KEY {
+    return HTTP_FEATURE_KEY;
+  }
   readonly key: TName;
   readonly path: string;
   private readonly opts: HttpModuleOptions<string>;
@@ -67,8 +72,9 @@ export class HttpFeature<TName extends string = string>
     };
   };
 
-  readonly realize = async (resolver: ServiceResolver): Promise<HttpMountableCapabilities> => {
+  readonly realize = async (resolver: ServiceResolver): Promise<HttpFeatureCapabilities> => {
     const service = await resolver.get(HttpService);
+    const server = await resolver.get(HttpServerAdaptor);
     const local = await service.createLocalRouter(this.opts);
 
     for (const child of this.children) {
@@ -76,11 +82,11 @@ export class HttpFeature<TName extends string = string>
       Reflect.apply(local.route, local, ['/', childCaps.router]);
     }
 
-    if (this.path === '/') return this.toCapabilities(local);
+    if (this.path === '/') return this.toCapabilities(local, server, resolver);
 
     const rootRouter = await service.createLocalRouter({ controllers: [] });
     Reflect.apply(rootRouter.route, rootRouter, [this.path, local]);
-    return this.toCapabilities(rootRouter);
+    return this.toCapabilities(rootRouter, server, resolver);
   };
 
   private collectMetadata(): HttpMetadata {
@@ -99,10 +105,21 @@ export class HttpFeature<TName extends string = string>
     ];
   }
 
-  private toCapabilities(router: HttpMountableCapabilities['router']): HttpMountableCapabilities {
+  /** @throws {ZeltNotImplementedError} */
+  private toCapabilities(
+    router: HttpMountableCapabilities['router'],
+    server: HttpServerAdaptor,
+    resolver: ServiceResolver,
+  ): HttpFeatureCapabilities {
     return {
       router,
       fetch: async (req) => router.fetch(req),
+      listen: (portOrOptions = {}) =>
+        server.listen(
+          async (req) => router.fetch(req),
+          typeof portOrOptions === 'number' ? { port: portOrOptions } : portOrOptions,
+          resolver.registerShutdown,
+        ),
       request: async (input, init) => {
         const req =
           typeof input === 'string' ? new Request(new URL(input, 'http://localhost'), init) : input;

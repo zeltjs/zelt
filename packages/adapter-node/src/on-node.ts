@@ -4,15 +4,15 @@ import type {
   ContextMode,
   FeatureApp,
   FeatureReadyCapabilities,
+  HttpFeature,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
-import { HttpFeature } from '@zeltjs/core';
 import { enableAsyncContext } from '@zeltjs/core/async-context';
 
 import type { ListenOptions, ServerHandle } from './listen.lib';
-import { createListenForHttp } from './listen.lib';
 import { NodeCliConfig } from './node-cli.config';
+import { NodeHttpServerAdaptor } from './node-http-server.adaptor';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
 
 export type { ServerHandle } from './listen.lib';
@@ -64,19 +64,6 @@ const createNodeApp = (
 
   const nodeApp: NodeApp = { ...base };
 
-  for (const entry of readyApp.getFeatureEntries(HttpFeature)) {
-    Object.defineProperty(nodeApp, entry.key, {
-      value: {
-        ...entry.capabilities,
-        listen: createListenForHttp(entry.capabilities.fetch, (callback) =>
-          readyApp.registerShutdown(callback),
-        ),
-      },
-      configurable: true,
-      enumerable: true,
-    });
-  }
-
   return nodeApp;
 };
 
@@ -95,7 +82,7 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
     ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
-    fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor],
+    fallbackConfigs: [NodeCliConfig, ProcessEnvAdaptor, NodeHttpServerAdaptor],
     warmup: options.warmup ?? true,
   });
 

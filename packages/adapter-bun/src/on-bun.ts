@@ -13,6 +13,7 @@ import { enableAsyncContext } from '@zeltjs/core/async-context';
 
 import { BunCliConfig } from './bun-cli.config';
 import { BunEnvAdaptor } from './bun-env.adaptor';
+import { BunHttpServerAdaptor } from './bun-http-server.adaptor';
 
 type ServeOptions = {
   readonly port?: number;
@@ -141,7 +142,7 @@ export async function onBun<const F extends readonly ConfiguredFeature[]>(
     ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
-    fallbackConfigs: [BunCliConfig, BunEnvAdaptor],
+    fallbackConfigs: [BunCliConfig, BunEnvAdaptor, BunHttpServerAdaptor],
     warmup: options.warmup ?? true,
   });
 

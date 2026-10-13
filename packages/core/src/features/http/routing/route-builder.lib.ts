@@ -212,7 +212,7 @@ const registerRoute = (hono: HonoRouter, ctx: RouteBuilderContext, route: Route)
   const handler = async (c: MiddlewareContext): Promise<Response> => {
     const controller = instance ?? getOrCreateInstance(ctx, route.controllerClass);
     instance = controller;
-    await ctx.lifecycle.startupPending();
+    await runInRequestContext(c, () => ctx.lifecycle.startupPending());
 
     const result = await runInRequestContext(c, () => invokeHandler(controller, route.methodName));
     return renderControllerResult(c, result);

@@ -7,6 +7,12 @@ export {
   resolveConfig,
 } from './config';
 export { Env, EnvAdaptor } from './env';
+export type {
+  HttpListenOptions,
+  HttpServerHandle,
+  HttpServerShutdownRegistration,
+} from './http-server/http-server.adaptor';
+export { HttpServerAdaptor } from './http-server/http-server.adaptor';
 export {
   ConsoleTransport,
   getLogContext,
