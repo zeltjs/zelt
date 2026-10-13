@@ -83,10 +83,10 @@ class TaskController {
   }
 
   @Delete('/tasks/:id')
-  remove(req = request()) {
+  remove(req = request(), res = response()) {
     return this.tasks.remove(Number(req.pathParam('id')))
-      ? new Response(null, { status: 204 })
-      : Response.json({ message: 'タスクが見つかりません' }, { status: 404 });
+      ? res.status(204).empty()
+      : res.status(404).json({ message: 'タスクが見つかりません' });
   }
 
   @Post('/window/title')
