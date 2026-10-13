@@ -256,7 +256,8 @@ statusのリテラル型はチェーン後も保持され、`@zeltjs/hono-client
 | Scenario | Approach |
 |----------|----------|
 | 200でJSONを返す | `return { data }` |
-| カスタムステータス(201、204など)で返す | `response().status(status).json(data)` |
+| カスタムステータス(201、400、500など)でJSONを返す | `response().status(status).json(data)` |
+| 204/304を本文なしで返す | `response().status(status).empty()` |
 | カスタムヘッダーを設定する | `response().header(name, value).json(data)` |
 | リダイレクトする | `response().redirect(url)` |
 | Cookieを設定する | `response().setCookie(name, value).json(data)` |

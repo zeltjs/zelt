@@ -406,7 +406,7 @@ class MethodMiddleware {
 
 ## Common Patterns {#common-patterns}
 
-Middlewareはクラスとして記述します。フレームワークのprimitiveには`request()`、`response()`、`middlewareValue()`を使います。
+Middlewareはクラスとして記述します。フレームワークのprimitiveには`request()`、`responseHeaders()`、`middlewareValue()`を使います。
 
 ### Restrict Access {#restrict-access}
 
@@ -434,7 +434,7 @@ export class RequireAdmin {
 
 ### Add Response Headers {#add-response-headers}
 
-レスポンスヘッダーには`response()`を使います:
+レスポンスヘッダーには`responseHeaders()`を使います:
 
 ```typescript
 import { Middleware, responseHeaders, type Next } from '@zeltjs/core';
