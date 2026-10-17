@@ -76,6 +76,7 @@
       "inputs": [
         "default",
         "^default",
+        { "dependentTasksOutputFiles": "**/dist/**/*" },
         "{workspaceRoot}/scripts/pack-distribution.mjs",
         {
           "runtime": "node --version"

@@ -13,6 +13,7 @@ import type {
   DependencySource,
   GetDependenciesOptions,
   InspectError,
+  SourceContext,
 } from './inspect.types';
 import type { CachedProgram, ProgramCacheError } from './program-cache.lib';
 import { getOrCreateProgram } from './program-cache.lib';
@@ -205,8 +206,9 @@ const canonicalize = async (
   localName: string,
   raw: ClassSource,
   line: number,
+  context: SourceContext,
 ): Promise<DependencySource> => {
-  if (packageFromPath(raw.filePath) !== undefined) {
+  if (packageFromPath(raw.filePath, context) !== undefined) {
     return { kind: 'class', localName, source: raw, line };
   }
   const declared = aliasResolved(cached, raw);
@@ -214,7 +216,7 @@ const canonicalize = async (
   if (cls.isErr()) {
     return { kind: 'unresolved', localName, reason: cls.error.message };
   }
-  const canonical = await getClassSource(cls.value);
+  const canonical = await getClassSource(cls.value, context);
   return {
     kind: 'class',
     localName,
@@ -230,7 +232,7 @@ const toDependencySource = async (
   sourceFile: TSSourceFile,
   importMap: Map<string, ImportRef>,
   aliases: ExportAliasMaps,
-  ts: TypeScriptModule,
+  context: SourceContext,
 ): Promise<DependencySource> => {
   const importRef = importMap.get(localName);
   if (importRef) {
@@ -242,9 +244,15 @@ const toDependencySource = async (
         reason: `Cannot resolve module specifier '${importRef.specifier}' from ${sourceFile.fileName}`,
       };
     }
-    return canonicalize(cached, localName, { filePath, exportName: importRef.exportName }, line);
+    return canonicalize(
+      cached,
+      localName,
+      { filePath, exportName: importRef.exportName },
+      line,
+      context,
+    );
   }
-  const exportName = exportNameOfLocalClass(sourceFile, localName, aliases, ts);
+  const exportName = exportNameOfLocalClass(sourceFile, localName, aliases, cached.ts);
   if (exportName === undefined) {
     return {
       kind: 'unresolved',
@@ -252,12 +260,19 @@ const toDependencySource = async (
       reason: `Class ${localName} in ${sourceFile.fileName} is not exported`,
     };
   }
-  return canonicalize(cached, localName, { filePath: sourceFile.fileName, exportName }, line);
+  return canonicalize(
+    cached,
+    localName,
+    { filePath: sourceFile.fileName, exportName },
+    line,
+    context,
+  );
 };
 
 const extract = (
   cached: CachedProgram,
   requested: ClassSource,
+  context: SourceContext,
 ): ResultAsync<readonly DependencySource[], InspectError> => {
   const { program, ts } = cached;
   if (!program.getSourceFile(requested.filePath)) {
@@ -288,7 +303,7 @@ const extract = (
   return ResultAsyncCtor.fromSafePromise(
     Promise.all(
       injectRefs.map(({ localName, line }) =>
-        toDependencySource(cached, localName, line, sourceFile, importMap, aliases, ts),
+        toDependencySource(cached, localName, line, sourceFile, importMap, aliases, context),
       ),
     ),
   );
@@ -297,8 +312,8 @@ const extract = (
 /** @throws {UnsupportedTypeScriptVersionError} from resolve-typescript.lib.ts:resolveTypeScript */
 export const getDependencySources = (
   source: ClassSource,
-  options?: GetDependenciesOptions,
+  options: GetDependenciesOptions = {},
 ): ResultAsync<readonly DependencySource[], InspectError | ProgramCacheError> => {
-  const tsconfigPath = resolve(options?.tsconfig ?? DEFAULT_TSCONFIG);
-  return getOrCreateProgram(tsconfigPath).andThen((cached) => extract(cached, source));
+  const tsconfigPath = resolve(options.tsconfig ?? DEFAULT_TSCONFIG);
+  return getOrCreateProgram(tsconfigPath).andThen((cached) => extract(cached, source, options));
 };

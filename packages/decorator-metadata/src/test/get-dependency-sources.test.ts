@@ -29,6 +29,48 @@ describe('getDependencySources', () => {
     clearProgramCache();
   });
 
+  it('canonicalizes a local barrel alias within an app with a root main entry', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'dep-sources-app-boundary-')));
+    try {
+      await mkdir(join(root, 'src'));
+      await writeFile(
+        join(root, 'package.json'),
+        JSON.stringify({ name: 'local-app', type: 'module', main: './index.js' }),
+      );
+      const declaration = join(root, 'src', 'dep.ts');
+      await writeFile(declaration, 'export class Dep {}\n');
+      await writeFile(join(root, 'src', 'barrel.ts'), "export { Dep as Alias } from './dep';\n");
+      const consumer = join(root, 'src', 'consumer.ts');
+      await writeFile(
+        consumer,
+        "import { Alias } from './barrel';\ndeclare const inject: <T>(cls: new () => T) => T;\nexport class Consumer { constructor(dep = inject(Alias)) {} }\n",
+      );
+      const config = join(root, 'tsconfig.json');
+      await writeFile(
+        config,
+        JSON.stringify({
+          compilerOptions: { target: 'es2022', module: 'esnext', moduleResolution: 'bundler' },
+          include: ['src'],
+        }),
+      );
+
+      const result = await getDependencySources(
+        { filePath: consumer, exportName: 'Consumer' },
+        { tsconfig: config, applicationRoot: root },
+      );
+
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) return;
+      expect(byLocalName(result.value, 'Alias')).toMatchObject({
+        kind: 'class',
+        source: { filePath: declaration, exportName: 'Dep' },
+      });
+    } finally {
+      clearProgramCache();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   const getConsumerDeps = async () => {
     const result = await getDependencySources(
       { filePath: consumerPath, exportName: 'Consumer' },

@@ -83,15 +83,22 @@ describe('zelt inspector (integration)', () => {
     const controller = inspection.classes.find(
       (cls) => cls.ref.exportName === 'GreetingController',
     );
-    expect(controller?.decorators).toContain('Controller');
+    expect(controller).toBeDefined();
+    if (controller === undefined) return;
+    expect(controller.decorators).toContain('Controller');
     // decorator を書いた行と inject の行は、親が原文を引くための所在として運ぶ
-    expect(controller?.middlewares.map((use) => use.on)).toEqual([
+    expect(controller.middlewares.map((use) => use.on)).toEqual([
       { kind: 'class' },
       { kind: 'method', name: 'greet' },
     ]);
-    expect(controller?.middlewares.every((use) => use.position !== null)).toBe(true);
-    expect(controller?.dependencies.map((dependency) => dependency.localName)).toEqual([
+    expect(controller.middlewares.every((use) => use.position !== null)).toBe(true);
+    expect(controller.dependencies.map((dependency) => dependency.localName)).toEqual([
       'GreetingService',
     ]);
+    expect(controller.dependencies[0]?.target).toEqual({
+      package: null,
+      filePath: relative(root, resolve(ROOT, 'src/greeting.service.ts')).replaceAll('\\', '/'),
+      exportName: 'GreetingService',
+    });
   }, 120_000);
 });

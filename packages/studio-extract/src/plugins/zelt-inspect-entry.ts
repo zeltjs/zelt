@@ -258,7 +258,10 @@ const dependenciesOf = async (
   ctx: Context,
   located: Located,
 ): Promise<{ readonly dependencies: ZeltDependency[]; readonly nested: SourceLike[] }> => {
-  const result = await ctx.inspect.getDependencySources(located.source, { tsconfig: ctx.tsconfig });
+  const result = await ctx.inspect.getDependencySources(located.source, {
+    tsconfig: ctx.tsconfig,
+    applicationRoot: ctx.applicationRoot,
+  });
   if (result.isErr()) {
     note(ctx, 'zelt-dependencies-unresolved', `${located.ref.exportName}: ${result.error.message}`);
     return { dependencies: [], nested: [] };

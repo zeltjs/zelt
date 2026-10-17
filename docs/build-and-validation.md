@@ -14,8 +14,16 @@
   workspace symlinks. Packaging fixtures must not compensate for resolver failures.
 - Nx declares prerequisites, cache inputs, and outputs. A cache hit and a real task
   execution must leave the same outputs; correctness must not require a build hook.
+- Distribution caching hashes the prerequisite build's `dist/` outputs, including
+  changes caused by build tools outside the package source directory.
 - Installation and execution use the same Node runtime. Native dependencies use
   their supported installation lifecycle rather than an application postinstall rebuild.
+- All GitHub workflows share the root-pinned Node/pnpm setup. Store caches include
+  the actual Node and pnpm versions and the workflow: a faster website job must
+  not prevent CI from retaining the native builds made by its integration consumers.
+- Root discovery and dependency canonicalization share the same application
+  boundary. Public JSON exports are data and are excluded from class lookup after
+  module resolution; JavaScript import failures remain errors.
 
 Verification must cover a fresh checkout, unchanged reruns, changed public types
 and distributions, mode transitions, workspace and installed package resolution,

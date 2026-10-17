@@ -1,5 +1,13 @@
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from 'node:path';
+import {
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  relative,
+  resolve as resolvePath,
+  sep,
+} from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { resolve } from 'import-meta-resolve';
@@ -8,7 +16,7 @@ import { err, errAsync, ok, okAsync, Result, ResultAsync as ResultAsyncCtor } fr
 import { match, P } from 'ts-pattern';
 
 import { getInternalClassMetadata } from '../runtime/index';
-import type { ClassSource, InspectError } from './inspect.types';
+import type { ClassSource, InspectError, SourceContext } from './inspect.types';
 import { resolveDefinitionPosition } from './position.lib';
 
 type AnyClass = new (...args: never[]) => unknown;
@@ -68,7 +76,6 @@ const classSourceFromModule = (
   });
 
 type PackageOwner = { readonly root: string; readonly name: string };
-type SourceContext = { readonly applicationRoot?: string };
 
 const packageManifest = (
   root: string,
@@ -184,13 +191,12 @@ const packageEntrySource = (
     }),
   )();
   if (entry.isErr()) return packageEntrySource(pkg, cls, original, remaining);
-  return entry
-    .asyncAndThen((path) => classSourceFromModule(path, cls))
-    .orElse((error) =>
-      error.code === 'EXPORT_NOT_FOUND'
-        ? packageEntrySource(pkg, cls, original, remaining)
-        : errAsync(error),
-    );
+  if (extname(entry.value) === '.json') return packageEntrySource(pkg, cls, original, remaining);
+  return classSourceFromModule(entry.value, cls).orElse((error) =>
+    error.code === 'EXPORT_NOT_FOUND'
+      ? packageEntrySource(pkg, cls, original, remaining)
+      : errAsync(error),
+  );
 };
 
 export const getClassSource = (
