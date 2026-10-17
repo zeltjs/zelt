@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -49,6 +49,8 @@ test('distribution caches track the actual prerequisite build output', async (t)
   writeFileSync(join(project, 'build.mjs'), "import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';\nmkdirSync('dist',{recursive:true});\nwriteFileSync('dist/index.js',readFileSync('../../scripts/pure-class-decorators.mjs'));\n");
   const tool = join(root, 'scripts', 'pure-class-decorators.mjs');
   writeFileSync(tool, 'export const marker = "before";\n');
+  const toolTime = new Date();
+  utimesSync(tool, toolTime, toolTime);
   const run = () => success(spawnSync(process.execPath, [
     join(workspace, 'node_modules', 'nx', 'bin', 'nx.js'), 'run', 'distribution-probe:distribution', '--outputStyle=static',
   ], {
@@ -66,6 +68,9 @@ test('distribution caches track the actual prerequisite build output', async (t)
   });
   await t.test('changing only a build tool updates the archive', () => {
     writeFileSync(tool, 'export const marker = "after";\n');
+    // Nx 21 compares whole-second mtimes on Linux and macOS when reusing file hashes.
+    const changedTime = new Date(toolTime.getTime() + 2000);
+    utimesSync(tool, changedTime, changedTime);
     run();
     assert.match(readFileSync(join(project, 'dist', 'index.js'), 'utf8'), /"after"/);
     assert.equal(archived(), readFileSync(join(project, 'dist', 'index.js'), 'utf8'));
