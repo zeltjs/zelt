@@ -15,6 +15,9 @@ const createPackage = async (t, exports) => {
   await mkdir(join(root, 'dist'));
   await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'inspection-entry-probe', type: 'module', exports }));
   const entry = join(root, 'dist', 'index.mjs');
+  await writeFile(join(root, 'dist', 'assets.css'), 'body { color: red; }\n');
+  await writeFile(join(root, 'dist', 'index.d.ts'), 'export declare class PublicName {}\n');
+  await writeFile(join(root, 'dist', 'index.mjs.map'), '{}\n');
   await writeFile(entry, `import { createClassDecorator } from ${JSON.stringify(runtime)};\nconst decorate = createClassDecorator({type:'probe'});\nexport class PublicName {}\ndecorate(PublicName);\n`);
   const { PublicName } = await import(pathToFileURL(entry).href);
   return { root, entry, PublicName };
@@ -24,8 +27,12 @@ for (const exports of [
   { './package.json': './package.json', '.': './dist/index.mjs' },
   { '.': './dist/index.mjs', './package.json': './package.json' },
   { './metadata': './package.json', '.': './dist/index.mjs' },
+  { './*': './dist/*.mjs' },
+  { './*': './dist/*' },
+  { './types': './dist/index.d.ts', './map': './dist/index.mjs.map', '.': './dist/index.mjs' },
+  { './metadata/*': './*.json', './*': { import: './dist/*.mjs', require: './missing/*.cjs' } },
 ]) {
-  test(`native Node class lookup is independent of JSON exports: ${JSON.stringify(exports)}`, async (t) => {
+  test(`native Node resolves public classes through exports: ${JSON.stringify(exports)}`, async (t) => {
     const { entry, PublicName } = await createPackage(t, exports);
     const result = await getClassSource(PublicName);
     assert.equal(result.isOk(), true, result.isErr() ? result.error.message : '');

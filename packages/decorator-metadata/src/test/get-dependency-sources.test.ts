@@ -245,8 +245,8 @@ describe('getDependencySources', () => {
 // いけない。正準化は「宣言ファイルの実体」から exportName を再導出するが、その再導出で
 // 得られる名前は @zeltjs/kv の MemoryKVAdaptor のような複数名 re-export やバンドラの
 // chunk 内部変数名の影響を受けうる(ec-backend の実例: `t` という名前になっていた)。
-// ここでは「正準化を試みればほぼ確実に失敗する(無関係な未デコレートクラス)」という
-// フィクスチャを使い、正準化が試みられていない(試みられれば kind: 'unresolved' になる
+// ここでは「実行時 import を試みると必ず失敗する」というフィクスチャを使い、
+// 正準化が試みられていない(試みられれば kind: 'unresolved' になる
 // はずが、そうならず raw の名前で kind: 'class' になる)ことを間接的に証明する。
 // リポジトリにコミットしない一時ディレクトリに node_modules 配下のフィクスチャを置く
 // (class-source.test.ts の「falls back to the package entry...」テストと同じ手法)
@@ -257,6 +257,10 @@ describe('getDependencySources (external targets skip runtime canonicalization, 
       const pkgDir = join(base, 'node_modules', 'dep-pkg');
       await mkdir(pkgDir, { recursive: true });
       await writeFile(
+        join(pkgDir, 'package.json'),
+        JSON.stringify({ name: 'dep-pkg', type: 'module', main: './index.ts' }),
+      );
+      await writeFile(
         join(pkgDir, 'index.ts'),
         [
           '// バンドラによる re-export の別名化を模す: 実クラスは RealClass という名前で',
@@ -265,6 +269,7 @@ describe('getDependencySources (external targets skip runtime canonicalization, 
           '// 失敗させて対比するため)',
           'class RealClass {}',
           'export { RealClass as AliasedExport };',
+          'throw new Error("External dependency must not be imported during inspection");',
           '',
         ].join('\n'),
       );

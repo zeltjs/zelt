@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import {
   dirname,
   extname,
@@ -83,15 +84,13 @@ const packageManifest = (
   | {
       readonly name: string;
       readonly exports: unknown;
-      readonly main: string | undefined;
     }
   | undefined => {
   const manifest: unknown = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   return match(manifest)
-    .with({ name: P.string, exports: P.optional(P._), main: P.optional(P.string) }, (value) => ({
+    .with({ name: P.string, exports: P.optional(P._) }, (value) => ({
       name: value.name,
       exports: value.exports,
-      main: value.main,
     }))
     .otherwise(() => undefined);
 };
@@ -110,11 +109,21 @@ const isWithin = (root: string, file: string): boolean => {
 const canonicalPath = (file: string): string =>
   existsSync(file) ? realpathSync(file) : resolvePath(file);
 
+const distributionDirectory = (target: string): string => {
+  const wildcard = target.indexOf('*');
+  return wildcard < 0
+    ? dirname(target)
+    : resolvePath(target.slice(0, target.lastIndexOf(sep, wildcard) + 1));
+};
+
 const ownsDistributionFile = (root: string, file: string, exports: unknown): boolean =>
   !existsSync(file) ||
-  exportTargets(exports).some(
-    (target) => target.startsWith('./') && isWithin(dirname(resolvePath(root, target)), file),
-  );
+  exportTargets(exports).some((target) => {
+    if (!target.startsWith('./')) return false;
+    const entry = resolvePath(root, target);
+    const directory = distributionDirectory(entry);
+    return file === entry || (directory !== root && isWithin(directory, file));
+  });
 
 const packageOwnerOf = (file: string) => {
   let root = dirname(file);
@@ -146,7 +155,8 @@ export const packageFromPath = (
   )
     return undefined;
   return applicationRoot !== undefined ||
-    ownsDistributionFile(owner.root, file, { exports: owner.exports, main: owner.main })
+    owner.root.split(sep).includes('node_modules') ||
+    ownsDistributionFile(owner.root, file, owner.exports)
     ? { root: owner.root, name: owner.name }
     : undefined;
 };
@@ -164,37 +174,131 @@ export const normalizePackageName = (name: string): string =>
 // エントリの export から ClassSource を作る (依存側の正準化も同じ経路に収束する)。
 // stable Node の import.meta.resolve は第2引数 (parentURL) を無視して自パッケージ
 // 基準の解決になるため、Node の resolver を移植した import-meta-resolve を使う
-const packageSpecifiers = (pkg: PackageOwner): readonly string[] => {
-  const manifest = packageManifest(pkg.root);
-  if (manifest === undefined) return [];
-  const exports = manifest.exports;
-  if (typeof exports !== 'object' || exports === null) return [pkg.name];
+// exports のないパッケージは self-reference を使えないため directory resolution を使う。
+// 公開候補は遅延列挙し、先に見つかったエントリより後のモジュールはロードしない。
+const packageExportKeys = (exports: unknown): readonly string[] => {
+  if (typeof exports !== 'object' || exports === null) return ['.'];
   const keys = Object.keys(exports);
-  if (!keys.some((key) => key.startsWith('.'))) return [pkg.name];
-  return keys.filter((key) => !key.includes('*')).map((key) => pkg.name + key.slice(1));
+  return keys.some((key) => key.startsWith('.')) ? keys : ['.'];
 };
 
-const packageEntrySource = (
-  pkg: PackageOwner,
-  cls: AnyClass,
-  original: InspectError,
-  specifiers: readonly string[] = packageSpecifiers(pkg),
-): ResultAsync<ClassSource, InspectError> => {
-  const [specifier, ...remaining] = specifiers;
-  if (specifier === undefined) return errAsync(original);
-  const parentUrl = pathToFileURL(join(pkg.root, 'package.json')).href;
-  const entry = Result.fromThrowable(
-    () => fileURLToPath(resolve(specifier, parentUrl)),
+const resolveExportEntry = (pkg: PackageOwner, specifier: string): Result<string, InspectError> =>
+  Result.fromThrowable(
+    () => fileURLToPath(resolve(specifier, pathToFileURL(join(pkg.root, 'package.json')).href)),
     (cause): InspectError => ({
       code: 'MODULE_LOAD_FAILED',
       message: `Cannot resolve ${specifier}: ${String(cause)}`,
     }),
   )();
-  if (entry.isErr()) return packageEntrySource(pkg, cls, original, remaining);
-  if (extname(entry.value) === '.json') return packageEntrySource(pkg, cls, original, remaining);
+
+const packageFiles = (directory: string): readonly string[] =>
+  readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.name === 'node_modules') return [];
+    const file = join(directory, entry.name);
+    return entry.isDirectory() ? packageFiles(file) : [file];
+  });
+
+const exportPatternMatcher = (pattern: string): RegExp =>
+  new RegExp(
+    '^' +
+      pattern
+        .split('*')
+        .map((part, index) => {
+          if (index === 0) return RegExp.escape(part);
+          return (index === 1 ? '(.*)' : '\\1') + RegExp.escape(part);
+        })
+        .join('') +
+      '$',
+  );
+
+const readExportPatternFiles = (pattern: string): Result<readonly string[], InspectError> =>
+  Result.fromThrowable(() => packageFiles(distributionDirectory(pattern)))().orElse((cause) =>
+    match(cause)
+      .with({ code: P.union('ENOENT', 'ENOTDIR') }, () => ok<readonly string[], InspectError>([]))
+      .otherwise(() =>
+        err<readonly string[], InspectError>({
+          code: 'MODULE_LOAD_FAILED',
+          message: `Cannot enumerate ${pattern}: ${String(cause)}`,
+        }),
+      ),
+  );
+
+const runtimeExtensions = new Set([
+  '',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.mts',
+  '.cts',
+  '.jsx',
+  '.tsx',
+  '.node',
+]);
+
+const isRuntimeClassEntry = (entry: string): boolean =>
+  runtimeExtensions.has(extname(entry)) && !/\.d\.[cm]?ts$/.test(entry);
+
+const needsExportExpansion = (entry: string): boolean =>
+  entry.includes('*') && isRuntimeClassEntry(entry);
+
+function* exportEntries(
+  pkg: PackageOwner,
+  specifier: string,
+): Generator<Result<string, InspectError>, void> {
+  const entry = resolveExportEntry(pkg, specifier);
+  if (entry.isErr()) return;
+  if (!needsExportExpansion(entry.value)) {
+    yield entry;
+    return;
+  }
+  const files = readExportPatternFiles(entry.value);
+  if (files.isErr()) {
+    yield err(files.error);
+    return;
+  }
+  const matcher = exportPatternMatcher(entry.value);
+  for (const file of files.value.toSorted()) {
+    const capture = matcher.exec(file)?.[1];
+    if (capture === undefined) continue;
+    const resolved = resolveExportEntry(pkg, specifier.replace('*', capture.split(sep).join('/')));
+    if (resolved.isOk()) yield resolved;
+  }
+}
+
+function* packageEntries(pkg: PackageOwner): Generator<Result<string, InspectError>, void> {
+  const manifest = packageManifest(pkg.root);
+  if (manifest === undefined) return;
+  if (manifest.exports === undefined || manifest.exports === null) {
+    const entry = Result.fromThrowable(
+      () => createRequire(join(pkg.root, 'package.json')).resolve(pkg.root),
+      (cause): InspectError => ({
+        code: 'MODULE_LOAD_FAILED',
+        message: `Cannot resolve ${pkg.root}: ${String(cause)}`,
+      }),
+    )();
+    if (entry.isOk()) yield entry;
+    return;
+  }
+  for (const key of packageExportKeys(manifest.exports)) {
+    yield* exportEntries(pkg, pkg.name + key.slice(1));
+  }
+}
+
+const packageEntrySource = (
+  pkg: PackageOwner,
+  cls: AnyClass,
+  original: InspectError,
+  entries: ReturnType<typeof packageEntries> = packageEntries(pkg),
+): ResultAsync<ClassSource, InspectError> => {
+  const candidate = entries.next();
+  if (candidate.done) return errAsync(original);
+  const entry = candidate.value;
+  if (entry.isErr()) return errAsync(entry.error);
+  if (!isRuntimeClassEntry(entry.value)) return packageEntrySource(pkg, cls, original, entries);
   return classSourceFromModule(entry.value, cls).orElse((error) =>
     error.code === 'EXPORT_NOT_FOUND'
-      ? packageEntrySource(pkg, cls, original, remaining)
+      ? packageEntrySource(pkg, cls, original, entries)
       : errAsync(error),
   );
 };

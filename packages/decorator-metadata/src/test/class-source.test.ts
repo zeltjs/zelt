@@ -1,13 +1,24 @@
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-
+import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { getClassSource, packageFromPath, resolveClassSource } from '../inspect/index';
 
 const fixturePath = resolve(__dirname, './fixtures/class-source/exported.ts');
+
+const packageEntryFields = (fixture: {
+  readonly entry: string | null;
+  readonly main: string;
+  readonly target: string;
+  readonly precedingExports: Readonly<Record<string, unknown>>;
+}) =>
+  fixture.entry === null
+    ? { main: fixture.main }
+    : { exports: { ...fixture.precedingExports, [fixture.entry]: { import: fixture.target } } };
 
 describe('getClassSource', () => {
   it('converts a decorated exported class to its ClassSource', async () => {
@@ -122,35 +133,89 @@ describe('getClassSource', () => {
   // resolveDefinitionPosition の結果を直接コントロールする)で、
   // 宣言ファイル(chunk)と公開エントリ(index)を別ファイルとして用意し、
   // 両者が別の名前でこのクラスを export している状況を再現する
-  it.each([
-    { layout: 'installed', installPath: 'app/node_modules', entry: '.' },
-    { layout: 'workspace', installPath: 'packages', entry: '.' },
-    { layout: 'subpath', installPath: 'packages', entry: './feature' },
-    { layout: 'legacy', installPath: 'app/node_modules', entry: null },
-    {
-      layout: 'nested module scope',
-      installPath: 'app/node_modules',
-      entry: '.',
-      moduleScope: true,
-    },
-    {
-      layout: 'blocked first subpath',
-      installPath: 'packages',
-      entry: './feature',
-      precedingExports: { '.': null },
-    },
-    {
-      layout: 'require-only first subpath',
-      installPath: 'packages',
-      entry: './feature',
-      precedingExports: { '.': { require: './dist/index.cjs' } },
-    },
-  ])('uses the public entry name for a $layout package chunk', async (fixture) => {
-    const { installPath, entry } = fixture;
+  it.each(
+    [
+      { layout: 'installed', installPath: 'app/node_modules', entry: '.' },
+      { layout: 'workspace', installPath: 'packages', entry: '.' },
+      { layout: 'subpath', installPath: 'packages', entry: './feature' },
+      { layout: 'workspace legacy', installPath: 'packages', entry: null, contextRequired: true },
+      {
+        layout: 'wildcard',
+        installPath: 'packages',
+        entry: './services/*',
+        target: './dist/*/index.mjs',
+        directory: 'dist/service',
+      },
+      {
+        layout: 'nested wildcard',
+        installPath: 'packages',
+        entry: './services/*',
+        target: './dist/*/index.mjs',
+        directory: 'dist/nested/service',
+      },
+      { layout: 'constant wildcard target', installPath: 'packages', entry: './services/*' },
+      {
+        layout: 'repeated target wildcard',
+        installPath: 'packages',
+        entry: './services/*',
+        target: './dist/*/entry-*.mjs',
+        directory: 'dist/service',
+        entryFile: 'entry-service.mjs',
+      },
+      {
+        layout: 'empty wildcard first',
+        installPath: 'packages',
+        entry: '.',
+        precedingExports: { './empty/*': './missing/*.mjs' },
+      },
+      { layout: 'legacy', installPath: 'app/node_modules', entry: null },
+      {
+        layout: 'legacy main without dot slash',
+        installPath: 'app/node_modules',
+        entry: null,
+        main: 'dist/index.mjs',
+      },
+      {
+        layout: 'root legacy main',
+        installPath: 'app/node_modules',
+        entry: null,
+        main: 'index.mjs',
+        directory: '.',
+      },
+      {
+        layout: 'nested module scope',
+        installPath: 'app/node_modules',
+        entry: '.',
+        moduleScope: true,
+      },
+      {
+        layout: 'blocked first subpath',
+        installPath: 'packages',
+        entry: './feature',
+        precedingExports: { '.': null },
+      },
+      {
+        layout: 'require-only first subpath',
+        installPath: 'packages',
+        entry: './feature',
+        precedingExports: { '.': { require: './dist/index.cjs' } },
+      },
+    ].map((fixture) => ({
+      main: './dist/index.mjs',
+      directory: 'dist',
+      entryFile: 'index.mjs',
+      target: './dist/index.mjs',
+      contextRequired: false,
+      ...fixture,
+    })),
+  )('uses the public entry name for a $layout package chunk', async (fixture) => {
+    const { installPath } = fixture;
     const base = await realpath(await mkdtemp(join(tmpdir(), 'class-source-chunk-')));
+    const applicationRoot = join(base, 'consumer');
     try {
       const pkgRoot = join(base, installPath, 'chunked-pkg');
-      await mkdir(join(pkgRoot, 'dist'), { recursive: true });
+      const outputRoot = join(pkgRoot, fixture.directory);
+      await mkdir(outputRoot, { recursive: true });
       if ('moduleScope' in fixture) {
         await writeFile(join(pkgRoot, 'dist', 'package.json'), JSON.stringify({ type: 'module' }));
       }
@@ -159,22 +224,18 @@ describe('getClassSource', () => {
         JSON.stringify({
           name: 'chunked-pkg',
           type: 'module',
-          ...(entry === null
-            ? { main: './dist/index.mjs' }
-            : {
-                exports: {
-                  ...('precedingExports' in fixture ? fixture.precedingExports : {}),
-                  [entry]: { import: './dist/index.mjs' },
-                },
-              }),
+          ...packageEntryFields({
+            ...fixture,
+            precedingExports: 'precedingExports' in fixture ? fixture.precedingExports : {},
+          }),
         }),
       );
       // 宣言ファイル(chunk): 公開エントリとは別のファイルで、chunk 間配線用の
       // 短い内部限定名 `t` としてこのクラスを export する(rolldown の shared chunk と同じ形)
-      const chunkPath = join(pkgRoot, 'dist', 'chunk.mjs');
+      const chunkPath = join(outputRoot, 'chunk.mjs');
       await writeFile(chunkPath, 'export class RealClass {}\nexport { RealClass as t };\n');
       // 公開エントリ: chunk からクラスを受け取り、ユーザー向けの名前で re-export する
-      const entryPath = join(pkgRoot, 'dist', 'index.mjs');
+      const entryPath = join(outputRoot, fixture.entryFile);
       await writeFile(entryPath, "export { t as PublicName } from './chunk.mjs';\n");
 
       const entryModule: unknown = await import(pathToFileURL(entryPath).href);
@@ -192,20 +253,71 @@ describe('getClassSource', () => {
       ].join('\n');
       ensureClassMeta(PublicName, { _brand: 'StackTrace', error: defineError });
 
-      expect(packageFromPath(chunkPath)?.name).toBe('chunked-pkg');
+      expect(packageFromPath(chunkPath, { applicationRoot })?.name).toBe('chunked-pkg');
       expect(packageFromPath(chunkPath, { applicationRoot: pkgRoot })).toBeUndefined();
-      const linkedRoot = join(base, 'linked-package');
+      const linkedRoot = join(applicationRoot, 'node_modules', 'chunked-pkg');
+      await mkdir(dirname(linkedRoot), { recursive: true });
       await symlink(pkgRoot, linkedRoot, process.platform === 'win32' ? 'junction' : 'dir');
       expect(packageFromPath(chunkPath, { applicationRoot: linkedRoot })).toBeUndefined();
-      const result = await getClassSource(PublicName, { applicationRoot: join(base, 'app') });
+      if (fixture.contextRequired) {
+        expect(createRequire(join(applicationRoot, 'package.json')).resolve('chunked-pkg')).toBe(
+          entryPath,
+        );
+      }
+      const result = await getClassSource(PublicName, { applicationRoot });
 
-      expect(result.isOk()).toBe(true);
-      if (!result.isOk()) return;
       // chunk.mjs 自身の export 名(`t`)ではなく、公開エントリ(index.mjs)の
       // export 名(`PublicName`)が使われることを確認する
-      expect(result.value).toEqual({ filePath: entryPath, exportName: 'PublicName' });
+      expect(result).toEqual(ok({ filePath: entryPath, exportName: 'PublicName' }));
+      if (!fixture.contextRequired) {
+        const withoutContext = await getClassSource(PublicName);
+        expect(withoutContext).toEqual(result);
+      }
     } finally {
       await rm(base, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    { name: 'root main', entry: 'index.mjs', main: './index.mjs' },
+    { name: 'source main', entry: 'src/index.mjs', main: 'src/index.mjs' },
+    { name: 'root export', entry: 'index.mjs', exports: { '.': './index.mjs' } },
+  ])('resolves application source without context for $name', async (fixture) => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'class-source-app-main-')));
+    try {
+      await mkdir(join(root, 'src'));
+      await writeFile(
+        join(root, 'package.json'),
+        JSON.stringify({
+          name: 'source-app',
+          type: 'module',
+          ...('main' in fixture ? { main: fixture.main } : { exports: fixture.exports }),
+        }),
+      );
+      await writeFile(join(root, fixture.entry), 'export class EntryClass {}\n');
+      const source = join(root, 'src', 'local.mjs');
+      await writeFile(source, 'export class LocalClass {}\n');
+      const loaded = await resolveClassSource({ filePath: source, exportName: 'LocalClass' });
+      expect(loaded.isOk()).toBe(true);
+      if (loaded.isErr()) return;
+      const { ensureClassMeta, CaptureStackError } = await import('../runtime/index');
+      const trace = new CaptureStackError();
+      trace.stack = [
+        'CaptureStackError: Capture stack trace',
+        `    at captureStackTrace (${resolve(__dirname, '../runtime/trace.lib.ts')}:16:17)`,
+        `    at ${source}:1:1`,
+      ].join('\n');
+      ensureClassMeta(loaded.value, { _brand: 'StackTrace', error: trace });
+
+      expect(packageFromPath(source)).toBeUndefined();
+      const result = await getClassSource(loaded.value);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toEqual({ filePath: source, exportName: 'LocalClass' });
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 

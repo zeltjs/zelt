@@ -24,6 +24,15 @@
 - Root discovery and dependency canonicalization share the same application
   boundary. Public JSON exports are data and are excluded from class lookup after
   module resolution; JavaScript import failures remain errors.
+- Without an explicit application boundary, installed packages and export
+  directories identify distributions. Root-level entries do not claim every
+  application source file. Node resolves legacy `main` paths, including paths
+  without `./`.
+- Export conditions and concrete wildcard subpaths use Node's module resolver.
+  Wildcard entries expand lazily within the published target directory; JSON,
+  declarations, source maps, and static assets are excluded from class lookup.
+  Legacy workspace entries use Node's directory resolution rather than requiring
+  a package self-reference.
 
 Verification must cover a fresh checkout, unchanged reruns, changed public types
 and distributions, mode transitions, workspace and installed package resolution,
