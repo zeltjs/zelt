@@ -75,6 +75,10 @@ export type ClassSource = {
   readonly exportName: string;
 };
 
+export type SourceContext = {
+  readonly applicationRoot?: string;
+};
+
 /**
  * getDependencySources の 1 依存分の結果。
  * kind: 'class' の source は「実クラス経由で正準化済み」の ClassSource
@@ -103,7 +107,7 @@ export type InspectOptions = {
 
 // --- getDependencies types ---
 
-export type GetDependenciesOptions = {
+export type GetDependenciesOptions = SourceContext & {
   readonly tsconfig?: string;
 };
 

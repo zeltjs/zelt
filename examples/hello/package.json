@@ -27,5 +27,15 @@
   "devDependencies": {
     "hono": "catalog:",
     "tsx": "catalog:"
+  },
+  "nx": {
+    "targets": {
+      "typecheck": {
+        "outputs": [],
+        "dependsOn": [
+          "^build"
+        ]
+      }
+    }
   }
 }

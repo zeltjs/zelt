@@ -51,5 +51,15 @@
   ],
   "volta": {
     "extends": "../../package.json"
+  },
+  "nx": {
+    "targets": {
+      "typecheck": {
+        "outputs": [],
+        "dependsOn": [
+          "^build"
+        ]
+      }
+    }
   }
 }

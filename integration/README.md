@@ -37,23 +37,34 @@ integration/
 ./integration/scripts/run-tests.sh dist hello-world
 ```
 
-Always use `run-tests.sh` as the integration test entry point. The script builds the
-local packages, regenerates each integration package.json, removes stale
-`node_modules` / lockfiles, installs dependencies for the selected mode, then runs
-`tsc --noEmit` and `pnpm test`.
+Always use `run-tests.sh` as the integration test entry point. Nx builds the local
+packages and creates immutable distributions with `pnpm pack`. The script generates
+consumer manifests, resolves each mode against its saved lockfile, and installs
+with `--frozen-lockfile` before running `tsc --noEmit` and every test.
 
-Do not use `pnpm --dir integration/<name> test` as the primary verification
-command unless that directory has just been prepared by `run-tests.sh` or
-`switch-mode.sh`. Integration apps depend on `file:../../packages/*`, so direct
-test runs can read stale installed package artifacts and fail in ways that do not
-represent the current workspace.
+`dist` installs the unpacked distribution directory; `pack` installs its tarball.
+Both contain pnpm's publish manifest, with `workspace:` and `catalog:` resolved.
+Artifacts live under each package's `.artifacts/<content-hash>` and are never
+patched after installation. Development `dist/` files are not installation inputs.
+
+Each consumer retains mode-specific lockfiles under `.zelt/locks/`. pnpm reconciles
+the active installation when switching modes; validation never deletes
+`node_modules` or modifies pnpm's virtual store. The first preparation resolves
+that mode's dependencies; subsequent preparations preserve its resolved versions.
+
+Do not run an integration consumer directly until it has been prepared for the
+current artifacts. Its installed distribution is intentionally isolated from later
+workspace builds. Installation failures and test failures are reported directly.
+
+Native dependencies use their normal pnpm install lifecycle. Installation and
+execution must use the root-pinned Node version; CI reads the same pin.
 
 ## Modes
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| `dist` | Uses local built packages (`file:../../packages/*`) | Development |
-| `pack` | Uses npm-packed tarballs (`file:../.pack-cache/*.tgz`) | Pre-release validation |
+| `dist` | Installs immutable unpacked distributions | Development |
+| `pack` | Installs immutable pnpm-packed tarballs | Pre-release validation |
 | `public` | Uses npm registry versions | Regression testing |
 | `all` | Runs tests in all modes sequentially | Full validation |
 

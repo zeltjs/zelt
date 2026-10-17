@@ -23,6 +23,7 @@ export type {
   MethodInfo,
   ParamInfo,
   PropertyInfo,
+  SourceContext,
   TypedPropertyInfo,
   TypeInfo,
 } from './inspect.types';

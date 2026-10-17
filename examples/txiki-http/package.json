@@ -18,5 +18,15 @@
     "@swc/core": "1.15.33",
     "@txikijs/types": "26.6.0",
     "tsdown": "catalog:"
+  },
+  "nx": {
+    "targets": {
+      "typecheck": {
+        "outputs": [],
+        "dependsOn": [
+          "^build"
+        ]
+      }
+    }
   }
 }

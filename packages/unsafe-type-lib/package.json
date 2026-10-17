@@ -26,7 +26,8 @@
   ],
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc -b"
+    "typecheck": "node ../../scripts/typecheck-project.mjs",
+    "distribution": "node ../../scripts/pack-distribution.mjs"
   },
   "devDependencies": {
     "@needle-di/core": "catalog:"

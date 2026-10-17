@@ -2,15 +2,26 @@
   "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
   "compilerOptions": {
     "composite": true,
-    "outDir": "./dist",
+    "outDir": "./.typebuild",
     "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "tsBuildInfoFile": "./.typebuild/.tsbuildinfo",
     "erasableSyntaxOnly": false,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@zeltjs/auth-session": ["./src/index.ts"]
+    },
+    "emitDeclarationOnly": true
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../core" }, { "path": "../kv" }]
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../kv"
+    }
+  ]
 }

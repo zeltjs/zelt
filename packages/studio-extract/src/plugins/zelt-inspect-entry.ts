@@ -120,6 +120,7 @@ const ModuleSchema = custom<AppModule>(
 type Context = {
   readonly inspect: InspectApi;
   readonly root: string;
+  readonly applicationRoot: string;
   readonly tsconfig: string;
   readonly diagnostics: ZeltInspectDiagnostic[];
 };
@@ -134,7 +135,9 @@ const note = (ctx: Context, code: string, message: string): void => {
 const toPosixPath = (filePath: string): string => filePath.replaceAll('\\', '/');
 
 const refOf = (ctx: Context, source: SourceLike): ZeltClassRef => {
-  const owner = ctx.inspect.packageFromPath(source.filePath);
+  const owner = ctx.inspect.packageFromPath(source.filePath, {
+    applicationRoot: ctx.applicationRoot,
+  });
   if (owner !== undefined) {
     return {
       package: ctx.inspect.normalizePackageName(owner.name),
@@ -150,7 +153,7 @@ const refOf = (ctx: Context, source: SourceLike): ZeltClassRef => {
 };
 
 const locate = async (ctx: Context, cls: AnyClass): Promise<Located | null> => {
-  const result = await ctx.inspect.getClassSource(cls);
+  const result = await ctx.inspect.getClassSource(cls, { applicationRoot: ctx.applicationRoot });
   if (result.isErr()) {
     note(ctx, 'zelt-class-source-unresolved', `${cls.name}: ${result.error.message}`);
     return null;
@@ -255,7 +258,10 @@ const dependenciesOf = async (
   ctx: Context,
   located: Located,
 ): Promise<{ readonly dependencies: ZeltDependency[]; readonly nested: SourceLike[] }> => {
-  const result = await ctx.inspect.getDependencySources(located.source, { tsconfig: ctx.tsconfig });
+  const result = await ctx.inspect.getDependencySources(located.source, {
+    tsconfig: ctx.tsconfig,
+    applicationRoot: ctx.applicationRoot,
+  });
   if (result.isErr()) {
     note(ctx, 'zelt-dependencies-unresolved', `${located.ref.exportName}: ${result.error.message}`);
     return { dependencies: [], nested: [] };
@@ -445,6 +451,9 @@ const inspectApplication = async (request: ZeltInspectRequest): Promise<ZeltInsp
   const ctx: Context = {
     inspect,
     root: request.root,
+    // The analysis root can contain multiple packages; the app entry identifies its own package.
+    applicationRoot:
+      inspect.packageFromPath(appFile, { applicationRoot: request.root })?.root ?? request.root,
     tsconfig: request.tsconfig,
     diagnostics: [],
   };

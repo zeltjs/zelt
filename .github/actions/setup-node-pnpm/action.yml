@@ -1,0 +1,28 @@
+name: Set up workspace Node and pnpm
+description: Use the pinned runtime and cache pnpm build results for that runtime and workflow
+inputs:
+  registry-url:
+    description: Optional registry for package publishing
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      id: node
+      with:
+        node-version-file: package.json
+        registry-url: ${{ inputs.registry-url }}
+    - name: Locate pnpm store
+      id: pnpm
+      shell: bash
+      run: |
+        pnpm_store_path="$(pnpm store path --silent)"
+        pnpm_version="$(pnpm --version)"
+        printf 'path=%s\nversion=%s\n' "$pnpm_store_path" "$pnpm_version" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v4
+      id: pnpm-cache
+      with:
+        path: ${{ steps.pnpm.outputs.path }}
+        key: pnpm-store-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ steps.node.outputs.node-version }}-pnpm-${{ steps.pnpm.outputs.version }}-${{ github.workflow }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml') }}

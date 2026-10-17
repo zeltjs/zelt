@@ -3,14 +3,25 @@
   "compilerOptions": {
     "composite": true,
     "rootDir": "./src",
-    "outDir": "./dist",
+    "outDir": "./.typebuild",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "tsBuildInfoFile": "./.typebuild/.tsbuildinfo",
     "types": ["node"],
-    "erasableSyntaxOnly": false
+    "erasableSyntaxOnly": false,
+    "emitDeclarationOnly": true
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../core" }, { "path": "../decorator-metadata" }]
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../decorator-metadata"
+    },
+    {
+      "path": "../eventbus"
+    }
+  ]
 }
