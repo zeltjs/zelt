@@ -1,7 +1,5 @@
 import type {
   CommandCapabilities,
-  ConfiguredFeature,
-  CreateAppOptions,
   HttpCapabilities,
   HttpModuleOptions,
   HttpServerCapabilities,
@@ -57,10 +55,6 @@ const hasMethods = (value: object | undefined, names: readonly string[]): boolea
   value !== undefined && names.every((name) => typeof Reflect.get(value, name) === 'function');
 const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp =>
   hasMethods(app['http'], ['fetch', 'request']) && hasMethods(app['server'], ['listen']);
-const createServerApp = <const F extends readonly ConfiguredFeature[]>(
-  features: F,
-  options?: CreateAppOptions,
-) => createApp([...features, httpServer()], options);
 const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'commands' in app;
 const hasScheduler = (app: NodeApp): app is NodeApp & SchedulerNodeAppPart => 'schedulers' in app;
 
@@ -237,7 +231,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [TestController] })]);
+    const app = createApp([http({ controllers: [TestController] }), httpServer()]);
     nodeApp = await onNode(app);
 
     expect(isHttpNodeApp(nodeApp)).toBe(true);
@@ -261,7 +255,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [PingController] })]);
+    const app = createApp([http({ controllers: [PingController] }), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
@@ -281,7 +275,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [ConflictController] })]);
+    const app = createApp([http({ controllers: [ConflictController] }), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
@@ -307,9 +301,10 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([
+    const app = createApp([
       http({ controllers: [PublicController] }),
       http({ name: 'private' as const, controllers: [PrivateController] }),
+      httpServer(),
     ]);
     const namedNodeApp = await onNode(app);
 
@@ -348,7 +343,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [SharedController] })]);
+    const app = createApp([http({ controllers: [SharedController] }), httpServer()]);
     const first = await onNode(app);
     const second = await onNode(app);
     const firstHandle = await first.server.listen(first.http, 0);
@@ -377,7 +372,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [HealthController] })]);
+    const app = createApp([http({ controllers: [HealthController] }), httpServer()]);
     const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app);
@@ -392,7 +387,7 @@ describe('onNode with HTTP', () => {
   });
 
   it('passes fallback configs to createRuntime()', async () => {
-    const app = createServerApp([http({ controllers: [] })], { configs: [EnvAdaptor] });
+    const app = createApp([http({ controllers: [] }), httpServer()], { configs: [EnvAdaptor] });
     const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app);
@@ -411,7 +406,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [] })]);
+    const app = createApp([http({ controllers: [] }), httpServer()]);
     const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app, { configs: [TestEnvAdaptor] });
@@ -426,7 +421,7 @@ describe('onNode with HTTP', () => {
   });
 
   it('passes prebuilt to createRuntime()', async () => {
-    const app = createServerApp([http({ controllers: [] })]);
+    const app = createApp([http({ controllers: [] }), httpServer()]);
     const readySpy = vi.spyOn(app, 'createRuntime');
     const prebuilt: ZeltPrebuilt = { version: 1, features: {} };
 
@@ -448,7 +443,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [SimpleController] })]);
+    const app = createApp([http({ controllers: [SimpleController] }), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
@@ -467,7 +462,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [ShutdownController] })]);
+    const app = createApp([http({ controllers: [ShutdownController] }), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
@@ -489,7 +484,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [AppShutdownController] })]);
+    const app = createApp([http({ controllers: [AppShutdownController] }), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
@@ -512,7 +507,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createServerApp([http({ controllers: [ServiceController] })], {
+    const app = createApp([http({ controllers: [ServiceController] }), httpServer()], {
       configs: [EnvAdaptor],
     });
     nodeApp = await onNode(app);
@@ -540,7 +535,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'test-cmd' })(TestCommand);
 
-    const app = createServerApp([command([TestCommand])]);
+    const app = createApp([command([TestCommand]), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -556,7 +551,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'existing' })(ExistingCommand);
 
-    const app = createServerApp([command([ExistingCommand])]);
+    const app = createApp([command([ExistingCommand]), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -571,7 +566,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'test' })(TestCommand);
 
-    const app = createServerApp([command([TestCommand])]);
+    const app = createApp([command([TestCommand]), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -588,7 +583,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'failing' })(FailingCommand);
 
-    const app = createServerApp([command([FailingCommand])]);
+    const app = createApp([command([FailingCommand]), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -612,7 +607,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'greet' })(GreetCommand);
 
-    const app = createServerApp([command([GreetCommand])]);
+    const app = createApp([command([GreetCommand]), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -642,7 +637,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'serve' })(ServeCommand);
 
-    const app = createServerApp([command([ServeCommand])]);
+    const app = createApp([command([ServeCommand]), httpServer()]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -667,7 +662,7 @@ describe('command transient behavior', () => {
       }
     }
 
-    const app = createServerApp([command([TrackCommand])]);
+    const app = createApp([command([TrackCommand]), httpServer()]);
 
     const nodeApp = await onNode(app);
 
@@ -708,9 +703,10 @@ describe('onNode with schedulers', () => {
       }
     }
 
-    const app = createServerApp([
+    const app = createApp([
       http({ controllers: [TestController] }),
       scheduler([TestScheduler]),
+      httpServer(),
     ]);
     nodeApp = await onNode(app);
 
@@ -736,9 +732,10 @@ describe('onNode with schedulers', () => {
       }
     }
 
-    const app = createServerApp([
+    const app = createApp([
       http({ controllers: [TestController] }),
       scheduler([TestScheduler]),
+      httpServer(),
     ]);
     nodeApp = await onNode(app);
 

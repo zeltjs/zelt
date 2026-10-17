@@ -3,6 +3,7 @@ import type {
   ConfiguredFeature,
   ContextMode,
   FeatureApp,
+  ReservedAppProperties,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
@@ -23,10 +24,9 @@ export type NodeAppOptions = {
 
 export type { ExecResult } from '@zeltjs/core';
 
-type EnvironmentNodeAppPart = {
+type EnvironmentNodeAppPart = ReservedAppProperties<{
   readonly args: readonly string[];
-  readonly shutdown: () => Promise<void>;
-};
+}>;
 
 type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
   EnvironmentNodeAppPart;
@@ -49,30 +49,21 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
 
   const cliConfig = await readyApp.get(NodeCliConfig);
 
-  let shuttingDown = false;
-  const detachSignals = (): void => {
-    cliConfig.offSignal('SIGINT', gracefulShutdown);
-    cliConfig.offSignal('SIGTERM', gracefulShutdown);
-  };
-
-  const shutdown = async (): Promise<void> => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    try {
-      await readyApp.shutdown();
-    } finally {
-      detachSignals();
-    }
-  };
-
   const gracefulShutdown = (): void => {
-    void shutdown().catch(() => {});
+    void readyApp.shutdown().catch(() => {});
   };
+  readyApp.registerShutdown(
+    () => {
+      cliConfig.offSignal('SIGINT', gracefulShutdown);
+      cliConfig.offSignal('SIGTERM', gracefulShutdown);
+    },
+    { phase: 'after' },
+  );
 
   cliConfig.onSignal('SIGINT', gracefulShutdown);
   cliConfig.onSignal('SIGTERM', gracefulShutdown);
 
   const args = getArgs();
 
-  return { ...readyApp, shutdown, args };
+  return { ...readyApp, args };
 }

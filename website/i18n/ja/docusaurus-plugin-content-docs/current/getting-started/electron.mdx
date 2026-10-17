@@ -38,7 +38,7 @@ sequenceDiagram
 ```
 
 必要なのは3つの要素です:
-1. **Main process** — `onElectron(app)` がZeltを起動し、IPCハンドラを登録します
+1. **Main process** — `onElectron(app)`でZeltを起動し、`runtime.ipc.listen(runtime.http)`でIPC handlerを登録します
 2. **Preloadスクリプト** — `exposeIpc()` がIPCをrendererへブリッジします
 3. **Renderer process** — `ipcFetch()` がブリッジ経由でリクエストを送信します
 
@@ -88,15 +88,17 @@ export class HelloController {
 
 ```typescript
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { electronIpc } from '@zeltjs/adapter-electron';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
-export const app = createApp([http({
-    controllers: [HelloController],
-  })]);
+export const app = createApp([
+  http({ controllers: [HelloController] }),
+  electronIpc(),
+]);
 ```
 
 ### Step 3: Main Processで初期化する {#step-3-initialize-in-main-process}
@@ -105,20 +107,19 @@ export const app = createApp([http({
 
 ```typescript
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onElectron } from '@zeltjs/adapter-electron';
+import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([http({ controllers: [HelloController] }), electronIpc()]);
 declare const BrowserWindow: any;
 declare const join: (...args: string[]) => string;
 // ---cut---
 const bootstrap = async () => {
-  const electronZelt = await onElectron(app, {
-    ipcChannel: 'http://zelt-app',
-  });
+  const electronZelt = await onElectron(app);
+  await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
   const win = new BrowserWindow({
     width: 900,
@@ -135,9 +136,10 @@ const bootstrap = async () => {
 void bootstrap();
 ```
 
-`onElectron()` はZeltランタイムを起動し、指定されたchannelのIPCハンドラを自動的に登録します。返されるのは:
+`onElectron()`は宣言したfeatureからZeltランタイムを起動します。`ipc.listen()`で対象HTTPとchannelを渡し、IPC handlerを登録します。返されるのは:
 
 - `http.fetch(request)` — `Request` を処理して `Response` を返します(設定された各featureはそのkeyでnamespace化されます。デフォルトは `http`)
+- `ipc.listen(http, options)` — 対象HTTPをIPCへ公開します
 - `shutdown()` — アプリケーションをgracefulにシャットダウンします
 - `get<T>(Class)` — DIコンテナからserviceを解決します
 

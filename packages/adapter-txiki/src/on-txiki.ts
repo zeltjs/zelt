@@ -52,21 +52,12 @@ export async function onTxiki<const F extends readonly ConfiguredFeature[]>(
   options: TxikiAppOptions = {},
 ): Promise<TxikiApp<F>> {
   const runtime = await app.createRuntime(runtimeOptions(options));
-  let shutdownPromise: Promise<void> | undefined;
-  const originalShutdown = runtime.shutdown;
-  const txikiRuntime = {
-    ...runtime,
-    shutdown: (): Promise<void> =>
-      (shutdownPromise ??= originalShutdown().finally(() => {
-        shutdownPromise = undefined;
-      })),
-  };
   try {
-    if (options.signals ?? true) attachSignals(txikiRuntime, await runtime.get(LoggerService));
-    return txikiRuntime;
+    if (options.signals ?? true) attachSignals(runtime, await runtime.get(LoggerService));
+    return runtime;
   } catch (error) {
     try {
-      await txikiRuntime.shutdown();
+      await runtime.shutdown();
     } catch (cleanupError) {
       throw new AggregateError([error, cleanupError], 'txiki.js setup and cleanup failed');
     }

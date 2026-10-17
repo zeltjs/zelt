@@ -12,7 +12,7 @@ Backend entry:
 
 ```ts
 import { Controller, createApp, Get, http } from '@zeltjs/core';
-import { onTinyjs } from '@zeltjs/adapter-tinyjs';
+import { onTinyjs, tinyjsBridge } from '@zeltjs/adapter-tinyjs';
 
 @Controller('/api')
 class ApiController {
@@ -20,9 +20,8 @@ class ApiController {
   status() { return { status: 'ok' }; }
 }
 
-const desktop = await onTinyjs(createApp([http({ controllers: [ApiController] })]));
-export const api = desktop.api;
-export const init = desktop.init;
+const desktop = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
+export const { api, init } = desktop.bridge.create(desktop.http);
 ```
 
 Renderer:
@@ -34,7 +33,7 @@ const response = await tinyFetch('/api/status');
 const status = await response.json();
 ```
 
-The renderer receives a standard `Response`, including status, headers, JSON and binary bodies. Use `createTinyFetch({ feature: 'admin' })` for a named HTTP feature. Limit renderer exposure with `onTinyjs(app, { bridgeFeatures: ['http'] })`.
+The renderer receives a standard `Response`, including status, headers, JSON and binary bodies. The single-target factory exposes the supplied HTTP capability as `http`. To expose several targets explicitly, use `desktop.bridge.create(new Map([['http', desktop.http], ['admin', desktop.admin]]))`, then select a map key in the renderer with `createTinyFetch({ feature: 'admin' })`. HTTP features are never exposed automatically.
 
 ## Native app and shutdown
 

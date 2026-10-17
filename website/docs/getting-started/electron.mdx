@@ -38,7 +38,7 @@ sequenceDiagram
 ```
 
 Three pieces are needed:
-1. **Main process** — `onElectron(app)` starts Zelt and registers the IPC handler
+1. **Main process** — `onElectron(app)` starts Zelt; `runtime.ipc.listen(runtime.http)` registers the IPC handler
 2. **Preload script** — `exposeIpc()` bridges IPC to the renderer
 3. **Renderer process** — `ipcFetch()` sends requests through the bridge
 
@@ -88,15 +88,17 @@ Create `src/main/app.ts`:
 
 ```typescript
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { electronIpc } from '@zeltjs/adapter-electron';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
-export const app = createApp([http({
-    controllers: [HelloController],
-  })]);
+export const app = createApp([
+  http({ controllers: [HelloController] }),
+  electronIpc(),
+]);
 ```
 
 ### Step 3: Initialize in Main Process
@@ -105,20 +107,19 @@ Create `src/main/index.ts`:
 
 ```typescript
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onElectron } from '@zeltjs/adapter-electron';
+import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([http({ controllers: [HelloController] }), electronIpc()]);
 declare const BrowserWindow: any;
 declare const join: (...args: string[]) => string;
 // ---cut---
 const bootstrap = async () => {
-  const electronZelt = await onElectron(app, {
-    ipcChannel: 'http://zelt-app',
-  });
+  const electronZelt = await onElectron(app);
+  await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
   const win = new BrowserWindow({
     width: 900,
@@ -135,9 +136,10 @@ const bootstrap = async () => {
 void bootstrap();
 ```
 
-`onElectron()` starts the Zelt runtime and automatically registers the IPC handler for the specified channel. It returns:
+`onElectron()` starts the Zelt runtime from the declared features. Pass the target HTTP capabilities and channel to `ipc.listen()` to register the IPC handler. It returns:
 
 - `http.fetch(request)` — Handles a `Request` and returns a `Response` (each configured feature is namespaced by its key; `http` is the default)
+- `ipc.listen(http, options)` — Exposes the selected HTTP target over IPC
 - `shutdown()` — Gracefully shuts down the application
 - `get<T>(Class)` — Resolves a service from the DI container
 

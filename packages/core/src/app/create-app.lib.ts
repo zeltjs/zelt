@@ -9,11 +9,7 @@ import {
 
 import type { ConfigClass } from '../built-in-service';
 import type { ContextMode } from '../kernel';
-import {
-  ContextRuntimeService,
-  ZeltAppConfigurationError,
-  ZeltLifecycleStateError,
-} from '../kernel';
+import { ContextRuntimeService, ZeltAppConfigurationError } from '../kernel';
 import { AppBootstrap } from './app-bootstrap.lib';
 import { ConfigRegistry } from './config-registry.lib';
 import type {
@@ -21,15 +17,16 @@ import type {
   FeatureClass,
   FeatureEntry,
   NamespacedCaps,
-  RegisteredRuntimeShutdown,
   RegisterRuntimeShutdown,
-  RuntimeShutdownCallback,
   ServiceResolver,
   StaticNamespacedCaps,
   ZeltPrebuilt,
 } from './feature.types';
 import { FeatureInjectionError, FeatureRegistryService } from './feature-registry.service';
 import { attachContainer } from './override.lib';
+import type { ReservedAppProperties, ValidFeatures } from './reserved-app-keys.lib';
+import { RESERVED_APP_KEYS } from './reserved-app-keys.lib';
+import { RuntimeShutdownService } from './runtime-shutdown.service';
 
 export type CreateAppOptions = {
   readonly configs?: readonly ConfigClass<object>[];
@@ -43,14 +40,15 @@ export type CreateRuntimeOptions = {
   readonly prebuilt?: ZeltPrebuilt;
 };
 
-export type App<F extends readonly ConfiguredFeature[]> = {
+export type App<F extends readonly ConfiguredFeature[]> = ReservedAppProperties<{
   readonly features: Readonly<F>;
   readonly configs: readonly ConfigClass<object>[];
   readonly hasFeature: (featureClass: FeatureClass) => boolean;
   readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<RuntimeApp<F>>;
-} & StaticNamespacedCaps<F>;
+}> &
+  StaticNamespacedCaps<F>;
 
-export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
+export type RuntimeApp<F extends readonly ConfiguredFeature[]> = ReservedAppProperties<{
   readonly features: Readonly<F>;
   readonly hasFeature: (featureClass: FeatureClass) => boolean;
   readonly getFeatureEntries: <TFeatureClass extends FeatureClass>(
@@ -59,23 +57,12 @@ export type RuntimeApp<F extends readonly ConfiguredFeature[]> = {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly registerShutdown: RegisterRuntimeShutdown;
   readonly shutdown: () => Promise<void>;
-} & NamespacedCaps<F>;
+}> &
+  NamespacedCaps<F>;
 
 // ─── Helpers ───
 
-const reservedFeatureKeys = /* @__PURE__ */ new Set([
-  '__proto__',
-  'configs',
-  'createRuntime',
-  'constructor',
-  'features',
-  'get',
-  'getFeatureEntries',
-  'hasFeature',
-  'prototype',
-  'registerShutdown',
-  'shutdown',
-]);
+const reservedFeatureKeys = /* @__PURE__ */ new Set<string>(RESERVED_APP_KEYS);
 
 /** @throws {ZeltAppConfigurationError} */
 const assertUniqueFeatureKeys = (features: readonly ConfiguredFeature[]): void => {
@@ -119,89 +106,6 @@ const warmupFeatureClasses = async (
       await resolver.get(cls);
     }
   }
-};
-
-/** @throws {AggregateError} */
-const runShutdownCallbacks = async (
-  callbacks: ReadonlySet<RegisteredRuntimeShutdown>,
-): Promise<void> => {
-  const results = await Promise.allSettled([...callbacks].map((callback) => callback()));
-  const errors: unknown[] = [];
-  for (const result of results) {
-    if (result.status === 'rejected') errors.push(result.reason);
-  }
-  if (errors.length > 0) {
-    throw new AggregateError(errors, 'One or more runtime shutdown callbacks failed');
-  }
-};
-
-/** @throws {ZeltLifecycleStateError} */
-const registerRuntimeShutdown = (
-  callbacks: Set<RegisteredRuntimeShutdown>,
-  callback: RuntimeShutdownCallback,
-): RegisteredRuntimeShutdown => {
-  /** @throws {ZeltLifecycleStateError} */
-  const registered = async (): Promise<void> => {
-    if (!callbacks.delete(registered)) return;
-    await callback();
-  };
-  callbacks.add(registered);
-  return registered;
-};
-
-const createRuntimeShutdown = (
-  runtime: AppBootstrap,
-  featureRegistry: FeatureRegistryService,
-): {
-  readonly registerShutdown: RegisterRuntimeShutdown;
-  readonly shutdown: () => Promise<void>;
-} => {
-  const callbacks = new Set<RegisteredRuntimeShutdown>();
-  let shutdownPromise: Promise<void> | undefined;
-
-  /** @throws {ZeltLifecycleStateError} */
-  const registerShutdown = (callback: RuntimeShutdownCallback): RegisteredRuntimeShutdown => {
-    if (shutdownPromise !== undefined) {
-      throw new ZeltLifecycleStateError({
-        operation: 'register shutdown callback',
-        currentState: 'disposed',
-      });
-    }
-    return registerRuntimeShutdown(callbacks, callback);
-  };
-
-  /** @throws {AggregateError | ZeltLifecycleStateError | Error} */
-  const runShutdown = async (): Promise<void> => {
-    runtime.assertCanShutdown();
-    const errors: unknown[] = [];
-    try {
-      await runShutdownCallbacks(callbacks);
-    } catch (error) {
-      errors.push(error);
-    }
-    try {
-      await runtime.shutdown();
-    } catch (error) {
-      errors.push(error);
-    }
-    if (errors.length > 0) {
-      throw new AggregateError(errors, 'Runtime shutdown encountered errors');
-    }
-  };
-
-  /** @throws {AggregateError | ZeltLifecycleStateError} */
-  const shutdown = (): Promise<void> => {
-    // Concurrent callers share cleanup, its errors, and final registry disposal.
-    shutdownPromise ??= Promise.resolve()
-      .then(runShutdown)
-      .finally(() => {
-        if (runtime.isDisposed) featureRegistry.dispose();
-        else shutdownPromise = undefined;
-      });
-    return shutdownPromise;
-  };
-
-  return { registerShutdown, shutdown };
 };
 
 const registerConfigs = (
@@ -283,7 +187,7 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
   const runtime = container.get(AppBootstrap);
   const configRegistry = container.get(ConfigRegistry);
   const featureRegistry = container.get(FeatureRegistryService);
-  const { registerShutdown, shutdown } = createRuntimeShutdown(runtime, featureRegistry);
+  const { registerShutdown, shutdown } = container.get(RuntimeShutdownService);
 
   featureRegistry.prepare(features);
 
@@ -327,18 +231,18 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
 
 /** @throws {AggregateError | ZeltAppConfigurationError | ZeltDecoratorUsageError | ZeltReadyFailedError | ZeltLifecycleStateError | FeatureInjectionError | TypeError} */
 export const createApp = <const F extends readonly ConfiguredFeature[]>(
-  features: F,
+  features: F & ValidFeatures<F>,
   options?: CreateAppOptions,
 ): App<F> => {
   assertUniqueFeatureKeys(features);
 
   const baseConfigs = options?.configs;
-  const staticCaps = collectBlueprints(features);
+  const staticCaps = collectBlueprints<F>(features);
 
   const app = {
     ...staticCaps,
     createRuntime: (runtimeOptions?: CreateRuntimeOptions): Promise<RuntimeApp<F>> =>
-      createRuntimeApp(features, baseConfigs, runtimeOptions),
+      createRuntimeApp<F>(features, baseConfigs, runtimeOptions),
   };
 
   return {

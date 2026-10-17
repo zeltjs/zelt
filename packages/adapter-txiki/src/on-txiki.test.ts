@@ -8,6 +8,7 @@ import {
   http,
   httpServer,
   Post,
+  RuntimeShutdownService,
   request,
   TaskService,
 } from '@zeltjs/core';
@@ -45,6 +46,7 @@ describe('onTxiki', () => {
     const app = await onTxiki(createApp([http({ controllers: [EchoController] }), httpServer()]), {
       signals: false,
     });
+    expect(app.shutdown).toBe((await app.get(RuntimeShutdownService)).shutdown);
     const result = await app.http.request(new Request('http://localhost/echo/override'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Override': 'updated' },

@@ -1,4 +1,4 @@
-import type { HttpFetchTarget } from '@zeltjs/core';
+import type { FeatureName, HttpFetchTarget } from '@zeltjs/core';
 import { Feature } from '@zeltjs/core';
 import type { LambdaHandlerV1, LambdaHandlerV2 } from './lambda-handler.lib';
 import { createHandlerV1, createHandlerV2 } from './lambda-handler.lib';
@@ -48,7 +48,7 @@ export class LambdaHandlerFeature<TName extends string = 'handler'> extends Feat
 
 export function lambdaHandler(): LambdaHandlerFeature<'handler'>;
 export function lambdaHandler<const TName extends string>(options: {
-  readonly name: TName;
+  readonly name: TName & FeatureName<TName>;
 }): LambdaHandlerFeature<TName>;
 export function lambdaHandler(options?: { readonly name: string }): LambdaHandlerFeature<string> {
   return new LambdaHandlerFeature(options?.name ?? 'handler');

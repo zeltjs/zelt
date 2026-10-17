@@ -1,4 +1,4 @@
-import { onTinyjs, TinyjsAppAdaptor } from '@zeltjs/adapter-tinyjs';
+import { onTinyjs, TinyjsAppAdaptor, tinyjsBridge } from '@zeltjs/adapter-tinyjs';
 import {
   Controller,
   createApp,
@@ -97,6 +97,7 @@ class TaskController {
   }
 }
 
-const desktop = await onTinyjs(createApp([http({ controllers: [TaskController] })]));
-export const api = desktop.api;
-export const init = desktop.init;
+const desktop = await onTinyjs(
+  createApp([http({ controllers: [TaskController] }), tinyjsBridge()]),
+);
+export const { api, init } = desktop.bridge.create(desktop.http);

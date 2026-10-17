@@ -1,4 +1,4 @@
-import { onTinyjs } from '../../packages/adapter-tinyjs/dist/index.js';
+import { onTinyjs, tinyjsBridge } from '../../packages/adapter-tinyjs/dist/index.js';
 import { createTinyFetch } from '../../packages/adapter-tinyjs/dist/renderer/index.js';
 import { onTxiki, prepareTxikiRequest } from '../../packages/adapter-txiki/dist/index.js';
 import { Controller, createApp, Get, http, httpServer, Post, request, response } from '../../packages/core/dist/index.js';
@@ -26,8 +26,9 @@ const prepared = await prepareTxikiRequest(new Request('http://localhost/body', 
 const copy = prepared.clone();
 check(await copy.text() === 'independent' && await prepared.text() === 'independent', 'Request clones must be independently readable');
 
-const definition = createApp([http({ controllers: [Endpoint] }), http({ name: 'admin', controllers: [Endpoint] })]);
+const definition = createApp([http({ controllers: [Endpoint] }), http({ name: 'admin', controllers: [Endpoint] }), tinyjsBridge()]);
 const desktop = await onTinyjs(definition);
+const nativeBridge = desktop.bridge.create(new Map([['http', desktop.http], ['admin', desktop.admin]]));
 const overridden = await desktop.http.request(new Request('http://localhost/api/override'), {
   method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Override': 'updated' },
   body: JSON.stringify({ value: 'replacement' }),
@@ -45,7 +46,7 @@ const retained = await desktop.http.request(original, {
 check(retained.status === 200, 'RequestInit header override lost the original method');
 const retainedBody = await retained.json();
 check(retainedBody.marker === 'changed' && retainedBody.body.value === 'retained', 'RequestInit header override lost the original body');
-const bridge = { call: async (_method, payload) => JSON.parse(JSON.stringify(await desktop.api['zelt.fetch'](JSON.parse(JSON.stringify(payload))))) };
+const bridge = { call: async (_method, payload) => JSON.parse(JSON.stringify(await nativeBridge.api['zelt.fetch'](JSON.parse(JSON.stringify(payload))))) };
 const fetch = createTinyFetch({ bridge });
 const results = await Promise.all(Array.from({ length: 25 }, (_, id) => fetch(`/api/echo?id=${id}`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
@@ -63,7 +64,7 @@ let nativeDone;
 let stopped = false;
 const native = { done: new Promise(resolve => { nativeDone = resolve; }), setTitle() {}, push() {}, quit() {} };
 desktop.registerShutdown(async () => { await Promise.resolve(); stopped = true; });
-desktop.init(native);
+nativeBridge.init(native);
 nativeDone();
 await native.done;
 check(stopped, 'Native lifetime completed before runtime shutdown');

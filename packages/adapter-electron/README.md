@@ -18,7 +18,7 @@ npm install @zeltjs/adapter-electron @zeltjs/core
 
 ```typescript
 import { createApp, httpServer, http, Controller, Get } from '@zeltjs/core';
-import { onElectron } from '@zeltjs/adapter-electron';
+import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
 
 @Controller('/api')
 class ApiController {
@@ -28,9 +28,10 @@ class ApiController {
   }
 }
 
-const app = createApp([http({ controllers: [ApiController] })]);
+const app = createApp([http({ controllers: [ApiController] }), electronIpc()]);
 
-const electronZelt = await onElectron(app, { ipcChannel: 'http://zelt-app' });
+const electronZelt = await onElectron(app);
+await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 ```
 
 ### Preload script
@@ -62,16 +63,17 @@ Configure additional named `http()` features alongside the renderer-facing one:
 const app = createApp([
   http({ controllers: [ApiController] }),
   httpServer(),
+  electronIpc(),
   http({ name: 'mcp', controllers: [McpController] }),
 ]);
 
 const electronZelt = await onElectron(app);
 ```
 
-By default the `http` feature is bound to the IPC bridge; pass `ipcFeature` to bind a different one instead:
+Pass the HTTP target explicitly when starting IPC. No handler is registered until `listen()` is called:
 
 ```typescript
-const electronZelt = await onElectron(app, { ipcFeature: 'mcp' });
+await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 ```
 
 Any other feature can be served over TCP instead of IPC — handy for exposing an MCP server or other external API from the same runtime and shared services, keeping only the router and trust boundary separate from the renderer-facing API:
@@ -80,7 +82,9 @@ Any other feature can be served over TCP instead of IPC — handy for exposing a
 await electronZelt.server.listen(electronZelt.mcp, { port: 8765, hostname: '127.0.0.1' });
 ```
 
-Breaking change: the old `electronZelt.fetch` shorthand is gone — use `electronZelt.http.fetch` instead.
+The returned IPC handle provides `channel` and `shutdown()`. Runtime shutdown also removes its bindings, once each. Use distinct channels for multiple IPC bindings.
+
+Breaking change: replace `onElectron(app, { ipcFeature, ipcChannel })` with an explicit `electronIpc()` feature and `electronZelt.ipc.listen(targetHttp, { channel })`. `onElectron()` returns the unchanged runtime and also supports apps without HTTP or IPC features.
 
 ## Learn More
 

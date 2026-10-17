@@ -19,6 +19,7 @@ export type {
   RegisteredRuntimeShutdown,
   RegisterRuntimeShutdown,
   RuntimeShutdownCallback,
+  RuntimeShutdownOptions,
   ServiceResolver,
   StaticNamespacedCaps,
   ZeltPrebuilt,
@@ -27,3 +28,11 @@ export { Feature } from './feature.types';
 export { FeatureInjectionError } from './feature-registry.service';
 export { injectFeature } from './inject-feature.lib';
 export { attachContainer, type Override, override } from './override.lib';
+export type {
+  FeatureName,
+  ReservedAppKey,
+  ReservedAppProperties,
+  ValidFeatures,
+} from './reserved-app-keys.lib';
+export { RESERVED_APP_KEYS } from './reserved-app-keys.lib';
+export { RuntimeShutdownService } from './runtime-shutdown.service';

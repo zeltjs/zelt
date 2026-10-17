@@ -347,6 +347,7 @@ describe('createApp', () => {
   it('rejects feature keys reserved by app capabilities', () => {
     reservedStaticCapabilities.mockClear();
 
+    // @ts-expect-error runtime validation also rejects reserved names from untyped callers
     expect(() => createApp([new ReservedCreateRuntimeFeature()])).toThrow(
       /Reserved feature namespace: createRuntime/,
     );
@@ -405,6 +406,7 @@ describe('createApp', () => {
 
   it('throws ZeltAppConfigurationError when a feature uses the reserved key "configs"', () => {
     const feature = createStubFeature('configs', {});
+    // @ts-expect-error runtime validation also rejects reserved names from untyped callers
     expect(() => createApp([feature])).toThrow(ZeltAppConfigurationError);
   });
 
