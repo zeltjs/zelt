@@ -109,11 +109,12 @@ const isWithin = (root: string, file: string): boolean => {
 const canonicalPath = (file: string): string =>
   existsSync(file) ? realpathSync(file) : resolvePath(file);
 
-const distributionDirectory = (target: string): string => {
-  const wildcard = target.indexOf('*');
+const distributionDirectory = (root: string, target: string): string => {
+  const path = relative(root, target);
+  const wildcard = path.indexOf('*');
   return wildcard < 0
     ? dirname(target)
-    : resolvePath(target.slice(0, target.lastIndexOf(sep, wildcard) + 1));
+    : resolvePath(root, path.slice(0, path.lastIndexOf(sep, wildcard) + 1));
 };
 
 const ownsDistributionFile = (root: string, file: string, exports: unknown): boolean =>
@@ -121,7 +122,7 @@ const ownsDistributionFile = (root: string, file: string, exports: unknown): boo
   exportTargets(exports).some((target) => {
     if (!target.startsWith('./')) return false;
     const entry = resolvePath(root, target);
-    const directory = distributionDirectory(entry);
+    const directory = distributionDirectory(root, entry);
     return file === entry || (directory !== root && isWithin(directory, file));
   });
 
@@ -198,21 +199,26 @@ const packageFiles = (directory: string): readonly string[] =>
     return entry.isDirectory() ? packageFiles(file) : [file];
   });
 
-const exportPatternMatcher = (pattern: string): RegExp =>
-  new RegExp(
-    '^' +
-      pattern
-        .split('*')
-        .map((part, index) => {
-          if (index === 0) return RegExp.escape(part);
-          return (index === 1 ? '(.*)' : '\\1') + RegExp.escape(part);
-        })
-        .join('') +
-      '$',
-  );
+const exportPatternMatcher = (pattern: string): ((file: string) => string | undefined) => {
+  const parts: readonly string[] = pattern.split('*');
+  const wildcards = parts.length - 1;
+  const literalLength = pattern.length - wildcards;
+  const offset = pattern.indexOf('*');
+  return (file) => {
+    if (wildcards === 0) return undefined;
+    // Every '*' substitutes the same subpath, whose length follows from the filename.
+    const length = (file.length - literalLength) / wildcards;
+    if (length < 0 || !Number.isInteger(length)) return undefined;
+    const capture = file.slice(offset, offset + length);
+    return parts.join(capture) === file ? capture : undefined;
+  };
+};
 
-const readExportPatternFiles = (pattern: string): Result<readonly string[], InspectError> =>
-  Result.fromThrowable(() => packageFiles(distributionDirectory(pattern)))().orElse((cause) =>
+const readExportPatternFiles = (
+  root: string,
+  pattern: string,
+): Result<readonly string[], InspectError> =>
+  Result.fromThrowable(() => packageFiles(distributionDirectory(root, pattern)))().orElse((cause) =>
     match(cause)
       .with({ code: P.union('ENOENT', 'ENOTDIR') }, () => ok<readonly string[], InspectError>([]))
       .otherwise(() =>
@@ -239,8 +245,8 @@ const runtimeExtensions = new Set([
 const isRuntimeClassEntry = (entry: string): boolean =>
   runtimeExtensions.has(extname(entry)) && !/\.d\.[cm]?ts$/.test(entry);
 
-const needsExportExpansion = (entry: string): boolean =>
-  entry.includes('*') && isRuntimeClassEntry(entry);
+const needsExportExpansion = (specifier: string, target: string): boolean =>
+  specifier.includes('*') && target.includes('*') && isRuntimeClassEntry(target);
 
 function* exportEntries(
   pkg: PackageOwner,
@@ -248,20 +254,25 @@ function* exportEntries(
 ): Generator<Result<string, InspectError>, void> {
   const entry = resolveExportEntry(pkg, specifier);
   if (entry.isErr()) return;
-  if (!needsExportExpansion(entry.value)) {
+  const target = relative(pkg.root, entry.value);
+  if (!needsExportExpansion(specifier, target)) {
     yield entry;
     return;
   }
-  const files = readExportPatternFiles(entry.value);
+  const files = readExportPatternFiles(pkg.root, entry.value);
   if (files.isErr()) {
     yield err(files.error);
     return;
   }
-  const matcher = exportPatternMatcher(entry.value);
-  for (const file of files.value.toSorted()) {
-    const capture = matcher.exec(file)?.[1];
+  const matcher = exportPatternMatcher(target);
+  for (const file of files.value.slice().sort()) {
+    const capture = matcher(relative(pkg.root, file));
     if (capture === undefined) continue;
-    const resolved = resolveExportEntry(pkg, specifier.replace('*', capture.split(sep).join('/')));
+    const subpath = capture.split(sep).map(encodeURIComponent).join('/');
+    const resolved = resolveExportEntry(
+      pkg,
+      specifier.replace('*', () => subpath),
+    );
     if (resolved.isOk()) yield resolved;
   }
 }

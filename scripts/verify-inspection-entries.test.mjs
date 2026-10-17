@@ -10,7 +10,7 @@ import { getClassSource } from '../packages/decorator-metadata/dist/inspect/inde
 const runtime = new URL('../packages/decorator-metadata/dist/index.js', import.meta.url).href;
 
 const createPackage = async (t, exports) => {
-  const root = await mkdtemp(join(tmpdir(), 'zelt-inspection-entries-'));
+  const root = await mkdtemp(join(tmpdir(), 'zelt-inspection-[literal]+-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(join(root, 'dist'));
   await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'inspection-entry-probe', type: 'module', exports }));

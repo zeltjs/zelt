@@ -155,6 +155,28 @@ describe('getClassSource', () => {
       },
       { layout: 'constant wildcard target', installPath: 'packages', entry: './services/*' },
       {
+        layout: 'literal pattern punctuation',
+        installPath: 'packages',
+        entry: './services/*',
+        target: './dist/[literal]+/*/index.mjs',
+        directory: 'dist/[literal]+/service',
+      },
+      {
+        layout: 'literal captured dollar',
+        installPath: 'packages',
+        entry: './services/*',
+        target: './dist/*/index.mjs',
+        directory: 'dist/service$&',
+      },
+      {
+        layout: 'numeric repeated wildcard trailer',
+        installPath: 'packages',
+        entry: './services/*',
+        target: './dist/*/entry-*2.mjs',
+        directory: 'dist/service',
+        entryFile: 'entry-service2.mjs',
+      },
+      {
         layout: 'repeated target wildcard',
         installPath: 'packages',
         entry: './services/*',
