@@ -12,8 +12,8 @@ if [[ -z "$MODE" ]]; then
   echo "Usage: $0 <mode> [target]"
   echo ""
   echo "Modes:"
-  echo "  dist    Use local packages (file:../../packages/*)"
-  echo "  pack    Use packed tarballs (file:../.pack-cache/*.tgz)"
+  echo "  dist    Use immutable local distribution directories"
+  echo "  pack    Use immutable packed tarballs"
   echo "  public  Use npm registry (latest versions)"
   echo ""
   echo "Target: all (default) or specific integration test directory"
@@ -101,45 +101,6 @@ get_catalog_version() {
   ' "$ROOT_DIR/pnpm-workspace.yaml"
 }
 
-# @zeltjs/* 各パッケージの dependencies/peerDependencies を走査し、
-# `catalog:` プロトコルで参照されている依存名を重複なく列挙する。
-# (どの依存が catalog 管理かをハードコードせず実際の package.json から導出する)
-collect_catalog_dep_names() {
-  run_at_root node -e '
-    const fs = require("fs");
-    const path = require("path");
-    const dir = process.argv[1];
-    const names = new Set();
-    for (const pkg of fs.readdirSync(dir)) {
-      const pj = path.join(dir, pkg, "package.json");
-      if (!fs.existsSync(pj)) continue;
-      const json = JSON.parse(fs.readFileSync(pj, "utf8"));
-      for (const field of ["dependencies", "peerDependencies"]) {
-        for (const [name, spec] of Object.entries(json[field] || {})) {
-          if (typeof spec === "string" && spec.startsWith("catalog:")) names.add(name);
-        }
-      }
-    }
-    for (const name of [...names].sort()) console.log(name);
-  ' "$ROOT_DIR/packages"
-}
-
-# catalog 参照されている依存を default catalog の実バージョンに固定する
-# pnpm.overrides 用 JSON 断片を生成する (例: "hono": "4.12.16","valibot": "1.3.1")
-build_catalog_overrides() {
-  local fragment="" name version
-  while IFS= read -r name; do
-    [[ -z "$name" ]] && continue
-    version=$(get_catalog_version "$name")
-    if [[ -z "$version" ]]; then
-      echo "ERROR: '$name' は catalog: 参照だが default catalog に版が無い" >&2
-      exit 1
-    fi
-    fragment="$fragment\"$name\": \"$version\","
-  done < <(collect_catalog_dep_names)
-  echo "${fragment%,}"
-}
-
 generate_package_json() {
   local mode="$1"
   local integration_dir="$2"
@@ -150,16 +111,11 @@ generate_package_json() {
   local overrides=""
 
   case "$mode" in
-    dist)
+    dist|pack)
       for pkg in "${PACKAGES[@]}"; do
-        deps="$deps\"@zeltjs/$pkg\": \"file:../../packages/$pkg\","
-        overrides="$overrides\"@zeltjs/$pkg\": \"file:../../packages/$pkg\","
-      done
-      ;;
-    pack)
-      for pkg in "${PACKAGES[@]}"; do
-        deps="$deps\"@zeltjs/$pkg\": \"file:../.pack-cache/zeltjs-$pkg-0.0.0.tgz\","
-        overrides="$overrides\"@zeltjs/$pkg\": \"file:../.pack-cache/zeltjs-$pkg-0.0.0.tgz\","
+        local spec="${ARTIFACT_SPECS[$pkg]}"
+        deps="$deps\"@zeltjs/$pkg\": \"$spec\","
+        overrides="$overrides\"@zeltjs/$pkg\": \"$spec\","
       done
       ;;
     public)
@@ -181,10 +137,6 @@ generate_package_json() {
   to_json_schema_ver=$(get_catalog_version "@valibot/to-json-schema")
   types_node_ver=$(get_catalog_version "@types/node")
   typescript_ver=$(get_catalog_version "typescript")
-
-  # @zeltjs/* が catalog: で参照する依存を実バージョンに固定する overrides 断片
-  local catalog_overrides
-  catalog_overrides=$(build_catalog_overrides)
 
   local volta_section
   volta_section=$(get_volta_section)
@@ -213,13 +165,12 @@ generate_package_json() {
   },
   "volta": {
 $volta_section
-  }
+  },
+  "pnpm": { "onlyBuiltDependencies": ["better-sqlite3", "esbuild"] }
 }
 EOF
   else
-    # dist/pack モードは @zeltjs/* を file: でソース参照するため、各 package.json の
-    # `catalog:` 指定が workspace 外 (--ignore-workspace) で解決できない。
-    # catalog 管理の第三者ランタイム依存を overrides で実バージョンに固定して解決する。
+    # pnpm pack has already resolved workspace: and catalog: in the artifacts.
     cat <<EOF
 {
   "name": "@integration/$name",
@@ -245,9 +196,9 @@ EOF
 $volta_section
   },
   "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"],
     "overrides": {
-      $overrides,
-      $catalog_overrides
+      $overrides
     }
   }
 }
@@ -255,39 +206,26 @@ EOF
   fi
 }
 
-# Mode-level preparation (run once before iterating dirs)
-prepare_dist_mode() {
-  # 呼び出し側が直前に build 済みのときは二重に build しない
-  # (precommit の studio snapshot ドリフト検知がここを通る)
-  if [[ "${ZELT_SKIP_PACKAGE_BUILD:-}" == "1" ]]; then
-    echo "Skipping package build (ZELT_SKIP_PACKAGE_BUILD=1)"
-    return
-  fi
-  echo "Building packages..."
-  (
-    cd "$ROOT_DIR"
-    pnpm nx run-many -t build --projects='@zeltjs/*'
-    node scripts/sync-injected-dist.mjs
-  )
+# Distribution generation is an explicit Nx target, including on cache hits.
+declare -A ARTIFACT_SPECS=()
+prepare_distributions() {
+  (cd "$ROOT_DIR" && pnpm nx run-many -t distribution --projects='@zeltjs/*')
+  local specs
+  specs=$(run_at_root node --input-type=module - "$MODE" "${PACKAGES[@]}" <<'NODE'
+import { materializeDistribution } from './scripts/pack-distribution.mjs';
+const [mode, ...packages] = process.argv.slice(2);
+for (const name of packages) {
+  const base = `packages/${name}/.artifacts`;
+  const artifact = materializeDistribution(`packages/${name}`);
+  const path = mode === 'pack' ? artifact.tarball : artifact.directory;
+  console.log(`${name}\tfile:../../${base}/${path}`);
 }
-
-prepare_pack_mode() {
-  local pack_dir="$INTEGRATION_DIR/.pack-cache"
-
-  rm -rf "$pack_dir"
-  mkdir -p "$pack_dir"
-
-  echo "Building packages..."
-  (cd "$ROOT_DIR" && pnpm -r --filter './packages/*' build >/dev/null 2>&1)
-
-  echo "Packing all @zeltjs/* packages..."
-  for pkg in "${PACKAGES[@]}"; do
-    local pkg_dir="$ROOT_DIR/packages/$pkg"
-    if [[ -d "$pkg_dir" ]]; then
-      (cd "$pkg_dir" && pnpm pack --pack-destination "$pack_dir" >/dev/null 2>&1)
-      echo "  ✓ @zeltjs/$pkg"
-    fi
-  done
+NODE
+  )
+  local name spec
+  while IFS=$'\t' read -r name spec; do
+    ARTIFACT_SPECS["$name"]="$spec"
+  done <<< "$specs"
 }
 
 # Per-directory setup (generate package.json + install)
@@ -330,20 +268,7 @@ setup_integration_dir() {
   mv "$tmp_pkg" "$integration_dir/package.json"
   merge_extra_deps "$integration_dir"
 
-  if [[ "$mode" == "dist" ]]; then
-    run_at_root node "$ROOT_DIR/scripts/prepare-integration-deps.mjs" "$integration_dir"
-  else
-    echo "  Installing dependencies..."
-    (
-      cd "$integration_dir"
-      rm -rf node_modules pnpm-lock.yaml
-      if VOLTA_FEATURE_PNPM=1 pnpm --version >/dev/null 2>&1; then
-        VOLTA_FEATURE_PNPM=1 pnpm install --ignore-workspace 2>/dev/null
-      else
-        pnpm install --ignore-workspace 2>/dev/null
-      fi
-    )
-  fi
+  run_at_root node "$ROOT_DIR/scripts/prepare-integration-deps.mjs" "$integration_dir" "$mode"
 
   echo "  ✓ $name ready"
 }
@@ -351,13 +276,13 @@ setup_integration_dir() {
 main() {
   case "$MODE" in
     dist)
-      prepare_dist_mode
+      prepare_distributions
       for dir in $(get_integration_dirs); do
         setup_integration_dir "dist" "$dir"
       done
       ;;
     pack)
-      prepare_pack_mode
+      prepare_distributions
       for dir in $(get_integration_dirs); do
         setup_integration_dir "pack" "$dir"
       done

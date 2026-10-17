@@ -196,18 +196,10 @@ const aliasResolved = (cached: CachedProgram, raw: ClassSource): ClassSource => 
 // 名前差があっても、クラスオブジェクトの trace 由来の値に収束させる。
 // 正準化に失敗した場合 (未デコレートのクラス等) は解決済みの raw 値をそのまま使う
 //
-// team-lead 決定(Task 10 remaining-diff cause 5): raw.filePath が external(node_modules
-// 配下)なら、この正準化を行わず raw をそのまま使う。正準化は resolveClassSource→getClassSource
-// の往復でクラスオブジェクトを実際に動的 import し、その「宣言ファイルの実体」から exportName を
-// 再導出するが、外部パッケージが tsdown/rolldown でバンドルされた dist を配布している場合、
-// その再導出はバンドラが生成した chunk 内部の一時変数名(例: `t`)を拾ってしまうことがある
-// (@zeltjs/kv が MemoryKVAdaptor を複数の名前で re-export する場合の実例)。external の
-// 場合、rule(a)(import map)から得た raw の exportName(呼び出し元ファイルの import 文に
-// 実際に書かれている名前)がユーザー向けの安定した唯一の名前であり、これ以上正準化する
-// 必要も利点も無い(ExternalNode の id は filePath ではなく (package, member) だけで
-// 決まるため、chunk のパス差を吸収する目的の正準化はそもそも external には無関係)。
-// internal なターゲットは既存どおり正準化する(バレル再エクスポート越しの別名を1つの
-// ClassNode に収束させるために必要)
+// 配布物への参照では、import 文が持つ公開名を維持する。共有 chunk を反射すると
+// `t` のようなバンドラ内部名へ変わることがある。外部ノードの識別子は
+// (package, member) なので、chunk 間のパス差を正準化する必要もない。
+// アプリ自身のソースは、従来どおりクラス identity から別名を正準化する。
 const canonicalize = async (
   cached: CachedProgram,
   localName: string,

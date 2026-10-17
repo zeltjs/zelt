@@ -7,7 +7,7 @@ set -euo pipefail
 # 抽出は integration/ec-backend の app を子プロセスで読み込むので、そのアプリの依存が
 # 揃っていないと zelt/routes が取れず抽出が失敗する。integration/* は pnpm workspace の
 # 外にあり、package.json ごと switch-mode.sh が生成するため、ここで同じ手順を共有する。
-# 依存準備は第三者依存を再利用し、配布物の独立したコピーを毎回同期する。
+# 依存準備は固定された配布物を pnpm 経由で導入する。
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="$ROOT_DIR/integration/ec-backend"
@@ -16,8 +16,8 @@ FIXTURE="packages/studio-ui/test-fixtures/ec-backend.snapshot.json"
 
 prepare_app() {
   echo "Preparing integration/ec-backend..."
-  # packages の build は呼び出し側 (precommit / CI) が先に済ませている
-  ZELT_SKIP_PACKAGE_BUILD=1 "$ROOT_DIR/integration/scripts/switch-mode.sh" dist ec-backend
+  # Nx が build と配布物生成の依存関係・再利用を管理する
+  "$ROOT_DIR/integration/scripts/switch-mode.sh" dist ec-backend
 }
 
 extract_snapshot() {

@@ -5,43 +5,83 @@
     "sharedGlobals": [
       "{workspaceRoot}/package.json",
       "{workspaceRoot}/pnpm-lock.yaml",
-      "{workspaceRoot}/tsconfig.json"
-    ]
+      "{workspaceRoot}/tsconfig.json",
+      "{workspaceRoot}/pnpm-workspace.yaml"
+    ],
+    "toolchain": [
+      {
+        "runtime": "node --version"
+      }
+    ],
+    "buildTools": ["{workspaceRoot}/scripts/pure-class-decorators.mjs", "toolchain"]
   },
   "targetDefaults": {
     "build": {
       "cache": true,
       "dependsOn": ["^build"],
-      "inputs": [
-        "default",
-        "^default",
-        "{workspaceRoot}/scripts/pure-class-decorators.mjs",
-        "{workspaceRoot}/pnpm-workspace.yaml",
-        { "runtime": "node --version" }
-      ]
+      "inputs": ["default", "^default", "buildTools"],
+      "outputs": ["{projectRoot}/dist"]
     },
     "test": {
       "cache": true,
       "dependsOn": ["build"],
-      "inputs": ["default", "^production"]
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/vitest.config.ts",
+        "{workspaceRoot}/vitest.shared.ts",
+        "{workspaceRoot}/scripts/prepare-vitest.mjs",
+        {
+          "runtime": "node --version"
+        }
+      ]
     },
     "lint": {
       "cache": true,
-      "dependsOn": [{ "projects": ["@zeltjs/eslint-plugin"], "target": "build" }],
+      "dependsOn": [
+        {
+          "projects": ["@zeltjs/eslint-plugin"],
+          "target": "build"
+        }
+      ],
       "inputs": [
         "default",
         "^default",
         "{workspaceRoot}/eslint.config.mjs",
         "{workspaceRoot}/oxlintrc.json",
-        { "input": "default", "projects": ["@zeltjs/eslint-plugin"] },
-        { "runtime": "node --version" }
+        {
+          "input": "default",
+          "projects": ["@zeltjs/eslint-plugin"]
+        },
+        {
+          "runtime": "node --version"
+        }
       ],
       "outputs": []
     },
     "typecheck": {
       "cache": true,
-      "dependsOn": ["^build"],
-      "inputs": ["default", "^production"]
+      "dependsOn": ["build", "^typecheck"],
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/scripts/typecheck-project.mjs",
+        "toolchain"
+      ],
+      "outputs": ["{projectRoot}/.typebuild"]
+    },
+    "distribution": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/scripts/pack-distribution.mjs",
+        {
+          "runtime": "node --version"
+        }
+      ],
+      "outputs": ["{projectRoot}/.artifacts/current.tgz", "{projectRoot}/.artifacts/current.json"]
     }
   }
 }

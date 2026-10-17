@@ -56,6 +56,8 @@ export default tseslint.config(
     ignores: [
       '**/node_modules',
       '**/dist',
+      '**/.typebuild',
+      '**/.artifacts',
       // Generated tinyjs bundles include upstream runtime code and bundled dependencies.
       'examples/tinyjs-desktop/.build/**',
       'examples/tinyjs-desktop/backend/**',

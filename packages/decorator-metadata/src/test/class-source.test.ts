@@ -1,11 +1,11 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { getClassSource, resolveClassSource } from '../inspect/index';
+import { getClassSource, packageFromPath, resolveClassSource } from '../inspect/index';
 
 const fixturePath = resolve(__dirname, './fixtures/class-source/exported.ts');
 
@@ -69,9 +69,8 @@ describe('getClassSource', () => {
 
   // sourcemap 適用済みスタックが公開パッケージに同梱されない src パスを指すケース。
   // stable Node の import.meta.resolve は第2引数 (parentURL) を無視するため、
-  // parentURL 基準の解決が実際に機能することを検証する。fallback はパスの
-  // /node_modules/ マーカーでパッケージルートを検出するため、リポジトリに
-  // node_modules 配下の fixture を置かず tmpdir に実行時生成する
+  // parentURL 基準の解決が実際に機能することを検証する。公開 manifest を持つ
+  // インストール済みパッケージを、一時ディレクトリに生成して再現する
   it('falls back to the package entry when the recorded source path is not shipped', async () => {
     // macOS では tmpdir が symlink (/var -> /private/var) のため realpath で正規化する
     const base = await realpath(await mkdtemp(join(tmpdir(), 'class-source-fallback-')));
@@ -116,24 +115,35 @@ describe('getClassSource', () => {
   // code splitting は、宣言ファイル自体(共有 chunk)を chunk 間の再エクスポート配線用の
   // 短い内部限定名(例: `t`)で export することがある(実例: @zeltjs/eventbus の
   // MemoryEventBusAdaptor がルートクラスとして発見される際に `t` になっていた)。
-  // 宣言ファイルへの stack trace(pos.sourceFile)が external(node_modules 配下)を
+  // 宣言ファイルへの stack trace(pos.sourceFile)が依存パッケージの配布物を
   // 指す場合、宣言ファイル自体の export 名を逆引きせず、常にパッケージの公開エントリ
   // 経由で export 名を決めることを検証する。上のテストと同じ手法(実際の decorator
   // 適用フローは組まず、ensureClassMeta に手書きの stack trace を渡して
   // resolveDefinitionPosition の結果を直接コントロールする)で、
   // 宣言ファイル(chunk)と公開エントリ(index)を別ファイルとして用意し、
   // 両者が別の名前でこのクラスを export している状況を再現する
-  it("uses the package entry export name, never the declaring chunk file's own (possibly bundler-internal) export name", async () => {
+  it.each([
+    { layout: 'installed', installPath: 'app/node_modules', entry: '.' },
+    { layout: 'workspace', installPath: 'packages', entry: '.' },
+    { layout: 'subpath', installPath: 'packages', entry: './feature' },
+    { layout: 'legacy', installPath: 'app/node_modules', entry: null },
+  ])('uses the public entry name for a $layout package chunk', async ({ installPath, entry }) => {
     const base = await realpath(await mkdtemp(join(tmpdir(), 'class-source-chunk-')));
     try {
-      const pkgRoot = join(base, 'node_modules', 'chunked-pkg');
+      const pkgRoot = join(base, installPath, 'chunked-pkg');
       await mkdir(join(pkgRoot, 'dist'), { recursive: true });
       await writeFile(
         join(pkgRoot, 'package.json'),
         JSON.stringify({
           name: 'chunked-pkg',
           type: 'module',
-          exports: { '.': { import: './dist/index.mjs' } },
+          ...(entry === null
+            ? { main: './dist/index.mjs' }
+            : {
+                exports: {
+                  [entry]: { import: './dist/index.mjs' },
+                },
+              }),
         }),
       );
       // 宣言ファイル(chunk): 公開エントリとは別のファイルで、chunk 間配線用の
@@ -159,7 +169,12 @@ describe('getClassSource', () => {
       ].join('\n');
       ensureClassMeta(PublicName, { _brand: 'StackTrace', error: defineError });
 
-      const result = await getClassSource(PublicName);
+      expect(packageFromPath(chunkPath)?.name).toBe('chunked-pkg');
+      expect(packageFromPath(chunkPath, { applicationRoot: pkgRoot })).toBeUndefined();
+      const linkedRoot = join(base, 'linked-package');
+      await symlink(pkgRoot, linkedRoot, process.platform === 'win32' ? 'junction' : 'dir');
+      expect(packageFromPath(chunkPath, { applicationRoot: linkedRoot })).toBeUndefined();
+      const result = await getClassSource(PublicName, { applicationRoot: join(base, 'app') });
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;

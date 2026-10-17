@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.typebuild/
+.artifacts/
 .zelt/
 .nx/
 coverage/

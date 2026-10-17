@@ -2,15 +2,23 @@
   "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
   "compilerOptions": {
     "composite": true,
-    "outDir": "./dist",
+    "outDir": "./.typebuild",
     "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "tsBuildInfoFile": "./.typebuild/.tsbuildinfo",
     "erasableSyntaxOnly": false,
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "emitDeclarationOnly": true
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../core" }, { "path": "../adapter-txiki" }]
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../adapter-txiki"
+    }
+  ]
 }

@@ -2,7 +2,7 @@
 // runtime の記録(blueprint と decorator metadata)を JSON で親へ渡す。
 // createRuntime / realize は呼ばない。ここも親も TypeScript の AST は触らない。
 
-import { relative, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { MiddlewareInput } from '@zeltjs/core';
@@ -134,7 +134,9 @@ const note = (ctx: Context, code: string, message: string): void => {
 const toPosixPath = (filePath: string): string => filePath.replaceAll('\\', '/');
 
 const refOf = (ctx: Context, source: SourceLike): ZeltClassRef => {
-  const owner = ctx.inspect.packageFromPath(source.filePath);
+  const owner = ctx.inspect.packageFromPath(source.filePath, {
+    applicationRoot: dirname(ctx.tsconfig),
+  });
   if (owner !== undefined) {
     return {
       package: ctx.inspect.normalizePackageName(owner.name),
@@ -150,7 +152,7 @@ const refOf = (ctx: Context, source: SourceLike): ZeltClassRef => {
 };
 
 const locate = async (ctx: Context, cls: AnyClass): Promise<Located | null> => {
-  const result = await ctx.inspect.getClassSource(cls);
+  const result = await ctx.inspect.getClassSource(cls, { applicationRoot: dirname(ctx.tsconfig) });
   if (result.isErr()) {
     note(ctx, 'zelt-class-source-unresolved', `${cls.name}: ${result.error.message}`);
     return null;

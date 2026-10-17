@@ -12,9 +12,9 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 4490 --strictPort",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4490 --strictPort",
-    "typecheck": "tsc -b",
+    "typecheck": "node ../../scripts/typecheck-project.mjs",
     "test": "vitest run",
     "test:browser": "playwright test",
     "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint ."
@@ -37,5 +37,24 @@
   },
   "volta": {
     "extends": "../../package.json"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "dependsOn": [
+          "^build",
+          "typecheck"
+        ]
+      },
+      "typecheck": {
+        "dependsOn": [
+          "^build",
+          "^typecheck"
+        ],
+        "outputs": [
+          "{projectRoot}/.typebuild/.tsbuildinfo"
+        ]
+      }
+    }
   }
 }

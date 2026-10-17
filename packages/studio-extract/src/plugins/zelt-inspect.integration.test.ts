@@ -8,6 +8,29 @@ const ROOT = resolve(__dirname, '../../test-fixtures/studio-app');
 const ENTRY = resolve(__dirname, './zelt-inspect-entry.ts');
 
 describe('zelt inspector (integration)', () => {
+  it('identifies a workspace dependency root through its public export', async () => {
+    const root = resolve(__dirname, '../../test-fixtures/eventbus-app');
+    const result = await runZeltInspect({
+      request: {
+        root,
+        applicationId: 'workspace-eventbus',
+        app: { filePath: 'src/app.ts', exportName: 'app' },
+        tsconfig: resolve(root, 'tsconfig.json'),
+      },
+      entryPath: ENTRY,
+      timeoutMs: 120_000,
+    });
+
+    expect(result.ok ? '' : result.errorOutput).toBe('');
+    if (!result.ok) return;
+    expect(result.inspection.registered).toContainEqual({
+      package: '@zeltjs/eventbus',
+      filePath: '',
+      exportName: 'MemoryEventBusAdaptor',
+    });
+    expect(result.inspection.diagnostics).toEqual([]);
+  }, 120_000);
+
   it('loads the fixture app in a child process and returns its registrations', async () => {
     const result = await runZeltInspect({
       request: {

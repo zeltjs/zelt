@@ -1,8 +1,11 @@
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { resolve } from 'import-meta-resolve';
 import type { ResultAsync } from 'neverthrow';
-import { err, errAsync, ok, okAsync, ResultAsync as ResultAsyncCtor } from 'neverthrow';
+import { err, errAsync, ok, okAsync, Result, ResultAsync as ResultAsyncCtor } from 'neverthrow';
+import { match, P } from 'ts-pattern';
 
 import { getInternalClassMetadata } from '../runtime/index';
 import type { ClassSource, InspectError } from './inspect.types';
@@ -64,18 +67,81 @@ const classSourceFromModule = (
     return okAsync<ClassSource, InspectError>({ filePath, exportName });
   });
 
-// 定義ファイルパスから所属パッケージ (node_modules 配下) を割り出す
+type PackageOwner = { readonly root: string; readonly name: string };
+type SourceContext = { readonly applicationRoot?: string };
+
+const packageManifest = (
+  root: string,
+):
+  | {
+      readonly name: string;
+      readonly exports: unknown;
+      readonly main: string | undefined;
+    }
+  | undefined => {
+  const manifest: unknown = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  return match(manifest)
+    .with({ name: P.string, exports: P.optional(P._), main: P.optional(P.string) }, (value) => ({
+      name: value.name,
+      exports: value.exports,
+      main: value.main,
+    }))
+    .otherwise(() => undefined);
+};
+
+const exportTargets = (value: unknown): readonly string[] => {
+  if (typeof value === 'string') return [value];
+  if (typeof value !== 'object' || value === null) return [];
+  return Object.values(value).flatMap(exportTargets);
+};
+
+const isWithin = (root: string, file: string): boolean => {
+  const path = relative(root, file);
+  return path === '' || (!isAbsolute(path) && path !== '..' && !path.startsWith(`..${sep}`));
+};
+
+const canonicalPath = (file: string): string =>
+  existsSync(file) ? realpathSync(file) : resolvePath(file);
+
+const ownsDistributionFile = (root: string, file: string, exports: unknown): boolean =>
+  !existsSync(file) ||
+  exportTargets(exports).some(
+    (target) => target.startsWith('./') && isWithin(dirname(resolvePath(root, target)), file),
+  );
+
+const packageOwnerOf = (file: string) => {
+  let root = dirname(file);
+  while (root !== dirname(root)) {
+    if (existsSync(join(root, 'package.json'))) {
+      const manifest = packageManifest(root);
+      return manifest === undefined ? undefined : { root, ...manifest };
+    }
+    root = dirname(root);
+  }
+  return undefined;
+};
+
+// Package identity comes from manifests, including workspace links. The caller's
+// application boundary distinguishes its own source from dependency source.
 export const packageFromPath = (
   sourceFile: string,
-): { readonly root: string; readonly name: string } | undefined => {
-  const normalized = sourceFile.replace(/\\/g, '/');
-  const marker = '/node_modules/';
-  const index = normalized.lastIndexOf(marker);
-  if (index === -1) return undefined;
-  const segments = normalized.slice(index + marker.length).split('/');
-  const name = segments[0]?.startsWith('@') ? `${segments[0]}/${segments[1]}` : segments[0];
-  if (name === undefined || name === '') return undefined;
-  return { root: `${normalized.slice(0, index)}${marker}${name}`, name };
+  context: SourceContext = {},
+): PackageOwner | undefined => {
+  const file = canonicalPath(sourceFile);
+  const applicationRoot =
+    context.applicationRoot === undefined ? undefined : canonicalPath(context.applicationRoot);
+  const owner = packageOwnerOf(file);
+  if (owner === undefined) return undefined;
+  if (
+    applicationRoot !== undefined &&
+    isWithin(applicationRoot, file) &&
+    isWithin(owner.root, applicationRoot)
+  )
+    return undefined;
+  return applicationRoot !== undefined ||
+    ownsDistributionFile(owner.root, file, { exports: owner.exports, main: owner.main })
+    ? { root: owner.root, name: owner.name }
+    : undefined;
 };
 
 const TYPES_PREFIX = '@types/';
@@ -91,23 +157,45 @@ export const normalizePackageName = (name: string): string =>
 // エントリの export から ClassSource を作る (依存側の正準化も同じ経路に収束する)。
 // stable Node の import.meta.resolve は第2引数 (parentURL) を無視して自パッケージ
 // 基準の解決になるため、Node の resolver を移植した import-meta-resolve を使う
-const packageEntryFallback = (
-  sourceFile: string,
-  cls: AnyClass,
-  original: InspectError,
-): ResultAsync<ClassSource, InspectError> => {
-  const pkg = packageFromPath(sourceFile);
-  if (!pkg) return errAsync(original);
-  try {
-    const parentUrl = pathToFileURL(`${pkg.root}/package.json`).href;
-    const entry = fileURLToPath(resolve(pkg.name, parentUrl));
-    return classSourceFromModule(entry, cls);
-  } catch {
-    return errAsync(original);
-  }
+const packageSpecifiers = (pkg: PackageOwner): readonly string[] => {
+  const manifest = packageManifest(pkg.root);
+  if (manifest === undefined) return [];
+  const exports = manifest.exports;
+  if (typeof exports !== 'object' || exports === null) return [pkg.name];
+  const keys = Object.keys(exports);
+  if (!keys.some((key) => key.startsWith('.'))) return [pkg.name];
+  return keys.filter((key) => !key.includes('*')).map((key) => pkg.name + key.slice(1));
 };
 
-export const getClassSource = (cls: AnyClass): ResultAsync<ClassSource, InspectError> => {
+const packageEntrySource = (
+  pkg: PackageOwner,
+  cls: AnyClass,
+  original: InspectError,
+  specifiers: readonly string[] = packageSpecifiers(pkg),
+): ResultAsync<ClassSource, InspectError> => {
+  const [specifier, ...remaining] = specifiers;
+  if (specifier === undefined) return errAsync(original);
+  const parentUrl = pathToFileURL(join(pkg.root, 'package.json')).href;
+  const entry = Result.fromThrowable(
+    () => fileURLToPath(resolve(specifier, parentUrl)),
+    (cause): InspectError => ({
+      code: 'MODULE_LOAD_FAILED',
+      message: `Cannot resolve ${specifier}: ${String(cause)}`,
+    }),
+  )();
+  return entry
+    .asyncAndThen((path) => classSourceFromModule(path, cls))
+    .orElse((error) =>
+      error.code === 'EXPORT_NOT_FOUND'
+        ? packageEntrySource(pkg, cls, original, remaining)
+        : errAsync(error),
+    );
+};
+
+export const getClassSource = (
+  cls: AnyClass,
+  context: SourceContext = {},
+): ResultAsync<ClassSource, InspectError> => {
   const internal = getInternalClassMetadata(cls);
   if (!internal?.trace) {
     return errAsync({
@@ -122,26 +210,15 @@ export const getClassSource = (cls: AnyClass): ResultAsync<ClassSource, InspectE
       message: `No source position captured for class ${cls.name}`,
     });
   }
-  // team-lead 決定(Task 10 remaining-diff cause 5、残存分): 宣言ファイル(pos.sourceFile、
-  // 実行時 stack trace 由来)が external(node_modules 配下)なら、常にパッケージの
-  // 公開エントリ経由で export 名を決める。tsdown/rolldown の code splitting は、
-  // 宣言ファイル自体(共有 chunk)では公開 API とは別の、chunk 間の再エクスポート配線用の
-  // 短い内部限定名(例: `t`)でエクスポートすることがあり、宣言ファイルを直接 import して
-  // export 名を逆引きするとその内部名を拾ってしまう(@zeltjs/eventbus の
-  // MemoryEventBusAdaptor が eventbus 機能のルートクラスとして発見される際の実例)。
-  // パッケージの公開エントリだけがユーザー向けの安定した名前で re-export しているため、
-  // external の場合は宣言ファイル自体からの逆引きを一切行わない
-  if (packageFromPath(pos.sourceFile) !== undefined) {
-    return packageEntryFallback(pos.sourceFile, cls, {
+  // Published entries retain public names when bundlers rename shared chunk exports.
+  const pkg = packageFromPath(pos.sourceFile, context);
+  if (pkg !== undefined) {
+    return packageEntrySource(pkg, cls, {
       code: 'EXPORT_NOT_FOUND',
       message: `Class ${cls.name} is not exported from the entry point of the package declaring ${pos.sourceFile}`,
     });
   }
-  return classSourceFromModule(pos.sourceFile, cls).orElse((error) =>
-    error.code === 'MODULE_LOAD_FAILED'
-      ? packageEntryFallback(pos.sourceFile, cls, error)
-      : errAsync(error),
-  );
+  return classSourceFromModule(pos.sourceFile, cls);
 };
 
 export const resolveClassSource = (source: ClassSource): ResultAsync<AnyClass, InspectError> =>
