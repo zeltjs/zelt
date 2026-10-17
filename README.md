@@ -141,12 +141,14 @@ await bunApp.server.listen(bunApp.http, { port: 3000 });
 // Cloudflare Workers
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 const workers = await onCloudflareWorkers(app);
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 
 // AWS Lambda
-import { onLambda } from '@zeltjs/adapter-lambda';
-const lambdaApp = await onLambda(app);
-export const handler = lambdaApp.handler;
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
+const lambdaApp = await onLambda(
+  createApp([...app.features, lambdaHandler()], { configs: app.configs }),
+);
+export const handler = lambdaApp.handler.create(lambdaApp.http);
 ```
 
 ## Benchmark

@@ -33,7 +33,6 @@ AWS Lambdaの場合、プロジェクトルートに `template.yaml`(SAMテン�
 `src/entry/controllers/hello.controller.ts` を作成します:
 
 ```typescript
-// @noErrors
 import { Controller, Get, request } from '@zeltjs/core';
 // ---cut---
 @Controller('/hello')
@@ -51,17 +50,18 @@ export class HelloController {
 `src/app.ts` を作成します:
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { lambdaHandler } from '@zeltjs/adapter-lambda';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
-export const app = createApp([http({
-    controllers: [HelloController],
-  })]);
+export const app = createApp([
+  http({ controllers: [HelloController] }),
+  lambdaHandler(),
+]);
 ```
 
 ### Step 3: Lambda Handlerを作成する {#step-3-create-the-lambda-handler}
@@ -69,9 +69,8 @@ export const app = createApp([http({
 `src/handler.ts` を作成します:
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
 class HelloController {
@@ -79,19 +78,18 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 // ---cut---
 const lambdaApp = await onLambda(app);
 
-export const handler = lambdaApp.handler;
+export const handler = lambdaApp.handler.create(lambdaApp.http);
 ```
 
-`onLambda()` 関数はアプリをLambdaランタイム用に準備します。返されるのは:
+`onLambda()` はLambda用の環境configを注入してruntimeを初期化します。HTTP featureを必須とせず、宣言したfeatureの名前空間をそのまま返します。
 
-- `handler` — API Gateway v2(HTTP API)ハンドラ
-- `handlerV1` — API Gateway v1(REST API)ハンドラ
-- `shutdown()` — アプリケーションをgracefulにシャットダウンします
-- `get<T>(Class)` — DIコンテナからserviceを解決します
+`lambdaHandler()` はデフォルトで `handler` 名前空間を公開します。`handler.create(対象HTTP)` はAPI Gateway v2用の関数を生成し、`{ payloadFormat: '1.0' }` を渡すとv1用の関数を生成します。生成した関数をAWSへ公開してください。HTTPの名前は任意で、同じfeatureから複数のHTTP用のhandlerを作れます。
+
+`lambdaHandler({ name: 'gateway' })` とすれば、`lambdaApp.gateway.create(lambdaApp.http)` で使えます。通常のruntime APIである `shutdown()` と `get(Class)` も利用できます。
 
 ### Step 4: SAMテンプレートを設定する {#step-4-configure-sam-template}
 
@@ -145,9 +143,8 @@ sam deploy --guided
 ### HTTP API (v2) — 推奨 {#http-api-v2--recommended}
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
 class HelloController {
@@ -155,18 +152,17 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 const lambdaApp = await onLambda(app);
 // ---cut---
-export const handler = lambdaApp.handler;
+export const handler = lambdaApp.handler.create(lambdaApp.http);
 ```
 
 ### REST API (v1) {#rest-api-v1}
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
 class HelloController {
@@ -174,10 +170,10 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 const lambdaApp = await onLambda(app);
 // ---cut---
-export const handler = lambdaApp.handlerV1;
+export const handler = lambdaApp.handler.create(lambdaApp.http, { payloadFormat: '1.0' });
 ```
 
 ## Warmupオプション {#warmup-option}
@@ -187,9 +183,8 @@ export const handler = lambdaApp.handlerV1;
 即時初期化にするには:
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
 class HelloController {
@@ -197,7 +192,7 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 // ---cut---
 const lambdaApp = await onLambda(app, { warmup: true });
 ```
@@ -212,7 +207,6 @@ const lambdaApp = await onLambda(app, { warmup: true });
 このadapterは、バイナリレスポンス(画像、音声、動画、octet-stream)をbase64エンコードして自動的に処理します。
 
 ```typescript
-// @noErrors
 import { Controller, Get, response } from '@zeltjs/core';
 // ---cut---
 @Controller('/files')

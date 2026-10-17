@@ -86,10 +86,10 @@ const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const workers = await onCloudflareWorkers(app);
 
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 ```
 
-`onCloudflareWorkers()` 関数は非同期で、アプリをWorkersランタイム用に準備します。返されるオブジェクトには `fetch` ハンドラに加えて、`shutdown` やserviceにアクセスするための `get` などのユーティリティが含まれます。デフォルトでは**遅延初期化**(`warmup: false`)が使われます — controllerは起動時ではなく最初のリクエストで解決されます。これによりサーバーレス環境でのコールドスタート時間が最適化されます。
+`onCloudflareWorkers()` 関数は非同期で、アプリをWorkersランタイム用に準備します。宣言したfeatureの名前空間と、`shutdown` やserviceを取得する `get` などの共通runtime APIを返します。HTTPの公開には `workers.http.fetch` を使います。ルートの `fetch` は追加せず、HTTPなしでも初期化できます。デフォルトでは**遅延初期化**(`warmup: false`)が使われます — controllerは起動時ではなく最初のリクエストで解決されます。これによりサーバーレス環境でのコールドスタート時間が最適化されます。
 
 ### Step 4: Wranglerを設定する {#step-4-configure-wrangler}
 
@@ -203,12 +203,12 @@ Wranglerのbinding(D1、KV、R2、Durable Objectsなど)は `Env` で公開さ�
 import { Controller, Get, inject, request } from '@zeltjs/core';
 import { CloudflareBindings } from '@zeltjs/adapter-cloudflare-workers';
 
-// `wrangler types` を実行すると、グローバルな `Env` に
+// `wrangler types` を実行すると、`Cloudflare.Env` に
 // `wrangler.toml` で宣言したbindingが拡張されます — ここではCACHEという
 // 名前のKV namespace bindingです。
 declare global {
-  interface Env {
-    CACHE: KVNamespace;
+  namespace Cloudflare {
+    interface Env { CACHE: KVNamespace; }
   }
 }
 
@@ -226,9 +226,9 @@ export class DataController {
 }
 ```
 
-`bindings.get('CACHE')` は拡張されたグローバルな `Env` から型をそのまま読み取るため、手動での型付けなしに `KVNamespace`(あるいは宣言したbindingに応じて `D1Database`、`R2Bucket` など)として型付けされます。
+`bindings.get('CACHE')` は生成された `Cloudflare.Env` から型をそのまま読み取るため、手動での型付けなしに `KVNamespace`(あるいは宣言したbindingに応じて `D1Database`、`R2Bucket` など)として型付けされます。
 
-**重要:** `CloudflareBindings.get()` は `onCloudflareWorkers()` によって設定されるリクエストスコープのストレージから読み取るため、リクエスト処理中でのみ動作します — リクエスト外(例えばモジュール読み込み時)で呼び出すとエラーになります。
+`CloudflareBindings.get()` はネイティブの `cloudflare:workers` envを直接参照します。Zelt独自のHTTPラッパーやリクエストスコープは不要です。KVやD1への問い合わせなどの操作には、それぞれのbindingの実行環境の制約が適用されます。
 
 ## Services {#services}
 
@@ -296,7 +296,7 @@ const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const workers = await onCloudflareWorkers(app, { warmup: true });
 
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 ```
 
 | オプション | 挙動 | 用途 |

@@ -15,7 +15,6 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260506.1",
-    "hono": "catalog:",
     "wrangler": "4.88.0"
   }
 }

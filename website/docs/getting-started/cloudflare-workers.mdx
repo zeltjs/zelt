@@ -86,10 +86,10 @@ const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const workers = await onCloudflareWorkers(app);
 
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 ```
 
-The `onCloudflareWorkers()` function is async and prepares your app for the Workers runtime. The returned object contains the `fetch` handler along with other utilities like `shutdown` and `get` for accessing services. By default, it uses **lazy initialization** (`warmup: false`) — controllers are resolved on the first request rather than at startup. This optimizes cold start times in serverless environments.
+The `onCloudflareWorkers()` function is async and prepares your app for the Workers runtime. It returns the declared feature namespaces and common runtime APIs such as `shutdown` and `get`. Publish an HTTP feature through `workers.http.fetch`; no root `fetch` is added and HTTP is not required for initialization. By default, it uses **lazy initialization** (`warmup: false`) — controllers are resolved on the first request rather than at startup. This optimizes cold start times in serverless environments.
 
 ### Step 4: Configure Wrangler
 
@@ -203,11 +203,11 @@ Wrangler bindings (D1, KV, R2, Durable Objects, etc.) are passed to `fetch(reque
 import { Controller, Get, inject, request } from '@zeltjs/core';
 import { CloudflareBindings } from '@zeltjs/adapter-cloudflare-workers';
 
-// Running `wrangler types` augments the global `Env` with the bindings
+// Running `wrangler types` augments `Cloudflare.Env` with the bindings
 // declared in `wrangler.toml` — here it's a KV namespace binding named `CACHE`.
 declare global {
-  interface Env {
-    CACHE: KVNamespace;
+  namespace Cloudflare {
+    interface Env { CACHE: KVNamespace; }
   }
 }
 
@@ -225,9 +225,9 @@ export class DataController {
 }
 ```
 
-`bindings.get('CACHE')` is typed as `KVNamespace` (or `D1Database`, `R2Bucket`, etc. — whatever binding you declared) without any manual typing, since it reads the type straight from the augmented global `Env`.
+`bindings.get('CACHE')` is typed as `KVNamespace` (or `D1Database`, `R2Bucket`, etc. — whatever binding you declared) without any manual typing, since it reads the type straight from the generated `Cloudflare.Env`.
 
-**Important:** `CloudflareBindings.get()` reads from request-scoped storage populated by `onCloudflareWorkers()`, so it only works during request handling — calling it outside a request (e.g. at module load time) throws.
+`CloudflareBindings.get()` reads directly from the native `cloudflare:workers` env. It does not require a Zelt HTTP wrapper or request scope. The binding's own runtime rules still apply to operations such as KV or D1 queries.
 
 ## Services
 
@@ -295,7 +295,7 @@ const app = createApp([http({ controllers: [HelloController] })]);
 // ---cut---
 const workers = await onCloudflareWorkers(app, { warmup: true });
 
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 ```
 
 | Option | Behavior | Use Case |

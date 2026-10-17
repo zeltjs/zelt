@@ -183,7 +183,7 @@ the `WaitUntilAdaptor` abstraction: on long-lived processes (Node.js, Bun,
 Electron) the default no-op adaptor applies and execution is best-effort — a
 graceful shutdown drains active tasks, but a crash or forced kill loses them;
 on Cloudflare Workers the adapter ties tasks and after-response callbacks to
-`ctx.waitUntil`, so they run within the platform's post-response execution
+`waitUntil` from `cloudflare:workers`, so they run within the platform's post-response execution
 window. AWS Lambda has no equivalent primitive — the execution environment may
 freeze right after the response — so use an external queue for post-response
 work on Lambda.
@@ -211,12 +211,14 @@ await bunApp.server.listen(bunApp.http, { port: 3000 });
 // Cloudflare Workers
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 const workers = await onCloudflareWorkers(app);
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 
 // AWS Lambda
-import { onLambda } from '@zeltjs/adapter-lambda';
-const lambdaApp = await onLambda(app);
-export const handler = lambdaApp.handler;
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
+const lambdaApp = await onLambda(
+  createApp([...app.features, lambdaHandler()], { configs: app.configs }),
+);
+export const handler = lambdaApp.handler.create(lambdaApp.http);
 ```
 
 ## Benchmark

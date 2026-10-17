@@ -34,32 +34,18 @@ import { app } from './app';
 const cfApp = await onCloudflareWorkers(app);
 
 export default {
-  fetch: cfApp.fetch,
+  fetch: cfApp.http.fetch,
 };
 ```
 
 **Controller with KV access** (`src/url/url.controller.ts`):
 
 ```typescript source=examples/workers-url-shortener/src/url/url.controller.ts
-import {
-  Controller,
-  Get,
-  HTTPException,
-  inject,
-  Post,
-  request,
-  requestContext,
-  response,
-} from '@zeltjs/core';
-import type { Context } from 'hono';
+import { Controller, Get, HTTPException, inject, Post, request, response } from '@zeltjs/core';
 import * as v from 'valibot';
-
-import type { Env } from '../env';
 
 import { KVService } from './kv.service';
 import type { UrlRecord } from './types';
-
-type RequestContext = Context<Env>;
 
 const ShortenBody = v.object({
   url: v.pipe(v.string(), v.url()),
@@ -79,11 +65,7 @@ export class UrlController {
   constructor(private kv = inject(KVService)) {}
 
   @Post('/shorten')
-  async shorten(
-    req = request(ShortenBody),
-    res = response(),
-    ctx = requestContext() as RequestContext,
-  ) {
+  async shorten(req = request(ShortenBody), res = response()) {
     const body = await req.body();
     const code = generateCode();
     const record: UrlRecord = {
@@ -91,14 +73,14 @@ export class UrlController {
       createdAt: Date.now(),
       hits: 0,
     };
-    await this.kv.set(ctx, code, record);
+    await this.kv.set(code, record);
     return res.json({ code, shortUrl: `/${code}` }, 201);
   }
 
   @Get('/stats/:code')
-  async stats(req = request(), ctx = requestContext() as RequestContext) {
+  async stats(req = request()) {
     const code = req.pathParam('code');
-    const record = await this.kv.get(ctx, code);
+    const record = await this.kv.get(code);
     if (!record) {
       throw new HTTPException(404, { message: 'URL not found' });
     }
@@ -106,13 +88,13 @@ export class UrlController {
   }
 
   @Get('/:code')
-  async redirect(req = request(), res = response(), ctx = requestContext() as RequestContext) {
+  async redirect(req = request(), res = response()) {
     const code = req.pathParam('code');
-    const record = await this.kv.get(ctx, code);
+    const record = await this.kv.get(code);
     if (!record) {
       throw new HTTPException(404, { message: 'URL not found' });
     }
-    await this.kv.incrementHits(ctx, code);
+    await this.kv.incrementHits(code);
     return res.redirect(record.url, 302);
   }
 }
@@ -121,33 +103,28 @@ export class UrlController {
 **KV service** (`src/url/kv.service.ts`):
 
 ```typescript source=examples/workers-url-shortener/src/url/kv.service.ts
-import { Injectable } from '@zeltjs/core';
-import type { Context } from 'hono';
-
-import type { Env } from '../env';
+import { CloudflareBindings } from '@zeltjs/adapter-cloudflare-workers';
+import { Injectable, inject } from '@zeltjs/core';
 
 import type { UrlRecord } from './types';
 
-type RequestContext = Context<Env>;
-
-const getKV = (c: RequestContext): KVNamespace => c.env.URLS;
-
 @Injectable()
 export class KVService {
-  async get(c: RequestContext, code: string): Promise<UrlRecord | null> {
-    const data = await getKV(c).get(`url:${code}`, 'json');
-    return data as UrlRecord | null;
+  constructor(private readonly bindings = inject(CloudflareBindings)) {}
+
+  async get(code: string): Promise<UrlRecord | null> {
+    return this.bindings.get('URLS').get<UrlRecord>(`url:${code}`, 'json');
   }
 
-  async set(c: RequestContext, code: string, record: UrlRecord): Promise<void> {
-    await getKV(c).put(`url:${code}`, JSON.stringify(record));
+  async set(code: string, record: UrlRecord): Promise<void> {
+    await this.bindings.get('URLS').put(`url:${code}`, JSON.stringify(record));
   }
 
-  async incrementHits(c: RequestContext, code: string): Promise<void> {
-    const record = await this.get(c, code);
+  async incrementHits(code: string): Promise<void> {
+    const record = await this.get(code);
     if (record) {
       record.hits += 1;
-      await this.set(c, code, record);
+      await this.set(code, record);
     }
   }
 }

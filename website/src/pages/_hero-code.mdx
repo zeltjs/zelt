@@ -3,7 +3,7 @@ import { Controller, Get, Post, createApp, http, httpServer } from '@zeltjs/core
 import { request } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
-import { onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 import * as v from 'valibot';
 
 declare const db: { users: { findMany: () => unknown[]; find: (id: string) => unknown; create: (data: unknown) => unknown } };
@@ -41,9 +41,11 @@ node.server.listen(node.http, 3000);
 
 // Cloudflare Workers
 const workers = await onCloudflareWorkers(app);
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 
 // Lambda
-const lambda = await onLambda(app);
-export const handler = lambda.handler;
+const lambda = await onLambda(
+  createApp([...app.features, lambdaHandler()], { configs: app.configs }),
+);
+export const handler = lambda.handler.create(lambda.http);
 ```

@@ -5,5 +5,5 @@ import { app } from './app';
 const cfApp = await onCloudflareWorkers(app);
 
 export default {
-  fetch: cfApp.fetch,
+  fetch: cfApp.http.fetch,
 };
