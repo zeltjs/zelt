@@ -264,7 +264,11 @@ prepare_dist_mode() {
     return
   fi
   echo "Building packages..."
-  (cd "$ROOT_DIR" && pnpm -r --filter './packages/*' build >/dev/null 2>&1)
+  (
+    cd "$ROOT_DIR"
+    pnpm nx run-many -t build --projects='@zeltjs/*'
+    node scripts/sync-injected-dist.mjs
+  )
 }
 
 prepare_pack_mode() {
@@ -326,16 +330,20 @@ setup_integration_dir() {
   mv "$tmp_pkg" "$integration_dir/package.json"
   merge_extra_deps "$integration_dir"
 
-  echo "  Installing dependencies..."
-  (
-    cd "$integration_dir"
-    rm -rf node_modules pnpm-lock.yaml
-    if VOLTA_FEATURE_PNPM=1 pnpm --version >/dev/null 2>&1; then
-      VOLTA_FEATURE_PNPM=1 pnpm install --ignore-workspace 2>/dev/null
-    else
-      pnpm install --ignore-workspace 2>/dev/null
-    fi
-  )
+  if [[ "$mode" == "dist" ]]; then
+    run_at_root node "$ROOT_DIR/scripts/prepare-integration-deps.mjs" "$integration_dir"
+  else
+    echo "  Installing dependencies..."
+    (
+      cd "$integration_dir"
+      rm -rf node_modules pnpm-lock.yaml
+      if VOLTA_FEATURE_PNPM=1 pnpm --version >/dev/null 2>&1; then
+        VOLTA_FEATURE_PNPM=1 pnpm install --ignore-workspace 2>/dev/null
+      else
+        pnpm install --ignore-workspace 2>/dev/null
+      fi
+    )
+  fi
 
   echo "  ✓ $name ready"
 }

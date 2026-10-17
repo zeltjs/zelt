@@ -12,7 +12,13 @@
     "build": {
       "cache": true,
       "dependsOn": ["^build"],
-      "inputs": ["production", "^production"]
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/scripts/pure-class-decorators.mjs",
+        "{workspaceRoot}/pnpm-workspace.yaml",
+        { "runtime": "node --version" }
+      ]
     },
     "test": {
       "cache": true,

@@ -7,8 +7,7 @@ set -euo pipefail
 # 抽出は integration/ec-backend の app を子プロセスで読み込むので、そのアプリの依存が
 # 揃っていないと zelt/routes が取れず抽出が失敗する。integration/* は pnpm workspace の
 # 外にあり、package.json ごと switch-mode.sh が生成するため、ここで同じ手順を共有する。
-# 依存は packages/*/dist の複製なので build を跨ぐと古く/壊れうる。失敗したら入れ直して
-# 一度だけやり直す (それでも失敗するなら抽出そのものの失敗)。
+# 依存準備は第三者依存を再利用し、配布物の独立したコピーを毎回同期する。
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="$ROOT_DIR/integration/ec-backend"
@@ -27,15 +26,7 @@ extract_snapshot() {
 
 cd "$ROOT_DIR"
 
-# クリーンな checkout には package.json すら無いので、無駄な1回目を走らせずに用意する
-if [[ ! -f "$APP_DIR/package.json" ]]; then
-  prepare_app
-fi
-
-if ! extract_snapshot; then
-  echo "studio extract failed; reinstalling integration/ec-backend and retrying once"
-  prepare_app
-  extract_snapshot
-fi
+prepare_app
+extract_snapshot
 
 git diff --exit-code -- "$FIXTURE"
