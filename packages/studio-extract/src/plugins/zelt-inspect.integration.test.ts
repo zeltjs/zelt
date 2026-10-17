@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -31,13 +31,21 @@ describe('zelt inspector (integration)', () => {
     expect(result.inspection.diagnostics).toEqual([]);
   }, 120_000);
 
-  it('loads the fixture app in a child process and returns its registrations', async () => {
+  it.each([
+    { layout: 'root tsconfig', root: ROOT, tsconfig: 'tsconfig.json' },
+    { layout: 'nested tsconfig', root: ROOT, tsconfig: 'config/tsconfig.json' },
+    {
+      layout: 'workspace analysis root',
+      root: resolve(ROOT, '../../../..'),
+      tsconfig: 'config/tsconfig.json',
+    },
+  ])('returns local registrations with $layout', async ({ root, tsconfig }) => {
     const result = await runZeltInspect({
       request: {
-        root: ROOT,
+        root,
         applicationId: 'fixture',
-        app: { filePath: 'src/app.ts', exportName: 'app' },
-        tsconfig: resolve(ROOT, 'tsconfig.json'),
+        app: { filePath: relative(root, resolve(ROOT, 'src/app.ts')), exportName: 'app' },
+        tsconfig: resolve(ROOT, tsconfig),
       },
       entryPath: ENTRY,
       timeoutMs: 120_000,
@@ -62,6 +70,13 @@ describe('zelt inspector (integration)', () => {
       'GreetingController',
       'NotificationHandler',
     ]);
+    expect(
+      inspection.registered.every(
+        (ref) =>
+          ref.package === null &&
+          ref.filePath.startsWith(`${relative(root, resolve(ROOT, 'src')).replaceAll('\\', '/')}/`),
+      ),
+    ).toBe(true);
     // 全 route の前を通るのは app が feature に書いた middlewares だけ
     expect(inspection.globalMiddlewares.map((ref) => ref.exportName)).toEqual(['AuditMiddleware']);
 

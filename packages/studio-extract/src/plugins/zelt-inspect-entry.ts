@@ -2,7 +2,7 @@
 // runtime の記録(blueprint と decorator metadata)を JSON で親へ渡す。
 // createRuntime / realize は呼ばない。ここも親も TypeScript の AST は触らない。
 
-import { dirname, relative, resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { MiddlewareInput } from '@zeltjs/core';
@@ -120,6 +120,7 @@ const ModuleSchema = custom<AppModule>(
 type Context = {
   readonly inspect: InspectApi;
   readonly root: string;
+  readonly applicationRoot: string;
   readonly tsconfig: string;
   readonly diagnostics: ZeltInspectDiagnostic[];
 };
@@ -135,7 +136,7 @@ const toPosixPath = (filePath: string): string => filePath.replaceAll('\\', '/')
 
 const refOf = (ctx: Context, source: SourceLike): ZeltClassRef => {
   const owner = ctx.inspect.packageFromPath(source.filePath, {
-    applicationRoot: dirname(ctx.tsconfig),
+    applicationRoot: ctx.applicationRoot,
   });
   if (owner !== undefined) {
     return {
@@ -152,7 +153,7 @@ const refOf = (ctx: Context, source: SourceLike): ZeltClassRef => {
 };
 
 const locate = async (ctx: Context, cls: AnyClass): Promise<Located | null> => {
-  const result = await ctx.inspect.getClassSource(cls, { applicationRoot: dirname(ctx.tsconfig) });
+  const result = await ctx.inspect.getClassSource(cls, { applicationRoot: ctx.applicationRoot });
   if (result.isErr()) {
     note(ctx, 'zelt-class-source-unresolved', `${cls.name}: ${result.error.message}`);
     return null;
@@ -447,6 +448,9 @@ const inspectApplication = async (request: ZeltInspectRequest): Promise<ZeltInsp
   const ctx: Context = {
     inspect,
     root: request.root,
+    // The analysis root can contain multiple packages; the app entry identifies its own package.
+    applicationRoot:
+      inspect.packageFromPath(appFile, { applicationRoot: request.root })?.root ?? request.root,
     tsconfig: request.tsconfig,
     diagnostics: [],
   };

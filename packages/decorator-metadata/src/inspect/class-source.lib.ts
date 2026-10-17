@@ -114,7 +114,7 @@ const packageOwnerOf = (file: string) => {
   while (root !== dirname(root)) {
     if (existsSync(join(root, 'package.json'))) {
       const manifest = packageManifest(root);
-      return manifest === undefined ? undefined : { root, ...manifest };
+      if (manifest !== undefined) return { root, ...manifest };
     }
     root = dirname(root);
   }
@@ -183,6 +183,7 @@ const packageEntrySource = (
       message: `Cannot resolve ${specifier}: ${String(cause)}`,
     }),
   )();
+  if (entry.isErr()) return packageEntrySource(pkg, cls, original, remaining);
   return entry
     .asyncAndThen((path) => classSourceFromModule(path, cls))
     .orElse((error) =>

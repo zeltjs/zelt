@@ -127,11 +127,33 @@ describe('getClassSource', () => {
     { layout: 'workspace', installPath: 'packages', entry: '.' },
     { layout: 'subpath', installPath: 'packages', entry: './feature' },
     { layout: 'legacy', installPath: 'app/node_modules', entry: null },
-  ])('uses the public entry name for a $layout package chunk', async ({ installPath, entry }) => {
+    {
+      layout: 'nested module scope',
+      installPath: 'app/node_modules',
+      entry: '.',
+      moduleScope: true,
+    },
+    {
+      layout: 'blocked first subpath',
+      installPath: 'packages',
+      entry: './feature',
+      precedingExports: { '.': null },
+    },
+    {
+      layout: 'require-only first subpath',
+      installPath: 'packages',
+      entry: './feature',
+      precedingExports: { '.': { require: './dist/index.cjs' } },
+    },
+  ])('uses the public entry name for a $layout package chunk', async (fixture) => {
+    const { installPath, entry } = fixture;
     const base = await realpath(await mkdtemp(join(tmpdir(), 'class-source-chunk-')));
     try {
       const pkgRoot = join(base, installPath, 'chunked-pkg');
       await mkdir(join(pkgRoot, 'dist'), { recursive: true });
+      if ('moduleScope' in fixture) {
+        await writeFile(join(pkgRoot, 'dist', 'package.json'), JSON.stringify({ type: 'module' }));
+      }
       await writeFile(
         join(pkgRoot, 'package.json'),
         JSON.stringify({
@@ -141,6 +163,7 @@ describe('getClassSource', () => {
             ? { main: './dist/index.mjs' }
             : {
                 exports: {
+                  ...('precedingExports' in fixture ? fixture.precedingExports : {}),
                   [entry]: { import: './dist/index.mjs' },
                 },
               }),
@@ -181,6 +204,48 @@ describe('getClassSource', () => {
       // chunk.mjs 自身の export 名(`t`)ではなく、公開エントリ(index.mjs)の
       // export 名(`PublicName`)が使われることを確認する
       expect(result.value).toEqual({ filePath: entryPath, exportName: 'PublicName' });
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    { failure: 'missing dependency', source: "import './missing-dependency.mjs';" },
+    { failure: 'invalid syntax', source: 'export class {' },
+  ])('preserves a resolved entry import failure: $failure', async ({ source }) => {
+    const base = await realpath(await mkdtemp(join(tmpdir(), 'class-source-broken-entry-')));
+    try {
+      await mkdir(join(base, 'dist'));
+      await writeFile(
+        join(base, 'package.json'),
+        JSON.stringify({
+          name: 'broken-entry-pkg',
+          type: 'module',
+          exports: { '.': './dist/broken.mjs', './feature': './dist/index.mjs' },
+        }),
+      );
+      await writeFile(join(base, 'dist', 'broken.mjs'), source);
+      const entryPath = join(base, 'dist', 'index.mjs');
+      await writeFile(entryPath, 'export class PublicName {}');
+      const loaded = await resolveClassSource({ filePath: entryPath, exportName: 'PublicName' });
+      expect(loaded.isOk()).toBe(true);
+      if (!loaded.isOk()) return;
+      const PublicName = loaded.value;
+      const { ensureClassMeta, CaptureStackError } = await import('../runtime/index');
+      const defineError = new CaptureStackError();
+      defineError.stack = [
+        'CaptureStackError: Capture stack trace',
+        `    at captureStackTrace (${resolve(__dirname, '../runtime/trace.lib.ts')}:16:17)`,
+        `    at ${entryPath}:1:1`,
+      ].join('\n');
+      ensureClassMeta(PublicName, { _brand: 'StackTrace', error: defineError });
+
+      const result = await getClassSource(PublicName);
+
+      expect(result.isErr()).toBe(true);
+      if (!result.isErr()) return;
+      expect(result.error.code).toBe('MODULE_LOAD_FAILED');
+      expect(result.error.message).toContain('broken.mjs');
     } finally {
       await rm(base, { recursive: true, force: true });
     }
