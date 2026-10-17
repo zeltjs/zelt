@@ -49,7 +49,7 @@ export class HelloController {
 `src/app.ts` を作成し、controllerを結線してNode.jsランタイム用に準備します:
 
 ```typescript
-import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http, httpServer } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 @Controller('/hello')
 class HelloController {
@@ -57,20 +57,22 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
-export const app = createApp([http({
-    controllers: [HelloController],
-  })]);
+export const app = createApp([
+  http({ controllers: [HelloController] }),
+  httpServer(),
+]);
 
 export default await onNode(app);
 ```
 
-`onNode()` 関数はアプリをNode.jsランタイム用に準備し、`server.listen(http, options)`、`get()`、`args` プロパティを持つ `NodeApp` を返します。
+`onNode()` 関数はアプリをNode.jsランタイム用に準備し、`server.listen(http, options)`、`get()`、`args` プロパティを持つruntimeを返します。
 
 ### Step 3: サーバーを起動する {#step-3-start-the-server}
 
 サーバーを起動するために `src/main.ts` を作成します:
 
 ```typescript
+// @filename: app.ts
 import { createApp, Controller, Get, request, http, httpServer } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
@@ -80,9 +82,12 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
-const nodeApp = await onNode(app);
+export const app = createApp([http({ controllers: [HelloController] }), httpServer()]);
+export default await onNode(app);
+// @filename: main.ts
 // ---cut---
+import nodeApp from './app';
+
 const server = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```

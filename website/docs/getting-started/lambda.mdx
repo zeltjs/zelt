@@ -69,8 +69,9 @@ export const app = createApp([
 Create `src/handler.ts`:
 
 ```typescript
+// @filename: app.ts
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
 class HelloController {
@@ -78,8 +79,12 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
+export const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
+// @filename: handler.ts
 // ---cut---
+import { onLambda } from '@zeltjs/adapter-lambda';
+import { app } from './app';
+
 const lambdaApp = await onLambda(app);
 
 export const handler = lambdaApp.handler.create(lambdaApp.http);

@@ -36,8 +36,8 @@ jobs:
       - name: Format check (full)
         run: pnpm format:check
 
-      - name: Precommit
-        run: pnpm run precommit
+      - name: Check
+        run: pnpm check
 
       - name: Lint (full)
         run: pnpm lint

@@ -28,8 +28,6 @@ type EnvironmentNodeAppPart = {
   readonly shutdown: () => Promise<void>;
 };
 
-export type NodeApp = RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart;
-
 type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
   EnvironmentNodeAppPart;
 

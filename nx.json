@@ -22,7 +22,15 @@
     "lint": {
       "cache": true,
       "dependsOn": [{ "projects": ["@zeltjs/eslint-plugin"], "target": "build" }],
-      "inputs": ["default"]
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/oxlintrc.json",
+        { "input": "default", "projects": ["@zeltjs/eslint-plugin"] },
+        { "runtime": "node --version" }
+      ],
+      "outputs": []
     },
     "typecheck": {
       "cache": true,

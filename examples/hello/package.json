@@ -10,7 +10,8 @@
     "generate:openapi": "tsx scripts/generate-openapi.ts",
     "typecheck": "tsc --noEmit",
     "contract:build": "tsx ../../packages/contract/src/cli.ts build",
-    "contract:watch": "tsx ../../packages/contract/src/cli.ts watch"
+    "contract:watch": "tsx ../../packages/contract/src/cli.ts watch",
+    "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint ."
   },
   "dependencies": {
     "@zeltjs/adapter-node": "workspace:*",

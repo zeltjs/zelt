@@ -8,7 +8,8 @@
     "test": "pnpm -w run test:prepare && vitest run",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint ."
   },
   "dependencies": {
     "@zeltjs/adapter-node": "workspace:*",

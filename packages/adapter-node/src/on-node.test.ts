@@ -41,10 +41,11 @@ afterAll(() => {
 
 import { NodeCliConfig } from './node-cli.config';
 import { NodeHttpServerAdaptor } from './node-http-server.adaptor';
-import type { NodeApp, ServerHandle } from './on-node';
+import type { ServerHandle } from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
 
+type NodeApp = Awaited<ReturnType<typeof onNode>>;
 type HttpNodeApp = NodeApp & {
   readonly http: HttpCapabilities;
   readonly server: HttpServerCapabilities;

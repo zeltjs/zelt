@@ -49,7 +49,7 @@ export class HelloController {
 Create `src/app.ts` to wire up your controllers and prepare for the Node.js runtime:
 
 ```typescript
-import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http, httpServer } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 @Controller('/hello')
 class HelloController {
@@ -57,20 +57,22 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
-export const app = createApp([http({
-    controllers: [HelloController],
-  })]);
+export const app = createApp([
+  http({ controllers: [HelloController] }),
+  httpServer(),
+]);
 
 export default await onNode(app);
 ```
 
-The `onNode()` function prepares your app for the Node.js runtime, returning a `NodeApp` with `server.listen(http, options)`, `get()`, and `args` properties.
+The `onNode()` function prepares your app for the Node.js runtime, returning a runtime with `server.listen(http, options)`, `get()`, and `args` properties.
 
 ### Step 3: Start the Server
 
 Create `src/main.ts` to start the server:
 
 ```typescript
+// @filename: app.ts
 import { createApp, Controller, Get, request, http, httpServer } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
@@ -80,9 +82,12 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
-const nodeApp = await onNode(app);
+export const app = createApp([http({ controllers: [HelloController] }), httpServer()]);
+export default await onNode(app);
+// @filename: main.ts
 // ---cut---
+import nodeApp from './app';
+
 const server = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
