@@ -36,11 +36,8 @@ jobs:
       - name: Format check (full)
         run: pnpm format:check
 
-      - name: Check
-        run: pnpm check
-
-      - name: Lint (full)
-        run: pnpm lint
+      - name: Precommit
+        run: pnpm run precommit
 
       - name: Knip
         run: pnpm knip
@@ -92,9 +89,6 @@ jobs:
             echo "::error::leak detection regression (probe not detected)"
             exit 1
           fi
-
-      - name: Test
-        run: pnpm test
 
       - name: Integration Test
         run: pnpm test:integration
