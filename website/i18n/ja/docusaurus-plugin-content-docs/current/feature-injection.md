@@ -10,7 +10,7 @@ DI 管理下の constructor またはフィールド初期化で `injectFeature(
 
 ```typescript
 import {
-  Command, Controller, Get, command, createApp, http, injectFeature,
+  Command, Controller, Get, command, createApp, http, httpServer, injectFeature,
 } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 // ---cut---
@@ -23,24 +23,28 @@ class HelloController {
 }
 
 const web = http({ controllers: [HelloController] });
+const listener = httpServer();
 
 @Command({ name: 'serve' })
 class ServeCommand {
-  constructor(private readonly server = injectFeature(web)) {}
+  constructor(
+    private readonly http = injectFeature(web),
+    private readonly server = injectFeature(listener),
+  ) {}
 
   async run() {
-    const listener = await this.server.listen({ port: 3000 });
+    const listener = await this.server.listen(this.http, { port: 3000 });
     await listener.closed;
   }
 }
 
-const runtime = await onNode(createApp([command([ServeCommand]), web]));
+const runtime = await onNode(createApp([command([ServeCommand]), web, listener]));
 const result = await runtime.commands.execCommand(['serve']);
 ```
 
 注入だけでは待ち受けを開始しません。`listen()` は実際の待ち受けアドレス、繰り返し呼べる `shutdown()`、終了を待つ `closed` を返します。注入側・runtime の公開 API のどちらから起動したサーバーも、runtime の終了処理で閉じます。Node の SIGINT/SIGTERM による終了処理も適用されます。
 
-Node と Bun は `listen()` の実装を提供します。通常の `createRuntime()` など、それ以外の環境での利用には `HttpServerAdaptor` の実装が必要です。実装がなければ呼び出し時に明示エラーになります。`fetch()` と `request()` は待ち受けなしで使えます。Bun の既存の公開 `serve()` API も維持しています。
+待ち受けには `httpServer()` を宣言します。Node・Bun・txiki.js・Electronが環境実装を提供し、実装のない環境ではserver featureの初期化時にエラーになります。HTTPの `fetch()` と `request()` はserver featureなしで利用でき、従来のHTTP上の `listen()` / `serve()` は廃止します。
 
 ## 対象を選ぶ
 
@@ -93,3 +97,5 @@ constructor、設定の startup、`realize()` 中に注入先の操作を実行�
 `http.router` のようなオブジェクト型のプロパティも、別の変数へ保存した後まで同じ寿命チェックが適用されます。注入用参照の内部では、同じ対象への複数の参照や循環参照も同一性を保ちます。HTTP レスポンスやサーバーハンドルなど、操作の戻り値にはそれぞれのリソースの契約が適用されます。
 
 Feature 注入はアプリ全体の遅延初期化ではありません。バージョン表示だけのコマンドで待ち受けが始まることはありませんが、runtime を作れば realize と通常の startup は実行します。それらも避けたい場合は、runtime を作る前にバージョン表示を処理してください。
+
+公開されたruntimeの名前空間と `injectFeature()` は同じ寿命検査handleを共有し、どちらもruntime終了後のアクセスを拒否します。

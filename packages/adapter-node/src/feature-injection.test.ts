@@ -6,7 +6,9 @@ import {
   createApp,
   Get,
   HttpFeature,
+  HttpServerFeature,
   http,
+  httpServer,
   injectFeature,
   response,
 } from '@zeltjs/core';
@@ -34,9 +36,10 @@ describe('feature injection on Node', () => {
     class Serve {
       private readonly admin = injectFeature(admin);
       private readonly user = injectFeature(HttpFeature, 'user');
+      private readonly server = injectFeature(HttpServerFeature);
       async run() {
-        listeners.push(await this.admin.listen({ port: 0, hostname: '127.0.0.1' }));
-        listeners.push(await this.user.listen({ port: 0, hostname: '127.0.0.1' }));
+        listeners.push(await this.server.listen(this.admin, { port: 0, hostname: '127.0.0.1' }));
+        listeners.push(await this.server.listen(this.user, { port: 0, hostname: '127.0.0.1' }));
       }
     }
     const printVersion = vi.fn();
@@ -46,7 +49,7 @@ describe('feature injection on Node', () => {
         printVersion();
       }
     }
-    const app = await onNode(createApp([command([Serve, Version]), admin, user]));
+    const app = await onNode(createApp([command([Serve, Version]), admin, user, httpServer()]));
     try {
       expect(listeners).toHaveLength(0);
       expect((await app.commands.execCommand(['-v'])).exitCode).toBe(0);
@@ -66,7 +69,7 @@ describe('feature injection on Node', () => {
       expect(await (await app.admin.request('/')).text()).toBe('admin');
       await app.shutdown();
       await Promise.all(listeners.map((server) => server.closed));
-      await expect(app.admin.listen(0)).rejects.toThrow(/shutdown/);
+      expect(() => app.server.listen(app.admin, 0)).toThrow(/disposed/);
     } finally {
       await app.shutdown();
     }

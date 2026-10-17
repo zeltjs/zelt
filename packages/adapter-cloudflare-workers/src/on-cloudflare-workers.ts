@@ -22,20 +22,20 @@ type HttpRuntimeApp = RuntimeApp<readonly ConfiguredFeature[]> & {
   readonly http: HttpCapabilities;
 };
 
-type HttpApp = {
-  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<HttpRuntimeApp>;
+type HttpApp<T extends HttpRuntimeApp> = {
+  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<T>;
 };
 
-export type CloudflareWorkersApp = {
+export type CloudflareWorkersApp<T extends HttpRuntimeApp = HttpRuntimeApp> = T & {
   readonly get: HttpRuntimeApp['get'];
   readonly fetch: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
   readonly shutdown: () => Promise<void>;
 };
 
-export const onCloudflareWorkers = async (
-  app: HttpApp,
+export const onCloudflareWorkers = async <T extends HttpRuntimeApp>(
+  app: HttpApp<T>,
   options: CloudflareWorkersOptions = {},
-): Promise<CloudflareWorkersApp> => {
+): Promise<CloudflareWorkersApp<T>> => {
   const readyApp = await app.createRuntime({
     ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
@@ -52,5 +52,5 @@ export const onCloudflareWorkers = async (
     return response;
   };
 
-  return { get: readyApp.get, fetch, shutdown: readyApp.shutdown };
+  return { ...readyApp, fetch };
 };

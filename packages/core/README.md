@@ -126,17 +126,13 @@ class UserController {
 ### 3. Create and Run the Application
 
 ```typescript
-import { createApp } from '@zeltjs/core';
+import { createApp, httpServer, http } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
-const app = createApp({
-  http: {
-    controllers: [UserController],
-  },
-});
+const app = createApp([http({ controllers: [UserController] }), httpServer()]);
 
 const nodeApp = await onNode(app);
-const server = await nodeApp.http.listen({ port: 3000 });
+const server = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 
@@ -197,15 +193,20 @@ work on Lambda.
 Same application code, different adapters:
 
 ```typescript
+import { createApp, http, httpServer } from '@zeltjs/core';
+
+const app = createApp([http({ controllers: [UserController] })]);
+const serverApp = createApp([...app.features, httpServer()]);
+
 // Node.js
 import { onNode } from '@zeltjs/adapter-node';
-const nodeApp = await onNode(app);
-await nodeApp.http.listen({ port: 3000 });
+const nodeApp = await onNode(serverApp);
+await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 
 // Bun
 import { onBun } from '@zeltjs/adapter-bun';
-const bunApp = await onBun(app);
-bunApp.http.serve({ port: 3000 });
+const bunApp = await onBun(serverApp);
+await bunApp.server.listen(bunApp.http, { port: 3000 });
 
 // Cloudflare Workers
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';

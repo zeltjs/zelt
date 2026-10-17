@@ -288,7 +288,8 @@ describe('feature lifecycle regressions', () => {
       expect(await runtime.lazy.resource()).toBe(resource);
       expect(started).toHaveBeenCalledOnce();
       await runtime.shutdown();
-      await expect(runtime.lazy.resource()).rejects.toThrow(/shutdown/);
+      expect(() => runtime.lazy.resource()).toThrow(/disposed/);
+      await expect(runtime.get(Resource)).rejects.toThrow(/shutdown/);
       expect(constructed).toHaveBeenCalledOnce();
     } finally {
       await runtime.shutdown();
@@ -415,7 +416,7 @@ describe('feature lifecycle regressions', () => {
       expect(() => {
         consumer.state.count = 20;
       }).toThrow(/disposed/);
-      expect(runtime.state.count).toBe(14);
+      expect(() => runtime.state.count).toThrow(/disposed/);
     } finally {
       await runtime.shutdown();
       await other.shutdown();

@@ -77,7 +77,7 @@ Each configured feature is namespaced under its key (`http` by default). HTTP fe
 |----------|------|-------------|
 | `http.fetch` | `(request: Request) => Promise<Response>` | Handle a request directly |
 | `http.request` | `(input: string \| Request, init?: RequestInit) => Promise<Response>` | Handle a request built from a URL/path and `RequestInit` |
-| `http.listen` | `(portOrOptions?: number \| ListenOptions) => Promise<ServerHandle>` | Serve this feature over TCP instead of IPC |
+| `server.listen` | `(http: HttpFetchTarget, options?: HttpListenOptions) => Promise<ServerHandle>` | Serve the selected HTTP feature over TCP; declare `httpServer()` |
 | `shutdown` | `() => Promise<void>` | Graceful shutdown |
 | `get` | `<T>(Class) => Promise<T>` | Resolve a service from DI |
 

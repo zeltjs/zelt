@@ -153,3 +153,24 @@ export const unsafeGetKeyedValueEntriesForClass = <
 
   return entries;
 };
+
+/** The replacement must preserve each item's realized capability contract. */
+export const unsafeMapKeyedValues = <
+  const TItems extends readonly KeyedItem[],
+  const TMethod extends PropertyKey,
+>(
+  items: TItems,
+  read: (item: TItems[number]) => object,
+): KeyedValues<TItems, TMethod> => {
+  const object: Record<PropertyKey, object> = {};
+  const map = new Map<KeyedItem, object>();
+  for (const item of items) {
+    const value = read(item);
+    object[item.key] = value;
+    map.set(item, value);
+  }
+  return {
+    object: object as ObjectFromKeyedValues<TItems, TMethod>,
+    map: map as unknown as MapFromKeyedValues<TItems, TMethod>,
+  };
+};

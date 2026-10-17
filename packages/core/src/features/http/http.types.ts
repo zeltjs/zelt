@@ -1,5 +1,4 @@
 import type { ServiceResolver } from '../../app';
-import type { HttpListenOptions, HttpServerHandle } from '../../built-in-service';
 import type { ErrorHandlerClass, MiddlewareInput } from './middleware/middleware.types';
 import type { ControllerClass, ControllerRouteInfo } from './routing';
 
@@ -24,9 +23,7 @@ export type HttpMountableCapabilities = {
   readonly request: (input: string | Request, init?: RequestInit) => Promise<Response>;
 };
 
-export type HttpFeatureCapabilities = HttpMountableCapabilities & {
-  readonly listen: (portOrOptions?: number | HttpListenOptions) => Promise<HttpServerHandle>;
-};
+export type HttpFeatureCapabilities = HttpMountableCapabilities;
 
 // Same shape as the generic Feature contract: a module returns a
 // self-contained router (own path already applied) and parents merge it

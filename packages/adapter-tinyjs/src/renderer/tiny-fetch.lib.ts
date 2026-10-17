@@ -10,6 +10,7 @@ import {
 } from '../shared';
 import type { TinyjsApiBridge, TinyjsFetchRequest } from '../shared/bridge.types';
 import { DEFAULT_TINYJS_ORIGIN, TINYJS_FETCH_METHOD } from '../shared/bridge.types';
+import { BridgeResponse } from './bridge-response.lib';
 
 export type TinyjsFetchOptions = {
   readonly bridge?: TinyjsApiBridge;
@@ -51,13 +52,15 @@ const toPayload = async (request: Request, feature: string): Promise<TinyjsFetch
 const toResponse = (result: unknown, url: string): Response => {
   const parsed = parseBridgeResponse(result);
   if (!parsed.ok) throw parsed.error;
-  const response = new Response(decodeBody(parsed.value.body), {
-    status: parsed.value.status,
-    statusText: parsed.value.statusText,
-    headers: parsed.value.headers.map(([key, value]) => [key, value]),
-  });
-  Object.defineProperty(response, 'url', { value: url });
-  return response;
+  return new BridgeResponse(
+    decodeBody(parsed.value.body),
+    {
+      status: parsed.value.status,
+      statusText: parsed.value.statusText,
+      headers: parsed.value.headers.map(([key, value]) => [key, value]),
+    },
+    url,
+  );
 };
 
 const awaitBridge = (pending: Promise<unknown>, signal: AbortSignal | null): Promise<unknown> => {

@@ -1,7 +1,7 @@
 import { onTinyjs } from '../../packages/adapter-tinyjs/dist/index.js';
 import { createTinyFetch } from '../../packages/adapter-tinyjs/dist/renderer/index.js';
 import { onTxiki, prepareTxikiRequest } from '../../packages/adapter-txiki/dist/index.js';
-import { Controller, createApp, Get, http, Post, request, response } from '../../packages/core/dist/index.js';
+import { Controller, createApp, Get, http, httpServer, Post, request, response } from '../../packages/core/dist/index.js';
 
 const check = (condition, message) => { if (!condition) throw new Error(message); };
 
@@ -13,7 +13,7 @@ class Endpoint {
     await Promise.resolve();
     return { id: req.queryParam('id'), body: await req.body(), path: req.path() };
   }
-  binary() { return new Response(new Uint8Array([0, 128, 255])); }
+  binary() { return response().body(new Uint8Array([0, 128, 255])); }
   error(res = response()) { return res.json({ reason: 'invalid' }, 422); }
 }
 Post('/echo')(Endpoint.prototype, 'echo', Object.getOwnPropertyDescriptor(Endpoint.prototype, 'echo'));
@@ -68,6 +68,6 @@ nativeDone();
 await native.done;
 check(stopped, 'Native lifetime completed before runtime shutdown');
 
-const httpApp = await onTxiki(definition);
-const server = httpApp.http.serve({ port: 0 });
+const httpApp = await onTxiki(createApp([...definition.features, httpServer()]));
+const server = await httpApp.server.listen(httpApp.http, { port: 0 });
 console.log(JSON.stringify({ event: 'ready', port: server.address.port, bridgeRequests: results.length }));

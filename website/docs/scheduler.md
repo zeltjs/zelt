@@ -258,13 +258,13 @@ For Node.js applications, use `onNode()` and explicitly start the scheduler:
 
 ```typescript
 import { onNode } from '@zeltjs/adapter-node';
-import { createApp, Scheduled, Daily, http, scheduler } from '@zeltjs/core';
+import { createApp, Scheduled, Daily, http, scheduler, httpServer } from '@zeltjs/core';
 
 @Scheduled() class MyScheduler { @Daily({ hour: 9 }) async task() {} }
-const app = createApp([http({ controllers: [] }), scheduler([MyScheduler])]);
+const app = createApp([httpServer(), http({ controllers: [] }), scheduler([MyScheduler])]);
 // ---cut---
 const nodeApp = await onNode(app);
-const handle = await nodeApp.http.listen(3000);
+const handle = await nodeApp.server.listen(nodeApp.http, 3000);
 
 // Start scheduled tasks
 await nodeApp.schedulers.startScheduler();

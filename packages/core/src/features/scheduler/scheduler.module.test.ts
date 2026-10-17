@@ -20,7 +20,6 @@ describe('createApp with schedulers', () => {
 
   afterEach(async () => {
     if (readyApp) {
-      await readyApp.schedulers.stopScheduler();
       await readyApp.shutdown();
       readyApp = undefined;
     }
@@ -104,10 +103,13 @@ describe('createApp with schedulers', () => {
   });
 
   it('shutdown() stops a running scheduler without explicit stopScheduler()', async () => {
+    const task = vi.fn();
     @Scheduled()
     class TestScheduler {
       @Cron('* * * * * *')
-      everySecond() {}
+      everySecond() {
+        task();
+      }
     }
 
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
@@ -115,9 +117,12 @@ describe('createApp with schedulers', () => {
     await readyApp.schedulers.startScheduler();
     expect(readyApp.schedulers.isSchedulerRunning()).toBe(true);
 
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(task).toHaveBeenCalledOnce();
     await readyApp.shutdown();
-
-    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(task).toHaveBeenCalledOnce();
+    expect(() => readyApp?.schedulers.isSchedulerRunning()).toThrow(/disposed/);
   });
 
   it('works without schedulers option', async () => {

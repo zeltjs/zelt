@@ -5,6 +5,7 @@ import {
   createApp,
   Get,
   http,
+  httpServer,
   Injectable,
   inject,
   Middleware,
@@ -53,7 +54,7 @@ class ApiController {
   }
 }
 
-const app = await onTxiki(createApp([http({ controllers: [ApiController] })]));
+const app = await onTxiki(createApp([http({ controllers: [ApiController] }), httpServer()]));
 const port = Number(tjs.env['PORT'] || '3000');
-const server = app.http.serve({ port });
+const server = await app.server.listen(app.http, { port });
 console.log(JSON.stringify({ event: 'listening', ...server.address }));

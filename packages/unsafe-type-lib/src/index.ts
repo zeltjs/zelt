@@ -17,6 +17,7 @@ export {
   type ObjectFromNonEmptyKeyedValues,
   unsafeGetKeyedValueEntriesForClass,
   unsafeKeyedValues,
+  unsafeMapKeyedValues,
   unsafeObjectFromKeyedValues,
   unsafeObjectFromKeyedValuesSync,
   unsafeObjectFromNonEmptyKeyedValuesSync,

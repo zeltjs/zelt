@@ -1,16 +1,9 @@
 import type { ServerType } from '@hono/node-server';
 import { serve } from '@hono/node-server';
+import type { HttpListenOptions, HttpServerHandle } from '@zeltjs/core';
 
-export type ListenOptions = {
-  readonly port?: number;
-  readonly hostname?: string;
-};
-
-export type ServerHandle = {
-  readonly address: { port: number; address: string };
-  readonly closed: Promise<void>;
-  readonly shutdown: () => Promise<void>;
-};
+export type ListenOptions = HttpListenOptions;
+export type ServerHandle = HttpServerHandle;
 
 const closeServer = (server: ServerType): Promise<void> =>
   new Promise<void>((resolve, reject) => {

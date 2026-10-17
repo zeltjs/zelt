@@ -9,7 +9,7 @@ npm install @zeltjs/core @zeltjs/adapter-txiki
 ```
 
 ```ts
-import { Controller, createApp, Get, http } from '@zeltjs/core';
+import { Controller, createApp, Get, http, httpServer } from '@zeltjs/core';
 import { onTxiki } from '@zeltjs/adapter-txiki';
 
 @Controller('/api')
@@ -18,13 +18,13 @@ class ApiController {
   status() { return { status: 'ok' }; }
 }
 
-const app = await onTxiki(createApp([http({ controllers: [ApiController] })]));
-app.http.serve({ port: 3000 });
+const app = await onTxiki(createApp([httpServer(), http({ controllers: [ApiController] })]));
+await app.server.listen(app.http, { port: 3000 });
 ```
 
 Bundle your TypeScript and npm dependencies into ESM and transform decorators, then run `tjs run dist/main.js`. See the [complete build example](https://github.com/zeltjs/zelt/tree/main/examples/txiki-http).
 
-Each named HTTP feature has its own `.serve()`. DI services are shared. `TxikiEnvAdaptor` supplies environment variables through `inject(Env)`. SIGINT/SIGTERM close servers and resources; call `app.shutdown()` to stop programmatically.
+Declare `httpServer()` and pass each named HTTP capability to `app.server.listen(http, options)` to create independent listeners. DI services are shared. `TxikiEnvAdaptor` supplies environment variables through `inject(Env)`. SIGINT/SIGTERM close servers and resources; call `app.shutdown()` to stop programmatically.
 
 ## Context mode
 

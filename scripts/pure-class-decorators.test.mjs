@@ -25,6 +25,15 @@ test('rejects an unknown decorator on an audited built-in', () => {
   assert.throws(() => annotateClassDecorators(compile('@RegisterGlobally() export class LoggerService {}'), id), /Unaudited decorator/);
 });
 
+test('audits the literal abstract config factory and rejects computed options', () => {
+  const configId = '/repo/packages/core/src/built-in-service/http-server/http-server.adaptor.ts';
+  const result = annotateClassDecorators(compile('@Config({ abstract: true }) export class HttpServerAdaptor {}'), configId);
+  assert.match(result.code, /@__PURE__.*Config\(\{/);
+  assert.throws(() => annotateClassDecorators(
+    compile('@Config({ abstract: decide() }) export class HttpServerAdaptor {}'), configId,
+  ), /Unaudited decorator/);
+});
+
 test('rejects member registration rather than treating it as class-local registration', () => {
   assert.throws(() => annotateClassDecorators('C = _ts_decorate([Config], C.prototype, "method", null);', id), /Unaudited decorator/);
 });

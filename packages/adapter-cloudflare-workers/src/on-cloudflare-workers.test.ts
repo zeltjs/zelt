@@ -277,7 +277,7 @@ describe('onCloudflareWorkers', () => {
 });
 
 it('captures per-request Workers bindings under concurrent synchronous-mode requests', async () => {
-  const databases = Array.from({ length: 20 }, () => ({ ...mockD1 }));
+  const databases = Array.from({ length: 20 }, () => Object.assign({}, mockD1));
   @Controller('/')
   class PortableBindingsController {
     constructor(private readonly bindings = inject(CloudflareBindings)) {}

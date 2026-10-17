@@ -17,7 +17,7 @@ npm install @zeltjs/adapter-electron @zeltjs/core
 ### Main process
 
 ```typescript
-import { createApp, http, Controller, Get } from '@zeltjs/core';
+import { createApp, httpServer, http, Controller, Get } from '@zeltjs/core';
 import { onElectron } from '@zeltjs/adapter-electron';
 
 @Controller('/api')
@@ -61,6 +61,7 @@ Configure additional named `http()` features alongside the renderer-facing one:
 ```typescript
 const app = createApp([
   http({ controllers: [ApiController] }),
+  httpServer(),
   http({ name: 'mcp', controllers: [McpController] }),
 ]);
 
@@ -76,7 +77,7 @@ const electronZelt = await onElectron(app, { ipcFeature: 'mcp' });
 Any other feature can be served over TCP instead of IPC — handy for exposing an MCP server or other external API from the same runtime and shared services, keeping only the router and trust boundary separate from the renderer-facing API:
 
 ```typescript
-await electronZelt.mcp.listen({ port: 8765, hostname: '127.0.0.1' });
+await electronZelt.server.listen(electronZelt.mcp, { port: 8765, hostname: '127.0.0.1' });
 ```
 
 Breaking change: the old `electronZelt.fetch` shorthand is gone — use `electronZelt.http.fetch` instead.

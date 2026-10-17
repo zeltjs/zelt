@@ -3,6 +3,7 @@ import type { KeyedValues } from '@zeltjs/unsafe-type-lib';
 import {
   unsafeGetKeyedValueEntriesForClass,
   unsafeKeyedValues,
+  unsafeMapKeyedValues,
   unsafeObjectFromNonEmptyKeyedValuesSync,
 } from '@zeltjs/unsafe-type-lib';
 
@@ -295,20 +296,23 @@ const createRuntimeApp = async <const F extends readonly ConfiguredFeature[]>(
     registerShutdown,
     prebuilt: runtimeOptions?.prebuilt,
   };
-  const { caps, readyResult } = await initializeRuntimeFeatures(features, {
+  const { readyResult } = await initializeRuntimeFeatures(features, {
     runtime,
     featureRegistry,
     resolver,
     shutdown,
     warmup: runtimeOptions?.warmup ?? false,
   });
+  const published = unsafeMapKeyedValues<F, 'realize'>(features, (feature) =>
+    featureRegistry.get(feature),
+  );
 
   const readyApp: RuntimeApp<F> = {
-    ...caps.object,
+    ...published.object,
     features,
     hasFeature: (featureClass) => hasFeature(features, featureClass),
     getFeatureEntries: (featureClass) =>
-      unsafeGetKeyedValueEntriesForClass(features, caps.map, featureClass).map((entry) => ({
+      unsafeGetKeyedValueEntriesForClass(features, published.map, featureClass).map((entry) => ({
         key: entry.key,
         feature: entry.item,
         capabilities: entry.value,

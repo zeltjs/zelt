@@ -35,7 +35,7 @@ export type LambdaHandlerV1 = (
   context: Context,
 ) => Promise<APIGatewayProxyResult>;
 
-export type LambdaApp = {
+export type LambdaApp<T extends HttpRuntimeApp = HttpRuntimeApp> = T & {
   readonly get: <T extends object>(cls: new (...args: never[]) => T) => Promise<T>;
   readonly handler: LambdaHandlerV2;
   readonly handlerV1: LambdaHandlerV1;
@@ -197,15 +197,15 @@ type HttpRuntimeApp = RuntimeApp<readonly ConfiguredFeature[]> & {
   readonly http: HttpCapabilities;
 };
 
-type HttpApp = {
-  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<HttpRuntimeApp>;
+type HttpApp<T extends HttpRuntimeApp> = {
+  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<T>;
 };
 
 /** @throws {TypeError} */
-export const onLambda = async (
-  app: HttpApp,
+export const onLambda = async <T extends HttpRuntimeApp>(
+  app: HttpApp<T>,
   options: LambdaAppOptions = {},
-): Promise<LambdaApp> => {
+): Promise<LambdaApp<T>> => {
   enableAsyncContext();
   const readyApp = await app.createRuntime({
     ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
@@ -219,7 +219,7 @@ export const onLambda = async (
   const handlerV1 = createHandlerV1(readyApp.http.fetch);
 
   return {
-    get: readyApp.get,
+    ...readyApp,
     handler,
     handlerV1,
     shutdown: readyApp.shutdown,

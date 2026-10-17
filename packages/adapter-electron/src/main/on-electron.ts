@@ -1,11 +1,9 @@
-import type { ListenOptions, ServerHandle } from '@zeltjs/adapter-node';
-import { createListenForHttp } from '@zeltjs/adapter-node';
+import { NodeHttpServerAdaptor } from '@zeltjs/adapter-node';
 import type {
   ConfigClass,
   ConfiguredFeature,
   ContextMode,
   FeatureApp,
-  FeatureReadyCapabilities,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
@@ -36,27 +34,7 @@ type HttpFeatureKeys<F extends readonly ConfiguredFeature[]> = Extract<
   HttpFeature<string>
 >['key'];
 
-type EnvironmentElectronAppPart = {
-  readonly shutdown: () => Promise<void>;
-};
-
-type HttpElectronAppPart = {
-  readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
-};
-
-type ElectronFeatureCapabilities<TFeature extends ConfiguredFeature> =
-  FeatureReadyCapabilities<TFeature> &
-    (TFeature extends HttpFeature<string> ? HttpElectronAppPart : unknown);
-
-type ElectronNamespacedCapabilities<F extends readonly ConfiguredFeature[]> = {
-  readonly [TFeature in F[number] as TFeature['key']]: ElectronFeatureCapabilities<TFeature>;
-};
-
-export type OnElectronApp = RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentElectronAppPart;
-
-type ElectronAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
-  EnvironmentElectronAppPart &
-  ElectronNamespacedCapabilities<F>;
+export type OnElectronApp = RuntimeApp<readonly ConfiguredFeature[]>;
 
 const DEFAULT_IPC_CHANNEL = 'http://zelt-ipc';
 
@@ -82,49 +60,17 @@ const withCleanupOnError = async <T>(
   }
 };
 
-const createElectronApp = (
-  readyApp: RuntimeApp<readonly ConfiguredFeature[]>,
-  shutdown: () => Promise<void>,
-): OnElectronApp => {
-  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentElectronAppPart = {
-    ...readyApp,
-    shutdown,
-  };
-
-  const electronApp: OnElectronApp = { ...base };
-
-  for (const entry of readyApp.getFeatureEntries(HttpFeature)) {
-    Object.defineProperty(electronApp, entry.key, {
-      value: {
-        ...entry.capabilities,
-        listen: createListenForHttp(entry.capabilities.fetch, (callback) =>
-          readyApp.registerShutdown(callback),
-        ),
-      },
-      configurable: true,
-      enumerable: true,
-    });
-  }
-
-  return electronApp;
-};
-
-export function onElectron<const F extends readonly ConfiguredFeature[]>(
-  app: FeatureApp<F>,
-  options?: ElectronAppOptions<HttpFeatureKeys<F>>,
-): Promise<ElectronAppForFeatures<F>>;
-
 /** @throws {ZeltContextNotAvailableError | ZeltElectronIpcFeatureNotFoundError | AggregateError | TypeError} */
 export async function onElectron<const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
-  options: ElectronAppOptions = {},
-): Promise<OnElectronApp> {
+  options: ElectronAppOptions<HttpFeatureKeys<F>> = {},
+): Promise<RuntimeApp<F>> {
   enableAsyncContext();
   const readyApp = await app.createRuntime({
     ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
-    fallbackConfigs: [ElectronEnvAdaptor],
+    fallbackConfigs: [ElectronEnvAdaptor, NodeHttpServerAdaptor],
     warmup: options.warmup ?? true,
   });
 
@@ -161,7 +107,7 @@ export async function onElectron<const F extends readonly ConfiguredFeature[]>(
         await readyApp.shutdown();
       };
 
-      return createElectronApp(readyApp, shutdown);
+      return { ...readyApp, shutdown };
     },
   );
 }

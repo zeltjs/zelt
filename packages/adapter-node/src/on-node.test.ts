@@ -1,7 +1,10 @@
 import type {
   CommandCapabilities,
+  ConfiguredFeature,
+  CreateAppOptions,
   HttpCapabilities,
   HttpModuleOptions,
+  HttpServerCapabilities,
   SchedulerCapabilities,
   ZeltPrebuilt,
 } from '@zeltjs/core';
@@ -20,6 +23,7 @@ import {
   HTTP_FEATURE_KEY,
   HttpFeature,
   http,
+  httpServer,
   Scheduled,
   scheduler,
 } from '@zeltjs/core';
@@ -41,19 +45,21 @@ import type { NodeApp, ServerHandle } from './on-node';
 import { onNode } from './on-node';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
 
-type HttpNodeCapabilities = HttpCapabilities & {
-  readonly listen: (
-    portOrOptions?: number | { readonly port?: number; readonly hostname?: string },
-  ) => Promise<ServerHandle>;
+type HttpNodeApp = NodeApp & {
+  readonly http: HttpCapabilities;
+  readonly server: HttpServerCapabilities;
 };
-type HttpNodeApp = NodeApp & { readonly http: HttpNodeCapabilities };
 type CommandNodeApp = NodeApp & { readonly commands: CommandCapabilities };
 type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
 
-const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp => {
-  const httpPart = app['http'];
-  return httpPart !== undefined && 'listen' in httpPart;
-};
+const hasMethods = (value: object | undefined, names: readonly string[]): boolean =>
+  value !== undefined && names.every((name) => typeof Reflect.get(value, name) === 'function');
+const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp =>
+  hasMethods(app['http'], ['fetch', 'request']) && hasMethods(app['server'], ['listen']);
+const createServerApp = <const F extends readonly ConfiguredFeature[]>(
+  features: F,
+  options?: CreateAppOptions,
+) => createApp([...features, httpServer()], options);
 const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'commands' in app;
 const hasScheduler = (app: NodeApp): app is NodeApp & SchedulerNodeAppPart => 'schedulers' in app;
 
@@ -94,7 +100,7 @@ describe('onNode return types', () => {
     const httpOnly = await onNode(createApp([httpFeature]));
 
     expectTypeOf(httpOnly).not.toHaveProperty('listen');
-    expectTypeOf(httpOnly.http).toHaveProperty('listen');
+    expectTypeOf(httpOnly.http).not.toHaveProperty('listen');
     expectTypeOf(httpOnly).not.toHaveProperty('execCommand');
     expectTypeOf(httpOnly).not.toHaveProperty('startScheduler');
     expect(httpOnly.hasFeature(HttpFeature)).toBe(true);
@@ -150,7 +156,7 @@ describe('onNode return types', () => {
     const full = await onNode(createApp([httpFeature, commandFeature, schedulerFeature]));
 
     expectTypeOf(full).not.toHaveProperty('listen');
-    expectTypeOf(full.http).toHaveProperty('listen');
+    expectTypeOf(full.http).not.toHaveProperty('listen');
     expectTypeOf(full).toHaveProperty('commands');
     expectTypeOf(full).toHaveProperty('schedulers');
 
@@ -184,7 +190,7 @@ describe('onNode return types', () => {
     await nodeApp.shutdown();
   });
 
-  it('adds listen for HttpFeature subclasses', async () => {
+  it('keeps HTTP capabilities portable for HttpFeature subclasses', async () => {
     @Controller('/')
     class SubclassController {
       @Get('/')
@@ -200,9 +206,9 @@ describe('onNode return types', () => {
     nodeApp.registerShutdown(shutdown);
 
     expectTypeOf(nodeApp).not.toHaveProperty('listen');
-    expectTypeOf(nodeApp.http).toHaveProperty('listen');
+    expectTypeOf(nodeApp.http).not.toHaveProperty('listen');
     expect('listen' in nodeApp).toBe(false);
-    expect('listen' in nodeApp.http).toBe(true);
+    expect('listen' in nodeApp.http).toBe(false);
     expect(nodeApp.hasFeature(HttpFeature)).toBe(true);
 
     await nodeApp.shutdown();
@@ -230,12 +236,12 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [TestController] })]);
+    const app = createServerApp([http({ controllers: [TestController] })]);
     nodeApp = await onNode(app);
 
     expect(isHttpNodeApp(nodeApp)).toBe(true);
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.http.listen(0);
+    handle = await nodeApp.server.listen(nodeApp.http, 0);
 
     expect(handle.address.port).toBeGreaterThan(0);
     expect(handle.shutdown).toBeTypeOf('function');
@@ -254,11 +260,11 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [PingController] })]);
+    const app = createServerApp([http({ controllers: [PingController] })]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.http.listen(0);
+    handle = await nodeApp.server.listen(nodeApp.http, 0);
 
     expect(handle.address.port).toBeGreaterThan(0);
     const res = await fetch(`http://localhost:${handle.address.port}/`);
@@ -274,13 +280,13 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [ConflictController] })]);
+    const app = createServerApp([http({ controllers: [ConflictController] })]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.http.listen(0);
+    handle = await nodeApp.server.listen(nodeApp.http, 0);
 
-    await expect(nodeApp.http.listen(handle.address.port)).rejects.toThrow();
+    await expect(nodeApp.server.listen(nodeApp.http, handle.address.port)).rejects.toThrow();
   });
 
   it('listens on each named HTTP namespace independently', async () => {
@@ -300,14 +306,14 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([
+    const app = createServerApp([
       http({ controllers: [PublicController] }),
       http({ name: 'private' as const, controllers: [PrivateController] }),
     ]);
     const namedNodeApp = await onNode(app);
 
-    const publicHandle = await namedNodeApp.http.listen(0);
-    const privateHandle = await namedNodeApp.private.listen(0);
+    const publicHandle = await namedNodeApp.server.listen(namedNodeApp.http, 0);
+    const privateHandle = await namedNodeApp.server.listen(namedNodeApp.private, 0);
 
     try {
       expect('listen' in namedNodeApp).toBe(false);
@@ -341,11 +347,11 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [SharedController] })]);
+    const app = createServerApp([http({ controllers: [SharedController] })]);
     const first = await onNode(app);
     const second = await onNode(app);
-    const firstHandle = await first.http.listen(0);
-    const secondHandle = await second.http.listen(0);
+    const firstHandle = await first.server.listen(first.http, 0);
+    const secondHandle = await second.server.listen(second.http, 0);
 
     try {
       await first.shutdown();
@@ -370,7 +376,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [HealthController] })]);
+    const app = createServerApp([http({ controllers: [HealthController] })]);
     const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app);
@@ -378,14 +384,14 @@ describe('onNode with HTTP', () => {
     expect(readySpy).toHaveBeenCalledOnce();
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.http.listen(0);
+    handle = await nodeApp.server.listen(nodeApp.http, 0);
     const res = await fetch(`http://localhost:${handle.address.port}/health/`);
     const body: { status: string } = await res.json();
     expect(body.status).toBe('ok');
   });
 
   it('passes fallback configs to createRuntime()', async () => {
-    const app = createApp([http({ controllers: [] })], { configs: [EnvAdaptor] });
+    const app = createServerApp([http({ controllers: [] })], { configs: [EnvAdaptor] });
     const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app);
@@ -404,7 +410,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [] })]);
+    const app = createServerApp([http({ controllers: [] })]);
     const readySpy = vi.spyOn(app, 'createRuntime');
 
     nodeApp = await onNode(app, { configs: [TestEnvAdaptor] });
@@ -419,7 +425,7 @@ describe('onNode with HTTP', () => {
   });
 
   it('passes prebuilt to createRuntime()', async () => {
-    const app = createApp([http({ controllers: [] })]);
+    const app = createServerApp([http({ controllers: [] })]);
     const readySpy = vi.spyOn(app, 'createRuntime');
     const prebuilt: ZeltPrebuilt = { version: 1, features: {} };
 
@@ -441,11 +447,11 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [SimpleController] })]);
+    const app = createServerApp([http({ controllers: [SimpleController] })]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.http.listen(0);
+    handle = await nodeApp.server.listen(nodeApp.http, 0);
 
     const res = await fetch(`http://localhost:${handle.address.port}/`);
     expect(res.status).toBe(200);
@@ -460,11 +466,11 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [ShutdownController] })]);
+    const app = createServerApp([http({ controllers: [ShutdownController] })]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.http.listen(0);
+    handle = await nodeApp.server.listen(nodeApp.http, 0);
     const { port } = handle.address;
 
     await handle.shutdown();
@@ -482,11 +488,11 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [AppShutdownController] })]);
+    const app = createServerApp([http({ controllers: [AppShutdownController] })]);
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.http.listen(0);
+    handle = await nodeApp.server.listen(nodeApp.http, 0);
     const { port } = handle.address;
 
     await nodeApp.shutdown();
@@ -505,7 +511,7 @@ describe('onNode with HTTP', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [ServiceController] })], {
+    const app = createServerApp([http({ controllers: [ServiceController] })], {
       configs: [EnvAdaptor],
     });
     nodeApp = await onNode(app);
@@ -533,7 +539,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'test-cmd' })(TestCommand);
 
-    const app = createApp([command([TestCommand])]);
+    const app = createServerApp([command([TestCommand])]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -549,7 +555,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'existing' })(ExistingCommand);
 
-    const app = createApp([command([ExistingCommand])]);
+    const app = createServerApp([command([ExistingCommand])]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -564,7 +570,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'test' })(TestCommand);
 
-    const app = createApp([command([TestCommand])]);
+    const app = createServerApp([command([TestCommand])]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -581,7 +587,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'failing' })(FailingCommand);
 
-    const app = createApp([command([FailingCommand])]);
+    const app = createServerApp([command([FailingCommand])]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -605,7 +611,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'greet' })(GreetCommand);
 
-    const app = createApp([command([GreetCommand])]);
+    const app = createServerApp([command([GreetCommand])]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -635,7 +641,7 @@ describe('onNode with commands', () => {
     }
     Command({ name: 'serve' })(ServeCommand);
 
-    const app = createApp([command([ServeCommand])]);
+    const app = createServerApp([command([ServeCommand])]);
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
@@ -660,7 +666,7 @@ describe('command transient behavior', () => {
       }
     }
 
-    const app = createApp([command([TrackCommand])]);
+    const app = createServerApp([command([TrackCommand])]);
 
     const nodeApp = await onNode(app);
 
@@ -701,7 +707,10 @@ describe('onNode with schedulers', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [TestController] }), scheduler([TestScheduler])]);
+    const app = createServerApp([
+      http({ controllers: [TestController] }),
+      scheduler([TestScheduler]),
+    ]);
     nodeApp = await onNode(app);
 
     expect('schedulers' in nodeApp).toBe(true);
@@ -726,7 +735,10 @@ describe('onNode with schedulers', () => {
       }
     }
 
-    const app = createApp([http({ controllers: [TestController] }), scheduler([TestScheduler])]);
+    const app = createServerApp([
+      http({ controllers: [TestController] }),
+      scheduler([TestScheduler]),
+    ]);
     nodeApp = await onNode(app);
 
     expect(taskFn).not.toHaveBeenCalled();

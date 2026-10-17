@@ -22,5 +22,7 @@ export type {
   HttpStaticCapabilities,
 } from './http/http.feature';
 export { HTTP_FEATURE_KEY, HttpFeature, http } from './http/http.feature';
+export type { HttpServerCapabilities } from './http-server/http-server.feature';
+export { HttpServerFeature, httpServer } from './http-server/http-server.feature';
 export type { SchedulerCapabilities } from './scheduler/scheduler.feature';
 export { SchedulerFeature, scheduler } from './scheduler/scheduler.feature';
