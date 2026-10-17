@@ -1,0 +1,6 @@
+{
+  "name": "studio-app-fixture",
+  "private": true,
+  "main": "./index.js",
+  "type": "module"
+}

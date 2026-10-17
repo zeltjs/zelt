@@ -23,11 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'pnpm'
+      - uses: ./.github/actions/setup-node-pnpm
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies

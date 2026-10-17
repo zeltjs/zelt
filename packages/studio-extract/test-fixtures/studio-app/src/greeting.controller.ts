@@ -1,8 +1,8 @@
 import { Controller, Get, inject, UseMiddleware } from '@zeltjs/core';
 
 import { AuthMiddleware } from './auth.middleware';
-import { GreetingService } from './greeting.service';
 import { LoggingMiddleware } from './logging.middleware';
+import { GreetingService } from './services';
 
 @Controller('/greeting')
 @UseMiddleware(LoggingMiddleware)

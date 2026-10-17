@@ -87,5 +87,20 @@
   },
   "engines": {
     "node": ">=20.0"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "outputs": [
+          "{projectRoot}/build"
+        ]
+      },
+      "typecheck": {
+        "outputs": [],
+        "dependsOn": [
+          "^build"
+        ]
+      }
+    }
   }
 }

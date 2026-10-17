@@ -11,5 +11,7 @@ set -euo pipefail
 exec throw-trace check \
   --exclude '**/*.test.ts' \
   --exclude '**/dist/**' \
+  --exclude '**/.typebuild/**' \
+  --exclude '**/.artifacts/**' \
   --exclude 'packages/studio-ui/**/*.tsx' \
   packages

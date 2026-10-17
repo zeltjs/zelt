@@ -29,6 +29,48 @@ describe('getDependencySources', () => {
     clearProgramCache();
   });
 
+  it('canonicalizes a local barrel alias within an app with a root main entry', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'dep-sources-app-boundary-')));
+    try {
+      await mkdir(join(root, 'src'));
+      await writeFile(
+        join(root, 'package.json'),
+        JSON.stringify({ name: 'local-app', type: 'module', main: './index.js' }),
+      );
+      const declaration = join(root, 'src', 'dep.ts');
+      await writeFile(declaration, 'export class Dep {}\n');
+      await writeFile(join(root, 'src', 'barrel.ts'), "export { Dep as Alias } from './dep';\n");
+      const consumer = join(root, 'src', 'consumer.ts');
+      await writeFile(
+        consumer,
+        "import { Alias } from './barrel';\ndeclare const inject: <T>(cls: new () => T) => T;\nexport class Consumer { constructor(dep = inject(Alias)) {} }\n",
+      );
+      const config = join(root, 'tsconfig.json');
+      await writeFile(
+        config,
+        JSON.stringify({
+          compilerOptions: { target: 'es2022', module: 'esnext', moduleResolution: 'bundler' },
+          include: ['src'],
+        }),
+      );
+
+      const result = await getDependencySources(
+        { filePath: consumer, exportName: 'Consumer' },
+        { tsconfig: config, applicationRoot: root },
+      );
+
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) return;
+      expect(byLocalName(result.value, 'Alias')).toMatchObject({
+        kind: 'class',
+        source: { filePath: declaration, exportName: 'Dep' },
+      });
+    } finally {
+      clearProgramCache();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   const getConsumerDeps = async () => {
     const result = await getDependencySources(
       { filePath: consumerPath, exportName: 'Consumer' },
@@ -203,8 +245,8 @@ describe('getDependencySources', () => {
 // いけない。正準化は「宣言ファイルの実体」から exportName を再導出するが、その再導出で
 // 得られる名前は @zeltjs/kv の MemoryKVAdaptor のような複数名 re-export やバンドラの
 // chunk 内部変数名の影響を受けうる(ec-backend の実例: `t` という名前になっていた)。
-// ここでは「正準化を試みればほぼ確実に失敗する(無関係な未デコレートクラス)」という
-// フィクスチャを使い、正準化が試みられていない(試みられれば kind: 'unresolved' になる
+// ここでは「実行時 import を試みると必ず失敗する」というフィクスチャを使い、
+// 正準化が試みられていない(試みられれば kind: 'unresolved' になる
 // はずが、そうならず raw の名前で kind: 'class' になる)ことを間接的に証明する。
 // リポジトリにコミットしない一時ディレクトリに node_modules 配下のフィクスチャを置く
 // (class-source.test.ts の「falls back to the package entry...」テストと同じ手法)
@@ -215,6 +257,10 @@ describe('getDependencySources (external targets skip runtime canonicalization, 
       const pkgDir = join(base, 'node_modules', 'dep-pkg');
       await mkdir(pkgDir, { recursive: true });
       await writeFile(
+        join(pkgDir, 'package.json'),
+        JSON.stringify({ name: 'dep-pkg', type: 'module', main: './index.ts' }),
+      );
+      await writeFile(
         join(pkgDir, 'index.ts'),
         [
           '// バンドラによる re-export の別名化を模す: 実クラスは RealClass という名前で',
@@ -223,6 +269,7 @@ describe('getDependencySources (external targets skip runtime canonicalization, 
           '// 失敗させて対比するため)',
           'class RealClass {}',
           'export { RealClass as AliasedExport };',
+          'throw new Error("External dependency must not be imported during inspection");',
           '',
         ].join('\n'),
       );

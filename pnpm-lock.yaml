@@ -696,9 +696,6 @@ importers:
       valibot:
         specifier: 'catalog:'
         version: 1.3.1(typescript@6.0.2)
-    dependenciesMeta:
-      '@zeltjs/eventbus':
-        injected: true
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -711,7 +708,7 @@ importers:
         version: link:../decorator-metadata
       '@zeltjs/eventbus':
         specifier: workspace:*
-        version: file:packages/eventbus(@zeltjs/core@packages+core)
+        version: link:../eventbus
       tsdown:
         specifier: 'catalog:'
         version: 0.21.10(oxc-resolver@11.19.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1))(typescript@6.0.2)
@@ -6237,15 +6234,6 @@ packages:
   '@yarnpkg/parsers@3.0.2':
     resolution: {integrity: sha512-/HcYgtUSiJiot/XWGLOlGxPYUG65+/31V8oqk17vZLW1xlCoR4PampyePljOxY2n8/3jz9+tIFzICsyGujJZoA==}
     engines: {node: '>=18.12.0'}
-
-  '@zeltjs/eventbus@file:packages/eventbus':
-    resolution: {directory: packages/eventbus, type: directory}
-    peerDependencies:
-      '@zeltjs/core': workspace:*
-      '@zeltjs/redis': workspace:*
-    peerDependenciesMeta:
-      '@zeltjs/redis':
-        optional: true
 
   '@zkochan/js-yaml@0.0.7':
     resolution: {integrity: sha512-nrUSn7hzt7J6JWgWGz78ZYI8wj+gdIJdk0Ynjpp8l+trkn58Uqsf6RYrYkEK+3X18EX+TNdtJI0WxAtc+L84SQ==}
@@ -18153,10 +18141,6 @@ snapshots:
     dependencies:
       js-yaml: 3.14.2
       tslib: 2.8.1
-
-  '@zeltjs/eventbus@file:packages/eventbus(@zeltjs/core@packages+core)':
-    dependencies:
-      '@zeltjs/core': link:packages/core
 
   '@zkochan/js-yaml@0.0.7':
     dependencies:

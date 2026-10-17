@@ -2,15 +2,23 @@
   "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
   "compilerOptions": {
     "composite": true,
-    "outDir": "./dist",
+    "outDir": "./.typebuild",
     "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "tsBuildInfoFile": "./.typebuild/.tsbuildinfo",
     "erasableSyntaxOnly": false,
-    "types": ["node"]
+    "types": ["node"],
+    "emitDeclarationOnly": true
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../decorator-metadata" }]
+  "references": [
+    {
+      "path": "../decorator-metadata"
+    },
+    {
+      "path": "../unsafe-type-lib"
+    }
+  ]
 }
