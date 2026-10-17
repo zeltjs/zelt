@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -80,5 +81,11 @@ test('distribution caches track the actual prerequisite build output', async (t)
     rmSync(join(project, '.artifacts', 'current.json'));
     assert.match(run(), /distribution-probe:distribution.*\[local cache\]/);
     assert.equal(archived(), readFileSync(join(project, 'dist', 'index.js'), 'utf8'));
+    const archive = readFileSync(join(project, '.artifacts', 'current.tgz'));
+    const hash = createHash('sha256').update(archive).digest('hex');
+    assert.deepEqual(JSON.parse(readFileSync(join(project, '.artifacts', 'current.json'), 'utf8')), {
+      tarball: `${hash}.tgz`,
+      directory: `${hash}/package`,
+    });
   });
 });
