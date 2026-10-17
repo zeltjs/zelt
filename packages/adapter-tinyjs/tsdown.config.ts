@@ -4,9 +4,12 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   plugins: [
     swc({
-      jsc: {
-        parser: { syntax: 'typescript', decorators: true },
-        transform: { decoratorVersion: '2022-03' },
+      swc: {
+        jsc: {
+          parser: { syntax: 'typescript', decorators: true },
+          loose: false,
+          transform: { decoratorVersion: '2022-03', useDefineForClassFields: true },
+        },
       },
     }),
   ],

@@ -10,7 +10,7 @@ export type HttpServerHandle = {
 export type HttpServerShutdownRegistration = (callback: () => Promise<void>) => () => Promise<void>;
 
 /** Platform implementations provide socket ownership without importing a server into core. */
-@Config
+@Config({ abstract: true })
 export class HttpServerAdaptor {
   /** @throws {ZeltNotImplementedError} */
   async listen(

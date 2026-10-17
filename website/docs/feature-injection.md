@@ -10,7 +10,7 @@ Use `injectFeature()` in a DI-managed constructor or field initializer to access
 
 ```typescript
 import {
-  Command, Controller, Get, command, createApp, http, injectFeature,
+  Command, Controller, Get, command, createApp, http, httpServer, injectFeature,
 } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 // ---cut---
@@ -23,24 +23,28 @@ class HelloController {
 }
 
 const web = http({ controllers: [HelloController] });
+const listener = httpServer();
 
 @Command({ name: 'serve' })
 class ServeCommand {
-  constructor(private readonly server = injectFeature(web)) {}
+  constructor(
+    private readonly http = injectFeature(web),
+    private readonly server = injectFeature(listener),
+  ) {}
 
   async run() {
-    const server = await this.server.listen({ port: 3000 });
+    const server = await this.server.listen(this.http, { port: 3000 });
     await server.closed;
   }
 }
 
-const runtime = await onNode(createApp([command([ServeCommand]), web]));
+const runtime = await onNode(createApp([command([ServeCommand]), web, listener]));
 const result = await runtime.commands.execCommand(['serve']);
 ```
 
 Injection alone does not start a listener. `listen()` returns its actual address, an idempotent `shutdown()` function, and a `closed` promise. Runtime shutdown closes listeners started from both injected features and the public runtime API. Node handles SIGINT/SIGTERM through its normal shutdown integration.
 
-Node and Bun provide `listen()`. Other environments, including plain `createRuntime()`, require an `HttpServerAdaptor` implementation; calling `listen()` without one fails explicitly. HTTP `fetch()` and `request()` remain available without a socket listener. Bun's existing public `serve()` API is also retained.
+Declare `httpServer()` to request listening support from the platform. Node, Bun, txiki.js and Electron provide the environment implementation. A runtime without one rejects that server feature during initialization. HTTP `fetch()` and `request()` remain available without a server feature. The old HTTP `listen()` and `serve()` methods have been removed.
 
 ## Select a feature
 
@@ -93,3 +97,5 @@ Injected handles delegate to the same capabilities as the public runtime namespa
 Object-valued properties such as `http.router` retain the same lifetime checks even if stored separately. Aliases and cycles preserve their identity within the injected handle. Values returned by operations, such as an HTTP response or a server handle, retain their own resource contracts.
 
 Feature injection does not make all application initialization lazy. A version command does not implicitly listen, but creating the runtime still performs feature realization and normal lifecycle startup. Put a version-only fast path before runtime creation if those steps must also be avoided.
+
+Public runtime namespaces and `injectFeature()` share the same guarded feature handle. Access through either path is rejected after runtime shutdown.

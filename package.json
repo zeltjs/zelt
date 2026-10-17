@@ -13,7 +13,7 @@
     "check:no-neverthrow-leak": "grep -r 'neverthrow' packages/*/dist/*.d.ts 2>/dev/null && echo 'WARN: neverthrow leaked to public API' || true",
     "format": "biome check --write --unsafe .",
     "format:check": "biome check .",
-    "lint": "node --max-old-space-size=6144 ./node_modules/eslint/bin/eslint.js . && oxlint . && pnpm lint:core-layers",
+    "lint": "pnpm lint:packages && eslint . --ignore-pattern 'packages/**' --ignore-pattern 'examples/**' && oxlint . && pnpm lint:core-layers",
     "lint:core-layers": "depcruise --config dependency-cruiser.config.cjs --output-type err packages/core/src",
     "lint:cycle": "madge --circular --extensions ts packages/",
     "lint:fix": "node --max-old-space-size=6144 ./node_modules/eslint/bin/eslint.js . --fix && oxlint . --fix",
@@ -34,7 +34,8 @@
     "verify-dist:runtime-contracts": "node scripts/verify-dist-runtime-contracts.mjs",
     "verify-dist:tree-shaking": "node scripts/verify-dist-tree-shaking.mjs",
     "verify-generated:openapi": "pnpm --filter @examples/hello generate:openapi && git diff --exit-code -- examples/hello/generated/openapi.json",
-    "verify-generated:studio-snapshot": "./scripts/verify-generated-studio-snapshot.sh"
+    "verify-generated:studio-snapshot": "./scripts/verify-generated-studio-snapshot.sh",
+    "lint:packages": "nx run-many -t lint --parallel=2"
   },
   "devDependencies": {
     "@9wick/eslint-plugin-strict-type-rules": "^1.5.0",

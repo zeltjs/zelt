@@ -6,6 +6,7 @@ import {
   Feature,
   Get,
   http,
+  httpServer,
   Post,
   request,
   TaskService,
@@ -41,7 +42,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('onTxiki', () => {
   it('applies RequestInit method, headers and body to a Request input', async () => {
     vi.stubGlobal('tjs', nativeRuntime());
-    const app = await onTxiki(createApp([http({ controllers: [EchoController] })]), {
+    const app = await onTxiki(createApp([http({ controllers: [EchoController] }), httpServer()]), {
       signals: false,
     });
     const result = await app.http.request(new Request('http://localhost/echo/override'), {
@@ -67,8 +68,8 @@ describe('onTxiki', () => {
   it('preserves serving after shutdown rejects an active sync task and permits retry', async () => {
     const native = nativeRuntime();
     vi.stubGlobal('tjs', native);
-    const app = await onTxiki(createApp([http({ controllers: [EchoController] })]));
-    app.http.serve();
+    const app = await onTxiki(createApp([http({ controllers: [EchoController] }), httpServer()]));
+    await app.server.listen(app.http);
     const tasks = await app.get(TaskService);
     let finish!: () => void;
     const completion = tasks.runAndWait(
@@ -96,12 +97,13 @@ describe('onTxiki', () => {
     const app = await onTxiki(
       createApp([
         http({ controllers: [EchoController] }),
+        httpServer(),
         http({ name: 'admin', controllers: [EchoController] }),
       ]),
     );
-    const first = app.http.serve({ port: 0 });
-    const second = app.admin.serve({ port: 41000, hostname: '0.0.0.0' });
-    expect(first.address).toEqual({ port: 42001, hostname: '127.0.0.1' });
+    const first = await app.server.listen(app.http, { port: 0 });
+    const second = await app.server.listen(app.admin, { port: 41000, hostname: '0.0.0.0' });
+    expect(first.address).toEqual({ port: 42001, address: '127.0.0.1' });
     expect(native.serve.mock.calls[1]).toEqual([
       { fetch: expect.any(Function), port: 41000, listenIp: '0.0.0.0' },
     ]);
@@ -113,13 +115,13 @@ describe('onTxiki', () => {
     for (const server of native.serve.mock.results)
       expect(server.value.close).toHaveBeenCalledTimes(1);
     expect(native.removeSignalListener).toHaveBeenCalledTimes(2);
-    expect(() => app.http.serve()).toThrow();
+    expect(() => app.server.listen(app.http)).toThrow();
     expect(native.serve).toHaveBeenCalledTimes(2);
   });
 
   it('uses sync context even when Node has enabled ALS and isolates concurrent requests', async () => {
     vi.stubGlobal('tjs', nativeRuntime());
-    const app = await onTxiki(createApp([http({ controllers: [EchoController] })]), {
+    const app = await onTxiki(createApp([http({ controllers: [EchoController] }), httpServer()]), {
       signals: false,
     });
     const responses = await Promise.all(

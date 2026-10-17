@@ -54,4 +54,4 @@ pnpm --filter @examples/tinyjs-desktop package
 
 The build uses Node; the packaged application runs on txiki.js and the OS WebView. Build on the OS you target. Linux was verified with tinyjs 0.50.1, including a real WebView; macOS and Windows require separate verification.
 
-IPC responses are buffered and must finish. Use a feature's optional `.serve()` for streaming/SSE endpoints. Browser cookies are not automatically managed by this bridge. Aborting fetch rejects renderer-side waiting; an already-running backend handler can still finish.
+IPC responses are buffered and must finish. Declare `httpServer()` and use `app.server.listen(app.http, options)` for streaming/SSE endpoints. Browser cookies are not automatically managed by this bridge. Aborting fetch rejects renderer-side waiting; an already-running backend handler can still finish.

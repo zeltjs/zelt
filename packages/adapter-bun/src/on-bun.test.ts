@@ -10,7 +10,9 @@ import {
   Get,
   HTTP_FEATURE_KEY,
   HttpFeature,
+  HttpServerFeature,
   http,
+  httpServer,
   injectFeature,
 } from '@zeltjs/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
@@ -19,7 +21,6 @@ import { BunEnvAdaptor } from './bun-env.adaptor';
 import { BunHttpServerAdaptor } from './bun-http-server.adaptor';
 import { onBun } from './on-bun';
 
-const originalBun = globalThis.Bun;
 const servedFetches: ((request: Request) => Promise<Response>)[] = [];
 const servedServers: { readonly stop: ReturnType<typeof vi.fn> }[] = [];
 const serveMock = vi.fn(
@@ -40,10 +41,7 @@ const serveMock = vi.fn(
 );
 
 beforeAll(() => {
-  Object.defineProperty(globalThis, 'Bun', {
-    configurable: true,
-    value: { argv: ['bun', 'test'], env: {}, serve: serveMock },
-  });
+  vi.stubGlobal('Bun', { argv: ['bun', 'test'], env: {}, serve: serveMock });
 });
 
 beforeEach(() => {
@@ -53,10 +51,7 @@ beforeEach(() => {
 });
 
 afterAll(() => {
-  Object.defineProperty(globalThis, 'Bun', {
-    configurable: true,
-    value: originalBun,
-  });
+  vi.unstubAllGlobals();
 });
 
 class FakeHttpLikeFeature extends Feature<
@@ -83,18 +78,19 @@ class CustomHttpFeature extends HttpFeature<typeof HTTP_FEATURE_KEY> {
 }
 
 describe('onBun return types', () => {
-  it('provides listen to an injected HTTP feature without serving during injection', async () => {
+  it('starts listeners through injected HTTP and server features only when requested', async () => {
     let closed: Promise<void> | undefined;
     @Command({ name: 'serve' })
     class Serve {
       private readonly http = injectFeature(HttpFeature);
+      private readonly server = injectFeature(HttpServerFeature);
       async run() {
-        const server = await this.http.listen({ port: 3456 });
+        const server = await this.server.listen(this.http, { port: 3456 });
         closed = server.closed;
         expect(server.address).toEqual({ port: 3456, address: '0.0.0.0' });
       }
     }
-    const app = await onBun(createApp([command([Serve]), http({ controllers: [] })]));
+    const app = await onBun(createApp([command([Serve]), http({ controllers: [] }), httpServer()]));
     try {
       expect(serveMock).not.toHaveBeenCalled();
       expect((await app.commands.execCommand(['serve'])).exitCode).toBe(0);
@@ -117,21 +113,24 @@ describe('onBun return types', () => {
     }
 
     const httpFeature = http({ controllers: [TestController] });
-    const httpOnly = await onBun(createApp([httpFeature]));
+    const httpOnly = await onBun(createApp([httpFeature, httpServer()]));
 
     expectTypeOf(httpOnly).not.toHaveProperty('serve');
-    expectTypeOf(httpOnly.http).toHaveProperty('serve');
+    expectTypeOf(httpOnly.http).not.toHaveProperty('serve');
     expectTypeOf(httpOnly).not.toHaveProperty('execCommand');
     expect(httpOnly.hasFeature(HttpFeature)).toBe(true);
 
     const directResponse = await httpOnly.http.fetch(new Request('http://localhost/'));
     await expect(directResponse.json()).resolves.toEqual({ ok: true });
 
-    const handle = httpOnly.http.serve({ hostname: '127.0.0.1', port: 4321 });
+    const handle = await httpOnly.server.listen(httpOnly.http, {
+      hostname: '127.0.0.1',
+      port: 4321,
+    });
     expect(serveMock).toHaveBeenCalledWith(
       expect.objectContaining({ hostname: '127.0.0.1', port: 4321 }),
     );
-    expect(handle.address).toEqual({ hostname: '127.0.0.1', port: 4321 });
+    expect(handle.address).toEqual({ address: '127.0.0.1', port: 4321 });
     const servedFetch = servedFetches[0];
     if (!servedFetch) throw new Error('expected Bun.serve fetch');
     const servedResponse = await servedFetch(new Request('http://localhost/'));
@@ -163,7 +162,7 @@ describe('onBun return types', () => {
     const full = await onBun(createApp([httpFeature, commandFeature]));
 
     expectTypeOf(full).not.toHaveProperty('serve');
-    expectTypeOf(full.http).toHaveProperty('serve');
+    expectTypeOf(full.http).not.toHaveProperty('serve');
     expectTypeOf(full).toHaveProperty('commands');
 
     const fullResult = await full.commands.execCommand(['test']);
@@ -195,7 +194,7 @@ describe('onBun return types', () => {
     await bunApp.shutdown();
   });
 
-  it('adds serve for HttpFeature subclasses', async () => {
+  it('keeps HTTP capabilities portable for HttpFeature subclasses', async () => {
     @Controller('/')
     class SubclassController {
       @Get('/')
@@ -211,16 +210,16 @@ describe('onBun return types', () => {
     bunApp.registerShutdown(shutdown);
 
     expectTypeOf(bunApp).not.toHaveProperty('serve');
-    expectTypeOf(bunApp.http).toHaveProperty('serve');
+    expectTypeOf(bunApp.http).not.toHaveProperty('serve');
     expect('serve' in bunApp).toBe(false);
-    expect('serve' in bunApp.http).toBe(true);
+    expect('serve' in bunApp.http).toBe(false);
     expect(bunApp.hasFeature(HttpFeature)).toBe(true);
 
     await bunApp.shutdown();
     expect(shutdown).toHaveBeenCalledOnce();
   });
 
-  it('adds serve for each named HTTP namespace', async () => {
+  it('serves selected named HTTP features through one server feature', async () => {
     @Controller('/')
     class PublicController {
       @Get('/public')
@@ -240,12 +239,13 @@ describe('onBun return types', () => {
     const bunApp = await onBun(
       createApp([
         http({ controllers: [PublicController] }),
+        httpServer(),
         http({ name: 'private' as const, controllers: [PrivateController] }),
       ]),
     );
 
-    const publicHandle = bunApp.http.serve({ port: 3000 });
-    const privateHandle = bunApp.private.serve({ port: 3001 });
+    const publicHandle = await bunApp.server.listen(bunApp.http, { port: 3000 });
+    const privateHandle = await bunApp.server.listen(bunApp.private, { port: 3001 });
 
     expect('serve' in bunApp).toBe(false);
     expect(publicHandle.address.port).toBe(3000);
@@ -265,7 +265,7 @@ describe('onBun return types', () => {
     await bunApp.shutdown();
   });
 
-  it('app shutdown stops served servers through the HTTP feature shutdown hook', async () => {
+  it('app shutdown stops listeners owned by the server feature', async () => {
     @Controller('/')
     class AppShutdownController {
       @Get('/')
@@ -274,8 +274,10 @@ describe('onBun return types', () => {
       }
     }
 
-    const bunApp = await onBun(createApp([http({ controllers: [AppShutdownController] })]));
-    bunApp.http.serve({ port: 3000 });
+    const bunApp = await onBun(
+      createApp([http({ controllers: [AppShutdownController] }), httpServer()]),
+    );
+    await bunApp.server.listen(bunApp.http, { port: 3000 });
     const server = servedServers[0];
     if (!server) throw new Error('expected Bun.serve server');
 

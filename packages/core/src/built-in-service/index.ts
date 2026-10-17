@@ -7,6 +7,8 @@ export {
   resolveConfig,
 } from './config';
 export { Env, EnvAdaptor } from './env';
+export { HttpRequestConfig } from './http-request/http-request.config';
+export { type HttpFetchTarget, HttpListenerService } from './http-server/http-listener.service';
 export type {
   HttpListenOptions,
   HttpServerHandle,

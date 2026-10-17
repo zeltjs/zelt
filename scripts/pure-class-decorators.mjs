@@ -7,6 +7,8 @@ const auditedFiles = new Set([
   'built-in-service/env/env.adaptor.ts',
   'built-in-service/env/env.ts',
   'built-in-service/http-server/http-server.adaptor.ts',
+  'built-in-service/http-server/http-listener.service.ts',
+  'built-in-service/http-request/http-request.config.ts',
   'built-in-service/logger/logger.config.ts',
   'built-in-service/logger/logger.service.ts',
   'built-in-service/logger/formatter/jsonl.formatter.ts',
@@ -29,7 +31,14 @@ const isDecoratorFactory = (node) =>
   node.type === 'CallExpression' &&
   node.callee.type === 'Identifier' &&
   ((node.callee.name === 'Injectable' && node.arguments.length === 0) ||
-    node.callee.name === '_ts_metadata');
+    node.callee.name === '_ts_metadata' ||
+    (node.callee.name === 'Config' && node.arguments.length === 1 &&
+      node.arguments[0].type === 'ObjectExpression' && node.arguments[0].properties.length === 1 &&
+      node.arguments[0].properties[0].type === 'Property' &&
+      node.arguments[0].properties[0].key.type === 'Identifier' &&
+      node.arguments[0].properties[0].key.name === 'abstract' &&
+      node.arguments[0].properties[0].value.type === 'Literal' &&
+      node.arguments[0].properties[0].value.value === true));
 
 // These internal classes register metadata by class identity; no registry enumerates discarded classes.
 // Mark their factory calls too; otherwise their evaluation survives when the class is removed.

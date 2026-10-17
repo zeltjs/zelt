@@ -77,7 +77,7 @@ const electronZelt = await onElectron(app, {
 |----------|------|-------------|
 | `http.fetch` | `(request: Request) => Promise<Response>` | リクエストを直接処理します |
 | `http.request` | `(input: string \| Request, init?: RequestInit) => Promise<Response>` | URL/pathと `RequestInit` から組み立てたリクエストを処理します |
-| `http.listen` | `(portOrOptions?: number \| ListenOptions) => Promise<ServerHandle>` | このfeatureをIPCではなくTCPで配信します |
+| `server.listen` | `(http: HttpFetchTarget, options?: HttpListenOptions) => Promise<ServerHandle>` | 選択したHTTP featureをTCPで配信します。`httpServer()`の宣言が必要です |
 | `shutdown` | `() => Promise<void>` | gracefulなシャットダウン |
 | `get` | `<T>(Class) => Promise<T>` | DIからserviceを解決します |
 

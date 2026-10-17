@@ -7,8 +7,9 @@ export default defineConfig({
   test: {
     ...sharedConfig.test,
     name: '@zeltjs/adapter-cloudflare-workers',
+    include: ['src/**/*.test.ts'],
     alias: {
-      'cloudflare:workers': new URL('./src/__mocks__/cloudflare-workers.lib.ts', import.meta.url)
+      'cloudflare:workers': new URL('./src/test-fixtures/cloudflare-workers.ts', import.meta.url)
         .pathname,
     },
   },

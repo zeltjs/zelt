@@ -33,7 +33,7 @@ The virtual origin defaults to `http://zelt-tinyjs`; absolute URLs must use that
 
 ## Feature and lifecycle wiring
 
-By default, all configured HTTP features are exposed to the renderer. Restrict them explicitly with `bridgeFeatures: ['http', 'admin']`. Feature names are checked against the app's HTTP features at compile time and at runtime. Services are shared across features; each feature can also open an optional TCP server through its `.serve()` method.
+By default, all configured HTTP features are exposed to the renderer. Restrict them explicitly with `bridgeFeatures: ['http', 'admin']`. Feature names are checked against the app's HTTP features at compile time and at runtime. Services are shared across features; an optional `httpServer()` feature can expose selected HTTP features through `app.server.listen(app.http, options)`.
 
 The adapter reserves `api` and `init` as feature names for its native exports.
 

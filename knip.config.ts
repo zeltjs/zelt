@@ -101,6 +101,12 @@ const config: KnipConfig = {
     },
     'packages/adapter-cloudflare-workers': {
       ignoreDependencies: ['@zeltjs/core', 'cloudflare'],
+      // Fixtures are test inputs, not production modules. Keep the default
+      // mode checking them and exclude them only from production mode.
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!src/test-fixtures/**!'],
+    },
+    'packages/adapter-lambda': {
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!src/test-fixtures/**!'],
     },
     'packages/validator-valibot': {
       // OpenAPI fixtures are imported by tests and are not production entry points.

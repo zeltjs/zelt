@@ -83,7 +83,7 @@ describe('injectFeature contracts', () => {
     const runtime = await createApp([http({ controllers: [] })]).createRuntime();
     try {
       expect((await runtime.http.request('/')).status).toBe(404);
-      await expect(runtime.http.listen(0)).rejects.toThrow(/HttpServerAdaptor.*listen/);
+      expect(runtime.http).not.toHaveProperty('listen');
     } finally {
       await runtime.shutdown();
     }
@@ -169,7 +169,7 @@ describe('injectFeature contracts', () => {
     class OwnHttp {
       private readonly http = injectFeature(definition);
       async use(next: Next): Promise<undefined> {
-        expectTypeOf(this.http.listen).toBeFunction();
+        expectTypeOf(this.http).not.toHaveProperty('listen');
         expect(typeof this.http.fetch).toBe('function');
         await next();
         return undefined;

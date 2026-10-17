@@ -15,7 +15,7 @@ bun add @zeltjs/adapter-bun @zeltjs/core
 ## Usage
 
 ```typescript
-import { createApp, http, Controller, Get } from '@zeltjs/core';
+import { createApp, http, Controller, Get, httpServer } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
@@ -26,8 +26,10 @@ class HelloController {
   }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
 
 const bunApp = await onBun(app);
-bunApp.http.serve({ port: 3000 });
+await bunApp.server.listen(bunApp.http, { port: 3000 });
 ```
+
+Server handles provide `address`, `closed`, and `shutdown()`. Shutdown follows Bun's native graceful stop: it refuses new TCP connections, while already accepted keep-alive connections may remain usable until the client closes them.

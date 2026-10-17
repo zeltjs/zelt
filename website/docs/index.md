@@ -31,7 +31,7 @@ Zelt is in **pre-alpha** — APIs may change between minor versions.
 ## Quick Example
 
 ```typescript
-import { createApp, Controller, Get, http } from '@zeltjs/core';
+import { createApp, Controller, Get, http, httpServer } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
 @Controller('/hello')
@@ -42,9 +42,9 @@ class HelloController {
   }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
 const nodeApp = await onNode(app);
-await nodeApp.http.listen({ port: 3000 });
+await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 ```
 
 See the [Getting Started](./getting-started) guide for a step-by-step walkthrough.

@@ -30,14 +30,15 @@
   "scripts": {
     "build": "tsdown",
     "test": "pnpm -w run test:prepare && vitest run",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint ."
   },
   "dependencies": {
     "@zeltjs/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
-    "@cloudflare/workers-types": "4.20250523.0"
+    "@cloudflare/workers-types": "4.20260506.1",
+    "@types/node": "catalog:"
   },
   "volta": {
     "extends": "../../package.json"

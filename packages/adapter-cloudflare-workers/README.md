@@ -39,8 +39,10 @@ const app = createApp([http({ controllers: [HelloController] })]);
 
 const workers = await onCloudflareWorkers(app);
 
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 ```
+
+`onCloudflareWorkers()` injects Workers environment configs and initializes the declared features. It returns their namespaces and the common runtime APIs without adding a root `fetch` or requiring an HTTP feature. Export the `fetch` of whichever HTTP feature you want to serve.
 
 ## Options
 
@@ -75,7 +77,7 @@ const app = createApp([http({ controllers: [ConfigController] })]);
 
 const workers = await onCloudflareWorkers(app);
 
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 ```
 
 ## Cloudflare Bindings
@@ -86,11 +88,11 @@ Wrangler bindings (D1, KV, R2, Durable Objects, etc.) are passed to `fetch(reque
 import { createApp, http, Controller, Get, inject } from '@zeltjs/core';
 import { CloudflareBindings, onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 
-// `wrangler types` augments the global `Env` with the bindings declared
+// `wrangler types` augments `Cloudflare.Env` with the bindings declared
 // in wrangler.toml, e.g.:
 // declare global {
-//   interface Env {
-//     DB: D1Database;
+//   namespace Cloudflare {
+//     interface Env { DB: D1Database; }
 //   }
 // }
 
@@ -109,13 +111,13 @@ const app = createApp([http({ controllers: [DataController] })]);
 
 const workers = await onCloudflareWorkers(app);
 
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 ```
 
-`bindings.get('DB')` is typed from the augmented global `Env`, so no manual typing is needed.
+`bindings.get('DB')` is typed from the generated `Cloudflare.Env`, so no manual typing is needed.
 
-**Important:** `CloudflareBindings.get()` reads from request-scoped storage populated by `onCloudflareWorkers()`, so it only works during request handling — calling it outside a request (e.g. at module load time) throws.
+`CloudflareBindings.get()` reads directly from the native `cloudflare:workers` env. It does not require a Zelt HTTP wrapper or request scope. The binding's own runtime rules still apply to operations such as KV or D1 queries.
 
 ## Background Tasks
 
-`onCloudflareWorkers()` automatically registers `CloudflareWorkersWaitUntilAdaptor`, which extends `TaskService`'s after-response and fire-and-forget tasks through `ctx.waitUntil`, so the Workers runtime keeps the isolate alive until they finish.
+`onCloudflareWorkers()` automatically registers `CloudflareWorkersWaitUntilAdaptor`, which extends `TaskService`'s after-response and fire-and-forget tasks through the native `waitUntil` import from `cloudflare:workers`, so the Workers runtime keeps the isolate alive until they finish.

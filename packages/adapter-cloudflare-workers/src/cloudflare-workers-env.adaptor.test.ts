@@ -1,10 +1,9 @@
-import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
-
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
+import { env } from './test-fixtures/cloudflare-workers';
 
 describe('CloudflareWorkersEnvAdaptor', () => {
-  const mockEnv = env as Record<string, string | undefined>;
+  const mockEnv = env;
 
   beforeEach(() => {
     for (const key of Object.keys(mockEnv)) {
@@ -27,8 +26,8 @@ describe('CloudflareWorkersEnvAdaptor', () => {
   });
 
   it('returns undefined for non-string values', () => {
-    (mockEnv as Record<string, unknown>)['NUMBER_VAL'] = 123;
-    (mockEnv as Record<string, unknown>)['OBJECT_VAL'] = { foo: 'bar' };
+    mockEnv['NUMBER_VAL'] = 123;
+    mockEnv['OBJECT_VAL'] = { foo: 'bar' };
 
     const config = new CloudflareWorkersEnvAdaptor();
 

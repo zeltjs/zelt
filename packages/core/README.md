@@ -126,17 +126,13 @@ class UserController {
 ### 3. Create and Run the Application
 
 ```typescript
-import { createApp } from '@zeltjs/core';
+import { createApp, httpServer, http } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
-const app = createApp({
-  http: {
-    controllers: [UserController],
-  },
-});
+const app = createApp([http({ controllers: [UserController] }), httpServer()]);
 
 const nodeApp = await onNode(app);
-const server = await nodeApp.http.listen({ port: 3000 });
+const server = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 
@@ -187,7 +183,7 @@ the `WaitUntilAdaptor` abstraction: on long-lived processes (Node.js, Bun,
 Electron) the default no-op adaptor applies and execution is best-effort — a
 graceful shutdown drains active tasks, but a crash or forced kill loses them;
 on Cloudflare Workers the adapter ties tasks and after-response callbacks to
-`ctx.waitUntil`, so they run within the platform's post-response execution
+`waitUntil` from `cloudflare:workers`, so they run within the platform's post-response execution
 window. AWS Lambda has no equivalent primitive — the execution environment may
 freeze right after the response — so use an external queue for post-response
 work on Lambda.
@@ -197,25 +193,32 @@ work on Lambda.
 Same application code, different adapters:
 
 ```typescript
+import { createApp, http, httpServer } from '@zeltjs/core';
+
+const app = createApp([http({ controllers: [UserController] })]);
+const serverApp = createApp([...app.features, httpServer()]);
+
 // Node.js
 import { onNode } from '@zeltjs/adapter-node';
-const nodeApp = await onNode(app);
-await nodeApp.http.listen({ port: 3000 });
+const nodeApp = await onNode(serverApp);
+await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 
 // Bun
 import { onBun } from '@zeltjs/adapter-bun';
-const bunApp = await onBun(app);
-bunApp.http.serve({ port: 3000 });
+const bunApp = await onBun(serverApp);
+await bunApp.server.listen(bunApp.http, { port: 3000 });
 
 // Cloudflare Workers
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 const workers = await onCloudflareWorkers(app);
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 
 // AWS Lambda
-import { onLambda } from '@zeltjs/adapter-lambda';
-const lambdaApp = await onLambda(app);
-export const handler = lambdaApp.handler;
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
+const lambdaApp = await onLambda(
+  createApp([...app.features, lambdaHandler()], { configs: app.configs }),
+);
+export const handler = lambdaApp.handler.create(lambdaApp.http);
 ```
 
 ## Benchmark

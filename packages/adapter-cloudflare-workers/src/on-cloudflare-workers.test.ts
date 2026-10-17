@@ -5,20 +5,25 @@ import {
   createApp,
   EnvAdaptor,
   Get,
+  HttpFeature,
   http,
+  Injectable,
   inject,
+  injectFeature,
+  request,
   TaskService,
 } from '@zeltjs/core';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vitest';
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 import { CloudflareWorkersWaitUntilAdaptor } from './cloudflare-workers-wait-until.adaptor';
-import { CloudflareBindings } from './index';
-import { onCloudflareWorkers } from './on-cloudflare-workers';
+import { CloudflareBindings, onCloudflareWorkers } from './index';
+import { env, pendingTasks } from './test-fixtures/cloudflare-workers';
 
 declare global {
-  interface Env {
-    DB: D1Database;
-    CACHE: KVNamespace;
+  namespace Cloudflare {
+    interface Env {
+      LABEL: string;
+    }
   }
 }
 
@@ -30,282 +35,151 @@ class HelloController {
   }
 }
 
-@Controller('/bindings')
-class BindingsController {
-  constructor(private readonly bindings = inject(CloudflareBindings)) {}
-
-  @Get('/db')
-  db() {
-    return { same: this.bindings.get('DB') === mockD1 };
-  }
-}
-
-const createAfterResponseController = (events: string[], gate: Promise<void>) => {
-  @Controller('/after-response')
-  class AfterResponseController {
-    constructor(private readonly tasks = inject(TaskService)) {}
-
-    @Get('/')
-    trigger() {
-      this.tasks.afterResponse(async () => {
-        events.push('task-started');
-        await gate;
-        events.push('task-finished');
-      });
-      return { triggered: true };
-    }
-  }
-  return AfterResponseController;
-};
-
-const mockD1 = {
-  prepare: vi.fn(),
-} as unknown as D1Database;
-
-const mockCache = {
-  get: vi.fn(),
-} as unknown as KVNamespace;
-
-const createMockEnv = (): Env => ({ DB: mockD1, CACHE: mockCache });
-
-const createMockExecutionContext = () =>
-  ({
-    waitUntil: vi.fn(),
-    passThroughOnException: vi.fn(),
-    props: {},
-  }) as unknown as ExecutionContext;
+beforeEach(() => {
+  for (const key of Object.keys(env)) delete env[key];
+  pendingTasks.length = 0;
+});
 
 describe('onCloudflareWorkers', () => {
-  it('returns CloudflareWorkersApp with get and fetch', async () => {
-    const app = createApp([http({ controllers: [HelloController] })]);
-    const workersApp = await onCloudflareWorkers(app);
-
-    expect(workersApp.fetch).toBeDefined();
-    expect(typeof workersApp.fetch).toBe('function');
-    expect(workersApp.get).toBeDefined();
-    expect(typeof workersApp.get).toBe('function');
+  it('initializes without HTTP and adds no adapter capabilities', async () => {
+    const workers = await onCloudflareWorkers(createApp([]));
+    onTestFinished(() => workers.shutdown());
+    expectTypeOf(workers).not.toHaveProperty('http');
+    expectTypeOf(workers).not.toHaveProperty('fetch');
+    expect(workers).not.toHaveProperty('fetch');
   });
 
-  it('handles requests and returns responses', async () => {
-    const app = createApp([http({ controllers: [HelloController] })]);
-    const workersApp = await onCloudflareWorkers(app);
-    const ctx = createMockExecutionContext();
-
-    const res = await workersApp.fetch(
-      new Request('https://example.com/hello/'),
-      createMockEnv(),
-      ctx,
-    );
-
+  it('publishes the original HTTP capability and serves directly through its fetch', async () => {
+    const web = http({ controllers: [HelloController] });
+    @Injectable()
+    class Consumer {
+      readonly http = injectFeature(web);
+    }
+    const workers = await onCloudflareWorkers(createApp([web]));
+    onTestFinished(() => workers.shutdown());
+    expectTypeOf(workers).not.toHaveProperty('fetch');
+    expect(workers).not.toHaveProperty('fetch');
+    expect((await workers.get(Consumer)).http).toBe(workers.http);
+    expect(workers.getFeatureEntries(HttpFeature)[0]?.capabilities).toBe(workers.http);
+    const exported = { fetch: workers.http.fetch };
+    const res = await exported.fetch(new Request('https://example.com/hello/'));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ message: 'hello from workers' });
+    await workers.shutdown();
+    expect(() => exported.fetch(new Request('https://example.com/hello/'))).toThrow(/disposed/);
   });
 
-  it('defaults to lazy mode (warmup: false)', async () => {
-    const app = createApp([http({ controllers: [HelloController] })]);
-    const readySpy = vi.spyOn(app, 'createRuntime');
+  it('preserves a feature named fetch and supports multiple named HTTP features', async () => {
+    const workers = await onCloudflareWorkers(
+      createApp([
+        http({ name: 'fetch', controllers: [HelloController] }),
+        http({ name: 'public', controllers: [HelloController] }),
+      ]),
+    );
+    onTestFinished(() => workers.shutdown());
+    expectTypeOf(workers).not.toHaveProperty('http');
+    const exported = { fetch: workers.public.fetch };
+    expect((await exported.fetch(new Request('https://example.com/hello/'))).status).toBe(200);
+    expect((await workers.fetch.request('/hello/')).status).toBe(200);
+  });
 
-    await onCloudflareWorkers(app);
-
-    expect(readySpy).toHaveBeenCalledWith({
+  it.each([
+    false,
+    true,
+  ])('passes warmup=%s and environment defaults to createRuntime', async (warmup) => {
+    const app = createApp([]);
+    const createRuntime = vi.spyOn(app, 'createRuntime');
+    const workers = await onCloudflareWorkers(app, { warmup });
+    onTestFinished(() => workers.shutdown());
+    expect(createRuntime).toHaveBeenCalledExactlyOnceWith({
       fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
-      warmup: false,
+      warmup,
     });
   });
 
-  it('respects warmup: true option', async () => {
-    const app = createApp([http({ controllers: [HelloController] })]);
-    const readySpy = vi.spyOn(app, 'createRuntime');
-
-    await onCloudflareWorkers(app, { warmup: true });
-
-    expect(readySpy).toHaveBeenCalledWith({
-      fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
-      warmup: true,
-    });
-  });
-
-  it('createRuntime() is called once during onCloudflareWorkers', async () => {
-    const app = createApp([http({ controllers: [HelloController] })]);
-    const readySpy = vi.spyOn(app, 'createRuntime');
-    const ctx = createMockExecutionContext();
-
-    const workersApp = await onCloudflareWorkers(app);
-    await workersApp.fetch(new Request('https://example.com/hello/'), createMockEnv(), ctx);
-    await workersApp.fetch(new Request('https://example.com/hello/'), createMockEnv(), ctx);
-    await workersApp.fetch(new Request('https://example.com/hello/'), createMockEnv(), ctx);
-
-    expect(readySpy).toHaveBeenCalledTimes(1);
-  });
-
-  it('calls waitUntil on ExecutionContext', async () => {
-    const app = createApp([http({ controllers: [HelloController] })]);
-    const workersApp = await onCloudflareWorkers(app);
-    const ctx = createMockExecutionContext();
-
-    await workersApp.fetch(new Request('https://example.com/hello/'), createMockEnv(), ctx);
-
-    expect(ctx.waitUntil).toHaveBeenCalled();
-  });
-
-  it('passes fallback configs to createRuntime()', async () => {
-    const app = createApp([http({ controllers: [HelloController] })], {
-      configs: [EnvAdaptor],
-    });
-    const readySpy = vi.spyOn(app, 'createRuntime');
-
-    await onCloudflareWorkers(app);
-
-    expect(readySpy).toHaveBeenCalledWith({
-      fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
-      warmup: false,
-    });
-  });
-
-  it('passes config overrides to createRuntime()', async () => {
+  it('passes prebuilt and config overrides while defaulting to lazy initialization', async () => {
     @Config
     class TestEnvAdaptor extends EnvAdaptor {
       override get(key: string): string | undefined {
         return key === 'CF_ENV' ? 'test-override' : undefined;
       }
     }
-
-    const app = createApp([http({ controllers: [HelloController] })]);
-    const readySpy = vi.spyOn(app, 'createRuntime');
-
-    const workersApp = await onCloudflareWorkers(app, { configs: [TestEnvAdaptor] });
-
-    expect(readySpy).toHaveBeenCalledWith({
-      configs: [TestEnvAdaptor],
-      fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
-      warmup: false,
-    });
-    const env = await workersApp.get(EnvAdaptor);
-    expect(env.get('CF_ENV')).toBe('test-override');
-  });
-
-  it('passes prebuilt to createRuntime()', async () => {
-    const app = createApp([http({ controllers: [HelloController] })]);
-    const readySpy = vi.spyOn(app, 'createRuntime');
+    const app = createApp([]);
+    const createRuntime = vi.spyOn(app, 'createRuntime');
     const prebuilt: ZeltPrebuilt = { version: 1, features: {} };
-
-    await onCloudflareWorkers(app, { prebuilt });
-
-    expect(readySpy).toHaveBeenCalledWith({
+    const workers = await onCloudflareWorkers(app, { configs: [TestEnvAdaptor], prebuilt });
+    onTestFinished(() => workers.shutdown());
+    expect(createRuntime).toHaveBeenCalledExactlyOnceWith({
+      configs: [TestEnvAdaptor],
       prebuilt,
       fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
       warmup: false,
     });
+    expect((await workers.get(EnvAdaptor)).get('CF_ENV')).toBe('test-override');
   });
 
-  it('provides get() to retrieve dependencies from container', async () => {
-    const app = createApp([http({ controllers: [HelloController] })], {
-      configs: [EnvAdaptor],
-    });
-    const workersApp = await onCloudflareWorkers(app);
-
-    const env = await workersApp.get(EnvAdaptor);
-    expect(env.get).toBeTypeOf('function');
-  });
-
-  it('provides Cloudflare bindings through DI during request handling', async () => {
-    const app = createApp([http({ controllers: [BindingsController] })]);
-    const workersApp = await onCloudflareWorkers(app);
-    const ctx = createMockExecutionContext();
-
-    const res = await workersApp.fetch(
-      new Request('https://example.com/bindings/db'),
-      createMockEnv(),
-      ctx,
+  it('reads native bindings during concurrent direct HTTP requests in synchronous context mode', async () => {
+    env['LABEL'] = 'native-binding';
+    @Controller('/')
+    class BindingsController {
+      constructor(private readonly bindings = inject(CloudflareBindings)) {}
+      @Get('/')
+      async handle(req = request(), label = this.bindings.get('LABEL')) {
+        await Promise.resolve();
+        return { label, id: req.queryParam('id') };
+      }
+    }
+    const workers = await onCloudflareWorkers(
+      createApp([http({ controllers: [BindingsController] })]),
+      { contextMode: 'sync' },
     );
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ same: true });
+    onTestFinished(() => workers.shutdown());
+    const responses = await Promise.all(
+      Array.from({ length: 20 }, (_, id) =>
+        workers.http.fetch(new Request(`https://example.com/?id=${id}`)),
+      ),
+    );
+    for (const [id, res] of responses.entries()) {
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ label: 'native-binding', id: String(id) });
+    }
   });
 
-  it('extends execution for afterResponse tasks via ctx.waitUntil', async () => {
+  it('keeps after-response work registered with native waitUntil until the task completes', async () => {
     const events: string[] = [];
-    let releaseGate!: () => void;
-    const gate = new Promise<void>((resolve) => {
-      releaseGate = resolve;
-    });
-    const app = createApp([http({ controllers: [createAfterResponseController(events, gate)] })]);
-    const workersApp = await onCloudflareWorkers(app);
-    const recorded: Promise<unknown>[] = [];
-    const ctx = {
-      waitUntil: vi.fn((promise: Promise<unknown>) => {
-        recorded.push(promise);
-      }),
-      passThroughOnException: vi.fn(),
-      props: {},
-    } as unknown as ExecutionContext;
-
-    const res = await workersApp.fetch(
-      new Request('https://example.com/after-response/'),
-      createMockEnv(),
-      ctx,
+    const gate = Promise.withResolvers<void>();
+    onTestFinished(() => gate.resolve());
+    @Controller('/')
+    class AfterResponseController {
+      constructor(private readonly tasks = inject(TaskService)) {}
+      @Get('/')
+      trigger() {
+        this.tasks.afterResponse(async () => {
+          events.push('task-started');
+          await gate.promise;
+          events.push('task-finished');
+        });
+        return { triggered: true };
+      }
+    }
+    const workers = await onCloudflareWorkers(
+      createApp([http({ controllers: [AfterResponseController] })]),
     );
-
+    onTestFinished(() => workers.shutdown());
+    const res = await workers.http.fetch(new Request('https://example.com/'));
     expect(res.status).toBe(200);
-    // The task must not have run synchronously with the response.
     expect(events).toEqual([]);
-
-    // The flush fired: the task started and is now blocked on the gate.
     await vi.waitFor(() => expect(events).toEqual(['task-started']));
-
-    // Exactly three registrations: the response promise (adapter fetch), the
-    // after-response flush promise (http bootstrap), and the task's own
-    // promise (task runner extend) — the last one is this task's deliverable.
-    expect(recorded).toHaveLength(3);
-
-    // The task's own promise must still be pending while the task is gated;
-    // this proves ctx.waitUntil tracks task completion, not just the flush.
-    const taskPromise = recorded[2];
-    if (taskPromise === undefined) throw new Error('unreachable: length asserted above');
+    expect(pendingTasks.length).toBeGreaterThan(0);
     let settled = false;
-    void taskPromise.then(() => {
+    const completion = Promise.all(pendingTasks).then(() => {
       settled = true;
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(settled).toBe(false);
-
-    releaseGate();
-    await taskPromise;
-    expect(settled).toBe(true);
+    gate.resolve();
+    await completion;
     expect(events).toEqual(['task-started', 'task-finished']);
+    expect(settled).toBe(true);
   });
-});
-
-it('captures per-request Workers bindings under concurrent synchronous-mode requests', async () => {
-  const databases = Array.from({ length: 20 }, () => ({ ...mockD1 }));
-  @Controller('/')
-  class PortableBindingsController {
-    constructor(private readonly bindings = inject(CloudflareBindings)) {}
-    @Get('/')
-    async handle(db = this.bindings.get('DB')) {
-      await Promise.resolve();
-      return { index: databases.indexOf(db) };
-    }
-  }
-  const workers = await onCloudflareWorkers(
-    createApp([http({ controllers: [PortableBindingsController] })]),
-    { contextMode: 'sync' },
-  );
-  try {
-    const responses = await Promise.all(
-      databases.map((db) =>
-        workers.fetch(
-          new Request('https://example.com/'),
-          { ...createMockEnv(), DB: db },
-          createMockExecutionContext(),
-        ),
-      ),
-    );
-    for (const [index, response] of responses.entries()) {
-      expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ index });
-    }
-  } finally {
-    await workers.shutdown();
-  }
 });

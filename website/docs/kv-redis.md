@@ -22,7 +22,7 @@ pnpm add @zeltjs/core
 Inject `RedisKVAdaptor` and create a namespaced store. `namespace()` returns an `AtomicKVStore` directly, and `get()` resolves to the value (or `undefined` when the key is missing) — there is no result wrapper to unwrap:
 
 ```typescript twoslash
-import { Injectable, inject } from '@zeltjs/core';
+import { Injectable, inject, httpServer } from '@zeltjs/core';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import type { AtomicKVStore, Defined } from '@zeltjs/kv';
 // ---cut---
@@ -47,7 +47,7 @@ export class CacheService {
 Register `RedisConfig` and `RedisKVAdaptor` when creating the app. `RedisConfig` provides the connection settings (consumed by `RedisService`, which `RedisKVAdaptor` depends on), so listing `RedisKVAdaptor` in `injectables` is enough — its dependencies resolve automatically:
 
 ```typescript twoslash
-import { createApp, Controller, Get, http } from '@zeltjs/core';
+import { createApp, Controller, Get, http, httpServer } from '@zeltjs/core';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
@@ -154,10 +154,10 @@ class ProductionRedisConfig extends RedisConfig {
 
 You do not need to disconnect Redis manually. `RedisService` registers itself with the lifecycle manager, so when the application shuts down it disconnects the ioredis client automatically.
 
-With `@zeltjs/adapter-node`, `onNode` installs `SIGINT`/`SIGTERM` handlers that trigger this shutdown, and `handle.shutdown()` does the same:
+With `@zeltjs/adapter-node`, `onNode` installs `SIGINT`/`SIGTERM` handlers that trigger this shutdown, and `nodeApp.shutdown()` does the same. `handle.shutdown()` closes only that listener:
 
 ```typescript twoslash
-import { createApp, Controller, Get, http } from '@zeltjs/core';
+import { createApp, Controller, Get, http, httpServer } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
@@ -165,10 +165,10 @@ import { RedisConfig } from '@zeltjs/redis';
 @Controller('/app') class AppController { @Get('/') get() { return {}; } }
 
 const app = createApp([http({ controllers: [AppController] })], { configs: [RedisConfig] });
-const nodeApp = await onNode(app);
+const nodeApp = await onNode(createApp([...app.features, httpServer()], { configs: app.configs }));
 // ---cut---
-const handle = await nodeApp.http.listen({ port: 3000 });
+const handle = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 
-// Disconnects the server and runs lifecycle shutdown (Redis included)
-await handle.shutdown();
+// Closes all listeners and resources (Redis included)
+await nodeApp.shutdown();
 ```

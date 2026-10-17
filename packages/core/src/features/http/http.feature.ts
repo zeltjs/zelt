@@ -1,6 +1,7 @@
 import type { ServiceResolver } from '../../app';
 import { Feature } from '../../app';
-import { HttpServerAdaptor } from '../../built-in-service';
+import { HttpRequestConfig } from '../../built-in-service';
+import { ContextRuntimeService } from '../../kernel';
 import { HttpService } from './http.service';
 import type {
   ControllerClass,
@@ -74,7 +75,8 @@ export class HttpFeature<TName extends string = string>
 
   readonly realize = async (resolver: ServiceResolver): Promise<HttpFeatureCapabilities> => {
     const service = await resolver.get(HttpService);
-    const server = await resolver.get(HttpServerAdaptor);
+    const requests = await resolver.get(HttpRequestConfig);
+    const context = await resolver.get(ContextRuntimeService);
     const local = await service.createLocalRouter(this.opts);
 
     for (const child of this.children) {
@@ -82,11 +84,11 @@ export class HttpFeature<TName extends string = string>
       Reflect.apply(local.route, local, ['/', childCaps.router]);
     }
 
-    if (this.path === '/') return this.toCapabilities(local, server, resolver);
+    if (this.path === '/') return this.toCapabilities(local, requests, context);
 
     const rootRouter = await service.createLocalRouter({ controllers: [] });
     Reflect.apply(rootRouter.route, rootRouter, [this.path, local]);
-    return this.toCapabilities(rootRouter, server, resolver);
+    return this.toCapabilities(rootRouter, requests, context);
   };
 
   private collectMetadata(): HttpMetadata {
@@ -105,26 +107,23 @@ export class HttpFeature<TName extends string = string>
     ];
   }
 
-  /** @throws {ZeltNotImplementedError} */
+  /** @throws {TypeError} from the returned HTTP operations */
   private toCapabilities(
     router: HttpMountableCapabilities['router'],
-    server: HttpServerAdaptor,
-    resolver: ServiceResolver,
+    requests: HttpRequestConfig,
+    context: ContextRuntimeService,
   ): HttpFeatureCapabilities {
+    /** @throws {TypeError} */
+    const fetch = async (request: Request): Promise<Response> => {
+      // Request normalization must retain caller storage, including startup scopes.
+      const scope = context.createScope();
+      const prepared = await requests.prepare(request);
+      return scope.run(() => router.fetch(prepared));
+    };
     return {
       router,
-      fetch: async (req) => router.fetch(req),
-      listen: (portOrOptions = {}) =>
-        server.listen(
-          async (req) => router.fetch(req),
-          typeof portOrOptions === 'number' ? { port: portOrOptions } : portOrOptions,
-          resolver.registerShutdown,
-        ),
-      request: async (input, init) => {
-        const req =
-          typeof input === 'string' ? new Request(new URL(input, 'http://localhost'), init) : input;
-        return router.fetch(req);
-      },
+      fetch,
+      request: async (input, init) => fetch(requests.create(input, init)),
     };
   }
 }

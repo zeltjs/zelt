@@ -43,7 +43,8 @@
   "scripts": {
     "build": "tsdown && node ./scripts/copy-studio-ui.mjs",
     "test": "pnpm -w run test:prepare && vitest run",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint ."
   },
   "dependencies": {
     "chokidar": "5.0.0",

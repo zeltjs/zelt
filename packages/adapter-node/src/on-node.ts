@@ -3,14 +3,11 @@ import type {
   ConfiguredFeature,
   ContextMode,
   FeatureApp,
-  FeatureReadyCapabilities,
-  HttpFeature,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
 import { enableAsyncContext } from '@zeltjs/core/async-context';
 
-import type { ListenOptions, ServerHandle } from './listen.lib';
 import { NodeCliConfig } from './node-cli.config';
 import { NodeHttpServerAdaptor } from './node-http-server.adaptor';
 import { ProcessEnvAdaptor } from './process-env.adaptor';
@@ -31,52 +28,16 @@ type EnvironmentNodeAppPart = {
   readonly shutdown: () => Promise<void>;
 };
 
-type HttpNodeAppPart = {
-  readonly listen: (portOrOptions?: number | ListenOptions) => Promise<ServerHandle>;
-};
-
-type NodeFeatureCapabilities<TFeature extends ConfiguredFeature> =
-  FeatureReadyCapabilities<TFeature> &
-    (TFeature extends HttpFeature<string> ? HttpNodeAppPart : unknown);
-
-type NodeNamespacedCapabilities<F extends readonly ConfiguredFeature[]> = {
-  readonly [TFeature in F[number] as TFeature['key']]: NodeFeatureCapabilities<TFeature>;
-};
-
-export type NodeApp = RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart;
-
 type NodeAppForFeatures<F extends readonly ConfiguredFeature[]> = RuntimeApp<F> &
-  EnvironmentNodeAppPart &
-  NodeNamespacedCapabilities<F>;
+  EnvironmentNodeAppPart;
 
 const getArgs = (): readonly string[] => globalThis.process.argv.slice(2);
-
-const createNodeApp = (
-  readyApp: RuntimeApp<readonly ConfiguredFeature[]>,
-  shutdown: () => Promise<void>,
-  args: readonly string[],
-): NodeApp => {
-  const base: RuntimeApp<readonly ConfiguredFeature[]> & EnvironmentNodeAppPart = {
-    ...readyApp,
-    args,
-    shutdown,
-  };
-
-  const nodeApp: NodeApp = { ...base };
-
-  return nodeApp;
-};
-
-export function onNode<const F extends readonly ConfiguredFeature[]>(
-  app: FeatureApp<F>,
-  options?: NodeAppOptions,
-): Promise<NodeAppForFeatures<F>>;
 
 /** @throws {ZeltLifecycleStateError | TypeError} */
 export async function onNode<const F extends readonly ConfiguredFeature[]>(
   app: FeatureApp<F>,
   options: NodeAppOptions = {},
-): Promise<NodeApp> {
+): Promise<NodeAppForFeatures<F>> {
   enableAsyncContext();
   const readyApp = await app.createRuntime({
     ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
@@ -113,5 +74,5 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
 
   const args = getArgs();
 
-  return createNodeApp(readyApp, shutdown, args);
+  return { ...readyApp, shutdown, args };
 }

@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsdown",
     "start": "tjs run dist/main.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint ."
   },
   "dependencies": {
     "@zeltjs/core": "workspace:*",

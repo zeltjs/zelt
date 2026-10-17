@@ -6,4 +6,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   fixedExtension: false,
+  deps: { neverBundle: ['@needle-di/core'] },
 });

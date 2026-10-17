@@ -33,7 +33,6 @@ For AWS Lambda, also add `template.yaml` (SAM template) at the project root.
 Create `src/entry/controllers/hello.controller.ts`:
 
 ```typescript
-// @noErrors
 import { Controller, Get, request } from '@zeltjs/core';
 // ---cut---
 @Controller('/hello')
@@ -51,17 +50,18 @@ export class HelloController {
 Create `src/app.ts`:
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
+import { lambdaHandler } from '@zeltjs/adapter-lambda';
 @Controller('/hello')
 class HelloController {
   @Get('/:name')
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 // ---cut---
-export const app = createApp([http({
-    controllers: [HelloController],
-  })]);
+export const app = createApp([
+  http({ controllers: [HelloController] }),
+  lambdaHandler(),
+]);
 ```
 
 ### Step 3: Create the Lambda Handler
@@ -69,9 +69,9 @@ export const app = createApp([http({
 Create `src/handler.ts`:
 
 ```typescript
-// @noErrors
+// @filename: app.ts
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
 class HelloController {
@@ -79,19 +79,22 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+export const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
+// @filename: handler.ts
 // ---cut---
+import { onLambda } from '@zeltjs/adapter-lambda';
+import { app } from './app';
+
 const lambdaApp = await onLambda(app);
 
-export const handler = lambdaApp.handler;
+export const handler = lambdaApp.handler.create(lambdaApp.http);
 ```
 
-The `onLambda()` function prepares your app for the Lambda runtime. It returns:
+`onLambda()` injects Lambda environment configs and initializes the runtime. It does not require an HTTP feature and preserves the namespaces of the features you declared.
 
-- `handler` — API Gateway v2 (HTTP API) handler
-- `handlerV1` — API Gateway v1 (REST API) handler
-- `shutdown()` — Gracefully shuts down the application
-- `get<T>(Class)` — Resolves a service from the DI container
+`lambdaHandler()` publishes the `handler` namespace by default. `handler.create(targetHttp)` creates an API Gateway v2 function; pass `{ payloadFormat: '1.0' }` to create a v1 function. Export the returned function for AWS to invoke. You can use any HTTP feature name and create separate handlers for multiple HTTP features.
+
+Use `lambdaHandler({ name: 'gateway' })` to expose `lambdaApp.gateway.create(lambdaApp.http)` instead. The usual runtime APIs, including `shutdown()` and `get(Class)`, remain available.
 
 ### Step 4: Configure SAM Template
 
@@ -145,9 +148,8 @@ The adapter supports both API Gateway versions:
 ### HTTP API (v2) — Recommended
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
 class HelloController {
@@ -155,18 +157,17 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 const lambdaApp = await onLambda(app);
 // ---cut---
-export const handler = lambdaApp.handler;
+export const handler = lambdaApp.handler.create(lambdaApp.http);
 ```
 
 ### REST API (v1)
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
 class HelloController {
@@ -174,10 +175,10 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 const lambdaApp = await onLambda(app);
 // ---cut---
-export const handler = lambdaApp.handlerV1;
+export const handler = lambdaApp.handler.create(lambdaApp.http, { payloadFormat: '1.0' });
 ```
 
 ## Warmup Option
@@ -187,9 +188,8 @@ By default, `onLambda()` uses lazy initialization (`warmup: false`) to minimize 
 For eager initialization:
 
 ```typescript
-// @noErrors
 import { createApp, Controller, Get, request, http } from '@zeltjs/core';
-import { onLambda } from '@zeltjs/adapter-lambda';
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 
 @Controller('/hello')
 class HelloController {
@@ -197,7 +197,7 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 // ---cut---
 const lambdaApp = await onLambda(app, { warmup: true });
 ```
@@ -212,7 +212,6 @@ const lambdaApp = await onLambda(app, { warmup: true });
 The adapter automatically handles binary responses (images, audio, video, octet-stream) by encoding them as base64.
 
 ```typescript
-// @noErrors
 import { Controller, Get, response } from '@zeltjs/core';
 // ---cut---
 @Controller('/files')

@@ -2,12 +2,10 @@ import type {
   ConfigClass,
   ConfiguredFeature,
   ContextMode,
-  CreateRuntimeOptions,
-  HttpCapabilities,
+  FeatureApp,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
-import { runWithCloudflareRuntimeContext } from './cloudflare-runtime-context.lib';
 import { CloudflareWorkersEnvAdaptor } from './cloudflare-workers-env.adaptor';
 import { CloudflareWorkersWaitUntilAdaptor } from './cloudflare-workers-wait-until.adaptor';
 
@@ -18,39 +16,19 @@ export type CloudflareWorkersOptions = {
   readonly prebuilt?: ZeltPrebuilt;
 };
 
-type HttpRuntimeApp = RuntimeApp<readonly ConfiguredFeature[]> & {
-  readonly http: HttpCapabilities;
-};
+export type CloudflareWorkersApp<
+  F extends readonly ConfiguredFeature[] = readonly ConfiguredFeature[],
+> = RuntimeApp<F>;
 
-type HttpApp = {
-  readonly createRuntime: (options?: CreateRuntimeOptions) => Promise<HttpRuntimeApp>;
-};
-
-export type CloudflareWorkersApp = {
-  readonly get: HttpRuntimeApp['get'];
-  readonly fetch: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
-  readonly shutdown: () => Promise<void>;
-};
-
-export const onCloudflareWorkers = async (
-  app: HttpApp,
+export const onCloudflareWorkers = async <const F extends readonly ConfiguredFeature[]>(
+  app: FeatureApp<F>,
   options: CloudflareWorkersOptions = {},
-): Promise<CloudflareWorkersApp> => {
-  const readyApp = await app.createRuntime({
+): Promise<CloudflareWorkersApp<F>> => {
+  return app.createRuntime({
     ...(options.contextMode === undefined ? {} : { contextMode: options.contextMode }),
     ...(options.configs === undefined ? {} : { configs: options.configs }),
     ...(options.prebuilt === undefined ? {} : { prebuilt: options.prebuilt }),
     fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
     warmup: options.warmup ?? false,
   });
-
-  const fetch = async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> => {
-    const response = runWithCloudflareRuntimeContext({ env, ctx }, () =>
-      readyApp.http.fetch(request),
-    );
-    ctx.waitUntil(response.then(() => {}));
-    return response;
-  };
-
-  return { get: readyApp.get, fetch, shutdown: readyApp.shutdown };
 };

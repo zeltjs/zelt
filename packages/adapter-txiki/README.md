@@ -7,7 +7,7 @@ npm install @zeltjs/core @zeltjs/adapter-txiki
 ```
 
 ```ts
-import { Controller, createApp, Get, http } from '@zeltjs/core';
+import { Controller, createApp, Get, http, httpServer } from '@zeltjs/core';
 import { onTxiki } from '@zeltjs/adapter-txiki';
 
 @Controller('/api')
@@ -16,14 +16,14 @@ class ApiController {
   status() { return { status: 'ok' }; }
 }
 
-const app = await onTxiki(createApp([http({ controllers: [ApiController] })]));
-const server = app.http.serve({ port: 3000, hostname: '127.0.0.1' });
+const app = await onTxiki(createApp([httpServer(), http({ controllers: [ApiController] })]));
+const server = await app.server.listen(app.http, { port: 3000, hostname: '127.0.0.1' });
 console.log(server.address);
 ```
 
 Bundle the application and its npm dependencies into ESM, transform decorators, and run the result with `tjs run dist/main.js`. The [runnable example](../../examples/txiki-http) includes the build configuration.
 
-Each named `http()` feature gets a separate `.serve()`, while services remain shared. Port `0` selects a free port; `server.address.port` reports the actual port. The default address is `127.0.0.1:3000`.
+Declare `httpServer()` and pass each named HTTP capability to `app.server.listen(http, options)`. Each call returns an independent server handle while services remain shared. Port `0` selects a free port; `server.address.port` reports the actual port. The default address is `127.0.0.1:3000`.
 
 `onTxiki` uses `contextMode: 'sync'`. Capture request helpers in method default parameters or before the first `await`:
 
@@ -40,7 +40,7 @@ For ambient helpers needed later, capture `const context = captureContext()` at 
 
 ## Request compatibility
 
-txiki.js 26.6.0's `Request.clone()` mishandles buffered bodies. The adapter buffers incoming request bodies and creates independent clones at its HTTP boundary; it does not patch global Web APIs. This applies to `.fetch()`, `.request()` and `.serve()`. The raw underlying Hono router remains a lower-level API.
+txiki.js 26.6.0's `Request.clone()` mishandles buffered bodies. The adapter buffers incoming request bodies and creates independent clones at its HTTP boundary; it does not patch global Web APIs. This applies to `.fetch()`, `.request()` and `server.listen()`. The raw underlying Hono router remains a lower-level API.
 
 Request uploads are buffered in memory, so an upload must have a finite body. TCP response streaming remains available through txiki.js. `prepareTxikiRequest()` is exported for integrations that need the same request preparation.
 

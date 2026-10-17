@@ -108,13 +108,13 @@ class UserController {
 ### 3. Create and Run the Application
 
 ```typescript
-import { createApp, http } from '@zeltjs/core';
+import { createApp, http, httpServer } from '@zeltjs/core';
 import { onNode } from '@zeltjs/adapter-node';
 
-const app = createApp([http({ controllers: [UserController] })]);
+const app = createApp([httpServer(), http({ controllers: [UserController] })]);
 
 const nodeApp = await onNode(app);
-const server = await nodeApp.http.listen({ port: 3000 });
+const server = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 
@@ -123,25 +123,32 @@ console.log(`Server running at http://localhost:${server.address.port}`);
 Same application code, different adapters:
 
 ```typescript
+import { createApp, http, httpServer } from '@zeltjs/core';
+
+const app = createApp([http({ controllers: [UserController] })]);
+const serverApp = createApp([...app.features, httpServer()]);
+
 // Node.js
 import { onNode } from '@zeltjs/adapter-node';
-const nodeApp = await onNode(app);
-await nodeApp.http.listen({ port: 3000 });
+const nodeApp = await onNode(serverApp);
+await nodeApp.server.listen(nodeApp.http, { port: 3000 });
 
 // Bun
 import { onBun } from '@zeltjs/adapter-bun';
-const bunApp = await onBun(app);
-bunApp.http.serve({ port: 3000 });
+const bunApp = await onBun(serverApp);
+await bunApp.server.listen(bunApp.http, { port: 3000 });
 
 // Cloudflare Workers
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 const workers = await onCloudflareWorkers(app);
-export default { fetch: workers.fetch };
+export default { fetch: workers.http.fetch };
 
 // AWS Lambda
-import { onLambda } from '@zeltjs/adapter-lambda';
-const lambdaApp = await onLambda(app);
-export const handler = lambdaApp.handler;
+import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
+const lambdaApp = await onLambda(
+  createApp([...app.features, lambdaHandler()], { configs: app.configs }),
+);
+export const handler = lambdaApp.handler.create(lambdaApp.http);
 ```
 
 ## Benchmark

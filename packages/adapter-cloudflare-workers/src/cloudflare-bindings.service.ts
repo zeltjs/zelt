@@ -1,11 +1,9 @@
+import { env } from 'cloudflare:workers';
 import { Injectable } from '@zeltjs/core';
-
-import { getCloudflareRuntimeContext } from './cloudflare-runtime-context.lib';
 
 @Injectable()
 export class CloudflareBindingsService {
-  /** @throws {ZeltContextNotAvailableError} */
-  get<K extends keyof Env>(key: K): Env[K] {
-    return getCloudflareRuntimeContext().env[key];
+  get<K extends keyof typeof env>(key: K): (typeof env)[K] {
+    return env[key];
   }
 }

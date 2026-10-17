@@ -175,6 +175,10 @@ describe('tinyjs Fetch bridge', () => {
     });
     const binary = await fetch('/api/binary');
     expect(binary.url).toBe('http://zelt-tinyjs/api/binary');
+    const cloned = binary.clone();
+    expect(cloned).toBeInstanceOf(Response);
+    expect(cloned.url).toBe(binary.url);
+    expect([...new Uint8Array(await cloned.arrayBuffer())]).toEqual([0, 127, 128, 255]);
     expect([...new Uint8Array(await binary.arrayBuffer())]).toEqual([0, 127, 128, 255]);
     expect((await fetch('/api/empty')).status).toBe(204);
     const error = await fetch('/api/error');

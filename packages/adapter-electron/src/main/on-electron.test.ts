@@ -1,5 +1,5 @@
 import type { ConfiguredFeature, ZeltPrebuilt } from '@zeltjs/core';
-import { Controller, createApp, Get, http } from '@zeltjs/core';
+import { Controller, createApp, Get, http, httpServer } from '@zeltjs/core';
 import type { IpcMainInvokeEvent } from 'electron';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -75,6 +75,7 @@ class McpOnlyController {
 const createMultiFeatureApp = () =>
   createApp([
     http({ controllers: [HttpOnlyController] }),
+    httpServer(),
     http({ name: 'mcp' as const, controllers: [McpOnlyController] }),
   ]);
 
@@ -116,7 +117,7 @@ describe('onElectron', () => {
         expect(response.status).toBe(200);
         expect(response.body).toEqual({ kind: 'text', value: JSON.stringify({ scope: 'http' }) });
 
-        expect(electronApp.mcp).toHaveProperty('listen');
+        expect(electronApp.mcp).not.toHaveProperty('listen');
         expect('listen' in electronApp).toBe(false);
         expect('fetch' in electronApp).toBe(false);
       } finally {
@@ -130,7 +131,10 @@ describe('onElectron', () => {
       const electronApp = await onElectron(createMultiFeatureApp());
 
       try {
-        const handle = await electronApp.mcp.listen({ port: 0, hostname: '127.0.0.1' });
+        const handle = await electronApp.server.listen(electronApp.mcp, {
+          port: 0,
+          hostname: '127.0.0.1',
+        });
 
         try {
           const mcpOk = await fetch(`http://127.0.0.1:${handle.address.port}/mcp-only`);
@@ -211,6 +215,7 @@ describe('onElectron', () => {
       let observedPrebuilt: ZeltPrebuilt | undefined;
       const app = createApp([
         http({ controllers: [HttpOnlyController] }),
+        httpServer(),
         createPrebuiltObservingFeature((value) => {
           observedPrebuilt = value;
         }),
@@ -229,7 +234,10 @@ describe('onElectron', () => {
   describe('shutdown', () => {
     it('removes the IPC handler and closes listening servers registered via feature shutdown', async () => {
       const electronApp = await onElectron(createMultiFeatureApp());
-      const handle = await electronApp.mcp.listen({ port: 0, hostname: '127.0.0.1' });
+      const handle = await electronApp.server.listen(electronApp.mcp, {
+        port: 0,
+        hostname: '127.0.0.1',
+      });
 
       await electronApp.shutdown();
 

@@ -63,7 +63,7 @@ export const app = createApp([http({
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http, command, httpServer } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
@@ -72,17 +72,17 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
 // ---cut---
 const bunApp = await onBun(app);
 
-const server = bunApp.http.serve({ port: 3000 });
-console.log(`Server running at http://${server.address.hostname}:${server.address.port}`);
+const server = await bunApp.server.listen(bunApp.http, { port: 3000 });
+console.log(`Server running at http://${server.address.address}:${server.address.port}`);
 ```
 
 `onBun()` 関数はアプリをBunランタイム用に準備します。返されるオブジェクトには以下が含まれます:
 
-- `serve(options?)` — `Bun.serve()` を使ってHTTPサーバーを起動します
+- `server.listen(http, options?)` — 選択したHTTP featureで待ち受けます。`httpServer()`の宣言が必要です
 - `shutdown()` — アプリケーションをgracefulにシャットダウンします
 - `get<T>(Class)` — DIコンテナからserviceを解決します
 - `args` — コマンドライン引数(`Bun.argv.slice(2)`)
@@ -105,7 +105,7 @@ bun run src/index.ts
 
 ```typescript
 // @noErrors
-import { createApp, Controller, Get, request, http, command } from '@zeltjs/core';
+import { createApp, Controller, Get, request, http, command, httpServer } from '@zeltjs/core';
 import { onBun } from '@zeltjs/adapter-bun';
 
 @Controller('/hello')
@@ -114,10 +114,10 @@ class HelloController {
   greet(req = request()) { const name = req.pathParam('name'); return { message: `Hello, ${name}!` }; }
 }
 
-const app = createApp([http({ controllers: [HelloController] })]);
+const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
 const bunApp = await onBun(app);
 // ---cut---
-const server = bunApp.http.serve({
+const server = await bunApp.server.listen(bunApp.http, {
   port: 8080,
   hostname: '127.0.0.1',
 });

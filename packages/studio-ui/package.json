@@ -17,7 +17,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "lint": "eslint . && oxlint ."
+    "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint ."
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

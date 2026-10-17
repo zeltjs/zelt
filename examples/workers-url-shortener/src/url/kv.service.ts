@@ -1,30 +1,25 @@
-import { Injectable } from '@zeltjs/core';
-import type { Context } from 'hono';
-
-import type { Env } from '../env';
+import { CloudflareBindings } from '@zeltjs/adapter-cloudflare-workers';
+import { Injectable, inject } from '@zeltjs/core';
 
 import type { UrlRecord } from './types';
 
-type RequestContext = Context<Env>;
-
-const getKV = (c: RequestContext): KVNamespace => c.env.URLS;
-
 @Injectable()
 export class KVService {
-  async get(c: RequestContext, code: string): Promise<UrlRecord | null> {
-    const data = await getKV(c).get(`url:${code}`, 'json');
-    return data as UrlRecord | null;
+  constructor(private readonly bindings = inject(CloudflareBindings)) {}
+
+  async get(code: string): Promise<UrlRecord | null> {
+    return this.bindings.get('URLS').get<UrlRecord>(`url:${code}`, 'json');
   }
 
-  async set(c: RequestContext, code: string, record: UrlRecord): Promise<void> {
-    await getKV(c).put(`url:${code}`, JSON.stringify(record));
+  async set(code: string, record: UrlRecord): Promise<void> {
+    await this.bindings.get('URLS').put(`url:${code}`, JSON.stringify(record));
   }
 
-  async incrementHits(c: RequestContext, code: string): Promise<void> {
-    const record = await this.get(c, code);
+  async incrementHits(code: string): Promise<void> {
+    const record = await this.get(code);
     if (record) {
       record.hits += 1;
-      await this.set(c, code, record);
+      await this.set(code, record);
     }
   }
 }
