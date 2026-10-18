@@ -1,6 +1,8 @@
 import { createApp, LifecycleManager, RuntimeShutdownService, TaskService } from '@zeltjs/core';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { onNode } from './on-node';
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('onNode shutdown', () => {
   it('preserves the common shutdown operation and waits for concurrent callers', async () => {
@@ -34,9 +36,33 @@ describe('onNode shutdown', () => {
     expect(cleanup).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    'SIGINT',
+    'SIGTERM',
+  ] as const)('logs the cause when %s cleanup fails', async (signal) => {
+    const existing = new Set(process.listeners(signal));
+    const app = await onNode(createApp([]));
+    const handler = process.listeners(signal).find((candidate) => !existing.has(candidate));
+    if (!handler) throw new Error('adapter did not attach a signal handler');
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const failure = new Error('resource cleanup failed');
+    app.registerShutdown(() => {
+      throw failure;
+    });
+    handler(signal);
+    await expect(app.shutdown()).rejects.toBeInstanceOf(AggregateError);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('Node application shutdown failed'));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining(failure.message));
+    expect(process.listeners(signal)).not.toContain(handler);
+  });
+
   it('keeps signal handlers after a refused shutdown and cleans up on retry', async () => {
+    const existing = new Set(process.listeners('SIGINT'));
     const app = await onNode(createApp([]), { contextMode: 'sync' });
     const handlers = process.listeners('SIGINT');
+    const handler = handlers.find((candidate) => !existing.has(candidate));
+    if (!handler) throw new Error('adapter did not attach a signal handler');
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const tasks = await app.get(TaskService);
     const gate = Promise.withResolvers<void>();
     const task = tasks.runAndWait(() => gate.promise);
@@ -44,7 +70,9 @@ describe('onNode shutdown', () => {
     app.registerShutdown(cleanup);
     await Promise.resolve();
     try {
+      handler('SIGINT');
       await expect(app.shutdown()).rejects.toThrow('Cannot wait for active tasks');
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('Cannot wait for active tasks'));
       expect(process.listeners('SIGINT')).toEqual(handlers);
       expect(cleanup).not.toHaveBeenCalled();
     } finally {

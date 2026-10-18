@@ -1,3 +1,4 @@
+import { inspect } from 'node:util';
 import type {
   ConfigClass,
   ConfiguredFeature,
@@ -7,6 +8,7 @@ import type {
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
+import { LoggerService } from '@zeltjs/core';
 import { enableAsyncContext } from '@zeltjs/core/async-context';
 
 import { NodeCliConfig } from './node-cli.config';
@@ -48,9 +50,12 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
   });
 
   const cliConfig = await readyApp.get(NodeCliConfig);
+  const logger = await readyApp.get(LoggerService);
 
   const gracefulShutdown = (): void => {
-    void readyApp.shutdown().catch(() => {});
+    void readyApp.shutdown().catch((error: unknown) => {
+      logger.error('Node application shutdown failed', { error: inspect(error, { depth: null }) });
+    });
   };
   readyApp.registerShutdown(
     () => {

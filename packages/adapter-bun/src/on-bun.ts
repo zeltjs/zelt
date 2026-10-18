@@ -9,6 +9,7 @@ import type {
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
+import { LoggerService } from '@zeltjs/core';
 import { enableAsyncContext } from '@zeltjs/core/async-context';
 
 import { BunCliConfig } from './bun-cli.config';
@@ -57,9 +58,14 @@ export async function onBun<const F extends readonly ConfiguredFeature[]>(
   });
 
   const cliConfig = await readyApp.get(BunCliConfig);
+  const logger = await readyApp.get(LoggerService);
 
   const gracefulShutdown = (): void => {
-    void readyApp.shutdown().catch(() => {});
+    void readyApp.shutdown().catch((error: unknown) => {
+      logger.error('Bun application shutdown failed', {
+        error: Bun.inspect(error, { depth: Infinity }),
+      });
+    });
   };
   readyApp.registerShutdown(
     () => {

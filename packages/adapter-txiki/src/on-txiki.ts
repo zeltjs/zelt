@@ -30,10 +30,13 @@ const attachSignals = (
       tjs.exit(1);
     });
   };
-  runtime.registerShutdown(() => {
-    tjs.removeSignalListener('SIGINT', shutdown);
-    tjs.removeSignalListener('SIGTERM', shutdown);
-  });
+  runtime.registerShutdown(
+    () => {
+      tjs.removeSignalListener('SIGINT', shutdown);
+      tjs.removeSignalListener('SIGTERM', shutdown);
+    },
+    { phase: 'after' },
+  );
   tjs.addSignalListener('SIGINT', shutdown);
   tjs.addSignalListener('SIGTERM', shutdown);
 };
