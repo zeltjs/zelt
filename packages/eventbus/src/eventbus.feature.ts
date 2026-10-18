@@ -1,4 +1,4 @@
-import type { ServiceResolver } from '@zeltjs/core';
+import type { FeatureName, ServiceResolver } from '@zeltjs/core';
 import { Feature } from '@zeltjs/core';
 
 import type { EventBusAdaptor, EventBusSchema } from './eventbus.types';
@@ -6,7 +6,7 @@ import type { EventBusAdaptor, EventBusSchema } from './eventbus.types';
 type EventBusHandlerClass = new (...args: never[]) => object;
 
 export type EventBusOptions<TName extends string = 'eventbus'> = {
-  readonly name?: TName;
+  readonly name?: TName & FeatureName<TName>;
   readonly adaptor: new (...args: never[]) => EventBusAdaptor;
   readonly handlers?: readonly EventBusHandlerClass[];
 };
@@ -57,10 +57,15 @@ export class EventBusFeature<TName extends string = 'eventbus'> extends Feature<
   };
 }
 
-export function eventbus(opts: Omit<EventBusOptions, 'name'>): EventBusFeature<'eventbus'>;
+export function eventbus(
+  opts: Omit<EventBusOptions, 'name'> & { readonly name?: never },
+): EventBusFeature<'eventbus'>;
 export function eventbus<const TName extends string>(
-  opts: EventBusOptions<TName> & { readonly name: TName },
+  opts: EventBusOptions<TName> & { readonly name: TName & FeatureName<TName> },
 ): EventBusFeature<TName>;
+export function eventbus<const TName extends string>(
+  opts: EventBusOptions<TName>,
+): EventBusFeature<TName | 'eventbus'>;
 export function eventbus(opts: EventBusOptions<string>): EventBusFeature<string> {
   return new EventBusFeature(opts, opts.name ?? 'eventbus');
 }

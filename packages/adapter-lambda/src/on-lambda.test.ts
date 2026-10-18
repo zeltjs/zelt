@@ -1,9 +1,18 @@
-import type { ZeltPrebuilt } from '@zeltjs/core';
+import type { ReservedAppKey, ZeltPrebuilt } from '@zeltjs/core';
 import { Controller, createApp, Get, http } from '@zeltjs/core';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { LambdaEnvAdaptor } from './lambda-env.adaptor';
+import { lambdaHandler } from './lambda-handler.feature';
 import { onLambda } from './on-lambda';
+
+const assertReservedNames = (name: ReservedAppKey): void => {
+  // @ts-expect-error Lambda features share the global reserved names
+  lambdaHandler({ name });
+  // @ts-expect-error a reserved literal must not widen during inference
+  lambdaHandler({ name: 'args' });
+};
+void assertReservedNames;
 
 @Controller('/hello')
 class HelloController {

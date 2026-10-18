@@ -1,4 +1,4 @@
-import type { ServiceResolver } from '../../app';
+import type { FeatureName, ServiceResolver } from '../../app';
 import { Feature } from '../../app';
 import type { HttpFetchTarget, HttpListenOptions, HttpServerHandle } from '../../built-in-service';
 import { HttpListenerService } from '../../built-in-service';
@@ -38,7 +38,7 @@ export class HttpServerFeature<TName extends string = 'server'> extends Feature<
 
 export function httpServer(): HttpServerFeature<'server'>;
 export function httpServer<const TName extends string>(options: {
-  readonly name: TName;
+  readonly name: TName & FeatureName<TName>;
 }): HttpServerFeature<TName>;
 export function httpServer(options?: { readonly name: string }): HttpServerFeature<string> {
   return new HttpServerFeature(options?.name ?? 'server');

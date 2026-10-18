@@ -4,10 +4,21 @@ export type {
   App as FeatureApp,
   CreateAppOptions,
   CreateRuntimeOptions,
+  FeatureName,
   ReadyResult,
+  ReservedAppKey,
+  ReservedAppProperties,
   RuntimeApp,
+  RuntimeShutdownOptions,
+  ValidFeatures,
 } from './app';
-export { createApp, FeatureInjectionError, injectFeature } from './app';
+export {
+  createApp,
+  FeatureInjectionError,
+  injectFeature,
+  RESERVED_APP_KEYS,
+  RuntimeShutdownService,
+} from './app';
 export type {
   HttpFetchTarget,
   HttpListenOptions,

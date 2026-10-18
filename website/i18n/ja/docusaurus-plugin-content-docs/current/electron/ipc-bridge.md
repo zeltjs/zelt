@@ -16,7 +16,7 @@ sequenceDiagram
 
   R->>P: ipcFetch(request)
   P->>M: IPCチャンネル経由でinvoke
-  M->>M: app.fetch(request)
+  M->>M: runtime.http.fetch(request)
   M-->>P: Response
   P-->>R: Response
 ```
@@ -29,15 +29,16 @@ sequenceDiagram
 
 ```typescript
 import { createApp, http } from '@zeltjs/core';
-import { onElectron } from '@zeltjs/adapter-electron';
+import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
 import { exposeIpc } from '@zeltjs/adapter-electron/preload';
 import { ipcFetch } from '@zeltjs/adapter-electron/renderer';
-const app = createApp([http({ controllers: [] })]);
+const app = createApp([http({ controllers: [] }), electronIpc()]);
 const input = new Request('http://zelt-app/hello');
 const init = undefined;
 // ---cut---
 // main
-const electronZelt = await onElectron(app, { ipcChannel: 'http://zelt-app' });
+const electronZelt = await onElectron(app);
+await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
 // preload
 exposeIpc({ channel: 'http://zelt-app' });
@@ -52,36 +53,51 @@ channelは `http://` または `https://` で始まる必要があります。�
 
 ```typescript
 import { createApp, http } from '@zeltjs/core';
-import { onElectron } from '@zeltjs/adapter-electron';
-const app = createApp([http({ controllers: [] })]);
+import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
+const app = createApp([http({ controllers: [] }), electronIpc()]);
 // ---cut---
 const electronZelt = await onElectron(app, {
-  ipcChannel: 'http://zelt-app',
   warmup: true, // デフォルト: 起動時に全controllerを解決する
 });
+await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 ```
 
 ### オプション {#options}
 
 | オプション | 型 | デフォルト | 説明 |
 |--------|------|---------|-------------|
-| `ipcChannel` | `` `http://${string}` \| `https://${string}` `` | `'http://zelt-ipc'` | IPC channel識別子 |
 | `warmup` | `boolean` | `true` | 起動時に全controllerを解決する |
-| `ipcFeature` | `string` | `'http'` | 複数の `http()` featureを持つアプリで、IPCブリッジに紐付けるHTTP featureのkey |
 
 ### 戻り値(`OnElectronApp`) {#return-value-onelectronapp}
 
-設定された各featureはそのkey(デフォルトは `http`)でnamespace化されます。HTTP featureはさらに、IPCの代わりにTCPで配信するための `listen()` を公開します:
+設定された各featureはそのkeyでnamespace化されます。`electronIpc()`は `ipc.listen(http, options)` を、`httpServer()`は `server.listen(http, options)` を公開します。HTTP feature自体は接続先を選びません:
 
 | プロパティ | 型 | 説明 |
 |----------|------|-------------|
 | `http.fetch` | `(request: Request) => Promise<Response>` | リクエストを直接処理します |
 | `http.request` | `(input: string \| Request, init?: RequestInit) => Promise<Response>` | URL/pathと `RequestInit` から組み立てたリクエストを処理します |
+| `ipc.listen` | `(http: HttpFetchTarget, options?: ElectronIpcListenOptions) => Promise<ElectronIpcHandle>` | 選択したHTTPをIPCへ公開します。`electronIpc()`の宣言が必要です |
 | `server.listen` | `(http: HttpFetchTarget, options?: HttpListenOptions) => Promise<ServerHandle>` | 選択したHTTP featureをTCPで配信します。`httpServer()`の宣言が必要です |
 | `shutdown` | `() => Promise<void>` | gracefulなシャットダウン |
 | `get` | `<T>(Class) => Promise<T>` | DIからserviceを解決します |
 
-破壊的変更: 従来の `electronZelt.fetch` の省略記法は廃止されました — 代わりに `electronZelt.http.fetch`(または `ipcFeature` で設定したkey)を使ってください。
+破壊的変更: `onElectron()`の `ipcChannel` / `ipcFeature` オプションと暗黙のIPC接続は廃止しました。`electronIpc()`を宣言し、`ipc.listen(対象HTTP, { channel })`で明示的に接続してください。HTTPやIPCを宣言しないアプリも起動できます。
+
+### IPC接続と終了 {#ipc-binding-and-shutdown}
+
+`electronIpc()`はElectronの準備完了を待ちますが、`listen()`を呼ぶまでhandlerを登録しません。`electronIpc({ name: 'desktop' })`のようにfeature名も指定できます。
+
+```typescript
+import { createApp, http } from '@zeltjs/core';
+import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
+const app = createApp([http({ name: 'admin', controllers: [] }), electronIpc()]);
+const runtime = await onElectron(app);
+// ---cut---
+const binding = await runtime.ipc.listen(runtime.admin, { channel: 'http://admin' });
+await binding.shutdown();
+```
+
+戻り値は `channel` と `shutdown()` を持ちます。個別の終了とruntimeの `shutdown()` は同じ解除処理を共有し、handlerを一度だけ解除します。複数のHTTPを公開する場合は、異なるchannelで `listen()`を呼んでください。
 
 ### Warmup {#warmup}
 
@@ -169,10 +185,11 @@ Zeltのシャットダウンを、Electronのquitライフサイクルに接続�
 
 ```typescript
 import { createApp, http } from '@zeltjs/core';
-import { ElectronAdaptor, onElectron } from '@zeltjs/adapter-electron';
-const app = createApp([http({ controllers: [] })]);
+import { ElectronAdaptor, electronIpc, onElectron } from '@zeltjs/adapter-electron';
+const app = createApp([http({ controllers: [] }), electronIpc()]);
 // ---cut---
-const electronZelt = await onElectron(app, { ipcChannel: 'http://zelt-app' });
+const electronZelt = await onElectron(app);
+await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
 const electronApp = await electronZelt.get(ElectronAdaptor);
 electronApp.ready.app.on('will-quit', () => {

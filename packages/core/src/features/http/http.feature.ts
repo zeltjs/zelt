@@ -1,4 +1,4 @@
-import type { ServiceResolver } from '../../app';
+import type { FeatureName, ServiceResolver } from '../../app';
 import { Feature } from '../../app';
 import { HttpRequestConfig } from '../../built-in-service';
 import { ContextRuntimeService } from '../../kernel';
@@ -128,15 +128,20 @@ export class HttpFeature<TName extends string = string>
   }
 }
 
-export function http(opts: Omit<HttpModuleOptions, 'name'>): HttpFeature<typeof HTTP_FEATURE_KEY>;
+export function http(
+  opts: Omit<HttpModuleOptions, 'name'> & { readonly name?: never },
+): HttpFeature<typeof HTTP_FEATURE_KEY>;
 export function http<const TName extends string>(
-  opts: HttpModuleOptions<TName> & { readonly name: TName },
+  opts: HttpModuleOptions<TName> & { readonly name: TName & FeatureName<TName> },
 ): HttpFeature<TName>;
+export function http<const TName extends string>(
+  opts: HttpModuleOptions<TName>,
+): HttpFeature<TName | typeof HTTP_FEATURE_KEY>;
 export function http<const TName extends string>(
   opts: HttpModuleOptions<TName>,
 ): HttpFeature<TName | typeof HTTP_FEATURE_KEY> {
   const key = opts.name ?? HTTP_FEATURE_KEY;
-  return new HttpFeature(opts, key);
+  return new HttpFeature<TName | typeof HTTP_FEATURE_KEY>(opts, key);
 }
 export type {
   HttpCapabilities,

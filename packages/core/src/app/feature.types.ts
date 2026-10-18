@@ -17,9 +17,14 @@ export type ZeltPrebuilt = {
 };
 
 export type RuntimeShutdownCallback = () => void | Promise<void>;
+export type RuntimeShutdownOptions = {
+  /** Defaults to before. After callbacks run after lifecycle disposal, including failed cleanup. */
+  readonly phase: 'before' | 'after';
+};
 export type RegisteredRuntimeShutdown = () => Promise<void>;
 export type RegisterRuntimeShutdown = (
   callback: RuntimeShutdownCallback,
+  options?: RuntimeShutdownOptions,
 ) => RegisteredRuntimeShutdown;
 
 export type FeatureManagedClass = new (...args: never[]) => object;

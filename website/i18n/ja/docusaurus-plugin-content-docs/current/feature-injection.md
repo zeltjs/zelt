@@ -84,6 +84,8 @@ class FeatureConsumer {
 
 対象はその runtime のトップレベルに登録されている必要があります。HTTP の `children` はルート合成の単位であり、自動では独立した注入対象になりません。同じオプションで作り直した別オブジェクトは登録済み定義と一致しません。名前の重複は従来どおり `createApp()` でエラーになります。
 
+feature名には、`@zeltjs/core`が公開する`RESERVED_APP_KEYS`の予約語を使えません。全adapterで共通の一覧に、`shutdown`、`get`などの組み込み操作と、`args`などの環境側の公開名をまとめています。名前付きfeatureのfactoryは予約名を型で拒否し、独自featureのキーも`createApp()`で検査します。組み込みAPIの型定義は`ReservedAppProperties`を使い、一覧にないproperty／methodの追加も型エラーにします。JavaScriptや動的な名前も、アプリ生成時に同じ一覧で検査します。
+
 名前は Feature の capabilities を選ぶためのキーです。DI コンテナーや内部のサービスを分離するものではありません。たとえば同じアダプタークラスを指定した名前付き EventBus は、その runtime のアダプターとイベント・購読を共有します。アダプターを直接注入したコードとも連携でき、別 runtime のインスタンスとは分離します。独立したバスが必要な場合はアダプターと接続先・チャンネルの分離を明示的に構成してください。`name` を変えるだけではバスは分離されません。
 
 ## 初期化と寿命
@@ -99,3 +101,11 @@ constructor、設定の startup、`realize()` 中に注入先の操作を実行�
 Feature 注入はアプリ全体の遅延初期化ではありません。バージョン表示だけのコマンドで待ち受けが始まることはありませんが、runtime を作れば realize と通常の startup は実行します。それらも避けたい場合は、runtime を作る前にバージョン表示を処理してください。
 
 公開されたruntimeの名前空間と `injectFeature()` は同じ寿命検査handleを共有し、どちらもruntime終了後のアクセスを拒否します。
+
+## runtimeの終了
+
+adapterはruntime共通の `shutdown()` を使います。同時に複数回呼んでも、同じ終了完了を待ち、同じ失敗を受け取ります。SIGINT/SIGTERMもこの操作を呼ぶため、シグナルを繰り返し受けても終了処理を重複して開始しません。
+
+`runtime.registerShutdown(callback)` はサービスのライフサイクル終了前に行う後片付けを登録します。シグナルハンドラーの解除など、サービス終了後に行う処理には `runtime.registerShutdown(callback, { phase: 'after' })` を使います。同じphase内の処理は並行して実行し、それぞれ最大1回だけ実行します。一部が失敗しても残りの後片付けを進め、エラーをまとめて返します。ライフサイクルの終了処理が失敗した場合もafterの処理は実行します。
+
+ライフサイクルの検査で破棄前に終了を拒否された場合、runtimeは引き続き利用でき、終了を再試行できます。afterの処理は実際に破棄されるまで登録を維持します。終了を要求した時点から新しい仕事を拒否する連携では、DIまたは `runtime.get()` で取得できる `RuntimeShutdownService` の共通状態 `state`（`ready`、`shuttingDown`、`disposed`）を参照できます。

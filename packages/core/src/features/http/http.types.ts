@@ -1,4 +1,4 @@
-import type { ServiceResolver } from '../../app';
+import type { FeatureName, ServiceResolver } from '../../app';
 import type { ErrorHandlerClass, MiddlewareInput } from './middleware/middleware.types';
 import type { ControllerClass, ControllerRouteInfo } from './routing';
 
@@ -36,7 +36,7 @@ export type HttpMountableFeatureModule = {
 };
 
 export type HttpModuleOptions<TName extends string = 'http'> = {
-  readonly name?: TName;
+  readonly name?: TName & FeatureName<TName>;
   readonly path?: string;
   readonly controllers?: readonly ControllerClass[];
   readonly middlewares?: readonly MiddlewareInput[];

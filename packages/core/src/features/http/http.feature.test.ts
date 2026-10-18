@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { createApp } from '../../app';
 import { HttpFeature, http } from './http.feature';
+import type { HttpModuleOptions } from './http.types';
 import type { Next } from './middleware/middleware.types';
 import { Controller } from './routing/controller.decorator';
 import { Get } from './routing/http-method.decorator';
@@ -37,6 +38,30 @@ describe('http feature', () => {
 
     expect(feature.key).toBe('private');
     expectTypeOf(feature).toEqualTypeOf<HttpFeature<'private'>>();
+  });
+
+  it('accepts the public options type without a name', () => {
+    const options: HttpModuleOptions = { controllers: [TestController] };
+    const feature = http(options);
+
+    expectTypeOf(feature).toEqualTypeOf<HttpFeature<'http'>>();
+    expect(feature.key).toBe('http');
+    expect(feature.blueprint().getControllers()).toEqual([TestController]);
+  });
+
+  it('includes the default namespace when the options name is optional', () => {
+    const namedOptions: HttpModuleOptions<'public'> = {
+      name: 'public',
+      controllers: [TestController],
+    };
+    const unnamedOptions: HttpModuleOptions<'public'> = { controllers: [] };
+    const named = http(namedOptions);
+    const unnamed = http(unnamedOptions);
+
+    expectTypeOf(named).toEqualTypeOf<HttpFeature<'public' | 'http'>>();
+    expectTypeOf(unnamed).toEqualTypeOf<HttpFeature<'public' | 'http'>>();
+    expect(named.key).toBe('public');
+    expect(unnamed.key).toBe('http');
   });
 
   it('keeps feature methods callable when destructured', () => {

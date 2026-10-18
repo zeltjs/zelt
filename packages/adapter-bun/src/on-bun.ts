@@ -5,9 +5,11 @@ import type {
   ContextMode,
   FeatureApp,
   HttpFeature,
+  ReservedAppProperties,
   RuntimeApp,
   ZeltPrebuilt,
 } from '@zeltjs/core';
+import { LoggerService } from '@zeltjs/core';
 import { enableAsyncContext } from '@zeltjs/core/async-context';
 
 import { BunCliConfig } from './bun-cli.config';
@@ -25,10 +27,9 @@ export type BunAppOptions = {
 
 export type { ExecResult } from '@zeltjs/core';
 
-type EnvironmentBunAppPart = {
+type EnvironmentBunAppPart = ReservedAppProperties<{
   readonly args: readonly string[];
-  readonly shutdown: () => Promise<void>;
-};
+}>;
 
 export type HttpBunApp = RuntimeApp<readonly [HttpFeature<'http'>]> & EnvironmentBunAppPart;
 export type CommandBunApp = RuntimeApp<readonly [CommandFeature]> & EnvironmentBunAppPart;
@@ -57,31 +58,27 @@ export async function onBun<const F extends readonly ConfiguredFeature[]>(
   });
 
   const cliConfig = await readyApp.get(BunCliConfig);
-
-  let shuttingDown = false;
-  const detachSignals = (): void => {
-    cliConfig.offSignal('SIGINT', gracefulShutdown);
-    cliConfig.offSignal('SIGTERM', gracefulShutdown);
-  };
-
-  const shutdown = async (): Promise<void> => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    try {
-      await readyApp.shutdown();
-    } finally {
-      detachSignals();
-    }
-  };
+  const logger = await readyApp.get(LoggerService);
 
   const gracefulShutdown = (): void => {
-    void shutdown().catch(() => {});
+    void readyApp.shutdown().catch((error: unknown) => {
+      logger.error('Bun application shutdown failed', {
+        error: Bun.inspect(error, { depth: Infinity }),
+      });
+    });
   };
+  readyApp.registerShutdown(
+    () => {
+      cliConfig.offSignal('SIGINT', gracefulShutdown);
+      cliConfig.offSignal('SIGTERM', gracefulShutdown);
+    },
+    { phase: 'after' },
+  );
 
   cliConfig.onSignal('SIGINT', gracefulShutdown);
   cliConfig.onSignal('SIGTERM', gracefulShutdown);
 
   const args = getArgs();
 
-  return { ...readyApp, shutdown, args };
+  return { ...readyApp, args };
 }

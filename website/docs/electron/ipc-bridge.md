@@ -16,7 +16,7 @@ sequenceDiagram
 
   R->>P: ipcFetch(request)
   P->>M: invoke over the IPC channel
-  M->>M: app.fetch(request)
+  M->>M: runtime.http.fetch(request)
   M-->>P: Response
   P-->>R: Response
 ```
@@ -29,15 +29,16 @@ All three layers must agree on the same channel string:
 
 ```typescript
 import { createApp, http } from '@zeltjs/core';
-import { onElectron } from '@zeltjs/adapter-electron';
+import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
 import { exposeIpc } from '@zeltjs/adapter-electron/preload';
 import { ipcFetch } from '@zeltjs/adapter-electron/renderer';
-const app = createApp([http({ controllers: [] })]);
+const app = createApp([http({ controllers: [] }), electronIpc()]);
 const input = new Request('http://zelt-app/hello');
 const init = undefined;
 // ---cut---
 // main
-const electronZelt = await onElectron(app, { ipcChannel: 'http://zelt-app' });
+const electronZelt = await onElectron(app);
+await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
 // preload
 exposeIpc({ channel: 'http://zelt-app' });
@@ -52,36 +53,51 @@ The channel must start with `http://` or `https://`. The default is `'http://zel
 
 ```typescript
 import { createApp, http } from '@zeltjs/core';
-import { onElectron } from '@zeltjs/adapter-electron';
-const app = createApp([http({ controllers: [] })]);
+import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
+const app = createApp([http({ controllers: [] }), electronIpc()]);
 // ---cut---
 const electronZelt = await onElectron(app, {
-  ipcChannel: 'http://zelt-app',
   warmup: true, // default: resolve all controllers at startup
 });
+await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 ```
 
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `ipcChannel` | `` `http://${string}` \| `https://${string}` `` | `'http://zelt-ipc'` | IPC channel identifier |
 | `warmup` | `boolean` | `true` | Resolve all controllers at startup |
-| `ipcFeature` | `string` | `'http'` | Key of the HTTP feature to bind to the IPC bridge, for apps with multiple `http()` features |
 
 ### Return Value (`OnElectronApp`)
 
-Each configured feature is namespaced under its key (`http` by default). HTTP features additionally expose `listen()` to serve over TCP instead of IPC:
+Each configured feature is namespaced under its key. `electronIpc()` exposes `ipc.listen(http, options)`, and `httpServer()` exposes `server.listen(http, options)`. HTTP features do not choose a transport:
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `http.fetch` | `(request: Request) => Promise<Response>` | Handle a request directly |
 | `http.request` | `(input: string \| Request, init?: RequestInit) => Promise<Response>` | Handle a request built from a URL/path and `RequestInit` |
+| `ipc.listen` | `(http: HttpFetchTarget, options?: ElectronIpcListenOptions) => Promise<ElectronIpcHandle>` | Expose the selected HTTP target over IPC; declare `electronIpc()` |
 | `server.listen` | `(http: HttpFetchTarget, options?: HttpListenOptions) => Promise<ServerHandle>` | Serve the selected HTTP feature over TCP; declare `httpServer()` |
 | `shutdown` | `() => Promise<void>` | Graceful shutdown |
 | `get` | `<T>(Class) => Promise<T>` | Resolve a service from DI |
 
-Breaking change: the old `electronZelt.fetch` shorthand is gone — use `electronZelt.http.fetch` instead (or the key you configured via `ipcFeature`).
+Breaking change: `onElectron()` no longer accepts `ipcChannel` / `ipcFeature` or registers IPC implicitly. Declare `electronIpc()` and call `ipc.listen(targetHttp, { channel })`. Apps without HTTP or IPC features can also start.
+
+### IPC Binding and Shutdown
+
+`electronIpc()` waits for Electron readiness but registers no handler until `listen()` is called. Use `electronIpc({ name: 'desktop' })` to name the feature.
+
+```typescript
+import { createApp, http } from '@zeltjs/core';
+import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
+const app = createApp([http({ name: 'admin', controllers: [] }), electronIpc()]);
+const runtime = await onElectron(app);
+// ---cut---
+const binding = await runtime.ipc.listen(runtime.admin, { channel: 'http://admin' });
+await binding.shutdown();
+```
+
+The returned handle has `channel` and `shutdown()`. Individual shutdown and runtime `shutdown()` share the same cleanup, removing the handler once. Call `listen()` with distinct channels to expose multiple HTTP targets.
 
 ### Warmup
 
@@ -169,10 +185,11 @@ Connect Zelt shutdown to Electron's quit lifecycle:
 
 ```typescript
 import { createApp, http } from '@zeltjs/core';
-import { ElectronAdaptor, onElectron } from '@zeltjs/adapter-electron';
-const app = createApp([http({ controllers: [] })]);
+import { ElectronAdaptor, electronIpc, onElectron } from '@zeltjs/adapter-electron';
+const app = createApp([http({ controllers: [] }), electronIpc()]);
 // ---cut---
-const electronZelt = await onElectron(app, { ipcChannel: 'http://zelt-app' });
+const electronZelt = await onElectron(app);
+await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
 const electronApp = await electronZelt.get(ElectronAdaptor);
 electronApp.ready.app.on('will-quit', () => {

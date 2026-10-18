@@ -1,3 +1,4 @@
+import type { Signal, SignalHandler } from '@zeltjs/core';
 import {
   Controller,
   captureContext,
@@ -7,7 +8,9 @@ import {
   Get,
   http,
   httpServer,
+  LifecycleManager,
   Post,
+  RuntimeShutdownService,
   request,
   TaskService,
 } from '@zeltjs/core';
@@ -29,13 +32,21 @@ class EchoController {
   }
 }
 
-const nativeRuntime = () => ({
-  env: { ZELT_TEST: 'txiki' },
-  addSignalListener: vi.fn(),
-  removeSignalListener: vi.fn(),
-  exit: vi.fn(),
-  serve: vi.fn(() => ({ port: 42001, close: vi.fn(async () => {}) })),
-});
+const nativeRuntime = () => {
+  const listeners = new Map<Signal, SignalHandler>();
+  return {
+    env: { ZELT_TEST: 'txiki' },
+    listeners,
+    addSignalListener: vi.fn((signal: Signal, handler: SignalHandler) => {
+      listeners.set(signal, handler);
+    }),
+    removeSignalListener: vi.fn((signal: Signal, handler: SignalHandler) => {
+      if (listeners.get(signal) === handler) listeners.delete(signal);
+    }),
+    exit: vi.fn(),
+    serve: vi.fn(() => ({ port: 42001, close: vi.fn(async () => {}) })),
+  };
+};
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -45,6 +56,7 @@ describe('onTxiki', () => {
     const app = await onTxiki(createApp([http({ controllers: [EchoController] }), httpServer()]), {
       signals: false,
     });
+    expect(app.shutdown).toBe((await app.get(RuntimeShutdownService)).shutdown);
     const result = await app.http.request(new Request('http://localhost/echo/override'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Override': 'updated' },
@@ -89,6 +101,75 @@ describe('onTxiki', () => {
     await Promise.all([app.shutdown(), app.shutdown()]);
     expect(native.serve.mock.results[0]?.value.close).toHaveBeenCalledTimes(1);
     expect(native.removeSignalListener).toHaveBeenCalledTimes(2);
+  });
+
+  it('retains signals when a task starts during cleanup and shutdown is refused', async () => {
+    const native = nativeRuntime();
+    vi.stubGlobal('tjs', native);
+    const app = await onTxiki(createApp([]));
+    const tasks = await app.get(TaskService);
+    const shutdown = await app.get(RuntimeShutdownService);
+    const gate = Promise.withResolvers<void>();
+    let completion: Promise<void> | undefined;
+    app.registerShutdown(() => {
+      completion = tasks.runAndWait(() => gate.promise);
+    });
+    try {
+      await expect(app.shutdown()).rejects.toThrow('Runtime shutdown encountered errors');
+      expect(shutdown.state).toBe('ready');
+      expect([...native.listeners.keys()]).toEqual(['SIGINT', 'SIGTERM']);
+      expect(native.removeSignalListener).not.toHaveBeenCalled();
+      expect(native.exit).not.toHaveBeenCalled();
+      gate.resolve();
+      await completion;
+      const handler = native.listeners.get('SIGTERM');
+      if (!handler) throw new Error('adapter did not retain the signal handler');
+      handler();
+      await app.shutdown();
+    } finally {
+      gate.resolve();
+      await completion;
+      await app.shutdown();
+    }
+    expect(native.listeners.size).toBe(0);
+    expect(native.removeSignalListener).toHaveBeenCalledTimes(2);
+    expect(native.exit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'SIGINT',
+    'SIGTERM',
+  ] as const)('retains %s during lifecycle cleanup and shares repeated signals', async (signal) => {
+    const native = nativeRuntime();
+    vi.stubGlobal('tjs', native);
+    const app = await onTxiki(createApp([]));
+    const lifecycle = await app.get(LifecycleManager);
+    const gate = Promise.withResolvers<void>();
+    const started = Promise.withResolvers<void>();
+    const cleanup = vi.fn(async () => {
+      started.resolve();
+      await gate.promise;
+    });
+    lifecycle.register({ startup: () => {}, shutdown: cleanup });
+    await lifecycle.startupPending();
+    const handler = native.listeners.get(signal);
+    if (!handler) throw new Error('adapter did not attach a signal handler');
+    handler();
+    const stopping = app.shutdown();
+    try {
+      await started.promise;
+      expect(native.listeners.get(signal)).toBe(handler);
+      expect(native.removeSignalListener).not.toHaveBeenCalled();
+      handler();
+      expect(app.shutdown()).toBe(stopping);
+    } finally {
+      gate.resolve();
+      await stopping;
+    }
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(native.listeners.size).toBe(0);
+    expect(native.removeSignalListener).toHaveBeenCalledTimes(2);
+    expect(native.exit).not.toHaveBeenCalled();
   });
 
   it('keeps native serving per HTTP feature and closes servers only once', async () => {
