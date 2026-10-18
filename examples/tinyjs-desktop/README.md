@@ -1,6 +1,6 @@
 # Zelt × tinyjs desktop example
 
-A native task-list app: add tasks, mark them done, remove them, and update the native window title. The backend uses Zelt DI and HTTP controllers; the renderer uses `tinyFetch` over native IPC. Tasks live in memory for this application run.
+A native task-list app: add tasks, mark them done, remove them, and update the native window title. The backend uses Zelt DI and HTTP controllers; the renderer uses a generated, typed Hono client with `tinyFetch` over native IPC. Tasks live in memory for this application run.
 
 Install [tinyjs](https://tinyjs.app/) 0.50.1 or later. On Linux, its launcher needs WebKitGTK 4.1. Node/pnpm are used only to build the application.
 
@@ -8,11 +8,25 @@ From the repository root:
 
 ```sh
 pnpm install
-pnpm --filter @zeltjs/adapter-tinyjs... build
+pnpm --filter @zeltjs/adapter-tinyjs... --filter @zeltjs/hono-client... build
 pnpm --filter @examples/tinyjs-desktop dev
 ```
 
-This example prebundles TypeScript before starting tinyjs. Restart `pnpm dev` after TypeScript changes to rebuild; plain HTML/CSS changes use tinyjs's frontend reload.
+This example generates client types with `honoClientPlugin({ portable: true })` before bundling TypeScript and starting tinyjs. Restart `pnpm dev` after TypeScript changes to regenerate types and rebuild; plain HTML/CSS changes use tinyjs's frontend reload. `pnpm typecheck` also regenerates the types before checking API calls.
+
+The renderer uses Hono's standard client API; `tinyFetch` supplies the IPC transport without opening a TCP port:
+
+```ts
+import { tinyFetch } from '@zeltjs/adapter-tinyjs/renderer';
+import { hc } from 'hono/client';
+import type { AppType } from './generated/app-type';
+
+const client = hc<AppType>('http://zelt-tinyjs', { fetch: tinyFetch });
+const response = await client.api.tasks.$get();
+const data = await response.json(); // inferred from TaskController.list
+```
+
+Paths, methods, JSON inputs and JSON responses are typed from the controllers. The generated file contains types only, so backend code is not imported into the renderer. Type generation runs on Node during development/build; the packaged app still requires only tinyjs.
 
 Create a distributable app on the target OS:
 
@@ -24,8 +38,11 @@ On Linux the resulting `dist/zelt-tinyjs-tasks` runs with its accompanying `dist
 
 Source:
 
-- `src/main.ts`: DI, data/services, validation, HTTP routes, native app access
-- `src/renderer.ts`: Fetch client and task UI
+- `src/app.ts`: DI, data/services, validation, HTTP routes, native app access
+- `src/main.ts`: tinyjs runtime and native IPC bridge startup
+- `src/renderer.ts`: typed Hono client and task UI
+- `scripts/generate-client.ts`: portable client type generation with `honoClientPlugin`
+- `generated/app-type.ts`: generated API contract
 - `tinyjs.json`: native app configuration
 - `tsdown.config.ts`: portable backend and renderer bundles
 
@@ -113,7 +130,7 @@ export TJS_BIN="${TINYJS_HOME:-$HOME/.tinyjs}/bin/tjs"
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm --filter @zeltjs/adapter-tinyjs... build
+pnpm --filter @zeltjs/adapter-tinyjs... --filter @zeltjs/hono-client... build
 pnpm --filter @examples/txiki-http --filter @examples/tinyjs-desktop build
 ```
 

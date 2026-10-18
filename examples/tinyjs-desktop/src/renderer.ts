@@ -1,5 +1,8 @@
 import { tinyFetch } from '@zeltjs/adapter-tinyjs/renderer';
-import type { Task } from './task.types';
+import { hc } from 'hono/client';
+import type { AppType } from '../generated/app-type';
+
+const client = hc<AppType>('http://zelt-tinyjs', { fetch: tinyFetch });
 
 const tasksElement = document.querySelector('#tasks');
 const form = document.querySelector('#task-form');
@@ -20,8 +23,7 @@ if (
   throw new Error('タスク画面の構成が不正です');
 }
 
-const api = async (path: string, init?: RequestInit): Promise<Response> => {
-  const result = await tinyFetch(path, init);
+const checkResponse = <T extends Response>(result: T): T => {
   if (!result.ok) throw new Error(`操作に失敗しました（HTTP ${result.status}）`);
   return result;
 };
@@ -32,7 +34,10 @@ const report = (error: unknown): void => {
 };
 
 const render = async (): Promise<void> => {
-  const result: { tasks: Task[] } = await (await api('/api/tasks')).json();
+  const result = await client.api.tasks
+    .$get()
+    .then(checkResponse)
+    .then((res) => res.json());
   tasksElement.replaceChildren();
   summary.textContent = `${result.tasks.filter((task) => task.done).length} / ${result.tasks.length} 完了`;
   for (const task of result.tasks) {
@@ -43,11 +48,12 @@ const render = async (): Promise<void> => {
     checkbox.checked = task.done;
     checkbox.setAttribute('aria-label', `${task.title}を${task.done ? '未完了' : '完了'}にする`);
     checkbox.addEventListener('change', () => {
-      void api(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ done: checkbox.checked }),
-      })
+      void client.api.tasks[':id']
+        .$patch({
+          param: { id: String(task.id) },
+          json: { done: checkbox.checked },
+        })
+        .then(checkResponse)
         .then(render)
         .catch(report);
     });
@@ -58,7 +64,11 @@ const render = async (): Promise<void> => {
     remove.className = 'remove';
     remove.setAttribute('aria-label', `${task.title}を削除`);
     remove.addEventListener('click', () => {
-      void api(`/api/tasks/${task.id}`, { method: 'DELETE' }).then(render).catch(report);
+      void client.api.tasks[':id']
+        .$delete({ param: { id: String(task.id) } })
+        .then(checkResponse)
+        .then(render)
+        .catch(report);
     });
     item.append(checkbox, text, remove);
     tasksElement.append(item);
@@ -68,11 +78,9 @@ const render = async (): Promise<void> => {
 form.addEventListener('submit', (event) => {
   event.preventDefault();
   errorElement.hidden = true;
-  void api('/api/tasks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: title.value }),
-  })
+  void client.api.tasks
+    .$post({ json: { title: title.value } })
+    .then(checkResponse)
     .then(async () => {
       title.value = '';
       await render();
@@ -82,18 +90,18 @@ form.addEventListener('submit', (event) => {
 });
 
 windowTitle.addEventListener('click', () => {
-  void api('/api/window/title', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: '今日のタスク — Zelt × tinyjs' }),
-  })
+  void client.api.window.title
+    .$post({ json: { title: '今日のタスク — Zelt × tinyjs' } })
+    .then(checkResponse)
     .then(() => {
       windowTitle.textContent = 'ウィンドウ名を更新しました';
     })
     .catch(report);
 });
 
-void api('/api/status')
+void client.api.status
+  .$get()
+  .then(checkResponse)
   .then(async () => {
     connection.textContent = 'バックエンド接続済み';
     await render();

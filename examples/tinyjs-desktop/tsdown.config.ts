@@ -28,6 +28,6 @@ export default defineConfig([
     platform: 'browser',
     dts: false,
     clean: false,
-    deps: { alwaysBundle: [/^@zeltjs\//, 'valibot'] },
+    deps: { alwaysBundle: [/^@zeltjs\//, 'hono', /^hono\//, 'valibot'] },
   },
 ]);
