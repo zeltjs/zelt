@@ -4,20 +4,26 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsdown",
+    "generate:client": "tsx scripts/generate-client.ts",
+    "build": "pnpm generate:client && tsdown",
     "dev": "pnpm build && tinyjs dev",
     "package": "pnpm build && tinyjs build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm generate:client && tsc --noEmit",
     "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint ."
   },
   "dependencies": {
     "@zeltjs/core": "workspace:*",
     "@zeltjs/adapter-tinyjs": "workspace:*",
+    "hono": "catalog:",
     "valibot": "catalog:"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
+    "@zeltjs/cli": "workspace:*",
+    "@zeltjs/hono-client": "workspace:*",
     "@rollup/plugin-swc": "0.4.0",
     "@swc/core": "1.15.33",
+    "tsx": "catalog:",
     "tsdown": "catalog:"
   },
   "nx": {
@@ -25,6 +31,7 @@
       "build": {
         "outputs": [
           "{projectRoot}/backend",
+          "{projectRoot}/generated",
           "{projectRoot}/frontend/*.js",
           "{projectRoot}/frontend/*.js.map"
         ]

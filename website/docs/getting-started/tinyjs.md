@@ -46,7 +46,7 @@ The backend shares DI services across HTTP features and uses [synchronous contex
 The [complete task-list example](https://github.com/zeltjs/zelt/tree/main/examples/tinyjs-desktop) includes backend and renderer bundles plus `tinyjs.json`:
 
 ```sh
-pnpm --filter @zeltjs/adapter-tinyjs... build
+pnpm --filter @zeltjs/adapter-tinyjs... --filter @zeltjs/hono-client... build
 pnpm --filter @examples/tinyjs-desktop dev
 pnpm --filter @examples/tinyjs-desktop package
 ```
