@@ -21,6 +21,8 @@ const config: KnipConfig = {
     'examples/tinyjs-desktop': {
       // Installed from the official native distribution, rather than npm.
       ignoreBinaries: ['tinyjs'],
+      // Client type generation runs during build, outside the packaged app's module graph.
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!scripts/generate-client.ts!'],
     },
     'examples/txiki-http': {
       // The txiki.js runtime is an external executable.
