@@ -37,7 +37,7 @@ const app = createApp([http({ controllers: [UserController] })]);
 
 // Node.js
 const node = await onNode(createApp([...app.features, httpServer()], { configs: app.configs }));
-node.server.listen(node.http, 3000);
+node.httpServer.listen(node.http, 3000);
 
 // Cloudflare Workers
 const workers = await onCloudflareWorkers(app);
@@ -47,5 +47,5 @@ export default { fetch: workers.http.fetch };
 const lambda = await onLambda(
   createApp([...app.features, lambdaHandler()], { configs: app.configs }),
 );
-export const handler = lambda.handler.create(lambda.http);
+export const handler = lambda.lambdaHandler.create(lambda.http);
 ```

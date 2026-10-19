@@ -93,7 +93,7 @@ describe('onBun return types', () => {
     const app = await onBun(createApp([command([Serve]), http({ controllers: [] }), httpServer()]));
     try {
       expect(serveMock).not.toHaveBeenCalled();
-      expect((await app.commands.execCommand(['serve'])).exitCode).toBe(0);
+      expect((await app.command.execCommand(['serve'])).exitCode).toBe(0);
       expect(serveMock).toHaveBeenCalledOnce();
       await app.shutdown();
       await closed;
@@ -123,7 +123,7 @@ describe('onBun return types', () => {
     const directResponse = await httpOnly.http.fetch(new Request('http://localhost/'));
     await expect(directResponse.json()).resolves.toEqual({ ok: true });
 
-    const handle = await httpOnly.server.listen(httpOnly.http, {
+    const handle = await httpOnly.httpServer.listen(httpOnly.http, {
       hostname: '127.0.0.1',
       port: 4321,
     });
@@ -149,11 +149,11 @@ describe('onBun return types', () => {
     const commandFeature = command([TestCommand]);
     const commandOnly = await onBun(createApp([commandFeature]));
 
-    expectTypeOf(commandOnly).toHaveProperty('commands');
+    expectTypeOf(commandOnly).toHaveProperty('command');
     expectTypeOf(commandOnly).not.toHaveProperty('serve');
     expect('serve' in commandOnly).toBe(false);
 
-    const commandResult = await commandOnly.commands.execCommand(['test']);
+    const commandResult = await commandOnly.command.execCommand(['test']);
     expect(commandResult.exitCode).toBe(0);
     expect(runFn).toHaveBeenCalledOnce();
 
@@ -163,9 +163,9 @@ describe('onBun return types', () => {
 
     expectTypeOf(full).not.toHaveProperty('serve');
     expectTypeOf(full.http).not.toHaveProperty('serve');
-    expectTypeOf(full).toHaveProperty('commands');
+    expectTypeOf(full).toHaveProperty('command');
 
-    const fullResult = await full.commands.execCommand(['test']);
+    const fullResult = await full.command.execCommand(['test']);
     expect(fullResult.exitCode).toBe(0);
 
     await full.shutdown();
@@ -244,8 +244,8 @@ describe('onBun return types', () => {
       ]),
     );
 
-    const publicHandle = await bunApp.server.listen(bunApp.http, { port: 3000 });
-    const privateHandle = await bunApp.server.listen(bunApp.private, { port: 3001 });
+    const publicHandle = await bunApp.httpServer.listen(bunApp.http, { port: 3000 });
+    const privateHandle = await bunApp.httpServer.listen(bunApp.private, { port: 3001 });
 
     expect('serve' in bunApp).toBe(false);
     expect(publicHandle.address.port).toBe(3000);
@@ -277,7 +277,7 @@ describe('onBun return types', () => {
     const bunApp = await onBun(
       createApp([http({ controllers: [AppShutdownController] }), httpServer()]),
     );
-    await bunApp.server.listen(bunApp.http, { port: 3000 });
+    await bunApp.httpServer.listen(bunApp.http, { port: 3000 });
     const server = servedServers[0];
     if (!server) throw new Error('expected Bun.serve server');
 

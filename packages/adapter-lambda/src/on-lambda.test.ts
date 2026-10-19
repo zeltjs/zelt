@@ -27,9 +27,9 @@ describe('onLambda', () => {
     const lambdaApp = await onLambda(createApp([]));
     try {
       expectTypeOf(lambdaApp).not.toHaveProperty('http');
-      expectTypeOf(lambdaApp).not.toHaveProperty('handler');
+      expectTypeOf(lambdaApp).not.toHaveProperty('lambdaHandler');
       expectTypeOf(lambdaApp).not.toHaveProperty('handlerV1');
-      expect(lambdaApp).not.toHaveProperty('handler');
+      expect(lambdaApp).not.toHaveProperty('lambdaHandler');
       expect(lambdaApp).not.toHaveProperty('handlerV1');
     } finally {
       await lambdaApp.shutdown();

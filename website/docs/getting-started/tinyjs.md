@@ -21,7 +21,7 @@ class ApiController {
 }
 
 const desktop = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
-export const { api, init } = desktop.bridge.create(desktop.http);
+export const { api, init } = desktop.tinyjsBridge.create(desktop.http);
 ```
 
 Renderer:
@@ -33,7 +33,7 @@ const response = await tinyFetch('/api/status');
 const status = await response.json();
 ```
 
-The renderer receives a standard `Response`, including status, headers, JSON and binary bodies. The single-target factory exposes the supplied HTTP capability as `http`. To expose several targets explicitly, use `desktop.bridge.create(new Map([['http', desktop.http], ['admin', desktop.admin]]))`, then select a map key in the renderer with `createTinyFetch({ feature: 'admin' })`. HTTP features are never exposed automatically.
+The renderer receives a standard `Response`, including status, headers, JSON and binary bodies. The single-target factory exposes the supplied HTTP capability as `http`. To expose several targets explicitly, use `desktop.tinyjsBridge.create(new Map([['http', desktop.http], ['admin', desktop.admin]]))`, then select a map key in the renderer with `createTinyFetch({ feature: 'admin' })`. HTTP features are never exposed automatically.
 
 ## Native app and shutdown
 
@@ -53,4 +53,4 @@ pnpm --filter @examples/tinyjs-desktop package
 
 The build uses Node; the packaged application runs on txiki.js and the OS WebView. Build on the OS you target. Linux was verified with tinyjs 0.50.1, including a real WebView; macOS and Windows require separate verification.
 
-IPC responses are buffered and must finish. Declare `httpServer()` and use `app.server.listen(app.http, options)` for streaming/SSE endpoints. Browser cookies are not automatically managed by this bridge. Aborting fetch rejects renderer-side waiting; an already-running backend handler can still finish.
+IPC responses are buffered and must finish. Declare `httpServer()` and use `app.httpServer.listen(app.http, options)` for streaming/SSE endpoints. Browser cookies are not automatically managed by this bridge. Aborting fetch rejects renderer-side waiting; an already-running backend handler can still finish.

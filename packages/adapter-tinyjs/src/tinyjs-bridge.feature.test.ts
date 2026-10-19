@@ -117,10 +117,14 @@ describe('tinyjs Fetch bridge', () => {
     @Injectable()
     class BridgeConsumer {
       readonly bridge = injectFeature(definition);
+      readonly defaultBridge = injectFeature(TinyjsBridgeFeature);
     }
     const app = await onTinyjs(createApp([definition]));
     try {
-      expect((await app.get(BridgeConsumer)).bridge).toBe(app.bridge);
+      expect((await app.get(BridgeConsumer)).bridge).toBe(app.tinyjsBridge);
+      expect((await app.get(BridgeConsumer)).defaultBridge).toBe(app.tinyjsBridge);
+      expectTypeOf(definition.key).toEqualTypeOf<'tinyjsBridge'>();
+      expect(app).not.toHaveProperty('bridge');
     } finally {
       await app.shutdown();
     }
@@ -130,7 +134,7 @@ describe('tinyjs Fetch bridge', () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([tinyjsBridge()]));
     try {
-      const nativeBridge = app.bridge.create(
+      const nativeBridge = app.tinyjsBridge.create(
         {
           fetch: async (request) => new Response(request.url, { status: 201 }),
         },
@@ -144,7 +148,7 @@ describe('tinyjs Fetch bridge', () => {
       expect(response.status).toBe(201);
       expect(await response.text()).toBe('https://desktop.example/explicit?q=1');
       expect(() =>
-        app.bridge.create({ fetch: async () => new Response() }, { origin: 'invalid' }),
+        app.tinyjsBridge.create({ fetch: async () => new Response() }, { origin: 'invalid' }),
       ).toThrow(TypeError);
     } finally {
       await app.shutdown();
@@ -157,7 +161,7 @@ describe('tinyjs Fetch bridge', () => {
       createApp([http({ name: 'fetch', controllers: [ApiController] }), tinyjsBridge()]),
     );
     try {
-      const nativeBridge = app.bridge.create(new Map([['fetch', app.fetch]]));
+      const nativeBridge = app.tinyjsBridge.create(new Map([['fetch', app.fetch]]));
       const fetch = createTinyFetch({
         feature: 'fetch',
         bridge: { call: async (_method, payload) => nativeBridge.api['zelt.fetch'](payload) },
@@ -171,7 +175,7 @@ describe('tinyjs Fetch bridge', () => {
   it('rejects generated bridge operations while common shutdown is pending', async () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
-    const nativeBridge = app.bridge.create(app.http);
+    const nativeBridge = app.tinyjsBridge.create(app.http);
     const native: TinyjsNativeApp = {
       done: new Promise(() => {}),
       setTitle: vi.fn(),
@@ -187,7 +191,7 @@ describe('tinyjs Fetch bridge', () => {
     );
     const stopping = app.shutdown();
     expect(() => nativeBridge.init(native)).toThrow(ZeltLifecycleStateError);
-    expect(() => app.bridge.create(app.http)).toThrow(ZeltLifecycleStateError);
+    expect(() => app.tinyjsBridge.create(app.http)).toThrow(ZeltLifecycleStateError);
     await expect(nativeBridge.api['zelt.fetch']({})).rejects.toThrow(ZeltLifecycleStateError);
     finish();
     await stopping;
@@ -199,8 +203,8 @@ describe('tinyjs Fetch bridge', () => {
     const definition = createApp([http({ controllers: [ApiController] }), tinyjsBridge()]);
     const first = await onTinyjs(definition);
     const second = await onTinyjs(definition);
-    const firstBridge = first.bridge.create(first.http);
-    const secondBridge = second.bridge.create(second.http);
+    const firstBridge = first.tinyjsBridge.create(first.http);
+    const secondBridge = second.tinyjsBridge.create(second.http);
     try {
       await first.shutdown();
       await expect(firstBridge.api['zelt.fetch']({})).rejects.toThrow(ZeltLifecycleStateError);
@@ -216,7 +220,7 @@ describe('tinyjs Fetch bridge', () => {
   it('propagates native completion errors after running runtime cleanup', async () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([tinyjsBridge()]));
-    const nativeBridge = app.bridge.create({ fetch: async () => new Response() });
+    const nativeBridge = app.tinyjsBridge.create({ fetch: async () => new Response() });
     const failure = new Error('native completion failed');
     const native: TinyjsNativeApp = {
       done: Promise.reject(failure),
@@ -236,7 +240,7 @@ describe('tinyjs Fetch bridge', () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
     expect(app.shutdown).toBe((await app.get(RuntimeShutdownService)).shutdown);
-    const nativeBridge = app.bridge.create(app.http);
+    const nativeBridge = app.tinyjsBridge.create(app.http);
     const native: TinyjsNativeApp = {
       done: new Promise<void>(() => {}),
       setTitle: vi.fn(),
@@ -270,7 +274,7 @@ describe('tinyjs Fetch bridge', () => {
   it('retains native state when a task starts during a shutdown callback', async () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
-    const nativeBridge = app.bridge.create(app.http);
+    const nativeBridge = app.tinyjsBridge.create(app.http);
     const native: TinyjsNativeApp = {
       done: new Promise<void>(() => {}),
       setTitle: vi.fn(),
@@ -303,7 +307,7 @@ describe('tinyjs Fetch bridge', () => {
   it('disposes native state when actual lifecycle cleanup fails', async () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
-    const nativeBridge = app.bridge.create(app.http);
+    const nativeBridge = app.tinyjsBridge.create(app.http);
     const native: TinyjsNativeApp = {
       done: new Promise<void>(() => {}),
       setTitle: vi.fn(),
@@ -328,7 +332,7 @@ describe('tinyjs Fetch bridge', () => {
   it('round trips HTTP semantics and JSON-serializable binary bodies without a TCP listener', async () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
-    const nativeBridge = app.bridge.create(app.http);
+    const nativeBridge = app.tinyjsBridge.create(app.http);
     const fetch = createTinyFetch({
       bridge: {
         call: async (method, payload) => {
@@ -378,7 +382,7 @@ describe('tinyjs Fetch bridge', () => {
         tinyjsBridge(),
       ]),
     );
-    const nativeBridge = app.bridge.create(
+    const nativeBridge = app.tinyjsBridge.create(
       new Map([
         ['http', app.http],
         ['admin', app.admin],
@@ -400,7 +404,7 @@ describe('tinyjs Fetch bridge', () => {
   it('rejects malformed requests, unexpected origins, malformed responses, and pre-aborted fetches', async () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
-    const nativeBridge = app.bridge.create(app.http);
+    const nativeBridge = app.tinyjsBridge.create(app.http);
     const bridge = {
       call: vi.fn(async (_method: string, payload: unknown) =>
         nativeBridge.api['zelt.fetch'](payload),
@@ -432,7 +436,7 @@ describe('tinyjs Fetch bridge', () => {
       quit: vi.fn(),
     };
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
-    const nativeBridge = app.bridge.create(app.http);
+    const nativeBridge = app.tinyjsBridge.create(app.http);
     const adaptor = await app.get(TinyjsAppAdaptor);
     expect(() => adaptor.native).toThrow(ZeltLifecycleStateError);
     const order: string[] = [];

@@ -10,7 +10,7 @@ describe('onTinyjs', () => {
     const app = await onTinyjs(createApp([]));
     expectTypeOf(app).not.toHaveProperty('api');
     expectTypeOf(app).not.toHaveProperty('init');
-    expectTypeOf(app).not.toHaveProperty('bridge');
+    expectTypeOf(app).not.toHaveProperty('tinyjsBridge');
     expect(Object.keys(app).sort()).toEqual([
       'features',
       'get',

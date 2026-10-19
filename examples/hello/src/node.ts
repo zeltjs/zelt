@@ -5,5 +5,5 @@ import { app } from './app';
 
 const nodeApp = await onNode(createApp([...app.features, httpServer()], { configs: app.configs }));
 
-const { address } = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
+const { address } = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
 console.log(`Server running at http://localhost:${address.port}`);

@@ -31,11 +31,11 @@ export type LambdaHandlerCapabilities = {
   readonly create: typeof createLambdaHandler;
 };
 
-export class LambdaHandlerFeature<TName extends string = 'handler'> extends Feature<
+export class LambdaHandlerFeature<TName extends string = 'lambdaHandler'> extends Feature<
   TName,
   LambdaHandlerCapabilities
 > {
-  static readonly defaultKey = 'handler';
+  static readonly defaultKey = 'lambdaHandler';
 
   constructor(readonly key: TName) {
     super();
@@ -46,10 +46,10 @@ export class LambdaHandlerFeature<TName extends string = 'handler'> extends Feat
   readonly realize = (): LambdaHandlerCapabilities => ({ create: createLambdaHandler });
 }
 
-export function lambdaHandler(): LambdaHandlerFeature<'handler'>;
+export function lambdaHandler(): LambdaHandlerFeature<'lambdaHandler'>;
 export function lambdaHandler<const TName extends string>(options: {
   readonly name: TName & FeatureName<TName>;
 }): LambdaHandlerFeature<TName>;
 export function lambdaHandler(options?: { readonly name: string }): LambdaHandlerFeature<string> {
-  return new LambdaHandlerFeature(options?.name ?? 'handler');
+  return new LambdaHandlerFeature(options?.name ?? 'lambdaHandler');
 }

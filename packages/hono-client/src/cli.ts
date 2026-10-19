@@ -4,7 +4,7 @@ import { CliConfig } from '@zeltjs/core';
 import { app } from './app.lib';
 
 const nodeApp = await onNode(app);
-const result = await nodeApp.commands.execCommand([...nodeApp.args]);
+const result = await nodeApp.command.execCommand([...nodeApp.args]);
 if (result.exitCode !== 0) {
   globalThis.process.stderr.write(`${result.reason.message}\n`);
 }

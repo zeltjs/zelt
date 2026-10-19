@@ -10,11 +10,11 @@ export type CommandCapabilities = {
   readonly execCommand: (argv: readonly string[]) => Promise<ExecResult>;
 };
 
-export class CommandFeature extends Feature<'commands', CommandCapabilities> {
-  static get defaultKey(): 'commands' {
-    return 'commands';
+export class CommandFeature extends Feature<'command', CommandCapabilities> {
+  static get defaultKey(): 'command' {
+    return 'command';
   }
-  readonly key = 'commands' as const;
+  readonly key = 'command' as const;
 
   constructor(private readonly commands: readonly CommandClass[]) {
     super();

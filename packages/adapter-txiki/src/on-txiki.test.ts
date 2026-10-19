@@ -81,7 +81,7 @@ describe('onTxiki', () => {
     const native = nativeRuntime();
     vi.stubGlobal('tjs', native);
     const app = await onTxiki(createApp([http({ controllers: [EchoController] }), httpServer()]));
-    await app.server.listen(app.http);
+    await app.httpServer.listen(app.http);
     const tasks = await app.get(TaskService);
     let finish!: () => void;
     const completion = tasks.runAndWait(
@@ -182,8 +182,8 @@ describe('onTxiki', () => {
         http({ name: 'admin', controllers: [EchoController] }),
       ]),
     );
-    const first = await app.server.listen(app.http, { port: 0 });
-    const second = await app.server.listen(app.admin, { port: 41000, hostname: '0.0.0.0' });
+    const first = await app.httpServer.listen(app.http, { port: 0 });
+    const second = await app.httpServer.listen(app.admin, { port: 41000, hostname: '0.0.0.0' });
     expect(first.address).toEqual({ port: 42001, address: '127.0.0.1' });
     expect(native.serve.mock.calls[1]).toEqual([
       { fetch: expect.any(Function), port: 41000, listenIp: '0.0.0.0' },
@@ -196,7 +196,7 @@ describe('onTxiki', () => {
     for (const server of native.serve.mock.results)
       expect(server.value.close).toHaveBeenCalledTimes(1);
     expect(native.removeSignalListener).toHaveBeenCalledTimes(2);
-    expect(() => app.server.listen(app.http)).toThrow();
+    expect(() => app.httpServer.listen(app.http)).toThrow();
     expect(native.serve).toHaveBeenCalledTimes(2);
   });
 

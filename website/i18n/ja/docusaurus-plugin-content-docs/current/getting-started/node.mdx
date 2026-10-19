@@ -65,7 +65,7 @@ export const app = createApp([
 export default await onNode(app);
 ```
 
-`onNode()` 関数はアプリをNode.jsランタイム用に準備し、`server.listen(http, options)`、`get()`、`args` プロパティを持つruntimeを返します。
+`onNode()` 関数はアプリをNode.jsランタイム用に準備し、`httpServer.listen(http, options)`、`get()`、`args` プロパティを持つruntimeを返します。
 
 ### Step 3: サーバーを起動する {#step-3-start-the-server}
 
@@ -88,7 +88,7 @@ export default await onNode(app);
 // ---cut---
 import nodeApp from './app';
 
-const server = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
+const server = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 

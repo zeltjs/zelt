@@ -11,11 +11,11 @@ export type SchedulerCapabilities = {
   readonly getSchedulerJobs: () => readonly JobInfo[];
 };
 
-export class SchedulerFeature extends Feature<'schedulers', SchedulerCapabilities> {
-  static get defaultKey(): 'schedulers' {
-    return 'schedulers';
+export class SchedulerFeature extends Feature<'scheduler', SchedulerCapabilities> {
+  static get defaultKey(): 'scheduler' {
+    return 'scheduler';
   }
-  readonly key = 'schedulers' as const;
+  readonly key = 'scheduler' as const;
 
   constructor(private readonly schedulers: readonly SchedulerClass[]) {
     super();

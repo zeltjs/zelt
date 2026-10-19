@@ -76,13 +76,13 @@ const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
 // ---cut---
 const bunApp = await onBun(app);
 
-const server = await bunApp.server.listen(bunApp.http, { port: 3000 });
+const server = await bunApp.httpServer.listen(bunApp.http, { port: 3000 });
 console.log(`Server running at http://${server.address.address}:${server.address.port}`);
 ```
 
 The `onBun()` function prepares your app for the Bun runtime. It returns an object with:
 
-- `server.listen(http, options?)` — Starts a listener for the selected HTTP feature; requires `httpServer()`
+- `httpServer.listen(http, options?)` — Starts a listener for the selected HTTP feature; requires `httpServer()`
 - `shutdown()` — Gracefully shuts down the application
 - `get<T>(Class)` — Resolves a service from the DI container
 - `args` — Command-line arguments (`Bun.argv.slice(2)`)
@@ -117,7 +117,7 @@ class HelloController {
 const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
 const bunApp = await onBun(app);
 // ---cut---
-const server = await bunApp.server.listen(bunApp.http, {
+const server = await bunApp.httpServer.listen(bunApp.http, {
   port: 8080,
   hostname: '127.0.0.1',
 });
@@ -130,7 +130,7 @@ const server = await bunApp.server.listen(bunApp.http, {
 
 ## Command Support
 
-If your app includes commands, `onBun()` keeps command capabilities under the `commands` namespace for CLI execution:
+If your app includes commands, `onBun()` keeps command capabilities under the `command` namespace for CLI execution:
 
 ```typescript
 // @noErrors
@@ -152,7 +152,7 @@ const app = createApp([http({ controllers: [HelloController] }), command([GreetC
 // ---cut---
 const bunApp = await onBun(app);
 
-const result = await bunApp.commands.execCommand(['greet', 'world']);
+const result = await bunApp.command.execCommand(['greet', 'world']);
 console.log(result.exitCode); // 0 or 1
 ```
 

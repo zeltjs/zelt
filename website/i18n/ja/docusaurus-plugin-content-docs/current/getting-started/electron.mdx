@@ -38,7 +38,7 @@ sequenceDiagram
 ```
 
 必要なのは3つの要素です:
-1. **Main process** — `onElectron(app)`でZeltを起動し、`runtime.ipc.listen(runtime.http)`でIPC handlerを登録します
+1. **Main process** — `onElectron(app)`でZeltを起動し、`runtime.electronIpc.listen(runtime.http)`でIPC handlerを登録します
 2. **Preloadスクリプト** — `exposeIpc()` がIPCをrendererへブリッジします
 3. **Renderer process** — `ipcFetch()` がブリッジ経由でリクエストを送信します
 
@@ -119,7 +119,7 @@ declare const join: (...args: string[]) => string;
 // ---cut---
 const bootstrap = async () => {
   const electronZelt = await onElectron(app);
-  await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
+  await electronZelt.electronIpc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
   const win = new BrowserWindow({
     width: 900,
@@ -136,10 +136,10 @@ const bootstrap = async () => {
 void bootstrap();
 ```
 
-`onElectron()`は宣言したfeatureからZeltランタイムを起動します。`ipc.listen()`で対象HTTPとchannelを渡し、IPC handlerを登録します。返されるのは:
+`onElectron()`は宣言したfeatureからZeltランタイムを起動します。`electronIpc.listen()`で対象HTTPとchannelを渡し、IPC handlerを登録します。返されるのは:
 
 - `http.fetch(request)` — `Request` を処理して `Response` を返します(設定された各featureはそのkeyでnamespace化されます。デフォルトは `http`)
-- `ipc.listen(http, options)` — 対象HTTPをIPCへ公開します
+- `electronIpc.listen(http, options)` — 対象HTTPをIPCへ公開します
 - `shutdown()` — アプリケーションをgracefulにシャットダウンします
 - `get<T>(Class)` — DIコンテナからserviceを解決します
 

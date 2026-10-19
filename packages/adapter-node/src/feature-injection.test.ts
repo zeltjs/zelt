@@ -52,10 +52,10 @@ describe('feature injection on Node', () => {
     const app = await onNode(createApp([command([Serve, Version]), admin, user, httpServer()]));
     try {
       expect(listeners).toHaveLength(0);
-      expect((await app.commands.execCommand(['-v'])).exitCode).toBe(0);
+      expect((await app.command.execCommand(['-v'])).exitCode).toBe(0);
       expect(printVersion).toHaveBeenCalledOnce();
       expect(listeners).toHaveLength(0);
-      expect((await app.commands.execCommand(['serve'])).exitCode).toBe(0);
+      expect((await app.command.execCommand(['serve'])).exitCode).toBe(0);
       expect(listeners).toHaveLength(2);
       const [adminServer, userServer] = listeners;
       if (!adminServer || !userServer) throw new Error('Expected both listeners');
@@ -69,7 +69,7 @@ describe('feature injection on Node', () => {
       expect(await (await app.admin.request('/')).text()).toBe('admin');
       await app.shutdown();
       await Promise.all(listeners.map((server) => server.closed));
-      expect(() => app.server.listen(app.admin, 0)).toThrow(/disposed/);
+      expect(() => app.httpServer.listen(app.admin, 0)).toThrow(/disposed/);
     } finally {
       await app.shutdown();
     }

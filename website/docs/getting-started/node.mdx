@@ -65,7 +65,7 @@ export const app = createApp([
 export default await onNode(app);
 ```
 
-The `onNode()` function prepares your app for the Node.js runtime, returning a runtime with `server.listen(http, options)`, `get()`, and `args` properties.
+The `onNode()` function prepares your app for the Node.js runtime, returning a runtime with `httpServer.listen(http, options)`, `get()`, and `args` properties.
 
 ### Step 3: Start the Server
 
@@ -88,7 +88,7 @@ export default await onNode(app);
 // ---cut---
 import nodeApp from './app';
 
-const server = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
+const server = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 

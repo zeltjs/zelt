@@ -130,11 +130,11 @@ it('retains Scheduler and its immediate start/stop behavior in a consumer bundle
     Cron('* * * * * *')(Job.prototype, 'tick', Object.getOwnPropertyDescriptor(Job.prototype, 'tick'));
     Scheduled()(Job);
     const runtime = await createApp([scheduler([Job])]).createRuntime();
-    const started = runtime.schedulers.startScheduler();
-    if (!runtime.schedulers.isSchedulerRunning()) throw new Error('startup added an async boundary');
-    if (runtime.schedulers.getSchedulerJobs().length !== 1) throw new Error('job metadata was lost');
-    const stopped = runtime.schedulers.stopScheduler();
-    if (runtime.schedulers.isSchedulerRunning()) throw new Error('shutdown added an async boundary');
+    const started = runtime.scheduler.startScheduler();
+    if (!runtime.scheduler.isSchedulerRunning()) throw new Error('startup added an async boundary');
+    if (runtime.scheduler.getSchedulerJobs().length !== 1) throw new Error('job metadata was lost');
+    const stopped = runtime.scheduler.stopScheduler();
+    if (runtime.scheduler.isSchedulerRunning()) throw new Error('shutdown added an async boundary');
     await Promise.all([started, stopped]);
     await runtime.shutdown();
   `;

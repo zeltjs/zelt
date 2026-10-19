@@ -10,11 +10,11 @@ export type ElectronIpcCapabilities = {
   ) => Promise<ElectronIpcHandle>;
 };
 
-export class ElectronIpcFeature<TName extends string = 'ipc'> extends Feature<
+export class ElectronIpcFeature<TName extends string = 'electronIpc'> extends Feature<
   TName,
   ElectronIpcCapabilities
 > {
-  static readonly defaultKey = 'ipc';
+  static readonly defaultKey = 'electronIpc';
 
   constructor(readonly key: TName) {
     super();
@@ -32,10 +32,10 @@ export class ElectronIpcFeature<TName extends string = 'ipc'> extends Feature<
   };
 }
 
-export function electronIpc(): ElectronIpcFeature<'ipc'>;
+export function electronIpc(): ElectronIpcFeature<'electronIpc'>;
 export function electronIpc<const TName extends string>(options: {
   readonly name: TName & FeatureName<TName>;
 }): ElectronIpcFeature<TName>;
 export function electronIpc(options?: { readonly name: string }): ElectronIpcFeature<string> {
-  return new ElectronIpcFeature(options?.name ?? 'ipc');
+  return new ElectronIpcFeature(options?.name ?? 'electronIpc');
 }
