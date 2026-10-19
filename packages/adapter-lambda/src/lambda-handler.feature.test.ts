@@ -34,10 +34,10 @@ describe('lambdaHandler', () => {
       createApp([http({ controllers: [HelloController] }), lambdaHandler()]),
     );
     try {
-      const handler = lambdaApp.handler.create(lambdaApp.http);
+      const handler = lambdaApp.lambdaHandler.create(lambdaApp.http);
       expectTypeOf(handler).toEqualTypeOf<LambdaHandlerV2>();
       expectTypeOf(
-        lambdaApp.handler.create(lambdaApp.http, { payloadFormat: '2.0' }),
+        lambdaApp.lambdaHandler.create(lambdaApp.http, { payloadFormat: '2.0' }),
       ).toEqualTypeOf<LambdaHandlerV2>();
       expect(await handler(eventV2, context)).toMatchObject({
         statusCode: 200,
@@ -54,7 +54,7 @@ describe('lambdaHandler', () => {
       createApp([http({ controllers: [HelloController] }), lambdaHandler()]),
     );
     try {
-      const handler = lambdaApp.handler.create(lambdaApp.http, { payloadFormat: '1.0' });
+      const handler = lambdaApp.lambdaHandler.create(lambdaApp.http, { payloadFormat: '1.0' });
       expectTypeOf(handler).toEqualTypeOf<LambdaHandlerV1>();
       expect(await handler(eventV1, context)).toMatchObject({
         statusCode: 200,
@@ -76,7 +76,7 @@ describe('lambdaHandler', () => {
     );
     try {
       expectTypeOf(lambdaApp).not.toHaveProperty('http');
-      expectTypeOf(lambdaApp).not.toHaveProperty('handler');
+      expectTypeOf(lambdaApp).not.toHaveProperty('lambdaHandler');
       const publicHandler = lambdaApp.gateway.create(lambdaApp.public);
       const adminHandler = lambdaApp.gateway.create(lambdaApp.admin);
       expect(await publicHandler(eventV2, context)).toMatchObject({ body: 'hello from lambda' });
@@ -91,16 +91,20 @@ describe('lambdaHandler', () => {
     @Injectable()
     class Consumer {
       readonly gateway = injectFeature(gateway);
+      readonly defaultGateway = injectFeature(LambdaHandlerFeature);
     }
     const lambdaApp = await onLambda(
       createApp([gateway, http({ controllers: [HelloController] })]),
     );
     try {
-      expect((await lambdaApp.get(Consumer)).gateway).toBe(lambdaApp.handler);
+      expect((await lambdaApp.get(Consumer)).gateway).toBe(lambdaApp.lambdaHandler);
+      expect((await lambdaApp.get(Consumer)).defaultGateway).toBe(lambdaApp.lambdaHandler);
+      expectTypeOf(gateway.key).toEqualTypeOf<'lambdaHandler'>();
+      expect(lambdaApp).not.toHaveProperty('handler');
       expect(lambdaApp.getFeatureEntries(LambdaHandlerFeature)[0]?.capabilities).toBe(
-        lambdaApp.handler,
+        lambdaApp.lambdaHandler,
       );
-      const create = lambdaApp.handler.create;
+      const create = lambdaApp.lambdaHandler.create;
       const handler = create(lambdaApp.http);
       await lambdaApp.shutdown();
       expect(() => create(lambdaApp.http)).toThrow(/disposed/);
@@ -113,7 +117,7 @@ describe('lambdaHandler', () => {
   it('converts v2 request URLs, headers and base64 bodies and encodes binary responses', async () => {
     const lambdaApp = await onLambda(createApp([lambdaHandler()]));
     try {
-      const handler = lambdaApp.handler.create({
+      const handler = lambdaApp.lambdaHandler.create({
         fetch: async (request) => {
           expect(request.url).toBe('https://example.com/hello?q=a%20b');
           expect(request.method).toBe('POST');
@@ -155,7 +159,7 @@ describe('lambdaHandler', () => {
   it('converts v1 request URLs, headers and text bodies into HTTP', async () => {
     const lambdaApp = await onLambda(createApp([lambdaHandler()]));
     try {
-      const handler = lambdaApp.handler.create(
+      const handler = lambdaApp.lambdaHandler.create(
         {
           fetch: async (request) => {
             expect(request.url).toBe('https://example.com/hello?q=a+b');
@@ -187,7 +191,7 @@ describe('lambdaHandler', () => {
     const lambdaApp = await onLambda(createApp([lambdaHandler()]));
     try {
       const error = new Error('HTTP processing failed');
-      const handler = lambdaApp.handler.create({ fetch: () => Promise.reject(error) });
+      const handler = lambdaApp.lambdaHandler.create({ fetch: () => Promise.reject(error) });
       await expect(handler(eventV2, context)).rejects.toBe(error);
     } finally {
       await lambdaApp.shutdown();

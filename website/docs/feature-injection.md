@@ -39,7 +39,7 @@ class ServeCommand {
 }
 
 const runtime = await onNode(createApp([command([ServeCommand]), web, listener]));
-const result = await runtime.commands.execCommand(['serve']);
+const result = await runtime.command.execCommand(['serve']);
 ```
 
 Injection alone does not start a listener. `listen()` returns its actual address, an idempotent `shutdown()` function, and a `closed` promise. Runtime shutdown closes listeners started from both injected features and the public runtime API. Node handles SIGINT/SIGTERM through its normal shutdown integration.
@@ -80,7 +80,7 @@ class FeatureConsumer {
 }
 ```
 
-Omitting the namespace uses the class's `static defaultKey`: `http`, `commands`, `schedulers`, or `eventbus`. It never selects the first registered instance or an arbitrary named instance. Custom feature classes can declare `static readonly defaultKey`; structural feature definitions can be injected directly.
+Omitting the namespace uses the class's `static defaultKey`, which matches its factory name: `http`, `httpServer`, `command`, `scheduler`, `eventbus`, `tinyjsBridge`, `electronIpc`, or `lambdaHandler`. It never selects the first registered instance or an arbitrary named instance. Custom feature classes can declare `static readonly defaultKey`; structural feature definitions can be injected directly.
 
 The selected definition must be registered at the top level of this runtime. An HTTP child is a route composition unit and is not automatically an independently injectable feature. A newly created definition with identical options does not match the registered object. Duplicate namespaces are still rejected by `createApp()`.
 

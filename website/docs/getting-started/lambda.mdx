@@ -87,12 +87,12 @@ import { app } from './app';
 
 const lambdaApp = await onLambda(app);
 
-export const handler = lambdaApp.handler.create(lambdaApp.http);
+export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http);
 ```
 
 `onLambda()` injects Lambda environment configs and initializes the runtime. It does not require an HTTP feature and preserves the namespaces of the features you declared.
 
-`lambdaHandler()` publishes the `handler` namespace by default. `handler.create(targetHttp)` creates an API Gateway v2 function; pass `{ payloadFormat: '1.0' }` to create a v1 function. Export the returned function for AWS to invoke. You can use any HTTP feature name and create separate handlers for multiple HTTP features.
+`lambdaHandler()` publishes the `lambdaHandler` namespace by default. `lambdaHandler.create(targetHttp)` creates an API Gateway v2 function; pass `{ payloadFormat: '1.0' }` to create a v1 function. Export the returned function for AWS to invoke. You can use any HTTP feature name and create separate handlers for multiple HTTP features.
 
 Use `lambdaHandler({ name: 'gateway' })` to expose `lambdaApp.gateway.create(lambdaApp.http)` instead. The usual runtime APIs, including `shutdown()` and `get(Class)`, remain available.
 
@@ -160,7 +160,7 @@ class HelloController {
 const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 const lambdaApp = await onLambda(app);
 // ---cut---
-export const handler = lambdaApp.handler.create(lambdaApp.http);
+export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http);
 ```
 
 ### REST API (v1)
@@ -178,7 +178,7 @@ class HelloController {
 const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 const lambdaApp = await onLambda(app);
 // ---cut---
-export const handler = lambdaApp.handler.create(lambdaApp.http, { payloadFormat: '1.0' });
+export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http, { payloadFormat: '1.0' });
 ```
 
 ## Warmup Option

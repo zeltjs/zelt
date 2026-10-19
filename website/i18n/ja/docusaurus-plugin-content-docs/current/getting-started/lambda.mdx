@@ -87,12 +87,12 @@ import { app } from './app';
 
 const lambdaApp = await onLambda(app);
 
-export const handler = lambdaApp.handler.create(lambdaApp.http);
+export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http);
 ```
 
 `onLambda()` はLambda用の環境configを注入してruntimeを初期化します。HTTP featureを必須とせず、宣言したfeatureの名前空間をそのまま返します。
 
-`lambdaHandler()` はデフォルトで `handler` 名前空間を公開します。`handler.create(対象HTTP)` はAPI Gateway v2用の関数を生成し、`{ payloadFormat: '1.0' }` を渡すとv1用の関数を生成します。生成した関数をAWSへ公開してください。HTTPの名前は任意で、同じfeatureから複数のHTTP用のhandlerを作れます。
+`lambdaHandler()` はデフォルトで `lambdaHandler` 名前空間を公開します。`lambdaHandler.create(対象HTTP)` はAPI Gateway v2用の関数を生成し、`{ payloadFormat: '1.0' }` を渡すとv1用の関数を生成します。生成した関数をAWSへ公開してください。HTTPの名前は任意で、同じfeatureから複数のHTTP用のhandlerを作れます。
 
 `lambdaHandler({ name: 'gateway' })` とすれば、`lambdaApp.gateway.create(lambdaApp.http)` で使えます。通常のruntime APIである `shutdown()` と `get(Class)` も利用できます。
 
@@ -160,7 +160,7 @@ class HelloController {
 const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 const lambdaApp = await onLambda(app);
 // ---cut---
-export const handler = lambdaApp.handler.create(lambdaApp.http);
+export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http);
 ```
 
 ### REST API (v1) {#rest-api-v1}
@@ -178,7 +178,7 @@ class HelloController {
 const app = createApp([http({ controllers: [HelloController] }), lambdaHandler()]);
 const lambdaApp = await onLambda(app);
 // ---cut---
-export const handler = lambdaApp.handler.create(lambdaApp.http, { payloadFormat: '1.0' });
+export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http, { payloadFormat: '1.0' });
 ```
 
 ## Warmupオプション {#warmup-option}

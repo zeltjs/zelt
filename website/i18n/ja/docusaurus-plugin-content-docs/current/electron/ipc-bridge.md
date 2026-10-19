@@ -38,7 +38,7 @@ const init = undefined;
 // ---cut---
 // main
 const electronZelt = await onElectron(app);
-await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
+await electronZelt.electronIpc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
 // preload
 exposeIpc({ channel: 'http://zelt-app' });
@@ -59,7 +59,7 @@ const app = createApp([http({ controllers: [] }), electronIpc()]);
 const electronZelt = await onElectron(app, {
   warmup: true, // デフォルト: 起動時に全controllerを解決する
 });
-await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
+await electronZelt.electronIpc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 ```
 
 ### オプション {#options}
@@ -70,18 +70,18 @@ await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' })
 
 ### 戻り値(`OnElectronApp`) {#return-value-onelectronapp}
 
-設定された各featureはそのkeyでnamespace化されます。`electronIpc()`は `ipc.listen(http, options)` を、`httpServer()`は `server.listen(http, options)` を公開します。HTTP feature自体は接続先を選びません:
+設定された各featureはそのkeyでnamespace化されます。`electronIpc()`は `electronIpc.listen(http, options)` を、`httpServer()`は `httpServer.listen(http, options)` を公開します。HTTP feature自体は接続先を選びません:
 
 | プロパティ | 型 | 説明 |
 |----------|------|-------------|
 | `http.fetch` | `(request: Request) => Promise<Response>` | リクエストを直接処理します |
 | `http.request` | `(input: string \| Request, init?: RequestInit) => Promise<Response>` | URL/pathと `RequestInit` から組み立てたリクエストを処理します |
-| `ipc.listen` | `(http: HttpFetchTarget, options?: ElectronIpcListenOptions) => Promise<ElectronIpcHandle>` | 選択したHTTPをIPCへ公開します。`electronIpc()`の宣言が必要です |
-| `server.listen` | `(http: HttpFetchTarget, options?: HttpListenOptions) => Promise<ServerHandle>` | 選択したHTTP featureをTCPで配信します。`httpServer()`の宣言が必要です |
+| `electronIpc.listen` | `(http: HttpFetchTarget, options?: ElectronIpcListenOptions) => Promise<ElectronIpcHandle>` | 選択したHTTPをIPCへ公開します。`electronIpc()`の宣言が必要です |
+| `httpServer.listen` | `(http: HttpFetchTarget, options?: HttpListenOptions) => Promise<ServerHandle>` | 選択したHTTP featureをTCPで配信します。`httpServer()`の宣言が必要です |
 | `shutdown` | `() => Promise<void>` | gracefulなシャットダウン |
 | `get` | `<T>(Class) => Promise<T>` | DIからserviceを解決します |
 
-破壊的変更: `onElectron()`の `ipcChannel` / `ipcFeature` オプションと暗黙のIPC接続は廃止しました。`electronIpc()`を宣言し、`ipc.listen(対象HTTP, { channel })`で明示的に接続してください。HTTPやIPCを宣言しないアプリも起動できます。
+破壊的変更: `onElectron()`の `ipcChannel` / `ipcFeature` オプションと暗黙のIPC接続は廃止しました。`electronIpc()`を宣言し、`electronIpc.listen(対象HTTP, { channel })`で明示的に接続してください。HTTPやIPCを宣言しないアプリも起動できます。
 
 ### IPC接続と終了 {#ipc-binding-and-shutdown}
 
@@ -93,7 +93,7 @@ import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
 const app = createApp([http({ name: 'admin', controllers: [] }), electronIpc()]);
 const runtime = await onElectron(app);
 // ---cut---
-const binding = await runtime.ipc.listen(runtime.admin, { channel: 'http://admin' });
+const binding = await runtime.electronIpc.listen(runtime.admin, { channel: 'http://admin' });
 await binding.shutdown();
 ```
 
@@ -189,7 +189,7 @@ import { ElectronAdaptor, electronIpc, onElectron } from '@zeltjs/adapter-electr
 const app = createApp([http({ controllers: [] }), electronIpc()]);
 // ---cut---
 const electronZelt = await onElectron(app);
-await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
+await electronZelt.electronIpc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
 const electronApp = await electronZelt.get(ElectronAdaptor);
 electronApp.ready.app.on('will-quit', () => {

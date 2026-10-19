@@ -114,7 +114,7 @@ import { onNode } from '@zeltjs/adapter-node';
 const app = createApp([httpServer(), http({ controllers: [UserController] })]);
 
 const nodeApp = await onNode(app);
-const server = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
+const server = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
 console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 
@@ -131,12 +131,12 @@ const serverApp = createApp([...app.features, httpServer()]);
 // Node.js
 import { onNode } from '@zeltjs/adapter-node';
 const nodeApp = await onNode(serverApp);
-await nodeApp.server.listen(nodeApp.http, { port: 3000 });
+await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
 
 // Bun
 import { onBun } from '@zeltjs/adapter-bun';
 const bunApp = await onBun(serverApp);
-await bunApp.server.listen(bunApp.http, { port: 3000 });
+await bunApp.httpServer.listen(bunApp.http, { port: 3000 });
 
 // Cloudflare Workers
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
@@ -148,7 +148,7 @@ import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 const lambdaApp = await onLambda(
   createApp([...app.features, lambdaHandler()], { configs: app.configs }),
 );
-export const handler = lambdaApp.handler.create(lambdaApp.http);
+export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http);
 ```
 
 ## Benchmark

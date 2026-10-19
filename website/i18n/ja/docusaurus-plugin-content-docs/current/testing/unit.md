@@ -174,7 +174,7 @@ const app = createApp([command([GreetCommand])]);
 describe('GreetCommand', () => {
   it('test 1', async () => {
     const nodeApp = await onNode(app);
-    await nodeApp.commands.execCommand(['greet']);
+    await nodeApp.command.execCommand(['greet']);
     // 動作する
   });
 
@@ -205,7 +205,7 @@ describe('GreetCommand', () => {
   let nodeApp:
     | {
         shutdown(): Promise<void>;
-        commands: { execCommand(argv: readonly string[]): Promise<{ exitCode: number }> };
+        command: { execCommand(argv: readonly string[]): Promise<{ exitCode: number }> };
       }
     | undefined;
 
@@ -216,14 +216,14 @@ describe('GreetCommand', () => {
   it('test 1', async () => {
     const app = createApp([command([GreetCommand])]);
     nodeApp = await onNode(app);
-    await nodeApp.commands.execCommand(['greet']);
+    await nodeApp.command.execCommand(['greet']);
     // 動作する
   });
 
   it('test 2', async () => {
     const app = createApp([command([GreetCommand])]);
     nodeApp = await onNode(app);
-    await nodeApp.commands.execCommand(['greet']);
+    await nodeApp.command.execCommand(['greet']);
     // 動作する — 新しいapp instance
   });
 });
@@ -251,7 +251,7 @@ describe('GreetCommand', () => {
   let nodeApp:
     | {
         shutdown(): Promise<void>;
-        commands: { execCommand(argv: readonly string[]): Promise<{ exitCode: number }> };
+        command: { execCommand(argv: readonly string[]): Promise<{ exitCode: number }> };
       }
     | undefined;
 
@@ -261,7 +261,7 @@ describe('GreetCommand', () => {
 
   it('executes successfully', async () => {
     nodeApp = await onNode(createTestApp());
-    const result = await nodeApp.commands.execCommand(['greet']);
+    const result = await nodeApp.command.execCommand(['greet']);
     // resultをassertする
   });
 });

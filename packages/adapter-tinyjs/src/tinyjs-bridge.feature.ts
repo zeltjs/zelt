@@ -3,11 +3,11 @@ import { Feature } from '@zeltjs/core';
 import { TinyjsBridgeService } from './tinyjs-bridge.service';
 import type { TinyjsBridgeCapabilities } from './tinyjs-bridge.types';
 
-export class TinyjsBridgeFeature<TName extends string = 'bridge'> extends Feature<
+export class TinyjsBridgeFeature<TName extends string = 'tinyjsBridge'> extends Feature<
   TName,
   TinyjsBridgeCapabilities
 > {
-  static readonly defaultKey = 'bridge';
+  static readonly defaultKey = 'tinyjsBridge';
 
   constructor(readonly key: TName) {
     super();
@@ -22,10 +22,10 @@ export class TinyjsBridgeFeature<TName extends string = 'bridge'> extends Featur
   };
 }
 
-export function tinyjsBridge(): TinyjsBridgeFeature<'bridge'>;
+export function tinyjsBridge(): TinyjsBridgeFeature<'tinyjsBridge'>;
 export function tinyjsBridge<const TName extends string>(options: {
   readonly name: TName & FeatureName<TName>;
 }): TinyjsBridgeFeature<TName>;
 export function tinyjsBridge(options?: { readonly name: string }): TinyjsBridgeFeature<string> {
-  return new TinyjsBridgeFeature(options?.name ?? 'bridge');
+  return new TinyjsBridgeFeature(options?.name ?? 'tinyjsBridge');
 }

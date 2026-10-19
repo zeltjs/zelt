@@ -14,7 +14,7 @@ import { onTinyjs, tinyjsBridge } from '@zeltjs/adapter-tinyjs';
 import { ApiController } from './api.controller';
 
 const desktop = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
-export const { api, init } = desktop.bridge.create(desktop.http);
+export const { api, init } = desktop.tinyjsBridge.create(desktop.http);
 ```
 
 Renderer:
@@ -28,21 +28,21 @@ const status = await response.json();
 
 `tinyFetch` has the standard `fetch` signature and returns a real `Response`. It can be supplied as the custom fetch implementation of a Hono client. `createTinyFetch({ feature: 'admin' })` targets a named HTTP feature; `createTinyFetch({ bridge })` accepts an explicit `tiny.api`-shaped bridge for integration and testing.
 
-The virtual origin defaults to `http://zelt-tinyjs`; absolute URLs must use that origin. Set the same `origin` in `desktop.bridge.create(desktop.http, { origin })` and `createTinyFetch` to change it. Other origins are rejected instead of forwarded to the network.
+The virtual origin defaults to `http://zelt-tinyjs`; absolute URLs must use that origin. Set the same `origin` in `desktop.tinyjsBridge.create(desktop.http, { origin })` and `createTinyFetch` to change it. Other origins are rejected instead of forwarded to the network.
 
 ## Feature and lifecycle wiring
 
-`tinyjsBridge()` declares a bridge factory, just as `lambdaHandler()` declares a handler factory. After creating the runtime, pass the chosen HTTP capability to `desktop.bridge.create(desktop.http)`. Only that target is exposed, under the renderer's default name `http`; other HTTP features are not discovered or published automatically. A Fetch-shaped target with `fetch(request)` also works.
+`tinyjsBridge()` declares a bridge factory, just as `lambdaHandler()` declares a handler factory. After creating the runtime, pass the chosen HTTP capability to `desktop.tinyjsBridge.create(desktop.http)`. Only that target is exposed, under the renderer's default name `http`; other HTTP features are not discovered or published automatically. A Fetch-shaped target with `fetch(request)` also works.
 
 For multiple named targets, pass an explicit map:
 
 ```ts
-export const { api, init } = desktop.bridge.create(
+export const { api, init } = desktop.tinyjsBridge.create(
   new Map([['http', desktop.http], ['admin', desktop.admin]]),
 );
 ```
 
-The renderer selects a map key with `createTinyFetch({ feature: 'admin' })`. Use `tinyjsBridge({ name: 'native' })` to expose the factory as `desktop.native.create(...)`. Services remain shared across HTTP features; an optional `httpServer()` feature can expose selected HTTP capabilities through `app.server.listen(app.http, options)`.
+The renderer selects a map key with `createTinyFetch({ feature: 'admin' })`. Use `tinyjsBridge({ name: 'native' })` to expose the factory as `desktop.native.create(...)`. Services remain shared across HTTP features; an optional `httpServer()` feature can expose selected HTTP capabilities through `app.httpServer.listen(app.http, options)`.
 
 `onTinyjs` returns the runtime without adding root `api` or `init` properties. Both names are available for features. The backend entry still exports the generated `api` and `init` for the tinyjs launcher.
 
@@ -51,7 +51,7 @@ Export `init` so the adapter can attach tinyjs's native app and extend `app.done
 ```ts
 import type { TinyjsNativeApp } from '@zeltjs/adapter-tinyjs';
 
-const bridge = desktop.bridge.create(desktop.http);
+const bridge = desktop.tinyjsBridge.create(desktop.http);
 export const api = bridge.api;
 export function init(native: TinyjsNativeApp) {
   bridge.init(native);

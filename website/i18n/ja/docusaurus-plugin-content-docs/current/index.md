@@ -44,7 +44,7 @@ class HelloController {
 
 const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
 const nodeApp = await onNode(app);
-await nodeApp.server.listen(nodeApp.http, { port: 3000 });
+await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
 ```
 
 順を追った説明は[Getting Started](./getting-started)ガイドを参照してください。

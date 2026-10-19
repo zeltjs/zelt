@@ -3,6 +3,7 @@ import {
   createApp,
   Get,
   HttpFeature,
+  HttpServerFeature,
   http,
   httpServer,
   Injectable,
@@ -22,7 +23,7 @@ describe('independent HTTP server feature', () => {
     }
     const app = await onNode(createApp([web]));
     try {
-      expectTypeOf(app).not.toHaveProperty('server');
+      expectTypeOf(app).not.toHaveProperty('httpServer');
       expectTypeOf(app.http).not.toHaveProperty('listen');
       expect(app.http).not.toHaveProperty('serve');
       expect((await app.get(Consumer)).http).toBe(app.http);
@@ -53,8 +54,15 @@ describe('independent HTTP server feature', () => {
       ]),
     );
     try {
-      const publicServer = await app.server.listen(app.public, { port: 0, hostname: '127.0.0.1' });
-      const adminServer = await app.server.listen(app.admin, { port: 0, hostname: '127.0.0.1' });
+      expect(app).not.toHaveProperty('server');
+      const publicServer = await app.httpServer.listen(app.public, {
+        port: 0,
+        hostname: '127.0.0.1',
+      });
+      const adminServer = await app.httpServer.listen(app.admin, {
+        port: 0,
+        hostname: '127.0.0.1',
+      });
       const publicUrl = `http://127.0.0.1:${publicServer.address.port}/`;
       const adminUrl = `http://127.0.0.1:${adminServer.address.port}/`;
       expect(await (await fetch(publicUrl)).text()).toBe('public');
@@ -66,6 +74,25 @@ describe('independent HTTP server feature', () => {
       await app.shutdown();
       await adminServer.closed;
       await expect(fetch(adminUrl)).rejects.toThrow();
+    } finally {
+      await app.shutdown();
+    }
+  });
+
+  it('preserves an explicitly named server feature for public access and class injection', async () => {
+    const listener = httpServer({ name: 'listener' });
+    @Injectable()
+    class Consumer {
+      readonly listener = injectFeature(HttpServerFeature, 'listener');
+    }
+    const app = await onNode(createApp([http({ controllers: [] }), listener]));
+    try {
+      expectTypeOf(listener.key).toEqualTypeOf<'listener'>();
+      expectTypeOf(app).not.toHaveProperty('httpServer');
+      expect(app).not.toHaveProperty('httpServer');
+      expect((await app.get(Consumer)).listener).toBe(app.listener);
+      const server = await app.listener.listen(app.http, { port: 0, hostname: '127.0.0.1' });
+      expect((await fetch(`http://127.0.0.1:${server.address.port}/`)).status).toBe(404);
     } finally {
       await app.shutdown();
     }

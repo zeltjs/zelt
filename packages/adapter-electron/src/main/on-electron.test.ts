@@ -126,13 +126,13 @@ describe('onElectron', () => {
     const runtime = await start(app);
     expect(runtime).toBe(await createRuntime.mock.results[0]?.value);
     expect(runtime.shutdown).toBe((await runtime.get(RuntimeShutdownService)).shutdown);
-    expectTypeOf(runtime).not.toHaveProperty('ipc');
+    expectTypeOf(runtime).not.toHaveProperty('electronIpc');
     expect(fakeIpcMain.handlers.size).toBe(0);
     expect(whenReady).not.toHaveBeenCalled();
   });
   it('keeps HTTP usable without an IPC feature', async () => {
     const runtime = await start(createApp([http({ controllers: [HttpOnlyController] })]));
-    expectTypeOf(runtime).not.toHaveProperty('ipc');
+    expectTypeOf(runtime).not.toHaveProperty('electronIpc');
     expect(await (await runtime.http.request('/http-only')).json()).toEqual({ scope: 'http' });
     expect(fakeIpcMain.handlers.size).toBe(0);
   });
@@ -173,7 +173,10 @@ describe('electronIpc', () => {
     expectTypeOf(runtime).not.toHaveProperty('http');
     expect(whenReady).toHaveBeenCalledOnce();
     expect(fakeIpcMain.handlers.size).toBe(0);
-    expect(runtime.ipc).toBe(runtime.getFeatureEntries(ElectronIpcFeature)[0]?.capabilities);
+    expect(runtime).not.toHaveProperty('ipc');
+    expect(runtime.electronIpc).toBe(
+      runtime.getFeatureEntries(ElectronIpcFeature)[0]?.capabilities,
+    );
   });
   it('waits for Electron readiness before returning the runtime', async () => {
     const ready = Promise.withResolvers<void>();
@@ -190,7 +193,7 @@ describe('electronIpc', () => {
   });
   it('binds the supplied HTTP capabilities to the default channel', async () => {
     const runtime = await start(createMultiFeatureApp());
-    const binding = await runtime.ipc.listen(runtime.http);
+    const binding = await runtime.electronIpc.listen(runtime.http);
     expect(binding.channel).toBe('http://zelt-ipc');
     const response = await fakeIpcMain.invoke(binding.channel, getRequest('/http-only'));
     expect(response.status).toBe(200);
@@ -207,7 +210,7 @@ describe('electronIpc', () => {
         electronIpc({ name: 'desktop' }),
       ]),
     );
-    expectTypeOf(runtime).not.toHaveProperty('ipc');
+    expectTypeOf(runtime).not.toHaveProperty('electronIpc');
     expect(runtime.desktop).toBe(runtime.getFeatureEntries(ElectronIpcFeature)[0]?.capabilities);
     await runtime.desktop.listen(runtime.publicApi, { channel: 'http://public' });
     await runtime.desktop.listen(runtime.adminApi, { channel: 'https://admin' });
@@ -228,7 +231,7 @@ describe('electronIpc', () => {
     const runtime = await start(
       createApp([command([Serve]), http({ controllers: [HttpOnlyController] }), electronIpc()]),
     );
-    expect((await runtime.commands.execCommand(['serve'])).exitCode).toBe(0);
+    expect((await runtime.command.execCommand(['serve'])).exitCode).toBe(0);
     expect((await fakeIpcMain.invoke('http://zelt-ipc', getRequest('/http-only'))).status).toBe(
       200,
     );
@@ -241,7 +244,7 @@ describe('electronIpc', () => {
         return new Response(this.message);
       },
     };
-    await runtime.ipc.listen(target);
+    await runtime.electronIpc.listen(target);
     expect((await fakeIpcMain.invoke('http://zelt-ipc', getRequest('/'))).body).toEqual({
       kind: 'text',
       value: 'custom',
@@ -249,8 +252,8 @@ describe('electronIpc', () => {
   });
   it('keeps TCP and IPC bindings independent', async () => {
     const runtime = await start(createMultiFeatureApp());
-    await runtime.ipc.listen(runtime.http);
-    const server = await runtime.server.listen(runtime.mcp, { port: 0, hostname: '127.0.0.1' });
+    await runtime.electronIpc.listen(runtime.http);
+    const server = await runtime.httpServer.listen(runtime.mcp, { port: 0, hostname: '127.0.0.1' });
     const url = `http://127.0.0.1:${server.address.port}`;
     expect(await (await fetch(`${url}/mcp-only`)).json()).toEqual({ scope: 'mcp' });
     expect((await fetch(`${url}/http-only`)).status).toBe(404);
@@ -260,21 +263,23 @@ describe('electronIpc', () => {
   });
   it('removes each binding once and lets a closed channel be rebound', async () => {
     const runtime = await start(createMultiFeatureApp());
-    const first = await runtime.ipc.listen(runtime.http);
+    const first = await runtime.electronIpc.listen(runtime.http);
     await Promise.all([first.shutdown(), first.shutdown()]);
     expect(fakeIpcMain.handlers.size).toBe(0);
-    await runtime.ipc.listen(runtime.mcp);
+    await runtime.electronIpc.listen(runtime.mcp);
     await first.shutdown();
     expect((await fakeIpcMain.invoke(first.channel, getRequest('/mcp-only'))).status).toBe(200);
     await Promise.all([runtime.shutdown(), runtime.shutdown()]);
     expect(fakeIpcMain.removedChannels).toEqual([first.channel, first.channel]);
     expect(quit).toHaveBeenCalledOnce();
-    expect(() => runtime.ipc.listen(runtime.http)).toThrow(FeatureInjectionError);
+    expect(() => runtime.electronIpc.listen(runtime.http)).toThrow(FeatureInjectionError);
   });
   it('preserves the existing binding when native registration fails', async () => {
     const runtime = await start(createMultiFeatureApp());
-    await runtime.ipc.listen(runtime.http);
-    await expect(runtime.ipc.listen(runtime.mcp)).rejects.toThrow('Handler already registered');
+    await runtime.electronIpc.listen(runtime.http);
+    await expect(runtime.electronIpc.listen(runtime.mcp)).rejects.toThrow(
+      'Handler already registered',
+    );
     expect((await fakeIpcMain.invoke('http://zelt-ipc', getRequest('/http-only'))).status).toBe(
       200,
     );
@@ -284,7 +289,7 @@ describe('electronIpc', () => {
   });
   it('retains IPC when a shutdown guard refuses and removes it once on retry', async () => {
     const runtime = await start(createMultiFeatureApp());
-    await runtime.ipc.listen(runtime.http);
+    await runtime.electronIpc.listen(runtime.http);
     const lifecycle = await runtime.get(LifecycleManager);
     let blocked = true;
     lifecycle.register({
@@ -313,7 +318,9 @@ describe('electronIpc', () => {
     runtime.registerShutdown(() => gate.promise);
     const stopping = runtime.shutdown();
     try {
-      await expect(runtime.ipc.listen(runtime.http)).rejects.toThrow('register shutdown callback');
+      await expect(runtime.electronIpc.listen(runtime.http)).rejects.toThrow(
+        'register shutdown callback',
+      );
       expect(fakeIpcMain.handlers.size).toBe(0);
     } finally {
       gate.resolve();
@@ -324,8 +331,8 @@ describe('electronIpc', () => {
     const app = createMultiFeatureApp();
     const first = await start(app);
     const second = await start(app);
-    await first.ipc.listen(first.http, { channel: 'http://first' });
-    await second.ipc.listen(second.mcp, { channel: 'http://second' });
+    await first.electronIpc.listen(first.http, { channel: 'http://first' });
+    await second.electronIpc.listen(second.mcp, { channel: 'http://second' });
     await first.shutdown();
     expect([...fakeIpcMain.handlers.keys()]).toEqual(['http://second']);
     expect((await fakeIpcMain.invoke('http://second', getRequest('/mcp-only'))).status).toBe(200);

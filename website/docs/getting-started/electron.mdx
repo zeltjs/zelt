@@ -38,7 +38,7 @@ sequenceDiagram
 ```
 
 Three pieces are needed:
-1. **Main process** — `onElectron(app)` starts Zelt; `runtime.ipc.listen(runtime.http)` registers the IPC handler
+1. **Main process** — `onElectron(app)` starts Zelt; `runtime.electronIpc.listen(runtime.http)` registers the IPC handler
 2. **Preload script** — `exposeIpc()` bridges IPC to the renderer
 3. **Renderer process** — `ipcFetch()` sends requests through the bridge
 
@@ -119,7 +119,7 @@ declare const join: (...args: string[]) => string;
 // ---cut---
 const bootstrap = async () => {
   const electronZelt = await onElectron(app);
-  await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
+  await electronZelt.electronIpc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
   const win = new BrowserWindow({
     width: 900,
@@ -136,10 +136,10 @@ const bootstrap = async () => {
 void bootstrap();
 ```
 
-`onElectron()` starts the Zelt runtime from the declared features. Pass the target HTTP capabilities and channel to `ipc.listen()` to register the IPC handler. It returns:
+`onElectron()` starts the Zelt runtime from the declared features. Pass the target HTTP capabilities and channel to `electronIpc.listen()` to register the IPC handler. It returns:
 
 - `http.fetch(request)` — Handles a `Request` and returns a `Response` (each configured feature is namespaced by its key; `http` is the default)
-- `ipc.listen(http, options)` — Exposes the selected HTTP target over IPC
+- `electronIpc.listen(http, options)` — Exposes the selected HTTP target over IPC
 - `shutdown()` — Gracefully shuts down the application
 - `get<T>(Class)` — Resolves a service from the DI container
 

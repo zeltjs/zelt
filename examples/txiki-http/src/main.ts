@@ -56,5 +56,5 @@ class ApiController {
 
 const app = await onTxiki(createApp([http({ controllers: [ApiController] }), httpServer()]));
 const port = Number(tjs.env['PORT'] || '3000');
-const server = await app.server.listen(app.http, { port });
+const server = await app.httpServer.listen(app.http, { port });
 console.log(JSON.stringify({ event: 'listening', ...server.address }));

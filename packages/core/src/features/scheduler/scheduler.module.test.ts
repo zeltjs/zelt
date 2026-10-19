@@ -8,7 +8,7 @@ import { scheduler } from './scheduler.feature';
 
 describe('createApp with schedulers', () => {
   let readyApp:
-    | { readonly schedulers: SchedulerCapabilities; readonly shutdown: () => Promise<void> }
+    | { readonly scheduler: SchedulerCapabilities; readonly shutdown: () => Promise<void> }
     | undefined;
 
   // Fixing the clock on a whole-second boundary makes '* * * * * *' fire at
@@ -36,8 +36,8 @@ describe('createApp with schedulers', () => {
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
     readyApp = await app.createRuntime();
 
-    expect(readyApp.schedulers.startScheduler).toBeDefined();
-    expect(readyApp.schedulers.stopScheduler).toBeDefined();
+    expect(readyApp.scheduler.startScheduler).toBeDefined();
+    expect(readyApp.scheduler.stopScheduler).toBeDefined();
   });
 
   it('scheduler does not run automatically after createRuntime()', async () => {
@@ -71,7 +71,7 @@ describe('createApp with schedulers', () => {
 
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
     readyApp = await app.createRuntime();
-    await readyApp.schedulers.startScheduler();
+    await readyApp.scheduler.startScheduler();
 
     await vi.advanceTimersByTimeAsync(1000);
     expect(taskFn).toHaveBeenCalledTimes(1);
@@ -90,13 +90,13 @@ describe('createApp with schedulers', () => {
 
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
     readyApp = await app.createRuntime();
-    await readyApp.schedulers.startScheduler();
+    await readyApp.scheduler.startScheduler();
 
     await vi.advanceTimersByTimeAsync(1000);
     expect(taskFn).toHaveBeenCalledTimes(1);
 
     const callCountBefore = taskFn.mock.calls.length;
-    await readyApp.schedulers.stopScheduler();
+    await readyApp.scheduler.stopScheduler();
 
     await vi.advanceTimersByTimeAsync(1500);
     expect(taskFn.mock.calls.length).toBe(callCountBefore);
@@ -114,15 +114,15 @@ describe('createApp with schedulers', () => {
 
     const app = createApp([http({ controllers: [] }), scheduler([TestScheduler])]);
     readyApp = await app.createRuntime();
-    await readyApp.schedulers.startScheduler();
-    expect(readyApp.schedulers.isSchedulerRunning()).toBe(true);
+    await readyApp.scheduler.startScheduler();
+    expect(readyApp.scheduler.isSchedulerRunning()).toBe(true);
 
     await vi.advanceTimersByTimeAsync(1000);
     expect(task).toHaveBeenCalledOnce();
     await readyApp.shutdown();
     await vi.advanceTimersByTimeAsync(2000);
     expect(task).toHaveBeenCalledOnce();
-    expect(() => readyApp?.schedulers.isSchedulerRunning()).toThrow(/disposed/);
+    expect(() => readyApp?.scheduler.isSchedulerRunning()).toThrow(/disposed/);
   });
 
   it('works without schedulers option', async () => {

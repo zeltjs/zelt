@@ -38,7 +38,9 @@ describe('command feature', () => {
     const feature = command([GreetCommand]);
 
     expect(feature).toBeInstanceOf(CommandFeature);
-    expect(feature.key).toBe('commands');
+    expect(feature.key).toBe('command');
+    expectTypeOf(feature.key).toEqualTypeOf<'command'>();
+    expect(CommandFeature.defaultKey).toBe(feature.key);
   });
 
   it('infers command() as CommandFeature', () => {
@@ -52,9 +54,9 @@ describe('command feature', () => {
     expect(() => blueprint()).not.toThrow();
   });
 
-  it('returns a ConfiguredFeature with key "commands"', () => {
+  it('returns a ConfiguredFeature with key "command"', () => {
     const feature = command([GreetCommand]);
-    expect(feature.key).toBe('commands');
+    expect(feature.key).toBe('command');
     expect(feature.featureClasses()).toEqual([GreetCommand]);
     expect(typeof feature.realize).toBe('function');
   });

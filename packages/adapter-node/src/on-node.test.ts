@@ -46,17 +46,17 @@ import { ProcessEnvAdaptor } from './process-env.adaptor';
 type NodeApp = Awaited<ReturnType<typeof onNode>>;
 type HttpNodeApp = NodeApp & {
   readonly http: HttpCapabilities;
-  readonly server: HttpServerCapabilities;
+  readonly httpServer: HttpServerCapabilities;
 };
-type CommandNodeApp = NodeApp & { readonly commands: CommandCapabilities };
-type SchedulerNodeAppPart = { readonly schedulers: SchedulerCapabilities };
+type CommandNodeApp = NodeApp & { readonly command: CommandCapabilities };
+type SchedulerNodeAppPart = { readonly scheduler: SchedulerCapabilities };
 
 const hasMethods = (value: object | undefined, names: readonly string[]): boolean =>
   value !== undefined && names.every((name) => typeof Reflect.get(value, name) === 'function');
 const isHttpNodeApp = (app: NodeApp): app is HttpNodeApp =>
-  hasMethods(app['http'], ['fetch', 'request']) && hasMethods(app['server'], ['listen']);
-const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'commands' in app;
-const hasScheduler = (app: NodeApp): app is NodeApp & SchedulerNodeAppPart => 'schedulers' in app;
+  hasMethods(app['http'], ['fetch', 'request']) && hasMethods(app['httpServer'], ['listen']);
+const isCommandNodeApp = (app: NodeApp): app is CommandNodeApp => 'command' in app;
+const hasScheduler = (app: NodeApp): app is NodeApp & SchedulerNodeAppPart => 'scheduler' in app;
 
 class FakeHttpLikeFeature extends Feature<
   'http',
@@ -116,12 +116,14 @@ describe('onNode return types', () => {
     const commandFeature = command([TestCommand]);
     const commandOnly = await onNode(createApp([commandFeature]));
 
-    expectTypeOf(commandOnly).toHaveProperty('commands');
+    expectTypeOf(commandOnly).toHaveProperty('command');
+    expectTypeOf(commandOnly).not.toHaveProperty('commands');
+    expect(commandOnly).not.toHaveProperty('commands');
     expectTypeOf(commandOnly).not.toHaveProperty('listen');
-    expectTypeOf(commandOnly).not.toHaveProperty('schedulers');
+    expectTypeOf(commandOnly).not.toHaveProperty('scheduler');
     expect('listen' in commandOnly).toBe(false);
 
-    const commandResult = await commandOnly.commands.execCommand(['test']);
+    const commandResult = await commandOnly.command.execCommand(['test']);
     expect(commandResult.exitCode).toBe(0);
     expect(runFn).toHaveBeenCalledOnce();
 
@@ -136,15 +138,17 @@ describe('onNode return types', () => {
     const schedulerFeature = scheduler([TestScheduler]);
     const schedulerOnly = await onNode(createApp([schedulerFeature]));
 
-    expectTypeOf(schedulerOnly).toHaveProperty('schedulers');
+    expectTypeOf(schedulerOnly).toHaveProperty('scheduler');
+    expectTypeOf(schedulerOnly).not.toHaveProperty('schedulers');
+    expect(schedulerOnly).not.toHaveProperty('schedulers');
     expectTypeOf(schedulerOnly).not.toHaveProperty('listen');
-    expectTypeOf(schedulerOnly).not.toHaveProperty('commands');
+    expectTypeOf(schedulerOnly).not.toHaveProperty('command');
 
-    expect(schedulerOnly.schedulers.isSchedulerRunning()).toBe(false);
-    await schedulerOnly.schedulers.startScheduler();
-    expect(schedulerOnly.schedulers.isSchedulerRunning()).toBe(true);
-    await schedulerOnly.schedulers.stopScheduler();
-    expect(schedulerOnly.schedulers.isSchedulerRunning()).toBe(false);
+    expect(schedulerOnly.scheduler.isSchedulerRunning()).toBe(false);
+    await schedulerOnly.scheduler.startScheduler();
+    expect(schedulerOnly.scheduler.isSchedulerRunning()).toBe(true);
+    await schedulerOnly.scheduler.stopScheduler();
+    expect(schedulerOnly.scheduler.isSchedulerRunning()).toBe(false);
 
     await schedulerOnly.shutdown();
 
@@ -152,14 +156,14 @@ describe('onNode return types', () => {
 
     expectTypeOf(full).not.toHaveProperty('listen');
     expectTypeOf(full.http).not.toHaveProperty('listen');
-    expectTypeOf(full).toHaveProperty('commands');
-    expectTypeOf(full).toHaveProperty('schedulers');
+    expectTypeOf(full).toHaveProperty('command');
+    expectTypeOf(full).toHaveProperty('scheduler');
 
     const fullResponse = await full.http.fetch(new Request('http://localhost/'));
     await expect(fullResponse.json()).resolves.toEqual({ ok: true });
-    const fullResult = await full.commands.execCommand(['test']);
+    const fullResult = await full.command.execCommand(['test']);
     expect(fullResult.exitCode).toBe(0);
-    expect(full.schedulers.isSchedulerRunning()).toBe(false);
+    expect(full.scheduler.isSchedulerRunning()).toBe(false);
 
     await full.shutdown();
   });
@@ -236,7 +240,7 @@ describe('onNode with HTTP', () => {
 
     expect(isHttpNodeApp(nodeApp)).toBe(true);
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.server.listen(nodeApp.http, 0);
+    handle = await nodeApp.httpServer.listen(nodeApp.http, 0);
 
     expect(handle.address.port).toBeGreaterThan(0);
     expect(handle.shutdown).toBeTypeOf('function');
@@ -259,7 +263,7 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.server.listen(nodeApp.http, 0);
+    handle = await nodeApp.httpServer.listen(nodeApp.http, 0);
 
     expect(handle.address.port).toBeGreaterThan(0);
     const res = await fetch(`http://localhost:${handle.address.port}/`);
@@ -279,9 +283,9 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.server.listen(nodeApp.http, 0);
+    handle = await nodeApp.httpServer.listen(nodeApp.http, 0);
 
-    await expect(nodeApp.server.listen(nodeApp.http, handle.address.port)).rejects.toThrow();
+    await expect(nodeApp.httpServer.listen(nodeApp.http, handle.address.port)).rejects.toThrow();
   });
 
   it('listens on each named HTTP namespace independently', async () => {
@@ -308,8 +312,8 @@ describe('onNode with HTTP', () => {
     ]);
     const namedNodeApp = await onNode(app);
 
-    const publicHandle = await namedNodeApp.server.listen(namedNodeApp.http, 0);
-    const privateHandle = await namedNodeApp.server.listen(namedNodeApp.private, 0);
+    const publicHandle = await namedNodeApp.httpServer.listen(namedNodeApp.http, 0);
+    const privateHandle = await namedNodeApp.httpServer.listen(namedNodeApp.private, 0);
 
     try {
       expect('listen' in namedNodeApp).toBe(false);
@@ -346,8 +350,8 @@ describe('onNode with HTTP', () => {
     const app = createApp([http({ controllers: [SharedController] }), httpServer()]);
     const first = await onNode(app);
     const second = await onNode(app);
-    const firstHandle = await first.server.listen(first.http, 0);
-    const secondHandle = await second.server.listen(second.http, 0);
+    const firstHandle = await first.httpServer.listen(first.http, 0);
+    const secondHandle = await second.httpServer.listen(second.http, 0);
 
     try {
       await first.shutdown();
@@ -380,7 +384,7 @@ describe('onNode with HTTP', () => {
     expect(readySpy).toHaveBeenCalledOnce();
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.server.listen(nodeApp.http, 0);
+    handle = await nodeApp.httpServer.listen(nodeApp.http, 0);
     const res = await fetch(`http://localhost:${handle.address.port}/health/`);
     const body: { status: string } = await res.json();
     expect(body.status).toBe('ok');
@@ -447,7 +451,7 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.server.listen(nodeApp.http, 0);
+    handle = await nodeApp.httpServer.listen(nodeApp.http, 0);
 
     const res = await fetch(`http://localhost:${handle.address.port}/`);
     expect(res.status).toBe(200);
@@ -466,7 +470,7 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.server.listen(nodeApp.http, 0);
+    handle = await nodeApp.httpServer.listen(nodeApp.http, 0);
     const { port } = handle.address;
 
     await handle.shutdown();
@@ -488,7 +492,7 @@ describe('onNode with HTTP', () => {
     nodeApp = await onNode(app);
 
     if (!isHttpNodeApp(nodeApp)) throw new Error('expected listen');
-    handle = await nodeApp.server.listen(nodeApp.http, 0);
+    handle = await nodeApp.httpServer.listen(nodeApp.http, 0);
     const { port } = handle.address;
 
     await nodeApp.shutdown();
@@ -539,7 +543,7 @@ describe('onNode with commands', () => {
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
-    const result = await nodeApp.commands.execCommand(['test-cmd']);
+    const result = await nodeApp.command.execCommand(['test-cmd']);
 
     expect(result.exitCode).toBe(0);
     expect(runFn).toHaveBeenCalled();
@@ -555,7 +559,7 @@ describe('onNode with commands', () => {
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
-    const result = await nodeApp.commands.execCommand(['nonexistent']);
+    const result = await nodeApp.command.execCommand(['nonexistent']);
 
     expect(result.exitCode).toBe(1);
   });
@@ -570,7 +574,7 @@ describe('onNode with commands', () => {
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
-    const result = await nodeApp.commands.execCommand([]);
+    const result = await nodeApp.command.execCommand([]);
 
     expect(result.exitCode).toBe(1);
   });
@@ -587,7 +591,7 @@ describe('onNode with commands', () => {
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
-    const result = await nodeApp.commands.execCommand(['failing']);
+    const result = await nodeApp.command.execCommand(['failing']);
 
     expect(result.exitCode).toBe(1);
   });
@@ -611,7 +615,7 @@ describe('onNode with commands', () => {
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
-    const result = await nodeApp.commands.execCommand(['greet', 'Alice']);
+    const result = await nodeApp.command.execCommand(['greet', 'Alice']);
 
     expect(result.exitCode).toBe(0);
     expect(capturedName).toBe('Alice');
@@ -641,7 +645,7 @@ describe('onNode with commands', () => {
     nodeApp = await onNode(app);
 
     if (!isCommandNodeApp(nodeApp)) throw new Error('expected commands');
-    const result = await nodeApp.commands.execCommand(['serve', '-v']);
+    const result = await nodeApp.command.execCommand(['serve', '-v']);
 
     expect(result.exitCode).toBe(0);
     expect(capturedVerbose).toBe(true);
@@ -666,9 +670,9 @@ describe('command transient behavior', () => {
 
     const nodeApp = await onNode(app);
 
-    await nodeApp.commands.execCommand(['track']);
-    await nodeApp.commands.execCommand(['track']);
-    await nodeApp.commands.execCommand(['track']);
+    await nodeApp.command.execCommand(['track']);
+    await nodeApp.command.execCommand(['track']);
+    await nodeApp.command.execCommand(['track']);
 
     await nodeApp.shutdown();
 
@@ -682,7 +686,7 @@ describe('onNode with schedulers', () => {
 
   afterEach(async () => {
     if (nodeApp && hasScheduler(nodeApp)) {
-      await nodeApp.schedulers.stopScheduler();
+      await nodeApp.scheduler.stopScheduler();
     }
     await nodeApp?.shutdown();
     nodeApp = undefined;
@@ -710,7 +714,7 @@ describe('onNode with schedulers', () => {
     ]);
     nodeApp = await onNode(app);
 
-    expect('schedulers' in nodeApp).toBe(true);
+    expect('scheduler' in nodeApp).toBe(true);
   });
 
   it('scheduler runs after explicit startScheduler()', async () => {
@@ -742,7 +746,7 @@ describe('onNode with schedulers', () => {
     expect(taskFn).not.toHaveBeenCalled();
 
     if (!hasScheduler(nodeApp)) throw new Error('expected schedulers');
-    await nodeApp.schedulers.startScheduler();
+    await nodeApp.scheduler.startScheduler();
 
     await vi.waitFor(() => expect(taskFn).toHaveBeenCalled(), { timeout: 2000 });
   });

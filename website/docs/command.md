@@ -48,7 +48,7 @@ class GreetCommand {
 // ---cut---
 const app = createApp([command([GreetCommand])]);
 const nodeApp = await onNode(app);
-await nodeApp.commands.execCommand([...nodeApp.args]);
+await nodeApp.command.execCommand([...nodeApp.args]);
 ```
 
 Then configure `cli.entry` in your `zelt.config.ts`:
@@ -334,7 +334,7 @@ class MigrateCommand {
 const app = createApp([command([MigrateCommand])]);
 const nodeApp = await onNode(app);
 
-const result = await nodeApp.commands.execCommand(['migrate', '--force']);
+const result = await nodeApp.command.execCommand(['migrate', '--force']);
 console.log(`Exit code: ${result.exitCode}`);
 ```
 

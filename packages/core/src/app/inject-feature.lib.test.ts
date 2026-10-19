@@ -218,7 +218,7 @@ describe('injectFeature contracts', () => {
       scheduler([]),
     ]).createRuntime();
     try {
-      expect(runtime.schedulers.isSchedulerRunning()).toBe(false);
+      expect(runtime.scheduler.isSchedulerRunning()).toBe(false);
       const httpResponse = await runtime.http.request('/refresh');
       expect(await httpResponse.json()).toEqual({ code: 0, running: true });
       expect(ran).toHaveBeenCalledWith('healthy');

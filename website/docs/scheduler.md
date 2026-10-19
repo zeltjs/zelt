@@ -70,7 +70,7 @@ import { onNode } from '@zeltjs/adapter-node';
 const app = createApp([http({ controllers: [UserController] }), scheduler([ReportScheduler])]);
 const nodeApp = await onNode(app);
 // ---cut---
-await nodeApp.schedulers.startScheduler();
+await nodeApp.scheduler.startScheduler();
 ```
 
 To stop the scheduler gracefully:
@@ -88,7 +88,7 @@ import { onNode } from '@zeltjs/adapter-node';
 const app = createApp([http({ controllers: [UserController] }), scheduler([ReportScheduler])]);
 const nodeApp = await onNode(app);
 // ---cut---
-await nodeApp.schedulers.stopScheduler();
+await nodeApp.scheduler.stopScheduler();
 ```
 
 The scheduler is **not started automatically** when the app becomes ready. This design allows you to:
@@ -264,13 +264,13 @@ import { createApp, Scheduled, Daily, http, scheduler, httpServer } from '@zeltj
 const app = createApp([httpServer(), http({ controllers: [] }), scheduler([MyScheduler])]);
 // ---cut---
 const nodeApp = await onNode(app);
-const handle = await nodeApp.server.listen(nodeApp.http, 3000);
+const handle = await nodeApp.httpServer.listen(nodeApp.http, 3000);
 
 // Start scheduled tasks
-await nodeApp.schedulers.startScheduler();
+await nodeApp.scheduler.startScheduler();
 
 process.on('SIGTERM', async () => {
-  await nodeApp.schedulers.stopScheduler();
+  await nodeApp.scheduler.stopScheduler();
   await handle.shutdown();
 });
 ```
@@ -294,7 +294,7 @@ const nodeApp = await onNode(app);
 // ---cut---
 const config = await nodeApp.get(SchedulerConfig);
 if (config.enabled) {
-  await nodeApp.schedulers.startScheduler();
+  await nodeApp.scheduler.startScheduler();
 }
 ```
 

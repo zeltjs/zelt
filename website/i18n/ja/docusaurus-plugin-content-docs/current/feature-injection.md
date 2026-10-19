@@ -39,7 +39,7 @@ class ServeCommand {
 }
 
 const runtime = await onNode(createApp([command([ServeCommand]), web, listener]));
-const result = await runtime.commands.execCommand(['serve']);
+const result = await runtime.command.execCommand(['serve']);
 ```
 
 注入だけでは待ち受けを開始しません。`listen()` は実際の待ち受けアドレス、繰り返し呼べる `shutdown()`、終了を待つ `closed` を返します。注入側・runtime の公開 API のどちらから起動したサーバーも、runtime の終了処理で閉じます。Node の SIGINT/SIGTERM による終了処理も適用されます。
@@ -80,7 +80,7 @@ class FeatureConsumer {
 }
 ```
 
-名前を省略するとクラスの `static defaultKey` を使います。組み込みの値は `http`、`commands`、`schedulers`、`eventbus` です。最初の定義や唯一の名前付き定義を自動選択することはありません。独自クラスも `static readonly defaultKey` を定義できます。オブジェクト形式の独自 Feature は定義を直接指定できます。
+名前を省略するとクラスの `static defaultKey` を使います。既定名は生成関数名と一致し、`http`、`httpServer`、`command`、`scheduler`、`eventbus`、`tinyjsBridge`、`electronIpc`、`lambdaHandler` です。最初の定義や唯一の名前付き定義を自動選択することはありません。独自クラスも `static readonly defaultKey` を定義できます。オブジェクト形式の独自 Feature は定義を直接指定できます。
 
 対象はその runtime のトップレベルに登録されている必要があります。HTTP の `children` はルート合成の単位であり、自動では独立した注入対象になりません。同じオプションで作り直した別オブジェクトは登録済み定義と一致しません。名前の重複は従来どおり `createApp()` でエラーになります。
 

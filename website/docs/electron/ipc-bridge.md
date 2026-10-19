@@ -38,7 +38,7 @@ const init = undefined;
 // ---cut---
 // main
 const electronZelt = await onElectron(app);
-await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
+await electronZelt.electronIpc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
 // preload
 exposeIpc({ channel: 'http://zelt-app' });
@@ -59,7 +59,7 @@ const app = createApp([http({ controllers: [] }), electronIpc()]);
 const electronZelt = await onElectron(app, {
   warmup: true, // default: resolve all controllers at startup
 });
-await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
+await electronZelt.electronIpc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 ```
 
 ### Options
@@ -70,18 +70,18 @@ await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' })
 
 ### Return Value (`OnElectronApp`)
 
-Each configured feature is namespaced under its key. `electronIpc()` exposes `ipc.listen(http, options)`, and `httpServer()` exposes `server.listen(http, options)`. HTTP features do not choose a transport:
+Each configured feature is namespaced under its key. `electronIpc()` exposes `electronIpc.listen(http, options)`, and `httpServer()` exposes `httpServer.listen(http, options)`. HTTP features do not choose a transport:
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `http.fetch` | `(request: Request) => Promise<Response>` | Handle a request directly |
 | `http.request` | `(input: string \| Request, init?: RequestInit) => Promise<Response>` | Handle a request built from a URL/path and `RequestInit` |
-| `ipc.listen` | `(http: HttpFetchTarget, options?: ElectronIpcListenOptions) => Promise<ElectronIpcHandle>` | Expose the selected HTTP target over IPC; declare `electronIpc()` |
-| `server.listen` | `(http: HttpFetchTarget, options?: HttpListenOptions) => Promise<ServerHandle>` | Serve the selected HTTP feature over TCP; declare `httpServer()` |
+| `electronIpc.listen` | `(http: HttpFetchTarget, options?: ElectronIpcListenOptions) => Promise<ElectronIpcHandle>` | Expose the selected HTTP target over IPC; declare `electronIpc()` |
+| `httpServer.listen` | `(http: HttpFetchTarget, options?: HttpListenOptions) => Promise<ServerHandle>` | Serve the selected HTTP feature over TCP; declare `httpServer()` |
 | `shutdown` | `() => Promise<void>` | Graceful shutdown |
 | `get` | `<T>(Class) => Promise<T>` | Resolve a service from DI |
 
-Breaking change: `onElectron()` no longer accepts `ipcChannel` / `ipcFeature` or registers IPC implicitly. Declare `electronIpc()` and call `ipc.listen(targetHttp, { channel })`. Apps without HTTP or IPC features can also start.
+Breaking change: `onElectron()` no longer accepts `ipcChannel` / `ipcFeature` or registers IPC implicitly. Declare `electronIpc()` and call `electronIpc.listen(targetHttp, { channel })`. Apps without HTTP or IPC features can also start.
 
 ### IPC Binding and Shutdown
 
@@ -93,7 +93,7 @@ import { electronIpc, onElectron } from '@zeltjs/adapter-electron';
 const app = createApp([http({ name: 'admin', controllers: [] }), electronIpc()]);
 const runtime = await onElectron(app);
 // ---cut---
-const binding = await runtime.ipc.listen(runtime.admin, { channel: 'http://admin' });
+const binding = await runtime.electronIpc.listen(runtime.admin, { channel: 'http://admin' });
 await binding.shutdown();
 ```
 
@@ -189,7 +189,7 @@ import { ElectronAdaptor, electronIpc, onElectron } from '@zeltjs/adapter-electr
 const app = createApp([http({ controllers: [] }), electronIpc()]);
 // ---cut---
 const electronZelt = await onElectron(app);
-await electronZelt.ipc.listen(electronZelt.http, { channel: 'http://zelt-app' });
+await electronZelt.electronIpc.listen(electronZelt.http, { channel: 'http://zelt-app' });
 
 const electronApp = await electronZelt.get(ElectronAdaptor);
 electronApp.ready.app.on('will-quit', () => {

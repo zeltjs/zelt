@@ -21,7 +21,9 @@ describe('scheduler feature', () => {
     const feature = scheduler([TestScheduler]);
 
     expect(feature).toBeInstanceOf(SchedulerFeature);
-    expect(feature.key).toBe('schedulers');
+    expect(feature.key).toBe('scheduler');
+    expectTypeOf(feature.key).toEqualTypeOf<'scheduler'>();
+    expect(SchedulerFeature.defaultKey).toBe(feature.key);
   });
 
   it('infers scheduler() as SchedulerFeature', () => {
@@ -35,9 +37,9 @@ describe('scheduler feature', () => {
     expect(() => blueprint()).not.toThrow();
   });
 
-  it('returns a ConfiguredFeature with key "schedulers"', () => {
+  it('returns a ConfiguredFeature with key "scheduler"', () => {
     const feature = scheduler([TestScheduler]);
-    expect(feature.key).toBe('schedulers');
+    expect(feature.key).toBe('scheduler');
     expect(feature.featureClasses()).toEqual([TestScheduler]);
     expect(typeof feature.realize).toBe('function');
   });

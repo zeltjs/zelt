@@ -29,11 +29,11 @@ class HelloController {
 const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
 
 const nodeApp = await onNode(app);
-const server = await nodeApp.server.listen(nodeApp.http, { port: 3000 });
+const server = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
 console.log(`Listening on port ${server.address.port}`);
 ```
 
-Each named `http()` feature retains its own namespace. Declare `httpServer()` once and pass the HTTP feature to each `server.listen()` call, sharing the same runtime and services:
+Each named `http()` feature retains its own namespace. Declare `httpServer()` once and pass the HTTP feature to each `httpServer.listen()` call, sharing the same runtime and services:
 
 ```typescript
 import { httpServer, createApp, http } from '@zeltjs/core';
@@ -51,6 +51,6 @@ const app = createApp([httpServer(),
 ]);
 
 const nodeApp = await onNode(app);
-await nodeApp.server.listen(nodeApp.http, 3000);
-await nodeApp.server.listen(nodeApp.admin, 8080);
+await nodeApp.httpServer.listen(nodeApp.http, 3000);
+await nodeApp.httpServer.listen(nodeApp.admin, 8080);
 ```

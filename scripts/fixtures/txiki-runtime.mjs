@@ -28,7 +28,7 @@ check(await copy.text() === 'independent' && await prepared.text() === 'independ
 
 const definition = createApp([http({ controllers: [Endpoint] }), http({ name: 'admin', controllers: [Endpoint] }), tinyjsBridge()]);
 const desktop = await onTinyjs(definition);
-const nativeBridge = desktop.bridge.create(new Map([['http', desktop.http], ['admin', desktop.admin]]));
+const nativeBridge = desktop.tinyjsBridge.create(new Map([['http', desktop.http], ['admin', desktop.admin]]));
 const overridden = await desktop.http.request(new Request('http://localhost/api/override'), {
   method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Override': 'updated' },
   body: JSON.stringify({ value: 'replacement' }),
@@ -70,5 +70,5 @@ await native.done;
 check(stopped, 'Native lifetime completed before runtime shutdown');
 
 const httpApp = await onTxiki(createApp([...definition.features, httpServer()]));
-const server = await httpApp.server.listen(httpApp.http, { port: 0 });
+const server = await httpApp.httpServer.listen(httpApp.http, { port: 0 });
 console.log(JSON.stringify({ event: 'ready', port: server.address.port, bridgeRequests: results.length }));

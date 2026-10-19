@@ -29,7 +29,7 @@ class HelloController {
 const app = createApp([httpServer(), http({ controllers: [HelloController] })]);
 
 const bunApp = await onBun(app);
-await bunApp.server.listen(bunApp.http, { port: 3000 });
+await bunApp.httpServer.listen(bunApp.http, { port: 3000 });
 ```
 
 Server handles provide `address`, `closed`, and `shutdown()`. Shutdown follows Bun's native graceful stop: it refuses new TCP connections, while already accepted keep-alive connections may remain usable until the client closes them.

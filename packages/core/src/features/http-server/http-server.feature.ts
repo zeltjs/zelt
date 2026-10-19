@@ -10,11 +10,11 @@ export type HttpServerCapabilities = {
   ) => Promise<HttpServerHandle>;
 };
 
-export class HttpServerFeature<TName extends string = 'server'> extends Feature<
+export class HttpServerFeature<TName extends string = 'httpServer'> extends Feature<
   TName,
   HttpServerCapabilities
 > {
-  static readonly defaultKey = 'server';
+  static readonly defaultKey = 'httpServer';
 
   constructor(readonly key: TName) {
     super();
@@ -36,10 +36,10 @@ export class HttpServerFeature<TName extends string = 'server'> extends Feature<
   };
 }
 
-export function httpServer(): HttpServerFeature<'server'>;
+export function httpServer(): HttpServerFeature<'httpServer'>;
 export function httpServer<const TName extends string>(options: {
   readonly name: TName & FeatureName<TName>;
 }): HttpServerFeature<TName>;
 export function httpServer(options?: { readonly name: string }): HttpServerFeature<string> {
-  return new HttpServerFeature(options?.name ?? 'server');
+  return new HttpServerFeature(options?.name ?? 'httpServer');
 }

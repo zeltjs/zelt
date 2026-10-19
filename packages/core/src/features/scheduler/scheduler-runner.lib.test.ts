@@ -18,7 +18,7 @@ class NoopController {
 
 describe('SchedulerRunner', () => {
   let readyApp:
-    | { readonly schedulers: SchedulerCapabilities; readonly shutdown: () => Promise<void> }
+    | { readonly scheduler: SchedulerCapabilities; readonly shutdown: () => Promise<void> }
     | undefined;
 
   // Fixing the clock on a whole-second boundary makes '* * * * * *' fire at
@@ -30,7 +30,7 @@ describe('SchedulerRunner', () => {
 
   afterEach(async () => {
     if (readyApp) {
-      await readyApp.schedulers.stopScheduler();
+      await readyApp.scheduler.stopScheduler();
       await readyApp.shutdown();
       readyApp = undefined;
     }
@@ -51,13 +51,13 @@ describe('SchedulerRunner', () => {
     const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
     readyApp = await app.createRuntime();
 
-    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
+    expect(readyApp.scheduler.isSchedulerRunning()).toBe(false);
 
-    await readyApp.schedulers.startScheduler();
+    await readyApp.scheduler.startScheduler();
 
-    expect(readyApp.schedulers.isSchedulerRunning()).toBe(true);
-    expect(readyApp.schedulers.getSchedulerJobs()).toHaveLength(1);
-    expect(readyApp.schedulers.getSchedulerJobs()[0]).toEqual({
+    expect(readyApp.scheduler.isSchedulerRunning()).toBe(true);
+    expect(readyApp.scheduler.getSchedulerJobs()).toHaveLength(1);
+    expect(readyApp.scheduler.getSchedulerJobs()[0]).toEqual({
       name: 'everySecond',
       cronExpression: '* * * * * *',
       timezone: undefined,
@@ -66,9 +66,9 @@ describe('SchedulerRunner', () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(taskFn).toHaveBeenCalledTimes(1);
 
-    await readyApp.schedulers.stopScheduler();
+    await readyApp.scheduler.stopScheduler();
 
-    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
+    expect(readyApp.scheduler.isSchedulerRunning()).toBe(false);
   });
 
   it('executes scheduled method', async () => {
@@ -84,12 +84,12 @@ describe('SchedulerRunner', () => {
 
     const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
     readyApp = await app.createRuntime();
-    await readyApp.schedulers.startScheduler();
+    await readyApp.scheduler.startScheduler();
 
     await vi.advanceTimersByTimeAsync(1000);
     expect(taskFn).toHaveBeenCalledTimes(1);
 
-    await readyApp.schedulers.stopScheduler();
+    await readyApp.scheduler.stopScheduler();
   });
 
   it('respects timezone setting', async () => {
@@ -102,20 +102,20 @@ describe('SchedulerRunner', () => {
     const app = createApp([http({ controllers: [NoopController] }), scheduler([TestScheduler])]);
     readyApp = await app.createRuntime();
 
-    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
+    expect(readyApp.scheduler.isSchedulerRunning()).toBe(false);
 
-    await readyApp.schedulers.startScheduler();
+    await readyApp.scheduler.startScheduler();
 
-    expect(readyApp.schedulers.isSchedulerRunning()).toBe(true);
-    expect(readyApp.schedulers.getSchedulerJobs()).toHaveLength(1);
-    expect(readyApp.schedulers.getSchedulerJobs()[0]).toEqual({
+    expect(readyApp.scheduler.isSchedulerRunning()).toBe(true);
+    expect(readyApp.scheduler.getSchedulerJobs()).toHaveLength(1);
+    expect(readyApp.scheduler.getSchedulerJobs()[0]).toEqual({
       name: 'tokyoMorning',
       cronExpression: '0 9 * * *',
       timezone: 'Asia/Tokyo',
     });
 
-    await readyApp.schedulers.stopScheduler();
+    await readyApp.scheduler.stopScheduler();
 
-    expect(readyApp.schedulers.isSchedulerRunning()).toBe(false);
+    expect(readyApp.scheduler.isSchedulerRunning()).toBe(false);
   });
 });
