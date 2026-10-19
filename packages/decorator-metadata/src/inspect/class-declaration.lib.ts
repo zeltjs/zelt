@@ -15,12 +15,14 @@ type ClassDeclaration = {
   readonly position: Position;
 };
 
+/** Match the expression against the compiler's source identity across path spellings. */
 const classAtExpression = (
+  program: CachedProgram['program'],
   sourceFile: import('typescript').SourceFile,
   expression: Position | undefined,
   ts: CachedProgram['ts'],
 ): import('typescript').ClassDeclaration | undefined => {
-  if (expression?.sourceFile !== sourceFile.fileName) return undefined;
+  if (!expression || program.getSourceFile(expression.sourceFile) !== sourceFile) return undefined;
   const starts = sourceFile.getLineStarts();
   const start = starts[expression.line - 1];
   const end = starts[expression.line] ?? sourceFile.end;
@@ -64,7 +66,7 @@ export const resolveClassDeclaration = (
       code: 'SOURCE_NOT_FOUND',
       message: `Source file not found: ${moduleHint.sourceFile}`,
     });
-  const candidate = classAtExpression(sourceFile, resolvePosition(trace), ts);
+  const candidate = classAtExpression(program, sourceFile, resolvePosition(trace), ts);
   const node =
     candidate?.name?.text === cls.name ? candidate : uniqueClassByName(sourceFile, cls.name, ts);
   const keyword = node

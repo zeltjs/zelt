@@ -13,7 +13,7 @@
     "access": "public"
   },
   "bin": {
-    "zelt-hono": "./dist/cli.js"
+    "zelt-hono": "./bin/zelt-hono.mjs"
   },
   "exports": {
     ".": {
@@ -28,7 +28,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "scripts": {
     "build": "tsdown",
