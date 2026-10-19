@@ -14,6 +14,7 @@
     ".nx",
     ".typebuild",
     ".artifacts",
-    ".tmp"
+    ".tmp",
+    ".zelt"
   ]
 }

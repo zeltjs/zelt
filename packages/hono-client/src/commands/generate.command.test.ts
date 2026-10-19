@@ -1,6 +1,5 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { CliConfig, Config, Controller, runInCommandContext } from '@zeltjs/core';
 import { createTestTarget, shutdownAll } from '@zeltjs/testing';
@@ -21,7 +20,7 @@ const createTestCliConfig = (cwd: string): typeof CliConfig => {
 };
 
 @Controller('/test')
-class TestController {
+export class TestController {
   index() {
     return 'index';
   }
@@ -31,7 +30,7 @@ describe('GenerateCommand', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = join(tmpdir(), `hono-client-test-${Date.now()}`);
+    tempDir = join(resolve('.tmp'), `hono-client-test-${Date.now()}`);
     await mkdir(tempDir, { recursive: true });
   });
 

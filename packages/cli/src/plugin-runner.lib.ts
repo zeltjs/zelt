@@ -8,6 +8,7 @@ import type {
   ZeltConfig,
   ZeltPlugin,
 } from './config/config.types';
+import { getConfigModuleLoader } from './config/index';
 
 export type RunPluginHooksOptions = {
   readonly cwd: string;
@@ -16,12 +17,16 @@ export type RunPluginHooksOptions = {
   readonly registerGeneratedFile: (path: string) => void;
 };
 
-const createBuildContext = (options: RunPluginHooksOptions): BuildContext => ({
-  cwd: options.cwd,
-  build: options.config.build ?? {},
-  loadStaticApp: options.loadStaticApp,
-  registerGeneratedFile: options.registerGeneratedFile,
-});
+const createBuildContext = (options: RunPluginHooksOptions): BuildContext => {
+  const loadModule = getConfigModuleLoader(options.config);
+  return {
+    cwd: options.cwd,
+    build: options.config.build ?? {},
+    loadStaticApp: options.loadStaticApp,
+    registerGeneratedFile: options.registerGeneratedFile,
+    ...(loadModule ? { loadModule } : {}),
+  };
+};
 
 export const runPreBuildHooks = async (
   options: RunPluginHooksOptions,

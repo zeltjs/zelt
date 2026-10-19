@@ -113,36 +113,6 @@ const extractFilePath = (line: string): string | undefined => {
   return atMatch?.[1] ? normalizeStackFilePath(atMatch[1]) : undefined;
 };
 
-const extractOutsidePackageFiles = (
-  stack: string,
-  isFrameworkPath: (path: string) => boolean,
-): Set<string> => {
-  const lines = stack.split('\n').slice(1);
-  const files = new Set<string>();
-  for (const line of lines) {
-    const file = extractFilePath(line);
-    if (!file) continue;
-    const normalized = file.replace(/\\/g, '/');
-    if (isFrameworkPath(normalized)) continue;
-    files.add(normalized);
-  }
-  return files;
-};
-
-const diffOutsidePackageFiles = (
-  defineStack: string,
-  callStack: string,
-  isFrameworkPath: (path: string) => boolean,
-): readonly string[] => {
-  const callFiles = extractOutsidePackageFiles(callStack, isFrameworkPath);
-  const defineFiles = extractOutsidePackageFiles(defineStack, isFrameworkPath);
-  const wrapperFiles: string[] = [];
-  for (const file of defineFiles) {
-    if (!callFiles.has(file)) wrapperFiles.push(file);
-  }
-  return wrapperFiles;
-};
-
 type ScanOptions = {
   // ヘルパーフレーム直後の匿名パスフレームも合成位置とみなしてスキップするか。
   // resolvePosition は「ユーザーが書いた意味のある行」を求めるため既定で有効にするが、
@@ -210,37 +180,6 @@ const readStack = (error: Error | undefined): string | undefined => {
   return typeof stack === 'string' && stack.length > 0 ? stack : undefined;
 };
 
-// define スタック（デコレータ factory 呼び出し時）にだけ現れるファイルは、factory を
-// 包む wrapper（例: core の createInjectableClassDecorator）とみなして除外対象に加える
-const buildIsExcludedPath = (
-  trace: StackTrace,
-  baseIsFrameworkPath: (path: string) => boolean,
-): ((path: string) => boolean) => {
-  const defineStack = readStack(trace.error);
-  const callStack = readStack(trace.callError);
-  if (!defineStack || !callStack) return baseIsFrameworkPath;
-  const wrapperFiles = diffOutsidePackageFiles(defineStack, callStack, baseIsFrameworkPath);
-  if (wrapperFiles.length === 0) return baseIsFrameworkPath;
-  const wrapperSet = new Set(wrapperFiles);
-  return (path) => baseIsFrameworkPath(path) || wrapperSet.has(path.replace(/\\/g, '/'));
-};
-
-const buildIsFrameworkPath = (
-  trace: StackTrace,
-  options?: ResolvePositionOptions,
-): ((path: string) => boolean) =>
-  buildIsExcludedPath(trace, options?.isFrameworkPath ?? defaultIsFrameworkPath);
-
-export const resolvePosition = (
-  trace: StackTrace | undefined,
-  options?: ResolvePositionOptions,
-): Position | undefined => {
-  if (!trace) return undefined;
-  const stack = readStack(trace.error);
-  if (!stack) return undefined;
-  return findFirstUserPosition(stack, buildIsFrameworkPath(trace, options));
-};
-
 // decorator-metadata 自身のパッケージ内フレームかどうか (workspace 実行時は PACKAGE_ROOT、
 // インストール実行時はパッケージパスのマーカーで判定する)。call スタック上で機構フレームに
 // 挟まれたフレームを検出する際にも使うため、node: 判定とは分離しておく
@@ -280,31 +219,117 @@ const isSandwichedByMachinery = (lines: readonly string[], index: number): boole
   return false;
 };
 
-/**
- * クラス定義サイト (デコレータが適用されたモジュール) の位置を返す。
- * resolvePosition が「ユーザーがデコレータを書いた場所」を探すために node_modules を
- * 一律除外するのに対し、こちらは ClassSource 用に node_modules 内の定義もそのまま返す。
- * 除外するのは機構自身と、define/call スタック差分から検出した factory wrapper のみ。
- *
- * define トレース (`trace.error`) は factory 型デコレータ (`@Controller('/x')`) では
- * クラス定義サイトを含むが、直付け型デコレータ (`createInjectableClassDecorator(...)` を
- * 直接 export するもの) ではモジュール読み込み時にしか捕捉されず定義サイトを含まない。
- * call トレース (`trace.callError`) はデコレータ適用時 = クラス定義サイトで常に捕捉される
- * ため、両スタイルで正しく解決できる call トレースを優先し、無い場合のみ define にフォールバックする。
+type StackFrame = {
+  readonly position: Position;
+  readonly functionName: string | undefined;
+};
+
+const parseFrames = (stack: string): readonly (StackFrame | undefined)[] =>
+  stack
+    .split('\n')
+    .slice(2)
+    .map((line) => {
+      const position = parsePositionFromStackLine(line, () => false);
+      if (!position) return undefined;
+      return { position, functionName: line.match(/^\s*at\s+(.*?)\s+\(/)?.[1] };
+    });
+
+const sameActivation = (left: StackFrame, right: StackFrame): boolean =>
+  left.position.sourceFile.replace(/\\/g, '/') === right.position.sourceFile.replace(/\\/g, '/') &&
+  left.functionName === right.functionName;
+
+const sameFrame = (left: StackFrame, right: StackFrame): boolean =>
+  sameActivation(left, right) &&
+  left.position.line === right.position.line &&
+  left.position.column === right.position.column;
+
+const outerContextLength = (
+  define: readonly (StackFrame | undefined)[],
+  call: readonly (StackFrame | undefined)[],
+  defineIndex: number,
+  callIndex: number,
+): number => {
+  let length = 0;
+  for (const left of define.slice(defineIndex + 1)) {
+    const right = call[callIndex + length + 1];
+    if (!left || !right || !sameFrame(left, right)) return length;
+    length++;
+  }
+  return length;
+};
+
+const applicationFrame = (
+  stack: string,
+): { readonly position: Position; readonly index: number } | undefined => {
+  const lines = stack.split('\n').slice(2);
+  for (const [index, line] of lines.entries()) {
+    if (isTranspilerHelperFrame(line)) continue;
+    const position = resolvePositionAt(
+      lines,
+      index,
+      isDecoratorMachineryPath,
+      isSandwichedByMachinery,
+    );
+    if (position) return { position, index };
+  }
+  return undefined;
+};
+
+const findExpressionPosition = (
+  define: readonly (StackFrame | undefined)[],
+  call: readonly (StackFrame | undefined)[],
+  callIndex: number,
+  isFrameworkPath: (path: string) => boolean,
+): Position | undefined => {
+  const appliedFrame = call[callIndex];
+  if (!appliedFrame) return undefined;
+  const candidates = define.flatMap((frame, index) =>
+    frame && !isFrameworkPath(frame.position.sourceFile) && sameActivation(frame, appliedFrame)
+      ? [{ frame, context: outerContextLength(define, call, index, callIndex) }]
+      : [],
+  );
+  const bestContext = Math.max(...candidates.map((candidate) => candidate.context));
+  const best = candidates.filter((candidate) => candidate.context === bestContext);
+  const selected = best.length === 1 ? best[0] : undefined;
+  if (!selected || (selected.context === 0 && !sameFrame(selected.frame, appliedFrame)))
+    return undefined;
+  return selected.frame.position;
+};
+
+/** Resolve the factory expression in the activation where the decorator was applied.
+ * Call-site coordinates may be synthesized by a transpiler. They identify the
+ * activation only; the returned coordinates always come from the define trace.
+ * Repeated/anonymous activations require a unique match of the ordered outer
+ * frames (including their coordinates). An ambiguous match stays unresolved.
+ */
+export const resolvePosition = (
+  trace: StackTrace | undefined,
+  options?: ResolvePositionOptions,
+): Position | undefined => {
+  const stack = readStack(trace?.error);
+  if (!stack) return undefined;
+  const isFrameworkPath = options?.isFrameworkPath ?? defaultIsFrameworkPath;
+  const callStack = readStack(trace?.callError);
+  if (!callStack) return findFirstUserPosition(stack, isFrameworkPath);
+  const application = applicationFrame(callStack);
+  if (!application) return undefined;
+  return findExpressionPosition(
+    parseFrames(stack),
+    parseFrames(callStack),
+    application.index,
+    isFrameworkPath,
+  );
+};
+
+/** Module hint from decorator application, including dependencies in node_modules.
+ * Its line/column may be generated code; use getClassDeclarationPosition for an
+ * AST-verified class declaration and getClassSource for an importable reference.
  */
 export const resolveDefinitionPosition = (trace: StackTrace | undefined): Position | undefined => {
   if (!trace) return undefined;
   const stack = readStack(trace.error);
   if (!stack) return undefined;
-  const isExcludedPath = buildIsExcludedPath(trace, isDecoratorMachineryPath);
   const callStack = readStack(trace.callError);
-  if (callStack) {
-    const lines = callStack.split('\n').slice(2);
-    const pos = scanForUserPosition(lines, isExcludedPath, {
-      skipAnonymousAfterHelper: false,
-      isStillMachinery: isSandwichedByMachinery,
-    });
-    if (pos) return pos;
-  }
-  return findFirstUserPosition(stack, isExcludedPath);
+  if (callStack) return applicationFrame(callStack)?.position;
+  return findFirstUserPosition(stack, isDecoratorMachineryPath);
 };

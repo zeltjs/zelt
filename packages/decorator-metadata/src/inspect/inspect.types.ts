@@ -77,6 +77,8 @@ export type ClassSource = {
 
 export type SourceContext = {
   readonly applicationRoot?: string;
+  /** Use the same loader/cache that produced the inspected class. */
+  readonly loadModule?: (filePath: string) => Promise<unknown>;
 };
 
 /**

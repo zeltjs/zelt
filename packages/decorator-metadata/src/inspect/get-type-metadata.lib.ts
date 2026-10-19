@@ -5,7 +5,7 @@ import { errAsync, okAsync } from 'neverthrow';
 
 import type { StackTrace } from '../runtime/index';
 import { getInternalClassMetadata } from '../runtime/index';
-import { findClassAtPosition } from './ast.lib';
+import { resolveClassDeclaration } from './class-declaration.lib';
 import type {
   ClassMetadata,
   InspectError,
@@ -146,7 +146,6 @@ const extractPropertyInfo = (
 
 type ResolvedStoredMeta = {
   readonly storedMeta: NonNullable<ReturnType<typeof getInternalClassMetadata>>;
-  readonly storedPos: Position;
 };
 
 const resolveStoredMeta = <T extends object>(
@@ -159,17 +158,7 @@ const resolveStoredMeta = <T extends object>(
       error: { code: 'NO_METADATA', message: `No decorator metadata found for class ${cls.name}` },
     };
   }
-  const storedPos = resolvePosition(storedMeta.trace);
-  if (!storedPos) {
-    return {
-      ok: false,
-      error: {
-        code: 'POSITION_INVALID',
-        message: `No source position captured for class ${cls.name}`,
-      },
-    };
-  }
-  return { ok: true, value: { storedMeta, storedPos } };
+  return { ok: true, value: { storedMeta } };
 };
 
 /** @throws {UnsupportedTypeScriptVersionError} */
@@ -179,36 +168,18 @@ export const getTypeMetadata = <T extends object>(
 ): ResultAsync<ClassMetadata, InspectError | ProgramCacheError> => {
   const resolved = resolveStoredMeta(cls);
   if (!resolved.ok) return errAsync(resolved.error);
-  const { storedMeta, storedPos } = resolved.value;
+  const { storedMeta } = resolved.value;
 
   const tsconfigPath = resolve(options?.tsconfig ?? DEFAULT_TSCONFIG);
   const expandStrategy = options?.expandStrategy ?? DEFAULT_EXPAND_STRATEGY;
 
   return getOrCreateProgram(tsconfigPath).andThen((cached) => {
-    const { program, checker, ts } = cached;
+    const { checker, ts } = cached;
     const { extractType } = createTypeExtractor(ts, checker, expandStrategy);
 
-    const sourceFile = program.getSourceFile(storedPos.sourceFile);
-    if (!sourceFile) {
-      return errAsync<ClassMetadata, InspectError>({
-        code: 'SOURCE_NOT_FOUND',
-        message: `Source file not found: ${storedPos.sourceFile}`,
-      });
-    }
-
-    const pos = ts.getPositionOfLineAndCharacter(
-      sourceFile,
-      storedPos.line - 1,
-      storedPos.column - 1,
-    );
-
-    const classNode = findClassAtPosition(sourceFile, pos, ts);
-    if (!classNode || !ts.isClassDeclaration(classNode)) {
-      return errAsync<ClassMetadata, InspectError>({
-        code: 'POSITION_INVALID',
-        message: `No class found at position ${storedPos.line}:${storedPos.column}`,
-      });
-    }
+    const declaration = resolveClassDeclaration(cls, storedMeta.trace, cached);
+    if (declaration.isErr()) return errAsync<ClassMetadata, InspectError>(declaration.error);
+    const { node: classNode, position: storedPos } = declaration.value;
 
     const methods = storedMeta.methods.map((m) =>
       extractMethodInfo(m, classNode, ts, checker, extractType),

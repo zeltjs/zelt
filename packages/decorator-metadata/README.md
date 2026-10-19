@@ -218,9 +218,22 @@ meta.props === [
 
 **Note:** Returns `undefined` if the class has no decorator metadata.
 
+#### Source references and positions
+
+These APIs answer different questions:
+
+- `getClassSource(cls, context?)` returns a `ResultAsync` containing an importable `{ filePath, exportName }`. It verifies the actual exported class identity, including aliases and default exports.
+- `getClassDeclarationPosition(cls, { tsconfig })` returns a `ResultAsync` containing the AST-verified position of the `class` keyword. A non-unique declaration is an error.
+- `getDecoratorApplicationPosition(cls, target, matchesProps)` returns the captured position of one decorator factory expression. Ambiguous or truncated traces return `undefined`.
+
+`getSourcePosition` also describes a captured decorator expression; its file is not a verified import source. `resolveDefinitionPosition` supplies an application module hint whose coordinates may belong to generated code.
+
+When inspecting classes loaded through a custom TypeScript loader, pass that same loader as `SourceContext.loadModule` to `getClassSource` and `resolveClassSource`. Loading the module through another cache can produce a different class identity. Loader failures are returned as `MODULE_LOAD_FAILED`.
+
 #### `getTypeMetadata` (full type extraction, requires tsconfig)
 
 Extracts full TypeScript type information using the compiler API.
+The returned class `pos` is the AST-verified class declaration position; member positions retain their decorator expression positions.
 
 ```typescript
 import { getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
@@ -274,7 +287,7 @@ class UserController {
 // Extracted metadata
 {
   name: 'UserController',
-  pos: { sourceFile: '/app/src/user.controller.ts', line: 3, column: 1 },
+  pos: { sourceFile: '/app/src/user.controller.ts', line: 4, column: 1 },
   props: [{ decorator: 'Controller', basePath: '/users' }],
   methods: [{
     name: 'getUser',

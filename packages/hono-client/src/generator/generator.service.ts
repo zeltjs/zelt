@@ -1,5 +1,5 @@
-import { Injectable } from '@zeltjs/core';
-
+import { Injectable, ZeltDecoratorUsageError } from '@zeltjs/core';
+import { describeControllerSourceError, resolveControllerSources } from './controller-sources.lib';
 import { emitAppType } from './emit.lib';
 import { ZeltHonoClientGenerationError } from './generator.errors';
 import type { GenerateOptions, HttpAppLike } from './generator.types';
@@ -16,9 +16,27 @@ export class GeneratorService {
       metadata: app.getMetadata(),
       controllers: app.getControllers(),
       distDir: options.distDir,
+      ...(options.loadModule ? { loadModule: options.loadModule } : {}),
     };
 
-    if (!options.portable) return emitAppType(base);
+    if (!options.portable) {
+      const sources = await resolveControllerSources(base);
+      if (!sources.ok) {
+        const error = sources.error;
+        if (error.kind === 'controller_missing') {
+          throw new ZeltDecoratorUsageError({
+            decoratorName: 'Controller',
+            reason: 'missing_decorator',
+            targetName: error.name,
+          });
+        }
+        throw new ZeltHonoClientGenerationError({
+          reason: 'source_emit_failed',
+          details: describeControllerSourceError(error),
+        });
+      }
+      return emitAppType({ distDir: options.distDir, controllers: sources.value });
+    }
 
     const result = await this.portableEmitter.emit({
       ...base,

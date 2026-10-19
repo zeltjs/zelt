@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const temporary = await mkdtemp(path.join(tmpdir(), 'zelt-tinyjs-verify-'));
+const temporaryRoot = path.join(root, '.tmp');
+await mkdir(temporaryRoot, { recursive: true });
+const temporary = await mkdtemp(path.join(temporaryRoot, 'zelt-tinyjs-verify-'));
 const binary = process.env.TINYJS_BIN ?? 'tinyjs';
 const packaged = process.argv.includes('--packaged');
 let child;

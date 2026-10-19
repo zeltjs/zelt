@@ -1,15 +1,9 @@
 import { relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ZeltDecoratorUsageError } from '@zeltjs/core';
-import { getSourcePosition } from '@zeltjs/decorator-metadata/inspect';
+import type { ControllerWithSource } from './controller-sources.lib';
 
-import type {
-  ControllerClass,
-  ControllerRouteInfo,
-  HttpMetadata,
-  RouteInfo,
-} from './generator.types';
+import type { ControllerRouteInfo, RouteInfo } from './generator.types';
 
 const stripTsExtension = (p: string): string => p.replace(/\.tsx?$/, '');
 
@@ -23,56 +17,21 @@ export const toRelativeImport = (distDir: string, modulePath: string): string =>
   return rel.startsWith('.') ? rel : `./${rel}`;
 };
 
-type ControllerWithSource = ControllerRouteInfo & { readonly sourceFile: string };
-
-const resolveSourceFile = (
-  cls: ControllerClass,
-  info: ControllerRouteInfo,
-): ControllerWithSource | undefined => {
-  const sourceFile = getSourcePosition(cls)?.sourceFile;
-  if (!sourceFile) return undefined;
-  return { ...info, sourceFile };
+const renderImport = (distDir: string, c: ControllerWithSource): string => {
+  const binding = c.source.exportName === c.name ? c.name : `${c.source.exportName} as ${c.name}`;
+  return `import type { ${binding} } from '${toRelativeImport(distDir, c.source.filePath)}';`;
 };
-
-/** @throws {ZeltDecoratorUsageError} */
-const renderImport = (distDir: string, c: ControllerWithSource): string =>
-  `import type { ${c.name} } from '${toRelativeImport(distDir, c.sourceFile)}';`;
 
 const renderRouteLine = (c: ControllerRouteInfo, r: RouteInfo): string =>
   `  Route<'${r.method}', '${r.fullPath}', typeof ${c.name}.prototype.${r.methodName}>,`;
 
 type EmitContext = {
-  readonly metadata: HttpMetadata;
-  readonly controllers: readonly ControllerClass[];
+  readonly controllers: readonly ControllerWithSource[];
   readonly distDir: string;
 };
 
-const findControllerClass = (
-  controllers: readonly ControllerClass[],
-  name: string,
-): ControllerClass | undefined => controllers.find((cls) => cls.name === name);
-
-/** @throws {ZeltDecoratorUsageError} */
 export const emitAppType = (ctx: EmitContext): string => {
-  const controllersWithSource = ctx.metadata.controllers.map((info) => {
-    const cls = findControllerClass(ctx.controllers, info.name);
-    if (!cls) {
-      throw new ZeltDecoratorUsageError({
-        decoratorName: 'Controller',
-        reason: 'missing_decorator',
-        targetName: info.name,
-      });
-    }
-    const resolved = resolveSourceFile(cls, info);
-    if (!resolved) {
-      throw new ZeltDecoratorUsageError({
-        decoratorName: 'Controller',
-        reason: 'missing_decorator',
-        targetName: info.name,
-      });
-    }
-    return resolved;
-  });
+  const controllersWithSource = ctx.controllers;
 
   const imports = controllersWithSource.map((c) => renderImport(ctx.distDir, c)).join('\n');
   const routes = controllersWithSource.flatMap((c) => c.routes.map((r) => renderRouteLine(c, r)));

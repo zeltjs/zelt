@@ -6,5 +6,5 @@
     "types": ["node"],
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
-  "include": ["src/**/*", "scripts/**/*"]
+  "include": ["src/**/*", "zelt.config.ts"]
 }

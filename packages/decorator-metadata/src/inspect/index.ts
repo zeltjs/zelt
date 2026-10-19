@@ -1,4 +1,5 @@
 export { getClassMetadata } from '../runtime/index';
+export { getClassDeclarationPosition } from './class-declaration.lib';
 export {
   getClassSource,
   normalizePackageName,

@@ -13,7 +13,7 @@
     "access": "public"
   },
   "bin": {
-    "zelt": "./dist/cli.js"
+    "zelt": "./bin/zelt.mjs"
   },
   "exports": {
     ".": {
@@ -38,7 +38,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "scripts": {
     "build": "tsdown && node ./scripts/copy-studio-ui.mjs",

@@ -1,3 +1,5 @@
+import type { SourceContext } from '@zeltjs/decorator-metadata/inspect';
+
 export type RouteInfo = {
   readonly method: string;
   readonly path: string;
@@ -17,12 +19,12 @@ export type HttpMetadata = {
   readonly controllers: readonly ControllerRouteInfo[];
 };
 
-export type StandardGenerateOptions = {
+export type StandardGenerateOptions = Pick<SourceContext, 'loadModule'> & {
   readonly distDir: string;
   portable?: false;
 };
 
-export type PortableGenerateOptions = {
+export type PortableGenerateOptions = Pick<SourceContext, 'loadModule'> & {
   readonly distDir: string;
   portable: true;
   readonly tsconfig: string;

@@ -5,7 +5,8 @@ import { resolvePosition } from './position.lib';
 export type GetSourcePositionOptions = ResolvePositionOptions;
 
 /**
- * Get the source position where a class decorator was applied.
+ * Get the captured class decorator factory expression position.
+ * This is not an importable class reference or an AST declaration position.
  * Returns undefined if no decorator metadata exists or position cannot be resolved.
  */
 export const getSourcePosition = (
