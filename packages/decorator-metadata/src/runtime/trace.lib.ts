@@ -27,6 +27,17 @@ export const captureStackTrace = (): StackTrace | undefined => {
   return { _brand: 'StackTrace', error };
 };
 
+// Application callbacks already supply an internal caller frame. Omit this
+// capture helper on V8 so transpiler frames do not consume the last caller
+// slot. captureStackTrace remains unchanged for factory expressions and callers.
+export const captureApplicationStackTrace = (): StackTrace => {
+  const error = new CaptureStackError();
+  if (typeof Error.captureStackTrace === 'function') {
+    Error.captureStackTrace(error, captureApplicationStackTrace);
+  }
+  return { _brand: 'StackTrace', error };
+};
+
 export const withCallStackTrace = (
   defineTrace: StackTrace | undefined,
   callTrace: StackTrace | undefined,

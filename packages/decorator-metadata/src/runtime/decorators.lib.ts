@@ -10,7 +10,7 @@ import {
   recordMethod,
   recordProperty,
 } from './store.lib';
-import { captureStackTrace, withCallStackTrace } from './trace.lib';
+import { captureApplicationStackTrace, captureStackTrace, withCallStackTrace } from './trace.lib';
 
 // =============================================================================
 // Types
@@ -260,7 +260,7 @@ export const createClassDecorator = <TProps extends object, E extends Error = Er
       const err: E | undefined = rejectIfApplied(getClassMetadata(cls)?.props ?? []);
       if (err) throw err;
     }
-    const trace = withCallStackTrace(defineTrace, captureStackTrace());
+    const trace = withCallStackTrace(defineTrace, captureApplicationStackTrace());
     recordClass(cls, trace, props);
     aggregateMembers(cls, classKey);
     afterApply?.(cls);
@@ -280,7 +280,7 @@ export const createMethodDecorator = <TProps extends object, E extends Error = E
       throw err;
     }
 
-    const trace = withCallStackTrace(defineTrace, captureStackTrace());
+    const trace = withCallStackTrace(defineTrace, captureApplicationStackTrace());
     recordMethod(info.classKey, info.name, trace, props);
     if (options?.afterApply && info.method) options.afterApply(info.method, info.name);
   });
@@ -297,7 +297,7 @@ export const createPropertyDecorator = <TProps extends object>(
   const defineTrace = captureStackTrace();
 
   return adaptPropertyContext((classKey, name) => {
-    const trace = withCallStackTrace(defineTrace, captureStackTrace());
+    const trace = withCallStackTrace(defineTrace, captureApplicationStackTrace());
     recordProperty(classKey, name, trace, props);
     options?.afterApply?.(name);
   });
@@ -319,7 +319,7 @@ export const composeClassDecorators = (...decorators: ClassDecoratorFn[]): Class
     const cls = asObject(args[0]);
     if (!cls) return undefined;
 
-    const trace = withCallStackTrace(defineTrace, captureStackTrace());
+    const trace = withCallStackTrace(defineTrace, captureApplicationStackTrace());
     if (trace) ensureClassMeta(cls, trace);
 
     for (const dec of decorators) {

@@ -1,16 +1,18 @@
 import { resolve } from 'node:path';
 
 import { Injectable } from '@zeltjs/core';
+import type { SourceContext } from '@zeltjs/decorator-metadata/inspect';
 import { getOrCreateProgram } from '@zeltjs/decorator-metadata/inspect';
 import type { ResolveError } from './app-type-resolver.service';
 import { AppTypeResolverService } from './app-type-resolver.service';
+import { describeControllerSourceError, resolveControllerSources } from './controller-sources.lib';
 import { emitAppType } from './emit.lib';
 import type { ControllerClass, HttpMetadata } from './generator.types';
 
 type TypeScriptModule = typeof import('typescript');
 type TSProgram = import('typescript').Program;
 
-export type PortableEmitContext = {
+export type PortableEmitContext = Pick<SourceContext, 'loadModule'> & {
   readonly metadata: HttpMetadata;
   readonly controllers: readonly ControllerClass[];
   readonly distDir: string;
@@ -32,7 +34,7 @@ export class PortableAppTypeEmitterService {
   private readonly resolver = new AppTypeResolverService();
 
   async emit(ctx: PortableEmitContext): Promise<PortableEmitResult> {
-    const sourceResult = this.emitSource(ctx);
+    const sourceResult = await this.emitSource(ctx);
     if (!sourceResult.ok) return sourceResult;
 
     const programResult = await this.loadProgram(ctx);
@@ -55,13 +57,21 @@ export class PortableAppTypeEmitterService {
     return { ok: true, value: result.value.portableOutput };
   }
 
-  private emitSource(ctx: PortableEmitContext): PortableEmitResult {
+  private async emitSource(ctx: PortableEmitContext): Promise<PortableEmitResult> {
+    const sources = await resolveControllerSources({ ...ctx, applicationRoot: ctx.projectRoot });
+    if (!sources.ok)
+      return {
+        ok: false,
+        error: {
+          kind: 'source_emit_failed',
+          message: describeControllerSourceError(sources.error),
+        },
+      };
     try {
       return {
         ok: true,
         value: emitAppType({
-          metadata: ctx.metadata,
-          controllers: ctx.controllers,
+          controllers: sources.value,
           distDir: ctx.distDir,
         }),
       };

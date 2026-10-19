@@ -38,11 +38,11 @@ On Linux the resulting `dist/zelt-tinyjs-tasks` runs with its accompanying `dist
 
 Source:
 
-- `src/app.ts`: DI, data/services, validation, HTTP routes, native app access
-- `src/main.ts`: tinyjs runtime and native IPC bridge startup
+- `src/app.ts`: static application definition, DI, validation and HTTP routes
+- `src/main.ts`: native runtime startup
+- `zelt.config.ts`: standard CLI build and portable Hono client generation
+- `generated/app-type.ts`: generated request/response contract
 - `src/renderer.ts`: typed Hono client and task UI
-- `scripts/generate-client.ts`: portable client type generation with `honoClientPlugin`
-- `generated/app-type.ts`: generated API contract
 - `tinyjs.json`: native app configuration
 - `tsdown.config.ts`: portable backend and renderer bundles
 

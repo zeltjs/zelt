@@ -4,9 +4,9 @@ import type { ResultAsync } from 'neverthrow';
 import { errAsync, okAsync } from 'neverthrow';
 
 import { getInternalClassMetadata } from '../runtime/index';
-import { findClassAtPosition, findClassByName, getDecoratorName } from './ast.lib';
+import { findClassByName, getDecoratorName } from './ast.lib';
+import { resolveClassDeclaration } from './class-declaration.lib';
 import type { DependencyInfo, GetDependenciesOptions, InspectError } from './inspect.types';
-import { resolvePosition } from './position.lib';
 import type { CachedProgram, ProgramCacheError } from './program-cache.lib';
 import { getOrCreateProgram } from './program-cache.lib';
 
@@ -59,7 +59,7 @@ const findModuleSpecifier = (
   return importDecl.moduleSpecifier.text;
 };
 
-const resolveClassDeclaration = (
+const classDeclarationFromSymbol = (
   symbol: import('typescript').Symbol,
   ts: TypeScriptModule,
   checker: TSTypeChecker,
@@ -88,7 +88,7 @@ const extractDepFromParam = (
   const symbol = checker.getSymbolAtLocation(arg);
   if (!symbol) return undefined;
 
-  const decl = resolveClassDeclaration(symbol, ts, checker);
+  const decl = classDeclarationFromSymbol(symbol, ts, checker);
   if (!decl) return undefined;
 
   return {
@@ -161,33 +161,19 @@ export const getDependencies = (
     });
   }
 
-  const storedPos = resolvePosition(storedMeta.trace);
-  if (!storedPos) {
-    return errAsync({
-      code: 'POSITION_INVALID',
-      message: `No source position captured for class ${cls.name}`,
-    });
-  }
-
   const tsconfigPath = resolve(options?.tsconfig ?? DEFAULT_TSCONFIG);
-
-  return getOrCreateProgram(tsconfigPath).andThen((cached) =>
-    resolveClassNodeAndExtract(
-      cached,
-      storedPos.sourceFile,
-      (sourceFile, ts) => {
-        const pos = ts.getPositionOfLineAndCharacter(
-          sourceFile,
-          storedPos.line - 1,
-          storedPos.column - 1,
-        );
-        return (
-          findClassAtPosition(sourceFile, pos, ts) ?? findClassByName(sourceFile, cls.name, ts)
-        );
-      },
-      `No class found at position ${storedPos.line}:${storedPos.column} or by name ${cls.name}`,
-    ),
-  );
+  return getOrCreateProgram(tsconfigPath).andThen((cached) => {
+    const declaration = resolveClassDeclaration(cls, storedMeta.trace, cached);
+    if (declaration.isErr()) return errAsync(declaration.error);
+    return okAsync(
+      extractInjectCalls(
+        declaration.value.node,
+        cached.ts,
+        cached.checker,
+        declaration.value.node.getSourceFile(),
+      ),
+    );
+  });
 };
 
 /** @throws {UnsupportedTypeScriptVersionError} */

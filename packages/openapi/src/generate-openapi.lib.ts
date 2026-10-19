@@ -10,11 +10,7 @@ import type {
   ParamInfo,
   TypeInfo,
 } from '@zeltjs/decorator-metadata/inspect';
-import {
-  getOrCreateProgram,
-  getSourcePosition,
-  getTypeMetadata,
-} from '@zeltjs/decorator-metadata/inspect';
+import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
 
 import type { RequestSchemaRef, ValidationTarget } from './analyze-handler.lib';
 import { analyzeParamFromPosition } from './analyze-handler.lib';
@@ -398,15 +394,6 @@ const resolveControllersWithMetadata = async (
       });
     }
 
-    const sourceFile = getSourcePosition(cls)?.sourceFile;
-    if (!sourceFile) {
-      throw new ZeltDecoratorUsageError({
-        decoratorName: 'Controller',
-        reason: 'missing_decorator',
-        targetName: info.name,
-      });
-    }
-
     const typeMetadataResult = await getTypeMetadata(toInspectableClass(cls), inspectOptions);
     if (typeMetadataResult.isErr()) {
       const err = typeMetadataResult.error;
@@ -414,6 +401,14 @@ const resolveControllersWithMetadata = async (
         decoratorName: 'Controller',
         reason: 'missing_decorator',
         targetName: `${info.name}: failed to get type metadata (${err.code}: ${err.message})`,
+      });
+    }
+    const sourceFile = typeMetadataResult.value.pos?.sourceFile;
+    if (!sourceFile) {
+      throw new ZeltDecoratorUsageError({
+        decoratorName: 'Controller',
+        reason: 'missing_decorator',
+        targetName: `${info.name}: missing class declaration position`,
       });
     }
 

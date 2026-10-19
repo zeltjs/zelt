@@ -33,17 +33,25 @@ type ImportOutcome =
 
 // import() は動的な式のため fromPromise に直接渡せず (restrict-neverthrow-from-promise)、
 // reject しない Promise に自前で畳んでから fromSafePromise で持ち上げる
-const importOutcome = async (url: string): Promise<ImportOutcome> => {
+const importOutcome = async (
+  filePath: string,
+  loadModule?: SourceContext['loadModule'],
+): Promise<ImportOutcome> => {
   try {
-    const mod: unknown = await import(url);
+    const mod: unknown = loadModule
+      ? await loadModule(filePath)
+      : await import(pathToFileURL(filePath).href);
     return { ok: true, value: toModuleExports(mod) };
   } catch (error) {
     return { ok: false, message: String(error) };
   }
 };
 
-const importModule = (filePath: string): ResultAsync<ModuleExports, InspectError> =>
-  ResultAsyncCtor.fromSafePromise(importOutcome(pathToFileURL(filePath).href)).andThen((outcome) =>
+const importModule = (
+  filePath: string,
+  loadModule?: SourceContext['loadModule'],
+): ResultAsync<ModuleExports, InspectError> =>
+  ResultAsyncCtor.fromSafePromise(importOutcome(filePath, loadModule)).andThen((outcome) =>
     outcome.ok
       ? ok(outcome.value)
       : err({
@@ -64,8 +72,9 @@ const findExportName = (mod: ModuleExports, cls: AnyClass): string | undefined =
 const classSourceFromModule = (
   filePath: string,
   cls: AnyClass,
+  loadModule?: SourceContext['loadModule'],
 ): ResultAsync<ClassSource, InspectError> =>
-  importModule(filePath).andThen((mod) => {
+  importModule(filePath, loadModule).andThen((mod) => {
     const exportName = findExportName(mod, cls);
     if (exportName === undefined) {
       return errAsync<ClassSource, InspectError>({
@@ -300,16 +309,18 @@ const packageEntrySource = (
   pkg: PackageOwner,
   cls: AnyClass,
   original: InspectError,
+  loadModule?: SourceContext['loadModule'],
   entries: ReturnType<typeof packageEntries> = packageEntries(pkg),
 ): ResultAsync<ClassSource, InspectError> => {
   const candidate = entries.next();
   if (candidate.done) return errAsync(original);
   const entry = candidate.value;
   if (entry.isErr()) return errAsync(entry.error);
-  if (!isRuntimeClassEntry(entry.value)) return packageEntrySource(pkg, cls, original, entries);
-  return classSourceFromModule(entry.value, cls).orElse((error) =>
+  if (!isRuntimeClassEntry(entry.value))
+    return packageEntrySource(pkg, cls, original, loadModule, entries);
+  return classSourceFromModule(entry.value, cls, loadModule).orElse((error) =>
     error.code === 'EXPORT_NOT_FOUND'
-      ? packageEntrySource(pkg, cls, original, entries)
+      ? packageEntrySource(pkg, cls, original, loadModule, entries)
       : errAsync(error),
   );
 };
@@ -335,16 +346,24 @@ export const getClassSource = (
   // Published entries retain public names when bundlers rename shared chunk exports.
   const pkg = packageFromPath(pos.sourceFile, context);
   if (pkg !== undefined) {
-    return packageEntrySource(pkg, cls, {
-      code: 'EXPORT_NOT_FOUND',
-      message: `Class ${cls.name} is not exported from the entry point of the package declaring ${pos.sourceFile}`,
-    });
+    return packageEntrySource(
+      pkg,
+      cls,
+      {
+        code: 'EXPORT_NOT_FOUND',
+        message: `Class ${cls.name} is not exported from the entry point of the package declaring ${pos.sourceFile}`,
+      },
+      context.loadModule,
+    );
   }
-  return classSourceFromModule(pos.sourceFile, cls);
+  return classSourceFromModule(pos.sourceFile, cls, context.loadModule);
 };
 
-export const resolveClassSource = (source: ClassSource): ResultAsync<AnyClass, InspectError> =>
-  importModule(source.filePath).andThen((mod) => {
+export const resolveClassSource = (
+  source: ClassSource,
+  context: Pick<SourceContext, 'loadModule'> = {},
+): ResultAsync<AnyClass, InspectError> =>
+  importModule(source.filePath, context.loadModule).andThen((mod) => {
     const value = mod[source.exportName];
     if (typeof value !== 'function') {
       return errAsync<AnyClass, InspectError>({

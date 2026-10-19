@@ -4,7 +4,7 @@ import { Controller } from '@zeltjs/core';
 import { getOrCreateProgram } from '@zeltjs/decorator-metadata/inspect';
 import { describe, expect, it } from 'vitest';
 import { AppTypeResolverService } from './app-type-resolver.service';
-import { emitAppType } from './emit.lib';
+import { GeneratorService } from './generator.service';
 import type { ControllerClass, HttpMetadata } from './generator.types';
 
 @Controller('/users')
@@ -84,7 +84,10 @@ describe('resolveAppType', () => {
     async () => {
       const { ts, compilerOptions, originalFileNames } = await loadCompilerContext();
       const distDir = resolve(__dirname, '../../generated');
-      const sourceText = emitAppType({ metadata, controllers, distDir });
+      const sourceText = await new GeneratorService().generateFromApp(
+        { getMetadata: () => metadata, getControllers: () => controllers },
+        { distDir },
+      );
 
       const result = resolver.resolve(
         sourceText,
@@ -113,7 +116,10 @@ describe('resolveAppType', () => {
     async () => {
       const { ts, compilerOptions, originalFileNames } = await loadCompilerContext();
       const distDir = resolve(__dirname, '../../generated');
-      const sourceText = emitAppType({ metadata, controllers, distDir });
+      const sourceText = await new GeneratorService().generateFromApp(
+        { getMetadata: () => metadata, getControllers: () => controllers },
+        { distDir },
+      );
 
       const result = resolver.resolve(
         sourceText,
@@ -173,7 +179,10 @@ describe('resolveAppType', () => {
     async () => {
       const { ts, compilerOptions, originalFileNames } = await loadCompilerContext();
       const distDir = resolve(__dirname, '../../generated');
-      const sourceText = emitAppType({ metadata, controllers, distDir });
+      const sourceText = await new GeneratorService().generateFromApp(
+        { getMetadata: () => metadata, getControllers: () => controllers },
+        { distDir },
+      );
 
       const result = resolver.resolve(
         sourceText,
@@ -220,7 +229,10 @@ describe('resolveAppType', () => {
     async () => {
       const { ts, compilerOptions, originalFileNames } = await loadCompilerContext();
       const distDir = resolve(__dirname, '../../generated');
-      const sourceText = emitAppType({ metadata, controllers, distDir });
+      const sourceText = await new GeneratorService().generateFromApp(
+        { getMetadata: () => metadata, getControllers: () => controllers },
+        { distDir },
+      );
 
       const result = resolver.resolve(
         sourceText,
@@ -245,7 +257,10 @@ describe('resolveAppType', () => {
     async () => {
       const { ts, compilerOptions, originalFileNames } = await loadCompilerContext();
       const distDir = resolve(__dirname, '../../generated');
-      const sourceText = emitAppType({ metadata, controllers, distDir });
+      const sourceText = await new GeneratorService().generateFromApp(
+        { getMetadata: () => metadata, getControllers: () => controllers },
+        { distDir },
+      );
 
       const result = resolver.resolve(
         sourceText,
@@ -272,7 +287,10 @@ describe('resolveAppType', () => {
     async () => {
       const { ts, compilerOptions, originalFileNames } = await loadCompilerContext();
       const distDir = resolve(__dirname, '../../generated');
-      const sourceText = emitAppType({ metadata, controllers, distDir });
+      const sourceText = await new GeneratorService().generateFromApp(
+        { getMetadata: () => metadata, getControllers: () => controllers },
+        { distDir },
+      );
 
       const result = resolver.resolve(
         sourceText,
@@ -297,7 +315,10 @@ describe('resolveAppType', () => {
     async () => {
       const { ts, compilerOptions, originalFileNames } = await loadCompilerContext();
       const distDir = resolve(__dirname, '../../generated');
-      const sourceText = emitAppType({ metadata, controllers, distDir });
+      const sourceText = await new GeneratorService().generateFromApp(
+        { getMetadata: () => metadata, getControllers: () => controllers },
+        { distDir },
+      );
 
       const result = resolver.resolve(
         sourceText,

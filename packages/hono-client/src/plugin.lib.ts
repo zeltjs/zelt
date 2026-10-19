@@ -29,14 +29,20 @@ export type HonoClientPluginOptions = HonoClientPluginBaseOptions &
 
 const buildGenerateOptions = (
   options: HonoClientPluginOptions,
-  ctx: { readonly cwd: string; readonly distDir: string },
+  ctx: {
+    readonly cwd: string;
+    readonly distDir: string;
+    readonly loadModule?: (filePath: string) => Promise<unknown>;
+  },
 ): GenerateOptions => {
-  if (!options.portable) return { distDir: ctx.distDir };
+  const loader = ctx.loadModule ? { loadModule: ctx.loadModule } : {};
+  if (!options.portable) return { distDir: ctx.distDir, ...loader };
   return {
     distDir: ctx.distDir,
     portable: true,
     projectRoot: ctx.cwd,
     tsconfig: options.tsconfig ?? 'tsconfig.json',
+    ...loader,
   };
 };
 
@@ -58,7 +64,7 @@ export const honoClientPlugin = (
         getMetadata: () => app.http.getMetadata(),
         getControllers: () => app.http.getControllers(),
       },
-      buildGenerateOptions(options, { cwd: ctx.cwd, distDir: resolvedDistDir }),
+      buildGenerateOptions(options, { ...ctx, distDir: resolvedDistDir }),
     );
 
     await mkdir(dirname(outputPath), { recursive: true });

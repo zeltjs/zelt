@@ -7,5 +7,5 @@ export type {
   DevConfig,
   ZeltConfig,
 } from './config.types';
-export { type LoadConfigOptions, loadZeltConfig } from './config-loader.lib';
+export { getConfigModuleLoader, type LoadConfigOptions, loadZeltConfig } from './config-loader.lib';
 export { defineConfig } from './define-config.lib';

@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate:client": "tsx scripts/generate-client.ts",
-    "build": "pnpm generate:client && tsdown",
+    "generate:client": "zelt-hono generate --config zelt.config.ts",
+    "build": "zelt build --config zelt.config.ts",
     "dev": "pnpm build && tinyjs dev",
     "package": "pnpm build && tinyjs build",
     "typecheck": "pnpm generate:client && tsc --noEmit",
@@ -23,7 +23,6 @@
     "@zeltjs/hono-client": "workspace:*",
     "@rollup/plugin-swc": "0.4.0",
     "@swc/core": "1.15.33",
-    "tsx": "catalog:",
     "tsdown": "catalog:"
   },
   "nx": {

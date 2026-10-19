@@ -59,6 +59,7 @@ export default tseslint.config(
       '**/.typebuild',
       '**/.artifacts',
       '**/.tmp',
+      '**/.zelt',
       // Generated tinyjs bundles include upstream runtime code and bundled dependencies.
       'examples/tinyjs-desktop/.build/**',
       'examples/tinyjs-desktop/backend/**',
