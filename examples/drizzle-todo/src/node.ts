@@ -1,9 +1,9 @@
-import { onNode } from '@zeltjs/adapter-node';
-import { createApp, httpServer } from '@zeltjs/core';
+import { onNode, serve } from '@zeltjs/adapter-node';
 
 import { app } from './app';
 
-const nodeApp = await onNode(createApp([...app.features, httpServer()], { configs: app.configs }));
+const nodeApp = await onNode(app);
 
-const { address } = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
-console.log(`Server running at http://localhost:${address.port}`);
+serve(nodeApp.http, { port: 3000 }, ({ port }) => {
+  console.log(`Server running at http://localhost:${port}`);
+});

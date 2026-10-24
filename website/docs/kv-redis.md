@@ -154,21 +154,25 @@ class ProductionRedisConfig extends RedisConfig {
 
 You do not need to disconnect Redis manually. `RedisService` registers itself with the lifecycle manager, so when the application shuts down it disconnects the ioredis client automatically.
 
-With `@zeltjs/adapter-node`, `onNode` installs `SIGINT`/`SIGTERM` handlers that trigger this shutdown, and `nodeApp.shutdown()` does the same. `handle.shutdown()` closes only that listener:
+With `@zeltjs/adapter-node`, `onNode` installs `SIGINT`/`SIGTERM` handlers that trigger this shutdown, and `nodeApp.shutdown()` does the same. `handle.close()` closes only that listener:
 
 ```typescript twoslash
-import { createApp, Controller, Get, http, httpServer } from '@zeltjs/core';
-import { onNode } from '@zeltjs/adapter-node';
+import { once } from 'node:events';
+import { promisify } from 'node:util';
+import { createApp, Controller, Get, http } from '@zeltjs/core';
+import { onNode, serve } from '@zeltjs/adapter-node';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
 @Controller('/app') class AppController { @Get('/') get() { return {}; } }
 
 const app = createApp([http({ controllers: [AppController] })], { configs: [RedisConfig] });
-const nodeApp = await onNode(createApp([...app.features, httpServer()], { configs: app.configs }));
+const nodeApp = await onNode(app);
 // ---cut---
-const handle = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
+const handle = serve(nodeApp.http, { port: 3000 });
+await once(handle, 'listening');
 
 // Closes all listeners and resources (Redis included)
+await promisify(handle.close.bind(handle))();
 await nodeApp.shutdown();
 ```
