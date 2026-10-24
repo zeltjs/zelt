@@ -22,7 +22,7 @@ pnpm add @zeltjs/core
 `RedisKVAdaptor` をinjectして、namespace化されたストアを作成します。`namespace()` は `AtomicKVStore` を直接返し、`get()` は値(キーが存在しない場合は `undefined`)に解決されます — unwrapが必要なresultラッパーはありません:
 
 ```typescript twoslash
-import { Injectable, inject } from '@zeltjs/core';
+import { Injectable, inject, httpServer } from '@zeltjs/core';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import type { AtomicKVStore, Defined } from '@zeltjs/kv';
 // ---cut---
@@ -47,7 +47,7 @@ export class CacheService {
 アプリ作成時に `RedisConfig` と `RedisKVAdaptor` を登録します。`RedisConfig` が接続設定を提供し(`RedisKVAdaptor` が依存する `RedisService` がそれを利用します)、依存関係は自動的に解決されるので、`injectables` に `RedisKVAdaptor` を挙げるだけで十分です:
 
 ```typescript twoslash
-import { createApp, Controller, Get, http } from '@zeltjs/core';
+import { createApp, Controller, Get, http, httpServer } from '@zeltjs/core';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
@@ -154,33 +154,25 @@ class ProductionRedisConfig extends RedisConfig {
 
 Redisを手動で切断する必要はありません。`RedisService` がライフサイクルマネージャに自身を登録するため、アプリケーションのシャットダウン時にioredisクライアントが自動的に切断されます。
 
-`serve()` で作ったサーバーは起動側が管理します。停止時は新規受付を止め、処理中のリクエストが完了してから `nodeApp.shutdown()` でRedisなどのアプリケーション資源を閉じます。この例は明示的に終了する手順を示しており、プロセスのシグナル処理は含みません。
+`@zeltjs/adapter-node` を使う場合、`onNode` がこのシャットダウンをトリガーする `SIGINT`/`SIGTERM` ハンドラをインストールし、`nodeApp.shutdown()` も同じことを行います。`handle.close()` はその待ち受けだけを停止します:
 
 ```typescript twoslash
 import { once } from 'node:events';
 import { promisify } from 'node:util';
-import { createApp, Controller, Get, http, inject } from '@zeltjs/core';
+import { createApp, Controller, Get, http } from '@zeltjs/core';
 import { onNode, serve } from '@zeltjs/adapter-node';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
-@Controller('/app')
-class AppController {
-  constructor(private readonly cache = inject(RedisKVAdaptor)) {}
-
-  @Get('/')
-  get() {
-    return this.cache.namespace('app:').get<string>('status');
-  }
-}
+@Controller('/app') class AppController { @Get('/') get() { return {}; } }
 
 const app = createApp([http({ controllers: [AppController] })], { configs: [RedisConfig] });
-// ---cut---
 const nodeApp = await onNode(app);
-const server = serve(nodeApp.http, { port: 3000 });
-await once(server, 'listening');
+// ---cut---
+const handle = serve(nodeApp.http, { port: 3000 });
+await once(handle, 'listening');
 
-// 起動側の終了時: HTTPリクエストの完了を待ってからRedisなどを閉じる
-await promisify(server.close.bind(server))();
+// サーバーを切断し、ライフサイクルのシャットダウン(Redisを含む)を実行する
+await promisify(handle.close.bind(handle))();
 await nodeApp.shutdown();
 ```

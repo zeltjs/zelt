@@ -126,15 +126,14 @@ class UserController {
 ### 3. Create and Run the Application
 
 ```typescript
-import { createApp, http } from '@zeltjs/core';
-import { onNode, serve } from '@zeltjs/adapter-node';
+import { createApp, httpServer, http } from '@zeltjs/core';
+import { onNode } from '@zeltjs/adapter-node';
 
-const app = createApp([http({ controllers: [UserController] })]);
+const app = createApp([http({ controllers: [UserController] }), httpServer()]);
 
 const nodeApp = await onNode(app);
-serve(nodeApp.http, { port: 3000 }, ({ port }) => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+const server = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
+console.log(`Server running at http://localhost:${server.address.port}`);
 ```
 
 ## Background Tasks
@@ -191,16 +190,13 @@ work on Lambda.
 
 ## Deploy Anywhere
 
-Define the application once. Each runtime block below is a separate entry point using the same `app`:
+Same application code, different adapters:
 
 ```typescript
 import { createApp, http } from '@zeltjs/core';
 import { lambdaHandler } from '@zeltjs/adapter-lambda';
 
-const app = createApp([
-  http({ controllers: [UserController] }),
-  lambdaHandler(),
-]);
+const app = createApp([http({ controllers: [UserController] }), lambdaHandler()]);
 
 // Node.js
 import { onNode, serve } from '@zeltjs/adapter-node';
@@ -222,8 +218,6 @@ import { onLambda } from '@zeltjs/adapter-lambda';
 const lambdaApp = await onLambda(app);
 export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http);
 ```
-
-These examples show startup only. See the [graceful shutdown example](https://zeltjs.com/docs/kv-redis#graceful-shutdown) for explicitly stopping a server before closing application resources.
 
 ## Benchmark
 
