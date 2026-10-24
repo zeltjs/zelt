@@ -154,21 +154,25 @@ class ProductionRedisConfig extends RedisConfig {
 
 Redisを手動で切断する必要はありません。`RedisService` がライフサイクルマネージャに自身を登録するため、アプリケーションのシャットダウン時にioredisクライアントが自動的に切断されます。
 
-`@zeltjs/adapter-node` を使う場合、`onNode` がこのシャットダウンをトリガーする `SIGINT`/`SIGTERM` ハンドラをインストールし、`nodeApp.shutdown()` も同じことを行います。`handle.shutdown()` はその待ち受けだけを停止します:
+`@zeltjs/adapter-node` を使う場合、`onNode` がこのシャットダウンをトリガーする `SIGINT`/`SIGTERM` ハンドラをインストールし、`nodeApp.shutdown()` も同じことを行います。`handle.close()` はその待ち受けだけを停止します:
 
 ```typescript twoslash
-import { createApp, Controller, Get, http, httpServer } from '@zeltjs/core';
-import { onNode } from '@zeltjs/adapter-node';
+import { once } from 'node:events';
+import { promisify } from 'node:util';
+import { createApp, Controller, Get, http } from '@zeltjs/core';
+import { onNode, serve } from '@zeltjs/adapter-node';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
 @Controller('/app') class AppController { @Get('/') get() { return {}; } }
 
 const app = createApp([http({ controllers: [AppController] })], { configs: [RedisConfig] });
-const nodeApp = await onNode(createApp([...app.features, httpServer()], { configs: app.configs }));
+const nodeApp = await onNode(app);
 // ---cut---
-const handle = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
+const handle = serve(nodeApp.http, { port: 3000 });
+await once(handle, 'listening');
 
 // サーバーを切断し、ライフサイクルのシャットダウン(Redisを含む)を実行する
+await promisify(handle.close.bind(handle))();
 await nodeApp.shutdown();
 ```

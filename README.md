@@ -123,20 +123,20 @@ console.log(`Server running at http://localhost:${server.address.port}`);
 Same application code, different adapters:
 
 ```typescript
-import { createApp, http, httpServer } from '@zeltjs/core';
+import { createApp, http } from '@zeltjs/core';
+import { lambdaHandler } from '@zeltjs/adapter-lambda';
 
-const app = createApp([http({ controllers: [UserController] })]);
-const serverApp = createApp([...app.features, httpServer()]);
+const app = createApp([http({ controllers: [UserController] }), lambdaHandler()]);
 
 // Node.js
-import { onNode } from '@zeltjs/adapter-node';
-const nodeApp = await onNode(serverApp);
-await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
+import { onNode, serve } from '@zeltjs/adapter-node';
+const nodeApp = await onNode(app);
+serve(nodeApp.http, { port: 3000 });
 
 // Bun
 import { onBun } from '@zeltjs/adapter-bun';
-const bunApp = await onBun(serverApp);
-await bunApp.httpServer.listen(bunApp.http, { port: 3000 });
+const bunApp = await onBun(app);
+Bun.serve({ fetch: bunApp.http.fetch, port: 3000 });
 
 // Cloudflare Workers
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
@@ -144,10 +144,8 @@ const workers = await onCloudflareWorkers(app);
 export default { fetch: workers.http.fetch };
 
 // AWS Lambda
-import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
-const lambdaApp = await onLambda(
-  createApp([...app.features, lambdaHandler()], { configs: app.configs }),
-);
+import { onLambda } from '@zeltjs/adapter-lambda';
+const lambdaApp = await onLambda(app);
 export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http);
 ```
 
