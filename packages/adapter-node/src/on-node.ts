@@ -18,8 +18,6 @@ import { ProcessEnvAdaptor } from './process-env.adaptor';
 export type { ServerHandle } from './listen.lib';
 
 export type NodeAppOptions = {
-  /** Set to false when the host manages SIGINT/SIGTERM and shutdown ordering. */
-  readonly signals?: boolean;
   readonly contextMode?: ContextMode;
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
@@ -51,28 +49,24 @@ export async function onNode<const F extends readonly ConfiguredFeature[]>(
     warmup: options.warmup ?? true,
   });
 
-  if (options.signals !== false) {
-    const cliConfig = await readyApp.get(NodeCliConfig);
-    const logger = await readyApp.get(LoggerService);
+  const cliConfig = await readyApp.get(NodeCliConfig);
+  const logger = await readyApp.get(LoggerService);
 
-    const gracefulShutdown = (): void => {
-      void readyApp.shutdown().catch((error: unknown) => {
-        logger.error('Node application shutdown failed', {
-          error: inspect(error, { depth: null }),
-        });
-      });
-    };
-    readyApp.registerShutdown(
-      () => {
-        cliConfig.offSignal('SIGINT', gracefulShutdown);
-        cliConfig.offSignal('SIGTERM', gracefulShutdown);
-      },
-      { phase: 'after' },
-    );
+  const gracefulShutdown = (): void => {
+    void readyApp.shutdown().catch((error: unknown) => {
+      logger.error('Node application shutdown failed', { error: inspect(error, { depth: null }) });
+    });
+  };
+  readyApp.registerShutdown(
+    () => {
+      cliConfig.offSignal('SIGINT', gracefulShutdown);
+      cliConfig.offSignal('SIGTERM', gracefulShutdown);
+    },
+    { phase: 'after' },
+  );
 
-    cliConfig.onSignal('SIGINT', gracefulShutdown);
-    cliConfig.onSignal('SIGTERM', gracefulShutdown);
-  }
+  cliConfig.onSignal('SIGINT', gracefulShutdown);
+  cliConfig.onSignal('SIGTERM', gracefulShutdown);
 
   const args = getArgs();
 

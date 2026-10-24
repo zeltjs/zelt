@@ -4,8 +4,6 @@
 
 Node.js HTTP server adapter for Zelt applications.
 
-`onNode(app)` handles `SIGINT` / `SIGTERM` by default. Use `onNode(app, { signals: false })` when the host owns shutdown: stop and drain externally created servers before calling the runtime's `shutdown()`.
-
 **[Read the Documentation](https://zeltjs.com)**
 
 ## Installation

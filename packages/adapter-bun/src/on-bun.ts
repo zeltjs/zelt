@@ -19,8 +19,6 @@ import { BunHttpServerAdaptor } from './bun-http-server.adaptor';
 export type { HttpServerHandle as ServerHandle } from '@zeltjs/core';
 
 export type BunAppOptions = {
-  /** Set to false when the host manages SIGINT/SIGTERM and shutdown ordering. */
-  readonly signals?: boolean;
   readonly contextMode?: ContextMode;
   readonly configs?: readonly ConfigClass<object>[];
   readonly warmup?: boolean;
@@ -59,28 +57,26 @@ export async function onBun<const F extends readonly ConfiguredFeature[]>(
     warmup: options.warmup ?? true,
   });
 
-  if (options.signals !== false) {
-    const cliConfig = await readyApp.get(BunCliConfig);
-    const logger = await readyApp.get(LoggerService);
+  const cliConfig = await readyApp.get(BunCliConfig);
+  const logger = await readyApp.get(LoggerService);
 
-    const gracefulShutdown = (): void => {
-      void readyApp.shutdown().catch((error: unknown) => {
-        logger.error('Bun application shutdown failed', {
-          error: Bun.inspect(error, { depth: Infinity }),
-        });
+  const gracefulShutdown = (): void => {
+    void readyApp.shutdown().catch((error: unknown) => {
+      logger.error('Bun application shutdown failed', {
+        error: Bun.inspect(error, { depth: Infinity }),
       });
-    };
-    readyApp.registerShutdown(
-      () => {
-        cliConfig.offSignal('SIGINT', gracefulShutdown);
-        cliConfig.offSignal('SIGTERM', gracefulShutdown);
-      },
-      { phase: 'after' },
-    );
+    });
+  };
+  readyApp.registerShutdown(
+    () => {
+      cliConfig.offSignal('SIGINT', gracefulShutdown);
+      cliConfig.offSignal('SIGTERM', gracefulShutdown);
+    },
+    { phase: 'after' },
+  );
 
-    cliConfig.onSignal('SIGINT', gracefulShutdown);
-    cliConfig.onSignal('SIGTERM', gracefulShutdown);
-  }
+  cliConfig.onSignal('SIGINT', gracefulShutdown);
+  cliConfig.onSignal('SIGTERM', gracefulShutdown);
 
   const args = getArgs();
 

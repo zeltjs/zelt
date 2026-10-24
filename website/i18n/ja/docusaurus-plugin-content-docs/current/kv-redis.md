@@ -154,7 +154,7 @@ class ProductionRedisConfig extends RedisConfig {
 
 Redisを手動で切断する必要はありません。`RedisService` がライフサイクルマネージャに自身を登録するため、アプリケーションのシャットダウン時にioredisクライアントが自動的に切断されます。
 
-`serve()` で作ったサーバーは起動側が管理します。停止時は新規受付を止め、処理中のリクエストが完了してから `nodeApp.shutdown()` でRedisなどのアプリケーション資源を閉じます。`signals: false` は `onNode()` の自動シグナル処理を無効にする指定です。起動側で `SIGINT` / `SIGTERM` を扱う場合も、同じ終了順序にします。
+`serve()` で作ったサーバーは起動側が管理します。停止時は新規受付を止め、処理中のリクエストが完了してから `nodeApp.shutdown()` でRedisなどのアプリケーション資源を閉じます。この例は明示的に終了する手順を示しており、プロセスのシグナル処理は含みません。
 
 ```typescript twoslash
 import { once } from 'node:events';
@@ -176,7 +176,7 @@ class AppController {
 
 const app = createApp([http({ controllers: [AppController] })], { configs: [RedisConfig] });
 // ---cut---
-const nodeApp = await onNode(app, { signals: false });
+const nodeApp = await onNode(app);
 const server = serve(nodeApp.http, { port: 3000 });
 await once(server, 'listening');
 

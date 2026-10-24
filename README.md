@@ -113,7 +113,7 @@ import { onNode, serve } from '@zeltjs/adapter-node';
 
 const app = createApp([http({ controllers: [UserController] })]);
 
-const nodeApp = await onNode(app, { signals: false });
+const nodeApp = await onNode(app);
 serve(nodeApp.http, { port: 3000 }, ({ port }) => {
   console.log(`Server running at http://localhost:${port}`);
 });
@@ -134,12 +134,12 @@ const app = createApp([
 
 // Node.js
 import { onNode, serve } from '@zeltjs/adapter-node';
-const nodeApp = await onNode(app, { signals: false });
+const nodeApp = await onNode(app);
 serve(nodeApp.http, { port: 3000 });
 
 // Bun
 import { onBun } from '@zeltjs/adapter-bun';
-const bunApp = await onBun(app, { signals: false });
+const bunApp = await onBun(app);
 Bun.serve({ fetch: bunApp.http.fetch, port: 3000 });
 
 // Cloudflare Workers
@@ -153,7 +153,7 @@ const lambdaApp = await onLambda(app);
 export const handler = lambdaApp.lambdaHandler.create(lambdaApp.http);
 ```
 
-With `signals: false`, the Node and Bun adapters leave process signal handling to the host. These minimal entry points omit shutdown handling; see the [graceful shutdown example](https://zeltjs.com/docs/kv-redis#graceful-shutdown) for stopping a server before closing application resources.
+These examples show startup only. See the [graceful shutdown example](https://zeltjs.com/docs/kv-redis#graceful-shutdown) for explicitly stopping a server before closing application resources.
 
 ## Benchmark
 

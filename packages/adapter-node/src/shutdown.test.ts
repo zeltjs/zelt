@@ -5,26 +5,6 @@ import { onNode } from './on-node';
 afterEach(() => vi.restoreAllMocks());
 
 describe('onNode shutdown', () => {
-  it('leaves host signal handlers unchanged when signals are disabled and still supports manual cleanup', async () => {
-    const sigint = process.listeners('SIGINT');
-    const sigterm = process.listeners('SIGTERM');
-    const app = await onNode(createApp([]), { signals: false });
-    const events: string[] = [];
-    app.registerShutdown(() => {
-      events.push('cleanup');
-    });
-    try {
-      expect(process.listeners('SIGINT')).toEqual(sigint);
-      expect(process.listeners('SIGTERM')).toEqual(sigterm);
-      await app.shutdown();
-      expect(events).toEqual(['cleanup']);
-    } finally {
-      await app.shutdown();
-    }
-    expect(process.listeners('SIGINT')).toEqual(sigint);
-    expect(process.listeners('SIGTERM')).toEqual(sigterm);
-  });
-
   it('preserves the common shutdown operation and waits for concurrent callers', async () => {
     const app = await onNode(createApp([]));
     const service = await app.get(RuntimeShutdownService);

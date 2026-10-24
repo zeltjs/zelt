@@ -39,7 +39,7 @@ const app = createApp([
 ]);
 
 // Node.js
-const node = await onNode(app, { signals: false });
+const node = await onNode(app);
 serve(node.http, { port: 3000 });
 
 // Cloudflare Workers

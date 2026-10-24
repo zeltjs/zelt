@@ -154,7 +154,7 @@ class ProductionRedisConfig extends RedisConfig {
 
 You do not need to disconnect Redis manually. `RedisService` registers itself with the lifecycle manager, so application shutdown disconnects the ioredis client automatically.
 
-The host owns the server created by `serve()`. On shutdown, stop accepting requests and wait for in-flight requests to finish before calling `nodeApp.shutdown()` to close Redis and other application resources. `signals: false` disables `onNode()`'s automatic signal handling. If the host handles `SIGINT` / `SIGTERM`, use the same shutdown sequence there.
+The host owns the server created by `serve()`. On shutdown, stop accepting requests and wait for in-flight requests to finish before calling `nodeApp.shutdown()` to close Redis and other application resources. This example shows an explicit shutdown sequence; process signal handling is not shown.
 
 ```typescript twoslash
 import { once } from 'node:events';
@@ -176,7 +176,7 @@ class AppController {
 
 const app = createApp([http({ controllers: [AppController] })], { configs: [RedisConfig] });
 // ---cut---
-const nodeApp = await onNode(app, { signals: false });
+const nodeApp = await onNode(app);
 const server = serve(nodeApp.http, { port: 3000 });
 await once(server, 'listening');
 
