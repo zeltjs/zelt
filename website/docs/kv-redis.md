@@ -22,7 +22,7 @@ pnpm add @zeltjs/core
 Inject `RedisKVAdaptor` and create a namespaced store. `namespace()` returns an `AtomicKVStore` directly, and `get()` resolves to the value (or `undefined` when the key is missing) — there is no result wrapper to unwrap:
 
 ```typescript twoslash
-import { Injectable, inject, httpServer } from '@zeltjs/core';
+import { Injectable, inject } from '@zeltjs/core';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import type { AtomicKVStore, Defined } from '@zeltjs/kv';
 // ---cut---
@@ -47,7 +47,7 @@ export class CacheService {
 Register `RedisConfig` and `RedisKVAdaptor` when creating the app. `RedisConfig` provides the connection settings (consumed by `RedisService`, which `RedisKVAdaptor` depends on), so listing `RedisKVAdaptor` in `injectables` is enough — its dependencies resolve automatically:
 
 ```typescript twoslash
-import { createApp, Controller, Get, http, httpServer } from '@zeltjs/core';
+import { createApp, Controller, Get, http } from '@zeltjs/core';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
@@ -152,23 +152,35 @@ class ProductionRedisConfig extends RedisConfig {
 
 ### Graceful Shutdown
 
-You do not need to disconnect Redis manually. `RedisService` registers itself with the lifecycle manager, so when the application shuts down it disconnects the ioredis client automatically.
+You do not need to disconnect Redis manually. `RedisService` registers itself with the lifecycle manager, so application shutdown disconnects the ioredis client automatically.
 
-With `@zeltjs/adapter-node`, `onNode` installs `SIGINT`/`SIGTERM` handlers that trigger this shutdown, and `nodeApp.shutdown()` does the same. `handle.shutdown()` closes only that listener:
+The host owns the server created by `serve()`. On shutdown, stop accepting requests and wait for in-flight requests to finish before calling `nodeApp.shutdown()` to close Redis and other application resources. `signals: false` disables `onNode()`'s automatic signal handling. If the host handles `SIGINT` / `SIGTERM`, use the same shutdown sequence there.
 
 ```typescript twoslash
-import { createApp, Controller, Get, http, httpServer } from '@zeltjs/core';
-import { onNode } from '@zeltjs/adapter-node';
+import { once } from 'node:events';
+import { promisify } from 'node:util';
+import { createApp, Controller, Get, http, inject } from '@zeltjs/core';
+import { onNode, serve } from '@zeltjs/adapter-node';
 import { RedisKVAdaptor } from '@zeltjs/kv/adaptor-redis';
 import { RedisConfig } from '@zeltjs/redis';
 
-@Controller('/app') class AppController { @Get('/') get() { return {}; } }
+@Controller('/app')
+class AppController {
+  constructor(private readonly cache = inject(RedisKVAdaptor)) {}
+
+  @Get('/')
+  get() {
+    return this.cache.namespace('app:').get<string>('status');
+  }
+}
 
 const app = createApp([http({ controllers: [AppController] })], { configs: [RedisConfig] });
-const nodeApp = await onNode(createApp([...app.features, httpServer()], { configs: app.configs }));
 // ---cut---
-const handle = await nodeApp.httpServer.listen(nodeApp.http, { port: 3000 });
+const nodeApp = await onNode(app, { signals: false });
+const server = serve(nodeApp.http, { port: 3000 });
+await once(server, 'listening');
 
-// Closes all listeners and resources (Redis included)
+// During host shutdown: drain HTTP requests before closing Redis and other resources
+await promisify(server.close.bind(server))();
 await nodeApp.shutdown();
 ```

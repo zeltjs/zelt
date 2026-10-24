@@ -4,6 +4,8 @@
 
 Bun runtime adapter for Zelt applications.
 
+`onBun(app)` handles `SIGINT` / `SIGTERM` by default. Use `onBun(app, { signals: false })` when the host owns shutdown: stop and drain externally created servers before calling the runtime's `shutdown()`.
+
 **[Read the Documentation](https://zeltjs.com)**
 
 ## Installation

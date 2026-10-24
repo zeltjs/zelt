@@ -1,7 +1,7 @@
 ```typescript twoslash
-import { Controller, Get, Post, createApp, http, httpServer } from '@zeltjs/core';
+import { Controller, Get, Post, createApp, http } from '@zeltjs/core';
 import { request } from '@zeltjs/core';
-import { onNode } from '@zeltjs/adapter-node';
+import { onNode, serve } from '@zeltjs/adapter-node';
 import { onCloudflareWorkers } from '@zeltjs/adapter-cloudflare-workers';
 import { lambdaHandler, onLambda } from '@zeltjs/adapter-lambda';
 import * as v from 'valibot';
@@ -33,19 +33,20 @@ class UserController {
   }
 }
 
-const app = createApp([http({ controllers: [UserController] })]);
+const app = createApp([
+  http({ controllers: [UserController] }),
+  lambdaHandler(),
+]);
 
 // Node.js
-const node = await onNode(createApp([...app.features, httpServer()], { configs: app.configs }));
-node.httpServer.listen(node.http, 3000);
+const node = await onNode(app, { signals: false });
+serve(node.http, { port: 3000 });
 
 // Cloudflare Workers
 const workers = await onCloudflareWorkers(app);
 export default { fetch: workers.http.fetch };
 
 // Lambda
-const lambda = await onLambda(
-  createApp([...app.features, lambdaHandler()], { configs: app.configs }),
-);
+const lambda = await onLambda(app);
 export const handler = lambda.lambdaHandler.create(lambda.http);
 ```
