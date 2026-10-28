@@ -1,13 +1,15 @@
 import type { Lifecycle } from '@zeltjs/core';
-import { Injectable, inject, LifecycleManager, ZeltLifecycleStateError } from '@zeltjs/core';
+import { Config, inject, LifecycleManager, ZeltLifecycleStateError } from '@zeltjs/core';
 import type { TinyjsNativeApp } from './shared/bridge.types';
 
-type TinyjsAppState = { app: TinyjsNativeApp | undefined; disposed: boolean };
+type TinyjsAppState<TNative> = { app: TNative | undefined; disposed: boolean };
 
-@Injectable()
-export class TinyjsAppAdaptor implements Lifecycle {
+@Config
+export class TinyjsAppAdaptor<TNative extends TinyjsNativeApp = TinyjsNativeApp>
+  implements Lifecycle
+{
   constructor(
-    private readonly state: TinyjsAppState = { app: undefined, disposed: false },
+    private readonly state: TinyjsAppState<TNative> = { app: undefined, disposed: false },
     lifecycleManager = inject(LifecycleManager),
   ) {
     lifecycleManager.register(this);
@@ -24,7 +26,7 @@ export class TinyjsAppAdaptor implements Lifecycle {
   }
 
   /** @throws {ZeltLifecycleStateError} */
-  get native(): TinyjsNativeApp {
+  get native(): TNative {
     if (!this.state.app || this.state.disposed) {
       throw new ZeltLifecycleStateError({
         operation: 'access tinyjs native app',
@@ -35,7 +37,7 @@ export class TinyjsAppAdaptor implements Lifecycle {
   }
 
   /** @throws {ZeltLifecycleStateError} */
-  attach(app: TinyjsNativeApp): void {
+  attach(app: TNative): void {
     if (this.state.app || this.state.disposed) {
       throw new ZeltLifecycleStateError({
         operation: 'attach tinyjs native app',

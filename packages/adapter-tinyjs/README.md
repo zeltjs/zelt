@@ -46,20 +46,28 @@ The renderer selects a map key with `createTinyFetch({ feature: 'admin' })`. Use
 
 `onTinyjs` returns the runtime without adding root `api` or `init` properties. Both names are available for features. The backend entry still exports the generated `api` and `init` for the tinyjs launcher.
 
-Export `init` so the adapter can attach tinyjs's native app and extend `app.done` with Zelt shutdown. This ensures resources close before tinyjs's standard launcher exits. `init` must run only once. For additional native initialization:
+Export `init` so the adapter can attach tinyjs's native app and extend `app.done` with Zelt shutdown. This ensures resources close before tinyjs's standard launcher exits. `init` must run only once.
+
+Zelt only requires a mutable `done` promise. To expose the complete native API, register an adaptor parameterized with the app type supplied by your chosen tinyjs version:
 
 ```ts
-import type { TinyjsNativeApp } from '@zeltjs/adapter-tinyjs';
+import { onTinyjs, TinyjsAppAdaptor, tinyjsBridge } from '@zeltjs/adapter-tinyjs';
+import { Config, createApp, http } from '@zeltjs/core';
+import type { NativeApp } from './native-app.types'; // Your installed tinyjs app type.
 
-const bridge = desktop.tinyjsBridge.create(desktop.http);
-export const api = bridge.api;
-export function init(native: TinyjsNativeApp) {
-  bridge.init(native);
-  native.setTitle('My app');
-}
+@Config
+export class DesktopAppAdaptor extends TinyjsAppAdaptor<NativeApp> {}
+
+const desktop = await onTinyjs(createApp([
+  http({ controllers: [ApiController] }),
+  tinyjsBridge({ adaptor: DesktopAppAdaptor }),
+]));
+export const { api, init } = desktop.tinyjsBridge.create(desktop.http);
 ```
 
-Inject `TinyjsAppAdaptor` to access the native app from a controller or service. Its `.native` property provides `setTitle()`, `push()` and `quit()`, and throws before native initialization or after shutdown.
+Inject `DesktopAppAdaptor` in controllers or services with `inject(DesktopAppAdaptor)`. Its `.native` property retains `NativeApp`, including APIs added by your tinyjs version, and returns the original native object. Access before initialization or after shutdown throws. The generated `init` accepts that same native type. For additional initialization, call the generated `init(native)` from your own `init(native: NativeApp)` function.
+
+`TinyjsNativeApp` describes only Zelt's lifecycle requirement (`done`); it is not a replacement for tinyjs's app type. Without a custom adaptor, `tinyjsBridge()` uses this minimum contract. Applications select and install their tinyjs runtime and types; Zelt does not pin a tinyjs type version.
 
 The runtime uses synchronous context. Capture `request()`, `response()` and `middlewareValue()` at entry, as method default parameters, and retain those references across `await`. Backend DI and controller syntax are the same as other Zelt adapters.
 

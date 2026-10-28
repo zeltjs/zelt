@@ -13,7 +13,7 @@ const toRequest = (input: TinyjsFetchRequest, origin: string): Request => {
   }
   return new Request(bridgeUrl(input.path, origin), {
     method,
-    headers: input.headers.map(([key, value]) => [key, value]),
+    headers: input.headers.map<[string, string]>(([key, value]) => [key, value]),
     body: decodeBody(input.body),
   });
 };
