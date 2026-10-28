@@ -8,11 +8,14 @@ export type TinyjsBridgeOptions = {
   readonly origin?: string;
 };
 
-export type TinyjsBridge = {
+export type TinyjsBridge<TNative extends TinyjsNativeApp = TinyjsNativeApp> = {
   readonly api: { readonly [TINYJS_FETCH_METHOD]: TinyjsFetchHandler };
-  readonly init: (app: TinyjsNativeApp) => void;
+  readonly init: (app: TNative) => void;
 };
 
-export type TinyjsBridgeCapabilities = {
-  readonly create: (http: TinyjsBridgeTargets, options?: TinyjsBridgeOptions) => TinyjsBridge;
+export type TinyjsBridgeCapabilities<TNative extends TinyjsNativeApp = TinyjsNativeApp> = {
+  readonly create: (
+    http: TinyjsBridgeTargets,
+    options?: TinyjsBridgeOptions,
+  ) => TinyjsBridge<TNative>;
 };

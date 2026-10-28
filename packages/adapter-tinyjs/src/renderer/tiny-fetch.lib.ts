@@ -57,7 +57,7 @@ const toResponse = (result: unknown, url: string): Response => {
     {
       status: parsed.value.status,
       statusText: parsed.value.statusText,
-      headers: parsed.value.headers.map(([key, value]) => [key, value]),
+      headers: parsed.value.headers.map<[string, string]>(([key, value]) => [key, value]),
     },
     url,
   );

@@ -1,4 +1,4 @@
-import { TinyjsAppAdaptor, tinyjsBridge } from '@zeltjs/adapter-tinyjs';
+import { tinyjsBridge } from '@zeltjs/adapter-tinyjs';
 import {
   Controller,
   createApp,
@@ -13,6 +13,7 @@ import {
   response,
 } from '@zeltjs/core';
 import * as v from 'valibot';
+import { DesktopAppAdaptor } from './native-app.adaptor';
 import type { Task } from './task.types';
 
 const NewTask = v.object({ title: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(200)) });
@@ -56,7 +57,7 @@ class TaskService {
 export class TaskController {
   constructor(
     private tasks = inject(TaskService),
-    private nativeApp = inject(TinyjsAppAdaptor),
+    private nativeApp = inject(DesktopAppAdaptor),
   ) {}
 
   @Get('/status')
@@ -97,4 +98,7 @@ export class TaskController {
   }
 }
 
-export const app = createApp([http({ controllers: [TaskController] }), tinyjsBridge()]);
+export const app = createApp([
+  http({ controllers: [TaskController] }),
+  tinyjsBridge({ adaptor: DesktopAppAdaptor }),
+]);

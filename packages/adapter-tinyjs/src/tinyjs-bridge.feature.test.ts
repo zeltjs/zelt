@@ -1,5 +1,6 @@
 import type { ReservedAppKey } from '@zeltjs/core';
 import {
+  Config,
   Controller,
   createApp,
   Get,
@@ -88,6 +89,67 @@ afterEach(() => vi.unstubAllGlobals());
 const stubEnvironment = () => vi.stubGlobal('tjs', { env: {} });
 
 describe('tinyjs Fetch bridge', () => {
+  it('preserves the supplied native type and identity through feature injection and lifecycle', async () => {
+    stubEnvironment();
+    type UserNativeApp = {
+      done: Promise<void>;
+      version: '0.60.0';
+      readonly openWindow: (path: string) => URL;
+    };
+    @Config
+    class DesktopAdaptor extends TinyjsAppAdaptor<UserNativeApp> {}
+    const definition = tinyjsBridge({ name: 'desktop', adaptor: DesktopAdaptor });
+    @Injectable()
+    class NativeConsumer {
+      readonly adaptor = inject(DesktopAdaptor);
+      readonly bridge = injectFeature(definition);
+    }
+    const app = await onTinyjs(createApp([definition]));
+    const consumer = await app.get(NativeConsumer);
+    const native: UserNativeApp = {
+      done: new Promise<void>(() => {}),
+      version: '0.60.0',
+      openWindow: (path) => new URL(path, 'https://desktop.example'),
+    };
+    try {
+      expectTypeOf<typeof consumer.adaptor.native>().toEqualTypeOf<UserNativeApp>();
+      expectTypeOf(tinyjsBridge({ adaptor: DesktopAdaptor }).key).toEqualTypeOf<'tinyjsBridge'>();
+      const bridge = app.desktop.create({ fetch: async () => new Response() });
+      expectTypeOf(bridge).toEqualTypeOf<TinyjsBridge<UserNativeApp>>();
+      expectTypeOf(bridge.init).parameter(0).toEqualTypeOf<UserNativeApp>();
+      const assertNativeContract = (minimal: TinyjsNativeApp, reserved: ReservedAppKey): void => {
+        // @ts-expect-error a typed bridge requires the complete user native contract
+        bridge.init(minimal);
+        // @ts-expect-error custom adaptors must not allow reserved feature names
+        tinyjsBridge({ name: reserved, adaptor: DesktopAdaptor });
+        // @ts-expect-error native app types must provide the completion promise
+        expectTypeOf<TinyjsAppAdaptor<{ version: string }>>();
+      };
+      void assertNativeContract;
+      expect(consumer.bridge).toBe(app.desktop);
+      expect(() => consumer.adaptor.native).toThrow(ZeltLifecycleStateError);
+      bridge.init(native);
+      expect(consumer.adaptor.native).toBe(native);
+      expect(consumer.adaptor.native.openWindow('/settings').pathname).toBe('/settings');
+      expect(() => bridge.init(native)).toThrow(ZeltLifecycleStateError);
+    } finally {
+      await app.shutdown();
+    }
+    expect(() => consumer.adaptor.native).toThrow(ZeltLifecycleStateError);
+  });
+
+  it('only requires native completion for the default bridge', async () => {
+    stubEnvironment();
+    const app = await onTinyjs(createApp([tinyjsBridge()]));
+    try {
+      const native = { done: new Promise<void>(() => {}) };
+      app.tinyjsBridge.create({ fetch: async () => new Response() }).init(native);
+      expect((await app.get(TinyjsAppAdaptor)).native).toBe(native);
+    } finally {
+      await app.shutdown();
+    }
+  });
+
   it('uses an explicitly supplied HTTP target without a default HTTP feature', async () => {
     stubEnvironment();
     const app = await onTinyjs(
@@ -176,7 +238,7 @@ describe('tinyjs Fetch bridge', () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
     const nativeBridge = app.tinyjsBridge.create(app.http);
-    const native: TinyjsNativeApp = {
+    const native = {
       done: new Promise(() => {}),
       setTitle: vi.fn(),
       push: vi.fn(),
@@ -222,7 +284,7 @@ describe('tinyjs Fetch bridge', () => {
     const app = await onTinyjs(createApp([tinyjsBridge()]));
     const nativeBridge = app.tinyjsBridge.create({ fetch: async () => new Response() });
     const failure = new Error('native completion failed');
-    const native: TinyjsNativeApp = {
+    const native = {
       done: Promise.reject(failure),
       setTitle: vi.fn(),
       push: vi.fn(),
@@ -241,7 +303,7 @@ describe('tinyjs Fetch bridge', () => {
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
     expect(app.shutdown).toBe((await app.get(RuntimeShutdownService)).shutdown);
     const nativeBridge = app.tinyjsBridge.create(app.http);
-    const native: TinyjsNativeApp = {
+    const native = {
       done: new Promise<void>(() => {}),
       setTitle: vi.fn(),
       push: vi.fn(),
@@ -275,7 +337,7 @@ describe('tinyjs Fetch bridge', () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
     const nativeBridge = app.tinyjsBridge.create(app.http);
-    const native: TinyjsNativeApp = {
+    const native = {
       done: new Promise<void>(() => {}),
       setTitle: vi.fn(),
       push: vi.fn(),
@@ -308,7 +370,7 @@ describe('tinyjs Fetch bridge', () => {
     stubEnvironment();
     const app = await onTinyjs(createApp([http({ controllers: [ApiController] }), tinyjsBridge()]));
     const nativeBridge = app.tinyjsBridge.create(app.http);
-    const native: TinyjsNativeApp = {
+    const native = {
       done: new Promise<void>(() => {}),
       setTitle: vi.fn(),
       push: vi.fn(),
@@ -427,7 +489,7 @@ describe('tinyjs Fetch bridge', () => {
   it('awaits shutdown before native app.done resolves and disposes the native adaptor', async () => {
     stubEnvironment();
     let stopNative: (() => void) | undefined;
-    const native: TinyjsNativeApp = {
+    const native = {
       done: new Promise<void>((resolve) => {
         stopNative = resolve;
       }),

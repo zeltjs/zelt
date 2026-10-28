@@ -37,7 +37,7 @@ The renderer receives a standard `Response`, including status, headers, JSON and
 
 ## Native app and shutdown
 
-Export `init` to attach the native app and ensure Zelt shutdown finishes before tinyjs exits. Inject `TinyjsAppAdaptor` for native `setTitle`, `push` and `quit` operations. Access before `init` or after shutdown fails explicitly.
+Export `init` to attach the native app and ensure Zelt shutdown finishes before tinyjs exits. For native operations, declare a `@Config` subclass of `TinyjsAppAdaptor<NativeApp>` using the app type from your chosen tinyjs version, register it with `tinyjsBridge({ adaptor: DesktopAppAdaptor })`, and inject that subclass. Its `.native` property preserves the complete supplied type; the default adaptor only requires the `done` promise. Access before `init` or after shutdown fails explicitly.
 
 The backend shares DI services across HTTP features and uses [synchronous context](../async-context). Capture helpers at entry and keep the returned references across `await`.
 

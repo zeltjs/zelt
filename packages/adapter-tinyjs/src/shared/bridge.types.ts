@@ -24,7 +24,4 @@ export type TinyjsApiBridge = {
 
 export type TinyjsNativeApp = {
   done: Promise<unknown>;
-  readonly setTitle: (title: string) => unknown;
-  readonly push: (event: string, data: unknown) => unknown;
-  readonly quit: () => unknown;
 };
