@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@types/eslint": "^9.6.1",
-    "@types/estree": "^1.0.7",
+    "@types/estree": "1.0.10",
     "@types/node": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",

@@ -66,6 +66,13 @@ const isTranspilerHelperFrame = (line: string): boolean => {
   return TRANSPILER_HELPER_NAMES.has(name);
 };
 
+// SWC's class-decoration result exposes a synthetic getter named `c`.
+// Require a helper caller so a consumer's own getter remains a candidate.
+const isClassDecoratorGetterFrame = (line: string, previousLine: string | undefined): boolean =>
+  /^\s+at get c \(/.test(line) &&
+  previousLine !== undefined &&
+  isTranspilerHelperFrame(previousLine);
+
 const normalizeStackFilePath = (file: string): string => {
   if (!file.startsWith('file://')) return file;
   try {
@@ -263,7 +270,8 @@ const applicationFrame = (
 ): { readonly position: Position; readonly index: number } | undefined => {
   const lines = stack.split('\n').slice(2);
   for (const [index, line] of lines.entries()) {
-    if (isTranspilerHelperFrame(line)) continue;
+    if (isTranspilerHelperFrame(line) || isClassDecoratorGetterFrame(line, lines[index - 1]))
+      continue;
     const position = resolvePositionAt(
       lines,
       index,

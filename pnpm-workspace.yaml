@@ -6,35 +6,35 @@ packages:
 # 共通依存のバージョンを一元管理し、パッケージ間でのバージョン不一致を防ぐ
 # (異なる版が解決されると hono/valibot の instanceof チェックが runtime で失敗するため)
 catalog:
-  hono: 4.13.16
-  valibot: 1.5.0
-  "@valibot/to-json-schema": 1.8.0
   "@needle-di/core": 1.2.1
   "@types/node": 26.6.6
-  typescript: 6.0.3
-  vitest: 5.0.5
+  "@valibot/to-json-schema": 1.8.0
+  hono: 4.13.16
   tsdown: 0.23.4
   tsx: 4.23.15
+  typescript: 6.0.3
+  valibot: 1.5.0
+  vitest: 5.0.5
 
 catalogs:
   # peerDependencies 用: consumer 側の柔軟性を保つため範囲指定を維持する
   peer:
-    hono: ^4.0.0
-    valibot: ^1.0.0
     "@valibot/to-json-schema": ^1.0.0
+    hono: ^4.0.0
     typescript: ">=5.0.0"
+    valibot: ^1.0.0
 
 ignoredBuiltDependencies:
   - unrs-resolver
-
-# better-sqlite3 13 invokes node-gyp during install but does not declare it.
-packageExtensions:
-  better-sqlite3@13:
-    dependencies:
-      node-gyp: 13.1.0
 
 onlyBuiltDependencies:
   - "@9wick/eslint-plugin-strict-type-rules"
   - better-sqlite3
   - esbuild
   - nx
+
+# better-sqlite3 13 invokes node-gyp during install but does not declare it.
+packageExtensions:
+  better-sqlite3@13:
+    dependencies:
+      node-gyp: 13.1.0

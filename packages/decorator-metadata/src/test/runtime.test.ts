@@ -52,6 +52,43 @@ describe('captureStackTrace and resolvePosition', () => {
     expect(skipTestAndNodeModules).toBeUndefined();
   });
 
+  it.each([
+    {
+      name: 'SWC class decorator getter',
+      defineFrame: '    at /tmp/app/controller.ts:12:3',
+      callFrames: [
+        '    at applyClassDecs (/tmp/app/controller.ts:100:1)',
+        '    at get c (/tmp/app/controller.ts:120:1)',
+        '    at /tmp/app/controller.ts:140:1',
+      ],
+    },
+    {
+      name: 'genuine user getter',
+      defineFrame: '    at get c (/tmp/app/controller.ts:12:3)',
+      callFrames: ['    at get c (/tmp/app/controller.ts:14:1)'],
+    },
+  ])(
+    'resolvePosition handles $name without guessing coordinates',
+    ({ defineFrame, callFrames }) => {
+      const callError = new CaptureStackError();
+      const trace: StackTrace = {
+        _brand: 'StackTrace',
+        error: new CaptureStackError(),
+        callError,
+      };
+      const internal = '    at capture (/some/framework/internal.ts:10:1)';
+      const outer = '    at run (/tmp/test-runner.ts:1:1)';
+      trace.error.stack = ['Error: define stack', internal, defineFrame, outer].join('\n');
+      callError.stack = ['Error: call stack', internal, ...callFrames, outer].join('\n');
+
+      expect(resolvePosition(trace)).toEqual({
+        sourceFile: '/tmp/app/controller.ts',
+        line: 12,
+        column: 3,
+      });
+    },
+  );
+
   it('resolvePosition skips wrapper frames identified by define/call diff', () => {
     // Simulate what createClassDecorator does internally: a wrapper (e.g.
     // @zeltjs/core's Controller) calls into the decorator factory, so its file
