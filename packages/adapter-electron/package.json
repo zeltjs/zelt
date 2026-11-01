@@ -58,7 +58,7 @@
   "dependencies": {
     "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/core": "workspace:*",
-    "ts-pattern": "5.7.1"
+    "ts-pattern": "5.9.2"
   },
   "devDependencies": {
     "@types/node": "catalog:"

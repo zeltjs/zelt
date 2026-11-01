@@ -52,8 +52,8 @@
     "chokidar": "5.0.0",
     "citty": "0.1.6",
     "consola": "3.4.2",
-    "jiti": "2.6.1",
-    "ts-pattern": "5.7.1",
+    "jiti": "2.7.0",
+    "ts-pattern": "5.9.2",
     "tsx": "catalog:",
     "valibot": "catalog:"
   },

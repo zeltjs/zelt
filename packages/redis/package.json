@@ -58,7 +58,7 @@
     }
   },
   "dependencies": {
-    "ioredis": "5.10.1"
+    "ioredis": "5.11.1"
   },
   "devDependencies": {
     "@zeltjs/core": "workspace:*",

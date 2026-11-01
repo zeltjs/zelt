@@ -15,7 +15,7 @@
     "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/cli": "workspace:*",
     "@zeltjs/core": "workspace:*",
-    "better-sqlite3": "12.9.0",
+    "better-sqlite3": "12.11.1",
     "drizzle-orm": "0.45.2",
     "valibot": "catalog:",
     "@zeltjs/openapi": "workspace:*",

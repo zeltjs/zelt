@@ -68,7 +68,7 @@
     "@zeltjs/core": "workspace:*",
     "@zeltjs/redis": "workspace:*",
     "@zeltjs/testing": "workspace:*",
-    "ioredis": "5.10.1",
+    "ioredis": "5.11.1",
     "mitt": "3.0.1",
     "testcontainers": "10.25.0"
   },

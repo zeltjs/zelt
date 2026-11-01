@@ -1,5 +1,5 @@
-import { Container, inject, injectable } from '@needle-di/core';
-import { describe, expect, it } from 'vitest';
+import { Container, InjectionToken, inject, injectable } from '@needle-di/core';
+import { describe, expect, it, vi } from 'vitest';
 
 import { getTransient, isTransientClass, registerAsTransient } from './transient.lib';
 
@@ -57,11 +57,16 @@ describe('transient mechanism', () => {
       registerAsTransient(CleanupTest);
 
       const container = new Container();
-      // If unbind is omitted, the second call throws "already constructed" error
-      expect(() => {
-        getTransient(container, CleanupTest);
-        getTransient(container, CleanupTest);
-      }).not.toThrow();
+      const unbind = vi.spyOn(container, 'unbind');
+
+      getTransient(container, CleanupTest);
+      getTransient(container, CleanupTest);
+
+      expect(unbind).toHaveBeenCalledTimes(2);
+      expect(unbind).toHaveBeenCalledWith(expect.any(InjectionToken));
+      for (const [token] of unbind.mock.calls) {
+        expect(container.has(token)).toBe(false);
+      }
     });
   });
 });

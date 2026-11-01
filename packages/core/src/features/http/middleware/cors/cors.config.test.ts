@@ -168,7 +168,12 @@ describe('CorsConfig', () => {
     await readyApp.shutdown();
   });
 
-  it('reflects request origin for wildcard credentials', async () => {
+  it.each([
+    ['GET', 'http://example.com'],
+    ['OPTIONS', 'http://example.com'],
+    ['GET', 'null'],
+    ['OPTIONS', 'null'],
+  ])('does not reflect %s request origin %s for wildcard credentials', async (method, origin) => {
     @Config
     class MyCorsConfig extends CorsConfig {
       override readonly origin = '*';
@@ -179,12 +184,13 @@ describe('CorsConfig', () => {
     const readyApp = await app.createRuntime();
 
     const res = await readyApp.http.request('/test', {
-      headers: { Origin: 'http://example.com' },
+      method,
+      headers: { Origin: origin },
     });
 
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('http://example.com');
+    // Browsers reject wildcard origins with credentials; reflecting the origin would allow them.
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
     expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true');
-    expect(res.headers.get('Vary')).toContain('Origin');
 
     await readyApp.shutdown();
   });

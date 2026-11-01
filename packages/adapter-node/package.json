@@ -35,7 +35,7 @@
     "distribution": "node ../../scripts/pack-distribution.mjs"
   },
   "dependencies": {
-    "@hono/node-server": "2.0.1"
+    "@hono/node-server": "2.1.5"
   },
   "peerDependencies": {
     "@zeltjs/core": "workspace:*"

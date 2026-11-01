@@ -41,6 +41,7 @@ export const twoslasher = createTwoslasher({
     moduleResolution: 100, // Bundler
     target: 99, // ESNext
     lib: ['lib.esnext.full.d.ts'],
+    types: ['node'],
     strict: true,
     esModuleInterop: true,
     skipLibCheck: true,

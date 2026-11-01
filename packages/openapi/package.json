@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "@zeltjs/decorator-metadata": "workspace:*",
-    "ts-pattern": "5.7.1"
+    "ts-pattern": "5.9.2"
   },
   "devDependencies": {
     "@types/node": "catalog:",
