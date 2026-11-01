@@ -320,63 +320,63 @@ describe('feature lifecycle regressions', () => {
     expect(constructed).not.toHaveBeenCalled();
   });
 
-  it.each([
-    false,
-    true,
-  ])('shares shutdown completion and failure (hook fails: %s)', async (fail) => {
-    const entered = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
-    const finished = vi.fn();
-    const counter = {
-      key: 'counter' as const,
-      blueprint: () => ({}),
-      featureClasses: () => [],
-      realize: () => ({ read: () => 7 }),
-    };
-    @Injectable()
-    class Consumer {
-      readonly counter = injectFeature(counter);
-      constructor(lifecycle = inject(LifecycleManager)) {
-        lifecycle.register({
-          startup: () => {},
-          shutdown: async () => {
-            entered.resolve();
-            await release.promise;
-            finished(this.counter.read());
-            if (fail) throw new Error('hook failed');
-          },
-        });
+  it.each([false, true])(
+    'shares shutdown completion and failure (hook fails: %s)',
+    async (fail) => {
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const finished = vi.fn();
+      const counter = {
+        key: 'counter' as const,
+        blueprint: () => ({}),
+        featureClasses: () => [],
+        realize: () => ({ read: () => 7 }),
+      };
+      @Injectable()
+      class Consumer {
+        readonly counter = injectFeature(counter);
+        constructor(lifecycle = inject(LifecycleManager)) {
+          lifecycle.register({
+            startup: () => {},
+            shutdown: async () => {
+              entered.resolve();
+              await release.promise;
+              finished(this.counter.read());
+              if (fail) throw new Error('hook failed');
+            },
+          });
+        }
       }
-    }
-    const hooks = {
-      key: 'hooks' as const,
-      blueprint: () => ({}),
-      featureClasses: () => [Consumer],
-      realize: () => ({}),
-    };
-    const runtime = await createApp([counter, hooks]).createRuntime({ warmup: true });
-    const consumer = await runtime.get(Consumer);
-    const first = runtime.shutdown();
-    await entered.promise;
-    const second = runtime.shutdown();
-    const outcomes = Promise.allSettled([first, second]);
-    try {
-      expect(second).toBe(first);
-      expect(finished).not.toHaveBeenCalled();
-    } finally {
-      release.resolve();
-      await outcomes;
-    }
-    expect(finished).toHaveBeenCalledExactlyOnceWith(7);
-    const [one, two] = await outcomes;
-    expect(one.status).toBe(fail ? 'rejected' : 'fulfilled');
-    expect(two).toEqual(one);
-    if (one.status === 'rejected' && two.status === 'rejected') {
-      expect(two.reason).toBe(one.reason);
-    }
-    expect(runtime.shutdown()).toBe(first);
-    expect(() => consumer.counter.read()).toThrow(/disposed/);
-  });
+      const hooks = {
+        key: 'hooks' as const,
+        blueprint: () => ({}),
+        featureClasses: () => [Consumer],
+        realize: () => ({}),
+      };
+      const runtime = await createApp([counter, hooks]).createRuntime({ warmup: true });
+      const consumer = await runtime.get(Consumer);
+      const first = runtime.shutdown();
+      await entered.promise;
+      const second = runtime.shutdown();
+      const outcomes = Promise.allSettled([first, second]);
+      try {
+        expect(second).toBe(first);
+        expect(finished).not.toHaveBeenCalled();
+      } finally {
+        release.resolve();
+        await outcomes;
+      }
+      expect(finished).toHaveBeenCalledExactlyOnceWith(7);
+      const [one, two] = await outcomes;
+      expect(one.status).toBe(fail ? 'rejected' : 'fulfilled');
+      expect(two).toEqual(one);
+      if (one.status === 'rejected' && two.status === 'rejected') {
+        expect(two.reason).toBe(one.reason);
+      }
+      expect(runtime.shutdown()).toBe(first);
+      expect(() => consumer.counter.read()).toThrow(/disposed/);
+    },
+  );
 
   it('forwards writes and accessor receivers to the same runtime state', async () => {
     class State {

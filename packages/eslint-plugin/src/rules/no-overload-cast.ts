@@ -40,8 +40,8 @@ const returnsOwnParameter = (node: {
   if (statements.length !== 1) return false;
 
   const statement = statements[0];
-  if (!statement || statement.type !== 'ReturnStatement') return false;
-  if (!statement.argument || statement.argument.type !== 'Identifier') return false;
+  if (statement?.type !== 'ReturnStatement') return false;
+  if (statement.argument?.type !== 'Identifier') return false;
 
   const returned = statement.argument.name;
   return node.params.some((param) => param.type === 'Identifier' && param.name === returned);

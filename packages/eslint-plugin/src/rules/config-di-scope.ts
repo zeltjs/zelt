@@ -115,7 +115,7 @@ const rule: Rule.RuleModule = {
         }
 
         const firstArg = node.arguments[0];
-        if (!firstArg || firstArg.type !== 'Identifier') {
+        if (firstArg?.type !== 'Identifier') {
           return;
         }
 

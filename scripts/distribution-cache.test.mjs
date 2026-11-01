@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 
 const workspace = fileURLToPath(new URL('../', import.meta.url));
+const nxDirectory = join(workspace, 'node_modules', 'nx');
+const nxManifest = JSON.parse(readFileSync(join(nxDirectory, 'package.json'), 'utf8'));
 const writeJson = (file, value) => writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
 const success = (result) => {
   assert.equal(result.error, undefined, result.stdout + result.stderr);
@@ -32,7 +34,7 @@ test('distribution caches track the actual prerequisite build output', async (t)
   }
   writeJson(join(root, 'package.json'), {
     name: 'distribution-cache-workspace', private: true,
-    packageManager: 'pnpm@10.33.0', devDependencies: { nx: '21.6.10' },
+    packageManager: 'pnpm@10.33.0', devDependencies: { nx: nxManifest.version },
   });
   writeJson(join(root, 'tsconfig.json'), {});
   writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
@@ -53,7 +55,7 @@ test('distribution caches track the actual prerequisite build output', async (t)
   const toolTime = new Date();
   utimesSync(tool, toolTime, toolTime);
   const run = () => success(spawnSync(process.execPath, [
-    join(workspace, 'node_modules', 'nx', 'bin', 'nx.js'), 'run', 'distribution-probe:distribution', '--outputStyle=static',
+    join(nxDirectory, nxManifest.bin.nx), 'run', 'distribution-probe:distribution', '--outputStyle=static',
   ], {
     cwd: root, encoding: 'utf8', timeout: 60000,
     env: { ...process.env, NX_DAEMON: 'false', NX_ISOLATE_PLUGINS: 'false', npm_config_offline: 'true' },

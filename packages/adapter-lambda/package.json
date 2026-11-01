@@ -38,7 +38,7 @@
     "@zeltjs/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/aws-lambda": "8.10.150",
+    "@types/aws-lambda": "8.10.164",
     "@types/node": "catalog:"
   },
   "volta": {

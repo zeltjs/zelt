@@ -78,20 +78,20 @@ describe('emitAppType', () => {
     expect(out).toContain('DO NOT EDIT');
   });
 
-  it.each([
-    'PublicController',
-    'default',
-  ])('uses the actual export %s with a local binding', (exportName) => {
-    const out = emitAppType({
-      controllers: controllers.map((controller) => ({
-        ...controller,
-        source: { ...controller.source, exportName },
-      })),
-      distDir: '/app/generated',
-    });
-    expect(out).toContain(
-      `import type { ${exportName} as UserController } from '../src/user.controller';`,
-    );
-    expect(out).toContain('typeof UserController.prototype.show');
-  });
+  it.each(['PublicController', 'default'])(
+    'uses the actual export %s with a local binding',
+    (exportName) => {
+      const out = emitAppType({
+        controllers: controllers.map((controller) => ({
+          ...controller,
+          source: { ...controller.source, exportName },
+        })),
+        distDir: '/app/generated',
+      });
+      expect(out).toContain(
+        `import type { ${exportName} as UserController } from '../src/user.controller';`,
+      );
+      expect(out).toContain('typeof UserController.prototype.show');
+    },
+  );
 });

@@ -36,24 +36,23 @@ describe('Mediator transitions', () => {
     ]);
     expect(before.view.node).toBeNull();
   });
-  it.each([
-    'near',
-    'flow',
-    'all',
-  ] as const)('keeps %s locked scope during every detail selection', (mode) => {
-    let state = ready(initialReady(graph, 1), {
-      type: 'subject.select',
-      id: nodeId('OrderService'),
-    });
-    state = ready(state, { type: 'scope.mode', mode });
-    state = ready(state, { type: 'scope.lock', locked: true });
-    const expected = scopeRelations(graph, state.view);
-    for (const id of graph.owners.keys()) {
-      const next = ready(state, { type: 'subject.select', id });
-      expect(next.view.node).toBe(id);
-      expect(scopeRelations(graph, next.view)).toEqual(expected);
-    }
-  });
+  it.each(['near', 'flow', 'all'] as const)(
+    'keeps %s locked scope during every detail selection',
+    (mode) => {
+      let state = ready(initialReady(graph, 1), {
+        type: 'subject.select',
+        id: nodeId('OrderService'),
+      });
+      state = ready(state, { type: 'scope.mode', mode });
+      state = ready(state, { type: 'scope.lock', locked: true });
+      const expected = scopeRelations(graph, state.view);
+      for (const id of graph.owners.keys()) {
+        const next = ready(state, { type: 'subject.select', id });
+        expect(next.view.node).toBe(id);
+        expect(scopeRelations(graph, next.view)).toEqual(expected);
+      }
+    },
+  );
   it('unlocks to the current detail and does not clear the selected source tab', () => {
     let state = ready(initialReady(graph, 1), {
       type: 'scope.start',

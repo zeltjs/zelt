@@ -128,14 +128,12 @@ describe('variadic command arguments', () => {
     });
   });
 
-  it.each([
-    [],
-    ['1', '2', '3', '4'],
-    ['1', 'bad'],
-    ['Infinity'],
-  ])('rejects invalid counts or elements: %j', (...tokens) => {
-    expect(bindCommandInput(tokens, bounded)).toMatchObject({ ok: false });
-  });
+  it.each([[], ['1', '2', '3', '4'], ['1', 'bad'], ['Infinity']])(
+    'rejects invalid counts or elements: %j',
+    (...tokens) => {
+      expect(bindCommandInput(tokens, bounded)).toMatchObject({ ok: false });
+    },
+  );
 
   it.each([['1'], ['1', '2', '3']])('accepts the count boundaries: %j', (...tokens) => {
     expect(success(tokens, bounded)).toEqual({ values: tokens.map(Number) });
@@ -258,14 +256,12 @@ describe('command input unions', () => {
 });
 
 describe('strict command input validation', () => {
-  it.each([
-    ['--unknown'],
-    ['--unknown=value'],
-    ['-x'],
-    ['ignored'],
-  ])('rejects undeclared input in an empty schema: %j', (...tokens) => {
-    expect(bindCommandInput(tokens, cliSchema({}))).toMatchObject({ ok: false });
-  });
+  it.each([['--unknown'], ['--unknown=value'], ['-x'], ['ignored']])(
+    'rejects undeclared input in an empty schema: %j',
+    (...tokens) => {
+      expect(bindCommandInput(tokens, cliSchema({}))).toMatchObject({ ok: false });
+    },
+  );
 
   it('rejects an excess fixed argument and reports allowed and actual counts', () => {
     const schema = cliSchema({ args: [{ name: 'first', type: 'string' }] });

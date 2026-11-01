@@ -254,6 +254,7 @@ const baseOf = async (ctx: Context, cls: AnyClass): Promise<Located | null> => {
   return locate(ctx, parse(ClassSchema, prototype));
 };
 
+/** @throws {UnsupportedTypeScriptVersionError} */
 const dependenciesOf = async (
   ctx: Context,
   located: Located,
@@ -299,6 +300,7 @@ const decoratorsOf = (meta: ClassMeta): string[] =>
     return name === null ? [] : [name];
   });
 
+/** @throws {UnsupportedTypeScriptVersionError} */
 const classEntryOf = async (
   ctx: Context,
   here: Located,
@@ -325,7 +327,10 @@ const classEntryOf = async (
   };
 };
 
-/** 登録された class から inject の依存をたどり、地図に載りうる class を集める */
+/**
+ * 登録された class から inject の依存をたどり、地図に載りうる class を集める
+ * @throws {UnsupportedTypeScriptVersionError}
+ */
 const collectClasses = async (
   ctx: Context,
   roots: readonly AnyClass[],

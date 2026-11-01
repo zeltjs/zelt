@@ -135,31 +135,29 @@ describe('planStudio', () => {
     });
   });
 
-  it.each([
-    '--export',
-    '--export=-',
-    '--export=out.json',
-  ])('rejects the removed %s flag instead of silently serving', (flag) => {
-    const plan = planStudio([flag, '--config', 'demo.extract.json'], {
-      config: 'demo.extract.json',
-    });
-    expect(plan).toEqual({
-      kind: 'invalid',
-      message: expect.stringContaining('--export was removed'),
-    });
-  });
+  it.each(['--export', '--export=-', '--export=out.json'])(
+    'rejects the removed %s flag instead of silently serving',
+    (flag) => {
+      const plan = planStudio([flag, '--config', 'demo.extract.json'], {
+        config: 'demo.extract.json',
+      });
+      expect(plan).toEqual({
+        kind: 'invalid',
+        message: expect.stringContaining('--export was removed'),
+      });
+    },
+  );
 
   // 旧 studio は zelt.config.ts を受けていた。同じ引数で呼ばれたときに
   // 「JSON として読めない」ではなく廃止を伝える
-  it.each([
-    'zelt.config.ts',
-    'zelt.config.mts',
-    'studio.config.js',
-  ])('rejects %s with the removed-format message', (configFile) => {
-    const plan = planStudio([], { config: configFile });
-    expect(plan.kind).toBe('invalid');
-    expect(plan.kind === 'invalid' && plan.message).toContain('zelt.config.ts based studio');
-  });
+  it.each(['zelt.config.ts', 'zelt.config.mts', 'studio.config.js'])(
+    'rejects %s with the removed-format message',
+    (configFile) => {
+      const plan = planStudio([], { config: configFile });
+      expect(plan.kind).toBe('invalid');
+      expect(plan.kind === 'invalid' && plan.message).toContain('zelt.config.ts based studio');
+    },
+  );
 });
 
 describe('runServe', () => {

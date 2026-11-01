@@ -360,15 +360,14 @@ describe('createApp', () => {
     );
   });
 
-  it.each([
-    '__proto__',
-    'constructor',
-    'prototype',
-  ])('rejects feature key reserved by JavaScript object semantics: %s', (key) => {
-    expect(() => createApp([createEmptyFeature(key)])).toThrow(
-      new RegExp(`Reserved feature namespace: ${key}`),
-    );
-  });
+  it.each(['__proto__', 'constructor', 'prototype'])(
+    'rejects feature key reserved by JavaScript object semantics: %s',
+    (key) => {
+      expect(() => createApp([createEmptyFeature(key)])).toThrow(
+        new RegExp(`Reserved feature namespace: ${key}`),
+      );
+    },
+  );
 
   it('createRuntime({ prebuilt }) delivers the value to resolver.prebuilt in realize()', async () => {
     const prebuilt: ZeltPrebuilt = { version: 1, features: { graphql: { schema: 'type Query' } } };
