@@ -44,7 +44,7 @@
     "@rollup/plugin-swc": "0.4.1",
     "@swc/core": "1.16.21",
     "@types/node": "catalog:",
-    "@vitest/coverage-v8": "4.1.12",
+    "@vitest/coverage-v8": "5.0.5",
     "@zeltjs/eslint-plugin": "workspace:*",
     "codepolicy": "0.2.2",
     "dependency-cruiser": "18.7.0",
@@ -66,7 +66,7 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.1",
     "unplugin-swc": "2.0.0",
-    "vitest": "4.1.12"
+    "vitest": "5.0.5"
   },
   "volta": {
     "node": "26.1.0",
