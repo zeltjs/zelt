@@ -9,8 +9,8 @@ import { match, P } from 'ts-pattern';
 import { nodeCliRuntime } from './cli-runtime.lib';
 
 type GraphqlCodegenArgs = {
-  readonly schema?: string;
-  readonly out?: string;
+  readonly schema?: string | undefined;
+  readonly out?: string | undefined;
 };
 
 type GraphqlCodegenOptions = {

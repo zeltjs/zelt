@@ -27,6 +27,12 @@ catalogs:
 ignoredBuiltDependencies:
   - unrs-resolver
 
+# better-sqlite3 13 invokes node-gyp during install but does not declare it.
+packageExtensions:
+  better-sqlite3@13:
+    dependencies:
+      node-gyp: 13.1.0
+
 onlyBuiltDependencies:
   - "@9wick/eslint-plugin-strict-type-rules"
   - better-sqlite3

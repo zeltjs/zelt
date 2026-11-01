@@ -461,7 +461,7 @@ const attachScalarSerializers = (schema: GraphQLSchema, runtime: GeneratedGraphq
     if (!(type instanceof GraphQLScalarType)) continue;
     const serialize = scalar.codec.serialize;
     if (typeof serialize !== 'function') continue;
-    type.serialize = (value: unknown) => Reflect.apply(serialize, scalar.codec, [value]);
+    type.coerceOutputValue = (value: unknown) => Reflect.apply(serialize, scalar.codec, [value]);
   }
 };
 

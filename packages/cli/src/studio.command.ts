@@ -57,11 +57,11 @@ const hasRemovedExportFlag = (rawArgs: readonly string[]): boolean =>
 // citty の ArgsDef は optional な string 引数も `string` 型に見せるため、
 // 実際の optionality (未指定時は undefined) を持つ型で受け直す
 type StudioArgs = {
-  readonly config?: string;
-  readonly port?: string;
-  readonly open?: boolean;
-  readonly output?: string;
-  readonly 'allow-incomplete'?: boolean;
+  readonly config?: string | undefined;
+  readonly port?: string | undefined;
+  readonly open?: boolean | undefined;
+  readonly output?: string | undefined;
+  readonly 'allow-incomplete'?: boolean | undefined;
 };
 
 type StudioRuntime = Pick<CliRuntime, 'setExitCode'>;

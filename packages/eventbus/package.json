@@ -68,9 +68,9 @@
     "@zeltjs/core": "workspace:*",
     "@zeltjs/redis": "workspace:*",
     "@zeltjs/testing": "workspace:*",
-    "ioredis": "5.11.1",
+    "ioredis": "6.0.0",
     "mitt": "3.0.1",
-    "testcontainers": "10.25.0"
+    "testcontainers": "12.2.1"
   },
   "volta": {
     "extends": "../../package.json"

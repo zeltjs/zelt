@@ -51,7 +51,7 @@
   "dependencies": {
     "@standard-schema/spec": "1.1.0",
     "@zeltjs/decorator-metadata": "workspace:*",
-    "graphql": "16.14.2",
+    "graphql": "17.0.2",
     "ts-pattern": "5.9.2"
   },
   "devDependencies": {
