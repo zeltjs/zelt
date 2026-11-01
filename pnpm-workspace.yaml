@@ -21,7 +21,7 @@ catalogs:
   peer:
     "@valibot/to-json-schema": ^1.0.0
     hono: ^4.0.0
-    typescript: ">=5.0.0"
+    typescript: ">=5.0.0 <7"
     valibot: ^1.0.0
 
 ignoredBuiltDependencies:
