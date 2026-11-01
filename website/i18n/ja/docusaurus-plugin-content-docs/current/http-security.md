@@ -88,6 +88,24 @@ class MyCorsConfig extends CorsConfig {
 }
 ```
 
+### 認証情報付きリクエストとワイルドカードからの移行 {#credentialed-requests-and-wildcard-migration}
+
+Cookieなどの認証情報を送る場合は、`credentials: true` と、信頼するOriginの明示的なリストを設定します。
+
+```typescript
+import { Config, CorsConfig } from '@zeltjs/core';
+
+@Config
+class MyCorsConfig extends CorsConfig {
+  override readonly origin = ['https://app.example.com', 'https://admin.example.com'];
+  override readonly credentials = true;
+}
+```
+
+`origin: '*'` と `credentials: true` を併用していた場合は、ワイルドカードを許可リストに置き換えてください。
+更新後のHonoは、この組み合わせで任意のリクエストOriginを反映しません。ブラウザーはワイルドカードの応答に対する認証情報付きリクエストを拒否します。
+これは脆弱性の修正です。信頼できないOriginを反映して旧挙動に戻さないでください。
+
 ### 利用可能なオプション {#available-options}
 
 | オプション | 型 | デフォルト | 説明 |

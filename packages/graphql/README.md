@@ -6,6 +6,21 @@ The runtime manifest shape and generated helper APIs may change before stable
 release. This package is safe to try in Zelt applications, but app code should
 stay on the app-authoring APIs listed below.
 
+## Requirements and GraphQL 17 migration
+
+Install GraphQL 17 alongside this package:
+
+```sh
+pnpm add @zeltjs/graphql graphql@^17.0.2
+```
+
+`graphql` is a peer dependency so the application and executor share the same
+GraphQL instance. When migrating from GraphQL 16, upgrade the application's
+`graphql` dependency to 17 as well. Import custom validation rules and GraphQL
+types from that shared package; do not pass rules from a separate GraphQL 16
+installation. Mixed instances can break type recognition and validation,
+including introspection restrictions.
+
 ## Runtime model
 
 GraphQL support is built around a shared runtime manifest:

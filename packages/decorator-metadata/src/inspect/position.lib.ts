@@ -67,7 +67,7 @@ const isTranspilerHelperFrame = (line: string): boolean => {
 };
 
 // SWC's class-decoration result exposes a synthetic getter named `c`.
-// Require a helper caller so a consumer's own getter remains a candidate.
+// Its context identifies a potential helper; definition frames disambiguate user getters.
 const isClassDecoratorGetterFrame = (line: string, previousLine: string | undefined): boolean =>
   /^\s+at get c \(/.test(line) &&
   previousLine !== undefined &&
@@ -267,11 +267,25 @@ const outerContextLength = (
 
 const applicationFrame = (
   stack: string,
+  defineFrames: readonly (StackFrame | undefined)[],
 ): { readonly position: Position; readonly index: number } | undefined => {
   const lines = stack.split('\n').slice(2);
+  const callFrames = parseFrames(stack);
   for (const [index, line] of lines.entries()) {
-    if (isTranspilerHelperFrame(line) || isClassDecoratorGetterFrame(line, lines[index - 1]))
-      continue;
+    if (isTranspilerHelperFrame(line)) continue;
+    if (isClassDecoratorGetterFrame(line, lines[index - 1])) {
+      const appliedFrame = callFrames[index];
+      const hasDefinitionFrame =
+        appliedFrame !== undefined &&
+        defineFrames.some(
+          (frame, defineIndex) =>
+            frame !== undefined &&
+            sameActivation(frame, appliedFrame) &&
+            (sameFrame(frame, appliedFrame) ||
+              outerContextLength(defineFrames, callFrames, defineIndex, index) > 0),
+        );
+      if (!hasDefinitionFrame) continue;
+    }
     const position = resolvePositionAt(
       lines,
       index,
@@ -319,10 +333,11 @@ export const resolvePosition = (
   const isFrameworkPath = options?.isFrameworkPath ?? defaultIsFrameworkPath;
   const callStack = readStack(trace?.callError);
   if (!callStack) return findFirstUserPosition(stack, isFrameworkPath);
-  const application = applicationFrame(callStack);
+  const defineFrames = parseFrames(stack);
+  const application = applicationFrame(callStack, defineFrames);
   if (!application) return undefined;
   return findExpressionPosition(
-    parseFrames(stack),
+    defineFrames,
     parseFrames(callStack),
     application.index,
     isFrameworkPath,
@@ -338,6 +353,6 @@ export const resolveDefinitionPosition = (trace: StackTrace | undefined): Positi
   const stack = readStack(trace.error);
   if (!stack) return undefined;
   const callStack = readStack(trace.callError);
-  if (callStack) return applicationFrame(callStack)?.position;
+  if (callStack) return applicationFrame(callStack, parseFrames(stack))?.position;
   return findFirstUserPosition(stack, isDecoratorMachineryPath);
 };

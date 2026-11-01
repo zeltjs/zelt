@@ -88,6 +88,27 @@ class MyCorsConfig extends CorsConfig {
 }
 ```
 
+### Credentialed requests and wildcard migration
+
+For requests with cookies or other credentials, set `credentials: true` and
+explicitly list the trusted origins:
+
+```typescript
+import { Config, CorsConfig } from '@zeltjs/core';
+
+@Config
+class MyCorsConfig extends CorsConfig {
+  override readonly origin = ['https://app.example.com', 'https://admin.example.com'];
+  override readonly credentials = true;
+}
+```
+
+If upgrading from `origin: '*'` with `credentials: true`, replace the wildcard
+with an explicit allowlist. Updated Hono no longer reflects arbitrary request
+origins for this combination: browsers reject the wildcard response for
+credentialed requests. This fixes a security vulnerability; do not restore
+the old behavior by reflecting untrusted origins.
+
 ### Available Options
 
 | Option | Type | Default | Description |

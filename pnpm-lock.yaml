@@ -573,9 +573,6 @@ importers:
       '@zeltjs/decorator-metadata':
         specifier: workspace:*
         version: link:../decorator-metadata
-      graphql:
-        specifier: 17.0.2
-        version: 17.0.2
       ts-pattern:
         specifier: 5.9.2
         version: 5.9.2
@@ -589,6 +586,9 @@ importers:
       '@zeltjs/cli':
         specifier: workspace:*
         version: link:../cli
+      graphql:
+        specifier: 17.0.2
+        version: 17.0.2
       valibot:
         specifier: 'catalog:'
         version: 1.5.0(typescript@6.0.3)

@@ -168,6 +168,34 @@ describe('CorsConfig', () => {
     await readyApp.shutdown();
   });
 
+  it.each(['GET', 'OPTIONS'])(
+    'uses an explicit credentialed origin allowlist for %s',
+    async (method) => {
+      @Config
+      class MyCorsConfig extends CorsConfig {
+        override readonly origin = ['http://example.com', 'http://localhost:3000'];
+        override readonly credentials = true;
+      }
+
+      const app = createApp([http({ controllers: [TestController] })], { configs: [MyCorsConfig] });
+      const readyApp = await app.createRuntime();
+      try {
+        for (const { origin, allowedOrigin } of [
+          { origin: 'http://example.com', allowedOrigin: 'http://example.com' },
+          { origin: 'http://localhost:3000', allowedOrigin: 'http://localhost:3000' },
+          { origin: 'http://evil.example', allowedOrigin: null },
+          { origin: 'null', allowedOrigin: null },
+        ]) {
+          const res = await readyApp.http.request('/test', { method, headers: { Origin: origin } });
+          expect(res.headers.get('Access-Control-Allow-Origin')).toBe(allowedOrigin);
+          expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true');
+        }
+      } finally {
+        await readyApp.shutdown();
+      }
+    },
+  );
+
   it.each([
     ['GET', 'http://example.com'],
     ['OPTIONS', 'http://example.com'],

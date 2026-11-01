@@ -1,7 +1,7 @@
 /* biome-ignore-all lint/complexity/noStaticOnlyClass: test fixtures */
 import { describe, expect, it } from 'vitest';
 
-import { getSourcePosition, resolvePosition } from '../inspect/index';
+import { getSourcePosition, resolveDefinitionPosition, resolvePosition } from '../inspect/index';
 import type { StackTrace } from '../runtime/index';
 import {
   aggregateMembers,
@@ -56,6 +56,7 @@ describe('captureStackTrace and resolvePosition', () => {
     {
       name: 'SWC class decorator getter',
       defineFrame: '    at /tmp/app/controller.ts:12:3',
+      definitionLine: 140,
       callFrames: [
         '    at applyClassDecs (/tmp/app/controller.ts:100:1)',
         '    at get c (/tmp/app/controller.ts:120:1)',
@@ -65,11 +66,40 @@ describe('captureStackTrace and resolvePosition', () => {
     {
       name: 'genuine user getter',
       defineFrame: '    at get c (/tmp/app/controller.ts:12:3)',
+      definitionLine: 14,
       callFrames: ['    at get c (/tmp/app/controller.ts:14:1)'],
+    },
+    {
+      name: 'user getter calling a legacy decorator helper',
+      defineFrame: '    at get c (/tmp/app/controller.ts:12:3)',
+      definitionLine: 14,
+      callFrames: [
+        '    at __decorate (/tmp/app/controller.ts:100:1)',
+        '    at get c (/tmp/app/controller.ts:14:1)',
+      ],
+    },
+    {
+      name: 'user getter calling a class decorator helper',
+      defineFrame: '    at get c (/tmp/app/controller.ts:12:3)',
+      definitionLine: 14,
+      callFrames: [
+        '    at applyClassDecs (/tmp/app/controller.ts:100:1)',
+        '    at get c (/tmp/app/controller.ts:14:1)',
+      ],
+    },
+    {
+      name: 'user getter following a synthetic class decorator getter',
+      defineFrame: '    at get c (/tmp/app/controller.ts:12:3)',
+      definitionLine: 14,
+      callFrames: [
+        '    at applyClassDecs (/tmp/app/controller.ts:100:1)',
+        '    at get c (/tmp/app/controller.ts:120:1)',
+        '    at get c (/tmp/app/controller.ts:14:1)',
+      ],
     },
   ])(
     'resolvePosition handles $name without guessing coordinates',
-    ({ defineFrame, callFrames }) => {
+    ({ defineFrame, callFrames, definitionLine }) => {
       const callError = new CaptureStackError();
       const trace: StackTrace = {
         _brand: 'StackTrace',
@@ -85,6 +115,11 @@ describe('captureStackTrace and resolvePosition', () => {
         sourceFile: '/tmp/app/controller.ts',
         line: 12,
         column: 3,
+      });
+      expect(resolveDefinitionPosition(trace)).toEqual({
+        sourceFile: '/tmp/app/controller.ts',
+        line: definitionLine,
+        column: 1,
       });
     },
   );
