@@ -105,9 +105,12 @@ class MyCorsConfig extends CorsConfig {
 
 If upgrading from `origin: '*'` with `credentials: true`, replace the wildcard
 with an explicit allowlist. Updated Hono no longer reflects arbitrary request
-origins for this combination: browsers reject the wildcard response for
-credentialed requests. This fixes a security vulnerability; do not restore
-the old behavior by reflecting untrusted origins.
+origins for this combination. For a credentialed request, a response with
+`Access-Control-Allow-Origin: *` is a CORS error: the browser does not expose
+the response to JavaScript. Simple requests can still reach the server and
+cause side effects; CORS does not prevent request delivery or server-side
+changes. This fixes a data-exposure vulnerability; do not restore the old
+behavior by reflecting untrusted origins.
 
 ### Available Options
 
