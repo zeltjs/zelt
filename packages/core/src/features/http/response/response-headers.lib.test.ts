@@ -24,49 +24,49 @@ describe('response header changes', () => {
     expect(await result.json()).toEqual({ ok: true });
   });
 
-  it.each([
-    'external',
-    'observed',
-  ] as const)('preserves a reference to an %s response', async (kind) => {
-    const original = new Response('body', {
-      status: 202,
-      statusText: 'Accepted',
-      headers: [
-        ['X-Remove', 'old'],
-        ['Set-Cookie', 'a=1'],
-        ['Set-Cookie', 'b=2'],
-      ],
-    });
-    const app = new Hono();
-    app.get('/', (ctx) => {
-      if (kind === 'observed') {
-        trackGeneratedResponse(ctx, original);
-        preserveResponseIsolation(ctx);
-      }
-      ctx.res = original;
-      applyResponseHeaders(
-        ctx,
-        [
-          ['X-New', 'value'],
-          ['X-Other', 'other'],
+  it.each(['external', 'observed'] as const)(
+    'preserves a reference to an %s response',
+    async (kind) => {
+      const original = new Response('body', {
+        status: 202,
+        statusText: 'Accepted',
+        headers: [
+          ['X-Remove', 'old'],
+          ['Set-Cookie', 'a=1'],
+          ['Set-Cookie', 'b=2'],
         ],
-        ['X-Remove'],
-      );
-      expect(ctx.res).not.toBe(original);
-      return ctx.res;
-    });
+      });
+      const app = new Hono();
+      app.get('/', (ctx) => {
+        if (kind === 'observed') {
+          trackGeneratedResponse(ctx, original);
+          preserveResponseIsolation(ctx);
+        }
+        ctx.res = original;
+        applyResponseHeaders(
+          ctx,
+          [
+            ['X-New', 'value'],
+            ['X-Other', 'other'],
+          ],
+          ['X-Remove'],
+        );
+        expect(ctx.res).not.toBe(original);
+        return ctx.res;
+      });
 
-    const result = await app.request('/');
-    expect(result.status).toBe(202);
-    expect(result.statusText).toBe('Accepted');
-    expect(result.headers.getSetCookie()).toEqual(['a=1', 'b=2']);
-    expect(result.headers.get('X-New')).toBe('value');
-    expect(result.headers.get('X-Other')).toBe('other');
-    expect(result.headers.get('X-Remove')).toBeNull();
-    expect(original.headers.get('X-Remove')).toBe('old');
-    expect(original.headers.get('X-New')).toBeNull();
-    expect(await result.text()).toBe('body');
-  });
+      const result = await app.request('/');
+      expect(result.status).toBe(202);
+      expect(result.statusText).toBe('Accepted');
+      expect(result.headers.getSetCookie()).toEqual(['a=1', 'b=2']);
+      expect(result.headers.get('X-New')).toBe('value');
+      expect(result.headers.get('X-Other')).toBe('other');
+      expect(result.headers.get('X-Remove')).toBeNull();
+      expect(original.headers.get('X-Remove')).toBe('old');
+      expect(original.headers.get('X-New')).toBeNull();
+      expect(await result.text()).toBe('body');
+    },
+  );
 
   it('isolates an external response when only removing headers', async () => {
     const original = new Response('body', { headers: { 'X-Remove': 'old' } });

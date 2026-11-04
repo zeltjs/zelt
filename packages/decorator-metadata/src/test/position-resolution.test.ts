@@ -31,21 +31,24 @@ const traceWithFrames = (define: readonly string[], call: readonly string[]): St
 });
 
 describe('position contracts', () => {
-  it.each([
-    'Controller',
-    'sameName',
-    '',
-  ])('keeps same-file wrapper, application and caller frames distinct (%s)', (name) => {
-    const frame = (line: number) =>
-      name ? `${name} (${bundle}:${line}:3)` : `${bundle}:${line}:3`;
-    const outer = `runCommand (${bundle}:200:7)`;
-    const trace = traceWithFrames(
-      [frame(10), frame(20), frame(100), outer],
-      [`applyClassDecs (${bundle}:300:1)`, frame(150), outer],
-    );
-    expect(resolvePosition(trace)).toEqual({ sourceFile: bundle, line: 100, column: 3 });
-    expect(resolveDefinitionPosition(trace)).toEqual({ sourceFile: bundle, line: 150, column: 3 });
-  });
+  it.each(['Controller', 'sameName', ''])(
+    'keeps same-file wrapper, application and caller frames distinct (%s)',
+    (name) => {
+      const frame = (line: number) =>
+        name ? `${name} (${bundle}:${line}:3)` : `${bundle}:${line}:3`;
+      const outer = `runCommand (${bundle}:200:7)`;
+      const trace = traceWithFrames(
+        [frame(10), frame(20), frame(100), outer],
+        [`applyClassDecs (${bundle}:300:1)`, frame(150), outer],
+      );
+      expect(resolvePosition(trace)).toEqual({ sourceFile: bundle, line: 100, column: 3 });
+      expect(resolveDefinitionPosition(trace)).toEqual({
+        sourceFile: bundle,
+        line: 150,
+        column: 3,
+      });
+    },
+  );
 
   it('does not let a shared outer caller keep an internal wrapper', () => {
     const wrapper = '/virtual/core/dist/index.js';

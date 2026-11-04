@@ -246,18 +246,19 @@ await queue.add('report', { userId: 123 }, {
 
 ## Scheduled Jobs
 
-For recurring jobs, use BullMQ's repeat feature:
+For recurring jobs, use BullMQ's job scheduler:
 
 ```typescript
 import { Queue } from 'bullmq';
 
 const queue = new Queue('reports', { connection: { host: 'localhost', port: 6379 } });
 // ---cut---
-await queue.add('daily-report', {}, {
-  repeat: {
-    pattern: '0 9 * * *',          // Every day at 9:00
-    tz: 'Asia/Tokyo',
-  },
+await queue.upsertJobScheduler('daily-report', {
+  pattern: '0 9 * * *',          // Every day at 9:00
+  tz: 'Asia/Tokyo',
+}, {
+  name: 'daily-report',
+  data: {},
 });
 ```
 

@@ -5,70 +5,70 @@ import type { Lifecycle } from './lifecycle.lib';
 import { LifecycleManager } from './lifecycle.lib';
 
 describe('LifecycleManager', () => {
-  it.each([
-    false,
-    true,
-  ])('shares concurrent startup completion and rollback (fails: %s)', async (fail) => {
-    const manager = new LifecycleManager();
-    const entered = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
-    const events: string[] = [];
-    const cause = new Error('startup failed');
-    manager.register({
-      startup: () => {
-        events.push('first:start');
-      },
-      shutdown: () => {
-        events.push('first:stop');
-      },
-    });
-    manager.register({
-      startup: async () => {
-        events.push('second:start');
-        entered.resolve();
-        await release.promise;
-        await manager.startupPending();
-        if (fail) throw cause;
-        manager.register({
-          startup: () => {
-            events.push('late:start');
-          },
-          shutdown: () => {
-            events.push('late:stop');
-          },
-        });
-      },
-      shutdown: () => {
-        events.push('second:stop');
-      },
-    });
-    const first = manager.startup();
-    await entered.promise;
-    let completed = false;
-    const second = manager.startupPending().then(() => {
-      completed = true;
-    });
-    const outcomes = Promise.allSettled([first, second]);
-    try {
-      await Promise.resolve();
-      expect(completed).toBe(false);
-      expect(events).toEqual(['first:start', 'second:start']);
-    } finally {
-      release.resolve();
-    }
-    const [one, two] = await outcomes;
-    if (fail) {
-      expect(one).toMatchObject({ status: 'rejected', reason: { cause } });
-      expect(two).toEqual(one);
-      expect(events).toEqual(['first:start', 'second:start', 'first:stop']);
-    } else {
-      expect(one.status).toBe('fulfilled');
-      expect(two.status).toBe('fulfilled');
-      expect(events).toEqual(['first:start', 'second:start', 'late:start']);
-    }
-    await manager.shutdown();
-    if (!fail) expect(events.slice(-3)).toEqual(['late:stop', 'second:stop', 'first:stop']);
-  });
+  it.each([false, true])(
+    'shares concurrent startup completion and rollback (fails: %s)',
+    async (fail) => {
+      const manager = new LifecycleManager();
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const events: string[] = [];
+      const cause = new Error('startup failed');
+      manager.register({
+        startup: () => {
+          events.push('first:start');
+        },
+        shutdown: () => {
+          events.push('first:stop');
+        },
+      });
+      manager.register({
+        startup: async () => {
+          events.push('second:start');
+          entered.resolve();
+          await release.promise;
+          await manager.startupPending();
+          if (fail) throw cause;
+          manager.register({
+            startup: () => {
+              events.push('late:start');
+            },
+            shutdown: () => {
+              events.push('late:stop');
+            },
+          });
+        },
+        shutdown: () => {
+          events.push('second:stop');
+        },
+      });
+      const first = manager.startup();
+      await entered.promise;
+      let completed = false;
+      const second = manager.startupPending().then(() => {
+        completed = true;
+      });
+      const outcomes = Promise.allSettled([first, second]);
+      try {
+        await Promise.resolve();
+        expect(completed).toBe(false);
+        expect(events).toEqual(['first:start', 'second:start']);
+      } finally {
+        release.resolve();
+      }
+      const [one, two] = await outcomes;
+      if (fail) {
+        expect(one).toMatchObject({ status: 'rejected', reason: { cause } });
+        expect(two).toEqual(one);
+        expect(events).toEqual(['first:start', 'second:start', 'first:stop']);
+      } else {
+        expect(one.status).toBe('fulfilled');
+        expect(two.status).toBe('fulfilled');
+        expect(events).toEqual(['first:start', 'second:start', 'late:start']);
+      }
+      await manager.shutdown();
+      if (!fail) expect(events.slice(-3)).toEqual(['late:stop', 'second:stop', 'first:stop']);
+    },
+  );
 
   it('does not treat work inherited from a completed startup as reentry into a new batch', async () => {
     const manager = new LifecycleManager();

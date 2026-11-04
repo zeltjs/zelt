@@ -41,6 +41,7 @@ export const twoslasher = createTwoslasher({
     moduleResolution: 100, // Bundler
     target: 99, // ESNext
     lib: ['lib.esnext.full.d.ts'],
+    types: ['node'],
     strict: true,
     esModuleInterop: true,
     skipLibCheck: true,
@@ -69,8 +70,8 @@ export const twoslasher = createTwoslasher({
       'hono/*': pnpmTypes('hono@', 'hono/dist/types/*.d.ts'),
       ioredis: pnpmTypes('ioredis@', 'ioredis/built/index.d.ts'),
       bullmq: pnpmTypes('bullmq@', 'bullmq/dist/esm/index.d.ts'),
-      'drizzle-orm': pnpmTypes('drizzle-orm@0.44.2', 'drizzle-orm/index.d.ts'),
-      'drizzle-orm/*': pnpmTypes('drizzle-orm@0.44.2', 'drizzle-orm/*/index.d.ts'),
+      'drizzle-orm': pnpmTypes('drizzle-orm@', 'drizzle-orm/index.d.ts'),
+      'drizzle-orm/*': pnpmTypes('drizzle-orm@', 'drizzle-orm/*/index.d.ts'),
       postgres: pnpmTypes('postgres@', 'postgres/types/index.d.ts'),
     },
   },

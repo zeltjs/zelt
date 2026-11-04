@@ -1,7 +1,7 @@
 import type { ZeltPrebuilt } from '@zeltjs/core';
 import { createApp, http } from '@zeltjs/core';
 import * as v from 'valibot';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, executeGraphqlRequest } from './graphql-runtime.lib';
 import {
@@ -360,6 +360,31 @@ describe('GraphQL request payload', () => {
 });
 
 describe('createGraphqlExecutor validation rules', () => {
+  it.each(['development', 'production'])(
+    'rejects introspection with the shared GraphQL rule in %s',
+    async (nodeEnv) => {
+      vi.stubEnv('NODE_ENV', nodeEnv);
+      try {
+        const { NoSchemaIntrospectionCustomRule } = await import('graphql');
+        const execute = createGraphqlExecutor({
+          runtime,
+          resolvers: [RuntimeViewerResolver],
+          resolveResolver: () => new RuntimeViewerResolver(),
+          validationRules: [NoSchemaIntrospectionCustomRule],
+        });
+
+        const result = await execute({ query: '{ __schema { queryType { name } } }' });
+
+        expect(result.errors?.map((error) => error.message)).toContainEqual(
+          expect.stringContaining('introspection'),
+        );
+        expect(result.data).toBeUndefined();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
+
   it('applies custom validation rules to reject queries', async () => {
     const { GraphQLError: GQLError } = await import('graphql');
     const rejectAll: import('graphql').ValidationRule = (ctx) => ({

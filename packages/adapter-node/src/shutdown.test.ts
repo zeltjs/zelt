@@ -36,25 +36,25 @@ describe('onNode shutdown', () => {
     expect(cleanup).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    'SIGINT',
-    'SIGTERM',
-  ] as const)('logs the cause when %s cleanup fails', async (signal) => {
-    const existing = new Set(process.listeners(signal));
-    const app = await onNode(createApp([]));
-    const handler = process.listeners(signal).find((candidate) => !existing.has(candidate));
-    if (!handler) throw new Error('adapter did not attach a signal handler');
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const failure = new Error('resource cleanup failed');
-    app.registerShutdown(() => {
-      throw failure;
-    });
-    handler(signal);
-    await expect(app.shutdown()).rejects.toBeInstanceOf(AggregateError);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('Node application shutdown failed'));
-    expect(log).toHaveBeenCalledWith(expect.stringContaining(failure.message));
-    expect(process.listeners(signal)).not.toContain(handler);
-  });
+  it.each(['SIGINT', 'SIGTERM'] as const)(
+    'logs the cause when %s cleanup fails',
+    async (signal) => {
+      const existing = new Set(process.listeners(signal));
+      const app = await onNode(createApp([]));
+      const handler = process.listeners(signal).find((candidate) => !existing.has(candidate));
+      if (!handler) throw new Error('adapter did not attach a signal handler');
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const failure = new Error('resource cleanup failed');
+      app.registerShutdown(() => {
+        throw failure;
+      });
+      handler(signal);
+      await expect(app.shutdown()).rejects.toBeInstanceOf(AggregateError);
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('Node application shutdown failed'));
+      expect(log).toHaveBeenCalledWith(expect.stringContaining(failure.message));
+      expect(process.listeners(signal)).not.toContain(handler);
+    },
+  );
 
   it('keeps signal handlers after a refused shutdown and cleans up on retry', async () => {
     const existing = new Set(process.listeners('SIGINT'));
@@ -83,34 +83,34 @@ describe('onNode shutdown', () => {
     expect(cleanup).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    'SIGINT',
-    'SIGTERM',
-  ] as const)('shares %s with manual shutdown and detaches signals after resource cleanup', async (signal) => {
-    const existing = new Set(process.listeners(signal));
-    const app = await onNode(createApp([]));
-    const handler = process.listeners(signal).find((candidate) => !existing.has(candidate));
-    if (!handler) throw new Error('adapter did not attach a signal handler');
-    const lifecycle = await app.get(LifecycleManager);
-    const gate = Promise.withResolvers<void>();
-    const started = Promise.withResolvers<void>();
-    const cleanup = vi.fn(async () => {
-      started.resolve();
-      await gate.promise;
-    });
-    lifecycle.register({ startup: () => {}, shutdown: cleanup });
-    await lifecycle.startupPending();
-    handler(signal);
-    handler(signal);
-    const stopping = app.shutdown();
-    try {
-      await started.promise;
-      expect(process.listeners(signal)).toContain(handler);
-    } finally {
-      gate.resolve();
-      await stopping;
-    }
-    expect(cleanup).toHaveBeenCalledOnce();
-    expect(process.listeners(signal)).not.toContain(handler);
-  });
+  it.each(['SIGINT', 'SIGTERM'] as const)(
+    'shares %s with manual shutdown and detaches signals after resource cleanup',
+    async (signal) => {
+      const existing = new Set(process.listeners(signal));
+      const app = await onNode(createApp([]));
+      const handler = process.listeners(signal).find((candidate) => !existing.has(candidate));
+      if (!handler) throw new Error('adapter did not attach a signal handler');
+      const lifecycle = await app.get(LifecycleManager);
+      const gate = Promise.withResolvers<void>();
+      const started = Promise.withResolvers<void>();
+      const cleanup = vi.fn(async () => {
+        started.resolve();
+        await gate.promise;
+      });
+      lifecycle.register({ startup: () => {}, shutdown: cleanup });
+      await lifecycle.startupPending();
+      handler(signal);
+      handler(signal);
+      const stopping = app.shutdown();
+      try {
+        await started.promise;
+        expect(process.listeners(signal)).toContain(handler);
+      } finally {
+        gate.resolve();
+        await stopping;
+      }
+      expect(cleanup).toHaveBeenCalledOnce();
+      expect(process.listeners(signal)).not.toContain(handler);
+    },
+  );
 });

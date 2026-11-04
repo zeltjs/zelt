@@ -22,6 +22,6 @@ export const getTransient = <T extends object>(
   const provider = { provide: token, useFactory: () => new factory() };
   container.bind(provider);
   const instance = container.get(token);
-  container.unbind(provider);
+  container.unbind(token);
   return instance;
 };

@@ -95,18 +95,18 @@ describe('runtime IO boundaries', () => {
     await pending;
     expect(app.renders).toEqual([{ phase: 'loading', requestId: 1 }]);
   });
-  it.each([
-    new Error('HTTP 503'),
-    { schemaVersion: 999 },
-  ])('shows fetch/schema failures: %s', async (failure) => {
-    const app = harness();
-    if (failure instanceof Error) app.ports.fetchSnapshot.mockRejectedValue(failure);
-    else app.ports.fetchSnapshot.mockResolvedValue(failure);
-    const dispose = mountStudio(app.ports);
-    await vi.waitFor(() => expect(app.renders.at(-1)).toMatchObject({ phase: 'error' }));
-    expect(app.ports.writeUrl).not.toHaveBeenCalled();
-    dispose();
-  });
+  it.each([new Error('HTTP 503'), { schemaVersion: 999 }])(
+    'shows fetch/schema failures: %s',
+    async (failure) => {
+      const app = harness();
+      if (failure instanceof Error) app.ports.fetchSnapshot.mockRejectedValue(failure);
+      else app.ports.fetchSnapshot.mockResolvedValue(failure);
+      const dispose = mountStudio(app.ports);
+      await vi.waitFor(() => expect(app.renders.at(-1)).toMatchObject({ phase: 'error' }));
+      expect(app.ports.writeUrl).not.toHaveBeenCalled();
+      dispose();
+    },
+  );
   it('shows history write failure without losing the selected node', async () => {
     const app = harness();
     const dispose = mountStudio(app.ports);

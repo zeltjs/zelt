@@ -74,6 +74,8 @@ export default tseslint.config(
       'vitest.shared.ts',
       'packages/eslint-plugin/**',
       'packages/unsafe-type-lib/**',
+      // This fixture deliberately contains an invalid tsconfig for inspection error tests.
+      'packages/decorator-metadata/src/test/fixtures/invalid-tsconfig/**',
       'scripts/**',
       'integration/**',
       // git 管理外(.gitignore 済み)のローカル設計成果物。tsconfig にも含まれないため型付き lint の対象外

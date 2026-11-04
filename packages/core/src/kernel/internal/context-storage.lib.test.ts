@@ -63,47 +63,47 @@ describe('createContextStorage', () => {
     });
   });
 
-  it.each([
-    'sync',
-    'async',
-  ] as const)('shares entry updates through a %s storage scope', async (mode) => {
-    const storage = createContextStorage<string>('test:shared-entry');
-    const key = createContextKey<string>('test:entry-value');
-    await createContextScope({ mode, inherit: false }).run(async () => {
-      const entry = captureContext();
-      await storage.run('scoped', async () => {
-        const scoped = captureContext();
-        setInternal(key, 'first');
-        expect(entry.run(() => getInternal(key))).toBe('first');
+  it.each(['sync', 'async'] as const)(
+    'shares entry updates through a %s storage scope',
+    async (mode) => {
+      const storage = createContextStorage<string>('test:shared-entry');
+      const key = createContextKey<string>('test:entry-value');
+      await createContextScope({ mode, inherit: false }).run(async () => {
+        const entry = captureContext();
+        await storage.run('scoped', async () => {
+          const scoped = captureContext();
+          setInternal(key, 'first');
+          expect(entry.run(() => getInternal(key))).toBe('first');
+          expect(entry.run(storage.get)).toBeUndefined();
+          await Promise.resolve();
+          scoped.run(() => setInternal(key, 'updated'));
+        });
+        expect(entry.run(() => getInternal(key))).toBe('updated');
         expect(entry.run(storage.get)).toBeUndefined();
-        await Promise.resolve();
-        scoped.run(() => setInternal(key, 'updated'));
       });
-      expect(entry.run(() => getInternal(key))).toBe('updated');
-      expect(entry.run(storage.get)).toBeUndefined();
-    });
-  });
+    },
+  );
 
-  it.each([
-    'sync',
-    'async',
-  ] as const)('restores scoped values after rejection in %s mode', async (mode) => {
-    const storage = createContextStorage<string>('test:rejected');
-    const failure = new Error('scope failure');
-    await createContextScope({ mode, inherit: false }).run(() =>
-      storage.run('outer', async () => {
-        const outer = captureContext();
-        await expect(
-          storage.run('inner', async () => {
-            await Promise.resolve();
-            throw failure;
-          }),
-        ).rejects.toBe(failure);
-        expect(outer.run(storage.get)).toBe('outer');
-      }),
-    );
-    expect(storage.get()).toBeUndefined();
-  });
+  it.each(['sync', 'async'] as const)(
+    'restores scoped values after rejection in %s mode',
+    async (mode) => {
+      const storage = createContextStorage<string>('test:rejected');
+      const failure = new Error('scope failure');
+      await createContextScope({ mode, inherit: false }).run(() =>
+        storage.run('outer', async () => {
+          const outer = captureContext();
+          await expect(
+            storage.run('inner', async () => {
+              await Promise.resolve();
+              throw failure;
+            }),
+          ).rejects.toBe(failure);
+          expect(outer.run(storage.get)).toBe('outer');
+        }),
+      );
+      expect(storage.get()).toBeUndefined();
+    },
+  );
 
   it('inherits scoped values for derived entries and clears them for independent roots', () => {
     const storage = createContextStorage<string>('test:inherit');

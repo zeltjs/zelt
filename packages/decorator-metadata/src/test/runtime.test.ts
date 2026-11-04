@@ -1,7 +1,7 @@
 /* biome-ignore-all lint/complexity/noStaticOnlyClass: test fixtures */
 import { describe, expect, it } from 'vitest';
 
-import { getSourcePosition, resolvePosition } from '../inspect/index';
+import { getSourcePosition, resolveDefinitionPosition, resolvePosition } from '../inspect/index';
 import type { StackTrace } from '../runtime/index';
 import {
   aggregateMembers,
@@ -51,6 +51,78 @@ describe('captureStackTrace and resolvePosition', () => {
     });
     expect(skipTestAndNodeModules).toBeUndefined();
   });
+
+  it.each([
+    {
+      name: 'SWC class decorator getter',
+      defineFrame: '    at /tmp/app/controller.ts:12:3',
+      definitionLine: 140,
+      callFrames: [
+        '    at applyClassDecs (/tmp/app/controller.ts:100:1)',
+        '    at get c (/tmp/app/controller.ts:120:1)',
+        '    at /tmp/app/controller.ts:140:1',
+      ],
+    },
+    {
+      name: 'genuine user getter',
+      defineFrame: '    at get c (/tmp/app/controller.ts:12:3)',
+      definitionLine: 14,
+      callFrames: ['    at get c (/tmp/app/controller.ts:14:1)'],
+    },
+    {
+      name: 'user getter calling a legacy decorator helper',
+      defineFrame: '    at get c (/tmp/app/controller.ts:12:3)',
+      definitionLine: 14,
+      callFrames: [
+        '    at __decorate (/tmp/app/controller.ts:100:1)',
+        '    at get c (/tmp/app/controller.ts:14:1)',
+      ],
+    },
+    {
+      name: 'user getter calling a class decorator helper',
+      defineFrame: '    at get c (/tmp/app/controller.ts:12:3)',
+      definitionLine: 14,
+      callFrames: [
+        '    at applyClassDecs (/tmp/app/controller.ts:100:1)',
+        '    at get c (/tmp/app/controller.ts:14:1)',
+      ],
+    },
+    {
+      name: 'user getter following a synthetic class decorator getter',
+      defineFrame: '    at get c (/tmp/app/controller.ts:12:3)',
+      definitionLine: 14,
+      callFrames: [
+        '    at applyClassDecs (/tmp/app/controller.ts:100:1)',
+        '    at get c (/tmp/app/controller.ts:120:1)',
+        '    at get c (/tmp/app/controller.ts:14:1)',
+      ],
+    },
+  ])(
+    'resolvePosition handles $name without guessing coordinates',
+    ({ defineFrame, callFrames, definitionLine }) => {
+      const callError = new CaptureStackError();
+      const trace: StackTrace = {
+        _brand: 'StackTrace',
+        error: new CaptureStackError(),
+        callError,
+      };
+      const internal = '    at capture (/some/framework/internal.ts:10:1)';
+      const outer = '    at run (/tmp/test-runner.ts:1:1)';
+      trace.error.stack = ['Error: define stack', internal, defineFrame, outer].join('\n');
+      callError.stack = ['Error: call stack', internal, ...callFrames, outer].join('\n');
+
+      expect(resolvePosition(trace)).toEqual({
+        sourceFile: '/tmp/app/controller.ts',
+        line: 12,
+        column: 3,
+      });
+      expect(resolveDefinitionPosition(trace)).toEqual({
+        sourceFile: '/tmp/app/controller.ts',
+        line: definitionLine,
+        column: 1,
+      });
+    },
+  );
 
   it('resolvePosition skips wrapper frames identified by define/call diff', () => {
     // Simulate what createClassDecorator does internally: a wrapper (e.g.

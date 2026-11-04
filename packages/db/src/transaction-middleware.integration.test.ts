@@ -94,68 +94,68 @@ describe('transaction middleware request scope', () => {
     }
   });
 
-  it.each([
-    false,
-    true,
-  ])('uses the base client in afterResponse tasks, handler fails=%s', async (fails) => {
-    const observed: { id: string; before: Client; after: Client }[] = [];
-    const Transaction = createTransactionMiddleware(MemoryDatabase);
+  it.each([false, true])(
+    'uses the base client in afterResponse tasks, handler fails=%s',
+    async (fails) => {
+      const observed: { id: string; before: Client; after: Client }[] = [];
+      const Transaction = createTransactionMiddleware(MemoryDatabase);
 
-    @ErrorHandler
-    class Errors {
-      onError(error: Error) {
-        return Response.json({ error: error.message }, { status: 503 });
+      @ErrorHandler
+      class Errors {
+        onError(error: Error) {
+          return Response.json({ error: error.message }, { status: 503 });
+        }
       }
-    }
 
-    @Controller('/')
-    @UseMiddleware(Transaction)
-    class Endpoint {
-      constructor(
-        private db = inject(MemoryDatabase),
-        private tasks = inject(TaskService),
-      ) {}
+      @Controller('/')
+      @UseMiddleware(Transaction)
+      class Endpoint {
+        constructor(
+          private db = inject(MemoryDatabase),
+          private tasks = inject(TaskService),
+        ) {}
 
-      @Get('/:id')
-      async handle() {
-        expect(this.db.client).toEqual({ kind: 'transaction', active: true });
-        this.tasks.afterResponse(async () => {
-          const before = { ...this.db.client };
+        @Get('/:id')
+        async handle() {
+          expect(this.db.client).toEqual({ kind: 'transaction', active: true });
+          this.tasks.afterResponse(async () => {
+            const before = { ...this.db.client };
+            await Promise.resolve();
+            observed.push({ id: request().pathParam('id'), before, after: { ...this.db.client } });
+          });
           await Promise.resolve();
-          observed.push({ id: request().pathParam('id'), before, after: { ...this.db.client } });
-        });
-        await Promise.resolve();
-        if (fails) throw new Error('handler failed');
-        return { ok: true };
+          if (fails) throw new Error('handler failed');
+          return { ok: true };
+        }
       }
-    }
 
-    const runtime = await createApp([
-      http({ controllers: [Endpoint], errorHandlers: [Errors] }),
-    ]).createRuntime({ contextMode: 'async', warmup: true });
-    try {
-      const ids = ['a', 'b', 'c'];
-      const results = await Promise.all(ids.map((id) => runtime.http.request(`/${id}`)));
-      for (const result of results) {
-        const payload = await result.json();
-        expect(result.status, JSON.stringify(payload)).toBe(fails ? 503 : 200);
-        expect(payload).toEqual(fails ? { error: 'handler failed' } : { ok: true });
+      const runtime = await createApp([
+        http({ controllers: [Endpoint], errorHandlers: [Errors] }),
+      ]).createRuntime({ contextMode: 'async', warmup: true });
+      try {
+        const ids = ['a', 'b', 'c'];
+        const results = await Promise.all(ids.map((id) => runtime.http.request(`/${id}`)));
+        for (const result of results) {
+          const payload = await result.json();
+          expect(result.status, JSON.stringify(payload)).toBe(fails ? 503 : 200);
+          expect(payload).toEqual(fails ? { error: 'handler failed' } : { ok: true });
+        }
+        await vi.waitFor(() => expect(observed).toHaveLength(ids.length));
+        expect(observed).toEqual(
+          expect.arrayContaining(
+            ids.map((id) => ({
+              id,
+              before: { kind: 'base', active: true },
+              after: { kind: 'base', active: true },
+            })),
+          ),
+        );
+        const db = await runtime.get(MemoryDatabase);
+        expect(db.transactions).toHaveLength(ids.length);
+        expect(db.transactions.every((tx) => !tx.active)).toBe(true);
+      } finally {
+        await runtime.shutdown();
       }
-      await vi.waitFor(() => expect(observed).toHaveLength(ids.length));
-      expect(observed).toEqual(
-        expect.arrayContaining(
-          ids.map((id) => ({
-            id,
-            before: { kind: 'base', active: true },
-            after: { kind: 'base', active: true },
-          })),
-        ),
-      );
-      const db = await runtime.get(MemoryDatabase);
-      expect(db.transactions).toHaveLength(ids.length);
-      expect(db.transactions.every((tx) => !tx.active)).toBe(true);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+    },
+  );
 });

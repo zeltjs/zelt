@@ -65,38 +65,38 @@ describe('SecureHeadersMiddleware', () => {
     expect(await res.text()).toBe('created');
   });
 
-  it.each([
-    false,
-    true,
-  ])('preserves generated JSON with public Context exposure=%s', async (expose) => {
-    @Controller('/')
-    class TestController {
-      @Get('/test')
-      test() {
-        if (expose) requestContext();
-        return { ok: true };
+  it.each([false, true])(
+    'preserves generated JSON with public Context exposure=%s',
+    async (expose) => {
+      @Controller('/')
+      class TestController {
+        @Get('/test')
+        test() {
+          if (expose) requestContext();
+          return { ok: true };
+        }
       }
-    }
-    const runtime = await createApp([http({ controllers: [TestController] })]).createRuntime();
-    const NativeResponse = Response;
-    const bodyAccess = vi.spyOn(NativeResponse.prototype, 'body', 'get');
-    let responses = 0;
-    class CountingResponse extends NativeResponse {
-      constructor(body?: BodyInit | null, init?: ResponseInit) {
-        super(body, init);
-        responses++;
+      const runtime = await createApp([http({ controllers: [TestController] })]).createRuntime();
+      const NativeResponse = Response;
+      const bodyAccess = vi.spyOn(NativeResponse.prototype, 'body', 'get');
+      let responses = 0;
+      class CountingResponse extends NativeResponse {
+        constructor(body?: BodyInit | null, init?: ResponseInit) {
+          super(body, init);
+          responses++;
+        }
       }
-    }
-    vi.stubGlobal('Response', CountingResponse);
+      vi.stubGlobal('Response', CountingResponse);
 
-    const res = await runtime.http.fetch(new Request('http://localhost/test'));
+      const res = await runtime.http.fetch(new Request('http://localhost/test'));
 
-    expect(responses).toBe(expose ? 2 : 1);
-    expect(bodyAccess).toHaveBeenCalledTimes(expose ? 1 : 0);
-    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-    expect(await res.json()).toEqual({ ok: true });
-    await runtime.shutdown();
-  });
+      expect(responses).toBe(expose ? 2 : 1);
+      expect(bodyAccess).toHaveBeenCalledTimes(expose ? 1 : 0);
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(await res.json()).toEqual({ ok: true });
+      await runtime.shutdown();
+    },
+  );
 
   it('copies a response that replaces the tracked JSON response', async () => {
     const middleware = new SecureHeadersMiddleware(new SecureHeadersConfig());
@@ -152,65 +152,64 @@ describe('SecureHeadersMiddleware', () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
-  it.each([
-    'global',
-    'controller',
-    'method',
-  ] as const)('preserves the response reference held by %s middleware', async (scope) => {
-    let observed: Response | undefined;
-    @Middleware
-    class ObserverMiddleware {
-      async use(next: Next) {
-        const ctx = getHonoContext();
-        await next();
-        observed = ctx.res;
-        return undefined;
+  it.each(['global', 'controller', 'method'] as const)(
+    'preserves the response reference held by %s middleware',
+    async (scope) => {
+      let observed: Response | undefined;
+      @Middleware
+      class ObserverMiddleware {
+        async use(next: Next) {
+          const ctx = getHonoContext();
+          await next();
+          observed = ctx.res;
+          return undefined;
+        }
       }
-    }
-    @Controller('/')
-    class GlobalController {
-      @Get('/test')
-      test() {
-        return { ok: true };
+      @Controller('/')
+      class GlobalController {
+        @Get('/test')
+        test() {
+          return { ok: true };
+        }
       }
-    }
-    @Controller('/')
-    @UseMiddleware(ObserverMiddleware)
-    class ObservedController {
-      @Get('/test')
-      test() {
-        return { ok: true };
-      }
-    }
-    @Controller('/')
-    class MethodController {
-      @Get('/test')
+      @Controller('/')
       @UseMiddleware(ObserverMiddleware)
-      test() {
-        return { ok: true };
+      class ObservedController {
+        @Get('/test')
+        test() {
+          return { ok: true };
+        }
       }
-    }
-    const controllers = {
-      global: GlobalController,
-      controller: ObservedController,
-      method: MethodController,
-    };
-    const runtime = await createApp([
-      http({
-        controllers: [controllers[scope]],
-        middlewares: scope === 'global' ? [ObserverMiddleware] : [],
-      }),
-    ]).createRuntime();
+      @Controller('/')
+      class MethodController {
+        @Get('/test')
+        @UseMiddleware(ObserverMiddleware)
+        test() {
+          return { ok: true };
+        }
+      }
+      const controllers = {
+        global: GlobalController,
+        controller: ObservedController,
+        method: MethodController,
+      };
+      const runtime = await createApp([
+        http({
+          controllers: [controllers[scope]],
+          middlewares: scope === 'global' ? [ObserverMiddleware] : [],
+        }),
+      ]).createRuntime();
 
-    const res = await runtime.http.fetch(new Request('http://localhost/test'));
+      const res = await runtime.http.fetch(new Request('http://localhost/test'));
 
-    expect(observed).toBeDefined();
-    expect(res).not.toBe(observed);
-    expect(observed?.headers.get('X-Content-Type-Options')).toBeNull();
-    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-    expect(await res.json()).toEqual({ ok: true });
-    await runtime.shutdown();
-  });
+      expect(observed).toBeDefined();
+      expect(res).not.toBe(observed);
+      expect(observed?.headers.get('X-Content-Type-Options')).toBeNull();
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(await res.json()).toEqual({ ok: true });
+      await runtime.shutdown();
+    },
+  );
 
   it('updates immutable downstream headers while preserving the response', async () => {
     const downstream = await fetch('data:text/plain,immutable body');
@@ -243,35 +242,35 @@ describe('SecureHeadersMiddleware', () => {
     expect(res.headers.get('X-Powered-By')).toBe('zelt');
   });
 
-  it.each([
-    true,
-    false,
-  ])('handles all headers disabled with removePoweredBy=%s', async (removePoweredBy) => {
-    class DisabledConfig extends SecureHeadersConfig {
-      override readonly crossOriginEmbedderPolicy = false;
-      override readonly crossOriginResourcePolicy = false;
-      override readonly crossOriginOpenerPolicy = false;
-      override readonly originAgentCluster = false;
-      override readonly referrerPolicy = false;
-      override readonly strictTransportSecurity = false;
-      override readonly xContentTypeOptions = false;
-      override readonly xDnsPrefetchControl = false;
-      override readonly xDownloadOptions = false;
-      override readonly xFrameOptions = false;
-      override readonly xPermittedCrossDomainPolicies = false;
-      override readonly xXssProtection = false;
-      override readonly removePoweredBy = removePoweredBy;
-    }
-    const downstream = new Response('ok', { headers: { 'X-Powered-By': 'zelt' } });
-    const middleware = new SecureHeadersMiddleware(new DisabledConfig());
+  it.each([true, false])(
+    'handles all headers disabled with removePoweredBy=%s',
+    async (removePoweredBy) => {
+      class DisabledConfig extends SecureHeadersConfig {
+        override readonly crossOriginEmbedderPolicy = false;
+        override readonly crossOriginResourcePolicy = false;
+        override readonly crossOriginOpenerPolicy = false;
+        override readonly originAgentCluster = false;
+        override readonly referrerPolicy = false;
+        override readonly strictTransportSecurity = false;
+        override readonly xContentTypeOptions = false;
+        override readonly xDnsPrefetchControl = false;
+        override readonly xDownloadOptions = false;
+        override readonly xFrameOptions = false;
+        override readonly xPermittedCrossDomainPolicies = false;
+        override readonly xXssProtection = false;
+        override readonly removePoweredBy = removePoweredBy;
+      }
+      const downstream = new Response('ok', { headers: { 'X-Powered-By': 'zelt' } });
+      const middleware = new SecureHeadersMiddleware(new DisabledConfig());
 
-    const res = await applyMiddleware(middleware, downstream);
+      const res = await applyMiddleware(middleware, downstream);
 
-    expect(res.headers.get('X-Powered-By')).toBe(removePoweredBy ? null : 'zelt');
-    expect(res.headers.get('X-Content-Type-Options')).toBeNull();
-    if (!removePoweredBy) expect(res).toBe(downstream);
-    expect(await res.text()).toBe('ok');
-  });
+      expect(res.headers.get('X-Powered-By')).toBe(removePoweredBy ? null : 'zelt');
+      expect(res.headers.get('X-Content-Type-Options')).toBeNull();
+      if (!removePoweredBy) expect(res).toBe(downstream);
+      expect(await res.text()).toBe('ok');
+    },
+  );
 
   it('adds secure headers by default', async () => {
     @Controller('/')

@@ -48,30 +48,29 @@ describe('class declaration source identity', () => {
   it.each([
     { name: 'first', expressionLine: 2, declarationLine: 3 },
     { name: 'second', expressionLine: 6, declarationLine: 7 },
-  ])('disambiguates $name with Windows stack paths and normalized compiler paths', ({
-    name,
-    expressionLine,
-    declarationLine,
-  }) => {
-    const cached = createProgram();
-    expect(cached.program.getSourceFile(stackFileName)).toBe(
-      cached.program.getSourceFile(sourceFileName),
-    );
-    const caller = 'run (C:\\app\\bootstrap.ts:20:1)';
-    const trace: StackTrace = {
-      _brand: 'StackTrace',
-      error: errorWithFrames([
-        `Decorate (C:\\lib\\decorator.ts:1:1)`,
-        `${name} (${stackFileName}:${expressionLine}:4)`,
-        caller,
-      ]),
-      callError: errorWithFrames([`${name} (${stackFileName}:90:1)`, caller]),
-    };
-    const result = resolveClassDeclaration({ name: 'Repeated' }, trace, cached);
-    expect(result.isOk() && result.value.position).toEqual({
-      sourceFile: sourceFileName,
-      line: declarationLine,
-      column: 3,
-    });
-  });
+  ])(
+    'disambiguates $name with Windows stack paths and normalized compiler paths',
+    ({ name, expressionLine, declarationLine }) => {
+      const cached = createProgram();
+      expect(cached.program.getSourceFile(stackFileName)).toBe(
+        cached.program.getSourceFile(sourceFileName),
+      );
+      const caller = 'run (C:\\app\\bootstrap.ts:20:1)';
+      const trace: StackTrace = {
+        _brand: 'StackTrace',
+        error: errorWithFrames([
+          `Decorate (C:\\lib\\decorator.ts:1:1)`,
+          `${name} (${stackFileName}:${expressionLine}:4)`,
+          caller,
+        ]),
+        callError: errorWithFrames([`${name} (${stackFileName}:90:1)`, caller]),
+      };
+      const result = resolveClassDeclaration({ name: 'Repeated' }, trace, cached);
+      expect(result.isOk() && result.value.position).toEqual({
+        sourceFile: sourceFileName,
+        line: declarationLine,
+        column: 3,
+      });
+    },
+  );
 });

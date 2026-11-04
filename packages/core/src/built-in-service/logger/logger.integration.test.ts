@@ -70,79 +70,79 @@ describe('Logger integration', () => {
   });
 
   describe('withLogContext middleware integration', () => {
-    it.each([
-      'sync',
-      'async',
-    ] as const)('shares downstream HTTP state and restores log bindings in %s mode', async (contextMode) => {
-      const observations: unknown[] = [];
+    it.each(['sync', 'async'] as const)(
+      'shares downstream HTTP state and restores log bindings in %s mode',
+      async (contextMode) => {
+        const observations: unknown[] = [];
 
-      @Middleware
-      class Logging {
-        async use(next: Next, req = request()): Promise<undefined> {
-          const entry = captureContext();
-          await withLogContext({ requestId: req.queryParam('requestId') }, next);
-          if (contextMode === 'async') {
-            expect(currentUser()).toEqual({ id: req.queryParam('requestId') });
+        @Middleware
+        class Logging {
+          async use(next: Next, req = request()): Promise<undefined> {
+            const entry = captureContext();
+            await withLogContext({ requestId: req.queryParam('requestId') }, next);
+            if (contextMode === 'async') {
+              expect(currentUser()).toEqual({ id: req.queryParam('requestId') });
+            }
+            observations.push(
+              entry.run(() => ({
+                user: currentUser(),
+                id: req.pathParam('id'),
+                log: getLogContext(),
+              })),
+            );
+            return undefined;
           }
-          observations.push(
-            entry.run(() => ({
-              user: currentUser(),
-              id: req.pathParam('id'),
-              log: getLogContext(),
-            })),
+        }
+
+        @Middleware
+        class Authenticate {
+          async use(next: Next, req = request()): Promise<undefined> {
+            setUser({ id: req.queryParam('requestId') });
+            await next();
+            return undefined;
+          }
+        }
+
+        @Controller('/test')
+        @UseMiddleware(Authenticate)
+        class Endpoint {
+          @Get('/:id')
+          async handle(req = request(), user = currentUser(), log = getLogContext()) {
+            const nested = withLogContext({ scope: 'endpoint' }, getLogContext);
+            expect(getLogContext()).toEqual(log);
+            await Promise.resolve();
+            return { id: req.pathParam('id'), user, log, nested };
+          }
+        }
+
+        const runtime = await createApp([
+          http({ controllers: [Endpoint], middlewares: [Logging] }),
+        ]).createRuntime({ contextMode });
+        try {
+          const ids = ['a', 'b', 'c'];
+          const responses = await Promise.all(
+            ids.map((id) => runtime.http.request(`/test/${id}?requestId=${id}`)),
           );
-          return undefined;
+          for (const [index, res] of responses.entries()) {
+            const id = ids[index];
+            expect(res.status).toBe(200);
+            expect(await res.json()).toEqual({
+              id,
+              user: { id },
+              log: { requestId: id },
+              nested: { requestId: id, scope: 'endpoint' },
+            });
+          }
+          expect(observations).toEqual(
+            expect.arrayContaining(ids.map((id) => ({ user: { id }, id, log: {} }))),
+          );
+          expect(observations).toHaveLength(ids.length);
+          expect(getLogContext()).toEqual({});
+        } finally {
+          await runtime.shutdown();
         }
-      }
-
-      @Middleware
-      class Authenticate {
-        async use(next: Next, req = request()): Promise<undefined> {
-          setUser({ id: req.queryParam('requestId') });
-          await next();
-          return undefined;
-        }
-      }
-
-      @Controller('/test')
-      @UseMiddleware(Authenticate)
-      class Endpoint {
-        @Get('/:id')
-        async handle(req = request(), user = currentUser(), log = getLogContext()) {
-          const nested = withLogContext({ scope: 'endpoint' }, getLogContext);
-          expect(getLogContext()).toEqual(log);
-          await Promise.resolve();
-          return { id: req.pathParam('id'), user, log, nested };
-        }
-      }
-
-      const runtime = await createApp([
-        http({ controllers: [Endpoint], middlewares: [Logging] }),
-      ]).createRuntime({ contextMode });
-      try {
-        const ids = ['a', 'b', 'c'];
-        const responses = await Promise.all(
-          ids.map((id) => runtime.http.request(`/test/${id}?requestId=${id}`)),
-        );
-        for (const [index, res] of responses.entries()) {
-          const id = ids[index];
-          expect(res.status).toBe(200);
-          expect(await res.json()).toEqual({
-            id,
-            user: { id },
-            log: { requestId: id },
-            nested: { requestId: id, scope: 'endpoint' },
-          });
-        }
-        expect(observations).toEqual(
-          expect.arrayContaining(ids.map((id) => ({ user: { id }, id, log: {} }))),
-        );
-        expect(observations).toHaveLength(ids.length);
-        expect(getLogContext()).toEqual({});
-      } finally {
-        await runtime.shutdown();
-      }
-    });
+      },
+    );
 
     it('propagates request context to all logs', async () => {
       @Middleware

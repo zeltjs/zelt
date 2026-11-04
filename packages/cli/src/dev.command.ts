@@ -9,9 +9,9 @@ import type { DevConfig } from './config/config.types';
 import { loadZeltConfig } from './config/index';
 
 type DevArgs = {
-  readonly config?: string;
-  readonly entry?: string;
-  readonly port?: string;
+  readonly config?: string | undefined;
+  readonly entry?: string | undefined;
+  readonly port?: string | undefined;
 };
 
 type DevError = InstanceType<typeof ZeltConfigLoadError> | InstanceType<typeof ZeltNoEntryError>;

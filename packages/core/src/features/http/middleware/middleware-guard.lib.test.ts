@@ -94,38 +94,37 @@ describe('middleware skip metadata cache', () => {
 });
 
 describe('middleware error propagation', () => {
-  it.each([
-    'resolve',
-    'reject',
-    'throw',
-  ] as const)('restores the previous request scope when next will %s', async (outcome) => {
-    const storage = createContextStorage<string>('test:next-scope');
-    const failure = new Error('next failed');
-    const original = createContextScope({ mode: 'async', inherit: false });
-    class Scoped {
-      async use(next: Next): Promise<undefined> {
-        const completion = storage.run('inner', next);
-        if (outcome === 'resolve') await completion;
-        else await expect(completion).rejects.toBe(failure);
-        expect(storage.get()).toBeUndefined();
-        return undefined;
+  it.each(['resolve', 'reject', 'throw'] as const)(
+    'restores the previous request scope when next will %s',
+    async (outcome) => {
+      const storage = createContextStorage<string>('test:next-scope');
+      const failure = new Error('next failed');
+      const original = createContextScope({ mode: 'async', inherit: false });
+      class Scoped {
+        async use(next: Next): Promise<undefined> {
+          const completion = storage.run('inner', next);
+          if (outcome === 'resolve') await completion;
+          else await expect(completion).rejects.toBe(failure);
+          expect(storage.get()).toBeUndefined();
+          return undefined;
+        }
       }
-    }
-    const middleware = resolveMiddleware(Scoped, { get: (cls) => new cls() });
-    const app = new Hono();
-    app.get('/test', async (ctx) => {
-      attachRequestScope(ctx, original);
-      await middleware(ctx, () => {
-        expect(storage.get()).toBe('inner');
-        if (outcome === 'throw') throw failure;
-        return outcome === 'reject' ? Promise.reject(failure) : Promise.resolve();
+      const middleware = resolveMiddleware(Scoped, { get: (cls) => new cls() });
+      const app = new Hono();
+      app.get('/test', async (ctx) => {
+        attachRequestScope(ctx, original);
+        await middleware(ctx, () => {
+          expect(storage.get()).toBe('inner');
+          if (outcome === 'throw') throw failure;
+          return outcome === 'reject' ? Promise.reject(failure) : Promise.resolve();
+        });
+        expect(getRequestScope(ctx)).toBe(original);
+        expect(runInRequestContext(ctx, storage.get)).toBeUndefined();
+        return ctx.json({ ok: true });
       });
-      expect(getRequestScope(ctx)).toBe(original);
-      expect(runInRequestContext(ctx, storage.get)).toBeUndefined();
-      return ctx.json({ ok: true });
-    });
-    expect((await app.request('/test')).status).toBe(200);
-  });
+      expect((await app.request('/test')).status).toBe(200);
+    },
+  );
 
   it('restores nested next scopes in reverse order', async () => {
     const storage = createContextStorage<string>('test:nested-next');

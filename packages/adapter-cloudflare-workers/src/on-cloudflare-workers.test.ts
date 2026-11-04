@@ -83,19 +83,19 @@ describe('onCloudflareWorkers', () => {
     expect((await workers.fetch.request('/hello/')).status).toBe(200);
   });
 
-  it.each([
-    false,
-    true,
-  ])('passes warmup=%s and environment defaults to createRuntime', async (warmup) => {
-    const app = createApp([]);
-    const createRuntime = vi.spyOn(app, 'createRuntime');
-    const workers = await onCloudflareWorkers(app, { warmup });
-    onTestFinished(() => workers.shutdown());
-    expect(createRuntime).toHaveBeenCalledExactlyOnceWith({
-      fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
-      warmup,
-    });
-  });
+  it.each([false, true])(
+    'passes warmup=%s and environment defaults to createRuntime',
+    async (warmup) => {
+      const app = createApp([]);
+      const createRuntime = vi.spyOn(app, 'createRuntime');
+      const workers = await onCloudflareWorkers(app, { warmup });
+      onTestFinished(() => workers.shutdown());
+      expect(createRuntime).toHaveBeenCalledExactlyOnceWith({
+        fallbackConfigs: [CloudflareWorkersEnvAdaptor, CloudflareWorkersWaitUntilAdaptor],
+        warmup,
+      });
+    },
+  );
 
   it('passes prebuilt and config overrides while defaulting to lazy initialization', async () => {
     @Config

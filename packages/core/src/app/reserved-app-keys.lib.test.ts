@@ -54,22 +54,23 @@ const assertReservedProperties = (): void => {
 void assertReservedProperties;
 
 describe('reserved app keys', () => {
-  it.each(
-    RESERVED_APP_KEYS,
-  )('rejects the reserved name %s before feature initialization', (key) => {
-    let initialized = false;
-    const feature: ConfiguredFeature = {
-      key,
-      featureClasses: () => [],
-      blueprint: () => {
-        initialized = true;
-        return {};
-      },
-      realize: () => ({}),
-    };
-    expect(() => createApp([feature])).toThrow(ZeltAppConfigurationError);
-    expect(initialized).toBe(false);
-  });
+  it.each(RESERVED_APP_KEYS)(
+    'rejects the reserved name %s before feature initialization',
+    (key) => {
+      let initialized = false;
+      const feature: ConfiguredFeature = {
+        key,
+        featureClasses: () => [],
+        blueprint: () => {
+          initialized = true;
+          return {};
+        },
+        realize: () => ({}),
+      };
+      expect(() => createApp([feature])).toThrow(ZeltAppConfigurationError);
+      expect(initialized).toBe(false);
+    },
+  );
 
   it('preserves named features, custom capabilities, and empty apps', async () => {
     const custom = {

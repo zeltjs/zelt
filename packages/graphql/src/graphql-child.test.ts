@@ -123,20 +123,14 @@ describe('graphql HTTP child helper', () => {
     );
   });
 
-  it.each([
-    'con',
-    'PRN',
-    'Aux',
-    'nul',
-    'com1',
-    'COM9',
-    'lpt1',
-    'LPT9',
-  ])('rejects the reserved Windows device name %s regardless of case', (reserved) => {
-    expect(() => graphql({ path: '/graphql', resolvers: [UserResolver], name: reserved })).toThrow(
-      /reserved Windows device name/,
-    );
-  });
+  it.each(['con', 'PRN', 'Aux', 'nul', 'com1', 'COM9', 'lpt1', 'LPT9'])(
+    'rejects the reserved Windows device name %s regardless of case',
+    (reserved) => {
+      expect(() =>
+        graphql({ path: '/graphql', resolvers: [UserResolver], name: reserved }),
+      ).toThrow(/reserved Windows device name/);
+    },
+  );
 
   it('does not treat a reserved name as a substring match (e.g. `console`)', () => {
     expect(() =>

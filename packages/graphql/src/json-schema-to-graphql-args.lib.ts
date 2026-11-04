@@ -49,7 +49,7 @@ const readRequired = (value: unknown): ReadonlySet<string> => {
 export const jsonSchemaToGraphqlArgs = (schema: unknown): readonly GraphqlArg[] => {
   const node = asRecord(schema);
   const properties = node ? asRecord(node['properties']) : undefined;
-  if (!node || node['type'] !== 'object' || properties === undefined) {
+  if (node?.['type'] !== 'object' || properties === undefined) {
     throw new Error('args() schema must be a top-level object schema.');
   }
 

@@ -47,7 +47,7 @@
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
     "@zeltjs/testing": "workspace:*",
-    "testcontainers": ">=10 <12"
+    "testcontainers": ">=10 <13"
   },
   "peerDependenciesMeta": {
     "@zeltjs/testing": {
@@ -58,13 +58,13 @@
     }
   },
   "dependencies": {
-    "ioredis": "5.10.1"
+    "ioredis": "6.0.0"
   },
   "devDependencies": {
     "@zeltjs/core": "workspace:*",
     "@zeltjs/testing": "workspace:*",
     "@types/node": "catalog:",
-    "testcontainers": "10.25.0"
+    "testcontainers": "12.2.1"
   },
   "volta": {
     "extends": "../../package.json"

@@ -83,24 +83,20 @@ describe('lazy decorator stack formatting', () => {
     expect(trace?.error.stack).not.toContain('inspectFixture');
   });
 
-  it.each([
-    '',
-    undefined,
-    null,
-    0,
-    false,
-    {},
-  ])('treats an unavailable stack as missing position information: %s', (stack) => {
-    const formatter = vi.spyOn(Error, 'prepareStackTrace').mockReturnValue(stack);
-    try {
-      const trace = captureStackTrace();
-      expect(formatter).not.toHaveBeenCalled();
-      expect(resolvePosition(trace)).toBeUndefined();
-      expect(resolveDefinitionPosition(trace)).toBeUndefined();
-    } finally {
-      formatter.mockRestore();
-    }
-  });
+  it.each(['', undefined, null, 0, false, {}])(
+    'treats an unavailable stack as missing position information: %s',
+    (stack) => {
+      const formatter = vi.spyOn(Error, 'prepareStackTrace').mockReturnValue(stack);
+      try {
+        const trace = captureStackTrace();
+        expect(formatter).not.toHaveBeenCalled();
+        expect(resolvePosition(trace)).toBeUndefined();
+        expect(resolveDefinitionPosition(trace)).toBeUndefined();
+      } finally {
+        formatter.mockRestore();
+      }
+    },
+  );
 
   it('uses the definition stack when the application stack is unavailable', () => {
     const defineTrace = captureStackTrace();

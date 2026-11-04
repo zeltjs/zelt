@@ -136,41 +136,41 @@ describe('onTxiki', () => {
     expect(native.exit).not.toHaveBeenCalled();
   });
 
-  it.each([
-    'SIGINT',
-    'SIGTERM',
-  ] as const)('retains %s during lifecycle cleanup and shares repeated signals', async (signal) => {
-    const native = nativeRuntime();
-    vi.stubGlobal('tjs', native);
-    const app = await onTxiki(createApp([]));
-    const lifecycle = await app.get(LifecycleManager);
-    const gate = Promise.withResolvers<void>();
-    const started = Promise.withResolvers<void>();
-    const cleanup = vi.fn(async () => {
-      started.resolve();
-      await gate.promise;
-    });
-    lifecycle.register({ startup: () => {}, shutdown: cleanup });
-    await lifecycle.startupPending();
-    const handler = native.listeners.get(signal);
-    if (!handler) throw new Error('adapter did not attach a signal handler');
-    handler();
-    const stopping = app.shutdown();
-    try {
-      await started.promise;
-      expect(native.listeners.get(signal)).toBe(handler);
-      expect(native.removeSignalListener).not.toHaveBeenCalled();
+  it.each(['SIGINT', 'SIGTERM'] as const)(
+    'retains %s during lifecycle cleanup and shares repeated signals',
+    async (signal) => {
+      const native = nativeRuntime();
+      vi.stubGlobal('tjs', native);
+      const app = await onTxiki(createApp([]));
+      const lifecycle = await app.get(LifecycleManager);
+      const gate = Promise.withResolvers<void>();
+      const started = Promise.withResolvers<void>();
+      const cleanup = vi.fn(async () => {
+        started.resolve();
+        await gate.promise;
+      });
+      lifecycle.register({ startup: () => {}, shutdown: cleanup });
+      await lifecycle.startupPending();
+      const handler = native.listeners.get(signal);
+      if (!handler) throw new Error('adapter did not attach a signal handler');
       handler();
-      expect(app.shutdown()).toBe(stopping);
-    } finally {
-      gate.resolve();
-      await stopping;
-    }
-    expect(cleanup).toHaveBeenCalledOnce();
-    expect(native.listeners.size).toBe(0);
-    expect(native.removeSignalListener).toHaveBeenCalledTimes(2);
-    expect(native.exit).not.toHaveBeenCalled();
-  });
+      const stopping = app.shutdown();
+      try {
+        await started.promise;
+        expect(native.listeners.get(signal)).toBe(handler);
+        expect(native.removeSignalListener).not.toHaveBeenCalled();
+        handler();
+        expect(app.shutdown()).toBe(stopping);
+      } finally {
+        gate.resolve();
+        await stopping;
+      }
+      expect(cleanup).toHaveBeenCalledOnce();
+      expect(native.listeners.size).toBe(0);
+      expect(native.removeSignalListener).toHaveBeenCalledTimes(2);
+      expect(native.exit).not.toHaveBeenCalled();
+    },
+  );
 
   it('keeps native serving per HTTP feature and closes servers only once', async () => {
     const native = nativeRuntime();

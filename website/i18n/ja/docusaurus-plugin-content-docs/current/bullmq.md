@@ -246,18 +246,19 @@ await queue.add('report', { userId: 123 }, {
 
 ## スケジュールされたJob {#scheduled-jobs}
 
-繰り返し実行されるjobには、BullMQのrepeat機能を使います:
+繰り返し実行するjobには、BullMQのjob schedulerを使います:
 
 ```typescript
 import { Queue } from 'bullmq';
 
 const queue = new Queue('reports', { connection: { host: 'localhost', port: 6379 } });
 // ---cut---
-await queue.add('daily-report', {}, {
-  repeat: {
-    pattern: '0 9 * * *',          // 毎日9:00に
-    tz: 'Asia/Tokyo',
-  },
+await queue.upsertJobScheduler('daily-report', {
+  pattern: '0 9 * * *',          // 毎日9:00に
+  tz: 'Asia/Tokyo',
+}, {
+  name: 'daily-report',
+  data: {},
 });
 ```
 

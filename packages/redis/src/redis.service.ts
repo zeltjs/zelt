@@ -12,7 +12,12 @@ export class RedisService implements Lifecycle {
     // lazyConnect defers the network handshake to startup(); ioredis skips it
     // entirely at construction time, so `client` is safe to read from other
     // constructors (e.g. namespace() call sites) before the app has started.
-    this._client = new Redis(config.url, { ...config.options, lazyConnect: true });
+    const { replyMapping, ...options } = config.options;
+    this._client = new Redis(config.url, {
+      ...options,
+      ...(replyMapping !== undefined && { replyMapping }),
+      lazyConnect: true,
+    });
     lifecycle.register(this);
   }
 

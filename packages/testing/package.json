@@ -96,8 +96,8 @@
     }
   },
   "devDependencies": {
-    "@jest/globals": "29.7.0",
-    "bun-types": "1.2.14",
+    "@jest/globals": "30.5.2",
+    "bun-types": "1.4.4",
     "vitest": "catalog:"
   },
   "volta": {

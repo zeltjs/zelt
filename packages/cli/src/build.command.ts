@@ -34,9 +34,9 @@ import { writePrebuiltModule } from './prebuilt-writer.lib';
 import { buildTsdownCommand } from './tsdown.lib';
 
 type BuildArgs = {
-  readonly config?: string;
-  readonly entry?: string;
-  readonly outDir?: string;
+  readonly config?: string | undefined;
+  readonly entry?: string | undefined;
+  readonly outDir?: string | undefined;
 };
 
 const RUN_BUILD_ERROR_GUARDS = [

@@ -47,52 +47,53 @@ function named(value: string): string {
 }
 
 describe('Presenter preserves the pre-React display contract', () => {
-  it.each(
-    golden,
-  )('matches legacy projection: $node/$mode expanded=$expanded config=$showConfig types=$showTypes', (test) => {
-    const view: ViewState = {
-      ...initialView(graph),
-      node: test.node === null ? null : nodeId(test.node),
-      scope: { kind: 'following', mode: test.mode },
-      expanded: test.expanded ? [...graph.groups.keys()] : [],
-      options: {
-        hiddenColumns: hiddenColumns(test.showConfig),
-        showTypes: test.showTypes,
-        showCounts: true,
-      },
-    };
-    const model = presentMap(graph, view);
-    // Hash geometry under one fixed tag-reservation policy so the golden covers ordering and
-    // stacking; visible-tag geometry is verified independently below.
-    const legacyGeometry = layout(graph, {
-      ...view,
-      options: { ...view.options, showTypes: true },
-    });
-    // JSONの並びに表示の意味は無い(列内の並びはUIが計算する)ので、名前順にそろえて比べる
-    const groups = model.groups
-      .map((g) => ({
-        id: named(g.id),
-        rect: required(legacyGeometry.boxes, g.id),
-        expanded: g.expanded,
-        selected: g.selected,
-        dimmed: g.dimmed,
-        members: g.members.map((m) => [named(m.id), m.selected, m.dimmed]),
-        tags: g.tags
-          .map((t) => [named(t.key), t.dimmed])
-          .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id));
-    const wires = model.edges
-      .map((e) => [named(e.from), named(e.to), e.kind, e.ids.map(named).sort()])
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-    const json = JSON.stringify({
-      groups,
-      wires,
-      width: model.width,
-      height: legacyGeometry.height,
-    });
-    expect(createHash('sha256').update(json).digest('hex')).toBe(test.hash);
-  });
+  it.each(golden)(
+    'matches legacy projection: $node/$mode expanded=$expanded config=$showConfig types=$showTypes',
+    (test) => {
+      const view: ViewState = {
+        ...initialView(graph),
+        node: test.node === null ? null : nodeId(test.node),
+        scope: { kind: 'following', mode: test.mode },
+        expanded: test.expanded ? [...graph.groups.keys()] : [],
+        options: {
+          hiddenColumns: hiddenColumns(test.showConfig),
+          showTypes: test.showTypes,
+          showCounts: true,
+        },
+      };
+      const model = presentMap(graph, view);
+      // Hash geometry under one fixed tag-reservation policy so the golden covers ordering and
+      // stacking; visible-tag geometry is verified independently below.
+      const legacyGeometry = layout(graph, {
+        ...view,
+        options: { ...view.options, showTypes: true },
+      });
+      // JSONの並びに表示の意味は無い(列内の並びはUIが計算する)ので、名前順にそろえて比べる
+      const groups = model.groups
+        .map((g) => ({
+          id: named(g.id),
+          rect: required(legacyGeometry.boxes, g.id),
+          expanded: g.expanded,
+          selected: g.selected,
+          dimmed: g.dimmed,
+          members: g.members.map((m) => [named(m.id), m.selected, m.dimmed]),
+          tags: g.tags
+            .map((t) => [named(t.key), t.dimmed])
+            .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+      const wires = model.edges
+        .map((e) => [named(e.from), named(e.to), e.kind, e.ids.map(named).sort()])
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+      const json = JSON.stringify({
+        groups,
+        wires,
+        width: model.width,
+        height: legacyGeometry.height,
+      });
+      expect(createHash('sha256').update(json).digest('hex')).toBe(test.hash);
+    },
+  );
   it('keeps every collapsed attachment at the same emphasis as its owner', () => {
     for (const node of graph.owners.keys()) {
       const model = presentMap(graph, { ...initialView(graph), node });

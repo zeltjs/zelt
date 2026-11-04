@@ -15,15 +15,15 @@
     "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/cli": "workspace:*",
     "@zeltjs/core": "workspace:*",
-    "better-sqlite3": "12.9.0",
-    "drizzle-orm": "0.45.2",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.4",
     "valibot": "catalog:",
     "@zeltjs/openapi": "workspace:*",
     "@zeltjs/validator-valibot": "workspace:*"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "7.6.13",
-    "drizzle-kit": "0.31.2",
+    "@types/better-sqlite3": "9.6.0",
+    "drizzle-kit": "0.31.11",
     "tsx": "catalog:"
   },
   "nx": {

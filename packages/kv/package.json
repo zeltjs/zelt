@@ -57,7 +57,7 @@
   "peerDependencies": {
     "@zeltjs/core": "workspace:*",
     "@zeltjs/redis": "workspace:*",
-    "vitest": ">=4 <5"
+    "vitest": ">=4 <6"
   },
   "peerDependenciesMeta": {
     "@zeltjs/redis": {
@@ -69,7 +69,7 @@
     "@zeltjs/redis": "workspace:*",
     "@zeltjs/unsafe-type-lib": "workspace:*",
     "@types/node": "catalog:",
-    "ioredis": "5.10.1"
+    "ioredis": "6.0.0"
   },
   "volta": {
     "extends": "../../package.json"
