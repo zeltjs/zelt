@@ -12,7 +12,11 @@ import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.li
 import { parseGqlScalar } from './gql-scalar.lib';
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
 import { analyzeGraphqlModels } from './graphql-model-analysis.lib';
-import { renderGraphqlModelProperty, renderGraphqlModelResult } from './graphql-model-shape.lib';
+import {
+  renderGraphqlModelProperty,
+  renderGraphqlModelResult,
+  renderGraphqlModelValue,
+} from './graphql-model-shape.lib';
 import { readOwnEntry } from './graphql-record.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import type { GraphqlSchemaAdapter } from './json-schema-to-graphql-args.lib';
@@ -1060,39 +1064,16 @@ const getModelMethodNames = async (
 };
 
 /**
- * @throws {Error} from graphql-sdl-generator.lib.ts:renderComputedModelField
- */
-const renderComputedModelField = (
-  name: string,
-  names: MethodTypeNames | undefined,
-  state: AnalysisState,
-): string => {
-  if (!names?.returnType) throw new Error(`Missing return type for ${name}`);
-  return renderType(
-    convertTypeInfoToGraphqlRef(names.returnType, state.typeCtx, names.returnTypeName),
-  );
-};
-
-/**
  * @throws {Error} from graphql-sdl-generator.lib.ts:renderModelFields
  */
-const renderModelFields = (
-  context: ModelRenderContext,
-  name: string,
-  methodNames: ReadonlyMap<string, MethodTypeNames>,
-): string[] => {
+const renderModelFields = (context: ModelRenderContext, name: string): string[] => {
   const { analysis, state } = context;
   const lines: string[] = [];
   for (const [fieldName, field] of Object.entries(analysis.fields[name] ?? {})) {
     const binding = analysis.bindings[name]?.[fieldName];
     if (!binding) throw new Error(`Missing binding ${name}.${fieldName}`);
     if (field.kind === 'computed') {
-      const type = renderComputedModelField(
-        `${name}.${fieldName}`,
-        methodNames.get(binding.method),
-        state,
-      );
-      lines.push(`  ${fieldName}: ${type}`);
+      lines.push(`  ${fieldName}: ${renderGraphqlModelValue(field.value)}`);
     } else if (field.kind === 'relation') {
       lines.push(`  ${fieldName}: ${renderGraphqlModelResult(field.target, field.shape)}`);
     }
@@ -1114,8 +1095,7 @@ const renderModelDefinition = async (
   const lines = model.properties
     .filter((property) => !property.name.startsWith('$'))
     .map((property) => `  ${property.name}: ${renderGraphqlModelProperty(property)}`);
-  const methodNames = await getModelMethodNames(context, model.provider.resolver);
-  lines.push(...renderModelFields(context, name, methodNames));
+  lines.push(...renderModelFields(context, name));
   return `type ${name} {\n${lines.join('\n')}\n}`;
 };
 

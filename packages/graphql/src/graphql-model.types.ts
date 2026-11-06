@@ -18,6 +18,7 @@ export type GraphqlModelProperty = {
 
 export type GraphqlModelDefinition = {
   readonly provider: GraphqlModelBinding;
+  readonly mode: 'single' | 'batch';
   readonly properties: readonly GraphqlModelProperty[];
 };
 
@@ -41,6 +42,8 @@ export type GraphqlModelField =
   | {
       kind: 'computed';
       readonly dependencies: readonly string[];
+      readonly mode: 'single' | 'batch';
+      readonly value: GraphqlModelValue;
     };
 
 export type GraphqlModels = Readonly<Record<string, GraphqlModelDefinition>>;

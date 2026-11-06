@@ -60,6 +60,132 @@ class BatchUserResolver {
   }
 }
 
+type VariantUser = { id: string; first: string };
+@Resolver()
+class SingleVariantResolver {
+  @Query()
+  variant(): Pick<VariantUser, 'id'> {
+    return { id: '1' };
+  }
+  @ResolveMultiField()
+  load(_ref: Pick<VariantUser, 'id'>): Promise<VariantUser | null> {
+    return Promise.resolve(null);
+  }
+  @ResolveField()
+  upper(user: Pick<VariantUser, 'first'>): Promise<string> {
+    return Promise.resolve(user.first);
+  }
+  @Relation()
+  other(user: Pick<VariantUser, 'id'>): Promise<Pick<VariantUser, 'id'> | null> {
+    return Promise.resolve(user);
+  }
+}
+@Resolver()
+class SingleSyncVariantResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+    return null;
+  }
+  @ResolveField()
+  upper(user: Pick<VariantUser, 'first'>): string {
+    return user.first;
+  }
+  @Relation()
+  other(user: Pick<VariantUser, 'id'>): Pick<VariantUser, 'id'> {
+    return user;
+  }
+}
+@Resolver()
+class BatchVariantResolver {
+  @Query()
+  variant(): Pick<VariantUser, 'id'> {
+    return { id: '1' };
+  }
+  @ResolveMultiField()
+  load(_refs: readonly Pick<VariantUser, 'id'>[]): ReadonlyMap<string, VariantUser | null> {
+    return new Map();
+  }
+  @ResolveField()
+  upper(
+    _users: readonly Pick<VariantUser, 'id' | 'first'>[],
+  ): Promise<ReadonlyMap<string, readonly (string | null)[]>> {
+    return Promise.resolve(new Map());
+  }
+  @ResolveField()
+  lower(_users: readonly Pick<VariantUser, 'id'>[]): ReadonlyMap<string, string> {
+    return new Map();
+  }
+  @Relation()
+  other(
+    _users: readonly Pick<VariantUser, 'id'>[],
+  ): Promise<ReadonlyMap<string, Pick<VariantUser, 'id'> | null>> {
+    return Promise.resolve(new Map());
+  }
+}
+@Resolver()
+class MissingBatchIdResolver {
+  @ResolveMultiField()
+  load(_refs: readonly Pick<VariantUser, 'id'>[]): Map<string, VariantUser | null> {
+    return new Map();
+  }
+  @ResolveField()
+  upper(_users: readonly Pick<VariantUser, 'first'>[]): Map<string, string> {
+    return new Map();
+  }
+}
+@Resolver()
+class MissingRelationIdResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+    return null;
+  }
+  @Relation()
+  other(_users: readonly Pick<VariantUser, 'first'>[]): Map<string, Pick<VariantUser, 'id'>> {
+    return new Map();
+  }
+}
+@Resolver()
+class BadProviderShapeResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<VariantUser, 'id'>): Map<string, VariantUser | null> {
+    return new Map();
+  }
+}
+@Resolver()
+class BadComputedMapResolver {
+  @ResolveMultiField()
+  load(_refs: readonly Pick<VariantUser, 'id'>[]): Map<string, VariantUser | null> {
+    return new Map();
+  }
+  @ResolveField()
+  upper(_users: readonly Pick<VariantUser, 'id'>[]): Map<number, string> {
+    return new Map();
+  }
+}
+@Resolver()
+class BadComputedValueResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+    return null;
+  }
+  @ResolveField()
+  upper(_users: readonly Pick<VariantUser, 'id'>[]): Map<string, Promise<string>> {
+    return new Map();
+  }
+}
+
+@Resolver()
+class BadRelationPromiseResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+    return null;
+  }
+  @Relation()
+  other(_users: readonly Pick<VariantUser, 'id'>[]): Map<string, Promise<Pick<VariantUser, 'id'>>> {
+    return new Map();
+  }
+}
+
 type OtherUser = { id: string; $friend: string };
 @Resolver()
 class WrongParentResolver {
@@ -194,6 +320,58 @@ describe('model code generation', () => {
       kind: 'relation',
       mode: 'batch',
     });
+  });
+  it('generates single parent async and sync methods', async () => {
+    const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };
+    const single = await generateGraphqlRuntimeForResolvers([SingleVariantResolver], options);
+    const sync = await generateGraphqlRuntimeForResolvers([SingleSyncVariantResolver], options);
+    expect(sync.models?.['VariantUser']?.mode).toBe('single');
+    expect(single.models?.['VariantUser']?.mode).toBe('single');
+    const fields = single.modelFields?.['VariantUser'];
+    expect(fields).toBeDefined();
+    if (!fields) throw new Error('Missing fields');
+    expect(fields['upper']).toMatchObject({
+      mode: 'single',
+      value: { kind: 'scalar', name: 'string' },
+    });
+    expect(fields['other']).toMatchObject({ mode: 'single' });
+  });
+  it('generates one-parent values for batch computed methods', async () => {
+    const batch = await generateGraphqlRuntimeForResolvers([BatchVariantResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+    });
+    expect(batch.models?.['VariantUser']?.mode).toBe('batch');
+    expect(batch.schemaSdl).toContain('upper: [String]!');
+    const fields = batch.modelFields?.['VariantUser'];
+    expect(fields).toBeDefined();
+    if (!fields) throw new Error('Missing fields');
+    expect(fields['lower']).toMatchObject({ mode: 'batch' });
+    expect(fields['upper']).toMatchObject({
+      mode: 'batch',
+      value: { kind: 'array', item: { kind: 'nullable' } },
+    });
+    expect(fields['other']).toMatchObject({ mode: 'batch' });
+  });
+  it('rejects missing batch IDs, incorrect keys and nested promises', async () => {
+    const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };
+    await expect(
+      generateGraphqlRuntimeForResolvers([MissingBatchIdResolver], options),
+    ).rejects.toThrow('batch parent Pick requires id');
+    await expect(
+      generateGraphqlRuntimeForResolvers([MissingRelationIdResolver], options),
+    ).rejects.toThrow('batch parent Pick requires id');
+    await expect(
+      generateGraphqlRuntimeForResolvers([BadProviderShapeResolver], options),
+    ).rejects.toThrow('provider result must be Model | null');
+    await expect(
+      generateGraphqlRuntimeForResolvers([BadComputedMapResolver], options),
+    ).rejects.toThrow('Map key must match');
+    await expect(
+      generateGraphqlRuntimeForResolvers([BadComputedValueResolver], options),
+    ).rejects.toThrow('batch Map values cannot be Promise');
+    await expect(
+      generateGraphqlRuntimeForResolvers([BadRelationPromiseResolver], options),
+    ).rejects.toThrow('batch Map values cannot be Promise');
   });
   it('rejects another structurally identical parent model and a nonstandard Map', async () => {
     const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };

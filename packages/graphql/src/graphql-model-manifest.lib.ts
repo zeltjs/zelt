@@ -74,6 +74,8 @@ const parseProperties = (value: unknown): readonly GraphqlModelProperty[] | unde
 const parseModel = (value: unknown): GraphqlModelDefinition | undefined => {
   const entry = record(value);
   if (!entry) return undefined;
+  const mode = entry['mode'];
+  if (mode !== 'single' && mode !== 'batch') return undefined;
   const provider = parseBinding(entry['provider']);
   const properties = parseProperties(entry['properties']);
   if (!provider || !properties) return undefined;
@@ -84,7 +86,7 @@ const parseModel = (value: unknown): GraphqlModelDefinition | undefined => {
       .otherwise(() => false)
   )
     return undefined;
-  return { provider, properties };
+  return { provider, properties, mode };
 };
 
 const parseShape = (value: unknown): GraphqlModelResultShape | undefined => {
@@ -112,10 +114,9 @@ const parseField = (value: unknown): GraphqlModelField | undefined => {
   if (!entry) return undefined;
   return match(entry)
     .returnType<GraphqlModelField | undefined>()
-    .with({ kind: 'computed' }, () => {
-      const dependencies = parseDependencies(entry['dependencies']);
-      return dependencies ? { kind: 'computed', dependencies } : undefined;
-    })
+    .with({ kind: 'computed', mode: P.union('single', 'batch') }, ({ mode }) =>
+      parseComputed(entry, mode),
+    )
     .with({ kind: 'query', target: P.string }, ({ target }) => {
       const shape = parseShape(entry['shape']);
       return shape ? { kind: 'query', target, shape } : undefined;
@@ -125,6 +126,24 @@ const parseField = (value: unknown): GraphqlModelField | undefined => {
       ({ target, mode }) => parseRelation(entry, target, mode),
     )
     .otherwise(() => undefined);
+};
+
+const isPublicValue = (value: GraphqlModelValue): boolean =>
+  match(value)
+    .with({ kind: 'opaque' }, () => false)
+    .with({ kind: 'scalar' }, () => true)
+    .with({ kind: 'array' }, ({ item }) => isPublicValue(item))
+    .with({ kind: P.union('nullable', 'optional') }, ({ inner }) => isPublicValue(inner))
+    .exhaustive();
+
+const parseComputed = (
+  entry: Record<string, unknown>,
+  mode: 'single' | 'batch',
+): GraphqlModelField | undefined => {
+  const dependencies = parseDependencies(entry['dependencies']);
+  const value = parseValue(entry['value']);
+  if (!dependencies || !value || !isPublicValue(value)) return undefined;
+  return { kind: 'computed', dependencies, mode, value };
 };
 
 const parseRelation = (
@@ -163,6 +182,14 @@ const hasValidFieldReferences = (
   if (field.kind === 'query') return owner === 'Query';
   const parent = models[owner];
   if (!parent || !names.has(owner)) return false;
+  return hasValidDependencies(parent, field);
+};
+
+const hasValidDependencies = (
+  parent: GraphqlModelDefinition,
+  field: Exclude<GraphqlModelField, { kind: 'query' }>,
+): boolean => {
+  if (field.mode === 'batch' && !field.dependencies.includes('id')) return false;
   const keys = new Set(parent.properties.map((property) => property.name));
   return field.dependencies.every((key) => keys.has(key));
 };

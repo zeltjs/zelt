@@ -176,9 +176,59 @@ export class PostResolver {
 
 For an optional author, make the internal `$authorId` nullable and return `Pick<User, 'id'> | null`, explicitly handling the absent relation. Nullability expresses the public model's meaning; it is not added universally to accommodate acquisition failures. A missing or inaccessible target on a non-null relation is a GraphQL error.
 
-The parent parameter determines batching. A method accepting `Pick<T, ...>`, such as `author`, runs per parent. A method accepting `readonly Pick<T, ...>[]`, such as `publicPosts`, receives a batch of parents. There is no batch decorator option.
+The parent parameter determines batching for all three method kinds. A method accepting `Pick<T, ...>`, such as `author`, runs per parent. A method accepting `readonly Pick<T, ...>[]`, such as `publicPosts`, receives a batch of parents. There is no batch decorator option.
 
-Synchronous/asynchronous execution and single/batch execution are independent. Both forms may return a value or a Promise, and both may access a database. A single-parent method that queries for each parent can cause N+1. Use the array form to batch I/O across parents; marking a method async does not batch it.
+Synchronous/asynchronous execution and single/batch execution are independent. Both forms may return a value or a Promise, and both may access a database. A single-parent method that queries for each parent can cause N+1. Choose the array form when you want to batch I/O across parents; marking a method async does not batch it.
+
+## Single/batch and sync/async execution {#invocation-modes}
+
+`ResolveMultiField`, `Relation`, and `ResolveField` share one invocation contract. A `Pick<Model, ...>` parent parameter runs once per parent and returns its result directly. A `readonly Pick<Model, ...>[]` parameter receives multiple parents and returns a `ReadonlyMap` from parent ID to each parent's result.
+
+Either form may return a synchronous value or a Promise for the whole method result. Include `id` explicitly in every batch parent Pick; Zelt does not inject undeclared dependencies. Map order is irrelevant, but the returned key set must equal the input parent ID set. Promises inside individual Map values are not supported.
+
+The decorators differ in what each result means: `ResolveMultiField` returns source data or null, `Relation` returns target references or reference lists, and `ResolveField` returns a field value. Multi refers to supplying multiple fields, not to selecting batch execution.
+
+Any of these methods may access a database or external service. Single-parent I/O can cause N+1, but Zelt permits that choice and emits no build warning merely because a method is single-parent or async. Choosing the batch form lets Zelt collect parents and verify the ID correspondence.
+
+The following examples replace existing methods; do not add a second provider or register the same field twice in one class.
+
+```ts no-check
+// Alternative to the existing dbValues method in UserResolver.
+@ResolveMultiField()
+async dbValues(ref: Pick<User, 'id'>): Promise<User | null> {
+  const [row] = await this.db.client
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      $familyNameFirst: users.familyNameFirst,
+    })
+    .from(users)
+    .where(eq(users.id, ref.id))
+    .limit(1);
+
+  return row ?? null;
+}
+```
+
+Single providers also reuse results by model and ID within an operation. Different unloaded IDs still invoke the method individually. Zelt does not combine arbitrary single-record database queries into one query.
+
+```ts no-check
+// Alternative to the existing name method in UserResolver.
+@ResolveField()
+async name(
+  parents: readonly Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'>[],
+): Promise<ReadonlyMap<User['id'], string>> {
+  return new Map(parents.map(user => [
+    user.id,
+    user.$familyNameFirst
+      ? user.lastName + ' ' + user.firstName
+      : user.firstName + ' ' + user.lastName,
+  ]));
+}
+```
+
+This `name` field is still `String!` in GraphQL. Batching changes how parents are processed, not the public field into a list or Map. The Map value type determines the GraphQL result type for one parent.
 
 ## Entry points and generated schema {#entry-points}
 
@@ -277,14 +327,15 @@ Unselected relations and computed fields do not execute. Determine effective sel
 
 ## Batching, reuse, and failures {#runtime-contract}
 
-- **Provider input:** A non-empty array of deduplicated, unloaded IDs for the same endpoint, model, and execution context. A single parent still uses an array.
+- **Provider input:** Single mode receives each unloaded ID reference separately. Batch mode receives a non-empty array of deduplicated, unloaded IDs for the same endpoint, model, and execution context. Both reuse results for the same ID within an operation.
 - **Batch boundary:** Collect requests that become resolvable in the same loading stage. This does not promise one call per operation: deeper selections may reveal IDs in later stages. Cross-model query fusion is not guaranteed.
-- **Provider output:** Map every input ID to complete internal data, including private fields, or explicit null. Map order is irrelevant. Missing keys, extra keys, and values whose `id` disagrees with the key violate the contract.
+- **Provider output:** Single mode returns complete model data, including private properties, or null. Batch mode maps each input ID to that result. A returned object's `id` must match the requested ID. Map order is irrelevant, but missing or extra keys violate the contract.
 - **Batch relation output:** Map every parent ID to its reference or reference list. No match for a nullable single target yields null; no matches for a list yield an empty array. An absent required target is an error. Preserve list order and duplicates. Never omit a parent key.
-- **Reuse scope:** Cache source data and missing results only within one GraphQL operation. Key by model and ID, not ID alone. Never share across requests, endpoints, or authorization contexts.
+- **Batch computed output:** Map each parent ID to its field value. The runtime checks the key set and GraphQL processes each value using the field's result type. Nullability follows the declared result type.
+- **Reuse scope:** Cache source data and missing results only within one GraphQL operation. Key by model and ID, not ID alone. Never share across requests, endpoints, or authorization contexts. Batch relations and batch computed fields also share results by field and parent ID within the operation. Single-parent relations and computed fields execute for each GraphQL invocation.
 - **Existence and authorization:** Even an `{ id }` selection must check existence and visibility through the provider rather than serialize an unchecked reference. Model visibility is consistent across entry paths within an operation; relation-specific publication filters select references separately.
 - **Errors:** Do not turn acquisition failures into null or empty lists. Exceptions become GraphQL errors at affected fields and propagate according to schema nullability. A null target on a non-null relation or search-result element also follows GraphQL error propagation.
-- **I/O responsibility:** The framework batches providers and array-parameter relations. Single-parameter relations run per parent regardless of whether they are synchronous or asynchronous. Application code that runs one SQL statement per item inside a batch function still creates N+1. Implement actual batching, such as an `IN` query.
+- **I/O responsibility:** For all three kinds, the framework collects parents for array-parameter methods. Single-parameter methods run per parent, independently of sync/async. Application code that runs one SQL statement per item inside a batch function still creates N+1. Implement actual batching, such as an `IN` query.
 
 Relations and computed fields have no GraphQL arguments in the initial version. Root Query methods handle search arguments. Per-parent pagination and argument-bearing relations are later extensions; unrelated conditions must not be silently merged into a batch.
 
@@ -297,11 +348,11 @@ TypeScript checks `Pick` keys and accesses inside method bodies. The generator c
 - The provider establishes the parent model and returns that model type, including `$` properties. Computed fields and relations declare dependencies using `Pick` of the same model type.
 - Dependencies are source properties of the model, including private `$` properties. Depending on another computed field or a relation result is a build error.
 - Query and single-parent relation results are a registered model's `Pick<T, 'id'>`, a list of those references, or nullable forms. For batch relations, each Map value has that same result shape. Unwrap Promise before interpreting either form. Return declarations containing the full model or extra fields are rejected. Structural typing cannot exclude all extra runtime properties, so the runtime consumes only IDs from references.
-- Single-parent relations use a direct `Pick<T, ...>`; batch relations use its readonly array form. Custom generic wrappers and aliases around `Pick` are initially unsupported and produce diagnostics.
+- All three kinds use a direct `Pick<T, ...>` for single parents or its readonly array form for batches. Batch Picks must include `id` to identify each parent in the result Map. Custom generic wrappers and aliases around `Pick` are initially unsupported and produce diagnostics.
 - `$`-prefixed source properties do not enter the schema. Public source fields, relations, and computed fields cannot duplicate a public name. Identity remains the public `id`; it cannot be replaced with `$id`.
 - The `$` convention applies to model source data. Public Query, Relation, and ResolveField names must satisfy GraphQL naming rules; invalid public names, including `$` prefixes, are build errors.
 - Initial public source properties support built-in scalars and their nullable/list forms. Add private properties for computation or reference selection to the same type using `$` prefixes. Model connections must be declared as relations.
-- Computed fields are synchronous, pure calculations with the same initial scalar output range. They do not independently perform I/O or load dependencies.
+- Computed fields retain the same scalar result range per parent. Both single and batch methods may be synchronous or asynchronous and may perform database or external-service I/O. Dependencies on other computed results remain unsupported.
 
 Map completeness, database response completeness, and I/O behavior cannot be guaranteed by TypeScript alone. Generated boundary checks and implementation contracts cover these obligations. Casting a partial row with `as User` does not satisfy the model-data contract.
 
@@ -329,8 +380,8 @@ Capture authorization data and services using existing DI/context conventions. B
 
 1. Initial model identity is `id: string`; the sole provider establishes its parent model.
 2. Query and Relation select references. Define public Query fields as ordinary methods and generate their schema.
-3. Array parent parameters select batch execution for relations, independently of async and I/O.
-4. Providers and batch relations return Maps, distinguishing absence from contract violations.
+3. All three method kinds share single/batch contracts selected by parent parameter shape, independently of async and I/O.
+4. Single methods return their result directly; batch methods return Maps from parent ID to result, distinguishing absence from contract violations.
 5. Reuse internal data within an operation. Accept separate ID-search and data-load queries at each stage.
 6. Keep one model type and exclude only `$`-prefixed source properties from GraphQL. Providers return fixed model-data shapes. Dynamic column projection and dependencies between computed fields are deferred.
 

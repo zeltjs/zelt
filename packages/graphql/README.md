@@ -124,15 +124,25 @@ conversion helpers are available from `@zeltjs/graphql/codegen`.
 
 A resolver with one `@ResolveMultiField()` supplies a named model. Queries
 and `@Relation()` methods return `Pick<Model, 'id'>` references; the runtime
-hydrates those references through an operation-local DataLoader. A relation
-with an array parent parameter receives a batch, independently of whether
-it returns a Promise. `@ResolveField()` declares the source properties it
-needs with `Pick` and computes a synchronous field.
+hydrates those references through an operation-local DataLoader. All three
+method kinds use the same contract: a single parent returns its result,
+and an array of parents returns a Map from parent ID to each result. Both
+forms may return a value or a Promise for the whole result. Batch parent
+Picks must include `id`. `@ResolveField()` may be async and may perform I/O,
+just like a relation or provider. Single-parent I/O can cause N+1; choosing
+that form is permitted and does not produce a build warning.
 
 Properties beginning with `$` remain available to providers and dependent
 methods but are excluded from the GraphQL schema. A provider returns the
-complete model, including private properties, in a Map keyed by the requested
-IDs. Missing targets are explicit null values; malformed Maps are errors.
+complete model, including private properties, directly for one reference
+or in a Map keyed by the requested IDs for a batch. Missing targets are
+explicit null values; malformed Maps are errors. Map values are results,
+not individual Promises. Single providers still cache by model and ID
+within an operation, but distinct IDs invoke them individually.
+
+Regenerate prebuilt output after upgrading: provider and computed-field
+metadata now record their invocation mode, and computed metadata records
+the per-parent result type. Incomplete older model metadata is rejected.
 
 The [GraphQL guide](../../website/docs/graphql.md) defines the model contract,
 nullability, batching behavior, and source examples. Legacy resolvers without

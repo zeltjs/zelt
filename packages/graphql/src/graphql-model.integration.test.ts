@@ -10,6 +10,7 @@ import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
 type Account = { id: string; first: string; last: string; $identity: string };
 type Entry = { id: string; title: string; $author: string };
+type Score = { id: string; value: number };
 type Call = { readonly method: string; readonly ids: readonly string[]; readonly identity: string };
 const calls: Call[] = [];
 
@@ -63,9 +64,29 @@ class Accounts {
   }
 
   @ResolveField()
-  name(account: Pick<Account, 'first' | 'last' | '$identity'>): string {
+  async name(account: Pick<Account, 'first' | 'last' | '$identity'>): Promise<string> {
+    await Promise.resolve();
     expect(Object.keys(account).sort()).toEqual(['$identity', 'first', 'last']);
     return `${account.first} ${account.last}:${account.$identity}`;
+  }
+
+  @ResolveField()
+  async labels(
+    accounts: readonly Pick<Account, 'id' | 'first' | '$identity'>[],
+    req = request(),
+  ): Promise<ReadonlyMap<Account['id'], readonly string[] | null>> {
+    await Promise.resolve();
+    const identity = req.header('X-Identity');
+    if (identity === undefined) throw new Error('Identity header required by test field');
+    calls.push({ method: 'labels', ids: accounts.map((account) => account.id), identity });
+    return new Map(
+      [...accounts]
+        .reverse()
+        .map((account) => [
+          account.id,
+          account.id === 'b' ? null : [account.first, account.$identity, identity],
+        ]),
+    );
   }
 
   @Relation()
@@ -102,16 +123,34 @@ class Entries {
   }
 }
 
-const resolvers = [Accounts, Entries];
+@Resolver()
+class Scores {
+  @Query()
+  scores(): readonly Pick<Score, 'id'>[] {
+    return [{ id: 'a' }, { id: 'bb' }, { id: 'a' }];
+  }
+
+  @ResolveMultiField()
+  async load(ref: Pick<Score, 'id'>, req = request()): Promise<Score | null> {
+    await Promise.resolve();
+    const identity = req.header('X-Identity');
+    if (identity === undefined) throw new Error('Identity header required by test provider');
+    calls.push({ method: 'scores', ids: [ref.id], identity });
+    return { id: ref.id, value: ref.id.length };
+  }
+}
+
+const resolvers = [Accounts, Entries, Scores];
 let generated: GeneratedGraphqlRuntime;
 let resolversHash: string;
 
+// TypeScript program construction uses the same budget as the codegen tests.
 beforeAll(async () => {
   generated = await generateGraphqlRuntimeForResolvers(resolvers, {
     tsconfig: resolve(__dirname, '../tsconfig.json'),
   });
   resolversHash = await computeGraphqlPrebuiltHash('/graphql', resolvers);
-});
+}, 30_000);
 beforeEach(() => {
   calls.length = 0;
 });
@@ -128,6 +167,40 @@ const start = (contextMode: 'sync' | 'async') => {
 };
 
 describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode) => {
+  it('publishes a per-parent result for async batch fields and caches single providers', async () => {
+    const running = await start(mode);
+    try {
+      const response = await running.http.request('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Identity': 'one' },
+        body: JSON.stringify({
+          query: '{ accounts { first: labels second: labels } scores { value } }',
+        }),
+      });
+      const labels = ['a', 'one', 'one'];
+      expect(await response.json()).toEqual({
+        data: {
+          accounts: [
+            { first: labels, second: labels },
+            { first: null, second: null },
+            { first: labels, second: labels },
+          ],
+          scores: [{ value: 1 }, { value: 2 }, { value: 1 }],
+        },
+      });
+      expect(calls.filter((call) => call.method === 'labels')).toEqual([
+        { method: 'labels', ids: ['a', 'b'], identity: 'one' },
+      ]);
+      expect(calls.filter((call) => call.method === 'scores').map((call) => call.ids)).toEqual([
+        ['a'],
+        ['bb'],
+      ]);
+      expect(generated.schemaSdl).toContain('labels: [String!]');
+      expect(generated.schemaSdl).not.toContain('Map');
+    } finally {
+      await running.shutdown();
+    }
+  });
   it('resolves legal GraphQL names that also exist on Object.prototype', async () => {
     const running = await start(mode);
     try {
@@ -237,6 +310,7 @@ it.each([
   ['accounts: [Account!]!', 'accounts: Account'],
   ['accounts: [Account!]!', 'accounts: [Entry!]!'],
   ['first: String!', 'first: Int!'],
+  ['labels: [String!]', 'labels: String'],
 ])('rejects stale SDL when %s changes to %s', (before, after) => {
   expect(generated.schemaSdl).toContain(before);
   expect(() =>

@@ -2,7 +2,11 @@ import type { GraphQLSchema } from 'graphql';
 import { GraphQLObjectType } from 'graphql';
 import type { GraphqlModelBinding, GraphqlModelFields, GraphqlModels } from './graphql-model.types';
 import { parseGraphqlModelManifest } from './graphql-model-manifest.lib';
-import { renderGraphqlModelProperty, renderGraphqlModelResult } from './graphql-model-shape.lib';
+import {
+  renderGraphqlModelProperty,
+  renderGraphqlModelResult,
+  renderGraphqlModelValue,
+} from './graphql-model-shape.lib';
 
 type ModelRuntime = {
   readonly models?: GraphqlModels;
@@ -43,10 +47,11 @@ const validateFieldBindings = (
     const schemaField = schemaFields[field];
     if (!schemaField || !bindings[field])
       throw new Error(`GraphQL model field binding missing: ${name}.${field}`);
-    if (definition.kind === 'computed') continue;
-    if (
-      String(schemaField.type) !== renderGraphqlModelResult(definition.target, definition.shape)
-    ) {
+    const expected =
+      definition.kind === 'computed'
+        ? renderGraphqlModelValue(definition.value)
+        : renderGraphqlModelResult(definition.target, definition.shape);
+    if (String(schemaField.type) !== expected) {
       throw new Error(`GraphQL model reference type mismatch: ${name}.${field}`);
     }
   }

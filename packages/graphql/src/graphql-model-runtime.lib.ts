@@ -11,6 +11,7 @@ import type {
 } from './graphql-model.types';
 
 type Source = Readonly<Record<string, unknown>>;
+type MethodResult = { readonly value: unknown };
 type Invoke = (
   binding: GraphqlModelBinding,
   positionalArgs: readonly unknown[],
@@ -21,14 +22,14 @@ type Options = {
   readonly modelFields: GraphqlModelFields;
   readonly invoke: Invoke;
 };
-type RelationLoader = {
+type BatchFieldLoader = {
   readonly parents: Map<string, Source>;
-  readonly loader: DataLoader<string, { readonly value: unknown }>;
+  readonly loader: DataLoader<string, MethodResult>;
 };
 type Operation = {
   readonly options: Options;
   readonly providers: Map<string, DataLoader<string, Source | null>>;
-  readonly relations: Map<string, RelationLoader>;
+  readonly fields: Map<string, BatchFieldLoader>;
 };
 
 /**
@@ -76,6 +77,7 @@ const matchesValue = (value: unknown, descriptor: GraphqlModelValue): boolean =>
  */
 const completeMap = (value: unknown, ids: readonly string[]): ReadonlyMap<unknown, unknown> => {
   if (!(value instanceof Map)) throw new Error('GraphQL model batch must return a Map');
+  rejectPromiseMapValues(value.values());
   const requested = new Set(ids);
   if (
     value.size !== requested.size ||
@@ -84,6 +86,21 @@ const completeMap = (value: unknown, ids: readonly string[]): ReadonlyMap<unknow
     throw new Error('GraphQL model batch Map must contain exactly the requested IDs');
   }
   return value;
+};
+
+/** @throws {Error} from graphql-model-runtime.lib.ts:rejectPromiseMapValues */
+const rejectPromiseMapValues = (values: Iterable<unknown>): void => {
+  let invalid = false;
+  for (const value of values) {
+    if (!(value instanceof Promise)) continue;
+    invalid = true;
+    // Surface the Map contract error after observing every invalid rejected Promise.
+    void value.then(
+      () => undefined,
+      () => undefined,
+    );
+  }
+  if (invalid) throw new Error('GraphQL batch Map values must not be Promises');
 };
 
 /**
@@ -128,6 +145,14 @@ const provider = (operation: Operation, model: string): DataLoader<string, Sourc
   if (!definition) throw new Error(`GraphQL model provider missing: ${model}`);
   const loader = new DataLoader<string, Source | null>(
     async (ids) => {
+      if (definition.mode === 'single') {
+        return Promise.all(
+          ids.map(async (id) => {
+            const result = await operation.options.invoke(definition.provider, [{ id }], {});
+            return validateSource(model, definition, id, await result.value);
+          }),
+        );
+      }
       const result = await operation.options.invoke(
         definition.provider,
         [ids.map((id) => ({ id }))],
@@ -136,7 +161,7 @@ const provider = (operation: Operation, model: string): DataLoader<string, Sourc
       const values = completeMap(await result.value, ids);
       return ids.map((id) => validateSource(model, definition, id, values.get(id)));
     },
-    { batchScheduleFn: schedule },
+    { batch: definition.mode === 'batch', batchScheduleFn: schedule },
   );
   operation.providers.set(model, loader);
   return loader;
@@ -183,20 +208,38 @@ const field = (operation: Operation, typeName: string, fieldName: string): Graph
   return descriptor;
 };
 
-const relation = (
+const isReferenceObject = (value: unknown): boolean =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  typeof Reflect.get(value, 'id') === 'string';
+
+// Preserve reference extras while accepting Promise-compatible query implementations.
+const referenceResult = async (
+  result: MethodResult,
+  shape: GraphqlModelResultShape,
+): Promise<MethodResult> => {
+  const value = result.value;
+  if (value instanceof Promise) return { value: await value };
+  const immediate = shape.kind === 'many' ? Array.isArray(value) : isReferenceObject(value);
+  if (value === null || immediate) return result;
+  return { value: await value };
+};
+
+const batchField = (
   operation: Operation,
   key: string,
   binding: GraphqlModelBinding,
   args: Readonly<Record<string, unknown>>,
-): RelationLoader => {
-  const existing = operation.relations.get(key);
+): BatchFieldLoader => {
+  const existing = operation.fields.get(key);
   if (existing) return existing;
   const parents = new Map<string, Source>();
-  const loader = new DataLoader<string, { readonly value: unknown }>(
+  const loader = new DataLoader<string, MethodResult>(
     async (ids) => {
       const inputs = ids.map((id) => {
         const selected = parents.get(id);
-        if (!selected) throw new Error('GraphQL relation parent missing');
+        if (!selected) throw new Error('GraphQL batch field parent missing');
         return selected;
       });
       const result = await operation.options.invoke(binding, [inputs], args);
@@ -206,28 +249,8 @@ const relation = (
     { batchScheduleFn: schedule },
   );
   const entry = { parents, loader };
-  operation.relations.set(key, entry);
+  operation.fields.set(key, entry);
   return entry;
-};
-
-/**
- * @throws {Error} from graphql-model-runtime.lib.ts:computedValue
- */
-const computedValue = (value: unknown): unknown => {
-  if (
-    value !== null &&
-    (typeof value === 'object' || typeof value === 'function') &&
-    typeof Reflect.get(value, 'then') === 'function'
-  ) {
-    // The contract error is surfaced below; observe a rejected invalid Promise as well.
-    if (value instanceof Promise)
-      void value.then(
-        () => undefined,
-        () => undefined,
-      );
-    throw new Error('GraphQL computed model fields must be synchronous');
-  }
-  return value;
 };
 
 /**
@@ -246,24 +269,34 @@ const resolveField = async (
     throw new Error('GraphQL model field binding has the wrong kind');
   const source = record(parent);
   const input = project(source, descriptor.dependencies);
-  if (descriptor.kind === 'computed') {
-    const result = await operation.options.invoke(binding, [input], args);
-    return computedValue(result.value);
-  }
-  if (descriptor.mode === 'single') {
-    const result = await operation.options.invoke(binding, [input], args);
-    return hydrate(operation, descriptor.target, await result.value, descriptor.shape);
-  }
-  const entry = relation(operation, `${typeName}.${fieldName}`, binding, args);
+  const result =
+    descriptor.mode === 'single'
+      ? await operation.options.invoke(binding, [input], args)
+      : await loadBatchField(operation, `${typeName}.${fieldName}`, binding, args, source, input);
+  if (descriptor.kind === 'computed') return result.value;
+  const resolved =
+    descriptor.mode === 'single' ? await referenceResult(result, descriptor.shape) : result;
+  return hydrate(operation, descriptor.target, resolved.value, descriptor.shape);
+};
+
+/** @throws {Error} from graphql-model-runtime.lib.ts:loadBatchField */
+const loadBatchField = async (
+  operation: Operation,
+  key: string,
+  binding: GraphqlModelBinding,
+  args: Readonly<Record<string, unknown>>,
+  source: Source,
+  input: Source,
+): Promise<MethodResult> => {
+  const entry = batchField(operation, key, binding, args);
   const id = identity(source);
   entry.parents.set(id, input);
-  const result = await entry.loader.load(id);
-  return hydrate(operation, descriptor.target, result.value, descriptor.shape);
+  return entry.loader.load(id);
 };
 
 /** Creates loaders whose lifetime is exactly one GraphQL operation. */
 export const createGraphqlModelExecution = (options: Options) => {
-  const operation: Operation = { options, providers: new Map(), relations: new Map() };
+  const operation: Operation = { options, providers: new Map(), fields: new Map() };
   return {
     resolveQuery: async (
       typeName: string,
@@ -275,7 +308,8 @@ export const createGraphqlModelExecution = (options: Options) => {
       if (descriptor.kind !== 'query')
         throw new Error('GraphQL model query binding has the wrong kind');
       const result = await options.invoke(binding, [], args);
-      return hydrate(operation, descriptor.target, await result.value, descriptor.shape);
+      const resolved = await referenceResult(result, descriptor.shape);
+      return hydrate(operation, descriptor.target, resolved.value, descriptor.shape);
     },
     resolveField: (
       typeName: string,

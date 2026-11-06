@@ -1,3 +1,4 @@
+import { runInNewContext } from 'node:vm';
 import { buildSchema, defaultFieldResolver, graphql } from 'graphql';
 import { describe, expect, it } from 'vitest';
 import type {
@@ -9,8 +10,15 @@ import type {
 import { createGraphqlModelExecution } from './graphql-model-runtime.lib';
 
 const binding = (method: string): GraphqlModelBinding => ({ resolver: 'Users', method });
+const inputId = (value: unknown): string => {
+  if (typeof value !== 'object' || value === null) throw new Error('Expected parent');
+  const id: unknown = Reflect.get(value, 'id');
+  if (typeof id !== 'string') throw new Error('Expected parent id');
+  return id;
+};
 const models = {
   User: {
+    mode: 'batch',
     provider: binding('provide'),
     properties: [
       { name: 'id', optional: false, value: { kind: 'scalar', name: 'string' } },
@@ -21,6 +29,7 @@ const models = {
 } satisfies GraphqlModels;
 const modelFields: GraphqlModelFields = {
   Query: {
+    user: { kind: 'query', target: 'User', shape: { kind: 'one', nullable: true } },
     users: {
       kind: 'query',
       target: 'User',
@@ -28,7 +37,12 @@ const modelFields: GraphqlModelFields = {
     },
   },
   User: {
-    label: { kind: 'computed', dependencies: ['name'] },
+    label: {
+      kind: 'computed',
+      mode: 'single',
+      dependencies: ['name'],
+      value: { kind: 'scalar', name: 'string' },
+    },
     friend: {
       kind: 'relation',
       mode: 'single',
@@ -46,13 +60,14 @@ const modelFields: GraphqlModelFields = {
   },
 };
 const schema = buildSchema(`
-  type Query { users: [User]! }
-  type User { id: ID!, name: String!, label: String!, friend: User, peers: [User!]! }
+  type Query { users: [User]!, user: User }
+  type User { id: ID!, name: String!, label: String!, maybeLabel: String, friend: User, peers: [User!]! }
 `);
 type Invocation = { readonly method: string; readonly positional: readonly unknown[] };
 const fixture = (
   overrides: Readonly<Record<string, (positional: readonly unknown[]) => unknown>> = {},
   definitions: GraphqlModels = models,
+  fieldDefinitions: GraphqlModelFields = modelFields,
 ) => {
   const calls: Invocation[] = [];
   const methods: Readonly<Record<string, (positional: readonly unknown[]) => unknown>> = {
@@ -94,7 +109,7 @@ const fixture = (
   const execute = async (source: string) => {
     const operation = createGraphqlModelExecution({
       models: definitions,
-      modelFields,
+      modelFields: fieldDefinitions,
       invoke: async (selected, positional) => {
         calls.push({ method: selected.method, positional });
         const method = methods[selected.method];
@@ -112,7 +127,7 @@ const fixture = (
         context: unknown,
         info,
       ) => {
-        if (!modelFields[info.parentType.name]?.[info.fieldName])
+        if (!fieldDefinitions[info.parentType.name]?.[info.fieldName])
           return defaultFieldResolver(parent, args, context, info);
         const selected = binding(info.fieldName);
         return info.parentType.name === 'Query'
@@ -125,6 +140,380 @@ const fixture = (
 };
 
 describe('model execution contracts', () => {
+  it('hydrates a single Query reference without reading an extra then getter', async () => {
+    // oxlint-disable-next-line unicorn/no-thenable -- Regression fixture: reference extras must not be assimilated.
+    const ref = Object.defineProperty({ id: 'a' }, 'then', {
+      get() {
+        throw new Error('Reference then must not be read');
+      },
+    });
+    const { execute } = fixture({ user: () => ref });
+    expect(await execute('{ user { id } }')).toEqual({ data: { user: { id: 'a' } } });
+  });
+
+  it.each([
+    { mode: 'single', asynchronous: false },
+    { mode: 'batch', asynchronous: false },
+    { mode: 'batch', asynchronous: true },
+  ] as const)(
+    'hydrates $mode relation references without reading extra then getters (async=$asynchronous)',
+    async ({ mode, asynchronous }) => {
+      // oxlint-disable-next-line unicorn/no-thenable -- Regression fixture: reference extras must not be assimilated.
+      const ref = Object.defineProperty({ id: 'a' }, 'then', {
+        enumerable: true,
+        get() {
+          throw new Error('Relation reference then must not be read');
+        },
+      });
+      const fields: GraphqlModelFields = {
+        ...modelFields,
+        User: {
+          ...modelFields['User'],
+          friend: {
+            kind: 'relation',
+            mode,
+            dependencies: ['id'],
+            target: 'User',
+            shape: { kind: 'one', nullable: true },
+          },
+        },
+      };
+      const { execute } = fixture(
+        {
+          friend: () => {
+            const value =
+              mode === 'single'
+                ? ref
+                : new Map([
+                    ['a', ref],
+                    ['b', ref],
+                  ]);
+            return asynchronous ? Promise.resolve(value) : value;
+          },
+        },
+        models,
+        fields,
+      );
+      expect(await execute('{ users { friend { id } } }')).toEqual({
+        data: {
+          users: [{ friend: { id: 'a' } }, { friend: { id: 'a' } }, { friend: { id: 'a' } }],
+        },
+      });
+    },
+  );
+  it.each([
+    { mode: 'single', asynchronous: false },
+    { mode: 'single', asynchronous: true },
+    { mode: 'batch', asynchronous: false },
+    { mode: 'batch', asynchronous: true },
+  ] as const)(
+    'executes $mode providers independently of async=$asynchronous and caches IDs',
+    async ({ mode, asynchronous }) => {
+      const definitions: GraphqlModels = { User: { ...models.User, mode } };
+      const { execute, calls } = fixture(
+        {
+          provide: ([input]) => {
+            const refs = mode === 'batch' && Array.isArray(input) ? input : [input];
+            const rows = refs.map((ref: unknown) => {
+              const id = inputId(ref);
+              return { id, name: id, $friend: id };
+            });
+            const value = mode === 'batch' ? new Map(rows.map((row) => [row.id, row])) : rows[0];
+            return asynchronous ? Promise.resolve(value) : value;
+          },
+        },
+        definitions,
+      );
+      const result = await execute('{ users { id friend { id } } }');
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.['users']).toEqual(['a', 'b', 'a'].map((id) => ({ id, friend: { id } })));
+      expect(calls.filter((call) => call.method === 'provide')).toHaveLength(
+        mode === 'batch' ? 1 : 2,
+      );
+      await execute('{ users { id } }');
+      expect(calls.filter((call) => call.method === 'provide')).toHaveLength(
+        mode === 'batch' ? 2 : 4,
+      );
+    },
+  );
+
+  it.each([
+    { mode: 'single', asynchronous: false },
+    { mode: 'single', asynchronous: true },
+    { mode: 'batch', asynchronous: false },
+    { mode: 'batch', asynchronous: true },
+  ] as const)(
+    'executes $mode computed fields independently of async=$asynchronous',
+    async ({ mode, asynchronous }) => {
+      const fields: GraphqlModelFields = {
+        ...modelFields,
+        User: {
+          ...modelFields['User'],
+          label: {
+            kind: 'computed',
+            mode,
+            dependencies: ['id', 'name'],
+            value: { kind: 'scalar', name: 'string' },
+          },
+        },
+      };
+      const { execute, calls } = fixture(
+        {
+          label: ([input]) => {
+            const refs = mode === 'batch' && Array.isArray(input) ? input : [input];
+            const values = refs.map(
+              (ref: unknown) => [inputId(ref), `Computed ${inputId(ref)}`] as const,
+            );
+            const value = mode === 'batch' ? new Map(values) : values[0]?.[1];
+            return asynchronous ? Promise.resolve(value) : value;
+          },
+        },
+        models,
+        fields,
+      );
+      const result = await execute('{ users { label other: label } }');
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.['users']).toEqual(
+        ['a', 'b', 'a'].map((id) => ({ label: `Computed ${id}`, other: `Computed ${id}` })),
+      );
+      const computed = calls.filter((call) => call.method === 'label');
+      expect(computed).toHaveLength(mode === 'batch' ? 1 : 6);
+      if (mode === 'batch')
+        expect(computed[0]?.positional).toEqual([
+          [
+            { id: 'a', name: 'User a' },
+            { id: 'b', name: 'User b' },
+          ],
+        ]);
+      await execute('{ users { label other: label } }');
+      expect(calls.filter((call) => call.method === 'label')).toHaveLength(
+        mode === 'batch' ? 2 : 12,
+      );
+    },
+  );
+
+  it('isolates single-provider failures and caches explicit absence', async () => {
+    const definitions: GraphqlModels = { User: { ...models.User, mode: 'single' } };
+    const { execute, calls } = fixture(
+      {
+        provide: async ([ref]) => {
+          const id = inputId(ref);
+          if (id === 'b') throw new Error('Provider failed');
+          return null;
+        },
+      },
+      definitions,
+    );
+    const result = await execute('{ users { id } }');
+    expect(result.data?.['users']).toEqual([null, null, null]);
+    expect(result.errors?.map((error) => error.path)).toEqual([['users', 1]]);
+    expect(calls.filter((call) => call.method === 'provide')).toHaveLength(2);
+  });
+
+  it.each([
+    { mode: 'single', asynchronous: false },
+    { mode: 'single', asynchronous: true },
+    { mode: 'batch', asynchronous: false },
+    { mode: 'batch', asynchronous: true },
+  ] as const)(
+    'executes nullable $mode relations independently of async=$asynchronous',
+    async ({ mode, asynchronous }) => {
+      const fields: GraphqlModelFields = {
+        ...modelFields,
+        User: {
+          ...modelFields['User'],
+          friend: {
+            kind: 'relation',
+            mode,
+            dependencies: ['id', '$friend'],
+            target: 'User',
+            shape: { kind: 'one', nullable: true },
+          },
+        },
+      };
+      const { execute, calls } = fixture(
+        {
+          friend: ([input]) => {
+            const refs = mode === 'batch' && Array.isArray(input) ? input : [input];
+            const values = refs.map(
+              (ref: unknown) => [inputId(ref), inputId(ref) === 'a' ? null : { id: 'a' }] as const,
+            );
+            const value = mode === 'batch' ? new Map(values) : values[0]?.[1];
+            return asynchronous ? Promise.resolve(value) : value;
+          },
+        },
+        models,
+        fields,
+      );
+      const result = await execute('{ users { id friend { id } } }');
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.['users']).toEqual([
+        { id: 'a', friend: null },
+        { id: 'b', friend: { id: 'a' } },
+        { id: 'a', friend: null },
+      ]);
+      expect(calls.filter((call) => call.method === 'friend')).toHaveLength(
+        mode === 'batch' ? 1 : 3,
+      );
+    },
+  );
+
+  it.each(['single', 'batch'] as const)(
+    'propagates %s relation I/O failures at the relation path',
+    async (mode) => {
+      const fields: GraphqlModelFields = {
+        ...modelFields,
+        User: {
+          ...modelFields['User'],
+          friend: {
+            kind: 'relation',
+            mode,
+            dependencies: ['id'],
+            target: 'User',
+            shape: { kind: 'one', nullable: true },
+          },
+        },
+      };
+      const { execute } = fixture(
+        {
+          friend: async () => {
+            throw new Error('Relation failed');
+          },
+        },
+        models,
+        fields,
+      );
+      const result = await execute('{ users { id friend { id } } }');
+      expect(result.data?.['users']).toEqual(['a', 'b', 'a'].map((id) => ({ id, friend: null })));
+      expect(result.errors?.map((error) => error.path)).toEqual([
+        ['users', 0, 'friend'],
+        ['users', 1, 'friend'],
+        ['users', 2, 'friend'],
+      ]);
+    },
+  );
+
+  it.each(['provide', 'peers', 'label'])(
+    'rejects and observes all promised %s Map values',
+    async (method) => {
+      const fields: GraphqlModelFields = {
+        ...modelFields,
+        User: {
+          ...modelFields['User'],
+          label: {
+            kind: 'computed',
+            mode: 'batch',
+            dependencies: ['id'],
+            value: { kind: 'scalar', name: 'string' },
+          },
+        },
+      };
+      const { execute } = fixture(
+        {
+          [method]: () =>
+            new Map([
+              ['a', Promise.reject(new Error('Invalid Map value A'))],
+              ['b', Promise.reject(new Error('Invalid Map value B'))],
+            ]),
+        },
+        models,
+        fields,
+      );
+      const result = await execute('{ users { id peers { id } label } }');
+      expect(
+        result.errors?.some((error) => error.message.includes('Map values must not be Promises')),
+      ).toBe(true);
+    },
+  );
+
+  it.each(['single', 'batch'] as const)(
+    'preserves nullable %s computed results and exception paths',
+    async (mode) => {
+      const fields: GraphqlModelFields = {
+        ...modelFields,
+        User: {
+          ...modelFields['User'],
+          maybeLabel: {
+            kind: 'computed',
+            mode,
+            dependencies: ['id'],
+            value: { kind: 'nullable', inner: { kind: 'scalar', name: 'string' } },
+          },
+        },
+      };
+      const nullable = fixture(
+        {
+          maybeLabel: () =>
+            mode === 'batch'
+              ? Promise.resolve(
+                  new Map([
+                    ['a', null],
+                    ['b', null],
+                  ]),
+                )
+              : Promise.resolve(null),
+        },
+        models,
+        fields,
+      );
+      expect((await nullable.execute('{ users { maybeLabel } }')).data?.['users']).toEqual([
+        { maybeLabel: null },
+        { maybeLabel: null },
+        { maybeLabel: null },
+      ]);
+      const failure = fixture(
+        {
+          maybeLabel: async () => {
+            throw new Error('Computed failed');
+          },
+        },
+        models,
+        fields,
+      );
+      const result = await failure.execute('{ users { maybeLabel } }');
+      expect(result.data?.['users']).toEqual([
+        { maybeLabel: null },
+        { maybeLabel: null },
+        { maybeLabel: null },
+      ]);
+      expect(result.errors?.map((error) => error.path)).toEqual([
+        ['users', 0, 'maybeLabel'],
+        ['users', 1, 'maybeLabel'],
+        ['users', 2, 'maybeLabel'],
+      ]);
+    },
+  );
+
+  it('validates computed batch Map completeness and rejects promised Map values', async () => {
+    const fields: GraphqlModelFields = {
+      ...modelFields,
+      User: {
+        ...modelFields['User'],
+        label: {
+          kind: 'computed',
+          mode: 'batch',
+          dependencies: ['id'],
+          value: { kind: 'scalar', name: 'string' },
+        },
+      },
+    };
+    for (const value of [
+      new Map([['a', 'A']]),
+      new Map([
+        ['a', 'A'],
+        ['b', 'B'],
+        ['c', 'C'],
+      ]),
+      new Map([
+        ['a', Promise.resolve('A')],
+        ['b', Promise.resolve('B')],
+      ]),
+    ]) {
+      const { execute } = fixture({ label: () => value }, models, fields);
+      const result = await execute('{ users { label } }');
+      expect(result.errors).toHaveLength(3);
+    }
+  });
   it.each([
     {
       optional: false,
@@ -250,7 +639,7 @@ describe('model execution contracts', () => {
     const execution = createGraphqlModelExecution({
       models: {
         User: models.User,
-        Other: { provider: binding('otherProvider'), properties: [] },
+        Other: { mode: 'batch', provider: binding('otherProvider'), properties: [] },
       },
       modelFields: {
         Query: {
@@ -341,13 +730,29 @@ describe('model execution contracts', () => {
     expect(result.data?.['users']).toEqual([null, null, null]);
   });
 
-  it('rejects asynchronous computed fields', async () => {
-    const { execute } = fixture({ label: () => Promise.resolve('invalid') });
+  it('awaits asynchronous single computed fields', async () => {
+    const { execute } = fixture({ label: () => Promise.resolve('computed') });
     const result = await execute('{ users { label } }');
-    expect(result.errors?.every((error) => error.message.includes('must be synchronous'))).toBe(
-      true,
-    );
-    expect(result.data?.['users']).toEqual([null, null, null]);
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.['users']).toEqual([
+      { label: 'computed' },
+      { label: 'computed' },
+      { label: 'computed' },
+    ]);
+  });
+
+  it('awaits Promise-compatible values across realms without relying on instanceof', async () => {
+    const references: unknown = runInNewContext('Promise.resolve([{ id: "a" }])');
+    const friend: unknown = runInNewContext('Promise.resolve({ id: "b" })');
+    const label: unknown = runInNewContext('Promise.resolve("computed")');
+    const { execute } = fixture({
+      users: () => references,
+      friend: () => friend,
+      label: () => label,
+    });
+    expect(await execute('{ users { label friend { id } } }')).toEqual({
+      data: { users: [{ label: 'computed', friend: { id: 'b' } }] },
+    });
   });
 
   it('awaits asynchronous queries, providers, single and batch relations independently', async () => {
@@ -376,12 +781,15 @@ describe('model execution contracts', () => {
     expect(calls.filter((call) => call.method === 'friend')).toHaveLength(2);
   });
 
-  it('observes rejected computed Promises while surfacing their contract failure', async () => {
-    const { execute } = fixture({ label: () => Promise.reject(new Error('Invalid computed I/O')) });
+  it('propagates rejected computed I/O with field paths', async () => {
+    const { execute } = fixture({ label: () => Promise.reject(new Error('Computed I/O failed')) });
     const result = await execute('{ users { label } }');
-    expect(result.errors?.every((error) => error.message.includes('must be synchronous'))).toBe(
-      true,
-    );
+    expect(result.errors?.map((error) => error.path)).toEqual([
+      ['users', 0, 'label'],
+      ['users', 1, 'label'],
+      ['users', 2, 'label'],
+    ]);
+    expect(result.errors?.every((error) => error.message === 'Computed I/O failed')).toBe(true);
   });
 
   it('does not treat sparse reference list entries as absent references', async () => {

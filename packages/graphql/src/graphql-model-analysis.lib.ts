@@ -333,16 +333,35 @@ const providerMethod = (input: ModelResolverInput): Method | undefined => {
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
-const providerSymbol = (input: ModelResolverInput, method: Method): Symbol => {
+const providerSymbol = (
+  input: ModelResolverInput,
+  method: Method,
+): { symbol: Symbol; batch: boolean } => {
   validateParentParameters(input, method);
   const parent = method.parameters[0]?.type;
-  const ref = pick(parent && arrayElement(parent, input), input, method);
+  const element = parent && arrayElement(parent, input);
+  const ref = pick(element ?? parent, input, method);
   if (ref.keys.length !== 1 || ref.keys[0] !== 'id')
-    fail(input, method, "provider input must be Pick<Model, 'id'>[]");
-  return ref.symbol;
+    fail(input, method, "provider input must be Pick<Model, 'id'> or its array");
+  return { symbol: ref.symbol, batch: Boolean(element) };
 };
 const isStringId = (id: GraphqlModelProperty | undefined): boolean =>
   Boolean(id && !id.optional && id.value.kind === 'scalar' && id.value.name === 'string');
+/**
+ * @throws {Error} from graphql-model-analysis.lib.ts:mapArguments
+ */
+const batchValue = (
+  node: TypeNode,
+  symbol: Symbol,
+  input: ModelResolverInput,
+  method: Method,
+): TypeNode => {
+  const [key, value] = mapArguments(node, input, method);
+  assertIdKey(key, symbol, input, method);
+  if (unwrapPromise(value, input) !== value)
+    fail(input, method, 'batch Map values cannot be Promise');
+  return value;
+};
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
@@ -350,13 +369,14 @@ const providerProperties = (
   input: ModelResolverInput,
   method: Method,
   symbol: Symbol,
+  batch: boolean,
 ): GraphqlModelProperty[] => {
   const returned = method.type && unwrapPromise(method.type, input);
-  const [key, value] = mapArguments(returned, input, method);
+  if (!returned) fail(input, method, 'explicit return type is required');
+  const value = batch ? batchValue(returned, symbol, input, method) : returned;
   const data = nullable(value, input.ts);
   if (!data.nullable || symbolFor(data.node, input.checker, input.ts) !== symbol)
-    fail(input, method, 'provider Map value must be Model | null');
-  assertIdKey(key, symbol, input, method);
+    fail(input, method, 'provider result must be Model | null, directly or as each Map value');
   const properties = input.checker
     .getDeclaredTypeOfSymbol(symbol)
     .getProperties()
@@ -373,17 +393,18 @@ const collectModels = (inputs: readonly ModelResolverInput[]): Model[] => {
   for (const input of inputs) {
     const method = providerMethod(input);
     if (!method) continue;
-    const symbol = providerSymbol(input, method);
+    const { symbol, batch } = providerSymbol(input, method);
     if (symbol.name.startsWith('__')) fail(input, method, 'reserved GraphQL model name');
     if (models.some((model) => model.symbol === symbol || model.name === symbol.name))
       fail(input, method, 'duplicate model provider or model name');
-    const properties = providerProperties(input, method, symbol);
+    const properties = providerProperties(input, method, symbol, batch);
     models.push({
       name: symbol.name,
       symbol,
       input,
       definition: {
         provider: { resolver: input.resolver, method: method.name.getText() },
+        mode: batch ? 'batch' : 'single',
         properties,
       },
     });
@@ -466,6 +487,21 @@ const queryField = (
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
+const validateDependencies = (
+  model: Model,
+  method: Method,
+  keys: readonly string[],
+  batch: boolean,
+): void => {
+  if (batch && !keys.includes('id')) fail(model.input, method, 'batch parent Pick requires id');
+  for (const key of keys) {
+    if (!model.definition.properties.some((property) => property.name === key))
+      fail(model.input, method, `unknown source dependency ${key}`);
+  }
+};
+/**
+ * @throws {Error} from graphql-model-analysis.lib.ts:fail
+ */
 const dependencies = (model: Model, method: Method): { keys: string[]; batch: boolean } => {
   const { input } = model;
   validateParentParameters(input, method);
@@ -473,10 +509,7 @@ const dependencies = (model: Model, method: Method): { keys: string[]; batch: bo
   const batchElement = param && arrayElement(param, input);
   const dep = pick(batchElement ?? param, input, method);
   if (dep.symbol !== model.symbol) fail(input, method, 'parent Pick must refer to provider model');
-  for (const key of dep.keys) {
-    if (!model.definition.properties.some((property) => property.name === key))
-      fail(input, method, `unknown source dependency ${key}`);
-  }
+  validateDependencies(model, method, dep.keys, Boolean(batchElement));
   return { keys: dep.keys, batch: Boolean(batchElement) };
 };
 /**
@@ -489,11 +522,11 @@ const computedField = (
   dep: ReturnType<typeof dependencies>,
 ): GraphqlModelField => {
   const { input } = model;
-  if (dep.batch || unwrapPromise(type, input) !== type)
-    fail(input, method, 'computed fields must be synchronous and accept one parent');
-  if (!publicValue(modelValueOf(input.checker.getTypeFromTypeNode(type), input.checker, input.ts)))
-    fail(input, method, 'unsupported computed field type');
-  return { kind: 'computed', dependencies: dep.keys };
+  const returned = unwrapPromise(type, input);
+  const node = dep.batch ? batchValue(returned, model.symbol, input, method) : returned;
+  const value = modelValueOf(input.checker.getTypeFromTypeNode(node), input.checker, input.ts);
+  if (!publicValue(value)) fail(input, method, 'unsupported computed field type');
+  return { kind: 'computed', dependencies: dep.keys, mode: dep.batch ? 'batch' : 'single', value };
 };
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
@@ -508,9 +541,7 @@ const relationField = (
   const { input } = model;
   let node = unwrapPromise(type, input);
   if (dep.batch) {
-    const [key, value] = mapArguments(node, input, method);
-    assertIdKey(key, model.symbol, input, method);
-    node = value;
+    node = batchValue(node, model.symbol, input, method);
   }
   const target = result(node, input, method);
   return {
