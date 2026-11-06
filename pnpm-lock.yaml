@@ -573,6 +573,12 @@ importers:
       '@zeltjs/decorator-metadata':
         specifier: workspace:*
         version: link:../decorator-metadata
+      dataloader:
+        specifier: 2.2.3
+        version: 2.2.3
+      graphql-http:
+        specifier: 1.23.1
+        version: 1.23.1(graphql@17.1.0)
       ts-pattern:
         specifier: 5.9.2
         version: 5.9.2
@@ -586,9 +592,12 @@ importers:
       '@zeltjs/cli':
         specifier: workspace:*
         version: link:../cli
+      '@zeltjs/unsafe-type-lib':
+        specifier: workspace:*
+        version: link:../unsafe-type-lib
       graphql:
-        specifier: 17.0.2
-        version: 17.0.2
+        specifier: 17.1.0
+        version: 17.1.0
       valibot:
         specifier: 'catalog:'
         version: 1.5.0(typescript@6.0.3)
@@ -7112,6 +7121,9 @@ packages:
     resolution: {integrity: sha512-23XHcCF+coGYevirZceTVD7NdJOqVn+49IHyxgszm+JIiHLoB2TkmPtsYkNWT1pvRSGkc35L6NHs0yHkN2SumA==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
 
+  dataloader@2.2.3:
+    resolution: {integrity: sha512-y2krtASINtPFS1rSDjacrFgn1dcUuoREVabwlOGOe4SdxenREqwjwjElAdwvbGM7kgZz9a3KVicWR7vcz8rnzA==}
+
   dayjs@1.11.23:
     resolution: {integrity: sha512-QDTCU0M0MxR3hQfnlDJfwekQiaanm1ubOD231u73WBckQ/fsamwRLiE2GBz6D3a/xF1NgfiDLJjXBa1hYOYTtQ==}
 
@@ -8147,9 +8159,15 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  graphql@17.0.2:
-    resolution: {integrity: sha512-FRWbddMxfkjiB7z+aQDWIR+E34xo9I8c9mtK2RPv8PmMzKRvrdsreHL/Ui/TmwHJfhHChEtsFPyMHKI+xuarQQ==}
-    engines: {node: ^22.0.0 || ^24.0.0 || ^25.0.0 || >=26.0.0}
+  graphql-http@1.23.1:
+    resolution: {integrity: sha512-h6AcykL7+xp22QvOnK0fu1eHk9AZG1ngF71rk0ZGuGupnjm1yqXRFrZ/eMv4Q1FTCWILJ5o6hVAxzt3S8/wPHQ==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      graphql: '>=0.11 <=17'
+
+  graphql@17.1.0:
+    resolution: {integrity: sha512-JKCOa7rSQNrket/JFhuua86hljUO+IIpyUHfKxlKD6FEfbrLX8jc1FDrA0KPKI+s8OspBCF/5npYccAICHXPpQ==}
+    engines: {node: ^22.0.0 || ^24.0.0 || >=26.0.0}
 
   gray-matter@4.0.3:
     resolution: {integrity: sha512-5v6yZd4JK3eMI3FqqCouswVqwugaA9r4dNZB1wwcmrD02QkV5H0y7XBQW8QwQqEaZY1pM9aqORSORhJRdNK44Q==}
@@ -19070,6 +19088,8 @@ snapshots:
       - '@noble/hashes'
     optional: true
 
+  dataloader@2.2.3: {}
+
   dayjs@1.11.23: {}
 
   debounce@1.2.1: {}
@@ -20245,7 +20265,11 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  graphql@17.0.2: {}
+  graphql-http@1.23.1(graphql@17.1.0):
+    dependencies:
+      graphql: 17.1.0
+
+  graphql@17.1.0: {}
 
   gray-matter@4.0.3:
     dependencies:

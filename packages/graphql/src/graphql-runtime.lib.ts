@@ -1,20 +1,31 @@
 import type { CapturedContext } from '@zeltjs/core';
 import { captureContext, runInContext } from '@zeltjs/core';
-import type { ExecutionResult, GraphQLSchema, ValidationRule } from 'graphql';
+import type { ExecutionArgs, ExecutionResult, GraphQLSchema, ValidationRule } from 'graphql';
 import {
   buildSchema,
+  execute,
   GraphQLError,
   GraphQLObjectType,
   GraphQLScalarType,
   GraphQLUnionType,
-  graphql,
   parse,
+  specifiedRules,
   validate,
 } from 'graphql';
 import { GraphqlArgsValidationError, runWithGraphqlArgs } from './args.lib';
 import type { AnyGqlScalar } from './gql-scalar.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
+import type {
+  GraphqlModelBinding,
+  GraphqlModelField,
+  GraphqlModelFields,
+  GraphqlModels,
+} from './graphql-model.types';
+import { parseGraphqlModelManifest } from './graphql-model-manifest.lib';
+import { createGraphqlModelExecution } from './graphql-model-runtime.lib';
+import { validateGraphqlModelSchema } from './graphql-model-schema.lib';
+import { readOwnEntry } from './graphql-record.lib';
 
 // GraphQL over HTTP clients (Apollo, GraphiQL, ...) commonly send explicit
 // nulls for variables/operationName; both mean "not specified".
@@ -24,10 +35,7 @@ export const graphqlRequestPayloadSchema = {
   operationName: 'string | null | undefined',
 } as const;
 
-export type GeneratedGraphqlBinding = {
-  readonly resolver: string;
-  readonly method: string;
-};
+export type GeneratedGraphqlBinding = GraphqlModelBinding;
 
 // GeneratedGraphqlRuntime is the runtime manifest consumed by the executor.
 // Code-first generation is one producer. Schema-first generation can produce
@@ -35,6 +43,8 @@ export type GeneratedGraphqlBinding = {
 export type GeneratedGraphqlRuntime = {
   readonly schemaSdl: string;
   readonly bindings: Record<string, Record<string, GeneratedGraphqlBinding>>;
+  readonly models?: GraphqlModels;
+  readonly modelFields?: GraphqlModelFields;
   readonly enumFields?: Record<string, Record<string, Readonly<Record<string, string>>>>;
   readonly scalarRefs?: Record<
     string,
@@ -70,8 +80,21 @@ export type ExecuteGraphqlRequestOptions = CreateGraphqlExecutorOptions & {
 
 export type GraphqlExecutor = (request: GraphqlRequestPayload) => Promise<ExecutionResult>;
 
+export type GraphqlExecution = {
+  readonly schema: GraphQLSchema;
+  readonly execute: (args: ExecutionArgs, captured: CapturedContext) => Promise<ExecutionResult>;
+  readonly request: GraphqlExecutor;
+  readonly validationRules: readonly ValidationRule[];
+};
+
 export type GraphqlRuntimeState = {
   readonly execute: GraphqlExecutor;
+  readonly execution?: GraphqlExecution;
+};
+
+type OperationContext = {
+  readonly captured: CapturedContext;
+  readonly models: ReturnType<typeof createGraphqlModelExecution>;
 };
 
 const runtimeRegistry = new WeakMap<object, GraphqlRuntimeState>();
@@ -256,6 +279,17 @@ const addOptionalRuntimeUnions = (
   return unions ? { ...runtime, unions } : undefined;
 };
 
+const addOptionalRuntimeModels = (
+  runtime: GeneratedGraphqlRuntime,
+  record: object,
+): GeneratedGraphqlRuntime | undefined => {
+  const models = readProperty(record, 'models');
+  const modelFields = readProperty(record, 'modelFields');
+  if (models === undefined && modelFields === undefined) return runtime;
+  const manifest = parseGraphqlModelManifest(models, modelFields);
+  return manifest ? { ...runtime, ...manifest } : undefined;
+};
+
 const parseGeneratedGraphqlRuntime = (value: unknown): GeneratedGraphqlRuntime | undefined => {
   const record = toObject(value);
   if (!record) return undefined;
@@ -267,7 +301,9 @@ const parseGeneratedGraphqlRuntime = (value: unknown): GeneratedGraphqlRuntime |
   if (!withScalarRefs) return undefined;
   const withScalars = addOptionalRuntimeScalars(withScalarRefs, record);
   if (!withScalars) return undefined;
-  return addOptionalRuntimeUnions(withScalars, record);
+  const withUnions = addOptionalRuntimeUnions(withScalars, record);
+  if (!withUnions) return undefined;
+  return addOptionalRuntimeModels(withUnions, record);
 };
 
 const parseVariables = (value: unknown): Readonly<Record<string, unknown>> | null | undefined => {
@@ -338,28 +374,27 @@ const callResolverMethod = (
   return Reflect.apply(method, instance, [...args]);
 };
 
-type ResolveBinding = (
+type InvokeResolver = (
   binding: GeneratedGraphqlBinding,
-  parent: unknown,
+  positionalArgs: readonly unknown[],
   args: Readonly<Record<string, unknown>>,
-  isRootField: boolean,
-  context: CapturedContext,
-) => Promise<unknown>;
+  captured: CapturedContext,
+) => Promise<{ readonly value: unknown }>;
 
-/** @throws {Error} */
-const createBindingResolver = (options: CreateGraphqlExecutorOptions): ResolveBinding => {
-  const resolverCache = new Map<GraphqlResolverClass, object>();
-
-  return async (binding, parent, args, isRootField, context) => {
+const createResolverInvoker = (options: CreateGraphqlExecutorOptions): InvokeResolver => {
+  const resolverCache = new Map<GraphqlResolverClass, Promise<object>>();
+  return async (binding, positionalArgs, args, captured) => {
     const resolverClass = findResolverClass(options.resolvers, binding);
-    const cached = resolverCache.get(resolverClass);
-    const instance = cached ?? (await options.resolveResolver(resolverClass));
-    if (!cached) resolverCache.set(resolverClass, instance);
-
-    return context.run(() =>
-      runWithGraphqlArgs(args, () =>
-        callResolverMethod(instance, binding.method, isRootField ? [] : [parent]),
-      ),
+    let pending = resolverCache.get(resolverClass);
+    if (!pending) {
+      pending = Promise.resolve(options.resolveResolver(resolverClass));
+      resolverCache.set(resolverClass, pending);
+    }
+    const instance = await pending;
+    return captured.run(() =>
+      runWithGraphqlArgs(args, () => ({
+        value: callResolverMethod(instance, binding.method, positionalArgs),
+      })),
     );
   };
 };
@@ -377,41 +412,50 @@ const normalizeEnumValue = (value: unknown, mapping: Readonly<Record<string, str
 type BoundFieldResolver = (
   parent: unknown,
   args: Readonly<Record<string, unknown>>,
-  context: CapturedContext,
+  context: OperationContext,
 ) => Promise<unknown>;
 
 const createBoundFieldResolver = (
   binding: GeneratedGraphqlBinding,
-  isRootField: boolean,
-  resolveBinding: ResolveBinding,
+  typeName: string,
+  fieldName: string,
+  invoke: InvokeResolver,
   enumMapping: Readonly<Record<string, string>> | undefined,
+  modelField: GraphqlModelField | undefined,
 ): BoundFieldResolver => {
-  if (!enumMapping) {
-    return (parent, args, context) => resolveBinding(binding, parent, args, isRootField, context);
-  }
-  return async (parent, args, context) =>
-    normalizeEnumValue(
-      await resolveBinding(binding, parent, args, isRootField, context),
-      enumMapping,
-    );
+  return async (parent, args, context) => {
+    if (modelField?.kind === 'query') {
+      return context.models.resolveQuery(typeName, fieldName, binding, args);
+    }
+    if (modelField) {
+      return context.models.resolveField(typeName, fieldName, binding, parent, args);
+    }
+    const isRoot = typeName === 'Query' || typeName === 'Mutation';
+    const result = await invoke(binding, isRoot ? [] : [parent], args, context.captured);
+    const value = await result.value;
+    return enumMapping ? normalizeEnumValue(value, enumMapping) : value;
+  };
 };
 
 const attachTypeBindings = (
   type: GraphQLObjectType,
   bindings: Readonly<Record<string, GeneratedGraphqlBinding>>,
-  enumFields: Readonly<Record<string, Readonly<Record<string, string>>>>,
-  resolveBinding: ResolveBinding,
+  runtime: GeneratedGraphqlRuntime,
+  invoke: InvokeResolver,
 ): void => {
-  const graphqlFields = type.getFields();
-  const isRootField = type.name === 'Query' || type.name === 'Mutation';
+  const fields = type.getFields();
+  const enumFields = readOwnEntry(runtime.enumFields, type.name);
+  const modelFields = readOwnEntry(runtime.modelFields, type.name);
   for (const [fieldName, binding] of Object.entries(bindings)) {
-    const field = graphqlFields[fieldName];
+    const field = fields[fieldName];
     if (!field) continue;
     field.resolve = createBoundFieldResolver(
       binding,
-      isRootField,
-      resolveBinding,
-      enumFields[fieldName],
+      type.name,
+      fieldName,
+      invoke,
+      readOwnEntry(enumFields, fieldName),
+      readOwnEntry(modelFields, fieldName),
     );
   }
 };
@@ -419,12 +463,11 @@ const attachTypeBindings = (
 const attachBindingResolvers = (
   schema: GraphQLSchema,
   runtime: GeneratedGraphqlRuntime,
-  resolveBinding: ResolveBinding,
+  invoke: InvokeResolver,
 ): void => {
-  for (const [typeName, fields] of Object.entries(runtime.bindings)) {
+  for (const [typeName, bindings] of Object.entries(runtime.bindings)) {
     const type = schema.getType(typeName);
-    if (!(type instanceof GraphQLObjectType)) continue;
-    attachTypeBindings(type, fields, runtime.enumFields?.[typeName] ?? {}, resolveBinding);
+    if (type instanceof GraphQLObjectType) attachTypeBindings(type, bindings, runtime, invoke);
   }
 };
 
@@ -470,7 +513,6 @@ const hasAllFields = (value: object, fields: readonly string[]): boolean => {
   return fields.every((field) => keys.has(field));
 };
 
-/** @throws {Error} */
 const attachUnionResolvers = (schema: GraphQLSchema, runtime: GeneratedGraphqlRuntime): void => {
   for (const [typeName, members] of Object.entries(runtime.unions ?? {})) {
     const type = schema.getType(typeName);
@@ -518,43 +560,64 @@ const enrichValidationErrors = (result: ExecutionResult): ExecutionResult => {
   return { ...result, errors: result.errors.map(enrichValidationError) };
 };
 
-// Schema parsing/validation and resolver attachment are static per generated
-// runtime, so they run once here instead of on every request.
-/** @throws {Error} */
-export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): GraphqlExecutor => {
+/** Builds a schema once while keeping model caches local to each operation.
+ * @throws {Error} from graphql-model-schema.lib.ts:validateGraphqlModelSchema
+ */
+export const createGraphqlExecution = (options: CreateGraphqlExecutorOptions): GraphqlExecution => {
   const schema = buildSchema(options.runtime.schemaSdl);
+  validateGraphqlModelSchema(options.runtime, schema);
+  const invoke = createResolverInvoker(options);
   attachScalarSerializers(schema, options.runtime);
   attachUnionResolvers(schema, options.runtime);
-  attachBindingResolvers(schema, options.runtime, createBindingResolver(options));
+  attachBindingResolvers(schema, options.runtime, invoke);
   attachEnumFieldResolvers(schema, options.runtime);
+  const validationRules = options.validationRules ?? [];
 
-  const extraRules: readonly ValidationRule[] = options.validationRules ?? [];
+  const executeOperation = async (
+    args: ExecutionArgs,
+    captured: CapturedContext,
+  ): Promise<ExecutionResult> => {
+    const models = createGraphqlModelExecution({
+      models: options.runtime.models ?? {},
+      modelFields: options.runtime.modelFields ?? {},
+      invoke: (binding, positional, fieldArgs) => invoke(binding, positional, fieldArgs, captured),
+    });
+    const context: OperationContext = { captured, models };
+    return enrichValidationErrors(await execute({ ...args, schema, contextValue: context }));
+  };
 
-  return async (request) => {
-    const context = runInContext(captureContext);
-    if (extraRules.length > 0) {
-      let document: import('graphql').DocumentNode;
-      try {
-        document = parse(request.query);
-      } catch (error) {
-        return {
-          errors: [error instanceof GraphQLError ? error : new GraphQLError(String(error))],
-        };
-      }
-      const errors = validate(schema, document, [...extraRules]);
-      if (errors.length > 0) return { errors };
+  /**
+   * @throws {TypeError} from context-key.lib.ts:createContextScope
+   */
+  const request: GraphqlExecutor = async (payload) => {
+    const captured = runInContext(captureContext);
+    let document: import('graphql').DocumentNode;
+    try {
+      document = parse(payload.query);
+    } catch (error) {
+      if (!(error instanceof GraphQLError)) throw error;
+      return { errors: [error] };
     }
-    return enrichValidationErrors(
-      await graphql({
+    const errors = validate(schema, document, [...specifiedRules, ...validationRules]);
+    if (errors.length > 0) return { errors };
+    return executeOperation(
+      {
         schema,
-        contextValue: context,
-        source: request.query,
-        variableValues: request.variables ?? undefined,
-        operationName: request.operationName ?? undefined,
-      }),
+        document,
+        variableValues: payload.variables ?? undefined,
+        operationName: payload.operationName ?? undefined,
+      },
+      captured,
     );
   };
+  return { schema, execute: executeOperation, request, validationRules };
 };
+
+/**
+ * @throws {Error} from graphql-model-schema.lib.ts:validateGraphqlModelSchema
+ */
+export const createGraphqlExecutor = (options: CreateGraphqlExecutorOptions): GraphqlExecutor =>
+  createGraphqlExecution(options).request;
 
 // Single-shot convenience API: builds the schema on every call. Use
 // createGraphqlExecutor() and reuse the executor for repeated execution.

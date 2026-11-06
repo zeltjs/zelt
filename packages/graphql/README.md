@@ -11,7 +11,7 @@ stay on the app-authoring APIs listed below.
 Install GraphQL 17 alongside this package:
 
 ```sh
-pnpm add @zeltjs/graphql graphql@^17.0.2
+pnpm add @zeltjs/graphql graphql@^17.1.0
 ```
 
 `graphql` is a peer dependency so the application and executor share the same
@@ -65,6 +65,8 @@ Application code may use these APIs directly:
 - `Query`
 - `Mutation`
 - `ResolveField`
+- `ResolveMultiField`
+- `Relation`
 - `args()`
 - `gqlScalar()`
 - `GqlOutput`
@@ -117,6 +119,54 @@ Runtime integration APIs used by adapters and framework internals remain on
 
 Generation, TypeScript inspection, GraphQL metadata getters, and type
 conversion helpers are available from `@zeltjs/graphql/codegen`.
+
+## Model references and field providers
+
+A resolver with one `@ResolveMultiField()` supplies a named model. Queries
+and `@Relation()` methods return `Pick<Model, 'id'>` references; the runtime
+hydrates those references through an operation-local DataLoader. A relation
+with an array parent parameter receives a batch, independently of whether
+it returns a Promise. `@ResolveField()` declares the source properties it
+needs with `Pick` and computes a synchronous field.
+
+Properties beginning with `$` remain available to providers and dependent
+methods but are excluded from the GraphQL schema. A provider returns the
+complete model, including private properties, in a Map keyed by the requested
+IDs. Missing targets are explicit null values; malformed Maps are errors.
+
+The [GraphQL guide](../../website/docs/graphql.md) defines the model contract,
+nullability, batching behavior, and source examples. Legacy resolvers without
+a provider retain their direct-value behavior. Model providers are code-first
+only; dynamic column projection and computed-field dependencies are outside
+this initial scope.
+
+## HTTP transport and dependencies
+
+GET executes queries; POST executes queries and mutations. `graphql-http`
+handles request parsing, media-type negotiation, and protocol responses.
+Clients should send `Content-Type: application/json` for POST and use
+`Accept: application/graphql-response+json` to distinguish GraphQL request
+errors from execution results by HTTP status. Model batching is internal
+and does not enable arrays of GraphQL HTTP requests.
+
+The implementation uses maintained, MIT-licensed libraries rather than
+reimplementing their responsibilities:
+
+- `graphql` 17.1.0: schema validation and GraphQL execution, including
+  fragments, directives, and null propagation. See the
+  [17.1.0 release](https://github.com/graphql/graphql-js/releases/tag/v17.1.0).
+- `graphql-http` 1.23.1: GraphQL-over-HTTP processing. See its
+  [releases](https://github.com/graphql/graphql-http/releases).
+- `dataloader` 2.2.3: operation-local batching and caching. The release is
+  older, but maintenance continued in
+  [September 2026](https://github.com/graphql/dataloader/commit/65be452f5ffad3eede2d862dc26c96003fa87ef3).
+
+These maintenance checks were performed on 2026-11-06. The runtime does not
+require AsyncLocalStorage for batching: it captures Zelt's context and uses
+an explicit portable scheduler. HTTP authentication, rate limits, and
+application-specific resource limits remain application responsibilities.
+Resolver error messages are returned by GraphQL; avoid including private
+backend details in errors exposed by application resolvers.
 
 ## Code-first
 
@@ -364,14 +414,20 @@ Each endpoint is looked up in the prebuilt module by its key (the endpoint's
 `name`, or `graphql` when omitted). If no entry exists under that key —
 because the prebuilt is missing the endpoint, or it hasn't been built yet —
 startup throws and tells you to rerun `zelt build`. Once an entry is found,
-its embedded `resolversHash` — a SHA-256 fingerprint over the endpoint path
-and the sorted resolver class names — is checked against the value recomputed
+its embedded `resolversHash` — a SHA-256 fingerprint over the endpoint path,
+resolver class names, and GraphQL method declarations — is checked against the value recomputed
 from the running `graphql({ path, resolvers })` declaration. A mismatch means
 the prebuilt entry is stale relative to the current resolvers, and startup
-throws telling you to rerun `zelt build`. v1 only fingerprints the endpoint
-path and resolver class names — changes to resolver method signatures,
-argument types, or return types are not detected and still require rerunning
-`zelt build` manually.
+throws telling you to rerun `zelt build`. The fingerprint covers runtime decorator kinds, method names, and exposed
+field names. Startup also checks the generated model metadata against the SDL.
+
+GraphQL generation refreshes its TypeScript inspection cache at each build,
+then reanalyzes types and dependencies. TypeScript-only argument, model, and
+return-type changes are erased from JavaScript and cannot be detected at
+startup if the old manifest and SDL remain mutually consistent. Regenerate
+and rebuild after those changes, then deploy the matching app and prebuilt
+together. This contract does not require an additional code transformation
+to embed type fingerprints.
 
 ### Code-first
 

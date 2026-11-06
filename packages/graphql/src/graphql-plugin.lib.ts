@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import type { PrebuiltContribution, ZeltPlugin } from '@zeltjs/cli';
 import { GENERATED_FILE_HEADER_MARKER } from '@zeltjs/cli';
 import type { ControllerClass, HttpStaticCapabilities } from '@zeltjs/core';
+import { clearProgramCache } from '@zeltjs/decorator-metadata/inspect';
 import { GRAPHQL_FEATURE_KEY } from './graphql-child.lib';
 import {
   computeSchemaSdlHash,
@@ -106,6 +107,8 @@ const toSerializableRuntime = (
 ): Omit<GraphqlRuntimeManifest, 'scalars'> => ({
   schemaSdl: runtime.schemaSdl,
   bindings: runtime.bindings,
+  ...(runtime.models !== undefined && { models: runtime.models }),
+  ...(runtime.modelFields !== undefined && { modelFields: runtime.modelFields }),
   ...(runtime.enumFields !== undefined && { enumFields: runtime.enumFields }),
   ...(runtime.scalarRefs !== undefined && { scalarRefs: runtime.scalarRefs }),
   ...(runtime.unions !== undefined && { unions: runtime.unions }),
@@ -410,6 +413,8 @@ export const generateGraphqlSdl = async (
   app: Pick<HttpStaticCapabilities, 'getControllers'>,
   options: GenerateGraphqlSdlOptions,
 ): Promise<GenerateGraphqlSdlResult> => {
+  // A dev rebuild must inspect current types, even when resolver JavaScript is unchanged.
+  clearProgramCache(resolve(options.tsconfig ?? 'tsconfig.json'));
   const endpoints = collectGraphqlEndpoints(app.getControllers());
   assertUniqueGraphqlEndpointKeys(endpoints);
 
@@ -431,7 +436,6 @@ const toGenerateOptions = (
   ...toSdlOptions(options),
 });
 
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
 export const graphqlPlugin = (options: GraphqlPluginOptions = {}): ZeltPlugin<HttpStaticApp> => ({
   name: 'graphql',
   async preBuild(ctx) {

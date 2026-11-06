@@ -321,7 +321,7 @@ SDL は公開フィールドだけを記述します。`$` は GraphQL のフィ
 
 モデルの供給元と参照による解決は code-first 専用です。`@Resolver()` に `@ResolveMultiField()` がある場合、そのクラスにはモデルの契約を適用します。供給元を持たないクラスは、従来の直接値を返す resolver として扱います。モードを切り替えるデコレーターのオプションはありません。両方を同じ endpoint に置く場合、公開型名・ルートフィールド名の衝突は build エラーです。schema-first への対応は初期範囲外です。
 
-generator は型・依存・参照先・binding を解析し、SDL と prebuilt runtime を生成します。アプリの resolver は自身から生成されたファイルを import しません。既存と同じく entry が prebuilt を adapter に渡します。モデルの契約情報も生成物の整合性検査の対象です。
+generator は型・依存・参照先・binding を解析し、SDL と prebuilt runtime を生成します。アプリの resolver は自身から生成されたファイルを import しません。既存と同じく entry が prebuilt を adapter に渡します。モデルの型と依存は生成時に再解析します。起動時は実行時に残る宣言と、生成された manifest・SDL の整合を検査します。
 
 認可情報やアプリサービスは既存の DI・コンテキスト捕捉の規約で受け取ります。バッチ実行時にも元の実行コンテキストを復元し、同期コンテキストモードでは `await` 前に必要な値を捕捉します。
 
@@ -333,6 +333,14 @@ generator は型・依存・参照先・binding を解析し、SDL と prebuilt 
 4. 供給元とバッチ relation の戻り値は Map。該当なしと契約違反を区別します。
 5. 内部データを operation 内で共有します。各段階の ID 検索と実データ取得が別 query になることを許容します。
 6. 一つのモデル型にデータをまとめ、`$` 始まりだけを GraphQL 非公開にします。供給元は固定形状のモデルデータを返します。列単位の動的 selector と計算フィールド同士の依存は後続です。
+
+## HTTP の扱い {#http}
+
+HTTP の処理は `graphql-http`、GraphQL の検証と実行は `graphql-js`、operation 内のバッチ取得は DataLoader に委ねます。zelt はモデルの契約と実行コンテキストを接続します。
+
+GET は Query、POST は Query と Mutation を受け付けます。POST の本文は `Content-Type: application/json` で送り、応答には `Accept: application/graphql-response+json` を指定できます。この応答形式では GraphQL の構文・検証エラーを HTTP 400、実行結果を HTTP 200 として扱います。実行時のフィールドエラーは、HTTP 200 の応答にも含まれます。`application/json` の応答ではプロトコル上、GraphQL の検証エラーが HTTP 200 になる場合があります。
+
+不正な JSON は 400、GET の Mutation は 405、対応しない Accept は 406、対応しない本文の Content-Type は 415 です。モデルのバッチ取得と HTTP リクエストのバッチ送信は別であり、HTTP の配列リクエストは受け付けません。
 
 ## Endpoint と API {#api-boundary}
 
@@ -558,7 +566,12 @@ schema-first の各 endpoint には、resolver メソッドの戻り値の型が
 
 GraphQL には prebuilt モジュールが必要です。モジュールや endpoint の prebuilt entry がない場合、または entry ファイルが `zeltPrebuilt` を import していない場合は、endpoint の起動時に throw します。どの platform でも、代替処理でそのまま起動することはありません。
 
-各 endpoint は key に対応する prebuilt entry を使います。存在しない、または実行中の宣言と一致しない場合は起動時にエラーとなり、`zelt build` の再実行を促します。モデルモードでは、親モデル・供給元・依存・参照先・Query の公開設定も生成物の整合性検査に含めます。型や宣言を変更したら再ビルドしてください。
+各 endpoint は key に対応する prebuilt entry を使います。検査の役割はビルド時と起動時で分けます。
+
+- `zelt build` / `zelt dev` では、GraphQL の生成処理が TypeScript の解析キャッシュを更新し、モデルの型・供給元・依存・参照先を再解析して manifest と SDL を生成します。
+- 起動時は、prebuilt entry の欠落や、endpoint の path、resolver 名、GraphQL メソッド名、デコレーターの種類、公開フィールド名の不一致をエラーにします。生成されたモデル情報と SDL についても、元データの型や参照先の単体・配列・nullability が一致するかを検査します。
+
+TypeScript の型だけの変更は JavaScript から消えるため、古い manifest と SDL が互いに整合している場合、起動時には検知できません。型や依存を変更したら生成とビルドをやり直し、アプリと対応する prebuilt を一緒に配置してください。型の fingerprint を埋め込むための追加のコード変換は行いません。
 
 ### モデルを介さない code-first {#code-first-2}
 

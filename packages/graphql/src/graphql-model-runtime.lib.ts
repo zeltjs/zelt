@@ -1,0 +1,288 @@
+import DataLoader from 'dataloader';
+import { match } from 'ts-pattern';
+import type {
+  GraphqlModelBinding,
+  GraphqlModelDefinition,
+  GraphqlModelField,
+  GraphqlModelFields,
+  GraphqlModelResultShape,
+  GraphqlModels,
+  GraphqlModelValue,
+} from './graphql-model.types';
+
+type Source = Readonly<Record<string, unknown>>;
+type Invoke = (
+  binding: GraphqlModelBinding,
+  positionalArgs: readonly unknown[],
+  args: Readonly<Record<string, unknown>>,
+) => Promise<{ readonly value: unknown }>;
+type Options = {
+  readonly models: GraphqlModels;
+  readonly modelFields: GraphqlModelFields;
+  readonly invoke: Invoke;
+};
+type RelationLoader = {
+  readonly parents: Map<string, Source>;
+  readonly loader: DataLoader<string, { readonly value: unknown }>;
+};
+type Operation = {
+  readonly options: Options;
+  readonly providers: Map<string, DataLoader<string, Source | null>>;
+  readonly relations: Map<string, RelationLoader>;
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:record
+ */
+const record = (value: unknown): Source => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('GraphQL model data must be an object');
+  }
+  return Object.fromEntries(Object.entries(value));
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:identity
+ */
+const identity = (value: unknown): string => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('GraphQL model reference must be an object');
+  }
+  const id: unknown = Reflect.get(value, 'id');
+  if (typeof id !== 'string') throw new Error('GraphQL model reference must have a string id');
+  return id;
+};
+
+const matchesScalar = (value: unknown, name: 'string' | 'number' | 'boolean'): boolean =>
+  typeof value === name &&
+  (name !== 'number' || (typeof value === 'number' && Number.isFinite(value)));
+
+const matchesValue = (value: unknown, descriptor: GraphqlModelValue): boolean =>
+  match(descriptor)
+    .with({ kind: 'opaque' }, () => true)
+    .with({ kind: 'scalar' }, ({ name }) => matchesScalar(value, name))
+    .with({ kind: 'nullable' }, ({ inner }) => value === null || matchesValue(value, inner))
+    .with({ kind: 'optional' }, ({ inner }) => value === undefined || matchesValue(value, inner))
+    .with(
+      { kind: 'array' },
+      ({ item }) =>
+        Array.isArray(value) &&
+        Array.from(value).every((entry: unknown) => matchesValue(entry, item)),
+    )
+    .exhaustive();
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:completeMap
+ */
+const completeMap = (value: unknown, ids: readonly string[]): ReadonlyMap<unknown, unknown> => {
+  if (!(value instanceof Map)) throw new Error('GraphQL model batch must return a Map');
+  const requested = new Set(ids);
+  if (
+    value.size !== requested.size ||
+    [...value.keys()].some((key: unknown) => typeof key !== 'string' || !requested.has(key))
+  ) {
+    throw new Error('GraphQL model batch Map must contain exactly the requested IDs');
+  }
+  return value;
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:validateSource
+ */
+const validateSource = (
+  model: string,
+  definition: GraphqlModelDefinition,
+  id: string,
+  value: unknown,
+): Source | null => {
+  if (value === null) return null;
+  const source = record(value);
+  if (identity(source) !== id)
+    throw new Error(`GraphQL provider returned a mismatched id for ${model}`);
+  const keys = new Set(Object.keys(source));
+  for (const property of definition.properties) {
+    if (!keys.has(property.name)) {
+      if (property.optional) continue;
+      throw new Error(`GraphQL provider omitted ${model}.${property.name}`);
+    }
+    if (!matchesValue(source[property.name], property.value))
+      throw new Error(`GraphQL provider returned invalid ${model}.${property.name}`);
+  }
+  return source;
+};
+
+const project = (parent: Source, dependencies: readonly string[]): Source =>
+  Object.fromEntries(dependencies.map((key) => [key, parent[key]]));
+
+const schedule = (callback: () => void): void => {
+  setTimeout(callback, 0);
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:provider
+ */
+const provider = (operation: Operation, model: string): DataLoader<string, Source | null> => {
+  const existing = operation.providers.get(model);
+  if (existing) return existing;
+  const definition = operation.options.models[model];
+  if (!definition) throw new Error(`GraphQL model provider missing: ${model}`);
+  const loader = new DataLoader<string, Source | null>(
+    async (ids) => {
+      const result = await operation.options.invoke(
+        definition.provider,
+        [ids.map((id) => ({ id }))],
+        {},
+      );
+      const values = completeMap(await result.value, ids);
+      return ids.map((id) => validateSource(model, definition, id, values.get(id)));
+    },
+    { batchScheduleFn: schedule },
+  );
+  operation.providers.set(model, loader);
+  return loader;
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:hydrateOne
+ */
+const hydrateOne = async (
+  operation: Operation,
+  target: string,
+  value: unknown,
+  nullable: boolean,
+): Promise<Source | null> => {
+  if (value === null && nullable) return null;
+  const source = await provider(operation, target).load(identity(value));
+  if (source === null && !nullable) throw new Error(`GraphQL required model is missing: ${target}`);
+  return source;
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:hydrate
+ */
+const hydrate = (
+  operation: Operation,
+  target: string,
+  value: unknown,
+  shape: GraphqlModelResultShape,
+): unknown => {
+  if (shape.kind === 'one') return hydrateOne(operation, target, value, shape.nullable);
+  if (value === null && shape.nullable) return null;
+  if (!Array.isArray(value)) throw new Error('GraphQL model reference list must be an array');
+  return Array.from(value, (item: unknown) =>
+    hydrateOne(operation, target, item, shape.itemNullable),
+  );
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:field
+ */
+const field = (operation: Operation, typeName: string, fieldName: string): GraphqlModelField => {
+  const descriptor = operation.options.modelFields[typeName]?.[fieldName];
+  if (!descriptor) throw new Error(`GraphQL model field missing: ${typeName}.${fieldName}`);
+  return descriptor;
+};
+
+const relation = (
+  operation: Operation,
+  key: string,
+  binding: GraphqlModelBinding,
+  args: Readonly<Record<string, unknown>>,
+): RelationLoader => {
+  const existing = operation.relations.get(key);
+  if (existing) return existing;
+  const parents = new Map<string, Source>();
+  const loader = new DataLoader<string, { readonly value: unknown }>(
+    async (ids) => {
+      const inputs = ids.map((id) => {
+        const selected = parents.get(id);
+        if (!selected) throw new Error('GraphQL relation parent missing');
+        return selected;
+      });
+      const result = await operation.options.invoke(binding, [inputs], args);
+      const values = completeMap(await result.value, ids);
+      return ids.map((id) => ({ value: values.get(id) }));
+    },
+    { batchScheduleFn: schedule },
+  );
+  const entry = { parents, loader };
+  operation.relations.set(key, entry);
+  return entry;
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:computedValue
+ */
+const computedValue = (value: unknown): unknown => {
+  if (
+    value !== null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    typeof Reflect.get(value, 'then') === 'function'
+  ) {
+    // The contract error is surfaced below; observe a rejected invalid Promise as well.
+    if (value instanceof Promise)
+      void value.then(
+        () => undefined,
+        () => undefined,
+      );
+    throw new Error('GraphQL computed model fields must be synchronous');
+  }
+  return value;
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:resolveField
+ */
+const resolveField = async (
+  operation: Operation,
+  typeName: string,
+  fieldName: string,
+  binding: GraphqlModelBinding,
+  parent: unknown,
+  args: Readonly<Record<string, unknown>>,
+): Promise<unknown> => {
+  const descriptor = field(operation, typeName, fieldName);
+  if (descriptor.kind === 'query')
+    throw new Error('GraphQL model field binding has the wrong kind');
+  const source = record(parent);
+  const input = project(source, descriptor.dependencies);
+  if (descriptor.kind === 'computed') {
+    const result = await operation.options.invoke(binding, [input], args);
+    return computedValue(result.value);
+  }
+  if (descriptor.mode === 'single') {
+    const result = await operation.options.invoke(binding, [input], args);
+    return hydrate(operation, descriptor.target, await result.value, descriptor.shape);
+  }
+  const entry = relation(operation, `${typeName}.${fieldName}`, binding, args);
+  const id = identity(source);
+  entry.parents.set(id, input);
+  const result = await entry.loader.load(id);
+  return hydrate(operation, descriptor.target, result.value, descriptor.shape);
+};
+
+/** Creates loaders whose lifetime is exactly one GraphQL operation. */
+export const createGraphqlModelExecution = (options: Options) => {
+  const operation: Operation = { options, providers: new Map(), relations: new Map() };
+  return {
+    resolveQuery: async (
+      typeName: string,
+      fieldName: string,
+      binding: GraphqlModelBinding,
+      args: Readonly<Record<string, unknown>>,
+    ): Promise<unknown> => {
+      const descriptor = field(operation, typeName, fieldName);
+      if (descriptor.kind !== 'query')
+        throw new Error('GraphQL model query binding has the wrong kind');
+      const result = await options.invoke(binding, [], args);
+      return hydrate(operation, descriptor.target, await result.value, descriptor.shape);
+    },
+    resolveField: (
+      typeName: string,
+      fieldName: string,
+      binding: GraphqlModelBinding,
+      parent: unknown,
+      args: Readonly<Record<string, unknown>>,
+    ): Promise<unknown> => resolveField(operation, typeName, fieldName, binding, parent, args),
+  };
+};

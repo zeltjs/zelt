@@ -321,7 +321,7 @@ The `$` convention does not conflict with schema-first names. However, schema-fi
 
 Model providers and reference resolution support code-first only. A `@Resolver()` class containing `@ResolveMultiField()` follows the model contract. A class without a provider remains a direct field resolver. There is no decorator option for switching modes. When both coexist in an endpoint, public type-name and root-field collisions are build errors. Schema-first model support is outside the initial scope.
 
-The generator analyzes types, dependencies, reference targets, and bindings, then emits SDL and the prebuilt runtime. Application resolvers do not import their own generated artifacts. Entries supply prebuilt modules to adapters as today. Model contract metadata participates in stale-artifact detection.
+The generator analyzes types, dependencies, reference targets, and bindings, then emits SDL and the prebuilt runtime. Application resolvers do not import their own generated artifacts. Entries supply prebuilt modules to adapters as today. Model types and dependencies are reanalyzed during generation. Startup checks the runtime declarations and the consistency of the generated manifest and SDL.
 
 Capture authorization data and services using existing DI/context conventions. Batch invocation restores the originating execution context. In synchronous context mode, capture required values before awaiting.
 
@@ -333,6 +333,23 @@ Capture authorization data and services using existing DI/context conventions. B
 4. Providers and batch relations return Maps, distinguishing absence from contract violations.
 5. Reuse internal data within an operation. Accept separate ID-search and data-load queries at each stage.
 6. Keep one model type and exclude only `$`-prefixed source properties from GraphQL. Providers return fixed model-data shapes. Dynamic column projection and dependencies between computed fields are deferred.
+
+## HTTP behavior {#http}
+
+`graphql-http` handles HTTP, `graphql-js` validates and executes GraphQL,
+and DataLoader batches loads within an operation. Zelt connects model
+contracts and execution context to these libraries.
+
+GET accepts queries; POST accepts queries and mutations. Send POST bodies
+with `Content-Type: application/json`. With `Accept: application/graphql-response+json`,
+GraphQL syntax and validation failures produce HTTP 400 while execution
+results produce HTTP 200, including field execution errors. Under the
+legacy `application/json` response format, GraphQL validation errors may
+instead produce HTTP 200 as specified by the protocol.
+
+Malformed JSON produces 400, GET mutations 405, unsupported Accept headers
+406, and unsupported request Content-Type headers 415. Model batching does
+not enable HTTP request batching: arrays of HTTP operations are not accepted.
 
 ## Endpoints and API {#api-boundary}
 
@@ -620,7 +637,12 @@ GraphQL requires the prebuilt module. If it is missing, if the endpoint's
 prebuilt entry is missing, or if the entry file does not import `zeltPrebuilt`,
 the endpoint throws at startup — there is no silent fallback on any platform.
 
-Each endpoint uses the prebuilt entry matching its key. Missing entries or entries inconsistent with the running declarations fail at startup and require `zelt build`. For model mode, consistency checks include parent models, providers, dependencies, reference targets, and entry exposure settings. Rebuild after changing types or declarations.
+Each endpoint uses the prebuilt entry matching its key. Checks are split between build and startup:
+
+- During `zelt build` / `zelt dev`, GraphQL generation refreshes the TypeScript inspection cache and reanalyzes model types, providers, dependencies, and reference targets before producing the manifest and SDL.
+- At startup, missing prebuilt entries or mismatched endpoint paths, resolver names, GraphQL method names, decorator kinds, or exposed field names cause an error. The runtime also checks that generated model metadata and SDL agree, including source field types and reference cardinality/nullability.
+
+TypeScript-only changes are erased from runtime JavaScript. Startup cannot detect such a change when the old manifest and SDL remain mutually consistent. Regenerate and rebuild the application after changing types or dependencies, and deploy the application with its matching prebuilt output. No additional type-fingerprint code transformation is required.
 
 ### Direct code-first resolvers {#code-first-2}
 

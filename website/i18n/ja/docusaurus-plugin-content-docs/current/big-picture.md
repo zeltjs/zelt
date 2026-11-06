@@ -37,7 +37,7 @@ flowchart TD
 
 `zelt build` はapp定義をimportして評価します。`zelt dev` も再起動のたびに同じ評価を行います。この評価ではデコレータと型メタデータを収集しますが、サーバーの起動や接続の開始は行いません。得られる **blueprint** はアプリのルート・リゾルバ・型を表すデータです。
 
-pluginはblueprintから、GraphQLスキーマと実行可能runtime、OpenAPI文書、型付きクライアントを生成します。いずれも同じコードから導かれ、build時や起動時にコードとの整合性を検査します。検査する契約はfeatureごとに異なり、GraphQLのモデルモードでは供給元・依存・参照先・Queryの公開設定も含みます。検査範囲は [GraphQLの契約](./graphql.md#current-limitations)を参照してください。appから定義を削除すると、次のbuildで対応する生成物も削除されます。
+pluginはblueprintから、GraphQLスキーマと実行可能runtime、OpenAPI文書、型付きクライアントを生成します。いずれも同じコードから導かれ、build時や起動時にコードとの整合性を検査します。検査する契約はfeatureごとに異なります。GraphQLではビルド時にモデルの型と依存を再解析し、起動時に実行時の宣言と生成物の整合を確認します。検査範囲は [GraphQLの契約](./graphql.md#current-limitations)を参照してください。appから定義を削除すると、次のbuildで対応する生成物も削除されます。
 
 pluginが必須になるのは、そのpluginに依存するfeatureを使う場合だけです。例えば `graphql()` エンドポイントには `graphqlPlugin()` と `zelt build` が必要です。
 
@@ -67,4 +67,4 @@ flowchart LR
   API["openapi.json · 型付きclient"] -- "型安全な呼び出しに使う" --> USER
 ```
 
-起動時には、各featureが自身のprebuilt entryとコードの整合性を検査します。不一致があれば起動に失敗し、修正方法として `zelt build` を案内します。古い生成物を使ったまま、エラーを出さずに動作することはありません。
+起動時には、各featureが自身のprebuilt entryと実行時に残る宣言の整合性を検査します。不一致を検出すると起動に失敗し、修正方法として `zelt build` を案内します。TypeScriptの型だけの変更は起動時には検知できないため、生成とビルドをやり直す必要があります。
