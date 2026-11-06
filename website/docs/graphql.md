@@ -4,18 +4,22 @@ sidebar_label: GraphQL
 
 # GraphQL
 
-A User model is not owned by a Query. `Query.user`, search results, and `Post.author` are entry points to the same User. Every entry uses the same data provider and computed fields.
+Zelt's `@zeltjs/graphql` is a code-first GraphQL framework that generates schemas directly from TypeScript types.
+
+In traditional GraphQL implementations, data-fetching logic is often scattered across queries and relations, easily causing N+1 problems and requiring complex manual DataLoader management. Zelt adopts a **model-centric design** that cleanly separates two distinct responsibilities: **identifying targets (selecting IDs)** and **fetching actual data (supplying data for IDs)**.
+
+With this separation, a model does not belong to any specific query. For example, a `User` model points to the same `User` whether reached from the root `Query.user`, a search result, or a relation like `Post.author`. Each resolver simply returns the target ID, while data retrieval and computed fields are centralized in the model's shared provider and automatically batched.
 
 ## Four responsibilities {#responsibilities}
 
 | Definition | Input → output | Responsibility |
 | --- | --- | --- |
-| `@Query` | Arguments and execution context → model references | Choose subjects at the root |
-| `@Relation` | Required parent data → target references | Choose related subjects, including filters such as publication status |
-| `@ResolveMultiField` | References → source data | Supply data for IDs |
+| `@Query` | Arguments and execution context → model IDs | Choose subjects at the root |
+| `@Relation` | Required parent data → target IDs | Choose related subjects, including filters such as publication status |
+| `@ResolveMultiField` | IDs → source data | Supply data for IDs |
 | `@ResolveField` | Required source data → value | Compute a field |
 
-Query and Relation have the same responsibility: select and return model references. Query starts from root arguments and execution context; Relation starts from parent data. Both may query a database to filter subjects, but the provider supplies their actual data. An existing `$authorId` can produce a reference without I/O; public-post selection can search for matching IDs.
+Query and Relation have the same responsibility: select and return model IDs. Query starts from root arguments and execution context; Relation starts from parent data. Both may query a database to filter subjects, but the provider supplies their actual data. An existing `$authorId` can return an ID without I/O; public-post selection can search for matching IDs.
 
 The goal is to avoid fetching once per parent. Additional queries across models and loading stages are allowed; a single SQL statement is not guaranteed.
 
@@ -44,7 +48,7 @@ Keep each model's data in one type, `User` or `Post`. Properties starting with `
 
 This convention controls GraphQL exposure; it is not a JavaScript private field. Ordinary object access and `JSON.stringify` still include these values. The convention does not protect another HTTP API returning the object directly. Name private model data with the prefix, for example `$passwordHash`.
 
-Do not repeat relations or computed fields in these types. The generator adds those definitions to the GraphQL model. `Pick<User, 'id'>` is a reference to a User, not an already loaded User.
+Do not repeat relations or computed fields in these types. The generator adds those definitions to the GraphQL model. `Pick<User, 'id'>` is the User's ID, not an already loaded User.
 
 ## Supply User data, compute fields, and select relations {#user-resolver}
 
@@ -135,7 +139,7 @@ A `@Resolver()` class with one `@ResolveMultiField()` is a model provider. Its f
 
 The method name `dbValues` is not a GraphQL field. Non-`$` properties of `User` become public fields; `name` adds a computed field and `publicPosts` adds a relation.
 
-`Pick` declares the parent data a method needs. `name` can read the private `$familyNameFirst` but cannot access `user.id`. `publicPosts` uses parent IDs to select public Post references. The query's `authorId` groups results by parent; it is not stored as hydrated Post data.
+`Pick` declares the parent data a method needs. `name` can read the private `$familyNameFirst` but cannot access `user.id`. `publicPosts` uses parent IDs to return public Post IDs. The query's `authorId` groups results by parent; it is not stored as hydrated Post data.
 
 ## Navigate from Post back to User {#post-resolver}
 
@@ -175,7 +179,7 @@ export class PostResolver {
 }
 ```
 
-`author` converts the private `Post.$authorId` to a User reference. This example has a non-null author ID and requires an author, so it returns `Pick<User, 'id'>`, producing `author: User!`. It neither loads User data nor computes a name.
+`author` returns a User ID from the private `Post.$authorId`. This example has a non-null author ID and requires an author, so it returns `Pick<User, 'id'>`, producing `author: User!`. It neither loads User data nor computes a name.
 
 For an optional author, make the internal `$authorId` nullable and return `Pick<User, 'id'> | null`, explicitly handling the absent relation. Nullability expresses the public model's meaning; it is not added universally to accommodate acquisition failures. A missing or inaccessible target on a non-null relation is a GraphQL error.
 
@@ -189,7 +193,7 @@ Synchronous/asynchronous execution and single/batch execution are independent. B
 
 Either form may return a synchronous value or a Promise for the whole method result. Include `id` explicitly in every batch parent Pick; Zelt does not inject undeclared dependencies. Map order is irrelevant, but the returned key set must equal the input parent ID set. Promises inside individual Map values are not supported.
 
-The decorators differ in what each result means: `ResolveMultiField` returns source data or null, `Relation` returns target references or reference lists, and `ResolveField` returns a field value. Multi refers to supplying multiple fields, not to selecting batch execution.
+The decorators differ in what each result means: `ResolveMultiField` returns source data or null, `Relation` returns target IDs or ID lists, and `ResolveField` returns a field value. Multi refers to supplying multiple fields, not to selecting batch execution.
 
 Any of these methods may access a database or external service. Single-parent I/O can cause N+1, but Zelt permits that choice and emits no build warning merely because a method is single-parent or async. Choosing the batch form lets Zelt collect parents and verify the ID correspondence.
 
@@ -267,13 +271,13 @@ type Post {
 }
 ```
 
-This `users` method returns references for supplied IDs, not an unrestricted list. Preserve input order and duplicates; an empty result does not invoke the provider. The example's `user` and `users` elements are non-null, so a provider result of null produces a GraphQL error. To treat absence as a normal null response, declare `Pick<User, 'id'> | null`, or `readonly (Pick<User, 'id'> | null)[]` for nullable list elements.
+This `users` method returns the specified IDs in input order, not an unrestricted list. Preserve input order and duplicates; an empty result does not invoke the provider. The example's `user` and `users` elements are non-null, so a provider result of null produces a GraphQL error. To treat absence as a normal null response, declare `Pick<User, 'id'> | null`, or `readonly (Pick<User, 'id'> | null)[]` for nullable list elements.
 
 The input schemas use `v.string()`, so the example arguments are `String!` / `[String!]!`. The model's identity field is `ID!`.
 
 `User` is the same GraphQL type at the root and under `Post.author`. Do not derive a separate `PostAuthor` type from its path. Resolve the TypeScript declaration to identify each model within an endpoint; different models colliding on a GraphQL type name are build errors.
 
-Filtered searches use the same `@Query` mechanism: select subjects and return references rather than source-data objects.
+Filtered searches use the same `@Query` mechanism: select subjects and return IDs rather than source-data objects.
 
 ```ts no-check
 import { args, Query } from '@zeltjs/graphql';
@@ -313,14 +317,14 @@ query {
 }
 ```
 
-1. The entry creates User references and calls the User provider in a batch.
+1. The entry returns User IDs and calls the User provider in a batch.
 2. Compute `name` after its dependencies are available. Collect parents for one `publicPosts` batch search.
 3. Collect the returned Post IDs and load source data through the Post provider.
-4. `Post.author` converts each `$authorId` to a User reference.
+4. `Post.author` returns a User ID from each `$authorId`.
 5. Reuse already loaded authors; batch only missing User IDs through the User provider.
 6. Compute each author's `name` and return only client-selected fields.
 
-The example Query only constructs references, so it performs no ID-search query. The initial User load, public-post ID search, and Post load require three database accesses. Authors already present among the initial users need no additional load; other authors require a subsequent batch. These counts assume no batch-size splitting or additional application I/O.
+The example Query only returns the IDs directly, so it performs no ID-search query. The initial User load, public-post ID search, and Post load require three database accesses. Authors already present among the initial users need no additional load; other authors require a subsequent batch. These counts assume no batch-size splitting or additional application I/O.
 
 A filtered Query or Relation can require two database accesses: searching for matching IDs and loading data for those IDs. If every loading stage needs a search, the cost is roughly two accesses per root/nesting stage. This is an accepted cost of separating subject selection from data supply. ID lookups, parent foreign keys, and reused data can eliminate steps, so nesting depth multiplied by two is not a universal count.
 
@@ -330,13 +334,13 @@ Unselected relations and computed fields do not execute. Determine effective sel
 
 ## Batching, reuse, and failures {#runtime-contract}
 
-- **Provider input:** Single mode receives each unloaded ID reference separately. Batch mode receives a non-empty array of deduplicated, unloaded IDs for the same endpoint, model, and execution context. Both reuse results for the same ID within an operation.
+- **Provider input:** Single mode receives each unloaded ID separately. Batch mode receives a non-empty array of deduplicated, unloaded IDs for the same endpoint, model, and execution context. Both reuse results for the same ID within an operation.
 - **Batch boundary:** Collect requests that become resolvable in the same loading stage. This does not promise one call per operation: deeper selections may reveal IDs in later stages. Cross-model query fusion is not guaranteed.
 - **Provider output:** Single mode returns complete model data, including private properties, or null. Batch mode maps each input ID to that result. A returned object's `id` must match the requested ID. Map order is irrelevant, but missing or extra keys violate the contract.
-- **Batch relation output:** Map every parent ID to its reference or reference list. No match for a nullable single target yields null; no matches for a list yield an empty array. An absent required target is an error. Preserve list order and duplicates. Never omit a parent key.
+- **Batch relation output:** Map every parent ID to its ID or list of IDs. No match for a nullable single target yields null; no matches for a list yield an empty array. An absent required target is an error. Preserve list order and duplicates. Never omit a parent key.
 - **Batch computed output:** Map each parent ID to its field value. The runtime checks the key set and GraphQL processes each value using the field's result type. Nullability follows the declared result type.
 - **Reuse scope:** Cache source data and missing results only within one GraphQL operation. Key by model and ID, not ID alone. Never share across requests, endpoints, or authorization contexts. Batch relations and batch computed fields also share results by field and parent ID within the operation. Single-parent relations and computed fields execute for each GraphQL invocation.
-- **Existence and authorization:** Even an `{ id }` selection must check existence and visibility through the provider rather than serialize an unchecked reference. Model visibility is consistent across entry paths within an operation; relation-specific publication filters select references separately.
+- **Existence and authorization:** Even an `{ id }` selection must check existence and visibility through the provider rather than return an ID alone without verification. Model visibility is consistent across entry paths within an operation; relation-specific publication filters select target IDs separately.
 - **Errors:** Do not turn acquisition failures into null or empty lists. Exceptions become GraphQL errors at affected fields and propagate according to schema nullability. A null target on a non-null relation or search-result element also follows GraphQL error propagation.
 - **I/O responsibility:** For all three kinds, the framework collects parents for array-parameter methods. Single-parameter methods run per parent, independently of sync/async. Application code that runs one SQL statement per item inside a batch function still creates N+1. Implement actual batching, such as an `IN` query.
 
@@ -350,11 +354,11 @@ TypeScript checks `Pick` keys and accesses inside method bodies. The generator c
 
 - The provider establishes the parent model and returns that model type, including `$` properties. Computed fields and relations declare dependencies using `Pick` of the same model type.
 - Dependencies are source properties of the model, including private `$` properties. Depending on another computed field or a relation result is a build error.
-- Query and single-parent relation results are a registered model's `Pick<T, 'id'>`, a list of those references, or nullable forms. For batch relations, each Map value has that same result shape. Unwrap Promise before interpreting either form. Return declarations containing the full model or extra fields are rejected. Structural typing cannot exclude all extra runtime properties, so the runtime consumes only IDs from references.
+- Query and single-parent relation results are a registered model's `Pick<T, 'id'>`, a list of those IDs, or nullable forms. For batch relations, each Map value has that same result shape. Unwrap Promise before interpreting either form. Return declarations containing the full model or extra fields are rejected. Structural typing cannot exclude all extra runtime properties, so the runtime consumes only IDs.
 - All three kinds use a direct `Pick<T, ...>` for single parents or its readonly array form for batches. Batch Picks must include `id` to identify each parent in the result Map. Custom generic wrappers and aliases around `Pick` are initially unsupported and produce diagnostics.
 - `$`-prefixed source properties do not enter the schema. Public source fields, relations, and computed fields cannot duplicate a public name. Identity remains the public `id`; it cannot be replaced with `$id`.
 - The `$` convention applies to model source data. Public Query, Relation, and ResolveField names must satisfy GraphQL naming rules; invalid public names, including `$` prefixes, are build errors.
-- Initial public source properties support built-in scalars and their nullable/list forms. Add private properties for computation or reference selection to the same type using `$` prefixes. Model connections must be declared as relations.
+- Initial public source properties support built-in scalars and their nullable/list forms. Add private properties for computation or ID generation to the same type using `$` prefixes. Model connections must be declared as relations.
 - Computed fields retain the same scalar result range per parent. Both single and batch methods may be synchronous or asynchronous and may perform database or external-service I/O. Dependencies on other computed results remain unsupported.
 
 Map completeness, database response completeness, and I/O behavior cannot be guaranteed by TypeScript alone. Generated boundary checks and implementation contracts cover these obligations. Casting a partial row with `as User` does not satisfy the model-data contract.
@@ -369,20 +373,20 @@ Providers must return data consistent with their static return type; a dynamic d
 
 SDL describes public fields only. `$` cannot appear in GraphQL field names, so private properties are neither written in SDL nor generated from SDL alone. Schema-first applications still need a TypeScript declaration for internal data. A public schema and the parent data passed to a resolver need not have identical shapes.
 
-The `$` convention does not conflict with schema-first names. However, schema-first support for model providers and reference resolution remains outside the initial scope, as described below.
+The `$` convention does not conflict with schema-first names. However, schema-first support for model providers and ID-based resolution remains outside the initial scope, as described below.
 
 ## Resolver modes {#compatibility}
 
-Model providers and reference resolution support code-first only. A `@Resolver()` class containing `@ResolveMultiField()` follows the model contract. A class without a provider remains a direct field resolver. There is no decorator option for switching modes. When both coexist in an endpoint, public type-name and root-field collisions are build errors. Schema-first model support is outside the initial scope.
+Model providers and ID-based resolution support code-first only. A `@Resolver()` class containing `@ResolveMultiField()` follows the model contract. A class without a provider remains a direct field resolver. There is no decorator option for switching modes. When both coexist in an endpoint, public type-name and root-field collisions are build errors. Schema-first model support is outside the initial scope.
 
-The generator analyzes types, dependencies, reference targets, and bindings, then emits SDL and the prebuilt runtime. Application resolvers do not import their own generated artifacts. Entries supply prebuilt modules to adapters as today. Model types and dependencies are reanalyzed during generation. Startup checks the runtime declarations and the consistency of the generated manifest and SDL.
+The generator analyzes types, dependencies, relation targets, and bindings, then emits SDL and the prebuilt runtime. Application resolvers do not import their own generated artifacts. Entries supply prebuilt modules to adapters as today. Model types and dependencies are reanalyzed during generation. Startup checks the runtime declarations and the consistency of the generated manifest and SDL.
 
 Capture authorization data and services using existing DI/context conventions. Batch invocation restores the originating execution context. In synchronous context mode, capture required values before awaiting.
 
 ## Contract summary {#decisions}
 
 1. Initial model identity is `id: string`; the sole provider establishes its parent model.
-2. Query and Relation select references. Define public Query fields as ordinary methods and generate their schema.
+2. Query and Relation select IDs. Define public Query fields as ordinary methods and generate their schema.
 3. All three method kinds share single/batch contracts selected by parent parameter shape, independently of async and I/O.
 4. Single methods return their result directly; batch methods return Maps from parent ID to result, distinguishing absence from contract violations.
 5. Reuse internal data within an operation. Accept separate ID-search and data-load queries at each stage.
@@ -457,7 +461,7 @@ does not normally need them.
 
 ## Direct field resolvers {#code-first}
 
-Use a `@Resolver()` class without `@ResolveMultiField()` when returning objects directly, without model references or providers. A Query in this form returns the response source object; a Query in a provider class returns references instead.
+Use a `@Resolver()` class without `@ResolveMultiField()` when returning objects directly, without model providers. A Query in this form returns the response source object; a Query in a provider class returns IDs instead.
 
 ```ts no-check
 import { createApp, http } from '@zeltjs/core';
@@ -693,8 +697,8 @@ the endpoint throws at startup — there is no silent fallback on any platform.
 
 Each endpoint uses the prebuilt entry matching its key. Checks are split between build and startup:
 
-- During `zelt build` / `zelt dev`, GraphQL generation refreshes the TypeScript inspection cache and reanalyzes model types, providers, dependencies, and reference targets before producing the manifest and SDL.
-- At startup, missing prebuilt entries or mismatched endpoint paths, resolver names, GraphQL method names, decorator kinds, or exposed field names cause an error. The runtime also checks that generated model metadata and SDL agree, including source field types and reference cardinality/nullability.
+- During `zelt build` / `zelt dev`, GraphQL generation refreshes the TypeScript inspection cache and reanalyzes model types, providers, dependencies, and relation targets before producing the manifest and SDL.
+- At startup, missing prebuilt entries or mismatched endpoint paths, resolver names, GraphQL method names, decorator kinds, or exposed field names cause an error. The runtime also checks that generated model metadata and SDL agree, including source field types and relation cardinality/nullability.
 
 TypeScript-only changes are erased from runtime JavaScript. Startup cannot detect such a change when the old manifest and SDL remain mutually consistent. Regenerate and rebuild the application after changing types or dependencies, and deploy the application with its matching prebuilt output. No additional type-fingerprint code transformation is required.
 
