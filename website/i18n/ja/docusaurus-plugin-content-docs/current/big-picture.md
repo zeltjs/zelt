@@ -4,12 +4,9 @@ sidebar_label: 全体像
 
 # 全体像
 
-Zeltであなたが書くのは、アプリの機能だけです。GraphQLスキーマも、OpenAPI
-ドキュメントも、型付きクライアントも、起動の配線も、すべてコードから導かれます。
-そして同じアプリが、Node・Bun・Cloudflare Workers・Lambda — そしてテストの中
-まで — adapterひとつの差し替えでそのまま動きます。
+Zeltであなたが書くのはアプリの機能だけです。GraphQLスキーマ、OpenAPIドキュメント、型付きクライアント、起動に必要な構成は、すべてコードから導かれます。同じアプリが Node・Bun・Cloudflare Workers・Lambda に加えてテストでも、adapterひとつの差し替えでそのまま動きます。
 
-それがなぜ可能なのかを示すのが、次の地図です。
+次の図はコードから生成物を作り、各環境でアプリを動かすまでの関係を示しています。
 
 ```mermaid
 flowchart TD
@@ -31,57 +28,34 @@ flowchart TD
 
 ## あなたが書くもの
 
-- **app定義** — `createApp([...])` とその中身のfeature群: HTTPコントローラ、
-  GraphQLリゾルバ、コマンド、スケジューラ、それらを支えるservice。アプリの機能
-  そのものの記述で、`.zelt/` からは何もimportせず、起動ロジックも持ちません
-- **entry** — プラットフォームごとの数行(`node.ts`、`worker.ts`、…)。appと
-  prebuiltをimportしてadapterに渡します。あなたのコードが `.zelt/` に触れる
-  唯一の場所です
-- **テスト** — entryと同じ役割を果たします: appとprebuiltを合流させ、adapterの
-  ひとつである `onTest` に渡す。テストは並行世界ではなく、本番と同じ経路を
-  in-processで通ります
-- **zelt.config.ts** — CLIへの指示書。どのpluginを使うか、buildとdevの設定
+- **app定義**は `createApp([...])` と、その中に置くfeature群です。HTTPコントローラ、GraphQLリゾルバ、コマンド、スケジューラ、それらを支えるserviceでアプリの機能を記述します。`.zelt/` からは何もimportせず、起動ロジックも持ちません。
+- **entry**は `node.ts`、`worker.ts` など、プラットフォームごとに書く数行のコードです。appとprebuiltをimportしてadapterに渡します。アプリを起動するコードで `.zelt/` を参照するのは、このファイルだけです。
+- **テスト**もentryと同じように、appとprebuiltをadapterのひとつである `onTest` に渡します。テスト用の別経路ではなく、本番と同じ経路をin-processで実行します。
+- **zelt.config.ts**にはどのpluginを使うかと、build・devの設定を書きます。CLIはこの設定に従います。
 
 ## zelt CLI (build / dev)
 
-`zelt build`(および `zelt dev` の再起動のたび)はapp定義をimportして評価します。
-評価はデコレータと型メタデータを収集しますが、何も起動しません — サーバーも
-立たず、接続も開きません。得られるのが **blueprint**: アプリのルート・リゾルバ・
-型が、素のデータとして手に入ったものです。
+`zelt build` はapp定義をimportして評価します。`zelt dev` も再起動のたびに同じ評価を行います。この評価ではデコレータと型メタデータを収集しますが、サーバーの起動や接続の開始は行いません。得られる **blueprint** はアプリのルート・リゾルバ・型を表すデータです。
 
-pluginはblueprintを消費して派生物を作ります: GraphQLスキーマと実行可能runtime、
-OpenAPI文書、型付きクライアント。源はひとつ、派生は多数 — build時や起動時に
-コードと突き合わされますが、検出できるのは構成レベルのズレ(エンドポイントの
-pathやresolver構成の変化)のみで、resolverのメソッドシグネチャのような深い
-ズレは検出対象外です。appから何かを消せば次のbuildでその派生物も消えます。
-そしてpluginが必須になるのは、そのpluginに依存するfeatureを使う場合だけです
-— 例えば `graphql()` エンドポイントは `graphqlPlugin()` と `zelt build` が
-なければ動きません。
+pluginはblueprintから、GraphQLスキーマと実行可能runtime、OpenAPI文書、型付きクライアントを生成します。いずれも同じコードから導かれ、build時や起動時にコードとの整合性を検査します。検査する契約はfeatureごとに異なり、GraphQLのモデルモードでは供給元・依存・参照先・Queryの公開設定も含みます。検査範囲は [GraphQLの契約](./graphql.md#current-limitations)を参照してください。appから定義を削除すると、次のbuildで対応する生成物も削除されます。
 
-最後にbundle(Nodeならtsdown、Workersならwrangler)がentryごと束ねて `dist/` を
-作ります。
+pluginが必須になるのは、そのpluginに依存するfeatureを使う場合だけです。例えば `graphql()` エンドポイントには `graphqlPlugin()` と `zelt build` が必要です。
+
+最後にNodeではtsdown、Workersではwranglerが、entryとその依存をbundleして `dist/` に出力します。
 
 ## 生成物
 
-- **`.zelt/`** — *アプリ自身*から派生した成果物。アプリの*外側へ*流れ、import
-  できるのはentryとテストだけです(アプリは自分自身の派生物に依存できません)。
-  使い捨てで再現可能 — ディレクトリごと消しても `zelt build` が作り直します。
-  runtime群は1つの値モジュール `.zelt/prebuilt.ts` に束ねられます
-- **`openapi.json` / 型付きclient** — アプリの外の世界(フロントエンド・API
-  利用者)向けの派生物。コードから導かれているので、実装と食い違う仕様書に
-  なりません
-- **`dist/`** — デプロイ物。entry + app + prebuilt が束ねられた、実行環境に
-  持っていく単位です
+- **`.zelt/`** はアプリ自身から作る生成物です。アプリが自分自身の生成物に依存しないよう、importできるのはentryとテストだけにしています。削除しても `zelt build` で再生成できます。runtime群は一つの値モジュール `.zelt/prebuilt.ts` にまとめられます。
+- **`openapi.json` / 型付きclient**はフロントエンドやAPI利用者向けの生成物です。コードから導かれるため、仕様書が実装と食い違うことはありません。
+- **`dist/`** はentry・app・prebuiltをbundleしたデプロイ物です。これを実行環境へ配置します。
 
 ## 実行環境
 
-adapterは同じ仕事の交換可能な実装です: appのコードとblueprintの設計データ、
-そしてあれば `.zelt/prebuilt` を受け取り、**realize**する — DIを走らせ、環境変数から設定を読み、DB・KV・外部サービスへの接続を開き、
-サーバーを立てる。`onNode`、`onBun`、`onCloudflareWorkers`、`onLambda`、
-`onElectron`、そして `onTest`。プラットフォームの乗り換えはこの1呼び出しの
-差し替えであり、地図の残りには触れません。
+adapterは同じ役割を持つ交換可能な実装です。appのコード、blueprintの設計データ、そして用意されていれば `.zelt/prebuilt` を受け取って、アプリを **realize** します。具体的にはDIを実行し、環境変数から設定を読み、DB・KV・外部サービスへの接続を開き、サーバーを起動します。
 
-デプロイと運用から見ると、地図はこう繋がります:
+`onNode`、`onBun`、`onCloudflareWorkers`、`onLambda`、`onElectron`、`onTest` はこの役割を担います。プラットフォームを変更するときは、この呼び出しだけを差し替えます。ほかの構成を変える必要はありません。
+
+デプロイと運用に関わる構成は、次のように接続されます。
 
 ```mermaid
 flowchart LR
@@ -93,6 +67,4 @@ flowchart LR
   API["openapi.json · 型付きclient"] -- "型安全な呼び出しに使う" --> USER
 ```
 
-起動時、各featureは自分のprebuilt entryをコードと突き合わせ、ズレていれば直し方
-(`zelt build`)を名指しして明示的に失敗します — 古い成果物がsilentに動くことは
-ありません。
+起動時には、各featureが自身のprebuilt entryとコードの整合性を検査します。不一致があれば起動に失敗し、修正方法として `zelt build` を案内します。古い生成物を使ったまま、エラーを出さずに動作することはありません。

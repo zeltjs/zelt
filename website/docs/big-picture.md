@@ -55,10 +55,11 @@ app's routes, resolvers, and types as plain data.
 
 Plugins consume the blueprint and derive artifacts: the GraphQL schema and
 executable runtime, the OpenAPI document, typed clients. One source, many
-derivatives, checked against it at build or startup — though today only
-structural drift is caught (an endpoint's path or resolver set changing),
-not deeper drift such as a resolver's method signature. Removing something
-from the app removes its artifacts on the next build.
+derivatives, checked against it at build or startup. The checked contract
+depends on the feature; GraphQL model mode includes model providers,
+dependencies, reference targets, and exposed entry points. See the
+[GraphQL contract](./graphql.md#current-limitations) for its scope. Removing
+something from the app removes its artifacts on the next build.
 And plugins are optional unless your app uses a feature that depends on
 one — a `graphql()` endpoint, for example, requires `graphqlPlugin()` and
 `zelt build` to run at all.
