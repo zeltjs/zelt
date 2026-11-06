@@ -56,6 +56,34 @@ type ViewerPublic {
 } satisfies GeneratedGraphqlRuntime;
 
 describe('executeGraphqlRequest', () => {
+  it('shares pending initialization but retries after failure and retains successful instances', async () => {
+    let attempts = 0;
+    const execute = createGraphqlExecutor({
+      runtime,
+      resolvers: [RuntimeViewerResolver],
+      resolveResolver: async () => {
+        const attempt = ++attempts;
+        await Promise.resolve();
+        if (attempt === 1) throw new Error('Initialization unavailable');
+        return new RuntimeViewerResolver();
+      },
+    });
+    const failed = await Promise.all([
+      execute({ query: '{ viewer { id } }' }),
+      execute({ query: '{ viewer { id } }' }),
+    ]);
+    expect(attempts).toBe(1);
+    for (const result of failed)
+      expect(result.errors?.[0]?.message).toBe('Initialization unavailable');
+    const recovered = await Promise.all([
+      execute({ query: '{ viewer { id } }' }),
+      execute({ query: '{ viewer { id } }' }),
+    ]);
+    expect(attempts).toBe(2);
+    for (const result of recovered) expect(result).toEqual({ data: { viewer: { id: 'viewer' } } });
+    await execute({ query: '{ viewer { id } }' });
+    expect(attempts).toBe(2);
+  });
   it('executes generated bindings without TypeScript type analysis at runtime', async () => {
     const result = await executeGraphqlRequest({
       runtime,

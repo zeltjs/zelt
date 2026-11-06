@@ -306,39 +306,6 @@ const parseGeneratedGraphqlRuntime = (value: unknown): GeneratedGraphqlRuntime |
   return addOptionalRuntimeModels(withUnions, record);
 };
 
-const parseVariables = (value: unknown): Readonly<Record<string, unknown>> | null | undefined => {
-  if (value === undefined || value === null) return value;
-  const record = toObject(value);
-  if (!record) return undefined;
-  return Object.fromEntries(Object.entries(record));
-};
-
-const parseOperationName = (value: unknown): string | null | undefined => {
-  if (value === undefined || value === null) return value;
-  return typeof value === 'string' ? value : undefined;
-};
-
-const isInvalidOptionalValue = (raw: unknown, parsed: unknown): boolean =>
-  raw !== undefined && parsed === undefined;
-
-export const parseGraphqlRequestPayload = (value: unknown): GraphqlRequestPayload | undefined => {
-  const record = toObject(value);
-  if (!record) return undefined;
-  const query = readProperty(record, 'query');
-  if (typeof query !== 'string') return undefined;
-  const variablesRaw = readProperty(record, 'variables');
-  const variables = parseVariables(variablesRaw);
-  if (isInvalidOptionalValue(variablesRaw, variables)) return undefined;
-  const operationNameRaw = readProperty(record, 'operationName');
-  const operationName = parseOperationName(operationNameRaw);
-  if (isInvalidOptionalValue(operationNameRaw, operationName)) return undefined;
-  return {
-    query,
-    ...(variables !== undefined && { variables }),
-    ...(operationName !== undefined && { operationName }),
-  };
-};
-
 export const parseGraphqlPrebuiltEntry = (value: unknown): GraphqlPrebuiltEntry | undefined => {
   const record = toObject(value);
   if (!record) return undefined;
@@ -390,7 +357,10 @@ const createResolverInvoker = (options: CreateGraphqlExecutorOptions): InvokeRes
       pending = Promise.resolve(options.resolveResolver(resolverClass));
       resolverCache.set(resolverClass, pending);
     }
-    const instance = await pending;
+    const instance = await pending.catch((error: unknown) => {
+      if (resolverCache.get(resolverClass) === pending) resolverCache.delete(resolverClass);
+      throw error;
+    });
     return captured.run(() =>
       runWithGraphqlArgs(args, () => ({
         value: callResolverMethod(instance, binding.method, positionalArgs),

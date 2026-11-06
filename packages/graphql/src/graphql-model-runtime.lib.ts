@@ -129,7 +129,11 @@ const validateSource = (
 };
 
 const project = (parent: Source, dependencies: readonly string[]): Source =>
-  Object.fromEntries(dependencies.map((key) => [key, parent[key]]));
+  Object.fromEntries(
+    dependencies
+      .filter((key) => Object.getOwnPropertyDescriptor(parent, key) !== undefined)
+      .map((key) => [key, parent[key]]),
+  );
 
 const schedule = (callback: () => void): void => {
   setTimeout(callback, 0);

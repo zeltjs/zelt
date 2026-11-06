@@ -1,10 +1,23 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Query, ResolveMultiField, Resolver } from './graphql.decorator';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
 class ResolverA {}
 class ResolverB {}
+
+@Resolver()
+class ÄResolver {
+  @Query('first')
+  Ä(): string {
+    return 'first';
+  }
+  @Query('second')
+  Z(): string {
+    return 'second';
+  }
+}
+class ZResolver {}
 
 const queryDeclaration = (fieldName: string) => {
   @Resolver()
@@ -18,6 +31,25 @@ const queryDeclaration = (fieldName: string) => {
 };
 
 describe('computeGraphqlPrebuiltHash', () => {
+  it('does not depend on locale collation for resolver names or operations', async () => {
+    const original = String.prototype.localeCompare;
+    const compare = vi.spyOn(String.prototype, 'localeCompare');
+    let english: string;
+    let swedish: string;
+    try {
+      compare.mockImplementation(function (this: string, other: string) {
+        return original.call(this, other, 'en-US');
+      });
+      english = await computeGraphqlPrebuiltHash('/graphql', [ÄResolver, ZResolver]);
+      compare.mockImplementation(function (this: string, other: string) {
+        return original.call(this, other, 'sv-SE');
+      });
+      swedish = await computeGraphqlPrebuiltHash('/graphql', [ZResolver, ÄResolver]);
+    } finally {
+      compare.mockRestore();
+    }
+    expect(english).toBe(swedish);
+  });
   it('detects changed field names without changing the resolver class name', async () => {
     const first = queryDeclaration('first');
     const second = queryDeclaration('second');

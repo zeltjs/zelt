@@ -389,7 +389,7 @@ generator は型・依存・参照先・binding を解析し、SDL と prebuilt 
 
 HTTP の処理は `graphql-http`、GraphQL の検証と実行は `graphql-js`、operation 内のバッチ取得は DataLoader に委ねます。zelt はモデルの契約と実行コンテキストを接続します。
 
-GET は Query、POST は Query と Mutation を受け付けます。POST の本文は `Content-Type: application/json` で送り、応答には `Accept: application/graphql-response+json` を指定できます。この応答形式では GraphQL の構文・検証エラーを HTTP 400、実行結果を HTTP 200 として扱います。実行時のフィールドエラーは、HTTP 200 の応答にも含まれます。`application/json` の応答ではプロトコル上、GraphQL の検証エラーが HTTP 200 になる場合があります。
+GET は Query、POST は Query と Mutation を受け付けます。POST の本文は `Content-Type: application/json` で送り、応答には `Accept: application/graphql-response+json` を指定できます。この応答形式では GraphQL の構文エラー・文書の検証エラー・実行前の変数エラーを HTTP 400、実行結果を HTTP 200 として扱います。実行時のフィールドエラーは、HTTP 200 の応答にも含まれます。`application/json` の応答ではプロトコル上、GraphQL の検証エラーが HTTP 200 になる場合があります。
 
 不正な JSON は 400、GET の Mutation は 405、対応しない Accept は 406、対応しない本文の Content-Type は 415 です。モデルのバッチ取得と HTTP リクエストのバッチ送信は別であり、HTTP の配列リクエストは受け付けません。
 

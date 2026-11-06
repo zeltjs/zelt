@@ -140,6 +140,54 @@ const fixture = (
 };
 
 describe('model execution contracts', () => {
+  it('preserves absent dependencies separately from explicit undefined', async () => {
+    const definitions: GraphqlModels = {
+      User: {
+        ...models.User,
+        properties: [
+          ...models.User.properties,
+          {
+            name: 'nickname',
+            optional: true,
+            value: { kind: 'optional', inner: { kind: 'scalar', name: 'string' } },
+          },
+        ],
+      },
+    };
+    const fields: GraphqlModelFields = {
+      ...modelFields,
+      User: {
+        ...modelFields['User'],
+        label: {
+          kind: 'computed',
+          mode: 'single',
+          dependencies: ['nickname'],
+          value: { kind: 'scalar', name: 'string' },
+        },
+      },
+    };
+    const { execute } = fixture(
+      {
+        users: () => [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+        provide: () =>
+          new Map([
+            ['a', { id: 'a', name: 'A', $friend: 'a' }],
+            ['b', { id: 'b', name: 'B', $friend: 'b', nickname: undefined }],
+            ['c', { id: 'c', name: 'C', $friend: 'c', nickname: 'Ada' }],
+          ]),
+        label: ([parent]) => {
+          if (typeof parent !== 'object' || parent === null) throw new Error('Expected parent');
+          if (!('nickname' in parent)) return 'MISSING';
+          return typeof parent.nickname === 'string' ? parent.nickname.toUpperCase() : 'UNDEFINED';
+        },
+      },
+      definitions,
+      fields,
+    );
+    expect(await execute('{ users { label } }')).toEqual({
+      data: { users: [{ label: 'MISSING' }, { label: 'UNDEFINED' }, { label: 'ADA' }] },
+    });
+  });
   it('hydrates a single Query reference without reading an extra then getter', async () => {
     // oxlint-disable-next-line unicorn/no-thenable -- Regression fixture: reference extras must not be assimilated.
     const ref = Object.defineProperty({ id: 'a' }, 'then', {

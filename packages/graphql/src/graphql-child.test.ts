@@ -368,9 +368,13 @@ describe('GraphQL HTTP protocol', () => {
           graphql: {
             runtime: {
               schemaSdl:
-                'type Query { user: UserPublic } type Mutation { createUser: UserPublic } type UserPublic { id: ID! name: String! }',
+                'type Query { user: UserPublic byInt(value: Int!): UserPublic broken: UserPublic! } type Mutation { createUser: UserPublic } type UserPublic { id: ID! name: String! }',
               bindings: {
-                Query: { user: { resolver: 'UserResolver', method: 'user' } },
+                Query: {
+                  user: { resolver: 'UserResolver', method: 'user' },
+                  byInt: { resolver: 'UserResolver', method: 'user' },
+                  broken: { resolver: 'UserResolver', method: 'missing' },
+                },
                 Mutation: { createUser: { resolver: 'UserResolver', method: 'createUser' } },
               },
             },
@@ -402,6 +406,41 @@ describe('GraphQL HTTP protocol', () => {
       expect(await response.json()).toEqual({ data: { user: { id: '1', name: 'Ada' } } });
     });
   });
+
+  it.each([
+    { accept: 'application/graphql-response+json', status: 400 },
+    { accept: 'application/json', status: 200 },
+  ])(
+    'classifies variable errors for $accept while preserving execution errors',
+    async ({ accept, status }) => {
+      await withEndpoint(async (request) => {
+        const send = (query: string, variables: unknown) =>
+          request('/graphql', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept },
+            body: JSON.stringify({ query, variables }),
+          });
+        for (const variables of [{}, { value: 'wrong' }, { value: null }]) {
+          const response = await send(
+            'query($value: Int!) { byInt(value: $value) { id } }',
+            variables,
+          );
+          expect(response.status).toBe(status);
+          const result = await response.json();
+          expect(result).toHaveProperty('errors');
+          expect(result).not.toHaveProperty('data');
+        }
+        const valid = await send('query($value: Int!) { byInt(value: $value) { id } }', {
+          value: 1,
+        });
+        expect(valid.status).toBe(200);
+        expect(await valid.json()).toEqual({ data: { byInt: { id: '1' } } });
+        const failure = await send('{ broken { id } }', {});
+        expect(failure.status).toBe(200);
+        expect(await failure.json()).toMatchObject({ data: null, errors: [{ path: ['broken'] }] });
+      });
+    },
+  );
 
   it('rejects mutations sent over GET', async () => {
     await withEndpoint(async (request) => {

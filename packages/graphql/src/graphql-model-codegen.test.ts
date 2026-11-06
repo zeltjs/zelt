@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import * as inspection from '@zeltjs/decorator-metadata/inspect';
+import { describe, expect, it, vi } from 'vitest';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
 import { Query, Relation, ResolveField, ResolveMultiField, Resolver } from './index';
 
@@ -270,6 +271,33 @@ class BadUserResolver {
 }
 
 describe('model code generation', () => {
+  it('finishes the cold first inspection before inspecting the remaining models', async () => {
+    const tsconfig = resolve(__dirname, '../tsconfig.json');
+    inspection.clearProgramCache(tsconfig);
+    const original = inspection.getTypeMetadata;
+    let started = 0;
+    let firstFinished = false;
+    const warmed: boolean[] = [];
+    const spy = vi.spyOn(inspection, 'getTypeMetadata').mockImplementation((...args) => {
+      const index = started++;
+      if (index > 0) warmed.push(firstFinished);
+      return original(...args).map((metadata) => {
+        if (index === 0) firstFinished = true;
+        return metadata;
+      });
+    });
+    try {
+      const runtime = await generateGraphqlRuntimeForResolvers(
+        [ModelUserResolver, BatchUserResolver, SingleVariantResolver],
+        { tsconfig },
+      );
+      expect(Object.keys(runtime.models ?? {})).toHaveLength(3);
+      expect(warmed).toEqual([true, true]);
+    } finally {
+      spy.mockRestore();
+      inspection.clearProgramCache(tsconfig);
+    }
+  });
   it('generates public source fields and model bindings', async () => {
     const runtime = await generateGraphqlRuntimeForResolvers([ModelUserResolver], {
       tsconfig: resolve(__dirname, '../tsconfig.json'),

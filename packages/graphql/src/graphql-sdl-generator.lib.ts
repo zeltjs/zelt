@@ -1162,6 +1162,20 @@ const renderModels = async (context: ModelRenderContext): Promise<string[]> => {
 };
 
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
+const inspectModelResolver = async (
+  resolver: GraphqlResolverClass,
+  options: GenerateSdlOptions,
+) => {
+  const result = await getTypeMetadata(toInspectableClass(resolver), buildInspectOptions(options));
+  if (result.isErr()) {
+    throw new Error(`Failed to inspect GraphQL resolver ${resolver.name}: ${result.error.message}`);
+  }
+  const found = await findResolverClassNode(resolver, result.value, options);
+  if (!found) throw new Error(`Cannot inspect GraphQL resolver ${resolver.name}`);
+  return { resolver: resolver.name, metadata: result.value, ...found };
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
 const analyzeResolvers = async (
   resolvers: readonly GraphqlResolverClass[],
   options: GenerateSdlOptions = {},
@@ -1172,21 +1186,13 @@ const analyzeResolvers = async (
     bindings: {},
   };
 
-  const inputs = await Promise.all(
-    resolvers.map(async (resolver) => {
-      const result = await getTypeMetadata(
-        toInspectableClass(resolver),
-        buildInspectOptions(options),
-      );
-      if (result.isErr())
-        throw new Error(
-          `Failed to inspect GraphQL resolver ${resolver.name}: ${result.error.message}`,
-        );
-      const found = await findResolverClassNode(resolver, result.value, options);
-      if (!found) throw new Error(`Cannot inspect GraphQL resolver ${resolver.name}`);
-      return { resolver: resolver.name, metadata: result.value, ...found };
-    }),
-  );
+  // Complete the first inspection so subsequent calls share its TypeScript Program.
+  const [first, ...remaining] = resolvers;
+  const initial = first ? [await inspectModelResolver(first, options)] : [];
+  const inputs = [
+    ...initial,
+    ...(await Promise.all(remaining.map((resolver) => inspectModelResolver(resolver, options)))),
+  ];
   const analysis = analyzeGraphqlModels(inputs);
   for (const resolver of resolvers) {
     if (!analysis.modelResolvers.has(resolver.name))

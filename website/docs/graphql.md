@@ -393,7 +393,7 @@ contracts and execution context to these libraries.
 
 GET accepts queries; POST accepts queries and mutations. Send POST bodies
 with `Content-Type: application/json`. With `Accept: application/graphql-response+json`,
-GraphQL syntax and validation failures produce HTTP 400 while execution
+GraphQL syntax, document validation, and variable-coercion failures produce HTTP 400 while execution
 results produce HTTP 200, including field execution errors. Under the
 legacy `application/json` response format, GraphQL validation errors may
 instead produce HTTP 200 as specified by the protocol.

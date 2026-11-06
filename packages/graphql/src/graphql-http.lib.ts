@@ -15,6 +15,22 @@ const httpStatus = (status: number) =>
       throw new Error(`Unsupported GraphQL HTTP response status: ${status}`);
     });
 
+/** @throws {Error} from graphql-http.lib.ts:httpStatus */
+const operationStatus = (
+  status: number,
+  contentType: string | undefined,
+  requestError: boolean,
+) => {
+  if (
+    requestError &&
+    status === 200 &&
+    contentType?.startsWith('application/graphql-response+json')
+  ) {
+    return 400;
+  }
+  return httpStatus(status);
+};
+
 /**
  * @throws {Error} from graphql-http.lib.ts:anonymous_L11
  * @throws {TypeError} from response.lib.ts:assertStatus
@@ -25,9 +41,14 @@ export const handleGraphqlHttpRequest = async (options: {
   readonly execution: GraphqlExecution;
 }) => {
   const { request, captured, execution } = options;
+  let requestError = false;
   const handler = createHandler({
     schema: execution.schema,
-    execute: (args) => execution.execute(args, captured),
+    execute: async (args) => {
+      const result = await execution.execute(args, captured);
+      requestError = result.data === undefined && Boolean(result.errors?.length);
+      return result;
+    },
     validationRules: execution.validationRules,
   });
   const [body, init] = await handler({
@@ -38,7 +59,9 @@ export const handleGraphqlHttpRequest = async (options: {
     raw: request,
     context: undefined,
   });
-  let reply = response().status(httpStatus(init.status));
+  let reply = response().status(
+    operationStatus(init.status, init.headers?.['content-type'], requestError),
+  );
   for (const [name, value] of Object.entries(init.headers ?? {})) {
     reply = reply.header(name, value);
   }

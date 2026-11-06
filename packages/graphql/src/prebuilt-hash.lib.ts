@@ -1,6 +1,9 @@
 import { getClassMetadata } from '@zeltjs/decorator-metadata';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 
+const compareText = (left: string, right: string): number =>
+  left < right ? -1 : Number(left > right);
+
 const operationKinds = new Set([
   'query',
   'mutation',
@@ -20,7 +23,7 @@ const resolverDeclaration = (resolver: GraphqlResolverClass) => {
       return [[method.name, kind, typeof fieldName === 'string' ? fieldName : method.name]];
     });
   });
-  operations.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  operations.sort((left, right) => compareText(JSON.stringify(left), JSON.stringify(right)));
   return { name: resolver.name, operations };
 };
 
@@ -38,7 +41,7 @@ export const computeGraphqlPrebuiltHash = async (
 ): Promise<string> => {
   const declarations = resolvers
     .map(resolverDeclaration)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => compareText(a.name, b.name));
   const payload = JSON.stringify([path, declarations]);
   const digest = await globalThis.crypto.subtle.digest(
     'SHA-256',
