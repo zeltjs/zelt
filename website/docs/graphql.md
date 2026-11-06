@@ -8,7 +8,7 @@ Zelt's `@zeltjs/graphql` is a code-first GraphQL framework that generates schema
 
 In traditional GraphQL implementations, data-fetching logic is often scattered across queries and relations, easily causing N+1 problems and requiring complex manual DataLoader management. Zelt adopts a **model-centric design** that cleanly separates two distinct responsibilities: **identifying targets (selecting IDs)** and **fetching actual data (supplying data for IDs)**.
 
-With this separation, a model does not belong to any specific query. For example, a `User` model points to the same `User` whether reached from the root `Query.user`, a search result, or a relation like `Post.author`. Each resolver simply returns the target ID, while data retrieval and computed fields are centralized in the model's shared provider and automatically batched.
+With this separation, a model does not belong to any specific query. For example, a `User` model points to the same `User` whether reached from the root `Query.user`, a search result, or a relation like `Post.author`. Query and Relation methods select targets by returning ID-only objects such as `{ id: input.id }`. The model's shared provider loads their source data, while separate computed-field methods calculate values from that data. Zelt batches providers, relations, and computed fields when their parent parameter is an array; single-parent methods run individually. A single provider runs for each distinct unloaded ID, and single-parent computed fields can also cause N+1 if they perform database queries. To batch I/O across parents, use array-parent methods and combine the I/O within them.
 
 ## Four responsibilities {#responsibilities}
 
@@ -48,7 +48,7 @@ Keep each model's data in one type, `User` or `Post`. Properties starting with `
 
 This convention controls GraphQL exposure; it is not a JavaScript private field. Ordinary object access and `JSON.stringify` still include these values. The convention does not protect another HTTP API returning the object directly. Name private model data with the prefix, for example `$passwordHash`.
 
-Do not repeat relations or computed fields in these types. The generator adds those definitions to the GraphQL model. `Pick<User, 'id'>` is the User's ID, not an already loaded User.
+Do not repeat relations or computed fields in these types. The generator adds those definitions to the GraphQL model. `Pick<User, 'id'>` is an object containing the User's ID, such as `{ id: input.id }`, not a raw ID string or an already loaded User. Model-based Query and Relation methods return these objects, arrays of them, or nullable results as declared by their return types.
 
 ## Supply User data, compute fields, and select relations {#user-resolver}
 
@@ -179,7 +179,7 @@ export class PostResolver {
 }
 ```
 
-`author` returns a User ID from the private `Post.$authorId`. This example has a non-null author ID and requires an author, so it returns `Pick<User, 'id'>`, producing `author: User!`. It neither loads User data nor computes a name.
+`author` returns the ID-only object `{ id: post.$authorId }` from the private `Post.$authorId`. This example has a non-null author ID and requires an author, so it returns `Pick<User, 'id'>`, producing `author: User!`. It neither loads User data nor computes a name.
 
 For an optional author, make the internal `$authorId` nullable and return `Pick<User, 'id'> | null`, explicitly handling the absent relation. Nullability expresses the public model's meaning; it is not added universally to accommodate acquisition failures. A missing or inaccessible target on a non-null relation is a GraphQL error.
 
@@ -324,7 +324,7 @@ query {
 5. Reuse already loaded authors; batch only missing User IDs through the User provider.
 6. Compute each author's `name` and return only client-selected fields.
 
-The example Query only returns the IDs directly, so it performs no ID-search query. The initial User load, public-post ID search, and Post load require three database accesses. Authors already present among the initial users need no additional load; other authors require a subsequent batch. These counts assume no batch-size splitting or additional application I/O.
+The example Query only returns the IDs directly, so it performs no ID-search query. When public posts are found, the initial User load, public-post ID search, and Post load require three database accesses. If neither user has public posts, the Post provider is not called and only the first two accesses occur. Authors already present among the initial users need no additional load; other authors require a subsequent batch. These counts assume no batch-size splitting or additional application I/O.
 
 A filtered Query or Relation can require two database accesses: searching for matching IDs and loading data for those IDs. If every loading stage needs a search, the cost is roughly two accesses per root/nesting stage. This is an accepted cost of separating subject selection from data supply. ID lookups, parent foreign keys, and reused data can eliminate steps, so nesting depth multiplied by two is not a universal count.
 
@@ -334,10 +334,10 @@ Unselected relations and computed fields do not execute. Determine effective sel
 
 ## Batching, reuse, and failures {#runtime-contract}
 
-- **Provider input:** Single mode receives each unloaded ID separately. Batch mode receives a non-empty array of deduplicated, unloaded IDs for the same endpoint, model, and execution context. Both reuse results for the same ID within an operation.
+- **Provider input:** Single mode receives one `{ id }` object for each distinct unloaded ID. Batch mode receives a non-empty array of `{ id }` objects for deduplicated, unloaded IDs for the same endpoint, model, and execution context. Both reuse results for the same ID within an operation.
 - **Batch boundary:** Collect requests that become resolvable in the same loading stage. This does not promise one call per operation: deeper selections may reveal IDs in later stages. Cross-model query fusion is not guaranteed.
 - **Provider output:** Single mode returns complete model data, including private properties, or null. Batch mode maps each input ID to that result. A returned object's `id` must match the requested ID. Map order is irrelevant, but missing or extra keys violate the contract.
-- **Batch relation output:** Map every parent ID to its ID or list of IDs. No match for a nullable single target yields null; no matches for a list yield an empty array. An absent required target is an error. Preserve list order and duplicates. Never omit a parent key.
+- **Batch relation output:** Map every parent ID to its target ID-only object or list of ID-only objects. No match for a nullable single target yields null; no matches for a list yield an empty array. An absent required target is an error. Preserve list order and duplicates. Never omit a parent key.
 - **Batch computed output:** Map each parent ID to its field value. The runtime checks the key set and GraphQL processes each value using the field's result type. Nullability follows the declared result type.
 - **Reuse scope:** Cache source data and missing results only within one GraphQL operation. Key by model and ID, not ID alone. Never share across requests, endpoints, or authorization contexts. Batch relations and batch computed fields also share results by field and parent ID within the operation. Single-parent relations and computed fields execute for each GraphQL invocation.
 - **Existence and authorization:** Even an `{ id }` selection must check existence and visibility through the provider rather than return an ID alone without verification. Model visibility is consistent across entry paths within an operation; relation-specific publication filters select target IDs separately.

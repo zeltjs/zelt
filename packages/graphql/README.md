@@ -123,8 +123,12 @@ conversion helpers are available from `@zeltjs/graphql/codegen`.
 ## Model IDs and field providers
 
 A resolver with one `@ResolveMultiField()` supplies a named model. Queries
-and `@Relation()` methods return `Pick<Model, 'id'>`; the runtime
-hydrates data for those IDs through an operation-local DataLoader. All three
+and `@Relation()` methods return ID-only objects (`Pick<Model, 'id'>`, such
+as `{ id: input.id }`), arrays of those objects, or nullable results according
+to their declared return types. Batch relations return a Map keyed by parent
+ID whose values are those per-parent results. Providers receive `{ id }`
+objects, individually or in arrays; the runtime hydrates their data through
+an operation-local DataLoader. All three
 method kinds use the same contract: a single parent returns its result,
 and an array of parents returns a Map from parent ID to each result. Both
 forms may return a value or a Promise for the whole result. Batch parent
