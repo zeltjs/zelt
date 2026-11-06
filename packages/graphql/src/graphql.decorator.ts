@@ -25,7 +25,6 @@ export const Resolver = (): ClassDecoratorFn =>
     },
   });
 
-/** @throws {E} */
 const createGraphqlOperationDecorator =
   (kind: GraphqlOperationKind) =>
   (fieldName?: string): MethodDecoratorFn =>
@@ -37,3 +36,6 @@ const createGraphqlOperationDecorator =
 export const Query = createGraphqlOperationDecorator('query');
 export const Mutation = createGraphqlOperationDecorator('mutation');
 export const ResolveField = createGraphqlOperationDecorator('resolveField');
+
+export const Relation = createGraphqlOperationDecorator('relation');
+export const ResolveMultiField = createGraphqlOperationDecorator('resolveMultiField');

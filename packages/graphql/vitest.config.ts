@@ -7,6 +7,8 @@ export default mergeConfig(
   defineConfig({
     test: {
       name: '@zeltjs/graphql',
+      // Keep the handler and source on the same graphql module instance.
+      server: { deps: { inline: ['graphql-http'] } },
       include: ['src/**/*.test.ts'],
       passWithNoTests: true,
       testTimeout: 30_000,

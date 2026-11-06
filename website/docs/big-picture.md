@@ -55,10 +55,11 @@ app's routes, resolvers, and types as plain data.
 
 Plugins consume the blueprint and derive artifacts: the GraphQL schema and
 executable runtime, the OpenAPI document, typed clients. One source, many
-derivatives, checked against it at build or startup — though today only
-structural drift is caught (an endpoint's path or resolver set changing),
-not deeper drift such as a resolver's method signature. Removing something
-from the app removes its artifacts on the next build.
+derivatives, checked against it at build or startup. The checked contract
+depends on the feature. GraphQL reanalyzes model types and dependencies at
+build time, then checks runtime declarations and generated metadata at startup. See the
+[GraphQL contract](./graphql.md#current-limitations) for its scope. Removing
+something from the app removes its artifacts on the next build.
 And plugins are optional unless your app uses a feature that depends on
 one — a `graphql()` endpoint, for example, requires `graphqlPlugin()` and
 `zelt build` to run at all.
@@ -101,6 +102,7 @@ flowchart LR
   API["openapi.json · typed clients"] -- "used for type-safe calls" --> USER
 ```
 
-At startup each feature checks its prebuilt entry against the code and
-fails loudly with the fix (`zelt build`) if they have drifted — stale
-artifacts never run silently.
+At startup each feature checks its prebuilt entry against the declarations
+available at runtime and reports detected mismatches with the fix (`zelt build`).
+TypeScript-only changes require regeneration and rebuilding; startup cannot
+recover erased type information.

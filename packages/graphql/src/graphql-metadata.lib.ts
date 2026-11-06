@@ -11,7 +11,12 @@ export type GraphqlResolverMetadata = {
   kind: 'resolver';
 };
 
-export type GraphqlOperationKind = 'query' | 'mutation' | 'resolveField';
+export type GraphqlOperationKind =
+  | 'query'
+  | 'mutation'
+  | 'resolveField'
+  | 'relation'
+  | 'resolveMultiField';
 
 export type GraphqlOperationMetadata = {
   readonly kind: GraphqlOperationKind;

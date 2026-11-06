@@ -70,7 +70,20 @@ const buildSchemaIndex = (schemaSdl: string): SchemaFirstCheckIndex => {
   };
 };
 
+/**
+ * @throws {Error} from schema-first-resolver-checks.lib.ts:rejectModelOperation
+ */
+const rejectModelOperation = (kind: unknown): void => {
+  if (kind === 'relation') throw new Error('Schema-first does not support @Relation()');
+  if (kind === 'resolveMultiField')
+    throw new Error('Schema-first does not support @ResolveMultiField()');
+};
+
+/**
+ * @throws {Error} from schema-first-resolver-checks.lib.ts:rejectModelOperation
+ */
 const getOperationMetadata = (method: MethodInfo): GraphqlOperationMetadata | undefined => {
+  for (const prop of method.props) rejectModelOperation(Reflect.get(prop, 'kind'));
   for (const prop of method.props) {
     const kind: unknown = Reflect.get(prop, 'kind');
     if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') {
@@ -137,7 +150,7 @@ const addRootCheck = (
   methodName: string,
   operation: GraphqlOperationMetadata,
 ): void => {
-  if (operation.kind === 'resolveField') return;
+  if (operation.kind !== 'query' && operation.kind !== 'mutation') return;
 
   const rootTypeName = operation.kind === 'query' ? 'Query' : 'Mutation';
   const fieldName = operation.fieldName ?? methodName;

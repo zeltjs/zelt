@@ -355,3 +355,147 @@ describe.each(['sync', 'async'] as const)('GraphQL HTTP context mode: %s', (cont
     }
   });
 });
+
+describe('GraphQL HTTP protocol', () => {
+  const withEndpoint = async (
+    run: (request: (path: string, init?: RequestInit) => Promise<Response>) => Promise<void>,
+  ) => {
+    const resolversHash = await computeGraphqlPrebuiltHash('/graphql', [UserResolver]);
+    const prebuilt: ZeltPrebuilt = {
+      version: 1,
+      features: {
+        graphql: {
+          graphql: {
+            runtime: {
+              schemaSdl:
+                'type Query { user: UserPublic byInt(value: Int!): UserPublic broken: UserPublic! } type Mutation { createUser: UserPublic } type UserPublic { id: ID! name: String! }',
+              bindings: {
+                Query: {
+                  user: { resolver: 'UserResolver', method: 'user' },
+                  byInt: { resolver: 'UserResolver', method: 'user' },
+                  broken: { resolver: 'UserResolver', method: 'missing' },
+                },
+                Mutation: { createUser: { resolver: 'UserResolver', method: 'createUser' } },
+              },
+            },
+            resolversHash,
+          },
+        },
+      },
+    };
+    const running = await createApp([
+      http({ children: [graphql({ path: '/graphql', resolvers: [UserResolver] })] }),
+    ]).createRuntime({ prebuilt });
+    try {
+      await run((path, init) => running.http.request(path, init));
+    } finally {
+      await running.shutdown();
+    }
+  };
+
+  it('serves GET queries with GraphQL response media type negotiation', async () => {
+    await withEndpoint(async (request) => {
+      const response = await request(
+        `/graphql?query=${encodeURIComponent('{ user { id name } }')}`,
+        {
+          headers: { accept: 'application/graphql-response+json' },
+        },
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('application/graphql-response+json');
+      expect(await response.json()).toEqual({ data: { user: { id: '1', name: 'Ada' } } });
+    });
+  });
+
+  it.each([
+    { accept: 'application/graphql-response+json', status: 400 },
+    { accept: 'application/json', status: 200 },
+  ])(
+    'classifies variable errors for $accept while preserving execution errors',
+    async ({ accept, status }) => {
+      await withEndpoint(async (request) => {
+        const send = (query: string, variables: unknown) =>
+          request('/graphql', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept },
+            body: JSON.stringify({ query, variables }),
+          });
+        for (const variables of [{}, { value: 'wrong' }, { value: null }]) {
+          const response = await send(
+            'query($value: Int!) { byInt(value: $value) { id } }',
+            variables,
+          );
+          expect(response.status).toBe(status);
+          const result = await response.json();
+          expect(result).toHaveProperty('errors');
+          expect(result).not.toHaveProperty('data');
+        }
+        const valid = await send('query($value: Int!) { byInt(value: $value) { id } }', {
+          value: 1,
+        });
+        expect(valid.status).toBe(200);
+        expect(await valid.json()).toEqual({ data: { byInt: { id: '1' } } });
+        const failure = await send('{ broken { id } }', {});
+        expect(failure.status).toBe(200);
+        expect(await failure.json()).toMatchObject({ data: null, errors: [{ path: ['broken'] }] });
+      });
+    },
+  );
+
+  it.each(['Application/JSON', 'APPLICATION/JSON; charset=utf-8'])(
+    'accepts the JSON media type %s',
+    async (contentType) => {
+      await withEndpoint(async (request) => {
+        const response = await request('/graphql', {
+          method: 'POST',
+          headers: { 'content-type': contentType },
+          body: JSON.stringify({ query: '{ user { id } }' }),
+        });
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ data: { user: { id: '1' } } });
+      });
+    },
+  );
+
+  it('rejects mutations sent over GET', async () => {
+    await withEndpoint(async (request) => {
+      const response = await request(
+        `/graphql?query=${encodeURIComponent('mutation { createUser { id } }')}`,
+      );
+      expect(response.status).toBe(405);
+      expect(response.headers.get('allow')).toBe('POST');
+    });
+  });
+
+  it.each([
+    { headers: { 'content-type': 'application/json' }, body: '{', status: 400 },
+    { headers: { 'content-type': 'text/plain' }, body: '{ user { id } }', status: 415 },
+    {
+      headers: { 'content-type': 'application/json', accept: 'text/html' },
+      body: JSON.stringify({ query: '{ user { id } }' }),
+      status: 406,
+    },
+  ])('returns $status for an invalid HTTP request', async ({ headers, body, status }) => {
+    await withEndpoint(async (request) => {
+      const response = await request('/graphql', { method: 'POST', headers, body });
+      expect(response.status).toBe(status);
+    });
+  });
+
+  it('distinguishes GraphQL request validation errors from execution errors', async () => {
+    await withEndpoint(async (request) => {
+      const response = await request('/graphql', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/graphql-response+json',
+        },
+        body: JSON.stringify({ query: '{ missing }' }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        errors: [{ message: expect.stringContaining('Cannot query field') }],
+      });
+    });
+  });
+});

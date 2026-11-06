@@ -1,0 +1,110 @@
+import type { GraphQLSchema } from 'graphql';
+import { GraphQLObjectType } from 'graphql';
+import type { GraphqlModelBinding, GraphqlModelFields, GraphqlModels } from './graphql-model.types';
+import { parseGraphqlModelManifest } from './graphql-model-manifest.lib';
+import {
+  renderGraphqlModelProperty,
+  renderGraphqlModelResult,
+  renderGraphqlModelValue,
+} from './graphql-model-shape.lib';
+
+type ModelRuntime = {
+  readonly models?: GraphqlModels;
+  readonly modelFields?: GraphqlModelFields;
+  readonly bindings: Readonly<Record<string, Readonly<Record<string, GraphqlModelBinding>>>>;
+};
+
+/** @throws {Error} from graphql-model-schema.lib.ts:validateModelFieldNames */
+const validateModelFieldNames = (
+  name: string,
+  model: GraphqlModels[string],
+  modelFields: GraphqlModelFields,
+  fields: ReturnType<GraphQLObjectType['getFields']>,
+): void => {
+  const allowed = new Set([
+    ...model.properties
+      .filter((property) => !property.name.startsWith('$'))
+      .map((property) => property.name),
+    ...Object.keys(modelFields[name] ?? {}),
+  ]);
+  for (const field of Object.keys(fields)) {
+    if (!allowed.has(field)) throw new Error(`Unexpected GraphQL model field: ${name}.${field}`);
+  }
+};
+
+/**
+ * @throws {Error} from graphql-model-schema.lib.ts:validateSources
+ */
+const validateSources = (
+  models: GraphqlModels,
+  modelFields: GraphqlModelFields,
+  schema: GraphQLSchema,
+): void => {
+  for (const [name, model] of Object.entries(models)) {
+    const type = schema.getType(name);
+    if (!(type instanceof GraphQLObjectType))
+      throw new Error(`GraphQL model type missing: ${name}`);
+    const fields = type.getFields();
+    validateModelFieldNames(name, model, modelFields, fields);
+    for (const property of model.properties) {
+      if (property.name.startsWith('$')) continue;
+      const field = fields[property.name];
+      if (!field) throw new Error(`GraphQL model source field missing: ${name}.${property.name}`);
+      if (String(field.type) !== renderGraphqlModelProperty(property)) {
+        throw new Error(`GraphQL model source type mismatch: ${name}.${property.name}`);
+      }
+    }
+  }
+};
+
+/**
+ * @throws {Error} from graphql-model-schema.lib.ts:validateFieldBindings
+ */
+const validateFieldBindings = (
+  name: string,
+  definitions: GraphqlModelFields[string],
+  schemaFields: ReturnType<GraphQLObjectType['getFields']>,
+  bindings: Readonly<Record<string, GraphqlModelBinding>>,
+): void => {
+  for (const [field, definition] of Object.entries(definitions)) {
+    const schemaField = schemaFields[field];
+    if (!schemaField || !bindings[field])
+      throw new Error(`GraphQL model field binding missing: ${name}.${field}`);
+    const expected =
+      definition.kind === 'computed'
+        ? renderGraphqlModelValue(definition.value)
+        : renderGraphqlModelResult(definition.target, definition.shape);
+    if (String(schemaField.type) !== expected) {
+      throw new Error(`GraphQL model reference type mismatch: ${name}.${field}`);
+    }
+  }
+};
+
+/**
+ * @throws {Error} from graphql-model-schema.lib.ts:validateBindings
+ */
+const validateBindings = (
+  runtime: ModelRuntime,
+  fields: GraphqlModelFields,
+  schema: GraphQLSchema,
+): void => {
+  for (const [name, definitions] of Object.entries(fields)) {
+    const type = schema.getType(name);
+    if (!(type instanceof GraphQLObjectType))
+      throw new Error(`GraphQL model type missing: ${name}`);
+    const schemaFields = type.getFields();
+    const bindings = runtime.bindings[name] ?? {};
+    validateFieldBindings(name, definitions, schemaFields, bindings);
+  }
+};
+
+/**
+ * @throws {Error} from graphql-model-schema.lib.ts:validateGraphqlModelSchema
+ */
+export const validateGraphqlModelSchema = (runtime: ModelRuntime, schema: GraphQLSchema): void => {
+  if (runtime.models === undefined && runtime.modelFields === undefined) return;
+  const parsed = parseGraphqlModelManifest(runtime.models, runtime.modelFields);
+  if (!parsed) throw new Error('Invalid GraphQL model manifest; rebuild the endpoint');
+  validateSources(parsed.models, parsed.modelFields, schema);
+  validateBindings(runtime, parsed.modelFields, schema);
+};

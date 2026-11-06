@@ -2,8 +2,8 @@ import type { ClassMetadata, MethodInfo } from '@zeltjs/decorator-metadata/inspe
 import { getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
 import type { ObjectTypeDefinitionNode } from 'graphql';
 import { Kind, parse } from 'graphql';
-
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
+import { readOwnEntry } from './graphql-record.lib';
 import type { GeneratedGraphqlBinding, GraphqlRuntimeManifest } from './graphql-runtime.lib';
 
 type SchemaFirstRuntimeOptions = {
@@ -50,7 +50,20 @@ const buildSdlIndex = (schemaSdl: string): SchemaFirstSdlIndex => {
   };
 };
 
+/**
+ * @throws {Error} from schema-first-runtime.lib.ts:rejectModelOperation
+ */
+const rejectModelOperation = (kind: unknown): void => {
+  if (kind === 'relation') throw new Error('Schema-first does not support @Relation()');
+  if (kind === 'resolveMultiField')
+    throw new Error('Schema-first does not support @ResolveMultiField()');
+};
+
+/**
+ * @throws {Error} from schema-first-runtime.lib.ts:rejectModelOperation
+ */
 const getOperationMetadata = (method: MethodInfo): GraphqlOperationMetadata | undefined => {
+  for (const prop of method.props) rejectModelOperation(Reflect.get(prop, 'kind'));
   for (const prop of method.props) {
     const kind: unknown = Reflect.get(prop, 'kind');
     if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') {
@@ -71,8 +84,8 @@ const addRuntimeBinding = (
   fieldName: string,
   binding: GeneratedGraphqlBinding,
 ): void => {
-  const typeBindings = bindings[typeName] ?? {};
-  const existing = typeBindings[fieldName];
+  const typeBindings = readOwnEntry(bindings, typeName) ?? {};
+  const existing = readOwnEntry(typeBindings, fieldName);
   if (existing && (existing.resolver !== binding.resolver || existing.method !== binding.method)) {
     throw new Error(`Duplicate GraphQL runtime binding: ${typeName}.${fieldName}`);
   }
@@ -134,9 +147,9 @@ const requireRootBindings = (
   bindings: RuntimeBindings,
   typeName: 'Query' | 'Mutation',
 ): void => {
-  const typeBindings = bindings[typeName] ?? {};
+  const typeBindings = readOwnEntry(bindings, typeName) ?? {};
   for (const fieldName of fields) {
-    if (typeBindings[fieldName] !== undefined) continue;
+    if (readOwnEntry(typeBindings, fieldName) !== undefined) continue;
     throw new Error(`Schema-first resolver binding missing for ${typeName}.${fieldName}`);
   }
 };

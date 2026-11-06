@@ -34,10 +34,11 @@ export type BodySource = {
 const BODY_CONTEXT = /* @__PURE__ */ createContextKey<BodyState>('zelt:body');
 
 const resolveBodyKind = (contentType: string): BodyKind => {
-  if (contentType.includes('application/json')) return 'json';
-  if (contentType.includes('application/x-www-form-urlencoded')) return 'urlencoded';
-  if (contentType.includes('multipart/form-data')) return 'multipart';
-  if (contentType.startsWith('text/')) return 'text';
+  const mediaType = contentType.split(';', 1)[0]?.trim().toLowerCase();
+  if (mediaType === 'application/json') return 'json';
+  if (mediaType === 'application/x-www-form-urlencoded') return 'urlencoded';
+  if (mediaType === 'multipart/form-data') return 'multipart';
+  if (mediaType?.startsWith('text/')) return 'text';
   return 'none';
 };
 

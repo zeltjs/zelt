@@ -5,16 +5,15 @@ import type {
   HttpStaticCapabilities,
   ServiceResolver,
 } from '@zeltjs/core';
-import { Controller, captureContext, http, Post, request, response } from '@zeltjs/core';
-
+import { Controller, captureContext, Get, http, Post, request } from '@zeltjs/core';
+import { handleGraphqlHttpRequest } from './graphql-http.lib';
 import type { GqlSchemaRef, GraphqlResolverClass } from './graphql-metadata.lib';
 import { setGraphqlControllerMetadata } from './graphql-metadata.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import {
-  createGraphqlExecutor,
+  createGraphqlExecution,
   getGraphqlRuntimeState,
   parseGraphqlPrebuiltEntry,
-  parseGraphqlRequestPayload,
   setGraphqlRuntimeState,
 } from './graphql-runtime.lib';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
@@ -55,7 +54,6 @@ const toObject = (value: unknown): object | undefined => {
   return value;
 };
 
-/** @throws {Error} */
 const createResolverLookup = (instances: ReadonlyMap<string, object>) => {
   return (resolver: GraphqlResolverClass): object => {
     const instance = instances.get(resolver.name);
@@ -118,12 +116,14 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
     // State is keyed by the per-runtime controller instance (not the
     // controller class) so multiple runtimes created from the same app
     // definition keep their own resolver instances.
+    const execution = createGraphqlExecution({
+      runtime: generatedRuntime,
+      resolvers: this.options.resolvers,
+      resolveResolver: createResolverLookup(resolverInstances),
+    });
     setGraphqlRuntimeState(await runtimeContext.get(this.controller), {
-      execute: createGraphqlExecutor({
-        runtime: generatedRuntime,
-        resolvers: this.options.resolvers,
-        resolveResolver: createResolverLookup(resolverInstances),
-      }),
+      execute: execution.request,
+      execution,
     });
 
     return http({ path: this.path, controllers: [this.controller] }).realize(runtimeContext);
@@ -159,11 +159,16 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
     return entry.runtime;
   }
 
-  /** @throws {E | Error} */
+  /**
+   * @throws {E} from decorators.lib.ts:anonymous_L258
+   */
   private createController(): ControllerClass {
     class GraphqlEndpointController {
-      /** @throws {Error} */
-      async handle(req = request(), res = response()) {
+      /** @throws {Error}
+       * @throws {TypeError} from response.lib.ts:assertStatus
+       * @throws {ZeltContextNotAvailableError} from context-key.lib.ts:captureContext
+       */
+      async handle(req = request()) {
         const captured = captureContext();
         const state = getGraphqlRuntimeState(this);
         if (!state) {
@@ -172,20 +177,16 @@ export class GraphqlHttpFeature implements HttpMountableFeatureModule {
           );
         }
 
-        const payload = parseGraphqlRequestPayload(await req.body());
-        if (!payload) {
-          return res.json(
-            { errors: [{ message: 'GraphQL request body must include a query string.' }] },
-            400,
-          );
+        if (!state.execution) {
+          throw new Error('GraphQL HTTP execution missing after realize().');
         }
-
-        const result = await captured.run(() => state.execute(payload));
-
-        return res.json(result);
+        return handleGraphqlHttpRequest({ request: req, captured, execution: state.execution });
       }
     }
 
+    Get('/')(GraphqlEndpointController.prototype, 'handle', {
+      value: GraphqlEndpointController.prototype.handle,
+    });
     Post('/')(GraphqlEndpointController.prototype, 'handle', {
       value: GraphqlEndpointController.prototype.handle,
     });

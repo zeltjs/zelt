@@ -1,6 +1,5 @@
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-
 import type {
   ClassMetadata,
   MethodInfo,
@@ -8,11 +7,18 @@ import type {
   TypeInfo,
 } from '@zeltjs/decorator-metadata/inspect';
 import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
-
+import { assertName, specifiedScalarTypes } from 'graphql';
 import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
+import { analyzeGraphqlModels } from './graphql-model-analysis.lib';
+import {
+  renderGraphqlModelProperty,
+  renderGraphqlModelResult,
+  renderGraphqlModelValue,
+} from './graphql-model-shape.lib';
+import { readOwnEntry } from './graphql-record.lib';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import type { GraphqlSchemaAdapter } from './json-schema-to-graphql-args.lib';
 import { renderGraphqlArgs } from './json-schema-to-graphql-args.lib';
@@ -125,7 +131,9 @@ const findMethodDeclaration = (
   ts: TS,
 ): TSMethodDeclaration | undefined => {
   for (const member of classNode.members) {
-    if (ts.isMethodDeclaration(member) && member.name.getText() === methodName) return member;
+    if (!ts.isMethodDeclaration(member)) continue;
+    const name = ts.isStringLiteral(member.name) ? member.name.text : member.name.getText();
+    if (name === methodName) return member;
   }
   return undefined;
 };
@@ -769,7 +777,9 @@ const getResolverTypeNames = async (
 const fallbackTypeName = (fieldName: string): string =>
   `${fieldName.slice(0, 1).toUpperCase()}${fieldName.slice(1)}Payload`;
 
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:addRootField
+ */
 const addRootField = (
   fields: Map<string, string>,
   fieldName: string,
@@ -795,8 +805,8 @@ const addRuntimeBinding = (
   resolverName: string,
   methodName: string,
 ): void => {
-  const typeBindings = bindings[typeName] ?? {};
-  const existing = typeBindings[fieldName];
+  const typeBindings = readOwnEntry(bindings, typeName) ?? {};
+  const existing = readOwnEntry(typeBindings, fieldName);
   const next = { resolver: resolverName, method: methodName };
   if (existing && (existing.resolver !== next.resolver || existing.method !== next.method)) {
     throw new Error(`Duplicate GraphQL runtime binding: ${typeName}.${fieldName}`);
@@ -868,7 +878,9 @@ type AnalysisState = {
   readonly bindings: RuntimeBindings;
 };
 
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:addRuntimeBinding
+ */
 const registerRootMethod = (
   state: AnalysisState,
   resolverName: string,
@@ -886,7 +898,9 @@ const registerRootMethod = (
   addRuntimeBinding(state.bindings, rootTypeName, fieldName, resolverName, methodName);
 };
 
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:registerFieldMethod
+ */
 const registerFieldMethod = (
   state: AnalysisState,
   resolverName: string,
@@ -902,7 +916,9 @@ const registerFieldMethod = (
   addRuntimeBinding(state.bindings, names.parentTypeName, fieldName, resolverName, methodName);
 };
 
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:registerResolverMethod
+ */
 const registerResolverMethod = (
   state: AnalysisState,
   resolverName: string,
@@ -957,7 +973,32 @@ const buildInspectOptions = (
   expandStrategy: 'always',
 });
 
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:getDirectOperationMetadata
+ */
+const getDirectOperationMetadata = (method: MethodInfo, resolverName: string) => {
+  const hasModelOperation = method.props.some((prop) => {
+    const kind: unknown = Reflect.get(prop, 'kind');
+    return kind === 'relation' || kind === 'resolveMultiField';
+  });
+  if (hasModelOperation) {
+    throw new Error(`Unexpected model operation: ${resolverName}.${String(method.name)}`);
+  }
+  const operation = getOperationMetadata(method);
+  if (!operation) return undefined;
+  if (
+    operation.kind !== 'query' &&
+    operation.kind !== 'mutation' &&
+    operation.kind !== 'resolveField'
+  ) {
+    throw new Error(`Unexpected model operation: ${resolverName}.${String(method.name)}`);
+  }
+  return { ...operation, kind: operation.kind };
+};
+
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:registerResolverMethod
+ */
 const registerAnalyzedMethod = async (
   method: MethodInfo,
   resolverName: string,
@@ -966,9 +1007,8 @@ const registerAnalyzedMethod = async (
   options: GenerateSdlOptions,
 ): Promise<void> => {
   if (typeof method.name !== 'string') return;
-  const operation = getOperationMetadata(method);
+  const operation = getDirectOperationMetadata(method, resolverName);
   if (!operation) return;
-
   const names = methodTypeNames.get(method.name);
   const argsRendered = await renderMethodArgs(names, resolverName, method.name, options);
   registerResolverMethod(
@@ -1006,6 +1046,163 @@ const analyzeResolver = async (
   }
 };
 
+type ModelRenderContext = {
+  readonly inputs: readonly import('./graphql-model-analysis.lib').ModelResolverInput[];
+  readonly analysis: ReturnType<typeof analyzeGraphqlModels>;
+  readonly resolvers: readonly GraphqlResolverClass[];
+  readonly options: GenerateSdlOptions;
+  readonly state: AnalysisState;
+};
+
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:assertModelNameAvailable
+ */
+const assertModelNameAvailable = (name: string, state: AnalysisState): void => {
+  const { objects, enums, scalars, unions } = state.typeCtx;
+  assertName(name);
+  const reserved = [
+    'Query',
+    'Mutation',
+    'Subscription',
+    ...specifiedScalarTypes.map((type) => type.name),
+  ];
+  if (
+    reserved.includes(name) ||
+    objects.has(name) ||
+    enums.has(name) ||
+    scalars.has(name) ||
+    unions.has(name)
+  ) {
+    throw new Error(`Duplicate GraphQL type: ${name}`);
+  }
+};
+
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:getModelMethodNames
+ * @throws {UnsupportedTypeScriptVersionError} from resolve-typescript.lib.ts:resolveTypeScript
+ */
+const getModelMethodNames = async (
+  context: ModelRenderContext,
+  resolverName: string,
+): Promise<ReadonlyMap<string, MethodTypeNames>> => {
+  const input = context.inputs.find((item) => item.resolver === resolverName);
+  const resolver = context.resolvers.find((item) => item.name === resolverName);
+  if (!input || !resolver) throw new Error(`Missing resolver ${resolverName}`);
+  return getResolverTypeNames(resolver, input.metadata, context.options);
+};
+
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:renderModelFields
+ */
+const renderModelFields = (context: ModelRenderContext, name: string): string[] => {
+  const { analysis, state } = context;
+  const lines: string[] = [];
+  for (const [fieldName, field] of Object.entries(analysis.fields[name] ?? {})) {
+    const binding = analysis.bindings[name]?.[fieldName];
+    if (!binding) throw new Error(`Missing binding ${name}.${fieldName}`);
+    if (field.kind === 'computed') {
+      lines.push(`  ${fieldName}: ${renderGraphqlModelValue(field.value)}`);
+    } else if (field.kind === 'relation') {
+      lines.push(`  ${fieldName}: ${renderGraphqlModelResult(field.target, field.shape)}`);
+    }
+    addRuntimeBinding(state.bindings, name, fieldName, binding.resolver, binding.method);
+  }
+  return lines;
+};
+
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:renderModelFields
+ * @throws {UnsupportedTypeScriptVersionError} from resolve-typescript.lib.ts:resolveTypeScript
+ */
+const renderModelDefinition = async (
+  context: ModelRenderContext,
+  name: string,
+  model: import('./graphql-model.types').GraphqlModelDefinition,
+): Promise<string> => {
+  assertModelNameAvailable(name, context.state);
+  const lines = model.properties
+    .filter((property) => !property.name.startsWith('$'))
+    .map((property) => `  ${property.name}: ${renderGraphqlModelProperty(property)}`);
+  lines.push(...renderModelFields(context, name));
+  return `type ${name} {\n${lines.join('\n')}\n}`;
+};
+
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:registerModelQuery
+ */
+const registerModelQuery = async (
+  context: ModelRenderContext,
+  resolverName: string,
+  methodName: string,
+  fieldName: string,
+  names: MethodTypeNames | undefined,
+): Promise<void> => {
+  const { analysis, options, state } = context;
+  const field = analysis.fields['Query']?.[fieldName];
+  if (field?.kind !== 'query') throw new Error(`Missing model query ${resolverName}.${methodName}`);
+  if (state.roots.query.has(fieldName))
+    throw new Error(`Duplicate GraphQL root field: ${fieldName}`);
+  const args = await renderMethodArgs(names, resolverName, methodName, options);
+  state.roots.query.set(
+    fieldName,
+    `${args}: ${renderGraphqlModelResult(field.target, field.shape)}`,
+  );
+  addRuntimeBinding(state.bindings, 'Query', fieldName, resolverName, methodName);
+};
+
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:registerModelQuery
+ * @throws {UnsupportedTypeScriptVersionError} from resolve-typescript.lib.ts:resolveTypeScript
+ */
+const registerModelQueries = async (context: ModelRenderContext): Promise<void> => {
+  for (const input of context.inputs.filter((item) =>
+    context.analysis.modelResolvers.has(item.resolver),
+  )) {
+    const methodNames = await getModelMethodNames(context, input.resolver);
+    for (const method of input.metadata.methods) {
+      const operation = getOperationMetadata(method);
+      if (typeof method.name !== 'string' || operation?.kind !== 'query') continue;
+      await registerModelQuery(
+        context,
+        input.resolver,
+        method.name,
+        operation.fieldName ?? method.name,
+        methodNames.get(method.name),
+      );
+    }
+  }
+};
+
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:registerModelQuery
+ * @throws {UnsupportedTypeScriptVersionError} from resolve-typescript.lib.ts:resolveTypeScript
+ */
+const renderModels = async (context: ModelRenderContext): Promise<string[]> => {
+  const definitions: string[] = [];
+  for (const [name, model] of Object.entries(context.analysis.models)) {
+    definitions.push(await renderModelDefinition(context, name, model));
+  }
+  for (const name of Object.keys(context.analysis.models)) {
+    assertModelNameAvailable(name, context.state);
+  }
+  await registerModelQueries(context);
+  return definitions;
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const inspectModelResolver = async (
+  resolver: GraphqlResolverClass,
+  options: GenerateSdlOptions,
+) => {
+  const result = await getTypeMetadata(toInspectableClass(resolver), buildInspectOptions(options));
+  if (result.isErr()) {
+    throw new Error(`Failed to inspect GraphQL resolver ${resolver.name}: ${result.error.message}`);
+  }
+  const found = await findResolverClassNode(resolver, result.value, options);
+  if (!found) throw new Error(`Cannot inspect GraphQL resolver ${resolver.name}`);
+  return { resolver: resolver.name, metadata: result.value, ...found };
+};
+
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
 const analyzeResolvers = async (
   resolvers: readonly GraphqlResolverClass[],
@@ -1017,16 +1214,31 @@ const analyzeResolvers = async (
     bindings: {},
   };
 
+  // Complete the first inspection so subsequent calls share its TypeScript Program.
+  const [first, ...remaining] = resolvers;
+  const initial = first ? [await inspectModelResolver(first, options)] : [];
+  const inputs = [
+    ...initial,
+    ...(await Promise.all(remaining.map((resolver) => inspectModelResolver(resolver, options)))),
+  ];
+  const analysis = analyzeGraphqlModels(inputs);
   for (const resolver of resolvers) {
-    await analyzeResolver(resolver, state, options);
+    if (!analysis.modelResolvers.has(resolver.name))
+      await analyzeResolver(resolver, state, options);
   }
-
-  const schemaSdl = buildSdl(state.roots, renderGraphqlDefinitions(state.typeCtx));
+  const modelDefinitions = await renderModels({ inputs, analysis, resolvers, options, state });
+  const schemaSdl = buildSdl(state.roots, [
+    ...renderGraphqlDefinitions(state.typeCtx),
+    ...modelDefinitions,
+  ]);
   return {
     schemaSdl,
     runtime: {
       schemaSdl,
       bindings: state.bindings,
+      ...(Object.keys(analysis.models).length
+        ? { models: analysis.models, modelFields: analysis.fields }
+        : {}),
       enumFields: buildRuntimeEnumFields(state.typeCtx),
       scalarRefs: buildRuntimeScalarRefs(state.typeCtx),
       scalars: buildRuntimeScalars(state.typeCtx),
