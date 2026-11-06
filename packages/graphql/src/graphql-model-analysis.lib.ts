@@ -35,6 +35,12 @@ export type ModelAnalysis = {
   readonly bindings: Record<string, Record<string, { resolver: string; method: string }>>;
 };
 
+const methodName = (input: ModelResolverInput, method: Method): string => {
+  const name = method.name;
+  return input.ts.isStringLiteral(name) || input.ts.isNumericLiteral(name)
+    ? name.text
+    : name.getText();
+};
 const operation = (
   input: ModelResolverInput,
   name: string,
@@ -58,7 +64,7 @@ const methods = (input: ModelResolverInput): readonly Method[] =>
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
 function fail(input: ModelResolverInput, method: Method, message: string): never {
-  throw new Error(`${input.resolver}.${method.name.getText()}: ${message}`);
+  throw new Error(`${input.resolver}.${methodName(input, method)}: ${message}`);
 }
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:required
@@ -318,14 +324,14 @@ const mapArguments = (
  */
 const providerMethod = (input: ModelResolverInput): Method | undefined => {
   const providers = methods(input).filter(
-    (m) => operation(input, m.name.getText())?.kind === 'resolveMultiField',
+    (m) => operation(input, methodName(input, m))?.kind === 'resolveMultiField',
   );
   const first = providers[0];
   if (first && providers.length !== 1)
     fail(input, first, 'exactly one @ResolveMultiField is required');
   if (first) return first;
   const relation = methods(input).find(
-    (m) => operation(input, m.name.getText())?.kind === 'relation',
+    (m) => operation(input, methodName(input, m))?.kind === 'relation',
   );
   if (relation) fail(input, relation, '@Relation requires a model provider');
   return undefined;
@@ -403,7 +409,7 @@ const collectModels = (inputs: readonly ModelResolverInput[]): Model[] => {
       symbol,
       input,
       definition: {
-        provider: { resolver: input.resolver, method: method.name.getText() },
+        provider: { resolver: input.resolver, method: methodName(input, method) },
         mode: batch ? 'batch' : 'single',
         properties,
       },
@@ -445,7 +451,7 @@ const registerField = (
     fail(input, method, `duplicate field ${owner}.${name}`);
   Object.defineProperty(fields, name, { value: field, enumerable: true, configurable: true });
   Object.defineProperty(bindings, name, {
-    value: { resolver: input.resolver, method: method.name.getText() },
+    value: { resolver: input.resolver, method: methodName(input, method) },
     enumerable: true,
     configurable: true,
   });
@@ -470,6 +476,14 @@ const queryField = (
   name: string,
   type: TypeNode,
 ): void => {
+  for (const parameter of method.parameters) {
+    if (!parameter.initializer && !parameter.questionToken)
+      fail(
+        model.input,
+        method,
+        'query parameters require defaults; use args(schema) for GraphQL arguments',
+      );
+  }
   const target = result(type, model.input, method);
   registerField(
     state,
@@ -584,7 +598,7 @@ const analyzeField = (
   names: Set<string>,
 ): void => {
   const { input } = model;
-  const op = operation(input, method.name.getText());
+  const op = operation(input, methodName(input, method));
   if (!op || op.kind === 'resolveMultiField') return;
   if (op.kind === 'mutation') fail(input, method, 'model mutations are not supported');
   if (!isPublicName(op.fieldName)) fail(input, method, 'invalid GraphQL field name');

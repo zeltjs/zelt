@@ -44,6 +44,18 @@ describe('lazy body source', () => {
     });
   });
 
+  it.each(['Application/JSON', ' APPLICATION/JSON ; charset=utf-8'])(
+    'reads JSON using the normalized media type %s',
+    async (contentType) => {
+      const raw = jsonRequest();
+      raw.headers.set('content-type', contentType);
+      await withBody(raw, async () => {
+        expect(await bodyRaw()).toBe('{ "name": "Ada" }');
+        expect(await getBody()).toEqual({ type: 'json', val: { name: 'Ada' } });
+      });
+    },
+  );
+
   it('leaves raw readers untouched when only Zelt body APIs are used', async () => {
     const raw = jsonRequest();
     const originalText = raw.text;

@@ -118,15 +118,18 @@ export class UserResolver {
       ))
       .orderBy(asc(posts.id));
 
-    return new Map(parents.map(parent => [
-      parent.id,
-      rows
-        .filter(row => row.authorId === parent.id)
-        .map(row => ({ id: row.id })),
-    ]));
+    const byAuthor = new Map<User['id'], Pick<Post, 'id'>[]>(
+      parents.map(parent => [parent.id, []]),
+    );
+    for (const row of rows) {
+      byAuthor.get(row.authorId)?.push({ id: row.id });
+    }
+    return byAuthor;
   }
 }
 ```
+
+大量の ID を扱う場合は、DB ドライバーのパラメーター上限に合わせて分割し、provider または relation 内で取得結果をまとめてください。
 
 `@Resolver()` のクラスに一つの `@ResolveMultiField()` を置くと、モデルの供給元を持つ resolver になります。供給元の第1引数の `Pick<User, 'id'>` から親モデルを確定し、戻り値も `$` プロパティを含む `User` に揃えます。追加のモード設定は不要です。一つのクラスの親モデルは固定され、同じ endpoint に同じモデルの供給元を複数登録することはできません。
 

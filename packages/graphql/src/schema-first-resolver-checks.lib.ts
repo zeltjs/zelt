@@ -83,9 +83,9 @@ const rejectModelOperation = (kind: unknown): void => {
  * @throws {Error} from schema-first-resolver-checks.lib.ts:rejectModelOperation
  */
 const getOperationMetadata = (method: MethodInfo): GraphqlOperationMetadata | undefined => {
+  for (const prop of method.props) rejectModelOperation(Reflect.get(prop, 'kind'));
   for (const prop of method.props) {
     const kind: unknown = Reflect.get(prop, 'kind');
-    rejectModelOperation(kind);
     if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') {
       const fieldName: unknown = Reflect.get(prop, 'fieldName');
       return {

@@ -15,15 +15,16 @@ const operationKinds = new Set([
 const resolverDeclaration = (resolver: GraphqlResolverClass) => {
   const methods = getClassMetadata(resolver)?.methods ?? [];
   const operations = methods.flatMap((method) => {
-    if (typeof method.name !== 'string') return [];
+    const methodName = method.name;
+    if (typeof methodName !== 'string') return [];
     return method.props.flatMap((prop) => {
       const kind: unknown = Reflect.get(prop, 'kind');
       if (typeof kind !== 'string' || !operationKinds.has(kind)) return [];
       const fieldName: unknown = Reflect.get(prop, 'fieldName');
-      return [[method.name, kind, typeof fieldName === 'string' ? fieldName : method.name]];
+      return [[methodName, kind, typeof fieldName === 'string' ? fieldName : methodName]];
     });
   });
-  operations.sort((left, right) => compareText(JSON.stringify(left), JSON.stringify(right)));
+  operations.sort((left, right) => compareText(left[0] ?? '', right[0] ?? ''));
   return { name: resolver.name, operations };
 };
 

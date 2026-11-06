@@ -14,15 +14,38 @@ type ModelRuntime = {
   readonly bindings: Readonly<Record<string, Readonly<Record<string, GraphqlModelBinding>>>>;
 };
 
+/** @throws {Error} from graphql-model-schema.lib.ts:validateModelFieldNames */
+const validateModelFieldNames = (
+  name: string,
+  model: GraphqlModels[string],
+  modelFields: GraphqlModelFields,
+  fields: ReturnType<GraphQLObjectType['getFields']>,
+): void => {
+  const allowed = new Set([
+    ...model.properties
+      .filter((property) => !property.name.startsWith('$'))
+      .map((property) => property.name),
+    ...Object.keys(modelFields[name] ?? {}),
+  ]);
+  for (const field of Object.keys(fields)) {
+    if (!allowed.has(field)) throw new Error(`Unexpected GraphQL model field: ${name}.${field}`);
+  }
+};
+
 /**
  * @throws {Error} from graphql-model-schema.lib.ts:validateSources
  */
-const validateSources = (models: GraphqlModels, schema: GraphQLSchema): void => {
+const validateSources = (
+  models: GraphqlModels,
+  modelFields: GraphqlModelFields,
+  schema: GraphQLSchema,
+): void => {
   for (const [name, model] of Object.entries(models)) {
     const type = schema.getType(name);
     if (!(type instanceof GraphQLObjectType))
       throw new Error(`GraphQL model type missing: ${name}`);
     const fields = type.getFields();
+    validateModelFieldNames(name, model, modelFields, fields);
     for (const property of model.properties) {
       if (property.name.startsWith('$')) continue;
       const field = fields[property.name];
@@ -82,6 +105,6 @@ export const validateGraphqlModelSchema = (runtime: ModelRuntime, schema: GraphQ
   if (runtime.models === undefined && runtime.modelFields === undefined) return;
   const parsed = parseGraphqlModelManifest(runtime.models, runtime.modelFields);
   if (!parsed) throw new Error('Invalid GraphQL model manifest; rebuild the endpoint');
-  validateSources(parsed.models, schema);
+  validateSources(parsed.models, parsed.modelFields, schema);
   validateBindings(runtime, parsed.modelFields, schema);
 };

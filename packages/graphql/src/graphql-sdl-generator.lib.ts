@@ -7,6 +7,7 @@ import type {
   TypeInfo,
 } from '@zeltjs/decorator-metadata/inspect';
 import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
+import { assertName, specifiedScalarTypes } from 'graphql';
 import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
@@ -130,7 +131,9 @@ const findMethodDeclaration = (
   ts: TS,
 ): TSMethodDeclaration | undefined => {
   for (const member of classNode.members) {
-    if (ts.isMethodDeclaration(member) && member.name.getText() === methodName) return member;
+    if (!ts.isMethodDeclaration(member)) continue;
+    const name = ts.isStringLiteral(member.name) ? member.name.text : member.name.getText();
+    if (name === methodName) return member;
   }
   return undefined;
 };
@@ -974,11 +977,23 @@ const buildInspectOptions = (
  * @throws {Error} from graphql-sdl-generator.lib.ts:getDirectOperationMetadata
  */
 const getDirectOperationMetadata = (method: MethodInfo, resolverName: string) => {
-  const operation = getOperationMetadata(method);
-  if (operation?.kind === 'relation' || operation?.kind === 'resolveMultiField') {
+  const hasModelOperation = method.props.some((prop) => {
+    const kind: unknown = Reflect.get(prop, 'kind');
+    return kind === 'relation' || kind === 'resolveMultiField';
+  });
+  if (hasModelOperation) {
     throw new Error(`Unexpected model operation: ${resolverName}.${String(method.name)}`);
   }
-  return operation ? { ...operation, kind: operation.kind } : undefined;
+  const operation = getOperationMetadata(method);
+  if (!operation) return undefined;
+  if (
+    operation.kind !== 'query' &&
+    operation.kind !== 'mutation' &&
+    operation.kind !== 'resolveField'
+  ) {
+    throw new Error(`Unexpected model operation: ${resolverName}.${String(method.name)}`);
+  }
+  return { ...operation, kind: operation.kind };
 };
 
 /**
@@ -1044,7 +1059,20 @@ type ModelRenderContext = {
  */
 const assertModelNameAvailable = (name: string, state: AnalysisState): void => {
   const { objects, enums, scalars, unions } = state.typeCtx;
-  if (objects.has(name) || enums.has(name) || scalars.has(name) || unions.has(name)) {
+  assertName(name);
+  const reserved = [
+    'Query',
+    'Mutation',
+    'Subscription',
+    ...specifiedScalarTypes.map((type) => type.name),
+  ];
+  if (
+    reserved.includes(name) ||
+    objects.has(name) ||
+    enums.has(name) ||
+    scalars.has(name) ||
+    unions.has(name)
+  ) {
     throw new Error(`Duplicate GraphQL type: ${name}`);
   }
 };

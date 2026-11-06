@@ -144,7 +144,7 @@ Regenerate prebuilt output after upgrading: provider and computed-field
 metadata now record their invocation mode, and computed metadata records
 the per-parent result type. Incomplete older model metadata is rejected.
 
-The [GraphQL guide](../../website/docs/graphql.md) defines the model contract,
+The [GraphQL guide](https://zeltjs.com/docs/graphql) defines the model contract,
 nullability, batching behavior, and source examples. Legacy resolvers without
 a provider retain their direct-value behavior. Model providers are code-first
 only; dynamic column projection and computed-field dependencies are outside

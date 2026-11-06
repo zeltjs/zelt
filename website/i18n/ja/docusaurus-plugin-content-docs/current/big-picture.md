@@ -45,7 +45,7 @@ pluginが必須になるのは、そのpluginに依存するfeatureを使う場�
 
 ## 生成物
 
-- **`.zelt/`** はアプリ自身から作る生成物です。アプリが自分自身の生成物に依存しないよう、importできるのはentryとテストだけにしています。削除しても `zelt build` で再生成できます。runtime群は一つの値モジュール `.zelt/prebuilt.ts` にまとめられます。
+- **`.zelt/`** はアプリ自身から作る生成物です。アプリが自分自身の生成物に依存しないよう、importできるのはentryとテストだけにしています。code-first では、削除しても `zelt build` で再生成できます。schema-first では先に各 schema と helper の組について `zelt graphql codegen --schema ... --out ...` を再実行し、codegen manifest を復元してください。runtime群は一つの値モジュール `.zelt/prebuilt.ts` にまとめられます。
 - **`openapi.json` / 型付きclient**はフロントエンドやAPI利用者向けの生成物です。コードから導かれるため、仕様書が実装と食い違うことはありません。
 - **`dist/`** はentry・app・prebuiltをbundleしたデプロイ物です。これを実行環境へ配置します。
 

@@ -35,11 +35,15 @@ type Operation = {
 /**
  * @throws {Error} from graphql-model-runtime.lib.ts:record
  */
-const record = (value: unknown): Source => {
+const record = (value: unknown, properties: readonly string[] = []): Source => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('GraphQL model data must be an object');
   }
-  return Object.fromEntries(Object.entries(value));
+  const keys = new Set([
+    ...Object.keys(value),
+    ...properties.filter((key) => Reflect.has(value, key)),
+  ]);
+  return Object.fromEntries([...keys].map((key) => [key, Reflect.get(value, key)]));
 };
 
 /**
@@ -72,33 +76,57 @@ const matchesValue = (value: unknown, descriptor: GraphqlModelValue): boolean =>
     )
     .exhaustive();
 
+/** @throws {Error} from graphql-model-runtime.lib.ts:nativeMap */
+const nativeMap = (value: unknown): ReadonlyMap<unknown, unknown> => {
+  if (value instanceof Map) return value;
+  const entries = new Map<unknown, unknown>();
+  try {
+    Map.prototype.forEach.call(value, (entry: unknown, key: unknown) => {
+      entries.set(key, entry);
+    });
+  } catch {
+    throw new Error('GraphQL model batch must return a Map');
+  }
+  return entries;
+};
+
 /**
  * @throws {Error} from graphql-model-runtime.lib.ts:completeMap
  */
 const completeMap = (value: unknown, ids: readonly string[]): ReadonlyMap<unknown, unknown> => {
-  if (!(value instanceof Map)) throw new Error('GraphQL model batch must return a Map');
-  rejectPromiseMapValues(value.values());
+  const entries = nativeMap(value);
+  rejectPromiseMapValues(entries.values());
   const requested = new Set(ids);
   if (
-    value.size !== requested.size ||
-    [...value.keys()].some((key: unknown) => typeof key !== 'string' || !requested.has(key))
+    entries.size !== requested.size ||
+    [...entries.keys()].some((key: unknown) => typeof key !== 'string' || !requested.has(key))
   ) {
     throw new Error('GraphQL model batch Map must contain exactly the requested IDs');
   }
-  return value;
+  return entries;
+};
+
+// Calling the intrinsic observes native promises without touching reference extras such as `then`.
+const observeNativePromise = (value: unknown): boolean => {
+  if ((typeof value !== 'object' && typeof value !== 'function') || value === null) return false;
+  try {
+    return Boolean(
+      Promise.prototype.then.call(
+        value,
+        () => undefined,
+        () => undefined,
+      ),
+    );
+  } catch {
+    return false;
+  }
 };
 
 /** @throws {Error} from graphql-model-runtime.lib.ts:rejectPromiseMapValues */
 const rejectPromiseMapValues = (values: Iterable<unknown>): void => {
   let invalid = false;
   for (const value of values) {
-    if (!(value instanceof Promise)) continue;
-    invalid = true;
-    // Surface the Map contract error after observing every invalid rejected Promise.
-    void value.then(
-      () => undefined,
-      () => undefined,
-    );
+    if (observeNativePromise(value)) invalid = true;
   }
   if (invalid) throw new Error('GraphQL batch Map values must not be Promises');
 };
@@ -113,7 +141,10 @@ const validateSource = (
   value: unknown,
 ): Source | null => {
   if (value === null) return null;
-  const source = record(value);
+  const source = record(
+    value,
+    definition.properties.map((property) => property.name),
+  );
   if (identity(source) !== id)
     throw new Error(`GraphQL provider returned a mismatched id for ${model}`);
   const keys = new Set(Object.keys(source));

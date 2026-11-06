@@ -118,15 +118,18 @@ export class UserResolver {
       ))
       .orderBy(asc(posts.id));
 
-    return new Map(parents.map(parent => [
-      parent.id,
-      rows
-        .filter(row => row.authorId === parent.id)
-        .map(row => ({ id: row.id })),
-    ]));
+    const byAuthor = new Map<User['id'], Pick<Post, 'id'>[]>(
+      parents.map(parent => [parent.id, []]),
+    );
+    for (const row of rows) {
+      byAuthor.get(row.authorId)?.push({ id: row.id });
+    }
+    return byAuthor;
   }
 }
 ```
+
+For large batches, split IDs according to the database driver’s parameter limit and combine the results inside the provider or relation.
 
 A `@Resolver()` class with one `@ResolveMultiField()` is a model provider. Its first parameter's `Pick<User, 'id'>` establishes the parent model, and its result uses the same `User` type, including `$` properties. No mode option is needed. The class has one fixed parent model, and an endpoint cannot register multiple providers for that model.
 

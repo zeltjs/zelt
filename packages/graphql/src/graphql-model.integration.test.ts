@@ -321,3 +321,19 @@ it.each([
     }),
   ).toThrow(/type mismatch/);
 });
+
+it('rejects undeclared model SDL fields before provider extras can be exposed', () => {
+  expect(() =>
+    createGraphqlExecutor({
+      runtime: {
+        ...generated,
+        schemaSdl: generated.schemaSdl.replace(
+          'first: String!',
+          'first: String! legacySecret: String',
+        ),
+      },
+      resolvers,
+      resolveResolver: (resolver) => new resolver(),
+    }),
+  ).toThrow('Unexpected GraphQL model field: Account.legacySecret');
+});

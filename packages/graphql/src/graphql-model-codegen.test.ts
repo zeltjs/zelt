@@ -2,7 +2,13 @@ import { resolve } from 'node:path';
 import * as inspection from '@zeltjs/decorator-metadata/inspect';
 import { describe, expect, it, vi } from 'vitest';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
-import { Query, Relation, ResolveField, ResolveMultiField, Resolver } from './index';
+import {
+  Query as QueryDecorator,
+  Relation,
+  ResolveField,
+  ResolveMultiField,
+  Resolver,
+} from './index';
 
 type ModelUser = {
   readonly id: string;
@@ -15,7 +21,7 @@ type ModelUser = {
 };
 @Resolver()
 class ModelUserResolver {
-  @Query()
+  @QueryDecorator()
   user(): Pick<ModelUser, 'id'> {
     return { id: '1' };
   }
@@ -37,11 +43,11 @@ type BatchUser = { id: string; $friend: string };
 const contextValue = (): string => 'context';
 @Resolver()
 class BatchUserResolver {
-  @Query()
+  @QueryDecorator()
   list(): readonly (Pick<BatchUser, 'id'> | null)[] | null {
     return null;
   }
-  @Query('batchUser')
+  @QueryDecorator('batchUser')
   getUser(): Promise<Pick<BatchUser, 'id'> | null> {
     return Promise.resolve(null);
   }
@@ -64,7 +70,7 @@ class BatchUserResolver {
 type VariantUser = { id: string; first: string };
 @Resolver()
 class SingleVariantResolver {
-  @Query()
+  @QueryDecorator()
   variant(): Pick<VariantUser, 'id'> {
     return { id: '1' };
   }
@@ -98,7 +104,7 @@ class SingleSyncVariantResolver {
 }
 @Resolver()
 class BatchVariantResolver {
-  @Query()
+  @QueryDecorator()
   variant(): Pick<VariantUser, 'id'> {
     return { id: '1' };
   }
@@ -223,11 +229,11 @@ class FakeArrayResolver {
 }
 @Resolver()
 class NamesResolver {
-  @Query('constructor')
+  @QueryDecorator('constructor')
   another(): Pick<BatchUser, 'id'> {
     return { id: '2' };
   }
-  @Query('toString')
+  @QueryDecorator('toString')
   user(): Pick<BatchUser, 'id'> {
     return { id: '1' };
   }
@@ -238,13 +244,86 @@ class NamesResolver {
 }
 @Resolver()
 class ReservedResolver {
-  @Query('__reserved')
+  @QueryDecorator('__reserved')
   user(): Pick<BatchUser, 'id'> {
     return { id: '1' };
   }
   @ResolveMultiField()
   load(_refs: readonly Pick<BatchUser, 'id'>[]): Map<BatchUser['id'], BatchUser | null> {
     return new Map();
+  }
+}
+
+type Query = { id: string };
+@Resolver()
+class CollisionQueryResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<Query, 'id'>): Query | null {
+    return null;
+  }
+}
+type Mutation = { id: string };
+@Resolver()
+class CollisionMutationResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<Mutation, 'id'>): Mutation | null {
+    return null;
+  }
+}
+type Subscription = { id: string };
+@Resolver()
+class CollisionSubscriptionResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<Subscription, 'id'>): Subscription | null {
+    return null;
+  }
+}
+type ID = { id: string };
+@Resolver()
+class CollisionIDResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<ID, 'id'>): ID | null {
+    return null;
+  }
+}
+type String = { id: string };
+@Resolver()
+class CollisionStringResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<String, 'id'>): String | null {
+    return null;
+  }
+}
+type Int = { id: string };
+@Resolver()
+class CollisionIntResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<Int, 'id'>): Int | null {
+    return null;
+  }
+}
+type Float = { id: string };
+@Resolver()
+class CollisionFloatResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<Float, 'id'>): Float | null {
+    return null;
+  }
+}
+type Boolean = { id: string };
+@Resolver()
+class CollisionBooleanResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<Boolean, 'id'>): Boolean | null {
+    return null;
+  }
+}
+type $User = { id: string };
+@Resolver()
+class CollisionDollarUserResolver {
+  @ResolveMultiField()
+  load(_ref: Pick<$User, 'id'>): $User | null {
+    return null;
   }
 }
 
@@ -421,6 +500,23 @@ describe('model code generation', () => {
     await expect(generateGraphqlRuntimeForResolvers([FakeArrayResolver], options)).rejects.toThrow(
       'expected a direct Pick',
     );
+  });
+  it.each([
+    CollisionQueryResolver,
+    CollisionMutationResolver,
+    CollisionSubscriptionResolver,
+    CollisionIDResolver,
+    CollisionStringResolver,
+    CollisionIntResolver,
+    CollisionFloatResolver,
+    CollisionBooleanResolver,
+    CollisionDollarUserResolver,
+  ])('rejects reserved or invalid model names: %s', async (resolver) => {
+    await expect(
+      generateGraphqlRuntimeForResolvers([resolver], {
+        tsconfig: resolve(__dirname, '../tsconfig.json'),
+      }),
+    ).rejects.toThrow();
   });
   it('requires string model identifiers', async () => {
     await expect(

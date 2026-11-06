@@ -442,6 +442,21 @@ describe('GraphQL HTTP protocol', () => {
     },
   );
 
+  it.each(['Application/JSON', 'APPLICATION/JSON; charset=utf-8'])(
+    'accepts the JSON media type %s',
+    async (contentType) => {
+      await withEndpoint(async (request) => {
+        const response = await request('/graphql', {
+          method: 'POST',
+          headers: { 'content-type': contentType },
+          body: JSON.stringify({ query: '{ user { id } }' }),
+        });
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ data: { user: { id: '1' } } });
+      });
+    },
+  );
+
   it('rejects mutations sent over GET', async () => {
     await withEndpoint(async (request) => {
       const response = await request(

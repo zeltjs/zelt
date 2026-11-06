@@ -441,38 +441,43 @@ describe('model execution contracts', () => {
     },
   );
 
-  it.each(['provide', 'peers', 'label'])(
-    'rejects and observes all promised %s Map values',
-    async (method) => {
-      const fields: GraphqlModelFields = {
-        ...modelFields,
-        User: {
-          ...modelFields['User'],
-          label: {
-            kind: 'computed',
-            mode: 'batch',
-            dependencies: ['id'],
-            value: { kind: 'scalar', name: 'string' },
-          },
+  it.each(
+    ['provide', 'peers', 'label'].flatMap((method) =>
+      ['local', 'foreign'].map((realm) => ({ method, realm })),
+    ),
+  )('rejects and observes all $realm promised $method Map values', async ({ method, realm }) => {
+    const rejected = (message: string): unknown =>
+      realm === 'foreign'
+        ? runInNewContext('Promise.reject(new Error(message))', { message })
+        : Promise.reject(new Error(message));
+    const fields: GraphqlModelFields = {
+      ...modelFields,
+      User: {
+        ...modelFields['User'],
+        label: {
+          kind: 'computed',
+          mode: 'batch',
+          dependencies: ['id'],
+          value: { kind: 'scalar', name: 'string' },
         },
-      };
-      const { execute } = fixture(
-        {
-          [method]: () =>
-            new Map([
-              ['a', Promise.reject(new Error('Invalid Map value A'))],
-              ['b', Promise.reject(new Error('Invalid Map value B'))],
-            ]),
-        },
-        models,
-        fields,
-      );
-      const result = await execute('{ users { id peers { id } label } }');
-      expect(
-        result.errors?.some((error) => error.message.includes('Map values must not be Promises')),
-      ).toBe(true);
-    },
-  );
+      },
+    };
+    const { execute } = fixture(
+      {
+        [method]: () =>
+          new Map([
+            ['a', rejected('Invalid Map value A')],
+            ['b', rejected('Invalid Map value B')],
+          ]),
+      },
+      models,
+      fields,
+    );
+    const result = await execute('{ users { id peers { id } label } }');
+    expect(
+      result.errors?.some((error) => error.message.includes('Map values must not be Promises')),
+    ).toBe(true);
+  });
 
   it.each(['single', 'batch'] as const)(
     'preserves nullable %s computed results and exception paths',
@@ -873,4 +878,39 @@ describe('model execution contracts', () => {
       ['users', 2, 'peers', 0],
     ]);
   });
+});
+
+it('accepts native batch Maps from other realms', async () => {
+  const { execute } = fixture({
+    provide: () =>
+      runInNewContext('new Map(["a", "b"].map(id => [id, { id, name: id, $friend: id }]))'),
+    peers: () => runInNewContext('new Map(["a", "b"].map(id => [id, []]))'),
+  });
+  const result = await execute('{ users { name peers { id } } }');
+  expect(result.errors).toBeUndefined();
+  expect(result.data?.['users']).toEqual(['a', 'b', 'a'].map((name) => ({ name, peers: [] })));
+});
+
+it('preserves declared prototype getters before validating provider rows', async () => {
+  class Row {
+    constructor(readonly id: string) {}
+    get name(): string {
+      return this.id.toUpperCase();
+    }
+    get $friend(): string {
+      return this.id;
+    }
+  }
+  const { execute } = fixture({
+    provide: () => new Map(['a', 'b'].map((id) => [id, new Row(id)])),
+  });
+  const result = await execute('{ users { name label friend { id } } }');
+  expect(result.errors).toBeUndefined();
+  expect(result.data?.['users']).toEqual(
+    ['a', 'b', 'a'].map((id) => ({
+      name: id.toUpperCase(),
+      label: JSON.stringify({ name: id.toUpperCase() }),
+      friend: { id },
+    })),
+  );
 });

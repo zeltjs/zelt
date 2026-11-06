@@ -16,6 +16,52 @@ const blocker = 'data:text/javascript,' + encodeURIComponent(`
 
 describe('portable context distribution', () => {
   for (const format of ['esm', 'cjs']) {
+    it(`shares GraphQL with the bundled HTTP handler in ${format}`, () => {
+      const source = `
+        import assert from 'node:assert/strict';
+        import { createRequire, registerHooks } from 'node:module';
+        // A nested handler installation may resolve another GraphQL peer. It must
+        // not be consulted by the bundled handler in either distribution format.
+        registerHooks({ resolve(specifier, context, next) {
+          if (specifier === 'graphql' && context.parentURL?.includes('/graphql-http/')) {
+            throw new Error('The external handler resolved a separate GraphQL peer');
+          }
+          return next(specifier, context);
+        }});
+        const core = ${format === 'esm'
+          ? "await import('./packages/core/dist/index.js')"
+          : "createRequire(import.meta.url)('./packages/core/dist/index.cjs')"};
+        const gql = ${format === 'esm'
+          ? "await import('./packages/graphql/dist/index.js')"
+          : "createRequire(import.meta.url)('./packages/graphql/dist/index.cjs')"};
+        class HelloResolver { hello() { return 'world'; } }
+        gql.Query()(HelloResolver.prototype, 'hello', Object.getOwnPropertyDescriptor(HelloResolver.prototype, 'hello'));
+        gql.Resolver()(HelloResolver);
+        const resolvers = [HelloResolver];
+        const resolversHash = await gql.computeGraphqlPrebuiltHash('/graphql', resolvers);
+        const prebuilt = { version: 1, features: { graphql: { graphql: {
+          resolversHash,
+          runtime: { schemaSdl: 'type Query { hello: String! }',
+            bindings: { Query: { hello: { resolver: 'HelloResolver', method: 'hello' } } } }
+        } } } };
+        const runtime = await core.createApp([
+          core.http({ children: [gql.graphql({ path: '/graphql', resolvers })] })
+        ]).createRuntime({ prebuilt });
+        try {
+          const response = await runtime.http.request('/graphql', {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ query: '{ hello }' })
+          });
+          assert.equal(response.status, 200);
+          assert.deepEqual(await response.json(), { data: { hello: 'world' } });
+        } finally { await runtime.shutdown(); }
+      `;
+      const result = spawnSync(process.execPath, ['--input-type=module', '--eval', source], {
+        cwd: rootDir, encoding: 'utf8', timeout: 15000,
+      });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+    });
+
     it(`calls injected HTTP during ${format} startup without async_hooks`, () => {
       const source = `
         import assert from 'node:assert/strict';
