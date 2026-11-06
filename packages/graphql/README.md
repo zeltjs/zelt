@@ -120,11 +120,15 @@ Runtime integration APIs used by adapters and framework internals remain on
 Generation, TypeScript inspection, GraphQL metadata getters, and type
 conversion helpers are available from `@zeltjs/graphql/codegen`.
 
-## Model references and field providers
+## Model IDs and field providers
 
 A resolver with one `@ResolveMultiField()` supplies a named model. Queries
-and `@Relation()` methods return `Pick<Model, 'id'>` references; the runtime
-hydrates those references through an operation-local DataLoader. All three
+and `@Relation()` methods return ID-only objects (`Pick<Model, 'id'>`, such
+as `{ id: input.id }`), arrays of those objects, or nullable results according
+to their declared return types. Batch relations return a Map keyed by parent
+ID whose values are those per-parent results. Providers receive `{ id }`
+objects, individually or in arrays; the runtime hydrates their data through
+an operation-local DataLoader. All three
 method kinds use the same contract: a single parent returns its result,
 and an array of parents returns a Map from parent ID to each result. Both
 forms may return a value or a Promise for the whole result. Batch parent
@@ -134,7 +138,7 @@ that form is permitted and does not produce a build warning.
 
 Properties beginning with `$` remain available to providers and dependent
 methods but are excluded from the GraphQL schema. A provider returns the
-complete model, including private properties, directly for one reference
+complete model, including private properties, directly for one ID
 or in a Map keyed by the requested IDs for a batch. Missing targets are
 explicit null values; malformed Maps are errors. Map values are results,
 not individual Promises. Single providers still cache by model and ID
