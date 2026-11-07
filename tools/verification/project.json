@@ -1,0 +1,27 @@
+{
+  "name": "workspace-verification",
+  "targets": {
+    "test-workspace": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["verification"],
+      "outputs": [],
+      "dependsOn": [{ "target": "build", "projects": ["@zeltjs/*"] }],
+      "options": {
+        "command": "pnpm exec vitest run",
+        "cwd": "."
+      }
+    },
+    "runtime-contracts": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["verification"],
+      "outputs": [],
+      "dependsOn": [{ "target": "build", "projects": ["@zeltjs/*"] }],
+      "options": {
+        "command": "node --test scripts/verify-workspace-cli-bins.test.mjs scripts/verify-decorator-positions.test.mjs scripts/verify-dist-runtime-contracts.test.mjs scripts/verify-dist-tree-shaking.test.mjs scripts/pure-class-decorators.test.mjs scripts/verify-portable-context.test.mjs scripts/resolve-txiki-runtime.test.mjs scripts/prepare-integration-deps.test.mjs scripts/typecheck-project.test.mjs scripts/distribution-cache.test.mjs scripts/verify-inspection-entries.test.mjs scripts/verification-cache.test.mjs",
+        "cwd": "."
+      }
+    }
+  }
+}

@@ -13,7 +13,16 @@
         "runtime": "node --version"
       }
     ],
-    "buildTools": ["{workspaceRoot}/scripts/pure-class-decorators.mjs", "toolchain"]
+    "buildTools": ["{workspaceRoot}/scripts/pure-class-decorators.mjs", "toolchain"],
+    "verification": [
+      "{workspaceRoot}/**/*",
+      { "runtime": "node --no-warnings scripts/verification-toolchain.mjs" },
+      { "env": "CI" },
+      { "env": "NODE_ENV" },
+      { "env": "NODE_OPTIONS" },
+      { "env": "TZ" },
+      { "dependentTasksOutputFiles": "**/dist/**/*" }
+    ]
   },
   "targetDefaults": {
     "build": {
