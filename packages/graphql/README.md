@@ -128,8 +128,10 @@ as `{ id: input.id }`), arrays of those objects, or nullable results according
 to their declared return types. Batch relations return a Map keyed by parent
 ID whose values are those per-parent results. Providers receive `{ id }`
 objects, individually or in arrays; the runtime hydrates their data through
-an operation-local DataLoader. All three
-method kinds use the same contract: a single parent returns its result,
+an operation-local DataLoader.
+
+`@ResolveMultiField()`, `@Relation()`, and `@ResolveField()` share the parent
+invocation contract: a single parent returns its result,
 and an array of parents returns a Map from parent ID to each result. Both
 forms may return a value or a Promise for the whole result. Batch parent
 Picks must include `id`. `@ResolveField()` may be async and may perform I/O,
