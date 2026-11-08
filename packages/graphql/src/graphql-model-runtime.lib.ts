@@ -180,6 +180,7 @@ const provider = (operation: Operation, model: string): DataLoader<string, Sourc
   if (!definition) throw new Error(`GraphQL model provider missing: ${model}`);
   const loader = new DataLoader<string, Source | null>(
     async (ids) => {
+      if (definition.mode === 'identity') return ids.map((id) => ({ id }));
       if (definition.mode === 'single') {
         return Promise.all(
           ids.map(async (id) => {

@@ -71,22 +71,29 @@ const parseProperties = (value: unknown): readonly GraphqlModelProperty[] | unde
   return properties;
 };
 
+const parseModelProperties = (value: unknown): readonly GraphqlModelProperty[] | undefined => {
+  const properties = parseProperties(value);
+  const id = properties?.find((property) => property.name === 'id');
+  return match(id)
+    .with({ optional: false, value: { kind: 'scalar', name: 'string' } }, () => properties)
+    .otherwise(() => undefined);
+};
+
 const parseModel = (value: unknown): GraphqlModelDefinition | undefined => {
   const entry = record(value);
   if (!entry) return undefined;
-  const mode = entry['mode'];
-  if (mode !== 'single' && mode !== 'batch') return undefined;
-  const provider = parseBinding(entry['provider']);
-  const properties = parseProperties(entry['properties']);
-  if (!provider || !properties) return undefined;
-  const id = properties.find((property) => property.name === 'id');
-  if (
-    !match(id)
-      .with({ optional: false, value: { kind: 'scalar', name: 'string' } }, () => true)
-      .otherwise(() => false)
-  )
-    return undefined;
-  return { provider, properties, mode };
+  const properties = parseModelProperties(entry['properties']);
+  if (!properties) return undefined;
+  return match(entry['mode'])
+    .returnType<GraphqlModelDefinition | undefined>()
+    .with('identity', () =>
+      properties.length === 1 ? { mode: 'identity', properties } : undefined,
+    )
+    .with(P.union('single', 'batch'), (mode) => {
+      const provider = parseBinding(entry['provider']);
+      return provider ? { provider, properties, mode } : undefined;
+    })
+    .otherwise(() => undefined);
 };
 
 const parseShape = (value: unknown): GraphqlModelResultShape | undefined => {

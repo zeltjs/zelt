@@ -16,11 +16,10 @@ export type GraphqlModelProperty = {
   readonly value: GraphqlModelValue;
 };
 
-export type GraphqlModelDefinition = {
-  readonly provider: GraphqlModelBinding;
-  readonly mode: 'single' | 'batch';
-  readonly properties: readonly GraphqlModelProperty[];
-};
+export type GraphqlModelDefinition = (
+  | { readonly mode: 'single' | 'batch'; readonly provider: GraphqlModelBinding }
+  | { mode: 'identity' }
+) & { readonly properties: readonly GraphqlModelProperty[] };
 
 export type GraphqlModelResultShape =
   | { kind: 'one'; readonly nullable: boolean }

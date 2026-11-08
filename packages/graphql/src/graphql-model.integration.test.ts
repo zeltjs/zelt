@@ -8,8 +8,17 @@ import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib'
 import { graphql, Query, Relation, ResolveField, ResolveMultiField, Resolver } from './index';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
-type Account = { id: string; first: string; last: string; $identity: string };
-type Entry = { id: string; title: string; $author: string };
+type Account = {
+  id: string;
+  first: string;
+  last: string;
+  $identity: string;
+  constructor: string;
+  name: string;
+  labels: readonly string[] | null;
+  publicEntries: readonly Entry[];
+};
+type Entry = { id: string; title: string; $author: string; author: Account };
 type Score = { id: string; value: number };
 type Call = { readonly method: string; readonly ids: readonly string[]; readonly identity: string };
 const calls: Call[] = [];
@@ -49,7 +58,9 @@ class Accounts {
   async load(
     refs: readonly Pick<Account, 'id'>[],
     req = request(),
-  ): Promise<ReadonlyMap<Account['id'], Account | null>> {
+  ): Promise<
+    ReadonlyMap<Account['id'], Pick<Account, 'id' | 'first' | 'last' | '$identity'> | null>
+  > {
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
     await Promise.resolve();
@@ -107,7 +118,7 @@ class Entries {
   load(
     refs: readonly Pick<Entry, 'id'>[],
     req = request(),
-  ): ReadonlyMap<Entry['id'], Entry | null> {
+  ): ReadonlyMap<Entry['id'], Pick<Entry, 'id' | 'title' | '$author'> | null> {
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
     calls.push({ method: 'entries', ids: refs.map((ref) => ref.id), identity });
@@ -140,7 +151,21 @@ class Scores {
   }
 }
 
-const resolvers = [Accounts, Entries, Scores];
+type MinimalUser = { readonly id: string; readonly name: string };
+@Resolver()
+class MinimalUsers {
+  @Query()
+  minimal(): Pick<MinimalUser, 'id'> {
+    return { id: 'u1' };
+  }
+
+  @ResolveField()
+  name(parent: Pick<MinimalUser, 'id'>): string {
+    return `User ${parent.id}`;
+  }
+}
+
+const resolvers = [Accounts, Entries, Scores, MinimalUsers];
 let generated: GeneratedGraphqlRuntime;
 let resolversHash: string;
 
@@ -167,6 +192,21 @@ const start = (contextMode: 'sync' | 'async') => {
 };
 
 describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode) => {
+  it('resolves declared fields from IDs without a multi-field provider', async () => {
+    const running = await start(mode);
+    try {
+      const response = await running.http.request('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: '{ minimal { id name } }' }),
+      });
+      expect(await response.json()).toEqual({ data: { minimal: { id: 'u1', name: 'User u1' } } });
+      expect(generated.schemaSdl).toContain('name: String!');
+      expect(generated.schemaSdl).not.toContain('$identity');
+    } finally {
+      await running.shutdown();
+    }
+  });
   it('publishes a per-parent result for async batch fields and caches single providers', async () => {
     const running = await start(mode);
     try {

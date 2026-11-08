@@ -33,6 +33,8 @@ export const app = createApp([
 
 Zelt の Code-first では、**`@Query` は対象の ID（`Pick<Model, 'id'>`）を返す** という原則に基づいています。ID の選定とフィールドの解決を段階的に組み立てていきます。
 
+モデル型は公開フィールドと、解決に必要な非公開プロパティを宣言します。GraphQL の型は、この TypeScript 型から `$` 始まりのプロパティを除いたものです。`@ResolveField` と `@Relation` は、モデル型に宣言したフィールドの解決方法を定義します。
+
 ### Level 1: 最小構成（`@Query` と `@ResolveField`）
 
 最もシンプルな構成は、ルートで対象の ID を選ぶ `@Query` と、その ID からフィールドの値を解決する `@ResolveField` の組み合わせです。
@@ -42,6 +44,7 @@ Zelt の Code-first では、**`@Query` は対象の ID（`Pick<Model, 'id'>`）
 ```ts no-check
 export type User = {
   readonly id: string;
+  readonly name: string;
 };
 ```
 
@@ -64,7 +67,7 @@ export class UserResolver {
 
   // ② 親の ID を受け取って、フィールドの値を個別に解決する
   @ResolveField()
-  name(parent: Pick<User, 'id'>): string {
+  name(parent: Pick<User, 'id'>): User['name'] {
     return `User ${parent.id}`;
   }
 }
@@ -87,9 +90,9 @@ type User {
 
 ### Level 2: 複数フィールドの集約（`@ResolveMultiField`）
 
-モデルのフィールドが増えるたびに `@ResolveField` を個別に書いて都度データを引くのは、コードの重複が増えるだけでなく、データベースアクセスが細分化して N+1 問題の原因になります。
+複数のフィールドをまとめて解決する場合は、`@ResolveMultiField` を使います。戻り値の `Pick<User, ...>` で担当するプロパティを宣言し、`name` は `@ResolveField` で解決します。
 
-そこで **`@ResolveMultiField`** を使って、ID からモデルの元データをまとめて一度に供給します。
+そこで **`@ResolveMultiField`** を使って、ID から複数プロパティの値をまとめて一度に供給します。
 
 #### 1. モデルの拡張と非公開プロパティ (`$`)
 
@@ -98,15 +101,16 @@ type User {
 ```ts no-check
 export type User = {
   readonly id: string;
+  readonly name: string;
   readonly firstName: string;
   readonly lastName: string;
   readonly $familyNameFirst: boolean;
 };
 ```
 
-#### 2. `@ResolveMultiField` による元データのバッチ取得
+#### 2. `@ResolveMultiField` によるプロパティの一括解決
 
-`@ResolveMultiField` を定義すると、複数の ID をまとめて受け取り、モデルの元データを一度に供給できます。
+`@ResolveMultiField` を定義すると、複数の ID をまとめて受け取り、複数プロパティの値を一度に供給できます。
 
 ```ts no-check
 import {
@@ -118,7 +122,7 @@ import type { User } from './models';
 export const GetUserInput = v.object({ id: v.string() });
 export const GetUsersInput = v.object({ ids: v.array(v.string()) });
 
-const USERS_STORE = new Map<string, User>([
+const USERS_STORE = new Map<string, Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'>>([
   ['u1', { id: 'u1', firstName: '太郎', lastName: '山田', $familyNameFirst: true }],
   ['u2', { id: 'u2', firstName: 'John', lastName: 'Doe', $familyNameFirst: false }],
 ]);
@@ -135,19 +139,19 @@ export class UserResolver {
     return input.ids.map(id => ({ id }));
   }
 
-  // ID の配列を受け取り、モデルの元データを一括供給する（自動バッチ）
+  // ID の配列を受け取り、複数プロパティの値を一括供給する（自動バッチ）
   @ResolveMultiField()
-  dbValues(
+  values(
     refs: readonly Pick<User, 'id'>[],
-  ): ReadonlyMap<User['id'], User | null> {
+  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
     return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
   }
 
-  // 元データをもとに計算フィールドを導出する
+  // 依存プロパティをもとに計算フィールドを導出する
   @ResolveField()
   name(
     user: Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>,
-  ): string {
+  ): User['name'] {
     return user.$familyNameFirst
       ? `${user.lastName} ${user.firstName}`
       : `${user.firstName} ${user.lastName}`;
@@ -156,8 +160,8 @@ export class UserResolver {
 ```
 
 ポイント：
-- **公開プロパティの自動公開**: `@ResolveMultiField` で供給された元データのうち、`$` で始まらないプロパティ（`firstName`, `lastName`）は自動で GraphQL フィールドとして公開されます。
-- **計算フィールドの特化**: `@ResolveField` は「元データから値を導出する計算フィールド（`name`）」にのみ専念できます。引数に `Pick<User, ...>` を指定することで、必要なプロパティへの依存を宣言します。
+- **公開プロパティの自動公開**: モデル型に宣言した、`$` で始まらないプロパティ（`firstName`, `lastName`）は自動で GraphQL フィールドとして公開されます。
+- **計算フィールドの特化**: `@ResolveField` は「依存プロパティから値を導出する計算フィールド（`name`）」にのみ専念できます。引数に `Pick<User, ...>` を指定することで、必要なプロパティへの依存を宣言します。
 
 #### フィールド解決のライフサイクルと依存グラフ
 
@@ -167,14 +171,14 @@ sequenceDiagram
     actor Client as クライアント
     participant Router as GraphQL 実行エンジン
     participant Query as @Query
-    participant Multi as @ResolveMultiField (元データ供給)
+    participant Multi as @ResolveMultiField (プロパティ供給)
     participant Field as @ResolveField (計算)
 
     Client->>Router: query { user(id: "u1") { name } }
     Router->>Query: user(id: "u1")
     Query-->>Router: { id: "u1" }
-    Router->>Multi: dbValues([{ id: "u1" }])
-    Multi-->>Router: User の元データ
+    Router->>Multi: values([{ id: "u1" }])
+    Multi-->>Router: User の供給対象プロパティ
     Router->>Field: name(user)
     Field-->>Router: "山田 太郎"
     Router-->>Client: { data: { user: { name: "山田 太郎" } } }
@@ -183,7 +187,7 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     Query["@Query user(id: 'u1')"] -->|① ID オブジェクトを返す| UserID["Pick&lt;User, 'id'&gt;<br/>{ id: 'u1' }"]
-    UserID -->|② ID から元データを一括供給| UserSource["User 元データ (@ResolveMultiField)<br/>id, firstName, lastName, $familyNameFirst"]
+    UserID -->|② ID から複数プロパティを一括供給| UserSource["User の供給対象プロパティ (@ResolveMultiField)<br/>id, firstName, lastName, $familyNameFirst"]
 
     UserSource -->|自動公開| FieldFirst["firstName / lastName"]
     UserSource -->|依存宣言して計算| FieldName["@ResolveField name()<br/>→ '山田 太郎'"]
@@ -201,6 +205,7 @@ flowchart TD
 export type Post = {
   readonly id: string;
   readonly title: string;
+  readonly author: User;
   readonly $authorId: User['id'];
 };
 ```
@@ -210,35 +215,22 @@ export type Post = {
 リレーションメソッドは、親の持つデータ（`$authorId` や `id`）から、**関連先モデルの ID** を選んで返します。
 
 ```ts no-check
-import { inject } from '@zeltjs/core';
 import { Relation, ResolveMultiField, Resolver } from '@zeltjs/graphql';
-import { and, asc, eq, inArray } from 'drizzle-orm';
-import { DrizzleService } from './db/drizzle.service';
-import { posts } from './db/schema';
 import type { Post, User } from './models';
+
+const POSTS = new Map<string, Pick<Post, 'id' | 'title' | '$authorId'>>([
+  ['p1', { id: 'p1', title: 'Hello', $authorId: 'u1' }],
+]);
 
 @Resolver()
 export class PostResolver {
-  constructor(private db = inject(DrizzleService)) {}
-
   @ResolveMultiField()
-  async dbValues(
-    refs: readonly Pick<Post, 'id'>[],
-  ): Promise<ReadonlyMap<Post['id'], Post | null>> {
-    const rows = await this.db.client
-      .select({
-        id: posts.id,
-        $authorId: posts.authorId,
-        title: posts.title,
-      })
-      .from(posts)
-      .where(inArray(posts.id, refs.map(ref => ref.id)));
-
-    const byId = new Map(rows.map(row => [row.id, row]));
-    return new Map(refs.map(ref => [ref.id, byId.get(ref.id) ?? null]));
+  values(
+    ids: readonly Pick<Post, 'id'>[],
+  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
+    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
   }
 
-  // 親 Post の $authorId から、著者の User ID を返す
   @Relation()
   author(post: Pick<Post, '$authorId'>): Pick<User, 'id'> {
     return { id: post.$authorId };
@@ -246,30 +238,19 @@ export class PostResolver {
 }
 ```
 
-同様に、`UserResolver` 側にも Post へのリレーションを追加できます。
+`User` にも `readonly posts: readonly Post[]` を宣言し、`UserResolver` に次のメソッドを追加します。
 
 ```ts no-check
-  // UserResolver 内: 親 User の ID 配列から、公開 Post の ID 一覧をバッチ検索して返す
   @Relation()
-  async publicPosts(
+  posts(
     parents: readonly Pick<User, 'id'>[],
-  ): Promise<ReadonlyMap<User['id'], readonly Pick<Post, 'id'>[]>> {
-    const rows = await this.db.client
-      .select({ id: posts.id, authorId: posts.authorId })
-      .from(posts)
-      .where(and(
-        inArray(posts.authorId, parents.map(parent => parent.id)),
-        eq(posts.published, true),
-      ))
-      .orderBy(asc(posts.id));
-
-    const byAuthor = new Map<User['id'], Pick<Post, 'id'>[]>(
-      parents.map(parent => [parent.id, []]),
-    );
-    for (const row of rows) {
-      byAuthor.get(row.authorId)?.push({ id: row.id });
-    }
-    return byAuthor;
+  ): ReadonlyMap<User['id'], readonly Pick<Post, 'id'>[]> {
+    return new Map(parents.map(parent => [
+      parent.id,
+      [...POSTS.values()]
+        .filter(post => post.$authorId === parent.id)
+        .map(post => ({ id: post.id })),
+    ]));
   }
 ```
 
@@ -279,7 +260,7 @@ export class PostResolver {
 query {
   users(ids: ["u1", "u2"]) {
     name
-    publicPosts {
+    posts {
       title
       author {
         name
@@ -293,7 +274,7 @@ query {
 flowchart TD
     Q["1. Query.users が ID ['u1', 'u2'] を返す"]
     M1["2. User 供給元が 'u1', 'u2' のデータを一括バッチ取得"]
-    F1["3. 各ユーザーの name を計算 & publicPosts を一括検索"]
+    F1["3. 各ユーザーの name を計算 & posts を一括検索"]
     M2["4. Post 供給元が全関連 Post のデータを一括バッチ取得"]
     R["5. Post.author が親の $authorId から ID を抽出"]
     Reuse["6. 著者 ID が 'u1'/'u2' ならキャッシュ再利用（新規のみ追加バッチ）"]
@@ -302,7 +283,7 @@ flowchart TD
     Q --> M1 --> F1 --> M2 --> R --> Reuse --> Resp
 ```
 
-どれだけクエリが深くネストしても、リレーションは関連先モデルの ID を返し、データの実取得は各モデルの `@ResolveMultiField` に自動で束ねられるため、DataLoader を手動管理することなく N+1 問題が解消されます。
+リレーションは関連先モデルの ID を返します。バッチ形式の `@ResolveMultiField` で複数 ID のプロパティをまとめて供給することで、DataLoader を手動管理せずに取得処理を集約できます。
 
 ---
 
@@ -318,25 +299,21 @@ flowchart TD
 デコレータに追加のオプションを指定する必要はありません。
 
 ```ts no-check
-// 単体形式の ResolveMultiField の例
 @ResolveMultiField()
-async dbValues(ref: Pick<User, 'id'>): Promise<User | null> {
-  const [row] = await this.db.client
-    .select({ ... })
-    .from(users)
-    .where(eq(users.id, ref.id))
-    .limit(1);
-
-  return row ?? null;
+values(
+  user: Pick<User, 'id'>,
+): Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null {
+  return USERS_STORE.get(user.id) ?? null;
 }
 ```
 
-単体形式でも同一 operation 内で同じ ID が現れた場合はキャッシュが再利用されますが、未取得の ID は個別に呼び出されるため、DB アクセスを伴う場合は配列を受け取るバッチ形式を推奨します。
+単体形式でも同一 operation 内で同じ ID が現れた場合はキャッシュが再利用されますが、未取得の ID は個別に呼び出されるため、複数 ID の値をまとめて取得できる場合は配列を受け取るバッチ形式を推奨します。
 
 ---
 
 ## 実行・キャッシュ・契約のルール {#runtime-contract}
 
+- **モデル型と解決方法**: 公開フィールドはモデル型に宣言します。各プロパティは `@ResolveMultiField` または対応する `@ResolveField`・`@Relation` で解決します。未宣言フィールド、解決方法の欠落・重複、宣言と戻り値の型の不一致はビルド時エラーです。ID だけを使って各フィールドを解決する場合、`@ResolveMultiField` は不要です。
 - **ID オブジェクトの返却**: Query や Relation は、`{ id: input.id }` のように ID をプロパティに持つオブジェクト（`Pick<Model, 'id'>`）を返します。
 - **入力の重複排除**: バッチ形式のメソッドには、重複のない ID 配列が渡されます。
 - **Map の整合性**: バッチ形式の戻り値 `ReadonlyMap` は、入力されたすべての ID をキーとして含める必要があります。該当データが存在しない場合は値を `null` とします。
@@ -441,7 +418,7 @@ GraphQL 機能の動作にはビルド時に生成された prebuilt モジュ�
 - **ビルド時 (`zelt build` / `zelt dev`)**:
   TypeScript の解析エンジンがモデルの型・供給元・依存関係・リレーションを解析し、最新の manifest と SDL を生成します。
 - **起動時**:
-  prebuilt entry の存在、エンドポイントの path、リゾルバ名、デコレータの種類、公開フィールド名、元データの型やリレーションの nullability / 配列の一致を検証します。
+  prebuilt entry の存在、エンドポイントの path、リゾルバ名、デコレータの種類、公開フィールド名、供給プロパティの型やリレーションの nullability / 配列の一致を検証します。
 
 ---
 

@@ -52,10 +52,10 @@ describe('GraphQL metadata contracts', () => {
       generateGraphqlRuntimeForResolvers([RequiredArgumentResolver], { tsconfig }),
     ).rejects.toThrow('query parameters require defaults');
   });
-  it('rejects a quoted relation method without its model provider', async () => {
+  it('rejects a relation not declared in its model', async () => {
     await expect(
       generateGraphqlRuntimeForResolvers([QuotedRelationResolver], { tsconfig }),
-    ).rejects.toThrow('@Relation requires a model provider');
+    ).rejects.toThrow('field ContractUser.friend must be declared in the model');
   });
   it('fingerprints operation order within one method', async () => {
     expect(

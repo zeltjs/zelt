@@ -12,6 +12,8 @@ import {
 
 type ModelUser = {
   readonly id: string;
+  readonly label: string;
+  readonly friend: ModelUser | null;
   readonly first: string;
   readonly $secret: { readonly token: string };
   readonly active: boolean | null;
@@ -26,7 +28,15 @@ class ModelUserResolver {
     return { id: '1' };
   }
   @ResolveMultiField()
-  users(_refs: readonly Pick<ModelUser, 'id'>[]): Map<ModelUser['id'], ModelUser | null> {
+  users(
+    _refs: readonly Pick<ModelUser, 'id'>[],
+  ): Map<
+    ModelUser['id'],
+    Pick<
+      ModelUser,
+      'id' | 'first' | '$secret' | 'active' | 'optional' | 'requiredUndefined' | 'both'
+    > | null
+  > {
     return new Map();
   }
   @ResolveField()
@@ -39,7 +49,7 @@ class ModelUserResolver {
   }
 }
 
-type BatchUser = { id: string; $friend: string };
+type BatchUser = { id: string; $friend: string; friends: readonly BatchUser[] };
 const contextValue = (): string => 'context';
 @Resolver()
 class BatchUserResolver {
@@ -55,7 +65,7 @@ class BatchUserResolver {
   load(
     _refs: readonly Pick<BatchUser, 'id'>[],
     _context = contextValue(),
-  ): Promise<ReadonlyMap<BatchUser['id'], BatchUser | null>> {
+  ): Promise<ReadonlyMap<BatchUser['id'], Pick<BatchUser, 'id' | '$friend'> | null>> {
     return Promise.resolve(new Map());
   }
   @Relation('friends')
@@ -67,7 +77,15 @@ class BatchUserResolver {
   }
 }
 
-type VariantUser = { id: string; first: string };
+type VariantUser = { id: string; first: string; upper: string; other: VariantUser | null };
+type SyncVariantUser = { id: string; first: string; upper: string; other: SyncVariantUser };
+type BatchVariantUser = {
+  id: string;
+  first: string;
+  upper: readonly (string | null)[];
+  lower: string;
+  other: BatchVariantUser | null;
+};
 @Resolver()
 class SingleVariantResolver {
   @QueryDecorator()
@@ -75,7 +93,7 @@ class SingleVariantResolver {
     return { id: '1' };
   }
   @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): Promise<VariantUser | null> {
+  load(_ref: Pick<VariantUser, 'id'>): Promise<Pick<VariantUser, 'id' | 'first'> | null> {
     return Promise.resolve(null);
   }
   @ResolveField()
@@ -90,49 +108,53 @@ class SingleVariantResolver {
 @Resolver()
 class SingleSyncVariantResolver {
   @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+  load(_ref: Pick<SyncVariantUser, 'id'>): Pick<SyncVariantUser, 'id' | 'first'> | null {
     return null;
   }
   @ResolveField()
-  upper(user: Pick<VariantUser, 'first'>): string {
+  upper(user: Pick<SyncVariantUser, 'first'>): string {
     return user.first;
   }
   @Relation()
-  other(user: Pick<VariantUser, 'id'>): Pick<VariantUser, 'id'> {
+  other(user: Pick<SyncVariantUser, 'id'>): Pick<SyncVariantUser, 'id'> {
     return user;
   }
 }
 @Resolver()
 class BatchVariantResolver {
   @QueryDecorator()
-  variant(): Pick<VariantUser, 'id'> {
+  variant(): Pick<BatchVariantUser, 'id'> {
     return { id: '1' };
   }
   @ResolveMultiField()
-  load(_refs: readonly Pick<VariantUser, 'id'>[]): ReadonlyMap<string, VariantUser | null> {
+  load(
+    _refs: readonly Pick<BatchVariantUser, 'id'>[],
+  ): ReadonlyMap<string, Pick<BatchVariantUser, 'id' | 'first'> | null> {
     return new Map();
   }
   @ResolveField()
   upper(
-    _users: readonly Pick<VariantUser, 'id' | 'first'>[],
+    _users: readonly Pick<BatchVariantUser, 'id' | 'first'>[],
   ): Promise<ReadonlyMap<string, readonly (string | null)[]>> {
     return Promise.resolve(new Map());
   }
   @ResolveField()
-  lower(_users: readonly Pick<VariantUser, 'id'>[]): ReadonlyMap<string, string> {
+  lower(_users: readonly Pick<BatchVariantUser, 'id'>[]): ReadonlyMap<string, string> {
     return new Map();
   }
   @Relation()
   other(
-    _users: readonly Pick<VariantUser, 'id'>[],
-  ): Promise<ReadonlyMap<string, Pick<VariantUser, 'id'> | null>> {
+    _users: readonly Pick<BatchVariantUser, 'id'>[],
+  ): Promise<ReadonlyMap<string, Pick<BatchVariantUser, 'id'> | null>> {
     return Promise.resolve(new Map());
   }
 }
 @Resolver()
 class MissingBatchIdResolver {
   @ResolveMultiField()
-  load(_refs: readonly Pick<VariantUser, 'id'>[]): Map<string, VariantUser | null> {
+  load(
+    _refs: readonly Pick<VariantUser, 'id'>[],
+  ): Map<string, Pick<VariantUser, 'id' | 'first'> | null> {
     return new Map();
   }
   @ResolveField()
@@ -143,7 +165,7 @@ class MissingBatchIdResolver {
 @Resolver()
 class MissingRelationIdResolver {
   @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+  load(_ref: Pick<VariantUser, 'id'>): Pick<VariantUser, 'id' | 'first'> | null {
     return null;
   }
   @Relation()
@@ -154,14 +176,16 @@ class MissingRelationIdResolver {
 @Resolver()
 class BadProviderShapeResolver {
   @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): Map<string, VariantUser | null> {
+  load(_ref: Pick<VariantUser, 'id'>): Map<string, Pick<VariantUser, 'id' | 'first'> | null> {
     return new Map();
   }
 }
 @Resolver()
 class BadComputedMapResolver {
   @ResolveMultiField()
-  load(_refs: readonly Pick<VariantUser, 'id'>[]): Map<string, VariantUser | null> {
+  load(
+    _refs: readonly Pick<VariantUser, 'id'>[],
+  ): Map<string, Pick<VariantUser, 'id' | 'first'> | null> {
     return new Map();
   }
   @ResolveField()
@@ -172,7 +196,7 @@ class BadComputedMapResolver {
 @Resolver()
 class BadComputedValueResolver {
   @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+  load(_ref: Pick<VariantUser, 'id'>): Pick<VariantUser, 'id' | 'first'> | null {
     return null;
   }
   @ResolveField()
@@ -184,7 +208,7 @@ class BadComputedValueResolver {
 @Resolver()
 class BadRelationPromiseResolver {
   @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+  load(_ref: Pick<VariantUser, 'id'>): Pick<VariantUser, 'id' | 'first'> | null {
     return null;
   }
   @Relation()
@@ -197,7 +221,9 @@ type OtherUser = { id: string; $friend: string };
 @Resolver()
 class WrongParentResolver {
   @ResolveMultiField()
-  load(_refs: readonly Pick<BatchUser, 'id'>[]): Map<BatchUser['id'], BatchUser | null> {
+  load(
+    _refs: readonly Pick<BatchUser, 'id'>[],
+  ): Map<BatchUser['id'], Pick<BatchUser, 'id' | '$friend'> | null> {
     return new Map();
   }
   @ResolveField()
@@ -212,7 +238,9 @@ namespace Fake {
 @Resolver()
 class FakeMapResolver {
   @ResolveMultiField()
-  load(_refs: readonly Pick<BatchUser, 'id'>[]): Fake.Map<BatchUser['id'], BatchUser | null> {
+  load(
+    _refs: readonly Pick<BatchUser, 'id'>[],
+  ): Fake.Map<BatchUser['id'], Pick<BatchUser, 'id' | '$friend'> | null> {
     return new Map();
   }
 }
@@ -223,22 +251,24 @@ namespace FakeArray {
 @Resolver()
 class FakeArrayResolver {
   @ResolveMultiField()
-  load(_refs: FakeArray.Array<Pick<BatchUser, 'id'>>): Map<BatchUser['id'], BatchUser | null> {
+  load(
+    _refs: FakeArray.Array<Pick<BatchUser, 'id'>>,
+  ): Map<BatchUser['id'], Pick<BatchUser, 'id' | '$friend'> | null> {
     return new Map();
   }
 }
 @Resolver()
 class NamesResolver {
   @QueryDecorator('constructor')
-  another(): Pick<BatchUser, 'id'> {
+  another(): Pick<OtherUser, 'id'> {
     return { id: '2' };
   }
   @QueryDecorator('toString')
-  user(): Pick<BatchUser, 'id'> {
+  user(): Pick<OtherUser, 'id'> {
     return { id: '1' };
   }
   @ResolveMultiField()
-  load(_refs: readonly Pick<BatchUser, 'id'>[]): Map<BatchUser['id'], BatchUser | null> {
+  load(_refs: readonly Pick<OtherUser, 'id'>[]): Map<OtherUser['id'], OtherUser | null> {
     return new Map();
   }
 }
@@ -249,7 +279,9 @@ class ReservedResolver {
     return { id: '1' };
   }
   @ResolveMultiField()
-  load(_refs: readonly Pick<BatchUser, 'id'>[]): Map<BatchUser['id'], BatchUser | null> {
+  load(
+    _refs: readonly Pick<BatchUser, 'id'>[],
+  ): Map<BatchUser['id'], Pick<BatchUser, 'id' | '$friend'> | null> {
     return new Map();
   }
 }
@@ -349,7 +381,50 @@ class BadUserResolver {
   }
 }
 
+type DeclaredUser = { readonly id: string; readonly name: string };
+@Resolver()
+class WrongDeclaredTypeResolver {
+  @ResolveField()
+  name(_parent: Pick<DeclaredUser, 'id'>): number {
+    return 1;
+  }
+}
+@Resolver()
+class UndeclaredFieldResolver {
+  @ResolveField()
+  extra(_parent: Pick<DeclaredUser, 'id'>): string {
+    return '';
+  }
+}
+@Resolver()
+class UnresolvedFieldResolver {
+  @ResolveMultiField()
+  values(_parent: Pick<DeclaredUser, 'id'>): Pick<DeclaredUser, 'id'> | null {
+    return null;
+  }
+}
+type RelatedUser = { id: string; friend: RelatedUser };
+@Resolver()
+class WrongDeclaredRelationResolver {
+  @Relation()
+  friend(_parent: Pick<RelatedUser, 'id'>): Pick<RelatedUser, 'id'> | null {
+    return null;
+  }
+}
+
 describe('model code generation', () => {
+  it.each([
+    [WrongDeclaredTypeResolver, 'resolved field type must match'],
+    [UndeclaredFieldResolver, 'must be declared in the model'],
+    [UnresolvedFieldResolver, 'has no resolver'],
+    [WrongDeclaredRelationResolver, 'relation type must match'],
+  ] as const)('rejects an invalid declared model contract (%s)', async (resolver, message) => {
+    await expect(
+      generateGraphqlRuntimeForResolvers([resolver], {
+        tsconfig: resolve(__dirname, '../tsconfig.json'),
+      }),
+    ).rejects.toThrow(message);
+  });
   it('finishes the cold first inspection before inspecting the remaining models', async () => {
     const tsconfig = resolve(__dirname, '../tsconfig.json');
     inspection.clearProgramCache(tsconfig);
@@ -432,7 +507,7 @@ describe('model code generation', () => {
     const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };
     const single = await generateGraphqlRuntimeForResolvers([SingleVariantResolver], options);
     const sync = await generateGraphqlRuntimeForResolvers([SingleSyncVariantResolver], options);
-    expect(sync.models?.['VariantUser']?.mode).toBe('single');
+    expect(sync.models?.['SyncVariantUser']?.mode).toBe('single');
     expect(single.models?.['VariantUser']?.mode).toBe('single');
     const fields = single.modelFields?.['VariantUser'];
     expect(fields).toBeDefined();
@@ -447,9 +522,9 @@ describe('model code generation', () => {
     const batch = await generateGraphqlRuntimeForResolvers([BatchVariantResolver], {
       tsconfig: resolve(__dirname, '../tsconfig.json'),
     });
-    expect(batch.models?.['VariantUser']?.mode).toBe('batch');
+    expect(batch.models?.['BatchVariantUser']?.mode).toBe('batch');
     expect(batch.schemaSdl).toContain('upper: [String]!');
-    const fields = batch.modelFields?.['VariantUser'];
+    const fields = batch.modelFields?.['BatchVariantUser'];
     expect(fields).toBeDefined();
     if (!fields) throw new Error('Missing fields');
     expect(fields['lower']).toMatchObject({ mode: 'batch' });

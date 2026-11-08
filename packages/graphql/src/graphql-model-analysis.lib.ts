@@ -330,10 +330,6 @@ const providerMethod = (input: ModelResolverInput): Method | undefined => {
   if (first && providers.length !== 1)
     fail(input, first, 'exactly one @ResolveMultiField is required');
   if (first) return first;
-  const relation = methods(input).find(
-    (m) => operation(input, methodName(input, m))?.kind === 'relation',
-  );
-  if (relation) fail(input, relation, '@Relation requires a model provider');
   return undefined;
 };
 /**
@@ -368,6 +364,26 @@ const batchValue = (
     fail(input, method, 'batch Map values cannot be Promise');
   return value;
 };
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const providedSymbols = (
+  node: TypeNode,
+  symbol: Symbol,
+  input: ModelResolverInput,
+  method: Method,
+): readonly Symbol[] => {
+  const declared = input.checker.getDeclaredTypeOfSymbol(symbol);
+  if (!input.ts.isTypeReferenceNode(node) || node.typeName.getText() !== 'Pick') {
+    if (symbolFor(node, input.checker, input.ts) !== symbol)
+      fail(input, method, 'provider result must be Model | null or Pick<Model, keys> | null');
+    return declared.getProperties();
+  }
+  const selected = pick(node, input, method);
+  if (selected.symbol !== symbol) fail(input, method, 'provider Pick must refer to its model');
+  return selected.keys.map(
+    (key) => declared.getProperty(key) ?? fail(input, method, `unknown provider property ${key}`),
+  );
+};
+
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
@@ -381,12 +397,11 @@ const providerProperties = (
   if (!returned) fail(input, method, 'explicit return type is required');
   const value = batch ? batchValue(returned, symbol, input, method) : returned;
   const data = nullable(value, input.ts);
-  if (!data.nullable || symbolFor(data.node, input.checker, input.ts) !== symbol)
-    fail(input, method, 'provider result must be Model | null, directly or as each Map value');
-  const properties = input.checker
-    .getDeclaredTypeOfSymbol(symbol)
-    .getProperties()
-    .map((property) => inspectProperty(property, input, method));
+  if (!data.nullable)
+    fail(input, method, 'provider result must be Model | null or Pick<Model, keys> | null');
+  const properties = providedSymbols(data.node, symbol, input, method).map((property) =>
+    inspectProperty(property, input, method),
+  );
   const id = properties.find((property) => property.name === 'id');
   if (!isStringId(id)) fail(input, method, 'model requires a non-null scalar id');
   return properties;
@@ -394,26 +409,73 @@ const providerProperties = (
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
+const parentType = (method: Method): TypeNode | undefined => method.parameters[0]?.type;
+
+const identityFieldMethod = (input: ModelResolverInput): Method | undefined =>
+  methods(input).find((candidate) => {
+    const kind = operation(input, methodName(input, candidate))?.kind;
+    if (kind !== 'resolveField' && kind !== 'relation') return false;
+    const parent = parentType(candidate);
+    if (!parent) return false;
+    const node = arrayElement(parent, input) ?? parent;
+    return input.ts.isTypeReferenceNode(node) && node.typeName.getText() === 'Pick';
+  });
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const identityProperties = (
+  symbol: Symbol,
+  input: ModelResolverInput,
+  method: Method,
+): GraphqlModelProperty[] => {
+  const id = input.checker.getDeclaredTypeOfSymbol(symbol).getProperty('id');
+  const property = inspectProperty(
+    id ?? fail(input, method, 'model requires a non-null scalar id'),
+    input,
+    method,
+  );
+  if (!isStringId(property)) fail(input, method, 'model requires a non-null scalar id');
+  return [property];
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const identitySymbol = (
+  input: ModelResolverInput,
+  method: Method,
+  parent: TypeNode | undefined,
+): Symbol => pick(parent && (arrayElement(parent, input) ?? parent), input, method).symbol;
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const collectModel = (input: ModelResolverInput): Model | undefined => {
+  const provider = providerMethod(input);
+  const method = provider ?? identityFieldMethod(input);
+  if (!method) return undefined;
+  const parent = parentType(method);
+  const { symbol, batch } = provider
+    ? providerSymbol(input, method)
+    : {
+        symbol: identitySymbol(input, method, parent),
+        batch: false,
+      };
+  if (symbol.name.startsWith('__')) fail(input, method, 'reserved GraphQL model name');
+  const definition: GraphqlModelDefinition = provider
+    ? {
+        provider: { resolver: input.resolver, method: methodName(input, method) },
+        mode: batch ? 'batch' : 'single',
+        properties: providerProperties(input, method, symbol, batch),
+      }
+    : { mode: 'identity', properties: identityProperties(symbol, input, method) };
+  return { name: symbol.name, symbol, input, definition };
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
 const collectModels = (inputs: readonly ModelResolverInput[]): Model[] => {
   const models: Model[] = [];
   for (const input of inputs) {
-    const method = providerMethod(input);
-    if (!method) continue;
-    const { symbol, batch } = providerSymbol(input, method);
-    if (symbol.name.startsWith('__')) fail(input, method, 'reserved GraphQL model name');
-    if (models.some((model) => model.symbol === symbol || model.name === symbol.name))
-      fail(input, method, 'duplicate model provider or model name');
-    const properties = providerProperties(input, method, symbol, batch);
-    models.push({
-      name: symbol.name,
-      symbol,
-      input,
-      definition: {
-        provider: { resolver: input.resolver, method: methodName(input, method) },
-        mode: batch ? 'batch' : 'single',
-        properties,
-      },
-    });
+    const model = collectModel(input);
+    if (!model) continue;
+    if (models.some((existing) => existing.symbol === model.symbol || existing.name === model.name))
+      fail(input, required(methods(input)[0]), 'duplicate model provider or model name');
+    models.push(model);
   }
   return models;
 };
@@ -566,6 +628,71 @@ const relationField = (
     mode: dep.batch ? 'batch' : 'single',
   };
 };
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const validateDeclaredRelation = (
+  model: Model,
+  method: Method,
+  node: TypeNode,
+  field: Extract<GraphqlModelField, { kind: 'relation' }>,
+  optional: boolean,
+): void => {
+  const { input } = model;
+  const outer = nullable(node, input.ts);
+  const element = arrayElement(outer.node, input);
+  const inner = nullable(element ?? outer.node, input.ts);
+  const target = symbolFor(inner.node, input.checker, input.ts);
+  const isNullable = outer.nullable || optional;
+  const shape: GraphqlModelResultShape = element
+    ? {
+        kind: 'many',
+        nullable: isNullable,
+        itemNullable: inner.nullable,
+      }
+    : { kind: 'one', nullable: isNullable };
+  if (target?.name !== field.target || JSON.stringify(shape) !== JSON.stringify(field.shape))
+    fail(input, method, `relation type must match ${model.name}.${methodName(input, method)}`);
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const declaredFieldProperty = (
+  property: Symbol,
+  input: ModelResolverInput,
+  method: Method,
+): { declaration: import('typescript').PropertySignature; type: TypeNode } => {
+  const declaration = property.valueDeclaration ?? property.declarations?.[0];
+  if (!declaration || !input.ts.isPropertySignature(declaration) || !declaration.type)
+    fail(input, method, 'resolved fields require a typed model property');
+  return { declaration, type: declaration.type };
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const validateDeclaredField = (
+  model: Model,
+  method: Method,
+  property: Symbol,
+  field: GraphqlModelField,
+): void => {
+  const { input } = model;
+  const { declaration, type } = declaredFieldProperty(property, input, method);
+  if (field.kind === 'computed') {
+    const value = modelValueOf(
+      input.checker.getTypeOfSymbolAtLocation(property, declaration),
+      input.checker,
+      input.ts,
+    );
+    if (JSON.stringify(value) !== JSON.stringify(field.value))
+      fail(input, method, `resolved field type must match ${model.name}.${property.name}`);
+  } else if (field.kind === 'relation') {
+    validateDeclaredRelation(
+      model,
+      method,
+      type,
+      field,
+      Boolean(property.flags & input.ts.SymbolFlags.Optional),
+    );
+  }
+};
+
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
@@ -581,11 +708,14 @@ const registerModelField = (
   const { input } = model;
   if (names.has(name)) fail(input, method, `duplicate field ${model.name}.${name}`);
   names.add(name);
+  const declared = input.checker.getDeclaredTypeOfSymbol(model.symbol).getProperty(name);
   const dep = dependencies(model, method);
+  if (!declared) fail(input, method, `field ${model.name}.${name} must be declared in the model`);
   const field =
     kind === 'resolveField'
       ? computedField(model, method, type, dep)
       : relationField(state, model, method, type, dep);
+  validateDeclaredField(model, method, declared, field);
   registerField(state, model.name, name, field, input, method);
 };
 /**
@@ -621,6 +751,19 @@ const collectFields = (models: readonly Model[]): Pick<ModelAnalysis, 'fields' |
         .map((property) => property.name),
     );
     for (const method of methods(model.input)) analyzeField(state, model, method, names);
+    for (const property of model.input.checker
+      .getDeclaredTypeOfSymbol(model.symbol)
+      .getProperties()) {
+      if (
+        !model.definition.properties.some((source) => source.name === property.name) &&
+        !readOwnEntry(state.fields[model.name] ?? {}, property.name)
+      )
+        fail(
+          model.input,
+          required(methods(model.input)[0]),
+          `model property ${model.name}.${property.name} has no resolver`,
+        );
+    }
   }
   return { fields: state.fields, bindings: state.bindings };
 };
