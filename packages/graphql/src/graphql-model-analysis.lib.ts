@@ -7,26 +7,31 @@ import type {
   GraphqlModelResultShape,
   GraphqlModelValue,
 } from './graphql-model.types';
+import type { ModelRef, ModelTypeReader, ReferenceType } from './graphql-model-type.lib';
+import {
+  arrayElement,
+  awaited,
+  isPromiseLike,
+  isPublicValue,
+  mapEntry,
+  modelName,
+  modelRef,
+  modelValue,
+  referenceType,
+  withoutNullish,
+} from './graphql-model-type.lib';
 import { readOwnEntry } from './graphql-record.lib';
 
-type TS = typeof import('typescript');
-type TypeNode = import('typescript').TypeNode;
+type Type = import('typescript').Type;
 type Symbol = import('typescript').Symbol;
-type Checker = import('typescript').TypeChecker;
 type Method = import('typescript').MethodDeclaration;
 
 export type ModelResolverInput = {
   readonly resolver: string;
   readonly metadata: ClassMetadata;
   readonly classNode: import('typescript').ClassDeclaration;
-  readonly checker: Checker;
-  readonly ts: TS;
-};
-type Model = {
-  readonly name: string;
-  readonly symbol: Symbol;
-  readonly input: ModelResolverInput;
-  readonly definition: GraphqlModelDefinition;
+  readonly checker: import('typescript').TypeChecker;
+  readonly ts: typeof import('typescript');
 };
 export type ModelAnalysis = {
   readonly models: Record<string, GraphqlModelDefinition>;
@@ -35,629 +40,465 @@ export type ModelAnalysis = {
   readonly bindings: Record<string, Record<string, { resolver: string; method: string }>>;
 };
 
-const methodName = (input: ModelResolverInput, method: Method): string => {
-  const name = method.name;
+const OPERATION_KINDS = [
+  'query',
+  'mutation',
+  'resolveField',
+  'relation',
+  'resolveMultiField',
+] as const;
+type OperationKind = (typeof OPERATION_KINDS)[number];
+
+type Site = {
+  readonly input: ModelResolverInput;
+  readonly reader: ModelTypeReader;
+  readonly method: Method;
+  readonly methodName: string;
+  readonly kind: OperationKind;
+  readonly fieldName: string;
+};
+type Parent = { readonly ref: ModelRef; readonly batch: boolean };
+type Model = {
+  readonly name: string;
+  readonly type: Type;
+  readonly origin: Site;
+  readonly declared: ReadonlyMap<string, Symbol>;
+};
+type Provider = { readonly site: Site; readonly batch: boolean; readonly keys: readonly string[] };
+type State = {
+  readonly models: Map<Type, Model>;
+  readonly providers: Map<Type, Provider>;
+  readonly definitions: Map<Type, GraphqlModelDefinition>;
+  readonly fields: ModelAnalysis['fields'];
+  readonly bindings: ModelAnalysis['bindings'];
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+function fail(site: Site, message: string): never {
+  throw new Error(`${site.input.resolver}.${site.methodName}: ${message}`);
+}
+
+const operationKind = (value: unknown): OperationKind | undefined =>
+  OPERATION_KINDS.find((kind) => kind === value);
+
+const methodNameOf = (input: ModelResolverInput, method: Method): string => {
+  const { name } = method;
   return input.ts.isStringLiteral(name) || input.ts.isNumericLiteral(name)
     ? name.text
     : name.getText();
 };
-const operation = (
-  input: ModelResolverInput,
-  name: string,
-): { kind: string; fieldName: string } | undefined => {
-  const method = input.metadata.methods.find((item) => item.name === name);
-  for (const prop of method?.props ?? []) {
-    const kind: unknown = Reflect.get(prop, 'kind');
-    if (
-      typeof kind === 'string' &&
-      ['query', 'mutation', 'resolveField', 'relation', 'resolveMultiField'].includes(kind)
-    ) {
-      const fieldName: unknown = Reflect.get(prop, 'fieldName');
-      return { kind, fieldName: typeof fieldName === 'string' ? fieldName : name };
-    }
+
+const siteOf = (input: ModelResolverInput, method: Method): Site | undefined => {
+  const methodName = methodNameOf(input, method);
+  const props = input.metadata.methods.find((item) => item.name === methodName)?.props ?? [];
+  for (const prop of props) {
+    const kind = operationKind(Reflect.get(prop, 'kind'));
+    if (!kind) continue;
+    const fieldName: unknown = Reflect.get(prop, 'fieldName');
+    return {
+      input,
+      reader: { checker: input.checker, ts: input.ts },
+      method,
+      methodName,
+      kind,
+      fieldName: typeof fieldName === 'string' ? fieldName : methodName,
+    };
   }
   return undefined;
 };
-const methods = (input: ModelResolverInput): readonly Method[] =>
-  input.classNode.members.filter(input.ts.isMethodDeclaration);
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-function fail(input: ModelResolverInput, method: Method, message: string): never {
-  throw new Error(`${input.resolver}.${methodName(input, method)}: ${message}`);
-}
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:required
- */
-const required = <T>(value: T | undefined): T => {
-  if (value === undefined) throw new Error('Missing required TypeScript declaration');
-  return value;
+
+const sitesOf = (input: ModelResolverInput): readonly Site[] =>
+  input.classNode.members
+    .filter(input.ts.isMethodDeclaration)
+    .flatMap((method) => siteOf(input, method) ?? []);
+
+const typeText = (site: Site, type: Type): string => site.input.checker.typeToString(type);
+
+const parameterType = (site: Site): Type | undefined => {
+  const parameter = site.method.parameters[0];
+  return parameter && site.input.checker.getTypeAtLocation(parameter);
 };
-const isBuiltin = (node: TypeNode, name: string, input: ModelResolverInput): boolean => {
-  const symbol = symbolFor(node, input.checker, input.ts);
-  return (
-    symbol?.name === name &&
-    Boolean(
-      symbol.declarations?.some((d) =>
-        /[\\/]typescript[\\/]lib[\\/]lib\..*\.d\.ts$/.test(d.getSourceFile().fileName),
-      ),
-    )
-  );
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const returnType = (site: Site): Type => {
+  const signature = site.input.checker.getSignatureFromDeclaration(site.method);
+  if (!signature) fail(site, 'cannot read the method signature');
+  return awaited(site.input.checker.getReturnTypeOfSignature(signature), site.reader);
 };
-const unwrapPromise = (node: TypeNode, input: ModelResolverInput): TypeNode => {
-  if (input.ts.isTypeReferenceNode(node) && isBuiltin(node, 'Promise', input)) {
-    const inner = node.typeArguments?.[0];
-    if (inner && node.typeArguments.length === 1) return unwrapPromise(inner, input);
-  }
-  return node;
-};
-const isBuiltinArray = (node: TypeNode, input: ModelResolverInput): boolean =>
-  isBuiltin(node, 'Array', input) || isBuiltin(node, 'ReadonlyArray', input);
-const arrayElement = (node: TypeNode, input: ModelResolverInput): TypeNode | undefined => {
-  const { ts } = input;
-  if (ts.isTypeOperatorNode(node) && node.operator === ts.SyntaxKind.ReadonlyKeyword)
-    return arrayElement(node.type, input);
-  if (ts.isArrayTypeNode(node)) return node.elementType;
-  if (ts.isTypeReferenceNode(node) && isBuiltinArray(node, input)) return node.typeArguments?.[0];
-  return undefined;
-};
-const symbolFor = (node: TypeNode, checker: Checker, ts: TS): Symbol | undefined => {
-  if (!ts.isTypeReferenceNode(node)) return undefined;
-  const symbol = checker.getSymbolAtLocation(node.typeName);
-  return symbol && (symbol.flags & ts.SymbolFlags.Alias) !== 0
-    ? checker.getAliasedSymbol(symbol)
-    : symbol;
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const pickKeys = (node: TypeNode, input: ModelResolverInput, method: Method): string[] => {
-  const nodes = input.ts.isUnionTypeNode(node) ? node.types : [node];
-  return nodes.map((key) => {
-    if (!input.ts.isLiteralTypeNode(key) || !input.ts.isStringLiteral(key.literal))
-      fail(input, method, 'Pick keys must be string literals');
-    return key.literal.text;
-  });
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const requireModelSymbol = (node: TypeNode, input: ModelResolverInput, method: Method): Symbol => {
-  const symbol = symbolFor(node, input.checker, input.ts);
-  return symbol ?? fail(input, method, 'expected a named model type');
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const pick = (
-  node: TypeNode | undefined,
-  input: ModelResolverInput,
-  method: Method,
-): { symbol: Symbol; keys: string[] } => {
-  const { ts } = input;
-  if (!node || !ts.isTypeReferenceNode(node))
-    fail(input, method, 'expected a direct Pick<Model, keys>');
-  if (node.typeName.getText() !== 'Pick')
-    fail(input, method, 'expected a direct Pick<Model, keys>');
-  if (node.typeArguments?.length !== 2) fail(input, method, 'expected a direct Pick<Model, keys>');
-  if (!isBuiltin(node, 'Pick', input)) fail(input, method, 'expected the built-in Pick type');
-  const symbol = requireModelSymbol(required(node.typeArguments[0]), input, method);
-  return { symbol, keys: pickKeys(required(node.typeArguments[1]), input, method) };
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:required
- */
-const unionModelValue = (
-  type: import('typescript').UnionType,
-  checker: Checker,
-  ts: TS,
-): GraphqlModelValue => {
-  const values = type.types.filter(
-    (item) => !(item.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)),
-  );
-  const boolean =
-    values.length > 0 && values.every((item) => Boolean(item.flags & ts.TypeFlags.BooleanLike));
-  let result: GraphqlModelValue = boolean
-    ? { kind: 'scalar', name: 'boolean' }
-    : values.length === 1
-      ? modelValueOf(required(values[0]), checker, ts)
-      : { kind: 'opaque' };
-  if (type.types.some((item) => Boolean(item.flags & ts.TypeFlags.Null)))
-    result = { kind: 'nullable', inner: result };
-  if (type.types.some((item) => Boolean(item.flags & ts.TypeFlags.Undefined)))
-    result = { kind: 'optional', inner: result };
-  return result;
-};
-// `ID` is `string` plus an optional brand, so it is recognized by that brand rather than by name.
-const isGraphqlId = (type: import('typescript').Type, checker: Checker): boolean => {
-  const brand = checker.getPropertyOfType(type, '__zeltGraphqlScalar');
-  if (!brand || !checker.isTypeAssignableTo(type, checker.getStringType())) return false;
-  const value = checker.getNonNullableType(checker.getTypeOfSymbol(brand));
-  return value.isStringLiteral() && value.value === 'ID';
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:required
- */
-const modelValueOf = (
-  type: import('typescript').Type,
-  checker: Checker,
-  ts: TS,
-): GraphqlModelValue => {
-  if (isGraphqlId(type, checker)) return { kind: 'scalar', name: 'ID' };
-  if (type.flags & ts.TypeFlags.BooleanLike) return { kind: 'scalar', name: 'boolean' };
-  if (type.isUnion()) return unionModelValue(type, checker, ts);
-  return primitiveModelValue(type, checker, ts);
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:required
- */
-const primitiveModelValue = (
-  type: import('typescript').Type,
-  checker: Checker,
-  ts: TS,
-): GraphqlModelValue => {
-  if (type.flags & ts.TypeFlags.StringLike) return { kind: 'scalar', name: 'string' };
-  if (type.flags & ts.TypeFlags.NumberLike) return { kind: 'scalar', name: 'number' };
-  if (checker.isArrayType(type)) {
-    const item = checker.getIndexTypeOfType(type, ts.IndexKind.Number);
-    return item ? { kind: 'array', item: modelValueOf(item, checker, ts) } : { kind: 'opaque' };
-  }
-  return { kind: 'opaque' };
-};
-const publicValue = (value: GraphqlModelValue): boolean =>
-  value.kind === 'scalar' ||
-  ((value.kind === 'nullable' || value.kind === 'optional') && publicValue(value.inner)) ||
-  (value.kind === 'array' && publicValue(value.item));
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:required
- */
-const nullable = (node: TypeNode, ts: TS): { node: TypeNode; nullable: boolean } => {
-  if (ts.isParenthesizedTypeNode(node)) return nullable(node.type, ts);
-  if (!ts.isUnionTypeNode(node)) return { node, nullable: false };
-  const rest = node.types.filter(
-    (n) => !(ts.isLiteralTypeNode(n) && n.literal.kind === ts.SyntaxKind.NullKeyword),
-  );
-  return rest.length === 1 && rest.length !== node.types.length
-    ? { node: required(rest[0]), nullable: true }
-    : { node, nullable: false };
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const result = (
-  node: TypeNode,
-  input: ModelResolverInput,
-  method: Method,
-): { symbol: Symbol; shape: GraphqlModelResultShape } => {
-  const outer = nullable(unwrapPromise(node, input), input.ts);
-  const element = arrayElement(outer.node, input);
-  const inner = nullable(element ?? outer.node, input.ts);
-  const ref = pick(inner.node, input, method);
-  if (ref.keys.length !== 1 || ref.keys[0] !== 'id')
-    fail(input, method, "reference must be Pick<Model, 'id'>");
-  return {
-    symbol: ref.symbol,
-    shape: element
-      ? { kind: 'many', nullable: outer.nullable, itemNullable: inner.nullable }
-      : { kind: 'one', nullable: outer.nullable },
-  };
+
+const parentRef = (site: Site): ModelRef | undefined => {
+  const type = parameterType(site);
+  return type && modelRef(arrayElement(type, site.reader) ?? type);
 };
 
 /**
+ * A class follows the model contract as soon as one of its operations involves a model.
+ *
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
-const validateParentParameters = (input: ModelResolverInput, method: Method): void => {
-  if (extractGraphqlArgsRef(method, input.classNode.getSourceFile(), input.ts))
-    fail(input, method, 'args() is not supported on model field methods');
-  for (const parameter of method.parameters.slice(1)) {
-    if (!parameter.initializer) fail(input, method, 'additional parameters require defaults');
-  }
+const touchesModel = (site: Site): boolean => {
+  if (site.kind === 'relation' || site.kind === 'resolveMultiField') return true;
+  if (site.kind === 'resolveField') return Boolean(parentRef(site));
+  if (site.kind === 'query')
+    return Boolean(modelRef(referenceType(returnType(site), site.reader).target));
+  return false;
 };
 
 const isPublicName = (name: string): boolean =>
   !name.startsWith('__') && /^[_A-Za-z][_0-9A-Za-z]*$/.test(name);
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const validatePublicProperty = (
-  name: string,
-  value: GraphqlModelValue,
-  input: ModelResolverInput,
-  method: Method,
-): void => {
-  if (!isPublicName(name)) fail(input, method, `invalid public property ${name}`);
-  if (!publicValue(value)) fail(input, method, `unsupported public property ${name}`);
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const inspectProperty = (
-  property: Symbol,
-  input: ModelResolverInput,
-  method: Method,
-): GraphqlModelProperty => {
-  const declaration = property.valueDeclaration ?? property.declarations?.[0];
-  if (!declaration) fail(input, method, `cannot inspect property ${property.name}`);
-  const optional = Boolean(property.flags & input.ts.SymbolFlags.Optional);
-  const value = modelValueOf(
-    input.checker.getTypeOfSymbolAtLocation(property, declaration),
-    input.checker,
-    input.ts,
-  );
-  if (!property.name.startsWith('$')) validatePublicProperty(property.name, value, input, method);
-  return { name: property.name, optional, value };
-};
 
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const assertIdKey = (
-  key: TypeNode,
-  symbol: Symbol,
-  input: ModelResolverInput,
-  method: Method,
-): void => {
-  const id = input.checker.getDeclaredTypeOfSymbol(symbol).getProperty('id');
-  if (!id) fail(input, method, 'model requires an id');
-  const declaration = id.valueDeclaration ?? id.declarations?.[0];
-  if (!declaration) fail(input, method, 'model requires an id');
-  const expected = input.checker.getTypeOfSymbolAtLocation(id, declaration);
-  const actual = input.checker.getTypeFromTypeNode(key);
-  if (
-    !input.checker.isTypeAssignableTo(actual, expected) ||
-    !input.checker.isTypeAssignableTo(expected, actual)
-  )
-    fail(input, method, 'Map key must match model id type');
-};
-
-const isBuiltinMap = (node: TypeNode, input: ModelResolverInput): boolean =>
-  isBuiltin(node, 'Map', input) || isBuiltin(node, 'ReadonlyMap', input);
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const requireMapArguments = (
-  args: readonly TypeNode[] | undefined,
-  input: ModelResolverInput,
-  method: Method,
-): readonly [TypeNode, TypeNode] => {
-  const [key, value, ...rest] = args ?? [];
-  if (!key || !value || rest.length) fail(input, method, 'expected Map<id, value>');
-  return [key, value];
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const mapArguments = (
-  node: TypeNode | undefined,
-  input: ModelResolverInput,
-  method: Method,
-): readonly [TypeNode, TypeNode] => {
-  if (!node || !input.ts.isTypeReferenceNode(node)) fail(input, method, 'expected Map<id, value>');
-  if (!isBuiltinMap(node, input))
-    fail(input, method, 'provider must return Map or ReadonlyMap from TypeScript');
-  return requireMapArguments(node.typeArguments, input, method);
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const providerMethod = (input: ModelResolverInput): Method | undefined => {
-  const providers = methods(input).filter(
-    (m) => operation(input, methodName(input, m))?.kind === 'resolveMultiField',
-  );
-  const first = providers[0];
-  if (first && providers.length !== 1)
-    fail(input, first, 'exactly one @ResolveMultiField is required');
-  if (first) return first;
-  const relation = methods(input).find(
-    (m) => operation(input, methodName(input, m))?.kind === 'relation',
-  );
-  if (relation) fail(input, relation, '@Relation requires a model provider');
-  return undefined;
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const providerSymbol = (
-  input: ModelResolverInput,
-  method: Method,
-): { symbol: Symbol; batch: boolean } => {
-  validateParentParameters(input, method);
-  const parent = method.parameters[0]?.type;
-  const element = parent && arrayElement(parent, input);
-  const ref = pick(element ?? parent, input, method);
-  if (ref.keys.length !== 1 || ref.keys[0] !== 'id')
-    fail(input, method, "provider input must be Pick<Model, 'id'> or its array");
-  return { symbol: ref.symbol, batch: Boolean(element) };
-};
-const isStringId = (id: GraphqlModelProperty | undefined): boolean =>
-  Boolean(
-    id &&
-      !id.optional &&
-      id.value.kind === 'scalar' &&
-      (id.value.name === 'ID' || id.value.name === 'string'),
-  );
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:mapArguments
- */
-const batchValue = (
-  node: TypeNode,
-  symbol: Symbol,
-  input: ModelResolverInput,
-  method: Method,
-): TypeNode => {
-  const [key, value] = mapArguments(node, input, method);
-  assertIdKey(key, symbol, input, method);
-  if (unwrapPromise(value, input) !== value)
-    fail(input, method, 'batch Map values cannot be Promise');
-  return value;
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const providerProperties = (
-  input: ModelResolverInput,
-  method: Method,
-  symbol: Symbol,
-  batch: boolean,
-): GraphqlModelProperty[] => {
-  const returned = method.type && unwrapPromise(method.type, input);
-  if (!returned) fail(input, method, 'explicit return type is required');
-  const value = batch ? batchValue(returned, symbol, input, method) : returned;
-  const data = nullable(value, input.ts);
-  if (!data.nullable || symbolFor(data.node, input.checker, input.ts) !== symbol)
-    fail(input, method, 'provider result must be Model | null, directly or as each Map value');
-  const properties = input.checker
-    .getDeclaredTypeOfSymbol(symbol)
-    .getProperties()
-    .map((property) => inspectProperty(property, input, method));
-  const id = properties.find((property) => property.name === 'id');
-  if (!isStringId(id)) fail(input, method, 'model requires a non-null scalar id');
-  return properties;
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const collectModels = (inputs: readonly ModelResolverInput[]): Model[] => {
-  const models: Model[] = [];
-  for (const input of inputs) {
-    const method = providerMethod(input);
-    if (!method) continue;
-    const { symbol, batch } = providerSymbol(input, method);
-    if (symbol.name.startsWith('__')) fail(input, method, 'reserved GraphQL model name');
-    if (models.some((model) => model.symbol === symbol || model.name === symbol.name))
-      fail(input, method, 'duplicate model provider or model name');
-    const properties = providerProperties(input, method, symbol, batch);
-    models.push({
-      name: symbol.name,
-      symbol,
-      input,
-      definition: {
-        provider: { resolver: input.resolver, method: methodName(input, method) },
-        mode: batch ? 'batch' : 'single',
-        properties,
-      },
-    });
-  }
-  return models;
-};
-
-type FieldState = {
-  readonly models: readonly Model[];
-  readonly fields: ModelAnalysis['fields'];
-  readonly bindings: ModelAnalysis['bindings'];
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const modelFor = (
-  state: FieldState,
-  symbol: Symbol,
-  input: ModelResolverInput,
-  method: Method,
-): Model =>
-  state.models.find((model) => model.symbol === symbol) ??
-  fail(input, method, `no provider for model ${symbol.name}`);
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const registerField = (
-  state: FieldState,
-  owner: string,
-  name: string,
-  field: GraphqlModelField,
-  input: ModelResolverInput,
-  method: Method,
-): void => {
-  const fields = readOwnEntry(state.fields, owner) ?? {};
-  const bindings = readOwnEntry(state.bindings, owner) ?? {};
-  if (readOwnEntry(fields, name) !== undefined)
-    fail(input, method, `duplicate field ${owner}.${name}`);
-  Object.defineProperty(fields, name, { value: field, enumerable: true, configurable: true });
-  Object.defineProperty(bindings, name, {
-    value: { resolver: input.resolver, method: methodName(input, method) },
-    enumerable: true,
-    configurable: true,
-  });
-  Object.defineProperty(state.fields, owner, {
-    value: fields,
-    enumerable: true,
-    configurable: true,
-  });
-  Object.defineProperty(state.bindings, owner, {
-    value: bindings,
-    enumerable: true,
-    configurable: true,
-  });
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const queryField = (
-  state: FieldState,
-  model: Model,
-  method: Method,
-  name: string,
-  type: TypeNode,
-): void => {
-  for (const parameter of method.parameters) {
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const validateExtraParameters = (site: Site, from: number): void => {
+  for (const parameter of site.method.parameters.slice(from)) {
     if (!parameter.initializer && !parameter.questionToken)
       fail(
-        model.input,
-        method,
-        'query parameters require defaults; use args(schema) for GraphQL arguments',
+        site,
+        site.kind === 'query'
+          ? 'query parameters require defaults; use args(schema) for GraphQL arguments'
+          : 'additional parameters require defaults',
       );
   }
-  const target = result(type, model.input, method);
-  registerField(
-    state,
-    'Query',
-    name,
-    {
-      kind: 'query',
-      target: modelFor(state, target.symbol, model.input, method).name,
-      shape: target.shape,
-    },
-    model.input,
-    method,
-  );
 };
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const validateDependencies = (
-  model: Model,
-  method: Method,
-  keys: readonly string[],
-  batch: boolean,
-): void => {
-  if (batch && !keys.includes('id')) fail(model.input, method, 'batch parent Pick requires id');
-  for (const key of keys) {
-    if (!model.definition.properties.some((property) => property.name === key))
-      fail(model.input, method, `unknown source dependency ${key}`);
-  }
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const dependencies = (model: Model, method: Method): { keys: string[]; batch: boolean } => {
-  const { input } = model;
-  validateParentParameters(input, method);
-  const param = method.parameters[0]?.type;
-  const batchElement = param && arrayElement(param, input);
-  const dep = pick(batchElement ?? param, input, method);
-  if (dep.symbol !== model.symbol) fail(input, method, 'parent Pick must refer to provider model');
-  validateDependencies(model, method, dep.keys, Boolean(batchElement));
-  return { keys: dep.keys, batch: Boolean(batchElement) };
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:required
- */
-const computedField = (
-  model: Model,
-  method: Method,
-  type: TypeNode,
-  dep: ReturnType<typeof dependencies>,
-): GraphqlModelField => {
-  const { input } = model;
-  const returned = unwrapPromise(type, input);
-  const node = dep.batch ? batchValue(returned, model.symbol, input, method) : returned;
-  const value = modelValueOf(input.checker.getTypeFromTypeNode(node), input.checker, input.ts);
-  if (!publicValue(value)) fail(input, method, 'unsupported computed field type');
-  return { kind: 'computed', dependencies: dep.keys, mode: dep.batch ? 'batch' : 'single', value };
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const relationField = (
-  state: FieldState,
-  model: Model,
-  method: Method,
-  type: TypeNode,
-  dep: ReturnType<typeof dependencies>,
-): GraphqlModelField => {
-  const { input } = model;
-  let node = unwrapPromise(type, input);
-  if (dep.batch) {
-    node = batchValue(node, model.symbol, input, method);
-  }
-  const target = result(node, input, method);
-  return {
-    kind: 'relation',
-    target: modelFor(state, target.symbol, input, method).name,
-    shape: target.shape,
-    dependencies: dep.keys,
-    mode: dep.batch ? 'batch' : 'single',
-  };
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const registerModelField = (
-  state: FieldState,
-  model: Model,
-  method: Method,
-  names: Set<string>,
-  name: string,
-  kind: string,
-  type: TypeNode,
-): void => {
-  const { input } = model;
-  if (names.has(name)) fail(input, method, `duplicate field ${model.name}.${name}`);
-  names.add(name);
-  const dep = dependencies(model, method);
-  const field =
-    kind === 'resolveField'
-      ? computedField(model, method, type, dep)
-      : relationField(state, model, method, type, dep);
-  registerField(state, model.name, name, field, input, method);
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const analyzeField = (
-  state: FieldState,
-  model: Model,
-  method: Method,
-  names: Set<string>,
-): void => {
-  const { input } = model;
-  const op = operation(input, methodName(input, method));
-  if (!op || op.kind === 'resolveMultiField') return;
-  if (op.kind === 'mutation') fail(input, method, 'model mutations are not supported');
-  if (!isPublicName(op.fieldName)) fail(input, method, 'invalid GraphQL field name');
-  if (!method.type) fail(input, method, 'explicit return type is required');
-  if (op.kind === 'query') {
-    queryField(state, model, method, op.fieldName, method.type);
-    return;
-  }
-  registerModelField(state, model, method, names, op.fieldName, op.kind, method.type);
-};
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
-const collectFields = (models: readonly Model[]): Pick<ModelAnalysis, 'fields' | 'bindings'> => {
-  const state: FieldState = { models, fields: {}, bindings: {} };
-  for (const model of models) {
-    const names = new Set(
-      model.definition.properties
-        .filter((property) => !property.name.startsWith('$'))
-        .map((property) => property.name),
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const parentOf = (site: Site): Parent => {
+  if (extractGraphqlArgsRef(site.method, site.input.classNode.getSourceFile(), site.input.ts))
+    fail(site, 'args() is not supported on model field methods');
+  validateExtraParameters(site, 1);
+  const type = parameterType(site);
+  if (!type) fail(site, 'a parent Pick<Model, keys> parameter is required');
+  const element = arrayElement(type, site.reader);
+  const ref = modelRef(element ?? type);
+  if (!ref)
+    fail(
+      site,
+      `parent must be Pick<Model, keys> or a readonly array of it, written directly; got ${typeText(site, type)}`,
     );
-    for (const method of methods(model.input)) analyzeField(state, model, method, names);
-  }
-  return { fields: state.fields, bindings: state.bindings };
+  if (element && !ref.keys.includes('id')) fail(site, 'batch parent Pick requires id');
+  return { ref, batch: Boolean(element) };
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const referenceOf = (site: Site, type: Type): ReferenceType => {
+  const reference = referenceType(type, site.reader);
+  const ref = modelRef(reference.target);
+  if (ref?.keys.length !== 1 || ref.keys[0] !== 'id')
+    fail(
+      site,
+      `must return Pick<Model, 'id'>, an array of it, or a nullable form; got ${typeText(site, type)}`,
+    );
+  return { target: ref.model, shape: reference.shape };
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const modelOf = (state: State, site: Site, type: Type): Model => {
+  const existing = state.models.get(type);
+  if (existing) return existing;
+  const name = modelName(type, site.reader);
+  if (!name) fail(site, `model must be a named object type; got ${typeText(site, type)}`);
+  if (!isPublicName(name)) fail(site, `invalid GraphQL model name ${name}`);
+  if ([...state.models.values()].some((model) => model.name === name))
+    fail(site, `another model type is already named ${name}`);
+  const declared = new Map(
+    site.input.checker.getPropertiesOfType(type).map((symbol) => [symbol.name, symbol]),
+  );
+  const model = { name, type, origin: site, declared };
+  state.models.set(type, model);
+  return model;
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const idTypeOf = (site: Site, model: Model): Type => {
+  const id = model.declared.get('id');
+  if (!id || id.flags & site.input.ts.SymbolFlags.Optional)
+    fail(site, `model ${model.name} requires a non-null scalar id`);
+  return site.input.checker.getTypeOfSymbol(id);
 };
 
 /**
+ * Unwraps a batch method's Map so single and batch methods are checked per parent.
+ *
+ * @throws {Error} from graphql-model-analysis.lib.ts:fail
+ */
+const perParentResult = (site: Site, parent: Parent, model: Model): Type => {
+  const returned = returnType(site);
+  if (!parent.batch) return returned;
+  const entry = mapEntry(returned, site.reader);
+  if (!entry) fail(site, 'batch methods must return a Map or ReadonlyMap keyed by parent id');
+  const [key, value] = entry;
+  const { checker } = site.input;
+  const id = idTypeOf(site, model);
+  if (!checker.isTypeAssignableTo(key, id) || !checker.isTypeAssignableTo(id, key))
+    fail(site, 'Map key must match model id type');
+  if (isPromiseLike(value, site.reader)) fail(site, 'batch Map values cannot be Promise');
+  return value;
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const providedKeys = (site: Site, parent: Parent, model: Model): readonly string[] => {
+  const split = withoutNullish(perParentResult(site, parent, model), site.reader);
+  const message = 'provider result must be Model | null or Pick<Model, keys> | null';
+  if (!split.nullable) fail(site, message);
+  if (split.type === model.type) return [...model.declared.keys()];
+  const ref = modelRef(split.type);
+  if (ref?.model !== model.type) fail(site, message);
+  if (!ref.keys.includes('id')) fail(site, 'provider Pick must include id');
+  return ref.keys;
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const registerProvider = (state: State, site: Site): void => {
+  const parent = parentOf(site);
+  if (parent.ref.keys.length !== 1 || parent.ref.keys[0] !== 'id')
+    fail(site, "provider input must be Pick<Model, 'id'> or its array");
+  const model = modelOf(state, site, parent.ref.model);
+  if (state.providers.has(model.type)) fail(site, `duplicate provider for model ${model.name}`);
+  state.providers.set(model.type, {
+    site,
+    batch: parent.batch,
+    keys: providedKeys(site, parent, model),
+  });
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const registerModelReferences = (state: State, site: Site): void => {
+  if (site.kind === 'mutation') fail(site, 'model resolvers cannot declare mutations');
+  if (site.kind === 'resolveMultiField') {
+    registerProvider(state, site);
+    return;
+  }
+  if (site.kind === 'query') {
+    modelOf(state, site, referenceOf(site, returnType(site)).target);
+    return;
+  }
+  const parent = parentOf(site);
+  const model = modelOf(state, site, parent.ref.model);
+  if (site.kind === 'relation')
+    modelOf(state, site, referenceOf(site, perParentResult(site, parent, model)).target);
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const inspectProperty = (site: Site, model: Model, name: string): GraphqlModelProperty => {
+  const symbol = model.declared.get(name);
+  if (!symbol) fail(site, `${model.name} has no property ${name}`);
+  const optional = Boolean(symbol.flags & site.input.ts.SymbolFlags.Optional);
+  const value = modelValue(site.input.checker.getTypeOfSymbol(symbol), site.reader);
+  if (!name.startsWith('$')) {
+    if (!isPublicName(name)) fail(site, `invalid public property ${name}`);
+    if (!isPublicValue(value)) fail(site, `unsupported public property ${model.name}.${name}`);
+  }
+  return { name, optional, value };
+};
+
+const isScalarId = (property: GraphqlModelProperty): boolean =>
+  property.name === 'id' &&
+  !property.optional &&
+  property.value.kind === 'scalar' &&
+  (property.value.name === 'ID' || property.value.name === 'string');
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const supply = (site: Site, model: Model, keys: readonly string[]): GraphqlModelProperty[] => {
+  const properties = keys.map((key) => inspectProperty(site, model, key));
+  if (!properties.some(isScalarId)) fail(site, `model ${model.name} requires a non-null scalar id`);
+  return properties;
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const defineModel = (state: State, model: Model): GraphqlModelDefinition => {
+  const provider = state.providers.get(model.type);
+  if (!provider) return { kind: 'identity', properties: supply(model.origin, model, ['id']) };
+  return {
+    kind: 'provided',
+    provider: { resolver: provider.site.input.resolver, method: provider.site.methodName },
+    mode: provider.batch ? 'batch' : 'single',
+    properties: supply(provider.site, model, provider.keys),
+  };
+};
+
+const suppliedProperties = (state: State, model: Model): readonly GraphqlModelProperty[] =>
+  state.definitions.get(model.type)?.properties ?? [];
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const registerField = (state: State, site: Site, owner: string, field: GraphqlModelField): void => {
+  const fields = readOwnEntry(state.fields, owner) ?? {};
+  const bindings = readOwnEntry(state.bindings, owner) ?? {};
+  if (readOwnEntry(fields, site.fieldName) !== undefined)
+    fail(site, `duplicate field ${owner}.${site.fieldName}`);
+  const define = (target: object, key: string, value: unknown): void => {
+    Object.defineProperty(target, key, { value, enumerable: true, configurable: true });
+  };
+  define(fields, site.fieldName, field);
+  define(bindings, site.fieldName, { resolver: site.input.resolver, method: site.methodName });
+  define(state.fields, owner, fields);
+  define(state.bindings, owner, bindings);
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const registerQuery = (state: State, site: Site): void => {
+  if (!isPublicName(site.fieldName)) fail(site, 'invalid GraphQL field name');
+  validateExtraParameters(site, 0);
+  const reference = referenceOf(site, returnType(site));
+  const target = modelOf(state, site, reference.target);
+  registerField(state, site, 'Query', {
+    kind: 'query',
+    target: target.name,
+    shape: reference.shape,
+  });
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const declaredField = (state: State, site: Site, model: Model): Symbol => {
+  if (!isPublicName(site.fieldName)) fail(site, 'invalid GraphQL field name');
+  const symbol = model.declared.get(site.fieldName);
+  if (!symbol)
+    fail(site, `field ${model.name}.${site.fieldName} must be declared in ${model.name}`);
+  if (suppliedProperties(state, model).some((property) => property.name === site.fieldName))
+    fail(site, `duplicate field ${model.name}.${site.fieldName}: the provider already supplies it`);
+  return symbol;
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const dependencies = (state: State, site: Site, parent: Parent, model: Model): string[] => {
+  const supplied = suppliedProperties(state, model);
+  for (const key of parent.ref.keys) {
+    if (!supplied.some((property) => property.name === key))
+      fail(site, `unknown source dependency ${key}: ${model.name} does not supply it`);
+  }
+  return [...parent.ref.keys];
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const computedValue = (
+  site: Site,
+  model: Model,
+  symbol: Symbol,
+  result: Type,
+): GraphqlModelValue => {
+  const { checker } = site.input;
+  const declared = checker.getTypeOfSymbol(symbol);
+  if (!isPublicValue(modelValue(declared, site.reader)))
+    fail(
+      site,
+      `${model.name}.${symbol.name} is not a scalar field; resolve model references with @Relation`,
+    );
+  const property = inspectProperty(site, model, symbol.name);
+  if (!checker.isTypeAssignableTo(result, declared))
+    fail(
+      site,
+      `returns ${typeText(site, result)}, which is not assignable to ${model.name}.${symbol.name}: ${typeText(site, declared)}`,
+    );
+  return property.optional && property.value.kind !== 'optional'
+    ? { kind: 'optional', inner: property.value }
+    : property.value;
+};
+
+const fitsShape = (actual: GraphqlModelResultShape, declared: GraphqlModelResultShape): boolean => {
+  if (actual.nullable && !declared.nullable) return false;
+  if (actual.kind === 'one' || declared.kind === 'one') return actual.kind === declared.kind;
+  return !actual.itemNullable || declared.itemNullable;
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const relationTarget = (
+  state: State,
+  site: Site,
+  model: Model,
+  symbol: Symbol,
+  result: Type,
+): { readonly target: Model; readonly shape: GraphqlModelResultShape } => {
+  const declaredType = site.input.checker.getTypeOfSymbol(symbol);
+  const declared = referenceType(declaredType, site.reader);
+  const optional = Boolean(symbol.flags & site.input.ts.SymbolFlags.Optional);
+  const shape = optional ? { ...declared.shape, nullable: true } : declared.shape;
+  const actual = referenceOf(site, result);
+  const target = modelOf(state, site, actual.target);
+  const field = `${model.name}.${symbol.name}: ${typeText(site, declaredType)}`;
+  if (declared.target !== actual.target)
+    fail(site, `returns a ${target.name} reference, but ${field} is not a ${target.name} relation`);
+  if (!fitsShape(actual.shape, shape))
+    fail(site, `the returned nullability or list shape does not fit ${field}`);
+  return { target, shape };
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const registerModelField = (state: State, site: Site): void => {
+  const parent = parentOf(site);
+  const model = modelOf(state, site, parent.ref.model);
+  const symbol = declaredField(state, site, model);
+  const dependencyKeys = dependencies(state, site, parent, model);
+  const mode = parent.batch ? 'batch' : 'single';
+  const result = perParentResult(site, parent, model);
+  if (site.kind === 'relation') {
+    const { target, shape } = relationTarget(state, site, model, symbol, result);
+    registerField(state, site, model.name, {
+      kind: 'relation',
+      target: target.name,
+      shape,
+      dependencies: dependencyKeys,
+      mode,
+    });
+    return;
+  }
+  const value = computedValue(site, model, symbol, result);
+  registerField(state, site, model.name, {
+    kind: 'computed',
+    dependencies: dependencyKeys,
+    mode,
+    value,
+  });
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const assertComplete = (state: State, model: Model): void => {
+  const supplied = suppliedProperties(state, model);
+  for (const name of model.declared.keys()) {
+    const resolved =
+      supplied.some((property) => property.name === name) ||
+      readOwnEntry(state.fields[model.name] ?? {}, name) !== undefined;
+    if (!resolved)
+      fail(
+        model.origin,
+        `${model.name}.${name} has no resolver; supply it from @ResolveMultiField or resolve it with @ResolveField / @Relation`,
+      );
+  }
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const resolveModelFields = (state: State, sites: readonly Site[]): void => {
+  for (const site of sites) {
+    if (site.kind === 'query') registerQuery(state, site);
+    else if (site.kind === 'resolveField' || site.kind === 'relation')
+      registerModelField(state, site);
+  }
+};
+
+/**
+ * Validates model resolvers against the model types they reference and produces the single
+ * representation that both SDL rendering and the runtime manifest consume.
+ *
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
 export const analyzeGraphqlModels = (inputs: readonly ModelResolverInput[]): ModelAnalysis => {
-  const models = collectModels(inputs);
-  const { fields, bindings } = collectFields(models);
+  const modelInputs = inputs.filter((input) => sitesOf(input).some(touchesModel));
+  const sites = modelInputs.flatMap(sitesOf);
+  const state: State = {
+    models: new Map(),
+    providers: new Map(),
+    definitions: new Map(),
+    fields: {},
+    bindings: {},
+  };
+  for (const site of sites) registerModelReferences(state, site);
+  const definitions = [...state.models.values()].map(
+    (model) => [model, defineModel(state, model)] as const,
+  );
+  for (const [model, definition] of definitions) state.definitions.set(model.type, definition);
+  resolveModelFields(state, sites);
+  for (const model of state.models.values()) assertComplete(state, model);
   return {
-    models: Object.fromEntries(models.map((m) => [m.name, m.definition])),
-    fields,
-    bindings,
-    modelResolvers: new Set(models.map((m) => m.input.resolver)),
+    models: Object.fromEntries(definitions.map(([model, definition]) => [model.name, definition])),
+    fields: state.fields,
+    bindings: state.bindings,
+    modelResolvers: new Set(modelInputs.map((input) => input.resolver)),
   };
 };

@@ -8,8 +8,17 @@ import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib'
 import { graphql, Query, Relation, ResolveField, ResolveMultiField, Resolver } from './index';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
-type Account = { id: string; first: string; last: string; $identity: string };
-type Entry = { id: string; title: string; $author: string };
+type Account = {
+  id: string;
+  first: string;
+  last: string;
+  $identity: string;
+  constructor: string;
+  name: string;
+  labels: readonly string[] | null;
+  publicEntries: readonly Entry[];
+};
+type Entry = { id: string; title: string; $author: string; author: Account };
 type Score = { id: string; value: number };
 type Call = { readonly method: string; readonly ids: readonly string[]; readonly identity: string };
 const calls: Call[] = [];
@@ -49,7 +58,9 @@ class Accounts {
   async load(
     refs: readonly Pick<Account, 'id'>[],
     req = request(),
-  ): Promise<ReadonlyMap<Account['id'], Account | null>> {
+  ): Promise<
+    ReadonlyMap<Account['id'], Pick<Account, 'id' | 'first' | 'last' | '$identity'> | null>
+  > {
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
     await Promise.resolve();
@@ -107,7 +118,7 @@ class Entries {
   load(
     refs: readonly Pick<Entry, 'id'>[],
     req = request(),
-  ): ReadonlyMap<Entry['id'], Entry | null> {
+  ): ReadonlyMap<Entry['id'], Pick<Entry, 'id' | 'title' | '$author'> | null> {
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
     calls.push({ method: 'entries', ids: refs.map((ref) => ref.id), identity });

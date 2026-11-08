@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
 import type { ID as GraphqlId } from './index';
 import {
+  Mutation as MutationDecorator,
   Query as QueryDecorator,
   Relation,
   ResolveField,
@@ -11,249 +12,435 @@ import {
   Resolver,
 } from './index';
 
-type ModelUser = {
-  readonly id: string;
-  readonly first: string;
-  readonly $secret: { readonly token: string };
-  readonly active: boolean | null;
-  readonly optional?: boolean;
-  readonly requiredUndefined: string | undefined;
-  readonly both: string | null | undefined;
+const tsconfig = resolve(__dirname, '../tsconfig.json');
+const generate = (resolvers: Parameters<typeof generateGraphqlRuntimeForResolvers>[0]) =>
+  generateGraphqlRuntimeForResolvers(resolvers, { tsconfig });
+type Runtime = Awaited<ReturnType<typeof generate>>;
+const modelIn = (runtime: Runtime, name: string) => runtime.models?.[name];
+const fieldIn = (runtime: Runtime, owner: string, name: string) =>
+  runtime.modelFields?.[owner]?.[name];
+const propertyIn = (runtime: Runtime, model: string, name: string) =>
+  modelIn(runtime, model)?.properties.find((property) => property.name === name);
+const propertyNames = (runtime: Runtime, model: string) =>
+  modelIn(runtime, model)?.properties.map((property) => property.name);
+const hasQuery = (runtime: Runtime, name: string) =>
+  Object.hasOwn(runtime.modelFields?.['Query'] ?? {}, name);
+
+// Identity model: only `id` is known, every other field resolves from it.
+type Member = { readonly id: GraphqlId; readonly name: string };
+@Resolver()
+class MemberResolver {
+  @QueryDecorator()
+  member(): Pick<Member, 'id'> {
+    return { id: 'm1' };
+  }
+  @ResolveField()
+  name(parent: Pick<Member, 'id'>): Member['name'] {
+    return `Member ${parent.id}`;
+  }
+}
+
+// Provided model: the provider's Pick declares which properties it supplies.
+type Author = {
+  readonly id: GraphqlId;
+  readonly name: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+  readonly posts: readonly Article[];
+  readonly mentor: Author | null;
+};
+type Article = {
+  readonly id: GraphqlId;
+  readonly title: string;
+  readonly author: Author;
+  readonly $authorId: Author['id'];
 };
 @Resolver()
-class ModelUserResolver {
+class AuthorResolver {
   @QueryDecorator()
-  user(): Pick<ModelUser, 'id'> {
-    return { id: '1' };
-  }
-  @ResolveMultiField()
-  users(_refs: readonly Pick<ModelUser, 'id'>[]): Map<ModelUser['id'], ModelUser | null> {
-    return new Map();
-  }
-  @ResolveField()
-  label(user: Pick<ModelUser, 'first' | '$secret'>): string {
-    return user.first + user.$secret.token;
-  }
-  @Relation()
-  friend(user: Pick<ModelUser, 'id'>): Pick<ModelUser, 'id'> | null {
-    return user.id ? { id: user.id } : null;
-  }
-}
-
-type BatchUser = { id: string; $friend: string };
-const contextValue = (): string => 'context';
-@Resolver()
-class BatchUserResolver {
-  @QueryDecorator()
-  list(): readonly (Pick<BatchUser, 'id'> | null)[] | null {
-    return null;
-  }
-  @QueryDecorator('batchUser')
-  getUser(): Promise<Pick<BatchUser, 'id'> | null> {
+  authors(): Promise<readonly (Pick<Author, 'id'> | null)[] | null> {
     return Promise.resolve(null);
   }
   @ResolveMultiField()
-  load(
-    _refs: readonly Pick<BatchUser, 'id'>[],
-    _context = contextValue(),
-  ): Promise<ReadonlyMap<BatchUser['id'], BatchUser | null>> {
+  values(
+    _refs: readonly Pick<Author, 'id'>[],
+  ): ReadonlyMap<
+    Author['id'],
+    Pick<Author, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null
+  > {
+    return new Map();
+  }
+  @ResolveField()
+  name(author: Pick<Author, 'firstName' | 'lastName' | '$familyNameFirst'>): Author['name'] {
+    return author.$familyNameFirst ? author.lastName : author.firstName;
+  }
+  @Relation()
+  posts(
+    _parents: readonly Pick<Author, 'id'>[],
+  ): Promise<ReadonlyMap<Author['id'], readonly Pick<Article, 'id'>[]>> {
     return Promise.resolve(new Map());
   }
-  @Relation('friends')
-  getFriends(
-    _users: readonly Pick<BatchUser, 'id'>[],
-    _context = contextValue(),
-  ): ReadonlyMap<BatchUser['id'], readonly Pick<BatchUser, 'id'>[]> {
-    return new Map();
-  }
-}
-
-type VariantUser = { id: string; first: string };
-@Resolver()
-class SingleVariantResolver {
-  @QueryDecorator()
-  variant(): Pick<VariantUser, 'id'> {
-    return { id: '1' };
-  }
-  @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): Promise<VariantUser | null> {
-    return Promise.resolve(null);
-  }
-  @ResolveField()
-  upper(user: Pick<VariantUser, 'first'>): Promise<string> {
-    return Promise.resolve(user.first);
-  }
   @Relation()
-  other(user: Pick<VariantUser, 'id'>): Promise<Pick<VariantUser, 'id'> | null> {
-    return Promise.resolve(user);
-  }
-}
-@Resolver()
-class SingleSyncVariantResolver {
-  @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+  mentor(_author: Pick<Author, 'id'>): Pick<Author, 'id'> | null {
     return null;
   }
-  @ResolveField()
-  upper(user: Pick<VariantUser, 'first'>): string {
-    return user.first;
-  }
-  @Relation()
-  other(user: Pick<VariantUser, 'id'>): Pick<VariantUser, 'id'> {
-    return user;
-  }
 }
 @Resolver()
-class BatchVariantResolver {
-  @QueryDecorator()
-  variant(): Pick<VariantUser, 'id'> {
-    return { id: '1' };
-  }
+class ArticleResolver {
   @ResolveMultiField()
-  load(_refs: readonly Pick<VariantUser, 'id'>[]): ReadonlyMap<string, VariantUser | null> {
-    return new Map();
-  }
-  @ResolveField()
-  upper(
-    _users: readonly Pick<VariantUser, 'id' | 'first'>[],
-  ): Promise<ReadonlyMap<string, readonly (string | null)[]>> {
-    return Promise.resolve(new Map());
-  }
-  @ResolveField()
-  lower(_users: readonly Pick<VariantUser, 'id'>[]): ReadonlyMap<string, string> {
-    return new Map();
-  }
-  @Relation()
-  other(
-    _users: readonly Pick<VariantUser, 'id'>[],
-  ): Promise<ReadonlyMap<string, Pick<VariantUser, 'id'> | null>> {
-    return Promise.resolve(new Map());
-  }
-}
-@Resolver()
-class MissingBatchIdResolver {
-  @ResolveMultiField()
-  load(_refs: readonly Pick<VariantUser, 'id'>[]): Map<string, VariantUser | null> {
-    return new Map();
-  }
-  @ResolveField()
-  upper(_users: readonly Pick<VariantUser, 'first'>[]): Map<string, string> {
-    return new Map();
-  }
-}
-@Resolver()
-class MissingRelationIdResolver {
-  @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
+  values(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
     return null;
   }
   @Relation()
-  other(_users: readonly Pick<VariantUser, 'first'>[]): Map<string, Pick<VariantUser, 'id'>> {
-    return new Map();
-  }
-}
-@Resolver()
-class BadProviderShapeResolver {
-  @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): Map<string, VariantUser | null> {
-    return new Map();
-  }
-}
-@Resolver()
-class BadComputedMapResolver {
-  @ResolveMultiField()
-  load(_refs: readonly Pick<VariantUser, 'id'>[]): Map<string, VariantUser | null> {
-    return new Map();
-  }
-  @ResolveField()
-  upper(_users: readonly Pick<VariantUser, 'id'>[]): Map<number, string> {
-    return new Map();
-  }
-}
-@Resolver()
-class BadComputedValueResolver {
-  @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
-    return null;
-  }
-  @ResolveField()
-  upper(_users: readonly Pick<VariantUser, 'id'>[]): Map<string, Promise<string>> {
-    return new Map();
+  author(article: Pick<Article, '$authorId'>): Pick<Author, 'id'> {
+    return { id: article.$authorId };
   }
 }
 
+// A provider returning the model itself supplies every declared property.
+type Sample = {
+  readonly id: string;
+  readonly flag: boolean | null;
+  readonly optional?: number;
+  readonly maybe: string | undefined;
+  readonly both: string | null | undefined;
+  readonly tags: readonly (string | null)[];
+  readonly $secret: { readonly token: string };
+};
 @Resolver()
-class BadRelationPromiseResolver {
-  @ResolveMultiField()
-  load(_ref: Pick<VariantUser, 'id'>): VariantUser | null {
-    return null;
-  }
-  @Relation()
-  other(_users: readonly Pick<VariantUser, 'id'>[]): Map<string, Promise<Pick<VariantUser, 'id'>>> {
-    return new Map();
-  }
-}
-
-type OtherUser = { id: string; $friend: string };
-@Resolver()
-class WrongParentResolver {
-  @ResolveMultiField()
-  load(_refs: readonly Pick<BatchUser, 'id'>[]): Map<BatchUser['id'], BatchUser | null> {
-    return new Map();
-  }
-  @ResolveField()
-  wrong(_user: Pick<OtherUser, 'id'>): string {
-    return '';
-  }
-}
-
-namespace Fake {
-  export type Map<K, V> = globalThis.Map<K, V>;
-}
-@Resolver()
-class FakeMapResolver {
-  @ResolveMultiField()
-  load(_refs: readonly Pick<BatchUser, 'id'>[]): Fake.Map<BatchUser['id'], BatchUser | null> {
-    return new Map();
-  }
-}
-
-namespace FakeArray {
-  export type Array<T> = { value: T };
-}
-@Resolver()
-class FakeArrayResolver {
-  @ResolveMultiField()
-  load(_refs: FakeArray.Array<Pick<BatchUser, 'id'>>): Map<BatchUser['id'], BatchUser | null> {
-    return new Map();
-  }
-}
-@Resolver()
-class NamesResolver {
+class SampleResolver {
   @QueryDecorator('constructor')
-  another(): Pick<BatchUser, 'id'> {
+  another(): Pick<Sample, 'id'> {
     return { id: '2' };
   }
   @QueryDecorator('toString')
-  user(): Pick<BatchUser, 'id'> {
+  sample(): Pick<Sample, 'id'> {
     return { id: '1' };
   }
   @ResolveMultiField()
-  load(_refs: readonly Pick<BatchUser, 'id'>[]): Map<BatchUser['id'], BatchUser | null> {
-    return new Map();
+  load(_ref: Pick<Sample, 'id'>): Promise<Sample | null> {
+    return Promise.resolve(null);
   }
 }
+
+// Batch computed fields publish the per-parent type of each Map value.
+type Counter = { readonly id: string; readonly labels: readonly (string | null)[] };
 @Resolver()
-class ReservedResolver {
-  @QueryDecorator('__reserved')
-  user(): Pick<BatchUser, 'id'> {
+class CounterResolver {
+  @QueryDecorator()
+  counter(): Pick<Counter, 'id'> {
     return { id: '1' };
   }
-  @ResolveMultiField()
-  load(_refs: readonly Pick<BatchUser, 'id'>[]): Map<BatchUser['id'], BatchUser | null> {
-    return new Map();
+  @ResolveField()
+  labels(
+    _parents: readonly Pick<Counter, 'id'>[],
+  ): Promise<ReadonlyMap<Counter['id'], readonly (string | null)[]>> {
+    return Promise.resolve(new Map());
   }
 }
+
+type Thing = { readonly id: string; readonly label: string; readonly $code: string };
+type ThingRef = Pick<Thing, 'id'>;
+type Other = { readonly id: string };
+const rejecting = {
+  aliasedParent: (() => {
+    @Resolver()
+    class AliasedParent {
+      @QueryDecorator()
+      thing(): Pick<Thing, 'id'> {
+        return { id: '1' };
+      }
+      @ResolveField()
+      label(_parent: ThingRef): string {
+        return '';
+      }
+    }
+    return AliasedParent;
+  })(),
+  batchWithoutId: (() => {
+    @Resolver()
+    class BatchWithoutId {
+      @ResolveMultiField()
+      load(_ref: Pick<Thing, 'id'>): Thing | null {
+        return null;
+      }
+      @ResolveField()
+      label(_parents: readonly Pick<Thing, '$code'>[]): ReadonlyMap<Thing['id'], string> {
+        return new Map();
+      }
+    }
+    return BatchWithoutId;
+  })(),
+  queryReturnsData: (() => {
+    @Resolver()
+    class QueryReturnsData {
+      @QueryDecorator()
+      thing(): Pick<Thing, 'id' | 'label'> {
+        return { id: '1', label: '' };
+      }
+    }
+    return QueryReturnsData;
+  })(),
+  fakeMap: (() => {
+    @Resolver()
+    class FakeMap {
+      @ResolveMultiField()
+      load(_refs: readonly Pick<Thing, 'id'>[]): { get(key: string): Thing | null } {
+        return { get: () => null };
+      }
+    }
+    return FakeMap;
+  })(),
+  wrongMapKey: (() => {
+    @Resolver()
+    class WrongMapKey {
+      @ResolveMultiField()
+      load(_refs: readonly Pick<Thing, 'id'>[]): ReadonlyMap<number, Thing | null> {
+        return new Map();
+      }
+    }
+    return WrongMapKey;
+  })(),
+  promiseMapValues: (() => {
+    @Resolver()
+    class PromiseMapValues {
+      @ResolveMultiField()
+      load(_refs: readonly Pick<Thing, 'id'>[]): ReadonlyMap<Thing['id'], Promise<Thing | null>> {
+        return new Map();
+      }
+    }
+    return PromiseMapValues;
+  })(),
+  providerWithoutId: (() => {
+    @Resolver()
+    class ProviderWithoutId {
+      @ResolveMultiField()
+      load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'label' | '$code'> | null {
+        return null;
+      }
+    }
+    return ProviderWithoutId;
+  })(),
+  providerNotNullable: (() => {
+    @Resolver()
+    class ProviderNotNullable {
+      @ResolveMultiField()
+      load(ref: Pick<Thing, 'id'>): Thing {
+        return { id: ref.id, label: '', $code: '' };
+      }
+    }
+    return ProviderNotNullable;
+  })(),
+  duplicateProvider: (() => {
+    @Resolver()
+    class DuplicateProvider {
+      @ResolveMultiField()
+      load(_ref: Pick<Thing, 'id'>): Thing | null {
+        return null;
+      }
+    }
+    return DuplicateProvider;
+  })(),
+  numericId: (() => {
+    type NumericId = { readonly id: number };
+    @Resolver()
+    class NumericIdResolver {
+      @QueryDecorator()
+      numeric(): Pick<NumericId, 'id'> {
+        return { id: 1 };
+      }
+    }
+    return NumericIdResolver;
+  })(),
+  unsupportedProperty: (() => {
+    type Status = { readonly id: string; readonly state: 'on' | 'off' };
+    @Resolver()
+    class UnsupportedProperty {
+      @ResolveMultiField()
+      load(_ref: Pick<Status, 'id'>): Status | null {
+        return null;
+      }
+    }
+    return UnsupportedProperty;
+  })(),
+  undeclaredField: (() => {
+    @Resolver()
+    class UndeclaredField {
+      @ResolveMultiField()
+      load(_ref: Pick<Thing, 'id'>): Thing | null {
+        return null;
+      }
+      @ResolveField()
+      extra(_parent: Pick<Thing, 'id'>): string {
+        return '';
+      }
+    }
+    return UndeclaredField;
+  })(),
+  unsuppliedDependency: (() => {
+    @Resolver()
+    class UnsuppliedDependency {
+      @QueryDecorator()
+      thing(): Pick<Thing, 'id'> {
+        return { id: '1' };
+      }
+      @ResolveField()
+      label(parent: Pick<Thing, '$code'>): string {
+        return parent.$code;
+      }
+    }
+    return UnsuppliedDependency;
+  })(),
+  computedMismatch: (() => {
+    type Score = { readonly id: string; readonly value: number };
+    @Resolver()
+    class ComputedMismatch {
+      @QueryDecorator()
+      score(): Pick<Score, 'id'> {
+        return { id: '1' };
+      }
+      @ResolveField()
+      value(_parent: Pick<Score, 'id'>): string {
+        return '';
+      }
+    }
+    return ComputedMismatch;
+  })(),
+  computedRelation: (() => {
+    @Resolver()
+    class ComputedRelation {
+      @ResolveMultiField()
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
+        return null;
+      }
+      @ResolveField()
+      author(_parent: Pick<Article, 'id'>): string {
+        return '';
+      }
+    }
+    return ComputedRelation;
+  })(),
+  relationTarget: (() => {
+    @Resolver()
+    class RelationTarget {
+      @ResolveMultiField()
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
+        return null;
+      }
+      @Relation()
+      author(_parent: Pick<Article, 'id'>): Pick<Other, 'id'> {
+        return { id: '' };
+      }
+    }
+    return RelationTarget;
+  })(),
+  relationNullability: (() => {
+    @Resolver()
+    class RelationNullability {
+      @ResolveMultiField()
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
+        return null;
+      }
+      @Relation()
+      author(_parent: Pick<Article, 'id'>): Pick<Author, 'id'> | null {
+        return null;
+      }
+    }
+    return RelationNullability;
+  })(),
+  relationShape: (() => {
+    @Resolver()
+    class RelationShape {
+      @ResolveMultiField()
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
+        return null;
+      }
+      @Relation()
+      author(_parent: Pick<Article, 'id'>): readonly Pick<Author, 'id'>[] {
+        return [];
+      }
+    }
+    return RelationShape;
+  })(),
+  missingResolver: (() => {
+    @Resolver()
+    class MissingResolver {
+      @QueryDecorator()
+      thing(): Pick<Thing, 'id'> {
+        return { id: '1' };
+      }
+    }
+    return MissingResolver;
+  })(),
+  suppliedTwice: (() => {
+    @Resolver()
+    class SuppliedTwice {
+      @ResolveMultiField()
+      load(_ref: Pick<Thing, 'id'>): Thing | null {
+        return null;
+      }
+      @ResolveField()
+      label(_parent: Pick<Thing, 'id'>): string {
+        return '';
+      }
+    }
+    return SuppliedTwice;
+  })(),
+  resolvedTwice: (() => {
+    @Resolver()
+    class ResolvedTwice {
+      @ResolveMultiField()
+      load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'id' | '$code'> | null {
+        return null;
+      }
+      @ResolveField()
+      label(_parent: Pick<Thing, 'id'>): string {
+        return '';
+      }
+      @ResolveField('label')
+      other(_parent: Pick<Thing, 'id'>): string {
+        return '';
+      }
+    }
+    return ResolvedTwice;
+  })(),
+  modelMutation: (() => {
+    @Resolver()
+    class ModelMutation {
+      @QueryDecorator()
+      member(): Pick<Member, 'id'> {
+        return { id: '1' };
+      }
+      @MutationDecorator()
+      rename(): string {
+        return '';
+      }
+    }
+    return ModelMutation;
+  })(),
+  sameName: (() => {
+    type Member = { readonly id: string };
+    @Resolver()
+    class SameName {
+      @QueryDecorator()
+      otherMember(): Pick<Member, 'id'> {
+        return { id: '1' };
+      }
+    }
+    return SameName;
+  })(),
+  reservedField: (() => {
+    @Resolver()
+    class ReservedField {
+      @QueryDecorator('__reserved')
+      member(): Pick<Member, 'id'> {
+        return { id: '1' };
+      }
+    }
+    return ReservedField;
+  })(),
+};
 
 type Query = { id: string };
 @Resolver()
@@ -328,62 +515,8 @@ class CollisionDollarUserResolver {
   }
 }
 
-type NumericId = { id: number };
-@Resolver()
-class NumericIdResolver {
-  @ResolveMultiField()
-  load(_refs: readonly Pick<NumericId, 'id'>[]): Map<NumericId['id'], NumericId | null> {
-    return new Map();
-  }
-}
-
-type BadUser = { id: string; $secret: string };
-@Resolver()
-class BadUserResolver {
-  @ResolveMultiField()
-  users(_refs: readonly Pick<BadUser, 'id'>[]): Map<BadUser['id'], BadUser | null> {
-    return new Map();
-  }
-  @ResolveField()
-  id(user: Pick<BadUser, 'id'>): string {
-    return user.id;
-  }
-}
-
-type IdUser = {
-  readonly id: GraphqlId;
-  readonly externalId: GraphqlId | null;
-  readonly aliases: readonly GraphqlId[];
-  readonly code: string;
-};
-@Resolver()
-class IdUserResolver {
-  @QueryDecorator()
-  idUser(): Pick<IdUser, 'id'> {
-    return { id: '1' };
-  }
-  @ResolveMultiField()
-  load(_ref: Pick<IdUser, 'id'>): IdUser | null {
-    return null;
-  }
-}
-
-type StringIdUser = { readonly id: string };
-@Resolver()
-class StringIdUserResolver {
-  @QueryDecorator()
-  stringIdUser(): Pick<StringIdUser, 'id'> {
-    return { id: '1' };
-  }
-  @ResolveMultiField()
-  load(_ref: Pick<StringIdUser, 'id'>): StringIdUser | null {
-    return null;
-  }
-}
-
 describe('model code generation', () => {
   it('finishes the cold first inspection before inspecting the remaining models', async () => {
-    const tsconfig = resolve(__dirname, '../tsconfig.json');
     inspection.clearProgramCache(tsconfig);
     const original = inspection.getTypeMetadata;
     let started = 0;
@@ -398,141 +531,145 @@ describe('model code generation', () => {
       });
     });
     try {
-      const runtime = await generateGraphqlRuntimeForResolvers(
-        [ModelUserResolver, BatchUserResolver, SingleVariantResolver],
-        { tsconfig },
-      );
-      expect(Object.keys(runtime.models ?? {})).toHaveLength(3);
+      const runtime = await generate([AuthorResolver, ArticleResolver, MemberResolver]);
+      expect(Object.keys(runtime.models ?? {})).toEqual(['Author', 'Article', 'Member']);
       expect(warmed).toEqual([true, true]);
     } finally {
       spy.mockRestore();
       inspection.clearProgramCache(tsconfig);
     }
   });
-  it('generates public source fields and model bindings', async () => {
-    const runtime = await generateGraphqlRuntimeForResolvers([ModelUserResolver], {
-      tsconfig: resolve(__dirname, '../tsconfig.json'),
+
+  it('resolves an identity model from its id without a provider', async () => {
+    const runtime = await generate([MemberResolver]);
+    expect(runtime.schemaSdl).toContain('type Query {\n  member: Member!\n}');
+    expect(runtime.schemaSdl).toContain('type Member {\n  id: ID!\n  name: String!\n}');
+    expect(modelIn(runtime, 'Member')).toEqual({
+      kind: 'identity',
+      properties: [{ name: 'id', optional: false, value: { kind: 'scalar', name: 'ID' } }],
     });
-    expect(runtime.schemaSdl).toContain('friend: ModelUser');
-    expect(runtime.schemaSdl).toContain('label: String!');
-    expect(runtime.schemaSdl).toContain('active: Boolean');
-    expect(runtime.schemaSdl).toContain('optional: Boolean');
-    expect(runtime.schemaSdl).not.toContain('$secret');
-    const model = runtime.models?.['ModelUser'];
-    expect(model).toBeDefined();
-    if (!model) throw new Error('Missing ModelUser model');
-    expect(model.properties.find((p) => p.name === '$secret')?.value.kind).toBe('opaque');
-    expect(model.properties.map((p) => p.name)).toContain('$secret');
-    expect(runtime.modelFields?.['ModelUser']?.['friend']).toMatchObject({
-      kind: 'relation',
-      mode: 'single',
-    });
-  });
-  it('distinguishes null and undefined in source metadata', async () => {
-    const runtime = await generateGraphqlRuntimeForResolvers([ModelUserResolver], {
-      tsconfig: resolve(__dirname, '../tsconfig.json'),
-    });
-    expect(
-      runtime.models?.['ModelUser']?.properties.find((p) => p.name === 'requiredUndefined')?.value,
-    ).toEqual({ kind: 'optional', inner: { kind: 'scalar', name: 'string' } });
-    expect(runtime.models?.['ModelUser']?.properties.find((p) => p.name === 'both')?.value).toEqual(
-      { kind: 'optional', inner: { kind: 'nullable', inner: { kind: 'scalar', name: 'string' } } },
-    );
-  });
-  it('supports aliases and batch relations independently of Promise', async () => {
-    const runtime = await generateGraphqlRuntimeForResolvers([BatchUserResolver], {
-      tsconfig: resolve(__dirname, '../tsconfig.json'),
-    });
-    expect(runtime.schemaSdl).toContain('batchUser: BatchUser');
-    expect(runtime.schemaSdl).toContain('friends: [BatchUser!]!');
-    const fields = runtime.modelFields;
-    expect(fields).toBeDefined();
-    if (!fields) throw new Error('Missing model fields');
-    expect(fields['Query']?.['list']).toMatchObject({
-      shape: { kind: 'many', nullable: true, itemNullable: true },
-    });
-    expect(fields['Query']?.['batchUser']).toMatchObject({
-      shape: { kind: 'one', nullable: true },
-    });
-    expect(runtime.bindings['BatchUser']?.['friends']?.method).toBe('getFriends');
-    expect(fields['BatchUser']?.['friends']).toMatchObject({
-      kind: 'relation',
-      mode: 'batch',
-    });
-  });
-  it('generates single parent async and sync methods', async () => {
-    const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };
-    const single = await generateGraphqlRuntimeForResolvers([SingleVariantResolver], options);
-    const sync = await generateGraphqlRuntimeForResolvers([SingleSyncVariantResolver], options);
-    expect(sync.models?.['VariantUser']?.mode).toBe('single');
-    expect(single.models?.['VariantUser']?.mode).toBe('single');
-    const fields = single.modelFields?.['VariantUser'];
-    expect(fields).toBeDefined();
-    if (!fields) throw new Error('Missing fields');
-    expect(fields['upper']).toMatchObject({
+    expect(fieldIn(runtime, 'Member', 'name')).toEqual({
+      kind: 'computed',
+      dependencies: ['id'],
       mode: 'single',
       value: { kind: 'scalar', name: 'string' },
     });
-    expect(fields['other']).toMatchObject({ mode: 'single' });
   });
-  it('generates one-parent values for batch computed methods', async () => {
-    const batch = await generateGraphqlRuntimeForResolvers([BatchVariantResolver], {
-      tsconfig: resolve(__dirname, '../tsconfig.json'),
-    });
-    expect(batch.models?.['VariantUser']?.mode).toBe('batch');
-    expect(batch.schemaSdl).toContain('upper: [String]!');
-    const fields = batch.modelFields?.['VariantUser'];
-    expect(fields).toBeDefined();
-    if (!fields) throw new Error('Missing fields');
-    expect(fields['lower']).toMatchObject({ mode: 'batch' });
-    expect(fields['upper']).toMatchObject({
+
+  it('publishes provided properties, computed fields and relations declared in the model', async () => {
+    const runtime = await generate([AuthorResolver, ArticleResolver]);
+    expect(runtime.schemaSdl).toContain('authors: [Author]');
+    expect(runtime.schemaSdl).toContain('posts: [Article!]!');
+    expect(runtime.schemaSdl).toContain('mentor: Author\n');
+    expect(runtime.schemaSdl).toContain('author: Author!');
+    expect(runtime.schemaSdl).toContain('firstName: String!');
+    expect(runtime.schemaSdl).toContain('name: String!');
+    expect(runtime.schemaSdl).not.toContain('$');
+    expect(modelIn(runtime, 'Author')).toMatchObject({
+      kind: 'provided',
+      provider: { resolver: 'AuthorResolver', method: 'values' },
       mode: 'batch',
-      value: { kind: 'array', item: { kind: 'nullable' } },
     });
-    expect(fields['other']).toMatchObject({ mode: 'batch' });
+    expect(propertyNames(runtime, 'Author')).toEqual([
+      'id',
+      'firstName',
+      'lastName',
+      '$familyNameFirst',
+    ]);
+    expect(fieldIn(runtime, 'Author', 'posts')).toEqual({
+      kind: 'relation',
+      target: 'Article',
+      shape: { kind: 'many', nullable: false, itemNullable: false },
+      dependencies: ['id'],
+      mode: 'batch',
+    });
+    expect(fieldIn(runtime, 'Article', 'author')).toMatchObject({
+      dependencies: ['$authorId'],
+      mode: 'single',
+    });
+    expect(fieldIn(runtime, 'Query', 'authors')).toMatchObject({
+      shape: { kind: 'many', nullable: true, itemNullable: true },
+    });
   });
-  it('rejects missing batch IDs, incorrect keys and nested promises', async () => {
-    const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };
-    await expect(
-      generateGraphqlRuntimeForResolvers([MissingBatchIdResolver], options),
-    ).rejects.toThrow('batch parent Pick requires id');
-    await expect(
-      generateGraphqlRuntimeForResolvers([MissingRelationIdResolver], options),
-    ).rejects.toThrow('batch parent Pick requires id');
-    await expect(
-      generateGraphqlRuntimeForResolvers([BadProviderShapeResolver], options),
-    ).rejects.toThrow('provider result must be Model | null');
-    await expect(
-      generateGraphqlRuntimeForResolvers([BadComputedMapResolver], options),
-    ).rejects.toThrow('Map key must match');
-    await expect(
-      generateGraphqlRuntimeForResolvers([BadComputedValueResolver], options),
-    ).rejects.toThrow('batch Map values cannot be Promise');
-    await expect(
-      generateGraphqlRuntimeForResolvers([BadRelationPromiseResolver], options),
-    ).rejects.toThrow('batch Map values cannot be Promise');
+
+  it('maps declared property types and keeps private data opaque', async () => {
+    const runtime = await generate([SampleResolver]);
+    const property = (name: string) => propertyIn(runtime, 'Sample', name);
+    expect(modelIn(runtime, 'Sample')).toMatchObject({ kind: 'provided', mode: 'single' });
+    expect(property('id')?.value).toEqual({ kind: 'scalar', name: 'string' });
+    expect(property('maybe')?.value).toEqual({
+      kind: 'optional',
+      inner: { kind: 'scalar', name: 'string' },
+    });
+    expect(property('both')?.value).toEqual({
+      kind: 'optional',
+      inner: { kind: 'nullable', inner: { kind: 'scalar', name: 'string' } },
+    });
+    expect(property('$secret')?.value.kind).toBe('opaque');
+    expect(runtime.schemaSdl).toContain('id: String!');
+    expect(runtime.schemaSdl).toContain('flag: Boolean\n');
+    expect(runtime.schemaSdl).toContain('optional: Float\n');
+    expect(runtime.schemaSdl).toContain('tags: [String]!');
+    expect(hasQuery(runtime, 'toString')).toBe(true);
+    expect(hasQuery(runtime, 'constructor')).toBe(true);
   });
-  it('rejects another structurally identical parent model and a nonstandard Map', async () => {
-    const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };
-    await expect(
-      generateGraphqlRuntimeForResolvers([WrongParentResolver], options),
-    ).rejects.toThrow('parent Pick must refer to provider model');
-    await expect(generateGraphqlRuntimeForResolvers([FakeMapResolver], options)).rejects.toThrow(
-      'provider must return Map',
-    );
+
+  it('publishes the per-parent type of batch computed fields', async () => {
+    const runtime = await generate([CounterResolver]);
+    expect(runtime.schemaSdl).toContain('labels: [String]!');
+    expect(runtime.schemaSdl).not.toContain('Map');
+    expect(fieldIn(runtime, 'Counter', 'labels')).toMatchObject({ mode: 'batch' });
   });
-  it('accepts prototype-named fields and rejects reserved names and fake arrays', async () => {
-    const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };
-    const runtime = await generateGraphqlRuntimeForResolvers([NamesResolver], options);
-    expect(Object.hasOwn(runtime.modelFields?.['Query'] ?? {}, 'toString')).toBe(true);
-    expect(Object.hasOwn(runtime.modelFields?.['Query'] ?? {}, 'constructor')).toBe(true);
-    await expect(generateGraphqlRuntimeForResolvers([ReservedResolver], options)).rejects.toThrow(
-      'invalid GraphQL field name',
-    );
-    await expect(generateGraphqlRuntimeForResolvers([FakeArrayResolver], options)).rejects.toThrow(
-      'expected a direct Pick',
-    );
+
+  it.each([
+    ['an aliased parent Pick', [rejecting.aliasedParent], 'written directly'],
+    ['a batch parent without id', [rejecting.batchWithoutId], 'batch parent Pick requires id'],
+    ['a query returning data', [rejecting.queryReturnsData], "must return Pick<Model, 'id'>"],
+    ['a Map look-alike', [rejecting.fakeMap], 'batch methods must return a Map'],
+    ['a Map keyed by another type', [rejecting.wrongMapKey], 'Map key must match model id type'],
+    ['Promise Map values', [rejecting.promiseMapValues], 'batch Map values cannot be Promise'],
+    ['a provider Pick without id', [rejecting.providerWithoutId], 'provider Pick must include id'],
+    ['a non-nullable provider', [rejecting.providerNotNullable], 'provider result must be'],
+    [
+      'two providers for one model',
+      [rejecting.duplicateProvider, rejecting.suppliedTwice],
+      'duplicate provider for model Thing',
+    ],
+    ['a numeric id', [rejecting.numericId], 'requires a non-null scalar id'],
+    ['a literal union property', [rejecting.unsupportedProperty], 'unsupported public property'],
+    ['an undeclared field', [rejecting.undeclaredField], 'must be declared in Thing'],
+    ['an unsupplied dependency', [rejecting.unsuppliedDependency], 'unknown source dependency'],
+    ['a mismatched computed type', [rejecting.computedMismatch], 'not assignable to Score.value'],
+    ['a computed model reference', [rejecting.computedRelation], 'resolve model references'],
+    [
+      'a relation to another model',
+      [rejecting.relationTarget, AuthorResolver],
+      'is not a Other relation',
+    ],
+    [
+      'a nullable relation into a non-null field',
+      [rejecting.relationNullability, AuthorResolver],
+      'does not fit',
+    ],
+    [
+      'a list relation into a single field',
+      [rejecting.relationShape, AuthorResolver],
+      'does not fit',
+    ],
+    ['a property without resolver', [rejecting.missingResolver], 'Thing.label has no resolver'],
+    [
+      'a field the provider supplies',
+      [rejecting.suppliedTwice],
+      'the provider already supplies it',
+    ],
+    ['a field resolved twice', [rejecting.resolvedTwice], 'duplicate field Thing.label'],
+    ['a mutation in a model resolver', [rejecting.modelMutation], 'cannot declare mutations'],
+    ['two model types named alike', [MemberResolver, rejecting.sameName], 'already named Member'],
+    ['an invalid field name', [rejecting.reservedField], 'invalid GraphQL field name'],
+  ])('rejects %s', async (_name, resolvers, message) => {
+    await expect(generate(resolvers)).rejects.toThrow(message);
   });
+
   it.each([
     CollisionQueryResolver,
     CollisionMutationResolver,
@@ -544,34 +681,6 @@ describe('model code generation', () => {
     CollisionBooleanResolver,
     CollisionDollarUserResolver,
   ])('rejects reserved or invalid model names: %s', async (resolver) => {
-    await expect(
-      generateGraphqlRuntimeForResolvers([resolver], {
-        tsconfig: resolve(__dirname, '../tsconfig.json'),
-      }),
-    ).rejects.toThrow();
-  });
-  it('derives the ID scalar from the declared ID type, not from the property name', async () => {
-    const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };
-    const explicit = await generateGraphqlRuntimeForResolvers([IdUserResolver], options);
-    expect(explicit.schemaSdl).toContain('id: ID!');
-    expect(explicit.schemaSdl).toContain('externalId: ID\n');
-    expect(explicit.schemaSdl).toContain('aliases: [ID!]!');
-    expect(explicit.schemaSdl).toContain('code: String!');
-    const plain = await generateGraphqlRuntimeForResolvers([StringIdUserResolver], options);
-    expect(plain.schemaSdl).toContain('id: String!');
-  });
-  it('requires string model identifiers', async () => {
-    await expect(
-      generateGraphqlRuntimeForResolvers([NumericIdResolver], {
-        tsconfig: resolve(__dirname, '../tsconfig.json'),
-      }),
-    ).rejects.toThrow('model requires a non-null scalar id');
-  });
-  it('rejects duplicate source and computed fields', async () => {
-    await expect(
-      generateGraphqlRuntimeForResolvers([BadUserResolver], {
-        tsconfig: resolve(__dirname, '../tsconfig.json'),
-      }),
-    ).rejects.toThrow('duplicate field');
+    await expect(generate([resolver])).rejects.toThrow();
   });
 });

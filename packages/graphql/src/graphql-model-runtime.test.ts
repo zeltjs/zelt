@@ -18,6 +18,7 @@ const inputId = (value: unknown): string => {
 };
 const models = {
   User: {
+    kind: 'provided',
     mode: 'batch',
     provider: binding('provide'),
     properties: [
@@ -140,6 +141,39 @@ const fixture = (
 };
 
 describe('model execution contracts', () => {
+  it('hydrates identity models from the reference id without invoking a provider', async () => {
+    const definitions: GraphqlModels = {
+      User: {
+        kind: 'identity',
+        properties: [{ name: 'id', optional: false, value: { kind: 'scalar', name: 'ID' } }],
+      },
+    };
+    const fieldDefinitions: GraphqlModelFields = {
+      Query: {
+        users: {
+          kind: 'query',
+          target: 'User',
+          shape: { kind: 'many', nullable: false, itemNullable: true },
+        },
+      },
+      User: {
+        label: {
+          kind: 'computed',
+          mode: 'single',
+          dependencies: ['id'],
+          value: { kind: 'scalar', name: 'string' },
+        },
+      },
+    };
+    const { execute, calls } = fixture({}, definitions, fieldDefinitions);
+    expect(await execute('{ users { id label } }')).toEqual({
+      data: {
+        users: ['a', 'b', 'a'].map((id) => ({ id, label: JSON.stringify({ id }) })),
+      },
+    });
+    expect(calls.map((call) => call.method)).toEqual(['users', 'label', 'label', 'label']);
+  });
+
   it('preserves absent dependencies separately from explicit undefined', async () => {
     const definitions: GraphqlModels = {
       User: {
@@ -692,7 +726,12 @@ describe('model execution contracts', () => {
     const execution = createGraphqlModelExecution({
       models: {
         User: models.User,
-        Other: { mode: 'batch', provider: binding('otherProvider'), properties: [] },
+        Other: {
+          kind: 'provided',
+          mode: 'batch',
+          provider: binding('otherProvider'),
+          properties: [],
+        },
       },
       modelFields: {
         Query: {
