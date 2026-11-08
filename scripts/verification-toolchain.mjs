@@ -8,8 +8,12 @@ const pnpm = spawnSync('pnpm', ['--version'], {
   shell: process.platform === 'win32',
 });
 if (pnpm.error) throw pnpm.error;
-if (pnpm.status !== 0) {
+// Nx hashes stderr too. Its pre-task hook displays diagnostics independently,
+// including on cache hits; only the fingerprint probe omits successful warnings.
+if (!process.argv.includes('--fingerprint') || pnpm.status !== 0) {
   process.stderr.write(pnpm.stderr);
+}
+if (pnpm.status !== 0) {
   throw new Error(`pnpm version probe failed: status=${pnpm.status}, signal=${pnpm.signal}`);
 }
 console.log(JSON.stringify({

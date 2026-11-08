@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -19,7 +19,8 @@ test('verification caches invalidate on sources, docs, tools and dependency chan
     mkdirSync(join(root, directory), { recursive: true });
   }
   symlinkSync(join(workspace, 'node_modules'), join(root, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
-  for (const file of ['nx.json', 'pnpm-lock.yaml', 'scripts/verification-toolchain.mjs']) {
+  cpSync(join(workspace, 'scripts'), join(root, 'scripts'), { recursive: true });
+  for (const file of ['nx.json', 'pnpm-lock.yaml']) {
     copyFileSync(join(workspace, file), join(root, file));
   }
   writeJson(join(root, 'package.json'), {
@@ -73,18 +74,28 @@ test('verification caches invalidate on sources, docs, tools and dependency chan
   const run = () => spawnSync(process.execPath, [
     join(nxDirectory, nxManifest.bin.nx), 'run-many', '-t', 'test-workspace', 'runtime-contracts', 'verify-docs',
     '--outputStyle=static', '--parallel=1',
+    '--nxBail=false',
   ], { cwd: root, env, encoding: 'utf8', timeout: 60_000 });
   const success = () => {
     const result = run();
     assert.equal(result.error, undefined);
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    return result.stdout;
+    return result.stdout + result.stderr;
   };
-  const executions = () => readFileSync(join(root, '.tmp/executions'), 'utf8').trim().split('\n').length;
+  const targets = ['test-workspace', 'runtime-contracts', 'verify-docs'];
+  const executions = () => {
+    const lines = readFileSync(join(root, '.tmp/executions'), 'utf8').trim().split('\n');
+    return Object.fromEntries(targets.map(target => [target, lines.filter(line => line === target).length]));
+  };
+  const assertExecutedOnce = (before, after) => {
+    for (const target of targets) {
+      assert.equal(after[target], before[target] + 1, `${target} must execute once`);
+    }
+  };
   success();
-  assert.equal(executions(), 3);
+  assert.deepEqual(executions(), Object.fromEntries(targets.map(target => [target, 1])));
   const cached = success();
-  assert.equal(executions(), 3, `unchanged inputs must reuse all three results\n${cached}`);
+  assert.deepEqual(executions(), Object.fromEntries(targets.map(target => [target, 1])), `unchanged inputs must reuse all three results\n${cached}`);
   for (const [file, content] of [
     ['packages/probe/source.txt', 'changed source\n'],
     ['website/guide.md', 'changed docs\n'],
@@ -94,16 +105,52 @@ test('verification caches invalidate on sources, docs, tools and dependency chan
     const previous = executions();
     writeFileSync(join(root, file), content);
     success();
-    assert.equal(executions(), previous + 3, `${file} must invalidate verification results`);
+    assertExecutedOnce(previous, executions());
   }
   const beforeBuildChange = executions();
   env.VERIFICATION_PROBE_BUILD = 'different build output';
   success();
-  assert.equal(executions(), beforeBuildChange + 3, 'changed prerequisite outputs must invalidate verification results');
+  assertExecutedOnce(beforeBuildChange, executions());
+
+  const bin = join(root, '.tmp/bin');
+  mkdirSync(bin);
+  const pnpmProbe = "process.stderr.write('pnpm-probe-warning '+process.pid+'\\n');process.stdout.write('10.33.0\\n');\n";
+  if (process.platform === 'win32') {
+    writeFileSync(join(bin, 'pnpm-probe.cjs'), pnpmProbe);
+    writeFileSync(join(bin, 'pnpm.cmd'), `@"${process.execPath}" "%~dp0pnpm-probe.cjs" %*\r\n`);
+  } else {
+    writeFileSync(join(bin, 'pnpm'), `#!${process.execPath}\n${pnpmProbe}`, { mode: 0o755 });
+  }
+  env.PATH = bin + delimiter + process.env.PATH;
+  const probeToolchain = (args) => spawnSync(process.execPath, [
+    '--no-warnings', join(root, 'scripts/verification-toolchain.mjs'), ...args,
+  ], { cwd: root, env, encoding: 'utf8' });
+  const diagnostics = probeToolchain([]);
+  const fingerprint = probeToolchain(['--fingerprint']);
+  assert.equal(diagnostics.status, 0, diagnostics.stderr);
+  assert.equal(fingerprint.status, 0, fingerprint.stderr);
+  assert.match(diagnostics.stderr, /pnpm-probe-warning/);
+  assert.equal(fingerprint.stderr, '');
+  assert.equal(diagnostics.stdout, fingerprint.stdout, 'diagnostics must not change the fingerprint');
+  const beforeWarnings = executions();
+  const firstWarning = success().match(/pnpm-probe-warning \d+/)?.[0];
+  env.NX_ISOLATE_PLUGINS = 'true';
+  const secondWarning = success().match(/pnpm-probe-warning \d+/)?.[0];
+  assert.ok(firstWarning, 'warnings must be visible on a cache hit');
+  assert.ok(secondWarning, 'warnings must remain visible on the next cache hit');
+  assert.notEqual(firstWarning, secondWarning, 'diagnostics must run again rather than replaying an old warning');
+  assert.deepEqual(executions(), beforeWarnings, 'changing warning PIDs must not invalidate cached verification');
+
   writeFileSync(join(root, '.tmp/fail'), 'fail');
   writeFileSync(join(root, 'website/guide.md'), 'invalid docs\n');
-  assert.notEqual(run().status, 0);
+  const beforeFailure = executions();
+  const firstFailure = run();
+  assert.equal(firstFailure.error, undefined);
+  assert.equal(firstFailure.status, 1, firstFailure.stdout + firstFailure.stderr);
   const failedExecutions = executions();
-  assert.notEqual(run().status, 0);
-  assert.ok(executions() > failedExecutions, 'failed verification must execute again');
+  assertExecutedOnce(beforeFailure, failedExecutions);
+  const secondFailure = run();
+  assert.equal(secondFailure.error, undefined);
+  assert.equal(secondFailure.status, 1, secondFailure.stdout + secondFailure.stderr);
+  assertExecutedOnce(failedExecutions, executions());
 });
