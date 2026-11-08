@@ -1,4 +1,4 @@
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type {
   ClassMetadata,
@@ -9,7 +9,11 @@ import type {
 import { getOrCreateProgram, getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
 import { assertName, specifiedScalarTypes } from 'graphql';
 import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
-import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
+import {
+  extractGraphqlArgsRef,
+  resolveGraphqlArgs,
+  resolveRelativeModuleSpecifier,
+} from './analyze-gql-args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
 import { graphqlIdOutput } from './graphql-id.lib';
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
@@ -164,16 +168,7 @@ const defaultScalarResolver: GqlSchemaResolver = async (modulePath) => {
   if (typeof imported !== 'object' || imported === null) {
     throw new Error(`Module '${modulePath}' did not resolve to an object`);
   }
-  return { ...imported };
-};
-
-const resolveRelativeModuleSpecifier = (
-  sourceFile: import('typescript').SourceFile,
-  specifier: string,
-): string => {
-  if (!specifier.startsWith('.')) return specifier;
-  const resolved = resolve(dirname(sourceFile.fileName), specifier);
-  return resolved.endsWith('.ts') || resolved.endsWith('.js') ? resolved : `${resolved}.ts`;
+  return imported;
 };
 
 const findExportNameInElements = (
@@ -294,7 +289,7 @@ const resolveGraphqlScalarTypeInfo = async (
 ): Promise<GraphqlOutputTypeInfo> => {
   const resolver = options.scalarResolver ?? options.schemaResolver ?? defaultScalarResolver;
   const mod = await resolver(ref.modulePath);
-  const scalar = parseGqlScalar(mod[ref.exportName]);
+  const scalar = parseGqlScalar(Reflect.get(mod, ref.exportName));
   if (!scalar) {
     throw new Error(`Export '${ref.exportName}' is not a gqlScalar: ${ref.modulePath}`);
   }
@@ -560,7 +555,10 @@ const enrichObjectProperty = async (
   ctx: EnrichTypeContext,
 ): Promise<Omit<TypedPropertyInfo, 'type'> & { readonly type: GraphqlOutputTypeInfo }> => {
   const symbol = tsType.getProperty(prop.name);
-  if (!symbol) throw new Error(`Cannot resolve GraphQL output property ${prop.name}`);
+  if (!symbol)
+    throw new Error(
+      `Cannot resolve GraphQL output property ${prop.name} on ${ctx.checker.typeToString(tsType)}`,
+    );
   const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
   const propTsType = ctx.checker.getTypeOfSymbolAtLocation(symbol, declaration ?? ctx.sourceFile);
   const propTypeNode = propertyTypeNode(declaration, ctx.ts);
@@ -649,7 +647,7 @@ const tryEnrichNamedUnionTypeInfo = async (
 const enrichFallbackUnionTypeInfo = async (
   base: TypeInfo & { kind: 'union' },
   tsType: TSType,
-  unionTypeNode: import('typescript').UnionTypeNode,
+  unionTypeNode: import('typescript').UnionTypeNode | undefined,
   ctx: EnrichTypeContext,
 ): Promise<GraphqlOutputTypeInfo> => {
   const members = tsType.isUnion() ? tsType.types : [tsType];
@@ -658,15 +656,10 @@ const enrichFallbackUnionTypeInfo = async (
   const enrichedTypes = await Promise.all(
     base.types.map(async (memberBase) => {
       if (isNullishTypeInfo(memberBase)) return memberBase;
-      const memberNode = unionTypeNode.types.filter((node) => !isNullishTypeNode(node, ctx.ts))[
-        valueInfo.indexOf(memberBase)
-      ];
       const memberType =
-        valueMembers.length === 1
-          ? valueMembers[0]
-          : memberNode && ctx.checker.getTypeFromTypeNode(memberNode);
+        valueMembers.length === 1 ? valueMembers[0] : valueMembers[valueInfo.indexOf(memberBase)];
       if (!memberType) throw new Error('Cannot resolve GraphQL union member type');
-      const actualNode = unionTypeNode.types.find(
+      const actualNode = unionTypeNode?.types.find(
         (node) => ctx.checker.getTypeFromTypeNode(node) === memberType,
       );
       return enrichGraphqlTypeInfo(memberBase, memberType, actualNode, ctx);
@@ -685,7 +678,7 @@ const enrichUnionTypeInfo = async (
   const unionTypeNode = getUnionTypeNode(typeNode, ctx.checker, ctx.ts);
   const namedUnion = await tryEnrichNamedUnionTypeInfo(base, tsType, typeNode, unionTypeNode, ctx);
   if (namedUnion) return namedUnion;
-  return unionTypeNode ? enrichFallbackUnionTypeInfo(base, tsType, unionTypeNode, ctx) : base;
+  return enrichFallbackUnionTypeInfo(base, tsType, unionTypeNode, ctx);
 };
 
 /** @throws {Error} */
@@ -715,7 +708,11 @@ const getMethodTypeNames = async (
     ? getNamedTypeFromTsType(checker.getTypeOfSymbol(firstParam), checker, ts)
     : undefined;
   const argsSchemaRef = extractGraphqlArgsRef(methodNode, classNode.getSourceFile(), ts);
-  const returnType = await enrichGraphqlTypeInfo(baseReturnType, tsReturnType, methodNode.type, {
+  const inspectedType =
+    baseReturnType.kind === 'promise' ? tsReturnType : unwrapPromiseType(tsReturnType, checker);
+  const inspectedNode =
+    inspectedType === tsReturnType ? methodNode.type : getPromiseInnerTypeNode(methodNode.type, ts);
+  const returnType = await enrichGraphqlTypeInfo(baseReturnType, inspectedType, inspectedNode, {
     sourceFile: classNode.getSourceFile(),
     checker,
     ts,

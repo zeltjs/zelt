@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
-
 import { toJsonSchema } from '@valibot/to-json-schema';
+import { buildSchema, getNamedType, isNonNullType, isObjectType } from 'graphql';
 import type { GenericSchema } from 'valibot';
 import { describe, expect, it } from 'vitest';
 
@@ -47,6 +47,16 @@ interface InterfaceIdOutput extends IdBase {
 }
 @Resolver()
 class InterfaceIdResolver {
+  @Query()
+  inferredObject() {
+    const externalId: ID = 'one';
+    return Math.random() > 0.5 ? { externalId } : null;
+  }
+
+  @Query()
+  inferredAsyncObject() {
+    return Promise.resolve(this.inferredObject());
+  }
   @Query()
   output(): InterfaceIdOutput {
     return { inheritedId: 'base', externalId: 'own', nullableId: null, ids: ['one'] };
@@ -182,6 +192,14 @@ describe('generateSdlForResolvers', () => {
     expect(sdl).toMatch(/\n {2}nullableId: ID\n/);
     expect(sdl).toContain('ids: [ID!]!');
     expect(sdl).toMatch(/inferredNullable: ID\n/);
+    for (const name of ['inferredObject', 'inferredAsyncObject']) {
+      const field = buildSchema(sdl).getQueryType()?.getFields()[name];
+      if (!field) throw new Error('Missing inferred object field');
+      expect(isNonNullType(field.type)).toBe(false);
+      const object = getNamedType(field.type);
+      if (!isObjectType(object)) throw new Error('Expected an inferred object type');
+      expect(String(object.getFields()['externalId']?.type)).toBe('ID!');
+    }
   });
   it('uses the explicit ID scalar for ordinary fields and root outputs', async () => {
     const sdl = await generateSdlForResolvers([ExplicitIdOutputResolver], {

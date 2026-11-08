@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { extractTypeScriptExamples } from '../src/twoslash/code-examples.lib';
+import { extractTypeScriptExamples } from '../src/twoslash/documentation-parser.lib';
 
 const root = resolve(import.meta.dir, '../..');
 const cli = join(root, 'packages/cli/bin/zelt.mjs');
@@ -81,6 +81,38 @@ const prepare = (cwd: string): void => {
   );
 };
 
+const useCommonJsInputs = (cwd: string, source: string): void => {
+  const declarations =
+    'export const GetUserInput = v.object({ id: v.string() });\nexport const GetUsersInput = v.object({ ids: v.array(v.string()) });';
+  if (!source.includes(declarations)) throw new Error('Documented argument schemas changed');
+  write(
+    cwd,
+    'src/user.resolver.ts',
+    source
+      .replace(declarations, "import { GetUserInput, GetUsersInput } from './inputs.cjs';")
+      .replace("import * as v from 'valibot';\n", ''),
+  );
+  write(
+    cwd,
+    'src/inputs.cjs',
+    `const v = require('valibot');
+const schemas = {
+  [['Get', 'User', 'Input'].join('')]: v.object({ id: v.string() }),
+  [['Get', 'Users', 'Input'].join('')]: v.object({ ids: v.array(v.string()) }),
+};
+module.exports = schemas;
+`,
+  );
+  write(
+    cwd,
+    'src/inputs.d.cts',
+    `import type { StandardSchemaV1 } from '@zeltjs/graphql';
+export const GetUserInput: StandardSchemaV1<{ id: string }, { id: string }>;
+export const GetUsersInput: StandardSchemaV1<{ ids: string[] }, { ids: string[] }>;
+`,
+  );
+};
+
 const checkRequest = (cwd: string, query: string, data: unknown): void => {
   const driver = `import assert from 'node:assert/strict';
 import { nodeApp } from './dist/node.js';
@@ -103,67 +135,78 @@ try {
 describe('GraphQL guide applications', () => {
   for (const locale of ['en', 'ja']) {
     for (const mode of ['code-first', 'schema-first']) {
-      it(`${locale}: ${mode} generates, typechecks, builds and serves the documented app`, () => {
-        const doc =
-          locale === 'en'
-            ? 'website/docs/graphql.md'
-            : 'website/i18n/ja/docusaurus-plugin-content-docs/current/graphql.md';
-        const markdown = readFileSync(join(root, doc), 'utf8');
-        const examples = extractTypeScriptExamples(markdown);
-        mkdirSync(join(root, '.tmp'), { recursive: true });
-        const cwd = mkdtempSync(join(root, '.tmp/graphql-guide-'));
-        try {
-          prepare(cwd);
-          if (mode === 'code-first') {
-            const code = exampleContaining(examples, 'resolvers: [UserResolver, PostResolver]');
-            for (const [name, content] of virtualFiles(code)) write(cwd, name, content);
-          } else {
-            const code = exampleContaining(examples, 'class ProductResolver');
-            const files = virtualFiles(code);
-            const resolver = files.get('src/graphql/product.resolver.ts');
-            if (!resolver) throw new Error('Resolver path does not match the documented layout');
-            write(cwd, 'src/graphql/product.resolver.ts', resolver);
+      for (const format of mode === 'code-first' ? ['inline', 'commonjs'] : ['inline']) {
+        it(`${locale}: ${mode}/${format} generates, typechecks, builds and serves the documented app`, () => {
+          const doc =
+            locale === 'en'
+              ? 'website/docs/graphql.md'
+              : 'website/i18n/ja/docusaurus-plugin-content-docs/current/graphql.md';
+          const markdown = readFileSync(join(root, doc), 'utf8');
+          const examples = extractTypeScriptExamples(markdown);
+          mkdirSync(join(root, '.tmp'), { recursive: true });
+          const cwd = mkdtempSync(join(root, '.tmp/graphql-guide-'));
+          try {
+            prepare(cwd);
+            if (mode === 'code-first') {
+              const code = exampleContaining(examples, 'resolvers: [UserResolver, PostResolver]');
+              for (const [name, content] of virtualFiles(code)) write(cwd, name, content);
+              if (format === 'commonjs') {
+                const user = virtualFiles(code).get('src/user.resolver.ts');
+                if (!user) throw new Error('Missing documented user resolver');
+                useCommonJsInputs(cwd, user);
+              }
+            } else {
+              const code = exampleContaining(examples, 'class ProductResolver');
+              const files = virtualFiles(code);
+              const resolver = files.get('src/graphql/product.resolver.ts');
+              if (!resolver) throw new Error('Resolver path does not match the documented layout');
+              write(cwd, 'src/graphql/product.resolver.ts', resolver);
+              write(
+                cwd,
+                'src/app.ts',
+                visibleCode(exampleContaining(examples, 'resolvers: [ProductResolver]')),
+              );
+              const schema = markdown.match(
+                /```graphql\n(type Query \{\n {2}product[\s\S]*?)```/,
+              )?.[1];
+              if (!schema) throw new Error('Missing documented SDL');
+              write(cwd, 'src/graphql/schema.graphql', schema);
+              const command = markdown.match(/```bash\n(zelt graphql codegen[^\n]*)/)?.[1];
+              if (!command) throw new Error('Missing documented codegen command');
+              run(cwd, [cli, ...command.split(/\s+/).slice(1)]);
+            }
             write(
               cwd,
-              'src/app.ts',
-              visibleCode(exampleContaining(examples, 'resolvers: [ProductResolver]')),
+              'zelt.config.ts',
+              visibleCode(exampleContaining(examples, 'export default defineConfig')),
             );
-            const schema = markdown.match(
-              /```graphql\n(type Query \{\n {2}product[\s\S]*?)```/,
-            )?.[1];
-            if (!schema) throw new Error('Missing documented SDL');
-            write(cwd, 'src/graphql/schema.graphql', schema);
-            const command = markdown.match(/```bash\n(zelt graphql codegen[^\n]*)/)?.[1];
-            if (!command) throw new Error('Missing documented codegen command');
-            run(cwd, [cli, ...command.split(/\s+/).slice(1)]);
+            write(
+              cwd,
+              'src/node.ts',
+              `${visibleCode(exampleContaining(examples, 'const nodeApp'))}\nexport { nodeApp };\n`,
+            );
+            write(
+              cwd,
+              'tsdown.config.ts',
+              visibleCode(exampleContaining(examples, 'plugins: [swc')),
+            );
+            const buildLog = run(cwd, [cli, 'build']);
+            expect(existsSync(join(cwd, '.zelt/prebuilt.ts')), buildLog).toBe(true);
+            run(cwd, [compiler, '--project', 'tsconfig.json']);
+            if (mode === 'code-first') {
+              const name = locale === 'en' ? 'Yamada Taro' : '山田 太郎';
+              checkRequest(cwd, '{ users(ids: ["u1"]) { name posts { title author { name } } } }', {
+                users: [{ name, posts: [{ title: 'Hello', author: { name } }] }],
+              });
+            } else
+              checkRequest(cwd, '{ product(id: "p1") { id name } }', {
+                product: { id: 'p1', name: 'Keyboard' },
+              });
+          } finally {
+            rmSync(cwd, { recursive: true, force: true });
           }
-          write(
-            cwd,
-            'zelt.config.ts',
-            visibleCode(exampleContaining(examples, 'export default defineConfig')),
-          );
-          write(
-            cwd,
-            'src/node.ts',
-            `${visibleCode(exampleContaining(examples, 'const nodeApp'))}\nexport { nodeApp };\n`,
-          );
-          write(cwd, 'tsdown.config.ts', visibleCode(exampleContaining(examples, 'plugins: [swc')));
-          const buildLog = run(cwd, [cli, 'build']);
-          expect(existsSync(join(cwd, '.zelt/prebuilt.ts')), buildLog).toBe(true);
-          run(cwd, [compiler, '--project', 'tsconfig.json']);
-          if (mode === 'code-first') {
-            const name = locale === 'en' ? 'Yamada Taro' : '山田 太郎';
-            checkRequest(cwd, '{ users(ids: ["u1"]) { name posts { title author { name } } } }', {
-              users: [{ name, posts: [{ title: 'Hello', author: { name } }] }],
-            });
-          } else
-            checkRequest(cwd, '{ product(id: "p1") { id name } }', {
-              product: { id: 'p1', name: 'Keyboard' },
-            });
-        } finally {
-          rmSync(cwd, { recursive: true, force: true });
-        }
-      }, 120_000);
+        }, 120_000);
+      }
     }
   }
 });

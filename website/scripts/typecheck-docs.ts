@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { disablesTypeChecking, extractTypeScriptExamples } from '../src/twoslash/code-examples.lib';
+import { disablesTypeChecking } from '../src/twoslash/code-examples.lib';
+import { extractTypeScriptExamples } from '../src/twoslash/documentation-parser.lib';
 import { twoslasher } from '../src/twoslash/twoslasher';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -15,11 +15,11 @@ export type GraphqlArgsSchemaRef = {
   readonly exportName: string;
 };
 
-// Caller-supplied module loader, same contract as @zeltjs/openapi's
-// SchemaResolver: required when the schema module is a `.ts` file that the
+// Caller-supplied module loader: required when the schema module is a `.ts` file that the
 // calling runtime (vitest, tsx) can resolve through its loader but Node.js's
 // bare `import()` cannot.
-export type GqlSchemaResolver = (modulePath: string) => Promise<Record<string, unknown>>;
+// Preserve the namespace itself: loaders may provide exports through getters or proxies.
+export type GqlSchemaResolver = (modulePath: string) => Promise<object>;
 
 const toImportSpecifier = (modulePath: string): string => {
   if (modulePath.startsWith('file:')) return modulePath;
@@ -35,14 +35,17 @@ const defaultSchemaResolver: GqlSchemaResolver = async (modulePath) => {
   if (typeof imported !== 'object' || imported === null) {
     throw new Error(`Module '${modulePath}' did not resolve to an object`);
   }
-  return { ...imported };
+  return imported;
 };
 
-const resolveRelativeModuleSpecifier = (sourceFile: TSSourceFile, specifier: string): string => {
+export const resolveRelativeModuleSpecifier = (
+  sourceFile: TSSourceFile,
+  specifier: string,
+): string => {
   if (!specifier.startsWith('.')) return specifier;
   const baseDir = dirname(sourceFile.fileName);
   const resolved = resolve(baseDir, specifier);
-  return resolved.endsWith('.ts') || resolved.endsWith('.js') ? resolved : `${resolved}.ts`;
+  return /\.(?:[cm]?[jt]s|[jt]sx)$/.test(resolved) ? resolved : `${resolved}.ts`;
 };
 
 const isGraphqlHelperModule = (specifier: string): boolean =>
@@ -200,7 +203,7 @@ export const resolveGraphqlArgs = async (
   resolver: GqlSchemaResolver = defaultSchemaResolver,
 ): Promise<readonly GraphqlArg[]> => {
   const mod = await resolver(ref.modulePath);
-  const value = mod[ref.exportName];
+  const value: unknown = Reflect.get(mod, ref.exportName);
   if (value === undefined) {
     throw new Error(`Export '${ref.exportName}' not found in module '${ref.modulePath}'`);
   }

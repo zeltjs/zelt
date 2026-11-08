@@ -437,7 +437,7 @@ const schemaResolverForLoader =
     const namespace = await loadModule(modulePath);
     if (typeof namespace !== 'object' || namespace === null)
       throw new Error(`GraphQL schema module must expose a namespace: ${modulePath}`);
-    return Object.fromEntries(Object.entries(namespace));
+    return namespace;
   };
 
 const toGenerateOptions = (

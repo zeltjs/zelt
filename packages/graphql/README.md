@@ -122,6 +122,12 @@ conversion helpers are available from `@zeltjs/graphql/codegen`.
 
 ## Model IDs and field providers
 
+GraphQL scalar names follow the declared TypeScript type. After upgrading,
+`id: string` generates `String!` instead of the previously inferred `ID!`.
+To keep `ID!`, import `ID` from `@zeltjs/graphql` and declare `id: ID`.
+Regenerate prebuilt output and check client operations and schema compatibility
+when migrating an existing endpoint.
+
 Declare public fields and private resolution properties in a named model.
 `@ResolveField()` and `@Relation()` resolve declared fields; `@ResolveMultiField()`
 may supply several properties together. It is optional when fields need only the ID. Queries
@@ -139,7 +145,12 @@ methods but are excluded from the GraphQL schema. A provider returns the
 model or a `Pick<Model, keys>` of its supplied properties (including `id`), directly for one ID
 or in a Map keyed by the requested IDs for a batch. Missing targets are
 explicit null values; malformed Maps are errors. Map values are results,
-not individual Promises. Single providers still cache by model and ID
+not individual Promises. The provider return type assigns its public fields to
+that provider: returning `Model` assigns all public fields, while returning
+`Pick<Model, keys>` assigns only those keys. A field must have exactly one
+supplier, so exclude fields resolved by `@ResolveField()` or `@Relation()` from
+the provider Pick; supplying the same field twice is a build error.
+Single providers still cache by model and ID
 within an operation, but distinct IDs invoke them individually.
 
 Regenerate prebuilt output after upgrading: provider and computed-field
