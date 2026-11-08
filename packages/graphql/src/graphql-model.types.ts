@@ -1,10 +1,12 @@
+export type GraphqlModelScalar = 'ID' | 'string' | 'number' | 'boolean';
+
 export type GraphqlModelBinding = {
   readonly resolver: string;
   readonly method: string;
 };
 
 export type GraphqlModelValue =
-  | { kind: 'scalar'; readonly name: 'string' | 'number' | 'boolean' }
+  | { kind: 'scalar'; readonly name: GraphqlModelScalar }
   | { kind: 'array'; readonly item: GraphqlModelValue }
   | { kind: 'nullable'; readonly inner: GraphqlModelValue }
   | { kind: 'optional'; readonly inner: GraphqlModelValue }

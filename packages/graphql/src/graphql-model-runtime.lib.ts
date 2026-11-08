@@ -6,6 +6,7 @@ import type {
   GraphqlModelField,
   GraphqlModelFields,
   GraphqlModelResultShape,
+  GraphqlModelScalar,
   GraphqlModels,
   GraphqlModelValue,
 } from './graphql-model.types';
@@ -58,9 +59,12 @@ const identity = (value: unknown): string => {
   return id;
 };
 
-const matchesScalar = (value: unknown, name: 'string' | 'number' | 'boolean'): boolean =>
-  typeof value === name &&
-  (name !== 'number' || (typeof value === 'number' && Number.isFinite(value)));
+const matchesScalar = (value: unknown, name: GraphqlModelScalar): boolean =>
+  match(name)
+    .with('ID', 'string', () => typeof value === 'string')
+    .with('number', () => typeof value === 'number' && Number.isFinite(value))
+    .with('boolean', () => typeof value === 'boolean')
+    .exhaustive();
 
 const matchesValue = (value: unknown, descriptor: GraphqlModelValue): boolean =>
   match(descriptor)

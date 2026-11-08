@@ -48,6 +48,16 @@ describe('GraphQL model manifest boundary', () => {
     expect(parseGraphqlModelManifest({}, {})).toEqual({ models: {}, modelFields: {} });
   });
 
+  it('accepts an explicit ID scalar as the model identifier', () => {
+    const idModels = {
+      User: {
+        ...model,
+        properties: [{ ...id, value: { kind: 'scalar', name: 'ID' } }],
+      },
+    };
+    expect(parseGraphqlModelManifest(idModels, fields)?.models).toEqual(idModels);
+  });
+
   it.each([
     { ...model, mode: undefined },
     { ...model, mode: 'invalid' },
