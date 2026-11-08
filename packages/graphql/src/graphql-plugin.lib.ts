@@ -435,7 +435,7 @@ const schemaResolverForLoader =
   ): NonNullable<GenerateSdlOptions['schemaResolver']> =>
   async (modulePath) => {
     const namespace = await loadModule(modulePath);
-    if (typeof namespace !== 'object' || namespace === null)
+    if ((typeof namespace !== 'object' && typeof namespace !== 'function') || namespace === null)
       throw new Error(`GraphQL schema module must expose a namespace: ${modulePath}`);
     return namespace;
   };

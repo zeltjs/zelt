@@ -1,9 +1,8 @@
 import { resolve } from 'node:path';
 import { toJsonSchema } from '@valibot/to-json-schema';
-import { buildSchema, getNamedType, isNonNullType, isObjectType } from 'graphql';
+import { buildSchema, getNamedType, isNonNullType, isObjectType, isScalarType } from 'graphql';
 import type { GenericSchema } from 'valibot';
 import { describe, expect, it } from 'vitest';
-
 import { GetUserInput, RenameUserInput } from './gql-args-sample.lib';
 import {
   generateGraphqlRuntimeForResolvers,
@@ -11,6 +10,15 @@ import {
 } from './graphql-sdl-generator.lib';
 import type { GqlOutput, ID } from './index';
 import { args, args as gqlArgs, gqlScalar, Mutation, Query, ResolveField, Resolver } from './index';
+import type {
+  DefaultScalar,
+  NullableScalar,
+  ScalarBox,
+  ScalarIdentity,
+  ScalarList,
+  ScalarOutput,
+  ScalarPromise,
+} from './scalar-alias-sample.lib';
 
 function narrowToValibotSchema(value: unknown): GenericSchema;
 function narrowToValibotSchema(value: unknown): unknown {
@@ -162,6 +170,50 @@ class ScalarResolver {
   }
 }
 
+export const OtherMoneyScalar = gqlScalar<MoneyValue>('OtherMoney', {
+  serialize: (value) => value.cents,
+});
+
+@Resolver()
+class GenericScalarResolver {
+  @Query()
+  nullableMoney(): NullableScalar<GqlOutput<typeof MoneyScalar>> {
+    return null;
+  }
+  @Query()
+  nestedNullableMoney(): NullableScalar<NullableScalar<GqlOutput<typeof MoneyScalar>>> {
+    return null;
+  }
+  @Query()
+  nullableListedMoney(): NullableScalar<ScalarList<GqlOutput<typeof MoneyScalar>>> {
+    return null;
+  }
+  @Query()
+  nestedMoney(): ScalarIdentity<ScalarIdentity<GqlOutput<typeof MoneyScalar>>> {
+    return { cents: 1 };
+  }
+  @Query()
+  boxedMoney(): ScalarBox<ScalarPromise<GqlOutput<typeof MoneyScalar>>> {
+    return { value: Promise.resolve({ cents: 1 }) };
+  }
+  @Query()
+  listedMoney(): ScalarList<NullableScalar<GqlOutput<typeof MoneyScalar>>> {
+    return [null];
+  }
+  @Query()
+  promisedMoney(): ScalarPromise<NullableScalar<GqlOutput<typeof MoneyScalar>>> {
+    return Promise.resolve(null);
+  }
+  @Query()
+  scalarArgument(): ScalarOutput<typeof OtherMoneyScalar> {
+    return { cents: 1 };
+  }
+  @Query()
+  defaultArgument(): DefaultScalar<typeof MoneyScalar> {
+    return { cents: 1 };
+  }
+}
+
 type ProductSearchResult = {
   readonly productId: string;
   readonly name: string;
@@ -183,6 +235,38 @@ class SearchResolver {
 }
 
 describe('generateSdlForResolvers', () => {
+  it('preserves scalar references and nullability through imported generic aliases', async () => {
+    const runtime = await generateGraphqlRuntimeForResolvers([GenericScalarResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+      schemaResolver: testSchemaResolver,
+    });
+    const schema = buildSchema(runtime.schemaSdl);
+    const fields = schema.getQueryType()?.getFields();
+    const expectedTypes = {
+      nullableMoney: 'Money',
+      nestedNullableMoney: 'Money',
+      nullableListedMoney: '[Money!]',
+      nestedMoney: 'Money!',
+      boxedMoney: 'ScalarBox!',
+      listedMoney: '[Money]!',
+      promisedMoney: 'Money',
+      scalarArgument: 'OtherMoney!',
+      defaultArgument: 'Money!',
+    };
+    for (const [name, expectedType] of Object.entries(expectedTypes)) {
+      const field = fields?.[name];
+      if (!field) throw new Error(`Missing ${name}`);
+      expect(String(field.type)).toBe(expectedType);
+      expect(isScalarType(getNamedType(field.type))).toBe(name !== 'boxedMoney');
+    }
+    const box = schema.getType('ScalarBox');
+    if (!isObjectType(box)) throw new Error('Expected a box object');
+    expect(String(box.getFields()['value']?.type)).toBe('Money!');
+    expect(runtime.scalarRefs).toEqual({
+      Money: { modulePath: __filename, exportName: 'MoneyScalar' },
+      OtherMoney: { modulePath: __filename, exportName: 'OtherMoneyScalar' },
+    });
+  });
   it('resolves interface, inherited and inferred ID types through the checker', async () => {
     const sdl = await generateSdlForResolvers([InterfaceIdResolver], {
       tsconfig: resolve(__dirname, '../tsconfig.json'),

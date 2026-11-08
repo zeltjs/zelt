@@ -255,31 +255,106 @@ const resolveScalarIdentifier = (
   return undefined;
 };
 
-const resolveGqlOutputScalarRef = (
-  typeNode: TSTypeNode | undefined,
-  sourceFile: import('typescript').SourceFile,
-  checker: TSTypeChecker,
-  ts: TS,
-): GraphqlScalarRef | undefined => {
-  const typeName = getTypeReferenceName(typeNode, ts);
-  if (typeName === 'GqlOutput') return resolveDirectGqlOutputScalarRef(typeNode, sourceFile, ts);
-
-  const alias = getTypeAliasDeclaration(typeNode, checker, ts);
-  return alias
-    ? resolveGqlOutputScalarRef(alias.type, alias.getSourceFile(), checker, ts)
-    : undefined;
+type TypeAnnotation = {
+  readonly node: TSTypeNode;
+  readonly bindings: ReadonlyMap<import('typescript').Symbol, TypeAnnotation>;
 };
 
-const resolveDirectGqlOutputScalarRef = (
-  typeNode: TSTypeNode | undefined,
-  sourceFile: import('typescript').SourceFile,
+const resolveTypeAnnotation = (
+  annotation: TypeAnnotation,
+  checker: TSTypeChecker,
   ts: TS,
+  visited: ReadonlySet<import('typescript').Symbol> = new Set(),
+): TypeAnnotation => {
+  const { node, bindings } = annotation;
+  if (ts.isParenthesizedTypeNode(node))
+    return resolveTypeAnnotation({ node: node.type, bindings }, checker, ts, visited);
+  if (!ts.isTypeReferenceNode(node)) return annotation;
+  const symbol = resolveTypeReferenceSymbol(node, checker, ts);
+  if (!symbol) return annotation;
+  return resolveReferencedAnnotation({ node, bindings }, symbol, checker, ts, visited);
+};
+
+const resolveReferencedAnnotation = (
+  annotation: TypeAnnotation & { readonly node: import('typescript').TypeReferenceNode },
+  symbol: import('typescript').Symbol,
+  checker: TSTypeChecker,
+  ts: TS,
+  visited: ReadonlySet<import('typescript').Symbol>,
+): TypeAnnotation => {
+  const bound = annotation.bindings.get(symbol);
+  if (bound) return resolveTypeAnnotation(bound, checker, ts, visited);
+  if (symbol.getName() === 'GqlOutput') return annotation;
+  const alias = getTypeAliasDeclaration(annotation.node, checker, ts);
+  if (!alias || visited.has(symbol)) return annotation;
+  return resolveTypeAnnotation(
+    {
+      node: alias.type,
+      bindings: bindAliasArguments(alias, annotation.node, annotation, checker, ts, visited),
+    },
+    checker,
+    ts,
+    new Set([...visited, symbol]),
+  );
+};
+
+const bindAliasArguments = (
+  alias: TSTypeAliasDeclaration,
+  node: import('typescript').TypeReferenceNode,
+  annotation: TypeAnnotation,
+  checker: TSTypeChecker,
+  ts: TS,
+  visited: ReadonlySet<import('typescript').Symbol>,
+): TypeAnnotation['bindings'] => {
+  const bindings = new Map(annotation.bindings);
+  alias.typeParameters?.forEach((parameter, index) => {
+    const symbol = checker.getSymbolAtLocation(parameter.name);
+    const argument = node.typeArguments?.[index];
+    const argumentNode = argument ?? parameter.default;
+    if (!symbol || !argumentNode) return;
+    bindings.set(
+      symbol,
+      resolveTypeAnnotation(
+        {
+          node: argumentNode,
+          bindings: argument ? annotation.bindings : new Map(bindings),
+        },
+        checker,
+        ts,
+        visited,
+      ),
+    );
+  });
+  return bindings;
+};
+
+const resolveGqlOutputScalarRef = (
+  typeNode: TSTypeNode | undefined,
+  ctx: EnrichTypeContext,
 ): GraphqlScalarRef | undefined => {
-  if (!typeNode || !ts.isTypeReferenceNode(typeNode)) return undefined;
-  const scalarTypeArg = typeNode.typeArguments?.[0];
-  if (!scalarTypeArg || !ts.isTypeQueryNode(scalarTypeArg)) return undefined;
-  const scalarName = getEntityNameText(scalarTypeArg.exprName, ts);
-  return scalarName ? resolveScalarIdentifier(sourceFile, scalarName, ts) : undefined;
+  if (
+    !typeNode ||
+    !ctx.ts.isTypeReferenceNode(typeNode) ||
+    getTypeReferenceName(typeNode, ctx.ts) !== 'GqlOutput'
+  )
+    return undefined;
+  const argument = typeNode.typeArguments?.[0];
+  if (!argument) return undefined;
+  return resolveScalarArgument(argument, ctx);
+};
+
+const resolveScalarArgument = (
+  argument: TSTypeNode,
+  ctx: EnrichTypeContext,
+): GraphqlScalarRef | undefined => {
+  const { node } = resolveTypeAnnotation(
+    { node: argument, bindings: ctx.bindings },
+    ctx.checker,
+    ctx.ts,
+  );
+  if (!ctx.ts.isTypeQueryNode(node)) return undefined;
+  const scalarName = getEntityNameText(node.exprName, ctx.ts);
+  return scalarName ? resolveScalarIdentifier(node.getSourceFile(), scalarName, ctx.ts) : undefined;
 };
 
 /** @throws {Error} */
@@ -478,6 +553,7 @@ const getNamedTypeFromTsType = (
 };
 
 type EnrichTypeContext = {
+  readonly bindings: TypeAnnotation['bindings'];
   readonly sourceFile: import('typescript').SourceFile;
   readonly checker: TSTypeChecker;
   readonly ts: TS;
@@ -491,9 +567,29 @@ const enrichGraphqlTypeInfo = async (
   typeNode: TSTypeNode | undefined,
   ctx: EnrichTypeContext,
 ): Promise<GraphqlOutputTypeInfo> => {
+  if (!typeNode) return enrichResolvedTypeInfo(base, tsType, typeNode, ctx);
+  const annotation = resolveTypeAnnotation(
+    { node: typeNode, bindings: ctx.bindings },
+    ctx.checker,
+    ctx.ts,
+  );
+  return enrichResolvedTypeInfo(base, tsType, annotation.node, {
+    ...ctx,
+    bindings: annotation.bindings,
+    sourceFile: annotation.node.getSourceFile(),
+  });
+};
+
+/** @throws {Error} */
+const enrichResolvedTypeInfo = async (
+  base: TypeInfo,
+  tsType: TSType,
+  typeNode: TSTypeNode | undefined,
+  ctx: EnrichTypeContext,
+): Promise<GraphqlOutputTypeInfo> => {
   const idOutput = graphqlIdOutput(tsType, ctx.checker, ctx.ts);
   if (idOutput) return idOutput;
-  const scalarRef = resolveGqlOutputScalarRef(typeNode, ctx.sourceFile, ctx.checker, ctx.ts);
+  const scalarRef = resolveGqlOutputScalarRef(typeNode, ctx);
   if (scalarRef) return resolveGraphqlScalarTypeInfo(scalarRef, ctx.options);
   if (base.kind === 'promise') return enrichPromiseTypeInfo(base, tsType, typeNode, ctx);
   if (base.kind === 'array') return enrichArrayTypeInfo(base, tsType, typeNode, ctx);
@@ -643,6 +739,31 @@ const tryEnrichNamedUnionTypeInfo = async (
   return { kind: 'graphqlNamedUnion', name: unionName, nullable, members };
 };
 
+const flattenUnionAnnotations = (
+  annotation: TypeAnnotation,
+  ctx: EnrichTypeContext,
+): readonly TypeAnnotation[] => {
+  const resolved = resolveTypeAnnotation(annotation, ctx.checker, ctx.ts);
+  if (!ctx.ts.isUnionTypeNode(resolved.node)) return [resolved];
+  return resolved.node.types.flatMap((node) =>
+    flattenUnionAnnotations({ node, bindings: resolved.bindings }, ctx),
+  );
+};
+
+const findUnionMemberAnnotation = (
+  unionTypeNode: import('typescript').UnionTypeNode | undefined,
+  memberType: TSType,
+  ctx: EnrichTypeContext,
+): TypeAnnotation | undefined => {
+  if (!unionTypeNode) return undefined;
+  const annotations = flattenUnionAnnotations(
+    { node: unionTypeNode, bindings: ctx.bindings },
+    ctx,
+  ).filter(({ node }) => !isNullishTypeNode(node, ctx.ts));
+  if (annotations.length === 1) return annotations[0];
+  return annotations.find(({ node }) => ctx.checker.getTypeFromTypeNode(node) === memberType);
+};
+
 /** @throws {Error} */
 const enrichFallbackUnionTypeInfo = async (
   base: TypeInfo & { kind: 'union' },
@@ -659,10 +780,13 @@ const enrichFallbackUnionTypeInfo = async (
       const memberType =
         valueMembers.length === 1 ? valueMembers[0] : valueMembers[valueInfo.indexOf(memberBase)];
       if (!memberType) throw new Error('Cannot resolve GraphQL union member type');
-      const actualNode = unionTypeNode?.types.find(
-        (node) => ctx.checker.getTypeFromTypeNode(node) === memberType,
+      const actual = findUnionMemberAnnotation(unionTypeNode, memberType, ctx);
+      return enrichGraphqlTypeInfo(
+        memberBase,
+        memberType,
+        actual?.node,
+        actual ? { ...ctx, bindings: actual.bindings } : ctx,
       );
-      return enrichGraphqlTypeInfo(memberBase, memberType, actualNode, ctx);
     }),
   );
   return { ...base, types: enrichedTypes };
@@ -679,6 +803,21 @@ const enrichUnionTypeInfo = async (
   const namedUnion = await tryEnrichNamedUnionTypeInfo(base, tsType, typeNode, unionTypeNode, ctx);
   if (namedUnion) return namedUnion;
   return enrichFallbackUnionTypeInfo(base, tsType, unionTypeNode, ctx);
+};
+
+const resolveMethodAnnotation = (
+  node: TSTypeNode | undefined,
+  preservePromise: boolean,
+  checker: TSTypeChecker,
+  ts: TS,
+): { readonly node: TSTypeNode | undefined; readonly bindings: TypeAnnotation['bindings'] } => {
+  const bindings = new Map<import('typescript').Symbol, TypeAnnotation>();
+  if (!node) return { node, bindings };
+  const annotation = resolveTypeAnnotation({ node, bindings }, checker, ts);
+  return {
+    ...annotation,
+    node: preservePromise ? annotation.node : getPromiseInnerTypeNode(annotation.node, ts),
+  };
 };
 
 /** @throws {Error} */
@@ -710,9 +849,14 @@ const getMethodTypeNames = async (
   const argsSchemaRef = extractGraphqlArgsRef(methodNode, classNode.getSourceFile(), ts);
   const inspectedType =
     baseReturnType.kind === 'promise' ? tsReturnType : unwrapPromiseType(tsReturnType, checker);
-  const inspectedNode =
-    inspectedType === tsReturnType ? methodNode.type : getPromiseInnerTypeNode(methodNode.type, ts);
-  const returnType = await enrichGraphqlTypeInfo(baseReturnType, inspectedType, inspectedNode, {
+  const annotation = resolveMethodAnnotation(
+    methodNode.type,
+    inspectedType === tsReturnType,
+    checker,
+    ts,
+  );
+  const returnType = await enrichGraphqlTypeInfo(baseReturnType, inspectedType, annotation.node, {
+    bindings: annotation.bindings,
     sourceFile: classNode.getSourceFile(),
     checker,
     ts,

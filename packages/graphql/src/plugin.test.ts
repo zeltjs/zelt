@@ -1,13 +1,23 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { toJsonSchema } from '@valibot/to-json-schema';
 import { describe, expect, it } from 'vitest';
+import { GetUserInput } from './gql-args-sample.lib';
 import { readGraphqlCodegenManifest } from './graphql-codegen-manifest.lib';
 import { generateGraphqlSdl, graphqlPlugin } from './graphql-plugin.lib';
 import type { GqlOutput } from './index';
-import { computeGraphqlPrebuiltHash, gqlScalar, graphql, Mutation, Query, Resolver } from './index';
+import {
+  args,
+  computeGraphqlPrebuiltHash,
+  gqlScalar,
+  graphql,
+  Mutation,
+  Query,
+  Resolver,
+} from './index';
 import { generateSchemaFirstCodegen } from './schema-first-codegen.lib';
 
 type ViewerPublic = {
@@ -19,6 +29,14 @@ class ViewerResolver {
   @Query()
   viewer(): ViewerPublic {
     return { id: 'viewer' };
+  }
+}
+
+@Resolver()
+class LoaderArgsResolver {
+  @Query()
+  viewerById(input = args(GetUserInput)): ViewerPublic {
+    return { id: input.id };
   }
 }
 
@@ -268,6 +286,38 @@ describe('generateGraphqlSdl', () => {
 });
 
 describe('graphqlPlugin', () => {
+  it('reads schema properties on a function returned by the module loader', async () => {
+    const temporaryRoot = resolve(__dirname, '../../../.tmp');
+    await mkdir(temporaryRoot, { recursive: true });
+    const cwd = await mkdtemp(join(temporaryRoot, 'graphql-callable-loader-'));
+    try {
+      const namespace = Object.assign(() => undefined, { GetUserInput });
+      const child = graphql({ path: '/graphql', resolvers: [LoaderArgsResolver] });
+      const plugin = graphqlPlugin({
+        tsconfig: resolve(__dirname, '../tsconfig.json'),
+        schemaAdapter: {
+          toJsonSchema: (schema) => {
+            expect(schema).toBe(GetUserInput);
+            return toJsonSchema(GetUserInput);
+          },
+        },
+      });
+      await plugin.preBuild?.({
+        cwd,
+        build: {},
+        registerGeneratedFile: () => {},
+        loadModule: async () => namespace,
+        loadStaticApp: async () => ({
+          http: { getControllers: () => child.blueprint().getControllers() },
+        }),
+      });
+      expect(
+        await readFile(resolve(cwd, '.zelt/graphql/graphql.runtime.graphql'), 'utf8'),
+      ).toContain('viewerById(id: String!): ViewerPublic!');
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
   it('generates the prebuilt module during preBuild and returns its contribution', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'zelt-graphql-plugin-'));
     const child = graphql({ path: '/graphql', resolvers: [ViewerResolver] });

@@ -4,7 +4,7 @@ import { extractTypeScriptExamples } from './documentation-parser.lib';
 import { twoslasher } from './twoslasher';
 
 describe('TypeScript documentation examples', () => {
-  it('respects Markdown fence nesting and supported fence forms', () => {
+  it('respects Markdown fence nesting and supported fence forms', async () => {
     const markdown = [
       '````markdown',
       '```ts title="nested example"',
@@ -21,27 +21,46 @@ describe('TypeScript documentation examples', () => {
       'const three = 3;',
       '```',
     ].join('\n');
-    expect(extractTypeScriptExamples(markdown)).toEqual([
+    expect(await extractTypeScriptExamples(markdown)).toEqual([
       { code: 'const one: string = "one";', meta: 'title="real"', language: 'ts' },
       { code: 'const two = <div />;', meta: '', language: 'tsx' },
       { code: 'const three = 3;', meta: '', language: 'ts' },
     ]);
   });
-  it('uses the site heading and frontmatter syntax before parsing MDX', () => {
+  it('uses the site heading and frontmatter syntax before parsing MDX', async () => {
     const markdown =
       '---\ntitle: "{#not-an-expression}"\n---\n## Example {#example}\n```ts\nconst value = 1;\n```';
-    expect(extractTypeScriptExamples(markdown)).toEqual([
+    expect(await extractTypeScriptExamples(markdown)).toEqual([
       { code: 'const value = 1;', meta: '', language: 'ts' },
     ]);
   });
-  it('extracts code immediately inside nested MDX components', () => {
+  it('extracts code immediately inside nested MDX components', async () => {
     const markdown =
       '<Tabs>\n<TabItem value="one">\n```ts\nconst invalid: string = 1;\n```\n</TabItem>\n</Tabs>';
-    const examples = extractTypeScriptExamples(markdown);
+    const examples = await extractTypeScriptExamples(markdown);
     expect(examples).toHaveLength(1);
     const example = examples[0];
     if (!example) throw new Error('Missing MDX example');
     expect(() => twoslasher(example.code, example.language)).toThrow('2322');
+  });
+  it.each(['md', 'detect'])('checks TypeScript in Markdown format %s', async (format) => {
+    const markdown = `---\nmdx:\n  format: ${format}\n---\nAn unclosed <T> is valid Markdown.\n\n\`\`\`ts\nconst invalid: string = 1;\n\`\`\``;
+    const examples = await extractTypeScriptExamples(markdown, 'guide.md');
+    expect(examples).toHaveLength(1);
+    const example = examples[0];
+    if (!example) throw new Error('Missing Markdown example');
+    expect(() => twoslasher(example.code, example.language)).toThrow('2322');
+  });
+  it('retains MDX parsing for explicit, detected and default MDX', async () => {
+    for (const header of [
+      '',
+      '---\nmdx:\n  format: mdx\n---\n',
+      '---\nmdx:\n  format: detect\n---\n',
+    ]) {
+      await expect(
+        extractTypeScriptExamples(`${header}An unclosed <T>`, 'guide.mdx'),
+      ).rejects.toThrow();
+    }
   });
   it('detects directives after interpolated templates using real virtual file boundaries', () => {
     const code = `const template = \`value \${1} tail\`;\n// @filename: virtual.ts\n// @ts-nocheck\nconst invalid: string = 1;`;

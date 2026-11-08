@@ -50,7 +50,7 @@ for (const targetDir of TARGET_DIRS) {
     if (isExampleDoc(path.relative(websiteDir, file))) continue;
     const markdown = readFileSync(file, 'utf8');
     let blockIndex = 0;
-    for (const example of extractTypeScriptExamples(markdown)) {
+    for (const example of await extractTypeScriptExamples(markdown, file)) {
       blockIndex += 1;
       blockCount += 1;
       if (disablesTypeChecking(example)) {

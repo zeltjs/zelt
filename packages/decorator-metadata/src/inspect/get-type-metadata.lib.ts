@@ -104,8 +104,7 @@ const extractMethodInfo = (
         }
 
         let retType = sig.getReturnType();
-        const retTypeStr = checker.typeToString(retType);
-        if (retTypeStr.startsWith('Promise<')) {
+        if (retType.getSymbol()?.getName() === 'Promise') {
           const typeRef = retType as import('typescript').TypeReference;
           retType = typeRef.typeArguments?.[0] ?? retType;
         }

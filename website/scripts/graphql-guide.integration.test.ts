@@ -136,13 +136,13 @@ describe('GraphQL guide applications', () => {
   for (const locale of ['en', 'ja']) {
     for (const mode of ['code-first', 'schema-first']) {
       for (const format of mode === 'code-first' ? ['inline', 'commonjs'] : ['inline']) {
-        it(`${locale}: ${mode}/${format} generates, typechecks, builds and serves the documented app`, () => {
+        it(`${locale}: ${mode}/${format} generates, typechecks, builds and serves the documented app`, async () => {
           const doc =
             locale === 'en'
               ? 'website/docs/graphql.md'
               : 'website/i18n/ja/docusaurus-plugin-content-docs/current/graphql.md';
           const markdown = readFileSync(join(root, doc), 'utf8');
-          const examples = extractTypeScriptExamples(markdown);
+          const examples = await extractTypeScriptExamples(markdown, doc);
           mkdirSync(join(root, '.tmp'), { recursive: true });
           const cwd = mkdtempSync(join(root, '.tmp/graphql-guide-'));
           try {

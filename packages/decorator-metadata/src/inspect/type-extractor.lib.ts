@@ -112,11 +112,9 @@ const extractArray = (
 const extractPromise = (
   type: TSType,
   depth: number,
-  checker: TSTypeChecker,
   extractFn: (t: TSType, d: number) => TypeInfo,
 ): TypeInfo | undefined => {
-  const typeStr = checker.typeToString(type);
-  if (!typeStr.startsWith('Promise<')) return undefined;
+  if (type.getSymbol()?.getName() !== 'Promise') return undefined;
   const typeRef = type as import('typescript').TypeReference;
   const innerType = typeRef.typeArguments?.[0];
   return {
@@ -171,7 +169,7 @@ const extractTypeImpl = (type: TSType, depth: number, ctx: ExtractContext): Type
     extractLiteral(type, flags, ctx.ts) ??
     extractUnion(type, depth, (t, d) => extractTypeImpl(t, d, ctx)) ??
     extractArray(type, depth, ctx.checker, (t, d) => extractTypeImpl(t, d, ctx)) ??
-    extractPromise(type, depth, ctx.checker, (t, d) => extractTypeImpl(t, d, ctx)) ??
+    extractPromise(type, depth, (t, d) => extractTypeImpl(t, d, ctx)) ??
     extractNamed(type, ctx) ??
     extractObject(type, depth, ctx, (t, d) => extractTypeImpl(t, d, ctx)) ?? { kind: 'unknown' }
   );
