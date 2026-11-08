@@ -20,7 +20,7 @@
     "test:docs": "pnpm -w run test:prepare && bun scripts/extract-doc-tests.ts && vitest run",
     "test:docs:watch": "pnpm -w run test:prepare && bun scripts/extract-doc-tests.ts && vitest",
     "test:docs-verifier": "bun test src/twoslash/code-examples.test.ts src/remark/remark-twoslash-block.test.ts",
-    "test:docs-guide": "pnpm --workspace-root exec nx run-many -t build --projects @zeltjs/graphql,@zeltjs/adapter-node && bun test scripts/graphql-guide.integration.test.ts"
+    "test:docs-guide": "pnpm --workspace-root exec nx run-many -t build --projects @zeltjs/graphql,@zeltjs/adapter-node,@zeltjs/validator-valibot && bun test scripts/graphql-guide.integration.test.ts"
   },
   "dependencies": {
     "@docusaurus/core": "3.10.2",
@@ -50,21 +50,16 @@
     "@docusaurus/plugin-client-redirects": "3.10.2",
     "@docusaurus/tsconfig": "3.10.2",
     "@docusaurus/types": "3.10.2",
-    "@rollup/plugin-swc": "0.4.1",
-    "@swc/core": "1.16.21",
     "@types/bun": "1.4.4",
-    "@types/mdast": "4.0.4",
     "@types/react": "19.3.0",
     "@zeltjs/adapter-cloudflare-workers": "workspace:*",
     "@zeltjs/adapter-electron": "workspace:*",
     "@zeltjs/adapter-node": "workspace:*",
     "@zeltjs/auth-jwt": "workspace:*",
     "@zeltjs/auth-session": "workspace:*",
-    "@zeltjs/cli": "workspace:*",
     "@zeltjs/core": "workspace:*",
     "@zeltjs/db": "workspace:*",
     "@zeltjs/eventbus": "workspace:*",
-    "@zeltjs/graphql": "workspace:*",
     "@zeltjs/hono-client": "workspace:*",
     "@zeltjs/kv": "workspace:*",
     "@zeltjs/rate-limit": "workspace:*",
@@ -76,7 +71,6 @@
     "drizzle-orm": "0.45.4",
     "postgres": "4.0.0",
     "remark-parse": "11.0.0",
-    "tsdown": "catalog:",
     "twoslash": "0.3.9",
     "typescript": "catalog:",
     "unified": "11.0.5",
@@ -112,6 +106,9 @@
           "^build"
         ]
       }
-    }
+    },
+    "implicitDependencies": [
+      "@zeltjs/graphql"
+    ]
   }
 }

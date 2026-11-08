@@ -1,4 +1,3 @@
-import type { Code } from 'mdast';
 import remarkParse from 'remark-parse';
 import ts from 'typescript';
 import { unified } from 'unified';
@@ -21,7 +20,7 @@ const languages = new Map<string, ExampleLanguage>([
 export const extractTypeScriptExamples = (markdown: string): readonly TypeScriptExample[] => {
   const tree = unified().use(remarkParse).parse(markdown);
   const examples: TypeScriptExample[] = [];
-  visit(tree, 'code', (node: Code) => {
+  visit(tree, 'code', (node) => {
     const language = node.lang && languages.get(node.lang);
     if (language) examples.push({ code: node.value, meta: node.meta ?? '', language });
   });

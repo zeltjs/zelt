@@ -56,7 +56,12 @@ const exampleContaining = (examples: readonly { code: string }[], text: string):
 };
 
 const prepare = (cwd: string): void => {
-  symlinkSync(join(root, 'website/node_modules'), join(cwd, 'node_modules'), 'dir');
+  const packages = join(cwd, 'node_modules/@zeltjs');
+  mkdirSync(packages, { recursive: true });
+  for (const name of ['core', 'graphql', 'adapter-node', 'cli', 'validator-valibot']) {
+    symlinkSync(join(root, 'packages', name), join(packages, name), 'dir');
+  }
+  symlinkSync(join(root, 'website/node_modules/valibot'), join(cwd, 'node_modules/valibot'), 'dir');
   write(cwd, 'package.json', JSON.stringify({ name: 'graphql-guide-fixture', type: 'module' }));
   write(
     cwd,

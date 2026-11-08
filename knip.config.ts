@@ -190,14 +190,7 @@ const config: KnipConfig = {
       // docusaurus-markdown-source-plugin / docusaurus-plugin-llms are Docusaurus plugins loaded at runtime
       // docusaurus-plugin-docusaurus-markdown-source-plugin is internal Docusaurus plugin resolution
       // Twoslash VFS requires these packages for TypeScript path resolution in docs code blocks
-      // The guide tests materialize these imports from Markdown into disposable
-      // projects. Knip cannot trace those imports or the VFS build prerequisites.
       ignoreDependencies: [
-        '@rollup/plugin-swc',
-        '@swc/core',
-        '@zeltjs/cli',
-        '@zeltjs/graphql',
-        'tsdown',
         '@docusaurus/theme-common',
         '@easyops-cn/docusaurus-search-local',
         '@easyops-cn/docusaurus-theme-docusaurus-search-local',
