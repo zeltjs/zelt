@@ -4,7 +4,7 @@ export type GraphqlModelBinding = {
 };
 
 export type GraphqlModelValue =
-  | { kind: 'scalar'; readonly name: 'string' | 'number' | 'boolean' }
+  | { kind: 'scalar'; readonly name: 'string' | 'number' | 'boolean' | 'ID' }
   | { kind: 'array'; readonly item: GraphqlModelValue }
   | { kind: 'nullable'; readonly inner: GraphqlModelValue }
   | { kind: 'optional'; readonly inner: GraphqlModelValue }

@@ -10,7 +10,39 @@ Zelt の `@zeltjs/graphql` は、TypeScript の型からスキーマを生成す
 
 まずは `graphql()` を使ってエンドポイントを宣言します。
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+};
+
+// @filename: user.resolver.ts
+import { args, Query, ResolveField, Resolver } from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+
+@Resolver()
+export class UserResolver {
+  // ① Query は対象の ID のみを返す
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  // ② 親の ID を受け取って、フィールドの値を個別に解決する
+  @ResolveField()
+  name(parent: Pick<User, 'id'>): User['name'] {
+    return `User ${parent.id}`;
+  }
+}
+
+// @filename: app.ts
+// ---cut---
 import { createApp, http } from '@zeltjs/core';
 import { graphql } from '@zeltjs/graphql';
 import { UserResolver } from './user.resolver';
@@ -31,26 +63,46 @@ export const app = createApp([
 
 ## Code-first {#code-first}
 
-Zelt の Code-first では、**`@Query` は対象の ID（`Pick<Model, 'id'>`）を返す** という原則に基づいています。ID の選定とフィールドの解決を段階的に組み立てていきます。
+Zelt の GraphQL では、IDの選定とフィールドの解決を明確に分けています。
+**`@Query` は対象の ID（`Pick<Model, 'id'>`）を返し、`@ResolveField` はその ID からフィールドの値を解決する** という原則に基づいています。
 
-モデル型は公開フィールドと、解決に必要な非公開プロパティを宣言します。GraphQL の型は、この TypeScript 型から `$` 始まりのプロパティを除いたものです。`@ResolveField` と `@Relation` は、モデル型に宣言したフィールドの解決方法を定義します。
+- Model 型を宣言
+- `@Query` でModelの ID / ID List を返す
+- `@ResolveField` で ID から実データを解決して返す
+
+が基本の流れとなります
+
 
 ### Level 1: 最小構成（`@Query` と `@ResolveField`）
 
 最もシンプルな構成は、ルートで対象の ID を選ぶ `@Query` と、その ID からフィールドの値を解決する `@ResolveField` の組み合わせです。
 
-まず、モデルの型を定義します。識別子として `id: string` を持ちます。
+まず、モデルの型を定義します。識別子として `id: ID` を持ちます。
 
-```ts no-check
+```ts
+import type { ID } from '@zeltjs/graphql';
+
 export type User = {
-  readonly id: string;
+  readonly id: ID;
   readonly name: string;
 };
 ```
 
+`ID` は `@zeltjs/graphql` が提供する文字列互換の型で、GraphQL の `ID!` を明示します。`string` は `String!` になります。
+
 リゾルバでは、`@Query` が対象の ID を返し、`@ResolveField` が親の ID を受け取ってフィールドの値を返します。
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+};
+
+// @filename: user.resolver.ts
+// ---cut---
 import { args, Query, ResolveField, Resolver } from '@zeltjs/graphql';
 import * as v from 'valibot';
 import type { User } from './models';
@@ -98,9 +150,11 @@ type User {
 
 モデルにプロパティを追加します。プロパティ名が `$` で始まるものは **GraphQL 非公開** となり、計算用や内部参照用のデータとして保持できます。
 
-```ts no-check
+```ts
+import type { ID } from '@zeltjs/graphql';
+
 export type User = {
-  readonly id: string;
+  readonly id: ID;
   readonly name: string;
   readonly firstName: string;
   readonly lastName: string;
@@ -112,7 +166,20 @@ export type User = {
 
 `@ResolveMultiField` を定義すると、複数の ID をまとめて受け取り、複数プロパティの値を一度に供給できます。
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+// @filename: user.resolver.ts
+// ---cut---
 import {
   args, Query, ResolveField, ResolveMultiField, Resolver,
 } from '@zeltjs/graphql';
@@ -139,7 +206,7 @@ export class UserResolver {
     return input.ids.map(id => ({ id }));
   }
 
-  // ID の配列を受け取り、複数プロパティの値を一括供給する（自動バッチ）
+  // ID の配列を受け取り、複数プロパティの値を一括供給する
   @ResolveMultiField()
   values(
     refs: readonly Pick<User, 'id'>[],
@@ -201,9 +268,25 @@ flowchart TD
 
 #### 1. 関連先モデルの定義
 
-```ts no-check
+```ts
+// @filename: user.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+// @filename: post.ts
+// ---cut---
+import type { User } from './user';
+import type { ID } from '@zeltjs/graphql';
+
 export type Post = {
-  readonly id: string;
+  readonly id: ID;
   readonly title: string;
   readonly author: User;
   readonly $authorId: User['id'];
@@ -214,11 +297,32 @@ export type Post = {
 
 リレーションメソッドは、親の持つデータ（`$authorId` や `id`）から、**関連先モデルの ID** を選んで返します。
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly posts: readonly Post[];
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+export type Post = {
+  readonly id: ID;
+  readonly title: string;
+  readonly author: User;
+  readonly $authorId: User['id'];
+};
+
+// @filename: post.resolver.ts
+// ---cut---
 import { Relation, ResolveMultiField, Resolver } from '@zeltjs/graphql';
 import type { Post, User } from './models';
 
-const POSTS = new Map<string, Pick<Post, 'id' | 'title' | '$authorId'>>([
+export const POSTS = new Map<string, Pick<Post, 'id' | 'title' | '$authorId'>>([
   ['p1', { id: 'p1', title: 'Hello', $authorId: 'u1' }],
 ]);
 
@@ -240,7 +344,98 @@ export class PostResolver {
 
 `User` にも `readonly posts: readonly Post[]` を宣言し、`UserResolver` に次のメソッドを追加します。
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly posts: readonly Post[];
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+export type Post = {
+  readonly id: ID;
+  readonly title: string;
+  readonly author: User;
+  readonly $authorId: User['id'];
+};
+
+// @filename: post.resolver.ts
+import { Relation, ResolveMultiField, Resolver } from '@zeltjs/graphql';
+import type { Post, User } from './models';
+
+export const POSTS = new Map<string, Pick<Post, 'id' | 'title' | '$authorId'>>([
+  ['p1', { id: 'p1', title: 'Hello', $authorId: 'u1' }],
+]);
+
+@Resolver()
+export class PostResolver {
+  @ResolveMultiField()
+  values(
+    ids: readonly Pick<Post, 'id'>[],
+  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
+    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
+  }
+
+  @Relation()
+  author(post: Pick<Post, '$authorId'>): Pick<User, 'id'> {
+    return { id: post.$authorId };
+  }
+}
+
+// @filename: user.resolver.ts
+import type { Post } from './models';
+import { Relation } from '@zeltjs/graphql';
+import { POSTS } from './post.resolver';
+import {
+  args, Query, ResolveField, ResolveMultiField, Resolver,
+} from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+export const GetUsersInput = v.object({ ids: v.array(v.string()) });
+
+const USERS_STORE = new Map<string, Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'>>([
+  ['u1', { id: 'u1', firstName: '太郎', lastName: '山田', $familyNameFirst: true }],
+  ['u2', { id: 'u2', firstName: 'John', lastName: 'Doe', $familyNameFirst: false }],
+]);
+
+@Resolver()
+export class UserResolver {
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  @Query()
+  users(input = args(GetUsersInput)): readonly Pick<User, 'id'>[] {
+    return input.ids.map(id => ({ id }));
+  }
+
+  // ID の配列を受け取り、複数プロパティの値を一括供給する
+  @ResolveMultiField()
+  values(
+    refs: readonly Pick<User, 'id'>[],
+  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
+    return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
+  }
+
+  // 依存プロパティをもとに計算フィールドを導出する
+  @ResolveField()
+  name(
+    user: Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>,
+  ): User['name'] {
+    return user.$familyNameFirst
+      ? `${user.lastName} ${user.firstName}`
+      : `${user.firstName} ${user.lastName}`;
+  }
+
+// ---cut---
   @Relation()
   posts(
     parents: readonly Pick<User, 'id'>[],
@@ -252,6 +447,8 @@ export class PostResolver {
         .map(post => ({ id: post.id })),
     ]));
   }
+// ---cut-after---
+}
 ```
 
 #### ネストしたクエリの実行とキャッシュ再利用
@@ -298,12 +495,63 @@ flowchart TD
 
 デコレータに追加のオプションを指定する必要はありません。
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+// @filename: user.resolver.ts
+import {
+  args, Query, ResolveField, ResolveMultiField, Resolver,
+} from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+export const GetUsersInput = v.object({ ids: v.array(v.string()) });
+
+const USERS_STORE = new Map<string, Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'>>([
+  ['u1', { id: 'u1', firstName: '太郎', lastName: '山田', $familyNameFirst: true }],
+  ['u2', { id: 'u2', firstName: 'John', lastName: 'Doe', $familyNameFirst: false }],
+]);
+
+@Resolver()
+export class UserResolver {
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  @Query()
+  users(input = args(GetUsersInput)): readonly Pick<User, 'id'>[] {
+    return input.ids.map(id => ({ id }));
+  }
+
+  // ID の配列を受け取り、複数プロパティの値を一括供給する
+// ---cut---
 @ResolveMultiField()
 values(
   user: Pick<User, 'id'>,
 ): Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null {
   return USERS_STORE.get(user.id) ?? null;
+}
+// ---cut-after---
+  // 依存プロパティをもとに計算フィールドを導出する
+  @ResolveField()
+  name(
+    user: Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>,
+  ): User['name'] {
+    return user.$familyNameFirst
+      ? `${user.lastName} ${user.firstName}`
+      : `${user.firstName} ${user.lastName}`;
+  }
 }
 ```
 
@@ -343,7 +591,37 @@ zelt graphql codegen --schema src/graphql/schema.graphql --out src/generated/gra
 
 このコマンドにより、スキーマに対応する型付きヘルパー `Gql` と `schema` export が生成されます。
 
-```ts no-check
+```ts
+// @filename: generated/graphql.ts
+import type { StandardSchemaV1 } from '@zeltjs/graphql';
+import { readGraphqlArgs, validateGraphqlArgs } from '@zeltjs/graphql';
+
+export const schema = { sdl: "type Query { product(id: ID!): Product }\ntype Product { id: ID!, name: String! }" } as const;
+
+export namespace Gql {
+  export namespace Query {
+    export namespace product {
+      export type Args = {
+    readonly id: string;
+  };
+      export type Result = Gql.Product | null;
+      export function args(): Args;
+      export function args<Schema extends StandardSchemaV1<unknown, Args>>(
+        schema: Schema,
+      ): StandardSchemaV1.InferOutput<Schema>;
+      export function args(schema?: StandardSchemaV1): Args {
+        return schema ? (validateGraphqlArgs(schema) as Args) : readGraphqlArgs<Args>();
+      }
+    }
+  }
+  export type Product = {
+    readonly id: string;
+    readonly name: string;
+  };
+}
+
+// @filename: src/graphql/product.resolver.ts
+// ---cut---
 import { Query, Resolver } from '@zeltjs/graphql';
 import { Gql } from '../../generated/graphql';
 
@@ -358,7 +636,49 @@ class ProductResolver {
 
 生成された `schema` を `graphql()` に渡してマウントします。
 
-```ts no-check
+```ts
+// @filename: generated/graphql.ts
+import type { StandardSchemaV1 } from '@zeltjs/graphql';
+import { readGraphqlArgs, validateGraphqlArgs } from '@zeltjs/graphql';
+
+export const schema = { sdl: "type Query { product(id: ID!): Product }\ntype Product { id: ID!, name: String! }" } as const;
+
+export namespace Gql {
+  export namespace Query {
+    export namespace product {
+      export type Args = {
+    readonly id: string;
+  };
+      export type Result = Gql.Product | null;
+      export function args(): Args;
+      export function args<Schema extends StandardSchemaV1<unknown, Args>>(
+        schema: Schema,
+      ): StandardSchemaV1.InferOutput<Schema>;
+      export function args(schema?: StandardSchemaV1): Args {
+        return schema ? (validateGraphqlArgs(schema) as Args) : readGraphqlArgs<Args>();
+      }
+    }
+  }
+  export type Product = {
+    readonly id: string;
+    readonly name: string;
+  };
+}
+
+// @filename: graphql/product.resolver.ts
+import { Query, Resolver } from '@zeltjs/graphql';
+import { Gql } from '../generated/graphql';
+
+@Resolver()
+export class ProductResolver {
+  @Query()
+  product(input = Gql.Query.product.args()): Gql.Query.product.Result {
+    return { id: input.id, name: 'Keyboard' };
+  }
+}
+
+// @filename: app.ts
+// ---cut---
 import { createApp, http } from '@zeltjs/core';
 import { graphql } from '@zeltjs/graphql';
 import { schema } from './generated/graphql';
@@ -383,7 +703,55 @@ export const app = createApp([
 
 `zelt.config.ts` に `graphqlPlugin()` を登録します。
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+};
+
+// @filename: user.resolver.ts
+import { args, Query, ResolveField, Resolver } from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+
+@Resolver()
+export class UserResolver {
+  // ① Query は対象の ID のみを返す
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  // ② 親の ID を受け取って、フィールドの値を個別に解決する
+  @ResolveField()
+  name(parent: Pick<User, 'id'>): User['name'] {
+    return `User ${parent.id}`;
+  }
+}
+
+// @filename: src/app.ts
+import { createApp, http } from '@zeltjs/core';
+import { graphql } from '@zeltjs/graphql';
+import { UserResolver } from '../user.resolver';
+
+export const app = createApp([
+  http({
+    children: [
+      graphql({
+        path: '/graphql',
+        resolvers: [UserResolver],
+      }),
+    ],
+  }),
+]);
+
+// @filename: index.ts
+// ---cut---
 import { defineConfig } from '@zeltjs/cli';
 import { graphqlPlugin } from '@zeltjs/graphql/codegen';
 
@@ -399,7 +767,58 @@ export default defineConfig({
 
 プラットフォームのエントリファイル（`node.ts` 等）では、生成された `zeltPrebuilt` をアダプターに渡します。
 
-```ts no-check
+```ts
+// @filename: src/models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+};
+
+// @filename: src/user.resolver.ts
+import { args, Query, ResolveField, Resolver } from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+
+@Resolver()
+export class UserResolver {
+  // ① Query は対象の ID のみを返す
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  // ② 親の ID を受け取って、フィールドの値を個別に解決する
+  @ResolveField()
+  name(parent: Pick<User, 'id'>): User['name'] {
+    return `User ${parent.id}`;
+  }
+}
+
+// @filename: src/app.ts
+import { createApp, http } from '@zeltjs/core';
+import { graphql } from '@zeltjs/graphql';
+import { UserResolver } from './user.resolver';
+
+export const app = createApp([
+  http({
+    children: [
+      graphql({
+        path: '/graphql',
+        resolvers: [UserResolver],
+      }),
+    ],
+  }),
+]);
+
+// @filename: .zelt/prebuilt.d.ts
+import type { ZeltPrebuilt } from '@zeltjs/core';
+export declare const zeltPrebuilt: ZeltPrebuilt;
+// @filename: src/node.ts
+// ---cut---
 import { onNode } from '@zeltjs/adapter-node';
 import { app } from './app';
 import { zeltPrebuilt } from '../.zelt/prebuilt';

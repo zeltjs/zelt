@@ -1,5 +1,6 @@
 import type { ClassMetadata } from '@zeltjs/decorator-metadata/inspect';
 import { extractGraphqlArgsRef } from './analyze-gql-args.lib';
+import { isGraphqlIdType } from './graphql-id.lib';
 import type {
   GraphqlModelDefinition,
   GraphqlModelField,
@@ -168,6 +169,18 @@ const unionModelValue = (
     result = { kind: 'optional', inner: result };
   return result;
 };
+const scalarModelValue = (
+  type: import('typescript').Type,
+  checker: Checker,
+  ts: TS,
+): GraphqlModelValue | undefined => {
+  if (isGraphqlIdType(type, checker)) return { kind: 'scalar', name: 'ID' };
+  if (type.flags & ts.TypeFlags.BooleanLike) return { kind: 'scalar', name: 'boolean' };
+  if (type.flags & ts.TypeFlags.StringLike) return { kind: 'scalar', name: 'string' };
+  if (type.flags & ts.TypeFlags.NumberLike) return { kind: 'scalar', name: 'number' };
+  return undefined;
+};
+
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:required
  */
@@ -176,10 +189,9 @@ const modelValueOf = (
   checker: Checker,
   ts: TS,
 ): GraphqlModelValue => {
-  if (type.flags & ts.TypeFlags.BooleanLike) return { kind: 'scalar', name: 'boolean' };
   if (type.isUnion()) return unionModelValue(type, checker, ts);
-  if (type.flags & ts.TypeFlags.StringLike) return { kind: 'scalar', name: 'string' };
-  if (type.flags & ts.TypeFlags.NumberLike) return { kind: 'scalar', name: 'number' };
+  const scalar = scalarModelValue(type, checker, ts);
+  if (scalar) return scalar;
   if (checker.isArrayType(type)) {
     const item = checker.getIndexTypeOfType(type, ts.IndexKind.Number);
     return item ? { kind: 'array', item: modelValueOf(item, checker, ts) } : { kind: 'opaque' };
@@ -348,7 +360,9 @@ const providerSymbol = (
   return { symbol: ref.symbol, batch: Boolean(element) };
 };
 const isStringId = (id: GraphqlModelProperty | undefined): boolean =>
-  Boolean(id && !id.optional && id.value.kind === 'scalar' && id.value.name === 'string');
+  Boolean(
+    id && !id.optional && id.value.kind === 'scalar' && ['string', 'ID'].includes(id.value.name),
+  );
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:mapArguments
  */

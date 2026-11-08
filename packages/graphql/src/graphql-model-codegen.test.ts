@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import * as inspection from '@zeltjs/decorator-metadata/inspect';
 import { describe, expect, it, vi } from 'vitest';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
+import type { ID as GraphqlID } from './index';
 import {
   Query as QueryDecorator,
   Relation,
@@ -412,7 +413,49 @@ class WrongDeclaredRelationResolver {
   }
 }
 
+type ExplicitIdModel = {
+  id: GraphqlID;
+  externalId: GraphqlID;
+  nullableId: GraphqlID | null;
+  ids: readonly GraphqlID[];
+  copy: GraphqlID;
+};
+@Resolver()
+class ExplicitIdResolver {
+  @QueryDecorator()
+  explicitId(): Pick<ExplicitIdModel, 'id'> {
+    return { id: 'a' };
+  }
+  @ResolveMultiField()
+  values(
+    parent: Pick<ExplicitIdModel, 'id'>,
+  ): Pick<ExplicitIdModel, 'id' | 'externalId' | 'nullableId' | 'ids'> | null {
+    return { id: parent.id, externalId: 'b', nullableId: null, ids: ['a', 'b'] };
+  }
+  @ResolveField()
+  copy(parent: Pick<ExplicitIdModel, 'externalId'>): GraphqlID {
+    return parent.externalId;
+  }
+}
+
 describe('model code generation', () => {
+  it('generates ID from explicit types regardless of property names', async () => {
+    const runtime = await generateGraphqlRuntimeForResolvers([ExplicitIdResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+    });
+    expect(runtime.schemaSdl).toContain('id: ID!');
+    expect(runtime.schemaSdl).toContain('externalId: ID!');
+    expect(runtime.schemaSdl).toContain('nullableId: ID');
+    expect(runtime.schemaSdl).toContain('ids: [ID!]!');
+    expect(runtime.schemaSdl).toContain('copy: ID!');
+    expect(runtime.schemaSdl).not.toContain('__zeltGraphqlScalar');
+  });
+  it('keeps a string id as String', async () => {
+    const runtime = await generateGraphqlRuntimeForResolvers([ModelUserResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+    });
+    expect(runtime.schemaSdl).toContain('id: String!');
+  });
   it.each([
     [WrongDeclaredTypeResolver, 'resolved field type must match'],
     [UndeclaredFieldResolver, 'must be declared in the model'],

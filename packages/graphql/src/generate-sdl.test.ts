@@ -9,7 +9,7 @@ import {
   generateGraphqlRuntimeForResolvers,
   generateSdlForResolvers,
 } from './graphql-sdl-generator.lib';
-import type { GqlOutput } from './index';
+import type { GqlOutput, ID } from './index';
 import { args, args as gqlArgs, gqlScalar, Mutation, Query, ResolveField, Resolver } from './index';
 
 function narrowToValibotSchema(value: unknown): GenericSchema;
@@ -23,6 +23,19 @@ const testSchemaAdapter = {
 
 const testSchemaResolver = (modulePath: string): Promise<Record<string, unknown>> =>
   import(/* @vite-ignore */ modulePath);
+
+type ExplicitIdOutput = { readonly id: string; readonly externalId: ID };
+@Resolver()
+class ExplicitIdOutputResolver {
+  @Query()
+  explicit(): ExplicitIdOutput {
+    return { id: 'plain', externalId: 'explicit' };
+  }
+  @Query()
+  scalarId(): ID {
+    return 'explicit';
+  }
+}
 
 type UserPublic = {
   readonly id: string;
@@ -139,6 +152,15 @@ class SearchResolver {
 }
 
 describe('generateSdlForResolvers', () => {
+  it('uses the explicit ID scalar for ordinary fields and root outputs', async () => {
+    const sdl = await generateSdlForResolvers([ExplicitIdOutputResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+    });
+    expect(sdl).toContain('id: String!');
+    expect(sdl).toContain('externalId: ID!');
+    expect(sdl).toContain('scalarId: ID!');
+    expect(sdl).not.toContain('scalar ID');
+  });
   it('emits SDL from resolver return types and merges field resolvers', async () => {
     const sdl = await generateSdlForResolvers([UserResolver], {
       tsconfig: resolve(__dirname, '../tsconfig.json'),

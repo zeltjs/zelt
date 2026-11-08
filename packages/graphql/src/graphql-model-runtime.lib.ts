@@ -58,8 +58,8 @@ const identity = (value: unknown): string => {
   return id;
 };
 
-const matchesScalar = (value: unknown, name: 'string' | 'number' | 'boolean'): boolean =>
-  typeof value === name &&
+const matchesScalar = (value: unknown, name: 'string' | 'number' | 'boolean' | 'ID'): boolean =>
+  typeof value === (name === 'ID' ? 'string' : name) &&
   (name !== 'number' || (typeof value === 'number' && Number.isFinite(value)));
 
 const matchesValue = (value: unknown, descriptor: GraphqlModelValue): boolean =>

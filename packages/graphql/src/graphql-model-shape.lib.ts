@@ -15,7 +15,7 @@ export const renderGraphqlModelValue = (value: GraphqlModelValue): string =>
   match(value)
     .with(
       { kind: 'scalar' },
-      ({ name }) => `${{ string: 'String', number: 'Float', boolean: 'Boolean' }[name]}!`,
+      ({ name }) => `${{ string: 'String', number: 'Float', boolean: 'Boolean', ID: 'ID' }[name]}!`,
     )
     .with({ kind: 'array' }, ({ item }) => `[${renderGraphqlModelValue(item)}]!`)
     .with({ kind: 'nullable' }, ({ inner }) => nullableType(renderGraphqlModelValue(inner), true))
@@ -29,9 +29,7 @@ export const renderGraphqlModelValue = (value: GraphqlModelValue): string =>
  * @throws {Error} from graphql-model-shape.lib.ts:anonymous_L20
  */
 export const renderGraphqlModelProperty = (property: GraphqlModelProperty): string =>
-  property.name === 'id'
-    ? 'ID!'
-    : nullableType(renderGraphqlModelValue(property.value), property.optional);
+  nullableType(renderGraphqlModelValue(property.value), property.optional);
 
 export const renderGraphqlModelResult = (
   target: string,

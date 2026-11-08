@@ -5,11 +5,13 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, parseGraphqlPrebuiltEntry } from './graphql-runtime.lib';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
+import type { ID } from './index';
 import { graphql, Query, Relation, ResolveField, ResolveMultiField, Resolver } from './index';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
 type Account = {
-  id: string;
+  id: ID;
+  externalId: ID;
   first: string;
   last: string;
   $identity: string;
@@ -59,7 +61,10 @@ class Accounts {
     refs: readonly Pick<Account, 'id'>[],
     req = request(),
   ): Promise<
-    ReadonlyMap<Account['id'], Pick<Account, 'id' | 'first' | 'last' | '$identity'> | null>
+    ReadonlyMap<
+      Account['id'],
+      Pick<Account, 'id' | 'externalId' | 'first' | 'last' | '$identity'> | null
+    >
   > {
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
@@ -69,7 +74,9 @@ class Accounts {
     return new Map(
       refs.map(({ id }) => [
         id,
-        id === 'absent' ? null : { id, first: id, last: 'User', $identity: identity },
+        id === 'absent'
+          ? null
+          : { id, externalId: `external-${id}`, first: id, last: 'User', $identity: identity },
       ]),
     );
   }
@@ -151,7 +158,7 @@ class Scores {
   }
 }
 
-type MinimalUser = { readonly id: string; readonly name: string };
+type MinimalUser = { readonly id: ID; readonly name: string };
 @Resolver()
 class MinimalUsers {
   @Query()
@@ -197,10 +204,21 @@ describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode
     try {
       const response = await running.http.request('/graphql', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: '{ minimal { id name } }' }),
+        headers: { 'Content-Type': 'application/json', 'X-Identity': 'one' },
+        body: JSON.stringify({ query: '{ minimal { id name } accounts { id externalId } }' }),
       });
-      expect(await response.json()).toEqual({ data: { minimal: { id: 'u1', name: 'User u1' } } });
+      expect(await response.json()).toEqual({
+        data: {
+          minimal: { id: 'u1', name: 'User u1' },
+          accounts: [
+            { id: 'a', externalId: 'external-a' },
+            { id: 'b', externalId: 'external-b' },
+            { id: 'a', externalId: 'external-a' },
+          ],
+        },
+      });
+      expect(generated.schemaSdl).toMatch(/type MinimalUser \{\s+id: ID!/);
+      expect(generated.schemaSdl).toMatch(/type Score \{\s+id: String!/);
       expect(generated.schemaSdl).toContain('name: String!');
       expect(generated.schemaSdl).not.toContain('$identity');
     } finally {

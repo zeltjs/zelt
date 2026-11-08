@@ -83,6 +83,7 @@ export type GraphqlOutputTypeInfo =
   | GraphqlUnionTypeInfo
   | GraphqlObjectTypeInfo
   | GraphqlScalarTypeInfo
+  | { kind: 'graphqlBuiltinScalar'; name: 'ID' }
   | GraphqlNamedUnionTypeInfo;
 
 type GraphqlUnionDefinition = {
@@ -378,6 +379,7 @@ export const convertTypeInfoToGraphqlRef = (
   if (type.kind === 'graphqlNamedUnion') return ensureNamedUnion(type, ctx);
 
   return match(type)
+    .with({ kind: 'graphqlBuiltinScalar' }, (t) => ({ type: t.name, nullable: false }))
     .with({ kind: 'primitive' }, convertPrimitive)
     .with({ kind: 'literal' }, convertLiteral)
     .with({ kind: 'array' }, (t) => {

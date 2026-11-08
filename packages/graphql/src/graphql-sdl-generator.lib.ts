@@ -11,6 +11,7 @@ import { assertName, specifiedScalarTypes } from 'graphql';
 import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
+import { isGraphqlIdType } from './graphql-id.lib';
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
 import { analyzeGraphqlModels } from './graphql-model-analysis.lib';
 import {
@@ -515,6 +516,7 @@ const enrichGraphqlTypeInfo = async (
   typeNode: TSTypeNode | undefined,
   ctx: EnrichTypeContext,
 ): Promise<GraphqlOutputTypeInfo> => {
+  if (isGraphqlIdType(tsType, ctx.checker)) return { kind: 'graphqlBuiltinScalar', name: 'ID' };
   const scalarRef = resolveGqlOutputScalarRef(typeNode, ctx.sourceFile, ctx.checker, ctx.ts);
   if (scalarRef) return resolveGraphqlScalarTypeInfo(scalarRef, ctx.options);
   if (base.kind === 'promise') return enrichPromiseTypeInfo(base, tsType, typeNode, ctx);

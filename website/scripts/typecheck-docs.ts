@@ -20,7 +20,7 @@ const isExampleDoc = (relPath: string): boolean => relPath.split(path.sep).inclu
 // Matches the fences that the Docusaurus build runs through Twoslash
 // (remark-twoslash-block uses explicitTrigger: false, so the `twoslash`
 // keyword is optional — every TS fence is type-checked).
-const TS_FENCE = /```(ts|tsx|typescript|typescriptreact)(?: twoslash)?\n([\s\S]*?)```/g;
+const TS_FENCE = /^```(ts|tsx|typescript|typescriptreact)\b([^\r\n]*)\r?\n([\s\S]*?)^```[ \t]*$/gm;
 
 const langFor = (fence: string): 'ts' | 'tsx' =>
   fence === 'tsx' || fence === 'typescriptreact' ? 'tsx' : 'ts';
@@ -59,7 +59,15 @@ for (const targetDir of TARGET_DIRS) {
     for (const match of markdown.matchAll(TS_FENCE)) {
       blockIndex += 1;
       blockCount += 1;
-      const code = match[2];
+      if (/\bno-check\b/.test(match[2]) || /@ts-nocheck\b/.test(match[3])) {
+        failures.push({
+          file: path.relative(websiteDir, file),
+          block: blockIndex,
+          message: 'no-check is not allowed; provide the types needed to check the example',
+        });
+        continue;
+      }
+      const code = match[3];
       try {
         twoslasher(code, langFor(match[1]));
       } catch (error) {

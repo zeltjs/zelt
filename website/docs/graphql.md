@@ -10,7 +10,39 @@ Zelt's `@zeltjs/graphql` is a GraphQL framework supporting both **Code-first** (
 
 Declare an endpoint using `graphql()`:
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+};
+
+// @filename: user.resolver.ts
+import { args, Query, ResolveField, Resolver } from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+
+@Resolver()
+export class UserResolver {
+  // 1. Query returns only the target ID
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  // 2. Receives parent ID and resolves the field value individually
+  @ResolveField()
+  name(parent: Pick<User, 'id'>): User['name'] {
+    return `User ${parent.id}`;
+  }
+}
+
+// @filename: app.ts
+// ---cut---
 import { createApp, http } from '@zeltjs/core';
 import { graphql } from '@zeltjs/graphql';
 import { UserResolver } from './user.resolver';
@@ -39,18 +71,32 @@ The model type declares public fields and private properties used during resolut
 
 The most fundamental configuration combines `@Query` (which selects target IDs at the root) and `@ResolveField` (which resolves individual field values from that ID).
 
-First, define the model type with a required `id: string` identity:
+First, define the model type with a required `id: ID` identity:
 
-```ts no-check
+```ts
+import type { ID } from '@zeltjs/graphql';
+
 export type User = {
-  readonly id: string;
+  readonly id: ID;
   readonly name: string;
 };
 ```
 
+`ID` is a string-compatible type exported by `@zeltjs/graphql` that explicitly maps to GraphQL `ID!`. A `string` maps to `String!`, even when the property is named `id`.
+
 In the resolver, `@Query` returns the target ID, and `@ResolveField` receives the parent ID to produce the field value:
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+};
+
+// @filename: user.resolver.ts
+// ---cut---
 import { args, Query, ResolveField, Resolver } from '@zeltjs/graphql';
 import * as v from 'valibot';
 import type { User } from './models';
@@ -98,9 +144,11 @@ Use `@ResolveMultiField` to resolve several properties together. Its return type
 
 Add properties to the model. Properties prefixed with `$` are **private to GraphQL** and are reserved for internal computations or relation IDs:
 
-```ts no-check
+```ts
+import type { ID } from '@zeltjs/graphql';
+
 export type User = {
-  readonly id: string;
+  readonly id: ID;
   readonly name: string;
   readonly firstName: string;
   readonly lastName: string;
@@ -112,7 +160,20 @@ export type User = {
 
 `@ResolveMultiField` receives an array of IDs and supplies model source data all at once:
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+// @filename: user.resolver.ts
+// ---cut---
 import {
   args, Query, ResolveField, ResolveMultiField, Resolver,
 } from '@zeltjs/graphql';
@@ -201,9 +262,25 @@ To connect references between different models (e.g., `User` and `Post`), use **
 
 #### 1. Defining the Related Model
 
-```ts no-check
+```ts
+// @filename: user.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+// @filename: post.ts
+// ---cut---
+import type { User } from './user';
+import type { ID } from '@zeltjs/graphql';
+
 export type Post = {
-  readonly id: string;
+  readonly id: ID;
   readonly title: string;
   readonly author: User;
   readonly $authorId: User['id'];
@@ -214,11 +291,32 @@ export type Post = {
 
 Relation methods take parent properties (`$authorId` or `id`) and return **IDs of the related model**:
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly posts: readonly Post[];
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+export type Post = {
+  readonly id: ID;
+  readonly title: string;
+  readonly author: User;
+  readonly $authorId: User['id'];
+};
+
+// @filename: post.resolver.ts
+// ---cut---
 import { Relation, ResolveMultiField, Resolver } from '@zeltjs/graphql';
 import type { Post, User } from './models';
 
-const POSTS = new Map<string, Pick<Post, 'id' | 'title' | '$authorId'>>([
+export const POSTS = new Map<string, Pick<Post, 'id' | 'title' | '$authorId'>>([
   ['p1', { id: 'p1', title: 'Hello', $authorId: 'u1' }],
 ]);
 
@@ -240,7 +338,98 @@ export class PostResolver {
 
 Declare `readonly posts: readonly Post[]` in `User`, and add this method to `UserResolver`:
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly posts: readonly Post[];
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+export type Post = {
+  readonly id: ID;
+  readonly title: string;
+  readonly author: User;
+  readonly $authorId: User['id'];
+};
+
+// @filename: post.resolver.ts
+import { Relation, ResolveMultiField, Resolver } from '@zeltjs/graphql';
+import type { Post, User } from './models';
+
+export const POSTS = new Map<string, Pick<Post, 'id' | 'title' | '$authorId'>>([
+  ['p1', { id: 'p1', title: 'Hello', $authorId: 'u1' }],
+]);
+
+@Resolver()
+export class PostResolver {
+  @ResolveMultiField()
+  values(
+    ids: readonly Pick<Post, 'id'>[],
+  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
+    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
+  }
+
+  @Relation()
+  author(post: Pick<Post, '$authorId'>): Pick<User, 'id'> {
+    return { id: post.$authorId };
+  }
+}
+
+// @filename: user.resolver.ts
+import type { Post } from './models';
+import { Relation } from '@zeltjs/graphql';
+import { POSTS } from './post.resolver';
+import {
+  args, Query, ResolveField, ResolveMultiField, Resolver,
+} from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+export const GetUsersInput = v.object({ ids: v.array(v.string()) });
+
+const USERS_STORE = new Map<string, Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'>>([
+  ['u1', { id: 'u1', firstName: 'Taro', lastName: 'Yamada', $familyNameFirst: true }],
+  ['u2', { id: 'u2', firstName: 'John', lastName: 'Doe', $familyNameFirst: false }],
+]);
+
+@Resolver()
+export class UserResolver {
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  @Query()
+  users(input = args(GetUsersInput)): readonly Pick<User, 'id'>[] {
+    return input.ids.map(id => ({ id }));
+  }
+
+  // Receives an array of IDs and supplies source data in a single batch
+  @ResolveMultiField()
+  values(
+    refs: readonly Pick<User, 'id'>[],
+  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
+    return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
+  }
+
+  // Computes derived fields from source data
+  @ResolveField()
+  name(
+    user: Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>,
+  ): User['name'] {
+    return user.$familyNameFirst
+      ? `${user.lastName} ${user.firstName}`
+      : `${user.firstName} ${user.lastName}`;
+  }
+
+// ---cut---
   @Relation()
   posts(
     parents: readonly Pick<User, 'id'>[],
@@ -252,6 +441,8 @@ Declare `readonly posts: readonly Post[]` in `User`, and add this method to `Use
         .map(post => ({ id: post.id })),
     ]));
   }
+// ---cut-after---
+}
 ```
 
 #### Nested Query Execution and Cached Reuse
@@ -298,12 +489,63 @@ Relations return target model IDs. A batch `@ResolveMultiField` can supply prope
 
 No extra decorator options are required.
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+// @filename: user.resolver.ts
+import {
+  args, Query, ResolveField, ResolveMultiField, Resolver,
+} from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+export const GetUsersInput = v.object({ ids: v.array(v.string()) });
+
+const USERS_STORE = new Map<string, Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'>>([
+  ['u1', { id: 'u1', firstName: 'Taro', lastName: 'Yamada', $familyNameFirst: true }],
+  ['u2', { id: 'u2', firstName: 'John', lastName: 'Doe', $familyNameFirst: false }],
+]);
+
+@Resolver()
+export class UserResolver {
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  @Query()
+  users(input = args(GetUsersInput)): readonly Pick<User, 'id'>[] {
+    return input.ids.map(id => ({ id }));
+  }
+
+  // Receives an array of IDs and supplies source data in a single batch
+// ---cut---
 @ResolveMultiField()
 values(
   user: Pick<User, 'id'>,
 ): Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null {
   return USERS_STORE.get(user.id) ?? null;
+}
+// ---cut-after---
+  // Computes derived fields from source data
+  @ResolveField()
+  name(
+    user: Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>,
+  ): User['name'] {
+    return user.$familyNameFirst
+      ? `${user.lastName} ${user.firstName}`
+      : `${user.firstName} ${user.lastName}`;
+  }
 }
 ```
 
@@ -343,7 +585,37 @@ zelt graphql codegen --schema src/graphql/schema.graphql --out src/generated/gra
 
 This generates the typed helper `Gql` and the `schema` export:
 
-```ts no-check
+```ts
+// @filename: generated/graphql.ts
+import type { StandardSchemaV1 } from '@zeltjs/graphql';
+import { readGraphqlArgs, validateGraphqlArgs } from '@zeltjs/graphql';
+
+export const schema = { sdl: "type Query { product(id: ID!): Product }\ntype Product { id: ID!, name: String! }" } as const;
+
+export namespace Gql {
+  export namespace Query {
+    export namespace product {
+      export type Args = {
+    readonly id: string;
+  };
+      export type Result = Gql.Product | null;
+      export function args(): Args;
+      export function args<Schema extends StandardSchemaV1<unknown, Args>>(
+        schema: Schema,
+      ): StandardSchemaV1.InferOutput<Schema>;
+      export function args(schema?: StandardSchemaV1): Args {
+        return schema ? (validateGraphqlArgs(schema) as Args) : readGraphqlArgs<Args>();
+      }
+    }
+  }
+  export type Product = {
+    readonly id: string;
+    readonly name: string;
+  };
+}
+
+// @filename: src/graphql/product.resolver.ts
+// ---cut---
 import { Query, Resolver } from '@zeltjs/graphql';
 import { Gql } from '../../generated/graphql';
 
@@ -358,7 +630,49 @@ class ProductResolver {
 
 Mount `schema` in `graphql()`:
 
-```ts no-check
+```ts
+// @filename: generated/graphql.ts
+import type { StandardSchemaV1 } from '@zeltjs/graphql';
+import { readGraphqlArgs, validateGraphqlArgs } from '@zeltjs/graphql';
+
+export const schema = { sdl: "type Query { product(id: ID!): Product }\ntype Product { id: ID!, name: String! }" } as const;
+
+export namespace Gql {
+  export namespace Query {
+    export namespace product {
+      export type Args = {
+    readonly id: string;
+  };
+      export type Result = Gql.Product | null;
+      export function args(): Args;
+      export function args<Schema extends StandardSchemaV1<unknown, Args>>(
+        schema: Schema,
+      ): StandardSchemaV1.InferOutput<Schema>;
+      export function args(schema?: StandardSchemaV1): Args {
+        return schema ? (validateGraphqlArgs(schema) as Args) : readGraphqlArgs<Args>();
+      }
+    }
+  }
+  export type Product = {
+    readonly id: string;
+    readonly name: string;
+  };
+}
+
+// @filename: graphql/product.resolver.ts
+import { Query, Resolver } from '@zeltjs/graphql';
+import { Gql } from '../generated/graphql';
+
+@Resolver()
+export class ProductResolver {
+  @Query()
+  product(input = Gql.Query.product.args()): Gql.Query.product.Result {
+    return { id: input.id, name: 'Keyboard' };
+  }
+}
+
+// @filename: app.ts
+// ---cut---
 import { createApp, http } from '@zeltjs/core';
 import { graphql } from '@zeltjs/graphql';
 import { schema } from './generated/graphql';
@@ -383,7 +697,55 @@ export const app = createApp([
 
 Register `graphqlPlugin()` in `zelt.config.ts`:
 
-```ts no-check
+```ts
+// @filename: models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+};
+
+// @filename: user.resolver.ts
+import { args, Query, ResolveField, Resolver } from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+
+@Resolver()
+export class UserResolver {
+  // 1. Query returns only the target ID
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  // 2. Receives parent ID and resolves the field value individually
+  @ResolveField()
+  name(parent: Pick<User, 'id'>): User['name'] {
+    return `User ${parent.id}`;
+  }
+}
+
+// @filename: src/app.ts
+import { createApp, http } from '@zeltjs/core';
+import { graphql } from '@zeltjs/graphql';
+import { UserResolver } from '../user.resolver';
+
+export const app = createApp([
+  http({
+    children: [
+      graphql({
+        path: '/graphql',
+        resolvers: [UserResolver],
+      }),
+    ],
+  }),
+]);
+
+// @filename: index.ts
+// ---cut---
 import { defineConfig } from '@zeltjs/cli';
 import { graphqlPlugin } from '@zeltjs/graphql/codegen';
 
@@ -399,7 +761,58 @@ Running `zelt build` or `zelt dev` automatically analyzes schemas and emits prec
 
 In your platform entry file (`node.ts`, etc.), pass the generated `zeltPrebuilt` into the adapter:
 
-```ts no-check
+```ts
+// @filename: src/models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+};
+
+// @filename: src/user.resolver.ts
+import { args, Query, ResolveField, Resolver } from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+
+@Resolver()
+export class UserResolver {
+  // 1. Query returns only the target ID
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  // 2. Receives parent ID and resolves the field value individually
+  @ResolveField()
+  name(parent: Pick<User, 'id'>): User['name'] {
+    return `User ${parent.id}`;
+  }
+}
+
+// @filename: src/app.ts
+import { createApp, http } from '@zeltjs/core';
+import { graphql } from '@zeltjs/graphql';
+import { UserResolver } from './user.resolver';
+
+export const app = createApp([
+  http({
+    children: [
+      graphql({
+        path: '/graphql',
+        resolvers: [UserResolver],
+      }),
+    ],
+  }),
+]);
+
+// @filename: .zelt/prebuilt.d.ts
+import type { ZeltPrebuilt } from '@zeltjs/core';
+export declare const zeltPrebuilt: ZeltPrebuilt;
+// @filename: src/node.ts
+// ---cut---
 import { onNode } from '@zeltjs/adapter-node';
 import { app } from './app';
 import { zeltPrebuilt } from '../.zelt/prebuilt';
