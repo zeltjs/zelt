@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { disablesTypeChecking, extractTypeScriptExamples } from '../src/twoslash/code-examples.lib';
 import { twoslasher } from '../src/twoslash/twoslasher';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,14 +17,6 @@ const TARGET_DIRS = ['docs', 'i18n/ja/docusaurus-plugin-content-docs/current', '
 // Skip any markdown that lives under an `examples/` segment (the Japanese
 // example docs sit inside the i18n docs tree). Those are excerpt-checked.
 const isExampleDoc = (relPath: string): boolean => relPath.split(path.sep).includes('examples');
-
-// Matches the fences that the Docusaurus build runs through Twoslash
-// (remark-twoslash-block uses explicitTrigger: false, so the `twoslash`
-// keyword is optional — every TS fence is type-checked).
-const TS_FENCE = /^```(ts|tsx|typescript|typescriptreact)\b([^\r\n]*)\r?\n([\s\S]*?)^```[ \t]*$/gm;
-
-const langFor = (fence: string): 'ts' | 'tsx' =>
-  fence === 'tsx' || fence === 'typescriptreact' ? 'tsx' : 'ts';
 
 const walkMarkdown = (dir: string, acc: string[] = []): string[] => {
   if (!existsSync(dir)) return acc;
@@ -56,10 +49,10 @@ for (const targetDir of TARGET_DIRS) {
     if (isExampleDoc(path.relative(websiteDir, file))) continue;
     const markdown = readFileSync(file, 'utf8');
     let blockIndex = 0;
-    for (const match of markdown.matchAll(TS_FENCE)) {
+    for (const example of extractTypeScriptExamples(markdown)) {
       blockIndex += 1;
       blockCount += 1;
-      if (/\bno-check\b/.test(match[2]) || /@ts-nocheck\b/.test(match[3])) {
+      if (disablesTypeChecking(example)) {
         failures.push({
           file: path.relative(websiteDir, file),
           block: blockIndex,
@@ -67,9 +60,8 @@ for (const targetDir of TARGET_DIRS) {
         });
         continue;
       }
-      const code = match[3];
       try {
-        twoslasher(code, langFor(match[1]));
+        twoslasher(example.code, example.language);
       } catch (error) {
         const message = (error as Error).message;
         const errors = compilerErrorLines(message);

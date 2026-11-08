@@ -3,6 +3,7 @@ import type { Highlighter } from 'shiki';
 import { createHighlighter } from 'shiki';
 import type { TwoslashInstance } from 'twoslash';
 import { visit } from 'unist-util-visit';
+import { disablesTypeChecking } from '../twoslash/code-examples.lib';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Node = any;
@@ -112,47 +113,49 @@ export const remarkTwoslashBlock = (options: RemarkTwoslashBlockOptions) => {
       // render them as plain highlighted code instead of type-checking them.
       if (/\bsource=/.test(meta)) continue;
 
+      if (
+        disablesTypeChecking({
+          code,
+          meta,
+          language: lang === 'tsx' || lang === 'typescriptreact' ? 'tsx' : 'ts',
+        })
+      ) {
+        throw new Error('TypeScript documentation examples must not disable type checking');
+      }
+
       let twoslashHtml: string | null = null;
       let plainCodeHtml: string | null = null;
 
-      try {
-        const twoslashHast = highlighter.codeToHast(code, {
-          lang,
-          themes: { light: lightTheme, dark: darkTheme },
-          transformers: [
-            transformerTwoslash({
-              twoslasher,
-              renderer: rendererRich(),
-              explicitTrigger: false,
-            }),
-          ],
-        });
+      const twoslashHast = highlighter.codeToHast(code, {
+        lang,
+        themes: { light: lightTheme, dark: darkTheme },
+        transformers: [
+          transformerTwoslash({
+            twoslasher,
+            renderer: rendererRich(),
+            explicitTrigger: false,
+          }),
+        ],
+      });
 
-        const preNode = findPreNode(twoslashHast);
-        if (!preNode) continue;
-        const codeNode = findCodeNode(preNode);
-        if (!codeNode) continue;
+      const preNode = findPreNode(twoslashHast);
+      if (!preNode) continue;
+      const codeNode = findCodeNode(preNode);
+      if (!codeNode) continue;
 
-        twoslashHtml = hastToHtml(codeNode);
+      twoslashHtml = hastToHtml(codeNode);
 
-        const plainCode = extractPlainText(codeNode);
+      const plainCode = extractPlainText(codeNode);
 
-        const plainHast = highlighter.codeToHast(plainCode, {
-          lang,
-          themes: { light: lightTheme, dark: darkTheme },
-        });
-        const plainPre = findPreNode(plainHast);
-        const plainCodeEl = plainPre ? findCodeNode(plainPre) : undefined;
-        if (plainCodeEl) {
-          plainCodeHtml = hastToHtml(plainCodeEl);
-        }
-      } catch (error) {
-        // twoslash failed - leave as regular code block
-        // eslint-disable-next-line no-console
-        console.warn('[remark-twoslash-block] twoslash failed:', (error as Error).message);
-        continue;
+      const plainHast = highlighter.codeToHast(plainCode, {
+        lang,
+        themes: { light: lightTheme, dark: darkTheme },
+      });
+      const plainPre = findPreNode(plainHast);
+      const plainCodeEl = plainPre ? findCodeNode(plainPre) : undefined;
+      if (plainCodeEl) {
+        plainCodeHtml = hastToHtml(plainCodeEl);
       }
-
       if (!twoslashHtml || !plainCodeHtml) continue;
 
       const encodedTwoslash = encodeBase64(twoslashHtml);

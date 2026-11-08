@@ -8,6 +8,7 @@ import type {
   GraphqlModelResultShape,
   GraphqlModelValue,
 } from './graphql-model.types';
+import { checkRelationContract } from './graphql-model-contract.lib';
 import { readOwnEntry } from './graphql-record.lib';
 
 type TS = typeof import('typescript');
@@ -602,109 +603,62 @@ const dependencies = (model: Model, method: Method): { keys: string[]; batch: bo
   validateDependencies(model, method, dep.keys, Boolean(batchElement));
   return { keys: dep.keys, batch: Boolean(batchElement) };
 };
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:required
- */
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
+const fieldResult = (model: Model, method: Method, type: TypeNode, batch: boolean): TypeNode => {
+  const returned = unwrapPromise(type, model.input);
+  return batch ? batchValue(returned, model.symbol, model.input, method) : returned;
+};
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
 const computedField = (
   model: Model,
   method: Method,
-  type: TypeNode,
+  node: TypeNode,
   dep: ReturnType<typeof dependencies>,
+  property: Symbol,
 ): GraphqlModelField => {
-  const { input } = model;
-  const returned = unwrapPromise(type, input);
-  const node = dep.batch ? batchValue(returned, model.symbol, input, method) : returned;
-  const value = modelValueOf(input.checker.getTypeFromTypeNode(node), input.checker, input.ts);
-  if (!publicValue(value)) fail(input, method, 'unsupported computed field type');
+  const { checker, ts } = model.input;
+  const declared = checker.getTypeOfSymbol(property);
+  const returned = checker.getTypeFromTypeNode(node);
+  if (!checker.isTypeAssignableTo(returned, declared))
+    fail(model.input, method, `resolved field type must match ${model.name}.${property.name}`);
+  const value = modelValueOf(declared, checker, ts);
+  if (!publicValue(value)) fail(model.input, method, 'unsupported computed field type');
   return { kind: 'computed', dependencies: dep.keys, mode: dep.batch ? 'batch' : 'single', value };
 };
-/**
- * @throws {Error} from graphql-model-analysis.lib.ts:fail
- */
+
+/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
 const relationField = (
   state: FieldState,
   model: Model,
   method: Method,
-  type: TypeNode,
+  node: TypeNode,
   dep: ReturnType<typeof dependencies>,
+  property: Symbol,
 ): GraphqlModelField => {
   const { input } = model;
-  let node = unwrapPromise(type, input);
-  if (dep.batch) {
-    node = batchValue(node, model.symbol, input, method);
-  }
   const target = result(node, input, method);
+  const resolved = modelFor(state, target.symbol, input, method);
+  const contract = checkRelationContract({
+    declared: input.checker.getTypeOfSymbol(property),
+    target: resolved.symbol,
+    actualShape: target.shape,
+    checker: input.checker,
+    ts: input.ts,
+  });
+  if (!contract.ok)
+    fail(
+      input,
+      method,
+      `relation type must match ${model.name}.${property.name}: ${contract.message}`,
+    );
   return {
     kind: 'relation',
-    target: modelFor(state, target.symbol, input, method).name,
-    shape: target.shape,
+    target: resolved.name,
+    shape: contract.value,
     dependencies: dep.keys,
     mode: dep.batch ? 'batch' : 'single',
   };
-};
-/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
-const validateDeclaredRelation = (
-  model: Model,
-  method: Method,
-  node: TypeNode,
-  field: Extract<GraphqlModelField, { kind: 'relation' }>,
-  optional: boolean,
-): void => {
-  const { input } = model;
-  const outer = nullable(node, input.ts);
-  const element = arrayElement(outer.node, input);
-  const inner = nullable(element ?? outer.node, input.ts);
-  const target = symbolFor(inner.node, input.checker, input.ts);
-  const isNullable = outer.nullable || optional;
-  const shape: GraphqlModelResultShape = element
-    ? {
-        kind: 'many',
-        nullable: isNullable,
-        itemNullable: inner.nullable,
-      }
-    : { kind: 'one', nullable: isNullable };
-  if (target?.name !== field.target || JSON.stringify(shape) !== JSON.stringify(field.shape))
-    fail(input, method, `relation type must match ${model.name}.${methodName(input, method)}`);
-};
-
-/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
-const declaredFieldProperty = (
-  property: Symbol,
-  input: ModelResolverInput,
-  method: Method,
-): { declaration: import('typescript').PropertySignature; type: TypeNode } => {
-  const declaration = property.valueDeclaration ?? property.declarations?.[0];
-  if (!declaration || !input.ts.isPropertySignature(declaration) || !declaration.type)
-    fail(input, method, 'resolved fields require a typed model property');
-  return { declaration, type: declaration.type };
-};
-
-/** @throws {Error} from graphql-model-analysis.lib.ts:fail */
-const validateDeclaredField = (
-  model: Model,
-  method: Method,
-  property: Symbol,
-  field: GraphqlModelField,
-): void => {
-  const { input } = model;
-  const { declaration, type } = declaredFieldProperty(property, input, method);
-  if (field.kind === 'computed') {
-    const value = modelValueOf(
-      input.checker.getTypeOfSymbolAtLocation(property, declaration),
-      input.checker,
-      input.ts,
-    );
-    if (JSON.stringify(value) !== JSON.stringify(field.value))
-      fail(input, method, `resolved field type must match ${model.name}.${property.name}`);
-  } else if (field.kind === 'relation') {
-    validateDeclaredRelation(
-      model,
-      method,
-      type,
-      field,
-      Boolean(property.flags & input.ts.SymbolFlags.Optional),
-    );
-  }
 };
 
 /**
@@ -725,11 +679,11 @@ const registerModelField = (
   const declared = input.checker.getDeclaredTypeOfSymbol(model.symbol).getProperty(name);
   const dep = dependencies(model, method);
   if (!declared) fail(input, method, `field ${model.name}.${name} must be declared in the model`);
+  const node = fieldResult(model, method, type, dep.batch);
   const field =
     kind === 'resolveField'
-      ? computedField(model, method, type, dep)
-      : relationField(state, model, method, type, dep);
-  validateDeclaredField(model, method, declared, field);
+      ? computedField(model, method, node, dep, declared)
+      : relationField(state, model, method, node, dep, declared);
   registerField(state, model.name, name, field, input, method);
 };
 /**

@@ -122,7 +122,9 @@ conversion helpers are available from `@zeltjs/graphql/codegen`.
 
 ## Model IDs and field providers
 
-A resolver with one `@ResolveMultiField()` supplies a named model. Queries
+Declare public fields and private resolution properties in a named model.
+`@ResolveField()` and `@Relation()` resolve declared fields; `@ResolveMultiField()`
+may supply several properties together. It is optional when fields need only the ID. Queries
 and `@Relation()` methods return `Pick<Model, 'id'>`; the runtime
 hydrates data for those IDs through an operation-local DataLoader. All three
 method kinds use the same contract: a single parent returns its result,
@@ -134,7 +136,7 @@ that form is permitted and does not produce a build warning.
 
 Properties beginning with `$` remain available to providers and dependent
 methods but are excluded from the GraphQL schema. A provider returns the
-complete model, including private properties, directly for one ID
+model or a `Pick<Model, keys>` of its supplied properties (including `id`), directly for one ID
 or in a Map keyed by the requested IDs for a batch. Missing targets are
 explicit null values; malformed Maps are errors. Map values are results,
 not individual Promises. Single providers still cache by model and ID

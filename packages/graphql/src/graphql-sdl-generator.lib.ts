@@ -11,7 +11,7 @@ import { assertName, specifiedScalarTypes } from 'graphql';
 import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args.lib';
 import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
-import { isGraphqlIdType } from './graphql-id.lib';
+import { graphqlIdOutput } from './graphql-id.lib';
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
 import { analyzeGraphqlModels } from './graphql-model-analysis.lib';
 import {
@@ -434,26 +434,6 @@ const findUnionMemberBaseType = (
   return matched ?? candidates[fallbackIndex] ?? { kind: 'unknown' };
 };
 
-const findUnionMemberTypeNode = (
-  nodes: readonly TSTypeNode[],
-  memberBase: TypeInfo,
-  fallbackIndex: number,
-  checker: TSTypeChecker,
-  ts: TS,
-): TSTypeNode | undefined => {
-  if (isNullishTypeInfo(memberBase)) {
-    return nodes.find((node) => isNullishTypeNode(node, ts)) ?? nodes[fallbackIndex];
-  }
-  if (memberBase.kind === 'object') {
-    return (
-      nodes.find((node) =>
-        hasSameObjectProperties(memberBase, getPropertyTypeNodeMap(node, checker, ts)),
-      ) ?? nodes[fallbackIndex]
-    );
-  }
-  return nodes[fallbackIndex];
-};
-
 // Checks the target symbol instead of the rendered type text so aliased
 // promises (type AliasedPromise = Promise<T>) unwrap too.
 const unwrapPromiseType = (type: TSType, _checker: TSTypeChecker): TSType => {
@@ -516,12 +496,13 @@ const enrichGraphqlTypeInfo = async (
   typeNode: TSTypeNode | undefined,
   ctx: EnrichTypeContext,
 ): Promise<GraphqlOutputTypeInfo> => {
-  if (isGraphqlIdType(tsType, ctx.checker)) return { kind: 'graphqlBuiltinScalar', name: 'ID' };
+  const idOutput = graphqlIdOutput(tsType, ctx.checker, ctx.ts);
+  if (idOutput) return idOutput;
   const scalarRef = resolveGqlOutputScalarRef(typeNode, ctx.sourceFile, ctx.checker, ctx.ts);
   if (scalarRef) return resolveGraphqlScalarTypeInfo(scalarRef, ctx.options);
   if (base.kind === 'promise') return enrichPromiseTypeInfo(base, tsType, typeNode, ctx);
   if (base.kind === 'array') return enrichArrayTypeInfo(base, tsType, typeNode, ctx);
-  if (base.kind === 'object') return enrichObjectTypeInfo(base, tsType, typeNode, ctx);
+  if (base.kind === 'object') return enrichObjectTypeInfo(base, tsType, ctx);
   if (base.kind === 'union') return enrichUnionTypeInfo(base, tsType, typeNode, ctx);
   return base;
 };
@@ -558,18 +539,35 @@ const enrichArrayTypeInfo = async (
   ),
 });
 
+const propertyTypeNode = (
+  declaration: import('typescript').Declaration | undefined,
+  ts: TS,
+): TSTypeNode | undefined => {
+  if (!declaration) return undefined;
+  if (
+    ts.isPropertySignature(declaration) ||
+    ts.isPropertyDeclaration(declaration) ||
+    ts.isGetAccessorDeclaration(declaration)
+  )
+    return declaration.type;
+  return undefined;
+};
+
 /** @throws {Error} */
 const enrichObjectProperty = async (
   prop: TypedPropertyInfo,
-  propertyTypeNodes: ReadonlyMap<string, TSTypeNode>,
   tsType: TSType,
   ctx: EnrichTypeContext,
 ): Promise<Omit<TypedPropertyInfo, 'type'> & { readonly type: GraphqlOutputTypeInfo }> => {
-  const propTypeNode = propertyTypeNodes.get(prop.name);
-  const propTsType = propTypeNode ? ctx.checker.getTypeFromTypeNode(propTypeNode) : tsType;
+  const symbol = tsType.getProperty(prop.name);
+  if (!symbol) throw new Error(`Cannot resolve GraphQL output property ${prop.name}`);
+  const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+  const propTsType = ctx.checker.getTypeOfSymbolAtLocation(symbol, declaration ?? ctx.sourceFile);
+  const propTypeNode = propertyTypeNode(declaration, ctx.ts);
+  const propertyContext = { ...ctx, sourceFile: declaration?.getSourceFile() ?? ctx.sourceFile };
   return {
     ...prop,
-    type: await enrichGraphqlTypeInfo(prop.type, propTsType, propTypeNode, ctx),
+    type: await enrichGraphqlTypeInfo(prop.type, propTsType, propTypeNode, propertyContext),
   };
 };
 
@@ -577,12 +575,10 @@ const enrichObjectProperty = async (
 const enrichObjectTypeInfo = async (
   base: TypeInfo & { kind: 'object' },
   tsType: TSType,
-  typeNode: TSTypeNode | undefined,
   ctx: EnrichTypeContext,
 ): Promise<GraphqlOutputTypeInfo> => {
-  const propertyTypeNodes = getPropertyTypeNodeMap(typeNode, ctx.checker, ctx.ts);
   const properties = await Promise.all(
-    base.properties.map((prop) => enrichObjectProperty(prop, propertyTypeNodes, tsType, ctx)),
+    base.properties.map((prop) => enrichObjectProperty(prop, tsType, ctx)),
   );
   return { ...base, properties };
 };
@@ -656,17 +652,24 @@ const enrichFallbackUnionTypeInfo = async (
   unionTypeNode: import('typescript').UnionTypeNode,
   ctx: EnrichTypeContext,
 ): Promise<GraphqlOutputTypeInfo> => {
+  const members = tsType.isUnion() ? tsType.types : [tsType];
+  const valueMembers = members.filter((member) => !isNullishTsType(member, ctx.ts));
+  const valueInfo = base.types.filter((member) => !isNullishTypeInfo(member));
   const enrichedTypes = await Promise.all(
-    base.types.map((memberBase, index) => {
-      const memberNode = findUnionMemberTypeNode(
-        unionTypeNode.types,
-        memberBase,
-        index,
-        ctx.checker,
-        ctx.ts,
+    base.types.map(async (memberBase) => {
+      if (isNullishTypeInfo(memberBase)) return memberBase;
+      const memberNode = unionTypeNode.types.filter((node) => !isNullishTypeNode(node, ctx.ts))[
+        valueInfo.indexOf(memberBase)
+      ];
+      const memberType =
+        valueMembers.length === 1
+          ? valueMembers[0]
+          : memberNode && ctx.checker.getTypeFromTypeNode(memberNode);
+      if (!memberType) throw new Error('Cannot resolve GraphQL union member type');
+      const actualNode = unionTypeNode.types.find(
+        (node) => ctx.checker.getTypeFromTypeNode(node) === memberType,
       );
-      const memberType = memberNode ? ctx.checker.getTypeFromTypeNode(memberNode) : tsType;
-      return enrichGraphqlTypeInfo(memberBase, memberType, memberNode, ctx);
+      return enrichGraphqlTypeInfo(memberBase, memberType, actualNode, ctx);
     }),
   );
   return { ...base, types: enrichedTypes };
@@ -1079,18 +1082,19 @@ const assertModelNameAvailable = (name: string, state: AnalysisState): void => {
   }
 };
 
-/**
- * @throws {Error} from graphql-sdl-generator.lib.ts:getModelMethodNames
- * @throws {UnsupportedTypeScriptVersionError} from resolve-typescript.lib.ts:resolveTypeScript
- */
-const getModelMethodNames = async (
-  context: ModelRenderContext,
-  resolverName: string,
-): Promise<ReadonlyMap<string, MethodTypeNames>> => {
-  const input = context.inputs.find((item) => item.resolver === resolverName);
-  const resolver = context.resolvers.find((item) => item.name === resolverName);
-  if (!input || !resolver) throw new Error(`Missing resolver ${resolverName}`);
-  return getResolverTypeNames(resolver, input.metadata, context.options);
+/** @throws {Error} */
+const getModelQueryNames = (
+  input: import('./graphql-model-analysis.lib').ModelResolverInput,
+  methodName: string,
+): MethodTypeNames => {
+  const node = findMethodDeclaration(input.classNode, methodName, input.ts);
+  if (!node) throw new Error(`Missing model query ${input.resolver}.${methodName}`);
+  return {
+    returnTypeName: undefined,
+    parentTypeName: undefined,
+    returnType: undefined,
+    argsSchemaRef: extractGraphqlArgsRef(node, input.classNode.getSourceFile(), input.ts),
+  };
 };
 
 /**
@@ -1160,7 +1164,6 @@ const registerModelQueries = async (context: ModelRenderContext): Promise<void> 
   for (const input of context.inputs.filter((item) =>
     context.analysis.modelResolvers.has(item.resolver),
   )) {
-    const methodNames = await getModelMethodNames(context, input.resolver);
     for (const method of input.metadata.methods) {
       const operation = getOperationMetadata(method);
       if (typeof method.name !== 'string' || operation?.kind !== 'query') continue;
@@ -1169,7 +1172,7 @@ const registerModelQueries = async (context: ModelRenderContext): Promise<void> 
         input.resolver,
         method.name,
         operation.fieldName ?? method.name,
-        methodNames.get(method.name),
+        getModelQueryNames(input, method.name),
       );
     }
   }

@@ -6,6 +6,13 @@ sidebar_label: GraphQL
 
 Zelt の `@zeltjs/graphql` は、TypeScript の型からスキーマを生成する **Code-first**、および GraphQL SDL から型定義を生成する **Schema-first** の両方に対応した GraphQL フレームワークです。
 
+この例では、次のパッケージをインストールしたプロジェクトを使います。
+
+```bash
+pnpm add @zeltjs/core @zeltjs/graphql @zeltjs/adapter-node @zeltjs/validator-valibot graphql valibot
+pnpm add -D @zeltjs/cli typescript tsdown @rollup/plugin-swc @swc/core
+```
+
 ## エンドポイントの作成 {#entry-points}
 
 まずは `graphql()` を使ってエンドポイントを宣言します。
@@ -451,6 +458,126 @@ export class UserResolver {
 }
 ```
 
+エンドポイントにも両方のリゾルバを登録します。`src/app.ts` を次のように更新します。
+
+```ts
+// @filename: src/models.ts
+import type { ID } from '@zeltjs/graphql';
+
+export type User = {
+  readonly id: ID;
+  readonly name: string;
+  readonly posts: readonly Post[];
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly $familyNameFirst: boolean;
+};
+
+export type Post = {
+  readonly id: ID;
+  readonly title: string;
+  readonly author: User;
+  readonly $authorId: User['id'];
+};
+
+// @filename: src/post.resolver.ts
+import { Relation, ResolveMultiField, Resolver } from '@zeltjs/graphql';
+import type { Post, User } from './models';
+
+export const POSTS = new Map<string, Pick<Post, 'id' | 'title' | '$authorId'>>([
+  ['p1', { id: 'p1', title: 'Hello', $authorId: 'u1' }],
+]);
+
+@Resolver()
+export class PostResolver {
+  @ResolveMultiField()
+  values(
+    ids: readonly Pick<Post, 'id'>[],
+  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
+    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
+  }
+
+  @Relation()
+  author(post: Pick<Post, '$authorId'>): Pick<User, 'id'> {
+    return { id: post.$authorId };
+  }
+}
+
+// @filename: src/user.resolver.ts
+import type { Post } from './models';
+import { Relation } from '@zeltjs/graphql';
+import { POSTS } from './post.resolver';
+import {
+  args, Query, ResolveField, ResolveMultiField, Resolver,
+} from '@zeltjs/graphql';
+import * as v from 'valibot';
+import type { User } from './models';
+
+export const GetUserInput = v.object({ id: v.string() });
+export const GetUsersInput = v.object({ ids: v.array(v.string()) });
+
+const USERS_STORE = new Map<string, Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'>>([
+  ['u1', { id: 'u1', firstName: '太郎', lastName: '山田', $familyNameFirst: true }],
+  ['u2', { id: 'u2', firstName: 'John', lastName: 'Doe', $familyNameFirst: false }],
+]);
+
+@Resolver()
+export class UserResolver {
+  @Query()
+  user(input = args(GetUserInput)): Pick<User, 'id'> {
+    return { id: input.id };
+  }
+
+  @Query()
+  users(input = args(GetUsersInput)): readonly Pick<User, 'id'>[] {
+    return input.ids.map(id => ({ id }));
+  }
+
+  // ID の配列を受け取り、複数プロパティの値を一括供給する
+  @ResolveMultiField()
+  values(
+    refs: readonly Pick<User, 'id'>[],
+  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
+    return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
+  }
+
+  // 依存プロパティをもとに計算フィールドを導出する
+  @ResolveField()
+  name(
+    user: Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>,
+  ): User['name'] {
+    return user.$familyNameFirst
+      ? `${user.lastName} ${user.firstName}`
+      : `${user.firstName} ${user.lastName}`;
+  }
+
+  @Relation()
+  posts(
+    parents: readonly Pick<User, 'id'>[],
+  ): ReadonlyMap<User['id'], readonly Pick<Post, 'id'>[]> {
+    return new Map(parents.map(parent => [
+      parent.id,
+      [...POSTS.values()]
+        .filter(post => post.$authorId === parent.id)
+        .map(post => ({ id: post.id })),
+    ]));
+  }
+}
+
+// @filename: src/app.ts
+// ---cut---
+import { createApp, http } from '@zeltjs/core';
+import { graphql } from '@zeltjs/graphql';
+import { UserResolver } from './user.resolver';
+import { PostResolver } from './post.resolver';
+
+export const app = createApp([
+  http({ children: [
+    graphql({ path: '/graphql', resolvers: [UserResolver, PostResolver] }),
+  ] }),
+]);
+```
+
 #### ネストしたクエリの実行とキャッシュ再利用
 
 ```graphql
@@ -564,7 +691,7 @@ values(
 - **モデル型と解決方法**: 公開フィールドはモデル型に宣言します。各プロパティは `@ResolveMultiField` または対応する `@ResolveField`・`@Relation` で解決します。未宣言フィールド、解決方法の欠落・重複、宣言と戻り値の型の不一致はビルド時エラーです。ID だけを使って各フィールドを解決する場合、`@ResolveMultiField` は不要です。
 - **ID オブジェクトの返却**: Query や Relation は、`{ id: input.id }` のように ID をプロパティに持つオブジェクト（`Pick<Model, 'id'>`）を返します。
 - **入力の重複排除**: バッチ形式のメソッドには、重複のない ID 配列が渡されます。
-- **Map の整合性**: バッチ形式の戻り値 `ReadonlyMap` は、入力されたすべての ID をキーとして含める必要があります。該当データが存在しない場合は値を `null` とします。
+- **Map の整合性**: バッチ形式の戻り値 `ReadonlyMap` は、入力されたすべての ID をキーとして含める必要があります。各値は戻り値の型に従います。供給対象が存在しない場合は `null`、非 null のリスト型リレーションに関連先がない場合は空配列を返します。
 - **キャッシュのスコープ**: 取得データや存在確認の結果は **1 回の GraphQL operation 内でのみ共有** されます。別リクエストや別認可コンテキストへ漏洩することはありません。
 - **エラーハンドリング**: 取得失敗や例外は自動でフォールバックされず、GraphQL エラーとして schema の nullability に従って上位へ伝播します。
 
@@ -589,10 +716,12 @@ type Product {
 zelt graphql codegen --schema src/graphql/schema.graphql --out src/generated/graphql.ts
 ```
 
+`zelt build` は Schema-first の resolver-checks ファイルも生成しますが、TypeScript の型検査は実行しません。生成後、そのファイルを `tsconfig.json` の対象に含めて `tsc --noEmit` を実行し、SDL とリゾルバの対応を検証します。
+
 このコマンドにより、スキーマに対応する型付きヘルパー `Gql` と `schema` export が生成されます。
 
 ```ts
-// @filename: generated/graphql.ts
+// @filename: src/generated/graphql.ts
 import type { StandardSchemaV1 } from '@zeltjs/graphql';
 import { readGraphqlArgs, validateGraphqlArgs } from '@zeltjs/graphql';
 
@@ -623,10 +752,10 @@ export namespace Gql {
 // @filename: src/graphql/product.resolver.ts
 // ---cut---
 import { Query, Resolver } from '@zeltjs/graphql';
-import { Gql } from '../../generated/graphql';
+import { Gql } from '../generated/graphql';
 
 @Resolver()
-class ProductResolver {
+export class ProductResolver {
   @Query()
   product(input = Gql.Query.product.args()): Gql.Query.product.Result {
     return { id: input.id, name: 'Keyboard' };
@@ -637,7 +766,7 @@ class ProductResolver {
 生成された `schema` を `graphql()` に渡してマウントします。
 
 ```ts
-// @filename: generated/graphql.ts
+// @filename: src/generated/graphql.ts
 import type { StandardSchemaV1 } from '@zeltjs/graphql';
 import { readGraphqlArgs, validateGraphqlArgs } from '@zeltjs/graphql';
 
@@ -665,7 +794,7 @@ export namespace Gql {
   };
 }
 
-// @filename: graphql/product.resolver.ts
+// @filename: src/graphql/product.resolver.ts
 import { Query, Resolver } from '@zeltjs/graphql';
 import { Gql } from '../generated/graphql';
 
@@ -677,7 +806,7 @@ export class ProductResolver {
   }
 }
 
-// @filename: app.ts
+// @filename: src/app.ts
 // ---cut---
 import { createApp, http } from '@zeltjs/core';
 import { graphql } from '@zeltjs/graphql';
@@ -754,12 +883,42 @@ export const app = createApp([
 // ---cut---
 import { defineConfig } from '@zeltjs/cli';
 import { graphqlPlugin } from '@zeltjs/graphql/codegen';
+import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
 
 export default defineConfig({
   app: () => import('./src/app').then((m) => m.app),
-  plugins: [graphqlPlugin()],
-  build: { entry: './src/node.ts' },
+  plugins: [graphqlPlugin({ schemaAdapter: valibotAdapter })],
+  build: { command: 'pnpm exec tsdown' },
   dev: { entry: './src/node.ts' },
+});
+```
+
+Node 向けのビルドではデコレータを変換します。`tsdown.config.ts` に設定します。
+
+```ts
+import swc from '@rollup/plugin-swc';
+import { defineConfig } from 'tsdown';
+
+export default defineConfig({
+  plugins: [swc({
+    swc: {
+      jsc: {
+        parser: { syntax: 'typescript', decorators: true },
+        transform: {
+          legacyDecorator: false,
+          decoratorMetadata: false,
+          decoratorVersion: '2022-03',
+        },
+      },
+    },
+  })],
+  entry: { node: 'src/node.ts' },
+  outDir: 'dist',
+  format: ['esm'],
+  target: 'es2022',
+  platform: 'node',
+  fixedExtension: false,
+  deps: { neverBundle: [/^@zeltjs\//] },
 });
 ```
 
@@ -837,7 +996,7 @@ GraphQL 機能の動作にはビルド時に生成された prebuilt モジュ�
 - **ビルド時 (`zelt build` / `zelt dev`)**:
   TypeScript の解析エンジンがモデルの型・供給元・依存関係・リレーションを解析し、最新の manifest と SDL を生成します。
 - **起動時**:
-  prebuilt entry の存在、エンドポイントの path、リゾルバ名、デコレータの種類、公開フィールド名、供給プロパティの型やリレーションの nullability / 配列の一致を検証します。
+  prebuilt entry の存在、エンドポイントの path、リゾルバ名、デコレータの種類、公開フィールド名を検証します。型とリレーションの nullability / 配列を照合する対象は、prebuilt の manifest と SDL です。起動時にはリゾルバの TypeScript 型を再解析しません。型を変更したら prebuilt を再生成し、アプリと一緒にデプロイします。
 
 ---
 

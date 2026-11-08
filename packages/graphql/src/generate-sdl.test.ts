@@ -37,6 +37,27 @@ class ExplicitIdOutputResolver {
   }
 }
 
+interface IdBase {
+  readonly inheritedId: ID;
+}
+interface InterfaceIdOutput extends IdBase {
+  readonly externalId: ID;
+  readonly nullableId: ID | null;
+  readonly ids: readonly ID[];
+}
+@Resolver()
+class InterfaceIdResolver {
+  @Query()
+  output(): InterfaceIdOutput {
+    return { inheritedId: 'base', externalId: 'own', nullableId: null, ids: ['one'] };
+  }
+  @Query()
+  inferredNullable() {
+    const value: ID | null = Math.random() > 0.5 ? 'one' : null;
+    return value;
+  }
+}
+
 type UserPublic = {
   readonly id: string;
   readonly name: string;
@@ -152,6 +173,16 @@ class SearchResolver {
 }
 
 describe('generateSdlForResolvers', () => {
+  it('resolves interface, inherited and inferred ID types through the checker', async () => {
+    const sdl = await generateSdlForResolvers([InterfaceIdResolver], {
+      tsconfig: resolve(__dirname, '../tsconfig.json'),
+    });
+    expect(sdl).toContain('externalId: ID!');
+    expect(sdl).toContain('inheritedId: ID!');
+    expect(sdl).toMatch(/\n {2}nullableId: ID\n/);
+    expect(sdl).toContain('ids: [ID!]!');
+    expect(sdl).toMatch(/inferredNullable: ID\n/);
+  });
   it('uses the explicit ID scalar for ordinary fields and root outputs', async () => {
     const sdl = await generateSdlForResolvers([ExplicitIdOutputResolver], {
       tsconfig: resolve(__dirname, '../tsconfig.json'),

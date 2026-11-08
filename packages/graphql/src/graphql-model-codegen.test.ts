@@ -445,7 +445,7 @@ describe('model code generation', () => {
     });
     expect(runtime.schemaSdl).toContain('id: ID!');
     expect(runtime.schemaSdl).toContain('externalId: ID!');
-    expect(runtime.schemaSdl).toContain('nullableId: ID');
+    expect(runtime.schemaSdl).toMatch(/\n {2}nullableId: ID\n/);
     expect(runtime.schemaSdl).toContain('ids: [ID!]!');
     expect(runtime.schemaSdl).toContain('copy: ID!');
     expect(runtime.schemaSdl).not.toContain('__zeltGraphqlScalar');

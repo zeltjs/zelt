@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { PrebuiltContribution, ZeltPlugin } from '@zeltjs/cli';
+import type { BuildContext, PrebuiltContribution, ZeltPlugin } from '@zeltjs/cli';
 import { GENERATED_FILE_HEADER_MARKER } from '@zeltjs/cli';
 import type { ControllerClass, HttpStaticCapabilities } from '@zeltjs/core';
 import { clearProgramCache } from '@zeltjs/decorator-metadata/inspect';
@@ -428,13 +428,30 @@ export const generateGraphqlSdl = async (
   };
 };
 
+/** @throws {Error} */
+const schemaResolverForLoader =
+  (
+    loadModule: NonNullable<BuildContext<HttpStaticApp>['loadModule']>,
+  ): NonNullable<GenerateSdlOptions['schemaResolver']> =>
+  async (modulePath) => {
+    const namespace = await loadModule(modulePath);
+    if (typeof namespace !== 'object' || namespace === null)
+      throw new Error(`GraphQL schema module must expose a namespace: ${modulePath}`);
+    return Object.fromEntries(Object.entries(namespace));
+  };
+
 const toGenerateOptions = (
-  cwd: string,
+  context: BuildContext<HttpStaticApp>,
   options: GraphqlPluginOptions,
-): GenerateGraphqlSdlOptions => ({
-  cwd,
-  ...toSdlOptions(options),
-});
+): GenerateGraphqlSdlOptions => {
+  const resolver =
+    options.schemaResolver ?? (context.loadModule && schemaResolverForLoader(context.loadModule));
+  return {
+    cwd: context.cwd,
+    ...toSdlOptions(options),
+    ...(resolver && { schemaResolver: resolver }),
+  };
+};
 
 export const graphqlPlugin = (options: GraphqlPluginOptions = {}): ZeltPlugin<HttpStaticApp> => ({
   name: 'graphql',
@@ -442,7 +459,7 @@ export const graphqlPlugin = (options: GraphqlPluginOptions = {}): ZeltPlugin<Ht
     const app = await ctx.loadStaticApp();
     const { contributions, generatedFiles } = await generateGraphqlSdl(
       app.http,
-      toGenerateOptions(ctx.cwd, options),
+      toGenerateOptions(ctx, options),
     );
     for (const file of generatedFiles) ctx.registerGeneratedFile(file);
     return contributions;

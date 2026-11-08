@@ -908,6 +908,18 @@ importers:
       '@docusaurus/types':
         specifier: 3.10.2
         version: 3.10.2(@swc/core@1.16.21)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(esbuild@0.28.2)(html-minifier-terser@7.2.0)(postcss@8.5.32)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@rollup/plugin-swc':
+        specifier: 0.4.1
+        version: 0.4.1(@swc/core@1.16.21)(rollup@4.60.4)
+      '@swc/core':
+        specifier: 1.16.21
+        version: 1.16.21
+      '@types/bun':
+        specifier: 1.4.4
+        version: 1.4.4
+      '@types/mdast':
+        specifier: 4.0.4
+        version: 4.0.4
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
@@ -926,6 +938,9 @@ importers:
       '@zeltjs/auth-session':
         specifier: workspace:*
         version: link:../packages/auth-session
+      '@zeltjs/cli':
+        specifier: workspace:*
+        version: link:../packages/cli
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../packages/core
@@ -935,6 +950,9 @@ importers:
       '@zeltjs/eventbus':
         specifier: workspace:*
         version: link:../packages/eventbus
+      '@zeltjs/graphql':
+        specifier: workspace:*
+        version: link:../packages/graphql
       '@zeltjs/hono-client':
         specifier: workspace:*
         version: link:../packages/hono-client
@@ -965,12 +983,21 @@ importers:
       postgres:
         specifier: 4.0.0
         version: 4.0.0
+      remark-parse:
+        specifier: 11.0.0
+        version: 11.0.0
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.23.4(oxc-resolver@11.24.2)(tsx@4.23.15)(typescript@6.0.3)(unrun@0.2.37(synckit@0.11.13))
       twoslash:
         specifier: 0.3.9
         version: 0.3.9(typescript@6.0.3)
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      unified:
+        specifier: 11.0.5
+        version: 11.0.5
       valibot:
         specifier: 'catalog:'
         version: 1.5.0(typescript@6.0.3)
