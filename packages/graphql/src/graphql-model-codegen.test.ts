@@ -486,8 +486,7 @@ const rejecting = {
   })(),
 };
 
-// Model names are looked up as own keys; `constructor` would otherwise hit Object.prototype.
-// biome-ignore lint/style/useNamingConvention: the lowercase name is the case under test
+// A model named like an Object.prototype key must not find inherited fields.
 type constructor = { readonly id: string; readonly name: string };
 
 // The runtime keys of computed names and the single implementation of overloads are analyzed.
