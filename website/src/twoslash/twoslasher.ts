@@ -56,6 +56,8 @@ export const twoslasher = createTwoslasher({
       '@zeltjs/adapter-electron/preload': ['./packages/adapter-electron/dist/preload/index.d.ts'],
       '@zeltjs/adapter-electron/renderer': ['./packages/adapter-electron/dist/renderer/index.d.ts'],
       '@zeltjs/validator-valibot': ['./packages/validator-valibot/dist/index.d.ts'],
+      '@zeltjs/validator-valibot/openapi': ['./packages/validator-valibot/dist/openapi/index.d.ts'],
+      '@zeltjs/graphql/codegen': ['./packages/graphql/dist/codegen.d.ts'],
       '@zeltjs/kv/adaptor-redis': ['./packages/kv/dist/adaptor-redis/index.d.ts'],
       '@zeltjs/eventbus/adaptor-memory': ['./packages/eventbus/dist/adaptor-memory/index.d.ts'],
       '@zeltjs/eventbus/adaptor-redis': ['./packages/eventbus/dist/adaptor-redis/index.d.ts'],
