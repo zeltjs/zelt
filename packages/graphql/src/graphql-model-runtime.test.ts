@@ -587,11 +587,6 @@ describe('model execution contracts', () => {
     for (const value of [
       new Map([['a', 'A']]),
       new Map([
-        ['a', 'A'],
-        ['b', 'B'],
-        ['c', 'C'],
-      ]),
-      new Map([
         ['a', Promise.resolve('A')],
         ['b', Promise.resolve('B')],
       ]),
@@ -600,6 +595,14 @@ describe('model execution contracts', () => {
       const result = await execute('{ users { label } }');
       expect(result.errors).toHaveLength(3);
     }
+    const extra = new Map([
+      ['a', 'A'],
+      ['b', 'B'],
+      ['unrequested', 'C'],
+    ]);
+    const { execute } = fixture({ label: () => extra }, models, fields);
+    const result = await execute('{ users { label } }');
+    expect(result.errors).toBeUndefined();
   });
   it.each([
     {
@@ -774,17 +777,21 @@ describe('model execution contracts', () => {
     expect(result.errors?.map((error) => error.path)).toEqual([['users', 3]]);
   });
 
-  it.each([
-    ['missing key', () => new Map([['a', null]])],
-    [
-      'extra key',
-      () =>
+  it('ignores provider Map keys beyond the requested ids', async () => {
+    const { execute } = fixture({
+      provide: () =>
         new Map([
           ['a', null],
           ['b', null],
-          ['c', null],
+          ['unrequested', null],
         ]),
-    ],
+    });
+    const result = await execute('{ users { id } }');
+    expect(result.errors).toBeUndefined();
+  });
+
+  it.each([
+    ['missing key', () => new Map([['a', null]])],
     [
       'wrong id',
       () =>

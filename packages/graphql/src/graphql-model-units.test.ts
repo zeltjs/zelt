@@ -16,6 +16,7 @@ type Thing = { readonly id: ID; readonly label: string; readonly $code: string }
 type Other = { readonly id: string };
 type ThingRef = Pick<Thing, 'id'>;
 type Identity<T> = T;
+type RefOf<Model extends { readonly id: string }> = Pick<Model, 'id'>;
 `;
 
 const FILE = '/virtual/subject.ts';
@@ -67,7 +68,8 @@ describe('Pick<Model, keys>', () => {
     ["Pick<Thing, 'id'>", 'ok'],
     ["Pick<Thing, 'id' | 'label'>", 'ok'],
     ["Identity<Pick<Thing, 'id'>>", 'ok'],
-    ['ThingRef', 'rejected: Pick<Model, keys> must be written directly; got ThingRef'],
+    ['ThingRef', 'ok'],
+    ['RefOf<Thing>', 'ok'],
     ['Thing', 'absent'],
     ['{ id: string }', 'absent'],
   ])('%s → %s', (form, expected) => {
@@ -76,10 +78,23 @@ describe('Pick<Model, keys>', () => {
   });
 });
 
+describe('Pick<Model, keys> selection', () => {
+  it.each([
+    ["Pick<Thing, 'id' | 'label'>", ['id', 'label']],
+    ['ThingRef', ['id']],
+    ['RefOf<Thing>', ['id']],
+    ["Identity<Pick<Thing, '$code'>>", ['$code']],
+  ])('%s picks %o from Thing', (form, keys) => {
+    const { type, thing, reader } = read(form);
+    expect(readPick(type, reader)).toEqual({ kind: 'ok', value: { model: thing, keys } });
+  });
+});
+
 describe('model reference', () => {
   it.each([
     ["Pick<Thing, 'id'>", { kind: 'one', nullable: false }],
     ["Pick<Thing, 'id'> | null", { kind: 'one', nullable: true }],
+    ['readonly ThingRef[]', { kind: 'many', nullable: false, itemNullable: false }],
     [
       "readonly (Pick<Thing, 'id'> | null)[]",
       { kind: 'many', nullable: false, itemNullable: true },
@@ -102,7 +117,6 @@ describe('model reference', () => {
       "Pick<Thing, 'id' | 'label'>",
       'rejected: must return Pick<Model, \'id\'>, an array of it, or a nullable form; got Pick<Thing, "id" | "label">',
     ],
-    ['readonly ThingRef[]', 'rejected: Pick<Model, keys> must be written directly; got ThingRef'],
     ['string', 'absent'],
   ])('%s → %s', (form, expected) => {
     const { type, reader } = read(form);
@@ -142,7 +156,9 @@ describe('result per parent', () => {
 
 describe('provider supply', () => {
   it.each([
+    ['Thing', ['id', 'label', '$code']],
     ['Thing | null', ['id', 'label', '$code']],
+    ["Pick<Thing, 'id' | '$code'>", ['id', '$code']],
     ["Pick<Thing, 'id' | '$code'> | null", ['id', '$code']],
   ])('%s supplies %o', (form, keys) => {
     const { type, thing, reader } = read(form);
@@ -150,14 +166,13 @@ describe('provider supply', () => {
   });
 
   it.each([
-    ['Thing', 'rejected: provider result must be Model | null or Pick<Model, keys> | null'],
     [
       'Thing | null | undefined',
-      'rejected: provider result must be Model | null or Pick<Model, keys> | null',
+      'rejected: provider result must be Model or Pick<Model, keys>, optionally | null',
     ],
     [
       "Pick<Other, 'id'> | null",
-      'rejected: provider result must be Model | null or Pick<Model, keys> | null',
+      'rejected: provider result must be Model or Pick<Model, keys>, optionally | null',
     ],
     ["Pick<Thing, 'label'> | null", 'rejected: provider Pick must include id'],
   ])('%s → %s', (form, expected) => {

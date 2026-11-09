@@ -6,7 +6,7 @@ import { ok, rejected } from './graphql-model-read.lib';
 
 type Type = import('typescript').Type;
 
-const NOT_A_SUPPLY = 'provider result must be Model | null or Pick<Model, keys> | null';
+const NOT_A_SUPPLY = 'provider result must be Model or Pick<Model, keys>, optionally | null';
 
 const pickedKeys = (
   type: Type,
@@ -21,8 +21,8 @@ const pickedKeys = (
 };
 
 /**
- * What a provider supplies per id: `Model | null` supplies every property and
- * `Pick<Model, keys> | null` supplies `keys`. `null` means the id does not exist.
+ * What a provider supplies per id: `Model` supplies every property and `Pick<Model, keys>`
+ * supplies `keys`. Either may be `| null`, where `null` means the id does not exist.
  */
 export const readSupply = (
   value: Type,
@@ -30,7 +30,7 @@ export const readSupply = (
   reader: ModelTypeReader,
 ): Result<readonly string[]> => {
   const split = withoutNullish(value, reader);
-  if (!split.nullable || split.undefinable) return rejected(NOT_A_SUPPLY);
+  if (split.undefinable) return rejected(NOT_A_SUPPLY);
   if (split.type === model)
     return ok(reader.checker.getPropertiesOfType(model).map((symbol) => symbol.name));
   return pickedKeys(split.type, model, reader);

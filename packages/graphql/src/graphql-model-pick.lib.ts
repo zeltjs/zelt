@@ -21,23 +21,26 @@ const isPickInstance = (type: Type, reader: ModelTypeReader): boolean =>
     }),
   );
 
-const literalKeys = (type: Type): readonly string[] | undefined => {
-  const members = type.isUnion() ? type.types : [type];
-  const keys = members.map((member) => (member.isStringLiteral() ? member.value : undefined));
-  return keys.every((key) => key !== undefined) ? keys : undefined;
+// A picked property keeps the declaration of the model property it copies, so the model is
+// known even when the Pick is named through an alias that hides its type arguments.
+const declaringModel = (type: Type, reader: ModelTypeReader): Type | undefined => {
+  const owners = new Set(
+    reader.checker
+      .getPropertiesOfType(type)
+      .map((property) => property.declarations?.[0]?.parent)
+      .map((node) => (node ? reader.checker.getTypeAtLocation(node) : undefined)),
+  );
+  const [model, ...others] = owners;
+  return others.length === 0 ? model : undefined;
 };
 
-/**
- * Reads `Pick<Model, keys>`. Only the directly written form exposes its arguments, so a Pick
- * named through another alias is rejected rather than guessed.
- */
+/** Reads `Pick<Model, keys>`, whether written directly or named through an alias. */
 export const readPick = (type: Type, reader: ModelTypeReader): Read<PickRef> => {
   if (!isPickInstance(type, reader)) return absent;
-  const direct = isLibSymbol(type.aliasSymbol, 'Pick');
-  const [model, keyType] = direct ? (type.aliasTypeArguments ?? []) : [];
-  if (!model || !keyType)
-    return rejected(`Pick<Model, keys> must be written directly; got ${typeText(type, reader)}`);
-  const keys = literalKeys(keyType);
-  if (!keys) return rejected('Pick keys must be string literals');
+  const model = isLibSymbol(type.aliasSymbol, 'Pick')
+    ? type.aliasTypeArguments?.[0]
+    : declaringModel(type, reader);
+  if (!model) return rejected(`cannot tell which model ${typeText(type, reader)} picks from`);
+  const keys = reader.checker.getPropertiesOfType(type).map((property) => property.name);
   return ok({ model, keys });
 };

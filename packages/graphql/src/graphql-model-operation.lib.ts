@@ -63,11 +63,11 @@ export const notAModelOperation = (method: ModelMethod, reader: ModelTypeReader)
     .with('query', () => {
       const returned = returnType(method, reader);
       const got = returned.kind === 'ok' ? typeText(returned.value, reader) : 'unknown';
-      return `must return Pick<Model, 'id'> written directly, an array of it, or a nullable form; got ${got}`;
+      return `must return Pick<Model, 'id'>, an array of it, or a nullable form; got ${got}`;
     })
     .otherwise(
       () =>
-        `parent must be Pick<Model, keys> or a readonly array of it, written directly; got ${parameterText(method, reader)}`,
+        `parent must be Pick<Model, keys> or a readonly array of it; got ${parameterText(method, reader)}`,
     );
 
 /** `@Query`: selects model ids and returns them as a reference. */

@@ -146,20 +146,6 @@ type Thing = { readonly id: string; readonly label: string; readonly $code: stri
 type ThingRef = Pick<Thing, 'id'>;
 type Other = { readonly id: string };
 const rejecting = {
-  aliasedParent: (() => {
-    @Resolver()
-    class AliasedParent {
-      @QueryDecorator()
-      thing(): Pick<Thing, 'id'> {
-        return { id: '1' };
-      }
-      @ResolveField()
-      label(_parent: ThingRef): string {
-        return '';
-      }
-    }
-    return AliasedParent;
-  })(),
   batchWithoutId: (() => {
     @Resolver()
     class BatchWithoutId {
@@ -223,16 +209,6 @@ const rejecting = {
       }
     }
     return ProviderWithoutId;
-  })(),
-  providerNotNullable: (() => {
-    @Resolver()
-    class ProviderNotNullable {
-      @ResolveMultiField()
-      load(ref: Pick<Thing, 'id'>): Thing {
-        return { id: ref.id, label: '', $code: '' };
-      }
-    }
-    return ProviderNotNullable;
   })(),
   duplicateProvider: (() => {
     @Resolver()
@@ -442,16 +418,6 @@ const rejecting = {
     }
     return ReservedField;
   })(),
-  aliasedQuery: (() => {
-    @Resolver()
-    class AliasedQuery {
-      @QueryDecorator()
-      thing(): ThingRef {
-        return { id: '1' };
-      }
-    }
-    return AliasedQuery;
-  })(),
   undefinedProvider: (() => {
     @Resolver()
     class UndefinedProvider {
@@ -504,6 +470,26 @@ const rejecting = {
 
 // A model named like an Object.prototype key must not find inherited fields.
 type constructor = { readonly id: string; readonly name: string };
+
+// Aliases of Pick name the same contract as the direct form, and a provider that always finds
+// its data need not declare null.
+type ThingCode = Pick<Thing, 'id' | '$code'>;
+type CodeOf<Model extends { readonly $code: string }> = Pick<Model, '$code'>;
+@Resolver()
+class AliasedThingResolver {
+  @QueryDecorator()
+  thing(): ThingRef {
+    return { id: '1' };
+  }
+  @ResolveMultiField()
+  load(ref: ThingRef): ThingCode {
+    return { id: ref.id, $code: '' };
+  }
+  @ResolveField()
+  label(parent: CodeOf<Thing>): string {
+    return parent.$code;
+  }
+}
 
 // A self relation references its model as both parent and target before anything else does.
 type Employee = { readonly id: GraphqlId; readonly manager: Employee | null };
@@ -722,6 +708,13 @@ describe('model code generation', () => {
     expect(fieldIn(runtime, 'Thing', 'label')).toMatchObject({ dependencies: ['$code'] });
   });
 
+  it('accepts aliased Picks and a provider without null', async () => {
+    const runtime = await generate([AliasedThingResolver]);
+    expect(hasQuery(runtime, 'thing')).toBe(true);
+    expect(propertyNames(runtime, 'Thing')).toEqual(['id', '$code']);
+    expect(fieldIn(runtime, 'Thing', 'label')).toMatchObject({ dependencies: ['$code'] });
+  });
+
   it('analyzes a self relation declared before any other reference to its model', async () => {
     const runtime = await generate([EmployeeResolver]);
     expect(fieldIn(runtime, 'Employee', 'manager')).toMatchObject({
@@ -731,14 +724,12 @@ describe('model code generation', () => {
   });
 
   it.each([
-    ['an aliased parent Pick', [rejecting.aliasedParent], 'written directly'],
     ['a batch parent without id', [rejecting.batchWithoutId], 'batch parent Pick requires id'],
     ['a query returning data', [rejecting.queryReturnsData], "must return Pick<Model, 'id'>"],
     ['a Map look-alike', [rejecting.fakeMap], 'batch methods must return a Map'],
     ['a Map keyed by another type', [rejecting.wrongMapKey], 'Map key must match model id type'],
     ['Promise Map values', [rejecting.promiseMapValues], 'batch Map values cannot be Promise'],
     ['a provider Pick without id', [rejecting.providerWithoutId], 'provider Pick must include id'],
-    ['a non-nullable provider', [rejecting.providerNotNullable], 'provider result must be'],
     [
       'two providers for one model',
       [rejecting.duplicateProvider, rejecting.suppliedTwice],
@@ -775,7 +766,6 @@ describe('model code generation', () => {
     ['a mutation in a model resolver', [rejecting.modelMutation], 'cannot declare mutations'],
     ['two model types named alike', [MemberResolver, rejecting.sameName], 'already named Member'],
     ['an invalid field name', [rejecting.reservedField], 'invalid GraphQL field name'],
-    ['a query returning an aliased Pick', [rejecting.aliasedQuery], 'written directly'],
     ['a provider returning undefined', [rejecting.undefinedProvider], 'provider result must be'],
     [
       'a relation returning undefined',

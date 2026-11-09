@@ -100,12 +100,9 @@ const nativeMap = (value: unknown): ReadonlyMap<unknown, unknown> => {
 const completeMap = (value: unknown, ids: readonly string[]): ReadonlyMap<unknown, unknown> => {
   const entries = nativeMap(value);
   rejectPromiseMapValues(entries.values());
-  const requested = new Set(ids);
-  if (
-    entries.size !== requested.size ||
-    [...entries.keys()].some((key: unknown) => typeof key !== 'string' || !requested.has(key))
-  ) {
-    throw new Error('GraphQL model batch Map must contain exactly the requested IDs');
+  // Keys beyond the requested ids are never read, so only missing ids break the contract.
+  if (ids.some((id) => !entries.has(id))) {
+    throw new Error('GraphQL model batch Map must contain every requested ID');
   }
   return entries;
 };
