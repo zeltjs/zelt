@@ -12,6 +12,8 @@ export type ModelRef = { readonly model: Type; readonly keys: readonly string[] 
 export type ReferenceType = {
   readonly target: Type;
   readonly shape: GraphqlModelResultShape;
+  /** Whether the reference or its list items can be `undefined`, which GraphQL cannot carry. */
+  readonly undefinable: boolean;
 };
 
 const LIB_FILE = /[\\/]typescript[\\/]lib[\\/]lib\..*\.d\.ts$/;
@@ -84,6 +86,21 @@ export const modelRef = (type: Type): ModelRef | undefined => {
   return model && keys && rest.length === 0 ? { model, keys } : undefined;
 };
 
+/**
+ * Whether the type is an instance of lib `Pick`, however it is named. Instances keep the mapped
+ * type declared in `Pick` as their symbol, so references through another alias are still found.
+ */
+export const isPickInstance = (type: Type, reader: ModelTypeReader): boolean =>
+  Boolean(
+    type.getSymbol()?.declarations?.some((declaration) => {
+      const { parent } = declaration;
+      return (
+        reader.ts.isTypeAliasDeclaration(parent) &&
+        isLibSymbol(reader.checker.getSymbolAtLocation(parent.name), 'Pick')
+      );
+    }),
+  );
+
 const ANONYMOUS_SYMBOLS = new Set([undefined, '__type', '__object']);
 
 /** Model types are named, non-generic object types; their name becomes the GraphQL type name. */
@@ -98,11 +115,17 @@ export const modelName = (type: Type, reader: ModelTypeReader): string | undefin
 export const referenceType = (type: Type, reader: ModelTypeReader): ReferenceType => {
   const outer = withoutNullish(type, reader);
   const element = arrayElement(outer.type, reader);
-  if (!element) return { target: outer.type, shape: { kind: 'one', nullable: outer.nullable } };
+  if (!element)
+    return {
+      target: outer.type,
+      shape: { kind: 'one', nullable: outer.nullable },
+      undefinable: outer.undefinable,
+    };
   const inner = withoutNullish(element, reader);
   return {
     target: inner.type,
     shape: { kind: 'many', nullable: outer.nullable, itemNullable: inner.nullable },
+    undefinable: outer.undefinable || inner.undefinable,
   };
 };
 

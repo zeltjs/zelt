@@ -440,7 +440,73 @@ const rejecting = {
     }
     return ReservedField;
   })(),
+  aliasedQuery: (() => {
+    @Resolver()
+    class AliasedQuery {
+      @QueryDecorator()
+      thing(): ThingRef {
+        return { id: '1' };
+      }
+    }
+    return AliasedQuery;
+  })(),
+  undefinedProvider: (() => {
+    @Resolver()
+    class UndefinedProvider {
+      @ResolveMultiField()
+      load(_ref: Pick<Thing, 'id'>): Thing | null | undefined {
+        return null;
+      }
+    }
+    return UndefinedProvider;
+  })(),
+  undefinedRelation: (() => {
+    @Resolver()
+    class UndefinedRelation {
+      @ResolveMultiField()
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
+        return null;
+      }
+      @Relation()
+      author(_parent: Pick<Article, 'id'>): Pick<Author, 'id'> | undefined {
+        return undefined;
+      }
+    }
+    return UndefinedRelation;
+  })(),
+  inheritedOwner: (() => {
+    @Resolver()
+    class InheritedOwner {
+      @QueryDecorator()
+      owner(): Pick<constructor, 'id'> {
+        return { id: '1' };
+      }
+    }
+    return InheritedOwner;
+  })(),
 };
+
+// Model names are looked up as own keys; `constructor` would otherwise hit Object.prototype.
+// biome-ignore lint/style/useNamingConvention: the lowercase name is the case under test
+type constructor = { readonly id: string; readonly name: string };
+
+// The runtime keys of computed names and the single implementation of overloads are analyzed.
+@Resolver()
+class MethodShapeResolver {
+  load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'id' | '$code'> | null;
+  @ResolveMultiField()
+  load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'id' | '$code'> | null {
+    return null;
+  }
+  @QueryDecorator()
+  thing(): Pick<Thing, 'id'> {
+    return { id: '1' };
+  }
+  @ResolveField()
+  ['label'](parent: Pick<Thing, '$code'>): string {
+    return parent.$code;
+  }
+}
 
 type Query = { id: string };
 @Resolver()
@@ -621,6 +687,12 @@ describe('model code generation', () => {
     expect(fieldIn(runtime, 'Counter', 'labels')).toMatchObject({ mode: 'batch' });
   });
 
+  it('analyzes computed method names and overloaded methods once', async () => {
+    const runtime = await generate([MethodShapeResolver]);
+    expect(propertyNames(runtime, 'Thing')).toEqual(['id', '$code']);
+    expect(fieldIn(runtime, 'Thing', 'label')).toMatchObject({ dependencies: ['$code'] });
+  });
+
   it.each([
     ['an aliased parent Pick', [rejecting.aliasedParent], 'written directly'],
     ['a batch parent without id', [rejecting.batchWithoutId], 'batch parent Pick requires id'],
@@ -666,6 +738,18 @@ describe('model code generation', () => {
     ['a mutation in a model resolver', [rejecting.modelMutation], 'cannot declare mutations'],
     ['two model types named alike', [MemberResolver, rejecting.sameName], 'already named Member'],
     ['an invalid field name', [rejecting.reservedField], 'invalid GraphQL field name'],
+    ['a query returning an aliased Pick', [rejecting.aliasedQuery], 'written directly'],
+    ['a provider returning undefined', [rejecting.undefinedProvider], 'provider result must be'],
+    [
+      'a relation returning undefined',
+      [rejecting.undefinedRelation, AuthorResolver],
+      'references cannot be undefined',
+    ],
+    [
+      'a property shadowed by Object.prototype',
+      [rejecting.inheritedOwner],
+      'constructor.name has no resolver',
+    ],
   ])('rejects %s', async (_name, resolvers, message) => {
     await expect(generate(resolvers)).rejects.toThrow(message);
   });

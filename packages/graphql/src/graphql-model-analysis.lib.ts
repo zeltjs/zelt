@@ -11,6 +11,7 @@ import type { ModelRef, ModelTypeReader, ReferenceType } from './graphql-model-t
 import {
   arrayElement,
   awaited,
+  isPickInstance,
   isPromiseLike,
   isPublicValue,
   mapEntry,
@@ -81,11 +82,13 @@ function fail(site: Site, message: string): never {
 const operationKind = (value: unknown): OperationKind | undefined =>
   OPERATION_KINDS.find((kind) => kind === value);
 
-const methodNameOf = (input: ModelResolverInput, method: Method): string => {
+// Decorator metadata is keyed by the runtime property key, which a computed name only reveals
+// through its literal type.
+const methodNameOf = ({ ts, checker }: ModelResolverInput, method: Method): string => {
   const { name } = method;
-  return input.ts.isStringLiteral(name) || input.ts.isNumericLiteral(name)
-    ? name.text
-    : name.getText();
+  if (!ts.isComputedPropertyName(name)) return name.text;
+  const key = checker.getTypeAtLocation(name.expression);
+  return key.isStringLiteral() || key.isNumberLiteral() ? String(key.value) : name.getText();
 };
 
 const siteOf = (input: ModelResolverInput, method: Method): Site | undefined => {
@@ -107,9 +110,11 @@ const siteOf = (input: ModelResolverInput, method: Method): Site | undefined => 
   return undefined;
 };
 
+// Overload signatures have no body; the implementation is the one runtime method to analyze.
 const sitesOf = (input: ModelResolverInput): readonly Site[] =>
   input.classNode.members
     .filter(input.ts.isMethodDeclaration)
+    .filter((method) => method.body !== undefined)
     .flatMap((method) => siteOf(input, method) ?? []);
 
 const typeText = (site: Site, type: Type): string => site.input.checker.typeToString(type);
@@ -126,21 +131,22 @@ const returnType = (site: Site): Type => {
   return awaited(site.input.checker.getReturnTypeOfSignature(signature), site.reader);
 };
 
-const parentRef = (site: Site): ModelRef | undefined => {
+const parentPick = (site: Site): boolean => {
   const type = parameterType(site);
-  return type && modelRef(arrayElement(type, site.reader) ?? type);
+  return Boolean(type && isPickInstance(arrayElement(type, site.reader) ?? type, site.reader));
 };
 
 /**
- * A class follows the model contract as soon as one of its operations involves a model.
+ * A class follows the model contract as soon as one of its operations involves a model. Any
+ * `Pick` counts, so a `Pick` reached through an alias is reported instead of generated as data.
  *
  * @throws {Error} from graphql-model-analysis.lib.ts:fail
  */
 const touchesModel = (site: Site): boolean => {
   if (site.kind === 'relation' || site.kind === 'resolveMultiField') return true;
-  if (site.kind === 'resolveField') return Boolean(parentRef(site));
+  if (site.kind === 'resolveField') return parentPick(site);
   if (site.kind === 'query')
-    return Boolean(modelRef(referenceType(returnType(site), site.reader).target));
+    return isPickInstance(referenceType(returnType(site), site.reader).target, site.reader);
   return false;
 };
 
@@ -185,9 +191,10 @@ const referenceOf = (site: Site, type: Type): ReferenceType => {
   if (ref?.keys.length !== 1 || ref.keys[0] !== 'id')
     fail(
       site,
-      `must return Pick<Model, 'id'>, an array of it, or a nullable form; got ${typeText(site, type)}`,
+      `must return Pick<Model, 'id'> written directly, an array of it, or a nullable form; got ${typeText(site, type)}`,
     );
-  return { target: ref.model, shape: reference.shape };
+  if (reference.undefinable) fail(site, 'references cannot be undefined; return null instead');
+  return { target: ref.model, shape: reference.shape, undefinable: false };
 };
 
 /** @throws {Error} from graphql-model-analysis.lib.ts:fail */
@@ -238,7 +245,7 @@ const perParentResult = (site: Site, parent: Parent, model: Model): Type => {
 const providedKeys = (site: Site, parent: Parent, model: Model): readonly string[] => {
   const split = withoutNullish(perParentResult(site, parent, model), site.reader);
   const message = 'provider result must be Model | null or Pick<Model, keys> | null';
-  if (!split.nullable) fail(site, message);
+  if (!split.nullable || split.undefinable) fail(site, message);
   if (split.type === model.type) return [...model.declared.keys()];
   const ref = modelRef(split.type);
   if (ref?.model !== model.type) fail(site, message);
@@ -454,7 +461,7 @@ const assertComplete = (state: State, model: Model): void => {
   for (const name of model.declared.keys()) {
     const resolved =
       supplied.some((property) => property.name === name) ||
-      readOwnEntry(state.fields[model.name] ?? {}, name) !== undefined;
+      readOwnEntry(readOwnEntry(state.fields, model.name), name) !== undefined;
     if (!resolved)
       fail(
         model.origin,
