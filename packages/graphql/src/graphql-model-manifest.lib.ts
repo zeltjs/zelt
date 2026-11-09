@@ -28,7 +28,7 @@ const parseValue = (value: unknown, depth = 0): GraphqlModelValue | undefined =>
   return match(entry)
     .returnType<GraphqlModelValue | undefined>()
     .with({ kind: 'opaque' }, () => ({ kind: 'opaque' }))
-    .with({ kind: 'scalar', name: P.union('string', 'number', 'boolean') }, ({ name }) => ({
+    .with({ kind: 'scalar', name: P.union('ID', 'string', 'number', 'boolean') }, ({ name }) => ({
       kind: 'scalar',
       name,
     }))
@@ -82,7 +82,10 @@ const parseModel = (value: unknown): GraphqlModelDefinition | undefined => {
   const id = properties.find((property) => property.name === 'id');
   if (
     !match(id)
-      .with({ optional: false, value: { kind: 'scalar', name: 'string' } }, () => true)
+      .with(
+        { optional: false, value: { kind: 'scalar', name: P.union('ID', 'string') } },
+        () => true,
+      )
       .otherwise(() => false)
   )
     return undefined;

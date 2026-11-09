@@ -168,6 +168,13 @@ const unionModelValue = (
     result = { kind: 'optional', inner: result };
   return result;
 };
+// `ID` is `string` plus an optional brand, so it is recognized by that brand rather than by name.
+const isGraphqlId = (type: import('typescript').Type, checker: Checker): boolean => {
+  const brand = checker.getPropertyOfType(type, '__zeltGraphqlScalar');
+  if (!brand || !checker.isTypeAssignableTo(type, checker.getStringType())) return false;
+  const value = checker.getNonNullableType(checker.getTypeOfSymbol(brand));
+  return value.isStringLiteral() && value.value === 'ID';
+};
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:required
  */
@@ -176,8 +183,19 @@ const modelValueOf = (
   checker: Checker,
   ts: TS,
 ): GraphqlModelValue => {
+  if (isGraphqlId(type, checker)) return { kind: 'scalar', name: 'ID' };
   if (type.flags & ts.TypeFlags.BooleanLike) return { kind: 'scalar', name: 'boolean' };
   if (type.isUnion()) return unionModelValue(type, checker, ts);
+  return primitiveModelValue(type, checker, ts);
+};
+/**
+ * @throws {Error} from graphql-model-analysis.lib.ts:required
+ */
+const primitiveModelValue = (
+  type: import('typescript').Type,
+  checker: Checker,
+  ts: TS,
+): GraphqlModelValue => {
   if (type.flags & ts.TypeFlags.StringLike) return { kind: 'scalar', name: 'string' };
   if (type.flags & ts.TypeFlags.NumberLike) return { kind: 'scalar', name: 'number' };
   if (checker.isArrayType(type)) {
@@ -352,7 +370,12 @@ const providerSymbol = (
   return { symbol: ref.symbol, batch: Boolean(element) };
 };
 const isStringId = (id: GraphqlModelProperty | undefined): boolean =>
-  Boolean(id && !id.optional && id.value.kind === 'scalar' && id.value.name === 'string');
+  Boolean(
+    id &&
+      !id.optional &&
+      id.value.kind === 'scalar' &&
+      (id.value.name === 'ID' || id.value.name === 'string'),
+  );
 /**
  * @throws {Error} from graphql-model-analysis.lib.ts:mapArguments
  */

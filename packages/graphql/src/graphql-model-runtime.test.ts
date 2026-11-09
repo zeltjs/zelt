@@ -21,7 +21,7 @@ const models = {
     mode: 'batch',
     provider: binding('provide'),
     properties: [
-      { name: 'id', optional: false, value: { kind: 'scalar', name: 'string' } },
+      { name: 'id', optional: false, value: { kind: 'scalar', name: 'ID' } },
       { name: 'name', optional: false, value: { kind: 'scalar', name: 'string' } },
       { name: '$friend', optional: false, value: { kind: 'scalar', name: 'string' } },
     ],

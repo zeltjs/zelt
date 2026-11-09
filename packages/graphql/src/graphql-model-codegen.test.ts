@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import * as inspection from '@zeltjs/decorator-metadata/inspect';
 import { describe, expect, it, vi } from 'vitest';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
+import type { ID as GraphqlId } from './index';
 import {
   Query as QueryDecorator,
   Relation,
@@ -349,6 +350,37 @@ class BadUserResolver {
   }
 }
 
+type IdUser = {
+  readonly id: GraphqlId;
+  readonly externalId: GraphqlId | null;
+  readonly aliases: readonly GraphqlId[];
+  readonly code: string;
+};
+@Resolver()
+class IdUserResolver {
+  @QueryDecorator()
+  idUser(): Pick<IdUser, 'id'> {
+    return { id: '1' };
+  }
+  @ResolveMultiField()
+  load(_ref: Pick<IdUser, 'id'>): IdUser | null {
+    return null;
+  }
+}
+
+type StringIdUser = { readonly id: string };
+@Resolver()
+class StringIdUserResolver {
+  @QueryDecorator()
+  stringIdUser(): Pick<StringIdUser, 'id'> {
+    return { id: '1' };
+  }
+  @ResolveMultiField()
+  load(_ref: Pick<StringIdUser, 'id'>): StringIdUser | null {
+    return null;
+  }
+}
+
 describe('model code generation', () => {
   it('finishes the cold first inspection before inspecting the remaining models', async () => {
     const tsconfig = resolve(__dirname, '../tsconfig.json');
@@ -517,6 +549,16 @@ describe('model code generation', () => {
         tsconfig: resolve(__dirname, '../tsconfig.json'),
       }),
     ).rejects.toThrow();
+  });
+  it('derives the ID scalar from the declared ID type, not from the property name', async () => {
+    const options = { tsconfig: resolve(__dirname, '../tsconfig.json') };
+    const explicit = await generateGraphqlRuntimeForResolvers([IdUserResolver], options);
+    expect(explicit.schemaSdl).toContain('id: ID!');
+    expect(explicit.schemaSdl).toContain('externalId: ID\n');
+    expect(explicit.schemaSdl).toContain('aliases: [ID!]!');
+    expect(explicit.schemaSdl).toContain('code: String!');
+    const plain = await generateGraphqlRuntimeForResolvers([StringIdUserResolver], options);
+    expect(plain.schemaSdl).toContain('id: String!');
   });
   it('requires string model identifiers', async () => {
     await expect(
