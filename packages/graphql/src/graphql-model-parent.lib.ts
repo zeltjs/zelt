@@ -1,4 +1,4 @@
-import { extractGraphqlArgsRef } from './analyze-gql-args.lib';
+import { hasGraphqlArgsCall } from './analyze-gql-args.lib';
 import type { ModelTypeReader } from './graphql-model-checker.lib';
 import { arrayElement } from './graphql-model-checker.lib';
 import type { PickRef } from './graphql-model-pick.lib';
@@ -18,20 +18,14 @@ export const hasOnlyOptionalParameters = (method: Method, from: number): boolean
     .every((parameter) => parameter.initializer !== undefined || parameter.questionToken);
 
 // The parent is the only input of a field method; GraphQL arguments are not part of the contract.
-/**
- * @throws {Error} from analyze-gql-args.lib.ts:extractGraphqlArgsRef
- */
 const parameterProblem = (method: Method, reader: ModelTypeReader): string | undefined => {
-  if (extractGraphqlArgsRef(method, method.getSourceFile(), reader.ts))
+  if (hasGraphqlArgsCall(method, method.getSourceFile(), reader.ts))
     return 'args() is not supported on model field methods';
   return hasOnlyOptionalParameters(method, 1)
     ? undefined
     : 'additional parameters require defaults';
 };
 
-/**
- * @throws {Error} from analyze-gql-args.lib.ts:extractGraphqlArgsRef
- */
 export const readParent = (method: Method, reader: ModelTypeReader): Read<Parent> => {
   const [parameter] = method.parameters;
   if (!parameter) return absent;

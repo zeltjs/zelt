@@ -82,9 +82,6 @@ const readQuery = (method: ModelMethod, reader: ModelTypeReader): Read<ModelOper
   return ok({ kind: 'query', method, reference: reference.value });
 };
 
-/**
- * @throws {Error} from analyze-gql-args.lib.ts:extractGraphqlArgsRef
- */
 const requiredParent = (method: ModelMethod, reader: ModelTypeReader): Result<Parent> => {
   const parent = readParent(method.declaration, reader);
   return parent.kind === 'absent' ? rejected(notAModelOperation(method, reader)) : parent;
@@ -99,8 +96,6 @@ const perParentResult = (
 
 /**
  * `@ResolveMultiField`: supplies properties of the models whose ids it receives.
- *
- * @throws {Error} from analyze-gql-args.lib.ts:extractGraphqlArgsRef
  */
 const readProvider = (method: ModelMethod, reader: ModelTypeReader): Result<ModelOperation> =>
   andThen(requiredParent(method, reader), (parent) => {
@@ -157,8 +152,6 @@ const computedValue = (
 
 /**
  * `@ResolveField`: computes one declared property from the parent's properties.
- *
- * @throws {Error} from analyze-gql-args.lib.ts:extractGraphqlArgsRef
  */
 const readComputed = (method: ModelMethod, reader: ModelTypeReader): Read<ModelOperation> => {
   const parent = readParent(method.declaration, reader);
@@ -201,8 +194,6 @@ const relationShape = (
 
 /**
  * `@Relation`: selects the ids of related models from the parent's properties.
- *
- * @throws {Error} from analyze-gql-args.lib.ts:extractGraphqlArgsRef
  */
 const readRelation = (method: ModelMethod, reader: ModelTypeReader): Result<ModelOperation> =>
   andThen(requiredParent(method, reader), (parent) =>
@@ -217,8 +208,6 @@ const readRelation = (method: ModelMethod, reader: ModelTypeReader): Result<Mode
 
 /**
  * Absent when the method does not involve a model, which leaves it to the generic pipeline.
- *
- * @throws {Error} from analyze-gql-args.lib.ts:extractGraphqlArgsRef
  */
 export const readModelOperation = (
   method: ModelMethod,

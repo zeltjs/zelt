@@ -52,7 +52,9 @@ const collectModels = (
   const models = new Map<Type, Model>();
   const names = new Set<string>();
   for (const operation of operations) {
-    for (const type of referencedModels(operation).filter((model) => !models.has(model))) {
+    for (const type of referencedModels(operation)) {
+      // A self relation references its own model as parent and target.
+      if (models.has(type)) continue;
       const declaration = readModelDeclaration(type, reader);
       if (declaration.kind === 'rejected') return at(operation.method, declaration.reason);
       const { name } = declaration.value;

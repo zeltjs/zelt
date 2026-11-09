@@ -1,9 +1,11 @@
 import { resolve } from 'node:path';
 import * as inspection from '@zeltjs/decorator-metadata/inspect';
+import { object } from 'valibot';
 import { describe, expect, it, vi } from 'vitest';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
 import type { ID as GraphqlId } from './index';
 import {
+  args,
   Mutation as MutationDecorator,
   Query as QueryDecorator,
   Relation,
@@ -474,6 +476,20 @@ const rejecting = {
     }
     return UndefinedRelation;
   })(),
+  fieldArgs: (() => {
+    @Resolver()
+    class FieldArgs {
+      @QueryDecorator()
+      member(): Pick<Member, 'id'> {
+        return { id: 'm1' };
+      }
+      @ResolveField()
+      name(_parent: Pick<Member, 'id'>, _input = args(object({}))): Member['name'] {
+        return '';
+      }
+    }
+    return FieldArgs;
+  })(),
   inheritedOwner: (() => {
     @Resolver()
     class InheritedOwner {
@@ -488,6 +504,20 @@ const rejecting = {
 
 // A model named like an Object.prototype key must not find inherited fields.
 type constructor = { readonly id: string; readonly name: string };
+
+// A self relation references its model as both parent and target before anything else does.
+type Employee = { readonly id: GraphqlId; readonly manager: Employee | null };
+@Resolver()
+class EmployeeResolver {
+  @Relation()
+  manager(_parent: Pick<Employee, 'id'>): Pick<Employee, 'id'> | null {
+    return null;
+  }
+  @QueryDecorator()
+  employee(): Pick<Employee, 'id'> {
+    return { id: 'e1' };
+  }
+}
 
 // The runtime keys of computed names and the single implementation of overloads are analyzed.
 @Resolver()
@@ -692,6 +722,14 @@ describe('model code generation', () => {
     expect(fieldIn(runtime, 'Thing', 'label')).toMatchObject({ dependencies: ['$code'] });
   });
 
+  it('analyzes a self relation declared before any other reference to its model', async () => {
+    const runtime = await generate([EmployeeResolver]);
+    expect(fieldIn(runtime, 'Employee', 'manager')).toMatchObject({
+      kind: 'relation',
+      target: 'Employee',
+    });
+  });
+
   it.each([
     ['an aliased parent Pick', [rejecting.aliasedParent], 'written directly'],
     ['a batch parent without id', [rejecting.batchWithoutId], 'batch parent Pick requires id'],
@@ -743,6 +781,11 @@ describe('model code generation', () => {
       'a relation returning undefined',
       [rejecting.undefinedRelation, AuthorResolver],
       'references cannot be undefined',
+    ],
+    [
+      'args() on a model field method',
+      [rejecting.fieldArgs],
+      'FieldArgs.name: args() is not supported on model field methods',
     ],
     [
       'a property shadowed by Object.prototype',
