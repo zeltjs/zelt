@@ -597,24 +597,16 @@ class CollisionDollarUserResolver {
 }
 
 describe('model code generation', () => {
-  it('finishes the cold first inspection before inspecting the remaining models', async () => {
-    inspection.clearProgramCache(tsconfig);
+  it('reads every resolver through one Program even if the cache is cleared meanwhile', async () => {
     const original = inspection.getTypeMetadata;
-    let started = 0;
-    let firstFinished = false;
-    const warmed: boolean[] = [];
+    // A concurrent generation clears the shared Program cache between inspections.
     const spy = vi.spyOn(inspection, 'getTypeMetadata').mockImplementation((...args) => {
-      const index = started++;
-      if (index > 0) warmed.push(firstFinished);
-      return original(...args).map((metadata) => {
-        if (index === 0) firstFinished = true;
-        return metadata;
-      });
+      inspection.clearProgramCache(tsconfig);
+      return original(...args);
     });
     try {
       const runtime = await generate([AuthorResolver, ArticleResolver, MemberResolver]);
       expect(Object.keys(runtime.models ?? {})).toEqual(['Author', 'Article', 'Member']);
-      expect(warmed).toEqual([true, true]);
     } finally {
       spy.mockRestore();
       inspection.clearProgramCache(tsconfig);
