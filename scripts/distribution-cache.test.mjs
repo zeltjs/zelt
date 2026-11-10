@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -29,7 +29,8 @@ test('distribution caches track the actual prerequisite build output', async (t)
   mkdirSync(project, { recursive: true });
   mkdirSync(join(root, 'scripts'));
   symlinkSync(join(workspace, 'node_modules'), join(root, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
-  for (const file of ['nx.json', 'pnpm-lock.yaml', 'scripts/pack-distribution.mjs']) {
+  cpSync(join(workspace, 'scripts'), join(root, 'scripts'), { recursive: true });
+  for (const file of ['nx.json', 'pnpm-lock.yaml']) {
     copyFileSync(join(workspace, file), join(root, file));
   }
   writeJson(join(root, 'package.json'), {

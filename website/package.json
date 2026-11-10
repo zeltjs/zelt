@@ -15,7 +15,7 @@
     "typecheck": "tsc",
     "typecheck:docs": "bun scripts/typecheck-docs.ts",
     "check:examples": "bun scripts/check-example-excerpts.ts",
-    "verify:docs": "bun scripts/typecheck-docs.ts && bun scripts/check-example-excerpts.ts",
+    "verify:docs": "pnpm -w nx run website:verify-docs",
     "lint:slugs": "bun scripts/check-doc-slugs.ts",
     "test:docs": "pnpm -w run test:prepare && bun scripts/extract-doc-tests.ts && vitest run",
     "test:docs:watch": "pnpm -w run test:prepare && bun scripts/extract-doc-tests.ts && vitest"
@@ -90,6 +90,29 @@
   },
   "nx": {
     "targets": {
+      "verify-docs": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "inputs": [
+          "verification",
+          {
+            "runtime": "bun --version"
+          }
+        ],
+        "outputs": [],
+        "dependsOn": [
+          {
+            "target": "build",
+            "projects": [
+              "@zeltjs/*"
+            ]
+          }
+        ],
+        "options": {
+          "command": "pnpm --filter website typecheck:docs && pnpm --filter website check:examples",
+          "cwd": "."
+        }
+      },
       "build": {
         "outputs": [
           "{projectRoot}/build"
