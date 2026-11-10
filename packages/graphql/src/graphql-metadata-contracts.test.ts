@@ -27,7 +27,7 @@ class MixedOperationsResolver {
   }
 }
 @Resolver()
-class QuotedRelationResolver {
+class UndeclaredRelationResolver {
   @Relation()
   friend(_parent: Pick<ContractUser, 'id'>): Pick<ContractUser, 'id'> | null {
     return null;
@@ -52,10 +52,10 @@ describe('GraphQL metadata contracts', () => {
       generateGraphqlRuntimeForResolvers([RequiredArgumentResolver], { tsconfig }),
     ).rejects.toThrow('query parameters require defaults');
   });
-  it('rejects a quoted relation method without its model provider', async () => {
+  it('rejects a relation whose field is not declared in the model', async () => {
     await expect(
-      generateGraphqlRuntimeForResolvers([QuotedRelationResolver], { tsconfig }),
-    ).rejects.toThrow('@Relation requires a model provider');
+      generateGraphqlRuntimeForResolvers([UndeclaredRelationResolver], { tsconfig }),
+    ).rejects.toThrow('field ContractUser.friend must be declared in ContractUser');
   });
   it('fingerprints operation order within one method', async () => {
     expect(

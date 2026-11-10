@@ -100,12 +100,9 @@ const nativeMap = (value: unknown): ReadonlyMap<unknown, unknown> => {
 const completeMap = (value: unknown, ids: readonly string[]): ReadonlyMap<unknown, unknown> => {
   const entries = nativeMap(value);
   rejectPromiseMapValues(entries.values());
-  const requested = new Set(ids);
-  if (
-    entries.size !== requested.size ||
-    [...entries.keys()].some((key: unknown) => typeof key !== 'string' || !requested.has(key))
-  ) {
-    throw new Error('GraphQL model batch Map must contain exactly the requested IDs');
+  // Keys beyond the requested ids are never read, so only missing ids break the contract.
+  if (ids.some((id) => !entries.has(id))) {
+    throw new Error('GraphQL model batch Map must contain every requested ID');
   }
   return entries;
 };
@@ -140,7 +137,7 @@ const rejectPromiseMapValues = (values: Iterable<unknown>): void => {
  */
 const validateSource = (
   model: string,
-  definition: GraphqlModelDefinition,
+  definition: Extract<GraphqlModelDefinition, { kind: 'provided' }>,
   id: string,
   value: unknown,
 ): Source | null => {
@@ -181,7 +178,7 @@ const provider = (operation: Operation, model: string): DataLoader<string, Sourc
   const existing = operation.providers.get(model);
   if (existing) return existing;
   const definition = operation.options.models[model];
-  if (!definition) throw new Error(`GraphQL model provider missing: ${model}`);
+  if (definition?.kind !== 'provided') throw new Error(`GraphQL model provider missing: ${model}`);
   const loader = new DataLoader<string, Source | null>(
     async (ids) => {
       if (definition.mode === 'single') {
@@ -216,7 +213,9 @@ const hydrateOne = async (
   nullable: boolean,
 ): Promise<Source | null> => {
   if (value === null && nullable) return null;
-  const source = await provider(operation, target).load(identity(value));
+  const id = identity(value);
+  if (operation.options.models[target]?.kind === 'identity') return { id };
+  const source = await provider(operation, target).load(id);
   if (source === null && !nullable) throw new Error(`GraphQL required model is missing: ${target}`);
   return source;
 };

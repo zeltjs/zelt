@@ -18,6 +18,7 @@ const inputId = (value: unknown): string => {
 };
 const models = {
   User: {
+    kind: 'provided',
     mode: 'batch',
     provider: binding('provide'),
     properties: [
@@ -140,6 +141,39 @@ const fixture = (
 };
 
 describe('model execution contracts', () => {
+  it('hydrates identity models from the reference id without invoking a provider', async () => {
+    const definitions: GraphqlModels = {
+      User: {
+        kind: 'identity',
+        properties: [{ name: 'id', optional: false, value: { kind: 'scalar', name: 'ID' } }],
+      },
+    };
+    const fieldDefinitions: GraphqlModelFields = {
+      Query: {
+        users: {
+          kind: 'query',
+          target: 'User',
+          shape: { kind: 'many', nullable: false, itemNullable: true },
+        },
+      },
+      User: {
+        label: {
+          kind: 'computed',
+          mode: 'single',
+          dependencies: ['id'],
+          value: { kind: 'scalar', name: 'string' },
+        },
+      },
+    };
+    const { execute, calls } = fixture({}, definitions, fieldDefinitions);
+    expect(await execute('{ users { id label } }')).toEqual({
+      data: {
+        users: ['a', 'b', 'a'].map((id) => ({ id, label: JSON.stringify({ id }) })),
+      },
+    });
+    expect(calls.map((call) => call.method)).toEqual(['users', 'label', 'label', 'label']);
+  });
+
   it('preserves absent dependencies separately from explicit undefined', async () => {
     const definitions: GraphqlModels = {
       User: {
@@ -553,11 +587,6 @@ describe('model execution contracts', () => {
     for (const value of [
       new Map([['a', 'A']]),
       new Map([
-        ['a', 'A'],
-        ['b', 'B'],
-        ['c', 'C'],
-      ]),
-      new Map([
         ['a', Promise.resolve('A')],
         ['b', Promise.resolve('B')],
       ]),
@@ -566,6 +595,14 @@ describe('model execution contracts', () => {
       const result = await execute('{ users { label } }');
       expect(result.errors).toHaveLength(3);
     }
+    const extra = new Map([
+      ['a', 'A'],
+      ['b', 'B'],
+      ['unrequested', 'C'],
+    ]);
+    const { execute } = fixture({ label: () => extra }, models, fields);
+    const result = await execute('{ users { label } }');
+    expect(result.errors).toBeUndefined();
   });
   it.each([
     {
@@ -692,7 +729,12 @@ describe('model execution contracts', () => {
     const execution = createGraphqlModelExecution({
       models: {
         User: models.User,
-        Other: { mode: 'batch', provider: binding('otherProvider'), properties: [] },
+        Other: {
+          kind: 'provided',
+          mode: 'batch',
+          provider: binding('otherProvider'),
+          properties: [],
+        },
       },
       modelFields: {
         Query: {
@@ -735,17 +777,21 @@ describe('model execution contracts', () => {
     expect(result.errors?.map((error) => error.path)).toEqual([['users', 3]]);
   });
 
-  it.each([
-    ['missing key', () => new Map([['a', null]])],
-    [
-      'extra key',
-      () =>
+  it('ignores provider Map keys beyond the requested ids', async () => {
+    const { execute } = fixture({
+      provide: () =>
         new Map([
           ['a', null],
           ['b', null],
-          ['c', null],
+          ['unrequested', null],
         ]),
-    ],
+    });
+    const result = await execute('{ users { id } }');
+    expect(result.errors).toBeUndefined();
+  });
+
+  it.each([
+    ['missing key', () => new Map([['a', null]])],
     [
       'wrong id',
       () =>

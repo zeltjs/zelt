@@ -3,7 +3,7 @@ import { parseGraphqlModelManifest } from './graphql-model-manifest.lib';
 
 const id = { name: 'id', optional: false, value: { kind: 'scalar', name: 'string' } };
 const provider = { resolver: 'Users', method: 'provide' };
-const model = { provider, mode: 'batch', properties: [id] };
+const model = { kind: 'provided', provider, mode: 'batch', properties: [id] };
 const models = { User: model };
 const query = { kind: 'query', target: 'User', shape: { kind: 'one', nullable: false } };
 const relation = {
@@ -25,6 +25,7 @@ describe('GraphQL model manifest boundary', () => {
   it('accepts complete metadata with source dependencies and recursive descriptors', () => {
     const complete = {
       User: {
+        kind: 'provided',
         provider,
         mode: 'batch',
         properties: [
@@ -46,6 +47,23 @@ describe('GraphQL model manifest boundary', () => {
       modelFields: fields,
     });
     expect(parseGraphqlModelManifest({}, {})).toEqual({ models: {}, modelFields: {} });
+  });
+
+  it('accepts identity models that only know their id', () => {
+    const identity = { User: { kind: 'identity', properties: [id] } };
+    expect(parseGraphqlModelManifest(identity, fields)?.models).toEqual(identity);
+    expect(
+      parseGraphqlModelManifest(
+        { User: { kind: 'identity', properties: [id, { ...id, name: 'name' }] } },
+        fields,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('rejects model metadata without a kind from earlier builds', () => {
+    expect(
+      parseGraphqlModelManifest({ User: { provider, mode: 'batch', properties: [id] } }, fields),
+    ).toBeUndefined();
   });
 
   it('accepts an explicit ID scalar as the model identifier', () => {
