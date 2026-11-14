@@ -67,10 +67,7 @@ class AuthorResolver {
   @ResolveMultiField()
   values(
     _refs: readonly Pick<Author, 'id'>[],
-  ): ReadonlyMap<
-    Author['id'],
-    Pick<Author, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null
-  > {
+  ): ReadonlyMap<Author['id'], Pick<Author, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'>> {
     return new Map();
   }
   @ResolveField()
@@ -91,8 +88,8 @@ class AuthorResolver {
 @Resolver()
 class ArticleResolver {
   @ResolveMultiField()
-  values(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
-    return null;
+  values(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> {
+    throw new Error('not found');
   }
   @Relation()
   author(article: Pick<Article, '$authorId'>): Pick<Author, 'id'> {
@@ -121,8 +118,8 @@ class SampleResolver {
     return { id: '1' };
   }
   @ResolveMultiField()
-  load(_ref: Pick<Sample, 'id'>): Promise<Sample | null> {
-    return Promise.resolve(null);
+  load(_ref: Pick<Sample, 'id'>): Promise<Sample> {
+    return Promise.reject(new Error('not found'));
   }
 }
 
@@ -150,8 +147,8 @@ const rejecting = {
     @Resolver()
     class BatchWithoutId {
       @ResolveMultiField()
-      load(_ref: Pick<Thing, 'id'>): Thing | null {
-        return null;
+      load(_ref: Pick<Thing, 'id'>): Thing {
+        throw new Error('not found');
       }
       @ResolveField()
       label(_parents: readonly Pick<Thing, '$code'>[]): ReadonlyMap<Thing['id'], string> {
@@ -184,7 +181,7 @@ const rejecting = {
     @Resolver()
     class WrongMapKey {
       @ResolveMultiField()
-      load(_refs: readonly Pick<Thing, 'id'>[]): ReadonlyMap<number, Thing | null> {
+      load(_refs: readonly Pick<Thing, 'id'>[]): ReadonlyMap<number, Thing> {
         return new Map();
       }
     }
@@ -194,28 +191,18 @@ const rejecting = {
     @Resolver()
     class PromiseMapValues {
       @ResolveMultiField()
-      load(_refs: readonly Pick<Thing, 'id'>[]): ReadonlyMap<Thing['id'], Promise<Thing | null>> {
+      load(_refs: readonly Pick<Thing, 'id'>[]): ReadonlyMap<Thing['id'], Promise<Thing>> {
         return new Map();
       }
     }
     return PromiseMapValues;
   })(),
-  providerWithoutId: (() => {
-    @Resolver()
-    class ProviderWithoutId {
-      @ResolveMultiField()
-      load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'label' | '$code'> | null {
-        return null;
-      }
-    }
-    return ProviderWithoutId;
-  })(),
   duplicateProvider: (() => {
     @Resolver()
     class DuplicateProvider {
       @ResolveMultiField()
-      load(_ref: Pick<Thing, 'id'>): Thing | null {
-        return null;
+      load(_ref: Pick<Thing, 'id'>): Thing {
+        throw new Error('not found');
       }
     }
     return DuplicateProvider;
@@ -236,8 +223,8 @@ const rejecting = {
     @Resolver()
     class UnsupportedProperty {
       @ResolveMultiField()
-      load(_ref: Pick<Status, 'id'>): Status | null {
-        return null;
+      load(_ref: Pick<Status, 'id'>): Status {
+        throw new Error('not found');
       }
     }
     return UnsupportedProperty;
@@ -246,8 +233,8 @@ const rejecting = {
     @Resolver()
     class UndeclaredField {
       @ResolveMultiField()
-      load(_ref: Pick<Thing, 'id'>): Thing | null {
-        return null;
+      load(_ref: Pick<Thing, 'id'>): Thing {
+        throw new Error('not found');
       }
       @ResolveField()
       extra(_parent: Pick<Thing, 'id'>): string {
@@ -255,6 +242,54 @@ const rejecting = {
       }
     }
     return UndeclaredField;
+  })(),
+  nullableProvider: (() => {
+    @Resolver()
+    class NullableProvider {
+      @ResolveMultiField()
+      load(_ref: Pick<Thing, 'id'>): Thing | null {
+        return null;
+      }
+    }
+    return NullableProvider;
+  })(),
+  dependencyCycle: (() => {
+    type Loop = { readonly id: string; readonly first: string; readonly second: string };
+    @Resolver()
+    class DependencyCycle {
+      @QueryDecorator()
+      loop(): Pick<Loop, 'id'> {
+        return { id: '1' };
+      }
+      @ResolveField()
+      first(parent: Pick<Loop, 'second'>): string {
+        return parent.second;
+      }
+      @ResolveField()
+      second(parent: Pick<Loop, 'first'>): string {
+        return parent.first;
+      }
+    }
+    return DependencyCycle;
+  })(),
+  relationDependency: (() => {
+    type Node = { readonly id: string; readonly up: Node | null; readonly label: string };
+    @Resolver()
+    class RelationDependency {
+      @QueryDecorator()
+      node(): Pick<Node, 'id'> {
+        return { id: '1' };
+      }
+      @Relation()
+      up(_node: Pick<Node, 'id'>): Pick<Node, 'id'> | null {
+        return null;
+      }
+      @ResolveField()
+      label(node: Pick<Node, 'up'>): string {
+        return String(node.up);
+      }
+    }
+    return RelationDependency;
   })(),
   unsuppliedDependency: (() => {
     @Resolver()
@@ -289,8 +324,8 @@ const rejecting = {
     @Resolver()
     class ComputedRelation {
       @ResolveMultiField()
-      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
-        return null;
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> {
+        throw new Error('not found');
       }
       @ResolveField()
       author(_parent: Pick<Article, 'id'>): string {
@@ -303,8 +338,8 @@ const rejecting = {
     @Resolver()
     class RelationTarget {
       @ResolveMultiField()
-      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
-        return null;
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> {
+        throw new Error('not found');
       }
       @Relation()
       author(_parent: Pick<Article, 'id'>): Pick<Other, 'id'> {
@@ -317,8 +352,8 @@ const rejecting = {
     @Resolver()
     class RelationNullability {
       @ResolveMultiField()
-      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
-        return null;
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> {
+        throw new Error('not found');
       }
       @Relation()
       author(_parent: Pick<Article, 'id'>): Pick<Author, 'id'> | null {
@@ -331,8 +366,8 @@ const rejecting = {
     @Resolver()
     class RelationShape {
       @ResolveMultiField()
-      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
-        return null;
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> {
+        throw new Error('not found');
       }
       @Relation()
       author(_parent: Pick<Article, 'id'>): readonly Pick<Author, 'id'>[] {
@@ -355,8 +390,8 @@ const rejecting = {
     @Resolver()
     class SuppliedTwice {
       @ResolveMultiField()
-      load(_ref: Pick<Thing, 'id'>): Thing | null {
-        return null;
+      load(_ref: Pick<Thing, 'id'>): Thing {
+        throw new Error('not found');
       }
       @ResolveField()
       label(_parent: Pick<Thing, 'id'>): string {
@@ -369,8 +404,8 @@ const rejecting = {
     @Resolver()
     class ResolvedTwice {
       @ResolveMultiField()
-      load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'id' | '$code'> | null {
-        return null;
+      load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'id' | '$code'> {
+        throw new Error('not found');
       }
       @ResolveField()
       label(_parent: Pick<Thing, 'id'>): string {
@@ -422,8 +457,8 @@ const rejecting = {
     @Resolver()
     class UndefinedProvider {
       @ResolveMultiField()
-      load(_ref: Pick<Thing, 'id'>): Thing | null | undefined {
-        return null;
+      load(_ref: Pick<Thing, 'id'>): Thing | undefined {
+        throw new Error('not found');
       }
     }
     return UndefinedProvider;
@@ -432,8 +467,8 @@ const rejecting = {
     @Resolver()
     class UndefinedRelation {
       @ResolveMultiField()
-      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> | null {
-        return null;
+      load(_ref: Pick<Article, 'id'>): Pick<Article, 'id' | 'title' | '$authorId'> {
+        throw new Error('not found');
       }
       @Relation()
       author(_parent: Pick<Article, 'id'>): Pick<Author, 'id'> | undefined {
@@ -475,6 +510,31 @@ type constructor = { readonly id: string; readonly name: string };
 // its data need not declare null.
 type ThingCode = Pick<Thing, 'id' | '$code'>;
 type CodeOf<Model extends { readonly $code: string }> = Pick<Model, '$code'>;
+type Chain = { readonly id: GraphqlId; readonly first: string; readonly second: string };
+@Resolver()
+class ChainResolver {
+  @QueryDecorator()
+  chain(): Pick<Chain, 'id'> {
+    return { id: '1' };
+  }
+  @ResolveField()
+  second(chain: Pick<Chain, 'first'>): string {
+    return chain.first.toUpperCase();
+  }
+  @ResolveField()
+  first(chain: Pick<Chain, 'id'>): string {
+    return chain.id;
+  }
+}
+@Resolver()
+class ProviderWithoutIdResolver {
+  @ResolveMultiField()
+  load(
+    _refs: readonly Pick<Thing, 'id'>[],
+  ): ReadonlyMap<Thing['id'], Pick<Thing, 'label' | '$code'>> {
+    return new Map();
+  }
+}
 @Resolver()
 class AliasedThingResolver {
   @QueryDecorator()
@@ -510,8 +570,8 @@ class EmployeeResolver {
 class MethodShapeResolver {
   load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'id' | '$code'> | null;
   @ResolveMultiField()
-  load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'id' | '$code'> | null {
-    return null;
+  load(_ref: Pick<Thing, 'id'>): Pick<Thing, 'id' | '$code'> {
+    throw new Error('not found');
   }
   @QueryDecorator()
   thing(): Pick<Thing, 'id'> {
@@ -527,72 +587,72 @@ type Query = { id: string };
 @Resolver()
 class CollisionQueryResolver {
   @ResolveMultiField()
-  load(_ref: Pick<Query, 'id'>): Query | null {
-    return null;
+  load(_ref: Pick<Query, 'id'>): Query {
+    throw new Error('not found');
   }
 }
 type Mutation = { id: string };
 @Resolver()
 class CollisionMutationResolver {
   @ResolveMultiField()
-  load(_ref: Pick<Mutation, 'id'>): Mutation | null {
-    return null;
+  load(_ref: Pick<Mutation, 'id'>): Mutation {
+    throw new Error('not found');
   }
 }
 type Subscription = { id: string };
 @Resolver()
 class CollisionSubscriptionResolver {
   @ResolveMultiField()
-  load(_ref: Pick<Subscription, 'id'>): Subscription | null {
-    return null;
+  load(_ref: Pick<Subscription, 'id'>): Subscription {
+    throw new Error('not found');
   }
 }
 type ID = { id: string };
 @Resolver()
 class CollisionIDResolver {
   @ResolveMultiField()
-  load(_ref: Pick<ID, 'id'>): ID | null {
-    return null;
+  load(_ref: Pick<ID, 'id'>): ID {
+    throw new Error('not found');
   }
 }
 type String = { id: string };
 @Resolver()
 class CollisionStringResolver {
   @ResolveMultiField()
-  load(_ref: Pick<String, 'id'>): String | null {
-    return null;
+  load(_ref: Pick<String, 'id'>): String {
+    throw new Error('not found');
   }
 }
 type Int = { id: string };
 @Resolver()
 class CollisionIntResolver {
   @ResolveMultiField()
-  load(_ref: Pick<Int, 'id'>): Int | null {
-    return null;
+  load(_ref: Pick<Int, 'id'>): Int {
+    throw new Error('not found');
   }
 }
 type Float = { id: string };
 @Resolver()
 class CollisionFloatResolver {
   @ResolveMultiField()
-  load(_ref: Pick<Float, 'id'>): Float | null {
-    return null;
+  load(_ref: Pick<Float, 'id'>): Float {
+    throw new Error('not found');
   }
 }
 type Boolean = { id: string };
 @Resolver()
 class CollisionBooleanResolver {
   @ResolveMultiField()
-  load(_ref: Pick<Boolean, 'id'>): Boolean | null {
-    return null;
+  load(_ref: Pick<Boolean, 'id'>): Boolean {
+    throw new Error('not found');
   }
 }
 type $User = { id: string };
 @Resolver()
 class CollisionDollarUserResolver {
   @ResolveMultiField()
-  load(_ref: Pick<$User, 'id'>): $User | null {
-    return null;
+  load(_ref: Pick<$User, 'id'>): $User {
+    throw new Error('not found');
   }
 }
 
@@ -700,11 +760,24 @@ describe('model code generation', () => {
     expect(fieldIn(runtime, 'Thing', 'label')).toMatchObject({ dependencies: ['$code'] });
   });
 
+  it('accepts a provider Pick without id because the id is its input', async () => {
+    const runtime = await generate([ProviderWithoutIdResolver]);
+    expect(propertyNames(runtime, 'Thing')).toEqual(['id', '$code', 'label']);
+  });
+
   it('accepts aliased Picks and a provider without null', async () => {
     const runtime = await generate([AliasedThingResolver]);
     expect(hasQuery(runtime, 'thing')).toBe(true);
     expect(propertyNames(runtime, 'Thing')).toEqual(['id', '$code']);
     expect(fieldIn(runtime, 'Thing', 'label')).toMatchObject({ dependencies: ['$code'] });
+  });
+
+  it('accepts a computed field depending on another computed field', async () => {
+    const runtime = await generate([ChainResolver]);
+    expect(fieldIn(runtime, 'Chain', 'second')).toMatchObject({
+      kind: 'computed',
+      dependencies: ['first'],
+    });
   });
 
   it('analyzes a self relation declared before any other reference to its model', async () => {
@@ -721,7 +794,6 @@ describe('model code generation', () => {
     ['a Map look-alike', [rejecting.fakeMap], 'batch methods must return a Map'],
     ['a Map keyed by another type', [rejecting.wrongMapKey], 'Map key must match model id type'],
     ['Promise Map values', [rejecting.promiseMapValues], 'batch Map values cannot be Promise'],
-    ['a provider Pick without id', [rejecting.providerWithoutId], 'provider Pick must include id'],
     [
       'two providers for one model',
       [rejecting.duplicateProvider, rejecting.suppliedTwice],
@@ -731,6 +803,9 @@ describe('model code generation', () => {
     ['a literal union property', [rejecting.unsupportedProperty], 'unsupported public property'],
     ['an undeclared field', [rejecting.undeclaredField], 'must be declared in Thing'],
     ['an unsupplied dependency', [rejecting.unsuppliedDependency], 'unknown source dependency'],
+    ['a provider returning null', [rejecting.nullableProvider], 'provider result cannot be null'],
+    ['a computed dependency cycle', [rejecting.dependencyCycle], 'dependency cycle Loop.first'],
+    ['a dependency on a relation', [rejecting.relationDependency], 'dependency up is a relation'],
     ['a mismatched computed type', [rejecting.computedMismatch], 'not assignable to Score.value'],
     ['a computed model reference', [rejecting.computedRelation], 'resolve model references'],
     [

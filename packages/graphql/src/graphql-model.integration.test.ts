@@ -41,7 +41,7 @@ class Accounts {
 
   @Query()
   missing(): Pick<Account, 'id'> | null {
-    return { id: 'absent' };
+    return null;
   }
 
   @Query()
@@ -58,19 +58,15 @@ class Accounts {
   async load(
     refs: readonly Pick<Account, 'id'>[],
     req = request(),
-  ): Promise<
-    ReadonlyMap<Account['id'], Pick<Account, 'id' | 'first' | 'last' | '$identity'> | null>
-  > {
+  ): Promise<ReadonlyMap<Account['id'], Pick<Account, 'id' | 'first' | 'last' | '$identity'>>> {
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
     await Promise.resolve();
     calls.push({ method: 'accounts', ids: refs.map((ref) => ref.id), identity });
     if (refs.some((ref) => ref.id === 'unavailable')) throw new Error('Data source unavailable');
+    if (refs.some((ref) => ref.id === 'absent')) throw new Error('Account not found');
     return new Map(
-      refs.map(({ id }) => [
-        id,
-        id === 'absent' ? null : { id, first: id, last: 'User', $identity: identity },
-      ]),
+      refs.map(({ id }) => [id, { id, first: id, last: 'User', $identity: identity }]),
     );
   }
 
@@ -118,7 +114,7 @@ class Entries {
   load(
     refs: readonly Pick<Entry, 'id'>[],
     req = request(),
-  ): ReadonlyMap<Entry['id'], Pick<Entry, 'id' | 'title' | '$author'> | null> {
+  ): ReadonlyMap<Entry['id'], Pick<Entry, 'id' | 'title' | '$author'>> {
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
     calls.push({ method: 'entries', ids: refs.map((ref) => ref.id), identity });
@@ -142,7 +138,7 @@ class Scores {
   }
 
   @ResolveMultiField()
-  async load(ref: Pick<Score, 'id'>, req = request()): Promise<Score | null> {
+  async load(ref: Pick<Score, 'id'>, req = request()): Promise<Score> {
     await Promise.resolve();
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
@@ -225,7 +221,7 @@ describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode
       await running.shutdown();
     }
   });
-  it('preserves missing-target nullability and failure paths through HTTP', async () => {
+  it('lets queries answer null and reports ids without data at the field that needs them', async () => {
     const running = await start(mode);
     try {
       const send = async (query: string) => {
@@ -237,13 +233,16 @@ describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode
         return response.json();
       };
       expect(await send('{ missing { id } }')).toEqual({ data: { missing: null } });
-      expect(await send('{ required: missingStrict { id } }')).toMatchObject({
-        data: null,
-        errors: [{ path: ['required'] }],
+      expect(await send('{ required: missingStrict { id } }')).toEqual({
+        data: { required: { id: 'absent' } },
       });
-      expect(await send('{ unavailable { id } }')).toMatchObject({
+      expect(await send('{ required: missingStrict { first } }')).toMatchObject({
+        data: null,
+        errors: [{ message: 'Account not found', path: ['required', 'first'] }],
+      });
+      expect(await send('{ unavailable { first } }')).toMatchObject({
         data: { unavailable: null },
-        errors: [{ message: 'Data source unavailable', path: ['unavailable'] }],
+        errors: [{ message: 'Data source unavailable', path: ['unavailable', 'first'] }],
       });
     } finally {
       await running.shutdown();

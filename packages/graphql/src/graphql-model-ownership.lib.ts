@@ -111,15 +111,15 @@ const defineModel = (
     return andThen(hydratedProperties(model, model.origin, ['id'], reader), (properties) =>
       ok({ kind: 'identity', properties }),
     );
-  return andThen(
-    hydratedProperties(model, provider.method, provider.supplies, reader),
-    (properties) =>
-      ok({
-        kind: 'provided',
-        provider: { resolver: provider.method.resolver, method: provider.method.name },
-        mode: provider.parent.batch ? 'batch' : 'single',
-        properties,
-      }),
+  // The input id is part of every supplied row even when the provider's Pick omits it.
+  const keys = [...new Set(['id', ...provider.supplies])];
+  return andThen(hydratedProperties(model, provider.method, keys, reader), (properties) =>
+    ok({
+      kind: 'provided',
+      provider: { resolver: provider.method.resolver, method: provider.method.name },
+      mode: provider.parent.batch ? 'batch' : 'single',
+      properties,
+    }),
   );
 };
 
@@ -155,7 +155,10 @@ const fieldOf = (
   return { owner, field: { kind: 'relation', target, shape: operation.shape, dependencies, mode } };
 };
 
-/** A field method resolves what the provider does not supply, from what it does supply. */
+const suppliedNames = (definitions: Definitions, model: Type): readonly string[] =>
+  (definitions.get(model)?.properties ?? []).map(({ name }) => name);
+
+/** A field method resolves what the provider does not supply. */
 const checkAgainstSupply = (
   operation: FieldOperation,
   owner: string,
@@ -163,15 +166,11 @@ const checkAgainstSupply = (
 ): Result<null> => {
   if (operation.kind === 'query') return ok(null);
   const { method, parent } = operation;
-  const names = (definitions.get(parent.ref.model)?.properties ?? []).map(({ name }) => name);
-  if (names.includes(method.fieldName))
+  if (suppliedNames(definitions, parent.ref.model).includes(method.fieldName))
     return at(
       method,
       `duplicate field ${owner}.${method.fieldName}: the provider already supplies it`,
     );
-  const unknown = parent.ref.keys.find((key) => !names.includes(key));
-  if (unknown !== undefined)
-    return at(method, `unknown source dependency ${unknown}: ${owner} does not supply it`);
   return ok(null);
 };
 
@@ -197,6 +196,87 @@ const collectFields = (
     fields.set(owner, owned);
   }
   return ok(fields);
+};
+
+type DependentOperation = Exclude<FieldOperation, { kind: 'query' }>;
+
+/**
+ * A field depends on values of its own model: supplied ones or other computed fields.
+ * Relations are excluded because they yield references to another model, not values.
+ */
+const checkDependencySources = (
+  operation: DependentOperation,
+  owner: string,
+  definitions: Definitions,
+  fields: Fields,
+): Result<null> => {
+  const { method, parent } = operation;
+  const supplied = suppliedNames(definitions, parent.ref.model);
+  for (const key of parent.ref.keys) {
+    if (supplied.includes(key)) continue;
+    const kind = fields.get(owner)?.get(key)?.field.kind;
+    if (kind === 'computed') continue;
+    if (kind === 'relation')
+      return at(
+        method,
+        `dependency ${key} is a relation; depend on the properties ${owner}.${key} is resolved from`,
+      );
+    return at(method, `unknown source dependency ${key}: ${owner} does not supply or resolve it`);
+  }
+  return ok(null);
+};
+
+/** Computed fields resolve their dependencies first, so a cycle could never finish. */
+const findCycle = (owned: ReadonlyMap<string, Resolved>): readonly string[] | undefined => {
+  const done = new Set<string>();
+  const visit = (name: string, path: readonly string[]): readonly string[] | undefined => {
+    if (path.includes(name)) return [...path.slice(path.indexOf(name)), name];
+    if (done.has(name)) return undefined;
+    const resolved = owned.get(name);
+    if (resolved?.field.kind !== 'computed') return undefined;
+    for (const dependency of resolved.field.dependencies) {
+      const cycle = visit(dependency, [...path, name]);
+      if (cycle) return cycle;
+    }
+    done.add(name);
+    return undefined;
+  };
+  for (const name of owned.keys()) {
+    const cycle = visit(name, []);
+    if (cycle) return cycle;
+  }
+  return undefined;
+};
+
+const rejectCycle = (
+  owner: string,
+  owned: ReadonlyMap<string, Resolved>,
+  cycle: readonly string[],
+): Result<never> => {
+  const first = owned.get(cycle[0] ?? '');
+  const origin = first ? `${first.binding.resolver}.${first.binding.method}: ` : '';
+  return rejected(
+    `${origin}dependency cycle ${cycle.map((name) => `${owner}.${name}`).join(' -> ')}`,
+  );
+};
+
+const checkDependencies = (
+  operations: readonly ModelOperation[],
+  models: Models,
+  definitions: Definitions,
+  fields: Fields,
+): Result<null> => {
+  for (const operation of operations) {
+    if (operation.kind === 'provider' || operation.kind === 'query') continue;
+    const owner = nameOf(models, operation.parent.ref.model);
+    const sources = checkDependencySources(operation, owner, definitions, fields);
+    if (sources.kind === 'rejected') return sources;
+  }
+  for (const [owner, owned] of fields) {
+    const cycle = findCycle(owned);
+    if (cycle) return rejectCycle(owner, owned, cycle);
+  }
+  return ok(null);
 };
 
 /** Every declared property is resolved: supplied by the provider or by a field method. */
@@ -234,8 +314,10 @@ export const resolveOwnership = (
     andThen(collectProviders(operations, models), (providers) =>
       andThen(defineModels(models, providers, reader), (definitions) =>
         andThen(collectFields(operations, models, definitions), (fields) =>
-          andThen(checkComplete(models, definitions, fields), () =>
-            ok({ models: namedDefinitions(models, definitions), fields }),
+          andThen(checkDependencies(operations, models, definitions, fields), () =>
+            andThen(checkComplete(models, definitions, fields), () =>
+              ok({ models: namedDefinitions(models, definitions), fields }),
+            ),
           ),
         ),
       ),
