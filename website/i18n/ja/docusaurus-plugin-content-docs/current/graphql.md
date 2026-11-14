@@ -79,6 +79,8 @@ Zelt の GraphQL では、IDの選定とフィールドの解決を明確に分�
 
 が基本の流れとなります
 
+![リクエストに応じて Zelt が必要な resolver だけを呼ぶ流れ](/img/docs/graphql-resolution.ja.svg)
+
 
 ### Level 1: 最小構成（`@Query` と `@ResolveField`）
 
@@ -217,8 +219,12 @@ export class UserResolver {
   @ResolveMultiField()
   values(
     refs: readonly Pick<User, 'id'>[],
-  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
-    return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
+  ): ReadonlyMap<User['id'], Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>> {
+    return new Map(refs.map(({ id }) => {
+      const user = USERS_STORE.get(id);
+      if (!user) throw new Error(`User ${id} not found`);
+      return [id, user] as const;
+    }));
   }
 
   // 依存プロパティをもとに計算フィールドを導出する
@@ -338,8 +344,12 @@ export class PostResolver {
   @ResolveMultiField()
   values(
     ids: readonly Pick<Post, 'id'>[],
-  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
-    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
+  ): ReadonlyMap<Post['id'], Pick<Post, 'title' | '$authorId'>> {
+    return new Map(ids.map(({ id }) => {
+      const post = POSTS.get(id);
+      if (!post) throw new Error(`Post ${id} not found`);
+      return [id, post] as const;
+    }));
   }
 
   @Relation()
@@ -384,8 +394,12 @@ export class PostResolver {
   @ResolveMultiField()
   values(
     ids: readonly Pick<Post, 'id'>[],
-  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
-    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
+  ): ReadonlyMap<Post['id'], Pick<Post, 'title' | '$authorId'>> {
+    return new Map(ids.map(({ id }) => {
+      const post = POSTS.get(id);
+      if (!post) throw new Error(`Post ${id} not found`);
+      return [id, post] as const;
+    }));
   }
 
   @Relation()
@@ -428,8 +442,12 @@ export class UserResolver {
   @ResolveMultiField()
   values(
     refs: readonly Pick<User, 'id'>[],
-  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
-    return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
+  ): ReadonlyMap<User['id'], Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>> {
+    return new Map(refs.map(({ id }) => {
+      const user = USERS_STORE.get(id);
+      if (!user) throw new Error(`User ${id} not found`);
+      return [id, user] as const;
+    }));
   }
 
   // 依存プロパティをもとに計算フィールドを導出する
@@ -493,8 +511,12 @@ export class PostResolver {
   @ResolveMultiField()
   values(
     ids: readonly Pick<Post, 'id'>[],
-  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
-    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
+  ): ReadonlyMap<Post['id'], Pick<Post, 'title' | '$authorId'>> {
+    return new Map(ids.map(({ id }) => {
+      const post = POSTS.get(id);
+      if (!post) throw new Error(`Post ${id} not found`);
+      return [id, post] as const;
+    }));
   }
 
   @Relation()
@@ -537,8 +559,12 @@ export class UserResolver {
   @ResolveMultiField()
   values(
     refs: readonly Pick<User, 'id'>[],
-  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
-    return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
+  ): ReadonlyMap<User['id'], Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>> {
+    return new Map(refs.map(({ id }) => {
+      const user = USERS_STORE.get(id);
+      if (!user) throw new Error(`User ${id} not found`);
+      return [id, user] as const;
+    }));
   }
 
   // 依存プロパティをもとに計算フィールドを導出する
@@ -666,8 +692,10 @@ export class UserResolver {
 @ResolveMultiField()
 values(
   user: Pick<User, 'id'>,
-): Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null {
-  return USERS_STORE.get(user.id) ?? null;
+): Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'> {
+  const found = USERS_STORE.get(user.id);
+  if (!found) throw new Error(`User ${user.id} not found`);
+  return found;
 }
 // ---cut-after---
   // 依存プロパティをもとに計算フィールドを導出する
@@ -690,9 +718,11 @@ values(
 
 - **モデル型と解決方法**: 公開フィールドはモデル型に宣言します。各プロパティは `@ResolveMultiField` または対応する `@ResolveField`・`@Relation` で解決します。未宣言フィールド、解決方法の欠落・重複、宣言と戻り値の型の不一致はビルド時エラーです。ID だけを使って各フィールドを解決する場合、`@ResolveMultiField` は不要です。
 - **ID オブジェクトの返却**: Query や Relation は、`{ id: input.id }` のように ID をプロパティに持つオブジェクト（`Pick<Model, 'id'>`）を返します。
+- **必要な resolver だけを実行**: Zelt は、クライアントが要求したフィールドの resolver だけを呼びます。resolver が `Pick<Model, ...>` で宣言した依存プロパティは、それを解決する `@ResolveMultiField` または `@ResolveField` が先に解決します。要求にも依存にも含まれない resolver は呼ばれません。依存の循環はビルド時エラーです。
 - **入力の重複排除**: バッチ形式のメソッドには、重複のない ID 配列が渡されます。
-- **Map の整合性**: バッチ形式の戻り値 `ReadonlyMap` は、入力されたすべての ID をキーとして含める必要があります。各値は戻り値の型に従います。供給対象が存在しない場合は `null`、非 null のリスト型リレーションに関連先がない場合は空配列を返します。
-- **キャッシュのスコープ**: 取得データや存在確認の結果は **1 回の GraphQL operation 内でのみ共有** されます。別リクエストや別認可コンテキストへ漏洩することはありません。
+- **ID と存在**: Query や Relation が返した ID は、そのモデルが存在することを意味します。`@ResolveMultiField` は ID に対して `null` を返せません。ID に対応するデータがない場合は throw します。`null` を返すかどうかは、ID を選ぶ Query や Relation が戻り値の型で決めます。
+- **Map の整合性**: バッチ形式の戻り値 `ReadonlyMap` は、入力されたすべての ID をキーとして含める必要があります。各値は戻り値の型に従います。非 null のリスト型リレーションに関連先がない場合は空配列を返します。
+- **キャッシュのスコープ**: 取得データは **1 回の GraphQL operation 内でのみ共有** されます。別リクエストや別認可コンテキストへ漏洩することはありません。
 - **エラーハンドリング**: 取得失敗や例外は自動でフォールバックされず、GraphQL エラーとして schema の nullability に従って上位へ伝播します。
 
 ---

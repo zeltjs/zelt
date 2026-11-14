@@ -21,7 +21,7 @@ export class FreshResolver {
   @Query()
   fresh(): Pick<FreshModel, 'id'> { return { id: '1' }; }
   @ResolveMultiField()
-  load(refs: readonly Pick<FreshModel, 'id'>[]): ReadonlyMap<FreshModel['id'], FreshModel | null> {
+  load(refs: readonly Pick<FreshModel, 'id'>[]): ReadonlyMap<FreshModel['id'], FreshModel> {
     return new Map(refs.map(({id}) => [id, {id, label: 'value'}]));
   }
 }

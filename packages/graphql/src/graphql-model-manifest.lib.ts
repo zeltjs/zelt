@@ -8,6 +8,7 @@ import type {
   GraphqlModels,
   GraphqlModelValue,
 } from './graphql-model.types';
+import { readOwnEntry } from './graphql-record.lib';
 
 const record = (value: unknown): Record<string, unknown> | undefined =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -186,29 +187,34 @@ const hasValidFieldReferences = (
   models: GraphqlModels,
   names: ReadonlySet<string>,
   owner: string,
+  owned: Readonly<Record<string, GraphqlModelField>>,
   field: GraphqlModelField,
 ): boolean => {
   if (field.kind !== 'computed' && !names.has(field.target)) return false;
   if (field.kind === 'query') return owner === 'Query';
   const parent = models[owner];
   if (!parent || !names.has(owner)) return false;
-  return hasValidDependencies(parent, field);
+  return hasValidDependencies(parent, owned, field);
 };
 
+/** Dependencies are supplied properties or computed fields of the same model. */
 const hasValidDependencies = (
   parent: GraphqlModelDefinition,
+  owned: Readonly<Record<string, GraphqlModelField>>,
   field: Exclude<GraphqlModelField, { kind: 'query' }>,
 ): boolean => {
   if (field.mode === 'batch' && !field.dependencies.includes('id')) return false;
   const keys = new Set(parent.properties.map((property) => property.name));
-  return field.dependencies.every((key) => keys.has(key));
+  return field.dependencies.every(
+    (key) => keys.has(key) || readOwnEntry(owned, key)?.kind === 'computed',
+  );
 };
 
 const hasValidReferences = (models: GraphqlModels, fields: GraphqlModelFields): boolean => {
   const names = new Set(Object.keys(models));
   return Object.entries(fields).every(([owner, definitions]) =>
     Object.values(definitions).every((field) =>
-      hasValidFieldReferences(models, names, owner, field),
+      hasValidFieldReferences(models, names, owner, definitions, field),
     ),
   );
 };

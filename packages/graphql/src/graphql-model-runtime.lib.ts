@@ -21,16 +21,22 @@ type Invoke = (
 type Options = {
   readonly models: GraphqlModels;
   readonly modelFields: GraphqlModelFields;
+  readonly bindings: Readonly<Record<string, Readonly<Record<string, GraphqlModelBinding>>>>;
   readonly invoke: Invoke;
 };
 type BatchFieldLoader = {
   readonly parents: Map<string, Source>;
   readonly loader: DataLoader<string, MethodResult>;
 };
+/** A model reference as GraphQL carries it; every other property is read on demand. */
+type Handle = { readonly id: string };
+/** `present: false` keeps an omitted optional property apart from an explicit `undefined`. */
+type Slot = { readonly present: boolean; readonly value: unknown };
 type Operation = {
   readonly options: Options;
-  readonly providers: Map<string, DataLoader<string, Source | null>>;
+  readonly providers: Map<string, DataLoader<string, Source>>;
   readonly fields: Map<string, BatchFieldLoader>;
+  readonly properties: Map<string, Promise<Slot>>;
 };
 
 /**
@@ -133,6 +139,16 @@ const rejectPromiseMapValues = (values: Iterable<unknown>): void => {
 };
 
 /**
+ * An id is a promise that its model exists, so a provider without data breaks the contract.
+ * @throws {Error} from graphql-model-runtime.lib.ts:requireData
+ */
+const requireData = (model: string, value: unknown): unknown => {
+  if (value === null || value === undefined)
+    throw new Error(`GraphQL provider returned no data for a requested ${model} id`);
+  return value;
+};
+
+/**
  * @throws {Error} from graphql-model-runtime.lib.ts:validateSource
  */
 const validateSource = (
@@ -140,14 +156,15 @@ const validateSource = (
   definition: Extract<GraphqlModelDefinition, { kind: 'provided' }>,
   id: string,
   value: unknown,
-): Source | null => {
-  if (value === null) return null;
-  const source = record(
-    value,
+): Source => {
+  const row = record(
+    requireData(model, value),
     definition.properties.map((property) => property.name),
   );
-  if (identity(source) !== id)
+  // Returning the id is optional; when present it must still be the requested one.
+  if (Object.getOwnPropertyDescriptor(row, 'id') !== undefined && identity(row) !== id)
     throw new Error(`GraphQL provider returned a mismatched id for ${model}`);
+  const source: Source = { ...row, id };
   const keys = new Set(Object.keys(source));
   for (const property of definition.properties) {
     if (!keys.has(property.name)) {
@@ -160,12 +177,20 @@ const validateSource = (
   return source;
 };
 
-const project = (parent: Source, dependencies: readonly string[]): Source =>
-  Object.fromEntries(
-    dependencies
-      .filter((key) => Object.getOwnPropertyDescriptor(parent, key) !== undefined)
-      .map((key) => [key, parent[key]]),
-  );
+/** One invalid row fails only its own id; DataLoader rejects the keys whose value is an Error. */
+const validateRow = (
+  model: string,
+  definition: Extract<GraphqlModelDefinition, { kind: 'provided' }>,
+  id: string,
+  value: unknown,
+): Source | Error => {
+  try {
+    return validateSource(model, definition, id, value);
+  } catch (error) {
+    if (error instanceof Error) return error;
+    throw error;
+  }
+};
 
 const schedule = (callback: () => void): void => {
   setTimeout(callback, 0);
@@ -174,12 +199,14 @@ const schedule = (callback: () => void): void => {
 /**
  * @throws {Error} from graphql-model-runtime.lib.ts:provider
  */
-const provider = (operation: Operation, model: string): DataLoader<string, Source | null> => {
+const provider = (
+  operation: Operation,
+  model: string,
+  definition: Extract<GraphqlModelDefinition, { kind: 'provided' }>,
+): DataLoader<string, Source> => {
   const existing = operation.providers.get(model);
   if (existing) return existing;
-  const definition = operation.options.models[model];
-  if (definition?.kind !== 'provided') throw new Error(`GraphQL model provider missing: ${model}`);
-  const loader = new DataLoader<string, Source | null>(
+  const loader = new DataLoader<string, Source>(
     async (ids) => {
       if (definition.mode === 'single') {
         return Promise.all(
@@ -195,7 +222,7 @@ const provider = (operation: Operation, model: string): DataLoader<string, Sourc
         {},
       );
       const values = completeMap(await result.value, ids);
-      return ids.map((id) => validateSource(model, definition, id, values.get(id)));
+      return ids.map((id) => validateRow(model, definition, id, values.get(id)));
     },
     { batch: definition.mode === 'batch', batchScheduleFn: schedule },
   );
@@ -204,37 +231,23 @@ const provider = (operation: Operation, model: string): DataLoader<string, Sourc
 };
 
 /**
+ * Async so that an invalid list element fails only at its own GraphQL path.
  * @throws {Error} from graphql-model-runtime.lib.ts:hydrateOne
  */
-const hydrateOne = async (
-  operation: Operation,
-  target: string,
-  value: unknown,
-  nullable: boolean,
-): Promise<Source | null> => {
+const hydrateOne = async (value: unknown, nullable: boolean): Promise<Handle | null> => {
   if (value === null && nullable) return null;
-  const id = identity(value);
-  if (operation.options.models[target]?.kind === 'identity') return { id };
-  const source = await provider(operation, target).load(id);
-  if (source === null && !nullable) throw new Error(`GraphQL required model is missing: ${target}`);
-  return source;
+  return { id: identity(value) };
 };
 
 /**
+ * Hands GraphQL only ids; their properties are resolved when a selection or dependency asks.
  * @throws {Error} from graphql-model-runtime.lib.ts:hydrate
  */
-const hydrate = (
-  operation: Operation,
-  target: string,
-  value: unknown,
-  shape: GraphqlModelResultShape,
-): unknown => {
-  if (shape.kind === 'one') return hydrateOne(operation, target, value, shape.nullable);
+const hydrate = (value: unknown, shape: GraphqlModelResultShape): unknown => {
+  if (shape.kind === 'one') return hydrateOne(value, shape.nullable);
   if (value === null && shape.nullable) return null;
   if (!Array.isArray(value)) throw new Error('GraphQL model reference list must be an array');
-  return Array.from(value, (item: unknown) =>
-    hydrateOne(operation, target, item, shape.itemNullable),
-  );
+  return Array.from(value, (item: unknown) => hydrateOne(item, shape.itemNullable));
 };
 
 /**
@@ -244,6 +257,15 @@ const field = (operation: Operation, typeName: string, fieldName: string): Graph
   const descriptor = operation.options.modelFields[typeName]?.[fieldName];
   if (!descriptor) throw new Error(`GraphQL model field missing: ${typeName}.${fieldName}`);
   return descriptor;
+};
+
+/**
+ * @throws {Error} from graphql-model-runtime.lib.ts:bindingOf
+ */
+const bindingOf = (operation: Operation, typeName: string, fieldName: string) => {
+  const binding = operation.options.bindings[typeName]?.[fieldName];
+  if (!binding) throw new Error(`GraphQL model field binding missing: ${typeName}.${fieldName}`);
+  return binding;
 };
 
 const isReferenceObject = (value: unknown): boolean =>
@@ -291,50 +313,110 @@ const batchField = (
   return entry;
 };
 
-/**
- * @throws {Error} from graphql-model-runtime.lib.ts:resolveField
- */
-const resolveField = async (
+/** @throws {Error} from graphql-model-runtime.lib.ts:invokeField */
+const invokeField = async (
   operation: Operation,
   typeName: string,
   fieldName: string,
-  binding: GraphqlModelBinding,
-  parent: unknown,
+  descriptor: Exclude<GraphqlModelField, { kind: 'query' }>,
+  id: string,
   args: Readonly<Record<string, unknown>>,
-): Promise<unknown> => {
-  const descriptor = field(operation, typeName, fieldName);
-  if (descriptor.kind === 'query')
-    throw new Error('GraphQL model field binding has the wrong kind');
-  const source = record(parent);
-  const input = project(source, descriptor.dependencies);
-  const result =
-    descriptor.mode === 'single'
-      ? await operation.options.invoke(binding, [input], args)
-      : await loadBatchField(operation, `${typeName}.${fieldName}`, binding, args, source, input);
-  if (descriptor.kind === 'computed') return result.value;
-  const resolved =
-    descriptor.mode === 'single' ? await referenceResult(result, descriptor.shape) : result;
-  return hydrate(operation, descriptor.target, resolved.value, descriptor.shape);
-};
-
-/** @throws {Error} from graphql-model-runtime.lib.ts:loadBatchField */
-const loadBatchField = async (
-  operation: Operation,
-  key: string,
-  binding: GraphqlModelBinding,
-  args: Readonly<Record<string, unknown>>,
-  source: Source,
-  input: Source,
 ): Promise<MethodResult> => {
-  const entry = batchField(operation, key, binding, args);
-  const id = identity(source);
+  const binding = bindingOf(operation, typeName, fieldName);
+  const input = await dependencies(operation, typeName, id, descriptor.dependencies);
+  if (descriptor.mode === 'single') return operation.options.invoke(binding, [input], args);
+  const entry = batchField(operation, `${typeName}.${fieldName}`, binding, args);
   entry.parents.set(id, input);
   return entry.loader.load(id);
 };
 
+const supplies = (definition: GraphqlModelDefinition, name: string): boolean =>
+  definition.properties.some((property) => property.name === name);
+
+/** @throws {Error} from graphql-model-runtime.lib.ts:readSupplied */
+const readSupplied = async (
+  operation: Operation,
+  model: string,
+  definition: Extract<GraphqlModelDefinition, { kind: 'provided' }>,
+  id: string,
+  name: string,
+): Promise<Slot> => {
+  const source = await provider(operation, model, definition).load(id);
+  return Object.getOwnPropertyDescriptor(source, name) === undefined
+    ? { present: false, value: undefined }
+    : { present: true, value: source[name] };
+};
+
+/** @throws {Error} from graphql-model-runtime.lib.ts:computed */
+const computed = (operation: Operation, model: string, name: string) => {
+  const descriptor = operation.options.modelFields[model]?.[name];
+  if (descriptor?.kind !== 'computed')
+    throw new Error(`GraphQL model property has no resolver: ${model}.${name}`);
+  return descriptor;
+};
+
+/** @throws {Error} from graphql-model-runtime.lib.ts:resolveProperty */
+const resolveProperty = async (
+  operation: Operation,
+  model: string,
+  id: string,
+  name: string,
+): Promise<Slot> => {
+  if (name === 'id') return { present: true, value: id };
+  const definition = operation.options.models[model];
+  if (definition?.kind === 'provided' && supplies(definition, name))
+    return readSupplied(operation, model, definition, id, name);
+  const result = await invokeField(
+    operation,
+    model,
+    name,
+    computed(operation, model, name),
+    id,
+    {},
+  );
+  return { present: true, value: await result.value };
+};
+
+/**
+ * Each property of one model id is resolved at most once per operation, whether a selection
+ * or another field's dependency asked for it first.
+ * @throws {Error} from graphql-model-runtime.lib.ts:readProperty
+ */
+const readProperty = (
+  operation: Operation,
+  model: string,
+  id: string,
+  name: string,
+): Promise<Slot> => {
+  const key = JSON.stringify([model, id, name]);
+  const existing = operation.properties.get(key);
+  if (existing) return existing;
+  const pending = resolveProperty(operation, model, id, name);
+  operation.properties.set(key, pending);
+  return pending;
+};
+
+/** @throws {Error} from graphql-model-runtime.lib.ts:dependencies */
+const dependencies = async (
+  operation: Operation,
+  model: string,
+  id: string,
+  names: readonly string[],
+): Promise<Source> => {
+  const slots = await Promise.all(names.map((name) => readProperty(operation, model, id, name)));
+  return Object.fromEntries(
+    names.flatMap((name, index) => (slots[index]?.present ? [[name, slots[index].value]] : [])),
+  );
+};
+
 /** Creates loaders whose lifetime is exactly one GraphQL operation. */
 export const createGraphqlModelExecution = (options: Options) => {
-  const operation: Operation = { options, providers: new Map(), fields: new Map() };
+  const operation: Operation = {
+    options,
+    providers: new Map(),
+    fields: new Map(),
+    properties: new Map(),
+  };
   return {
     resolveQuery: async (
       typeName: string,
@@ -347,14 +429,25 @@ export const createGraphqlModelExecution = (options: Options) => {
         throw new Error('GraphQL model query binding has the wrong kind');
       const result = await options.invoke(binding, [], args);
       const resolved = await referenceResult(result, descriptor.shape);
-      return hydrate(operation, descriptor.target, resolved.value, descriptor.shape);
+      return hydrate(resolved.value, descriptor.shape);
     },
-    resolveField: (
+    /** Resolves a model property for GraphQL: a supplied value, a computed field or a relation. */
+    resolveField: async (
       typeName: string,
       fieldName: string,
-      binding: GraphqlModelBinding,
       parent: unknown,
       args: Readonly<Record<string, unknown>>,
-    ): Promise<unknown> => resolveField(operation, typeName, fieldName, binding, parent, args),
+    ): Promise<unknown> => {
+      const id = identity(parent);
+      const descriptor = operation.options.modelFields[typeName]?.[fieldName];
+      if (descriptor?.kind === 'query')
+        throw new Error('GraphQL model field binding has the wrong kind');
+      if (descriptor?.kind !== 'relation')
+        return (await readProperty(operation, typeName, id, fieldName)).value;
+      const result = await invokeField(operation, typeName, fieldName, descriptor, id, args);
+      const resolved =
+        descriptor.mode === 'single' ? await referenceResult(result, descriptor.shape) : result;
+      return hydrate(resolved.value, descriptor.shape);
+    },
   };
 };

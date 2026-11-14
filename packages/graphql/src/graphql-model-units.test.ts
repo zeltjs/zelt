@@ -157,9 +157,8 @@ describe('result per parent', () => {
 describe('provider supply', () => {
   it.each([
     ['Thing', ['id', 'label', '$code']],
-    ['Thing | null', ['id', 'label', '$code']],
     ["Pick<Thing, 'id' | '$code'>", ['id', '$code']],
-    ["Pick<Thing, 'id' | '$code'> | null", ['id', '$code']],
+    ["Pick<Thing, 'label'>", ['label']],
   ])('%s supplies %o', (form, keys) => {
     const { type, thing, reader } = read(form);
     expect(readSupply(type, thing, reader)).toEqual({ kind: 'ok', value: keys });
@@ -167,14 +166,11 @@ describe('provider supply', () => {
 
   it.each([
     [
-      'Thing | null | undefined',
-      'rejected: provider result must be Model or Pick<Model, keys>, optionally | null',
+      'Thing | null',
+      'rejected: provider result cannot be null; throw when a requested id has no data',
     ],
-    [
-      "Pick<Other, 'id'> | null",
-      'rejected: provider result must be Model or Pick<Model, keys>, optionally | null',
-    ],
-    ["Pick<Thing, 'label'> | null", 'rejected: provider Pick must include id'],
+    ['Thing | undefined', 'rejected: provider result must be Model or Pick<Model, keys>'],
+    ["Pick<Other, 'id'>", 'rejected: provider result must be Model or Pick<Model, keys>'],
   ])('%s → %s', (form, expected) => {
     const { type, thing, reader } = read(form);
     expect(outcome(readSupply(type, thing, reader))).toBe(expected);

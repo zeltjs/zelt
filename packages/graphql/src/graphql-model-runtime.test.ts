@@ -16,6 +16,15 @@ const inputId = (value: unknown): string => {
   if (typeof id !== 'string') throw new Error('Expected parent id');
   return id;
 };
+const byJson = (left: unknown, right: unknown): number =>
+  JSON.stringify(left).localeCompare(JSON.stringify(right));
+const bindingsOf = (fields: GraphqlModelFields) =>
+  Object.fromEntries(
+    Object.entries(fields).map(([type, owned]) => [
+      type,
+      Object.fromEntries(Object.keys(owned).map((name) => [name, binding(name)])),
+    ]),
+  );
 const models = {
   User: {
     kind: 'provided',
@@ -62,7 +71,7 @@ const modelFields: GraphqlModelFields = {
 };
 const schema = buildSchema(`
   type Query { users: [User]!, user: User }
-  type User { id: ID!, name: String!, label: String!, maybeLabel: String, friend: User, peers: [User!]! }
+  type User { id: ID!, name: String!, label: String!, shout: String!, maybeLabel: String, friend: User, peers: [User!]! }
 `);
 type Invocation = { readonly method: string; readonly positional: readonly unknown[] };
 const fixture = (
@@ -111,6 +120,7 @@ const fixture = (
     const operation = createGraphqlModelExecution({
       models: definitions,
       modelFields: fieldDefinitions,
+      bindings: bindingsOf(fieldDefinitions),
       invoke: async (selected, positional) => {
         calls.push({ method: selected.method, positional });
         const method = methods[selected.method];
@@ -128,12 +138,12 @@ const fixture = (
         context: unknown,
         info,
       ) => {
-        if (!fieldDefinitions[info.parentType.name]?.[info.fieldName])
+        const type = info.parentType.name;
+        if (type === 'Query')
+          return operation.resolveQuery(type, info.fieldName, binding(info.fieldName), args);
+        if (info.fieldName === 'id' || !definitions[type])
           return defaultFieldResolver(parent, args, context, info);
-        const selected = binding(info.fieldName);
-        return info.parentType.name === 'Query'
-          ? operation.resolveQuery('Query', info.fieldName, selected, args)
-          : operation.resolveField(info.parentType.name, info.fieldName, selected, parent, args);
+        return operation.resolveField(type, info.fieldName, parent, args);
       },
     });
   };
@@ -141,7 +151,7 @@ const fixture = (
 };
 
 describe('model execution contracts', () => {
-  it('hydrates identity models from the reference id without invoking a provider', async () => {
+  it('resolves identity models from the reference id without invoking a provider', async () => {
     const definitions: GraphqlModels = {
       User: {
         kind: 'identity',
@@ -171,7 +181,8 @@ describe('model execution contracts', () => {
         users: ['a', 'b', 'a'].map((id) => ({ id, label: JSON.stringify({ id }) })),
       },
     });
-    expect(calls.map((call) => call.method)).toEqual(['users', 'label', 'label', 'label']);
+    // The duplicate `a` reuses its computed label within the operation.
+    expect(calls.map((call) => call.method)).toEqual(['users', 'label', 'label']);
   });
 
   it('preserves absent dependencies separately from explicit undefined', async () => {
@@ -312,7 +323,7 @@ describe('model execution contracts', () => {
       expect(calls.filter((call) => call.method === 'provide')).toHaveLength(
         mode === 'batch' ? 1 : 2,
       );
-      await execute('{ users { id } }');
+      await execute('{ users { name } }');
       expect(calls.filter((call) => call.method === 'provide')).toHaveLength(
         mode === 'batch' ? 2 : 4,
       );
@@ -359,7 +370,7 @@ describe('model execution contracts', () => {
         ['a', 'b', 'a'].map((id) => ({ label: `Computed ${id}`, other: `Computed ${id}` })),
       );
       const computed = calls.filter((call) => call.method === 'label');
-      expect(computed).toHaveLength(mode === 'batch' ? 1 : 6);
+      expect(computed).toHaveLength(mode === 'batch' ? 1 : 2);
       if (mode === 'batch')
         expect(computed[0]?.positional).toEqual([
           [
@@ -369,12 +380,12 @@ describe('model execution contracts', () => {
         ]);
       await execute('{ users { label other: label } }');
       expect(calls.filter((call) => call.method === 'label')).toHaveLength(
-        mode === 'batch' ? 2 : 12,
+        mode === 'batch' ? 2 : 4,
       );
     },
   );
 
-  it('isolates single-provider failures and caches explicit absence', async () => {
+  it('isolates single-provider failures and reports ids without data as errors', async () => {
     const definitions: GraphqlModels = { User: { ...models.User, mode: 'single' } };
     const { execute, calls } = fixture(
       {
@@ -386,9 +397,14 @@ describe('model execution contracts', () => {
       },
       definitions,
     );
-    const result = await execute('{ users { id } }');
+    const result = await execute('{ users { name } }');
     expect(result.data?.['users']).toEqual([null, null, null]);
-    expect(result.errors?.map((error) => error.path)).toEqual([['users', 1]]);
+    // Duplicate ids share one pending value, so their errors settle in no fixed order.
+    expect(result.errors?.map((error) => [error.path, error.message]).sort(byJson)).toEqual([
+      [['users', 0, 'name'], 'GraphQL provider returned no data for a requested User id'],
+      [['users', 1, 'name'], 'Provider failed'],
+      [['users', 2, 'name'], 'GraphQL provider returned no data for a requested User id'],
+    ]);
     expect(calls.filter((call) => call.method === 'provide')).toHaveLength(2);
   });
 
@@ -507,7 +523,7 @@ describe('model execution contracts', () => {
       models,
       fields,
     );
-    const result = await execute('{ users { id peers { id } label } }');
+    const result = await execute('{ users { id name peers { id } label } }');
     expect(
       result.errors?.some((error) => error.message.includes('Map values must not be Promises')),
     ).toBe(true);
@@ -563,7 +579,7 @@ describe('model execution contracts', () => {
         { maybeLabel: null },
         { maybeLabel: null },
       ]);
-      expect(result.errors?.map((error) => error.path)).toEqual([
+      expect(result.errors?.map((error) => error.path).sort(byJson)).toEqual([
         ['users', 0, 'maybeLabel'],
         ['users', 1, 'maybeLabel'],
         ['users', 2, 'maybeLabel'],
@@ -662,8 +678,19 @@ describe('model execution contracts', () => {
           provide: () => new Map([['a', { id: 'a', ...supplied }]]),
         },
         definitions,
+        {
+          ...modelFields,
+          User: {
+            label: {
+              kind: 'computed',
+              mode: 'single',
+              dependencies: ['$friend'],
+              value: { kind: 'scalar', name: 'string' },
+            },
+          },
+        },
       );
-      const result = await execute('{ users { id } }');
+      const result = await execute('{ users { label } }');
       expect(result.errors === undefined).toBe(valid);
     },
   );
@@ -690,7 +717,7 @@ describe('model execution contracts', () => {
       { method: 'provide', positional: [[{ id: 'a' }, { id: 'b' }]] },
     ]);
     expect(calls.filter((call) => call.method === 'peers')).toHaveLength(1);
-    await execute('{ users { id } }');
+    await execute('{ users { name } }');
     expect(calls.filter((call) => call.method === 'provide')).toHaveLength(2);
   });
 
@@ -733,7 +760,7 @@ describe('model execution contracts', () => {
           kind: 'provided',
           mode: 'batch',
           provider: binding('otherProvider'),
-          properties: [],
+          properties: models.User.properties.slice(0, 2),
         },
       },
       modelFields: {
@@ -742,6 +769,7 @@ describe('model execution contracts', () => {
           second: { kind: 'query', target: 'Other', shape: { kind: 'one', nullable: false } },
         },
       },
+      bindings: {},
       invoke: async (selected) => {
         calls.push(selected.method);
         if (selected.method === 'provide')
@@ -751,19 +779,21 @@ describe('model execution contracts', () => {
         return { value: { id: 'a' } };
       },
     });
-    const results = await Promise.all([
+    const refs = await Promise.all([
       execution.resolveQuery('Query', 'first', binding('first'), {}),
       execution.resolveQuery('Query', 'second', binding('second'), {}),
     ]);
-    expect(results).toEqual([
-      { id: 'a', name: 'A', $friend: 'a' },
-      { id: 'a', name: 'Other' },
+    expect(refs).toEqual([{ id: 'a' }, { id: 'a' }]);
+    const names = await Promise.all([
+      execution.resolveField('User', 'name', refs[0], {}),
+      execution.resolveField('Other', 'name', refs[1], {}),
     ]);
+    expect(names).toEqual(['A', 'Other']);
     expect(calls).toContain('provide');
     expect(calls).toContain('otherProvider');
   });
 
-  it('preserves nullable missing values and reports element failures at their GraphQL paths', async () => {
+  it('preserves nullable references and reports element and missing-data failures at their paths', async () => {
     const { execute } = fixture({
       users: () => [{ id: 'a' }, null, { id: 'absent' }, { invalid: true }],
       provide: () =>
@@ -772,21 +802,89 @@ describe('model execution contracts', () => {
           ['absent', null],
         ]),
     });
-    const result = await execute('{ users { id } }');
-    expect(result.data?.['users']).toEqual([{ id: 'a' }, null, null, null]);
-    expect(result.errors?.map((error) => error.path)).toEqual([['users', 3]]);
+    const result = await execute('{ users { id name } }');
+    expect(result.data?.['users']).toEqual([{ id: 'a', name: 'A' }, null, null, null]);
+    expect(result.errors?.map((error) => error.path).sort(byJson)).toEqual([
+      ['users', 2, 'name'],
+      ['users', 3],
+    ]);
+  });
+
+  it('resolves a computed dependency on another computed field once per id', async () => {
+    const fields: GraphqlModelFields = {
+      ...modelFields,
+      User: {
+        ...modelFields['User'],
+        shout: {
+          kind: 'computed',
+          mode: 'single',
+          dependencies: ['label'],
+          value: { kind: 'scalar', name: 'string' },
+        },
+      },
+    };
+    const { execute, calls } = fixture(
+      {
+        label: ([input]) => `label of ${String(Reflect.get(Object(input), 'name'))}`,
+        shout: ([input]) => String(Reflect.get(Object(input), 'label')).toUpperCase(),
+      },
+      models,
+      fields,
+    );
+    const result = await execute('{ users { shout label } }');
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.['users']).toEqual(
+      ['a', 'b', 'a'].map((id) => ({
+        shout: `LABEL OF USER ${id.toUpperCase()}`,
+        label: `label of User ${id}`,
+      })),
+    );
+    expect(calls.map((call) => call.method).sort()).toEqual([
+      'label',
+      'label',
+      'provide',
+      'shout',
+      'shout',
+      'users',
+    ]);
+  });
+
+  it('accepts provider rows without id and still rejects a mismatched one', async () => {
+    const { execute } = fixture({
+      provide: () =>
+        new Map([
+          ['a', { name: 'A', $friend: 'a' }],
+          ['b', { id: 'other', name: 'B', $friend: 'b' }],
+        ]),
+    });
+    const result = await execute('{ users { id name } }');
+    expect(result.data?.['users']).toEqual([{ id: 'a', name: 'A' }, null, { id: 'a', name: 'A' }]);
+    expect(result.errors?.map((error) => [error.path, error.message])).toEqual([
+      [['users', 1, 'name'], 'GraphQL provider returned a mismatched id for User'],
+    ]);
+  });
+
+  it('does not call the provider when only ids are selected', async () => {
+    const { execute, calls } = fixture({
+      provide: () => {
+        throw new Error('Provider must not be called');
+      },
+    });
+    const result = await execute('{ users { id friend: peers { id } } }');
+    expect(result.errors).toBeUndefined();
+    expect(calls.map((call) => call.method)).toEqual(['users', 'peers']);
   });
 
   it('ignores provider Map keys beyond the requested ids', async () => {
     const { execute } = fixture({
       provide: () =>
         new Map([
-          ['a', null],
-          ['b', null],
+          ['a', { id: 'a', name: 'A', $friend: 'a' }],
+          ['b', { id: 'b', name: 'B', $friend: 'b' }],
           ['unrequested', null],
         ]),
     });
-    const result = await execute('{ users { id } }');
+    const result = await execute('{ users { name } }');
     expect(result.errors).toBeUndefined();
   });
 
@@ -824,7 +922,7 @@ describe('model execution contracts', () => {
     ],
   ])('reports provider %s rather than converting failures to absence', async (_name, provide) => {
     const { execute } = fixture({ provide });
-    const result = await execute('{ users { id } }');
+    const result = await execute('{ users { name } }');
     expect(result.errors?.length).toBeGreaterThan(0);
     expect(result.data?.['users']).toEqual([null, null, null]);
   });
@@ -883,7 +981,7 @@ describe('model execution contracts', () => {
   it('propagates rejected computed I/O with field paths', async () => {
     const { execute } = fixture({ label: () => Promise.reject(new Error('Computed I/O failed')) });
     const result = await execute('{ users { label } }');
-    expect(result.errors?.map((error) => error.path)).toEqual([
+    expect(result.errors?.map((error) => error.path).sort(byJson)).toEqual([
       ['users', 0, 'label'],
       ['users', 1, 'label'],
       ['users', 2, 'label'],

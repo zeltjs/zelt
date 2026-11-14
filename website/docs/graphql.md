@@ -74,6 +74,8 @@ In Zelt's Code-first, **`@Query` must only return target IDs (`Pick<Model, 'id'>
 
 The model type declares public fields and private properties used during resolution. The GraphQL type consists of the TypeScript model properties excluding keys starting with `$`. `@ResolveField` and `@Relation` define how declared model fields are resolved.
 
+![How Zelt calls only the resolvers a request needs](/img/docs/graphql-resolution.en.svg)
+
 ### Level 1: Minimal Configuration (`@Query` and `@ResolveField`)
 
 The most fundamental configuration combines `@Query` (which selects target IDs at the root) and `@ResolveField` (which resolves individual field values from that ID).
@@ -211,8 +213,12 @@ export class UserResolver {
   @ResolveMultiField()
   values(
     refs: readonly Pick<User, 'id'>[],
-  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
-    return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
+  ): ReadonlyMap<User['id'], Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>> {
+    return new Map(refs.map(({ id }) => {
+      const user = USERS_STORE.get(id);
+      if (!user) throw new Error(`User ${id} not found`);
+      return [id, user] as const;
+    }));
   }
 
   // Computes derived fields from source data
@@ -332,8 +338,12 @@ export class PostResolver {
   @ResolveMultiField()
   values(
     ids: readonly Pick<Post, 'id'>[],
-  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
-    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
+  ): ReadonlyMap<Post['id'], Pick<Post, 'title' | '$authorId'>> {
+    return new Map(ids.map(({ id }) => {
+      const post = POSTS.get(id);
+      if (!post) throw new Error(`Post ${id} not found`);
+      return [id, post] as const;
+    }));
   }
 
   @Relation()
@@ -378,8 +388,12 @@ export class PostResolver {
   @ResolveMultiField()
   values(
     ids: readonly Pick<Post, 'id'>[],
-  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
-    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
+  ): ReadonlyMap<Post['id'], Pick<Post, 'title' | '$authorId'>> {
+    return new Map(ids.map(({ id }) => {
+      const post = POSTS.get(id);
+      if (!post) throw new Error(`Post ${id} not found`);
+      return [id, post] as const;
+    }));
   }
 
   @Relation()
@@ -422,8 +436,12 @@ export class UserResolver {
   @ResolveMultiField()
   values(
     refs: readonly Pick<User, 'id'>[],
-  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
-    return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
+  ): ReadonlyMap<User['id'], Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>> {
+    return new Map(refs.map(({ id }) => {
+      const user = USERS_STORE.get(id);
+      if (!user) throw new Error(`User ${id} not found`);
+      return [id, user] as const;
+    }));
   }
 
   // Computes derived fields from source data
@@ -487,8 +505,12 @@ export class PostResolver {
   @ResolveMultiField()
   values(
     ids: readonly Pick<Post, 'id'>[],
-  ): ReadonlyMap<Post['id'], Pick<Post, 'id' | 'title' | '$authorId'> | null> {
-    return new Map(ids.map(({ id }) => [id, POSTS.get(id) ?? null]));
+  ): ReadonlyMap<Post['id'], Pick<Post, 'title' | '$authorId'>> {
+    return new Map(ids.map(({ id }) => {
+      const post = POSTS.get(id);
+      if (!post) throw new Error(`Post ${id} not found`);
+      return [id, post] as const;
+    }));
   }
 
   @Relation()
@@ -531,8 +553,12 @@ export class UserResolver {
   @ResolveMultiField()
   values(
     refs: readonly Pick<User, 'id'>[],
-  ): ReadonlyMap<User['id'], Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null> {
-    return new Map(refs.map(ref => [ref.id, USERS_STORE.get(ref.id) ?? null]));
+  ): ReadonlyMap<User['id'], Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'>> {
+    return new Map(refs.map(({ id }) => {
+      const user = USERS_STORE.get(id);
+      if (!user) throw new Error(`User ${id} not found`);
+      return [id, user] as const;
+    }));
   }
 
   // Computes derived fields from source data
@@ -660,8 +686,10 @@ export class UserResolver {
 @ResolveMultiField()
 values(
   user: Pick<User, 'id'>,
-): Pick<User, 'id' | 'firstName' | 'lastName' | '$familyNameFirst'> | null {
-  return USERS_STORE.get(user.id) ?? null;
+): Pick<User, 'firstName' | 'lastName' | '$familyNameFirst'> {
+  const found = USERS_STORE.get(user.id);
+  if (!found) throw new Error(`User ${user.id} not found`);
+  return found;
 }
 // ---cut-after---
   // Computes derived fields from source data
@@ -684,8 +712,10 @@ Single-item mode deduplicates identical IDs within an operation, but distinct ID
 
 - **Model declarations and resolution**: Declare public fields in the model type. Each property is supplied by `@ResolveMultiField` or resolved by a corresponding `@ResolveField` or `@Relation`. Undeclared fields, missing or duplicate resolutions, and mismatched declared and returned types are build errors. `@ResolveMultiField` is unnecessary when fields can be resolved using only the ID.
 - **ID Objects**: Query and Relation methods return objects containing IDs (`Pick<Model, 'id'>`), e.g. `{ id: input.id }`.
+- **On-demand execution**: Zelt calls only the resolvers of the fields a client requests. The properties a resolver declares with `Pick<Model, ...>` are resolved first by the `@ResolveMultiField` or `@ResolveField` that resolves them. A resolver that is neither requested nor depended on is not called. A dependency cycle is a build error.
 - **Deduplication**: Batch methods receive deduplicated arrays of IDs.
-- **Map Integrity**: Return `ReadonlyMap` must include every input ID as a key. Each value must follow the declared result type: use `null` for a missing supplied model, and an empty array when a non-null list relation has no targets.
+- **IDs and existence**: An ID returned by a Query or Relation means the model exists. `@ResolveMultiField` cannot return `null` for an ID; when no data exists for an ID, throw. Only the Query or Relation that selects IDs decides `null`, through its own return type.
+- **Map Integrity**: Return `ReadonlyMap` must include every input ID as a key. Each value must follow the declared result type. Return an empty array when a non-null list relation has no targets.
 - **Cache Scope**: Hydrated model data is **scoped strictly to a single GraphQL operation**.
 - **Error Handling**: Failures propagate as GraphQL errors according to schema nullability.
 
