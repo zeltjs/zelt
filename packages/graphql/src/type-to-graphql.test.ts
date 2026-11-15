@@ -52,6 +52,78 @@ describe('typeInfoToGraphqlType', () => {
     expect(repeated).toEqual(first);
   });
 
+  it('derives child names from the original hint, not the renamed parent', () => {
+    const ctx = createGraphqlTypeContext(new Set(['Score']));
+    const ref = convertTypeInfoToGraphqlRef(
+      {
+        kind: 'object',
+        properties: [
+          {
+            name: 'detail',
+            optional: false,
+            type: {
+              kind: 'object',
+              properties: [
+                { name: 'value', optional: false, type: { kind: 'primitive', type: 'number' } },
+              ],
+            },
+          },
+        ],
+      },
+      ctx,
+      'Score',
+    );
+    expect(ref.type).toBe('ScoreData');
+    expect(ctx.objects.get('ScoreData')?.fields.get('detail')).toBe('ScoreDetail!');
+  });
+
+  it('keeps generated object and enum names unique across every type kind and order', () => {
+    const statusEnum = {
+      kind: 'union',
+      types: [
+        { kind: 'literal', value: 'on' } as const,
+        { kind: 'literal', value: 'off' } as const,
+      ],
+    } satisfies TypeInfo;
+    const statusObject = {
+      kind: 'object',
+      properties: [{ name: 'ok', optional: false, type: { kind: 'primitive', type: 'boolean' } }],
+    } satisfies TypeInfo;
+
+    for (const order of ['enumFirst', 'objectFirst'] as const) {
+      const ctx = createGraphqlTypeContext();
+      addGraphqlField(ctx, 'Parent', 'value', { kind: 'primitive', type: 'string' });
+      const refs =
+        order === 'enumFirst'
+          ? [
+              convertTypeInfoToGraphqlRef(statusEnum, ctx, 'Status'),
+              convertTypeInfoToGraphqlRef(statusObject, ctx, 'Status'),
+            ]
+          : [
+              convertTypeInfoToGraphqlRef(statusObject, ctx, 'Status'),
+              convertTypeInfoToGraphqlRef(statusEnum, ctx, 'Status'),
+            ];
+      const queryHinted = convertTypeInfoToGraphqlRef(statusObject, ctx, 'Query');
+
+      const names = [
+        ...ctx.objects.keys(),
+        ...ctx.enums.keys(),
+        ...ctx.scalars.keys(),
+        ...ctx.unions.keys(),
+      ];
+      expect(new Set(names).size).toBe(names.length);
+      expect(new Set(refs.map((r) => r.type)).size).toBe(2);
+      expect(queryHinted.type).not.toBe('Query');
+    }
+  });
+
+  it('rejects explicit type names already held by another type', () => {
+    const ctx = createGraphqlTypeContext(new Set(['User']));
+    expect(() =>
+      addGraphqlField(ctx, 'User', 'name', { kind: 'primitive', type: 'string' }),
+    ).toThrow(/duplicate.*type name/i);
+  });
+
   it('converts nullable arrays and string literal unions', () => {
     const typeInfo = {
       kind: 'union',
