@@ -19,6 +19,7 @@ export { gqlScalar, isGqlScalar } from './gql-scalar.lib';
 export {
   Mutation,
   Query,
+  QueryData,
   Relation,
   ResolveField,
   ResolveMultiField,

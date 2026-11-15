@@ -63,6 +63,7 @@ Application code may use these APIs directly:
 - `graphql()`
 - `Resolver`
 - `Query`
+- `QueryData`
 - `Mutation`
 - `ResolveField`
 - `ResolveMultiField`
@@ -119,6 +120,30 @@ Runtime integration APIs used by adapters and framework internals remain on
 
 Generation, TypeScript inspection, GraphQL metadata getters, and type
 conversion helpers are available from `@zeltjs/graphql/codegen`.
+
+## Direct query data
+
+Use `@QueryData()` for a query that returns values directly, without model IDs
+or field providers:
+
+```ts
+import { QueryData, Resolver } from '@zeltjs/graphql';
+
+@Resolver()
+class StatusResolver {
+  @QueryData()
+  health() {
+    return { status: true };
+  }
+}
+```
+
+Code-first generates the output type from the return type. Supported scalar,
+object, array, nullable, and Promise return types follow the existing output
+rules. `args(schema)` and an explicit field name (`@QueryData('health')`)
+work as with `@Query()`. A returned `id` is ordinary data and does not trigger
+model resolution. `@QueryData()` and model operations may share a resolver
+class. In schema-first mode it binds a root Query field in the supplied SDL.
 
 ## Model IDs and field providers
 

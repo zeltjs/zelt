@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readGraphqlArgs } from './args.lib';
 import { executeGraphqlRequest } from './graphql-runtime.lib';
-import { Query, Resolver } from './index';
+import { Query, QueryData, Resolver } from './index';
 import { generateSchemaFirstGraphqlRuntimeForResolvers } from './schema-first-runtime.lib';
 
 type Product = {
@@ -21,7 +21,7 @@ class SchemaFirstStorefrontResolver {
 
 @Resolver()
 class SchemaFirstNamedStorefrontResolver {
-  @Query('product')
+  @QueryData('product')
   findProduct(input = readGraphqlArgs<{ readonly id: string }>()): Product {
     return { id: input.id, name: 'Desk Lamp' };
   }

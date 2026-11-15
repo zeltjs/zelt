@@ -12,6 +12,7 @@ import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args
 import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
+import { readDirectOperationKind } from './graphql-metadata.lib';
 import { analyzeGraphqlModels } from './graphql-model-analysis.lib';
 import {
   renderGraphqlModelProperty,
@@ -88,10 +89,13 @@ function narrowToTypeReference(type: TSType): TSType {
   return type;
 }
 
+const isQueryData = (method: MethodInfo): boolean =>
+  method.props.some((prop) => Reflect.get(prop, 'kind') === 'queryData');
+
 const getOperationMetadata = (method: MethodInfo): GraphqlOperationMetadata | undefined => {
   for (const prop of method.props) {
-    const kind: unknown = Reflect.get(prop, 'kind');
-    if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') {
+    const kind = readDirectOperationKind(Reflect.get(prop, 'kind'));
+    if (kind) {
       const fieldName: unknown = Reflect.get(prop, 'fieldName');
       return {
         kind,
@@ -1039,6 +1043,7 @@ const analyzeResolver = async (
   state: AnalysisState,
   program: ResolverProgram,
   options: GenerateSdlOptions,
+  dataOnly: boolean,
 ): Promise<void> => {
   const metadataResult = await getTypeMetadata(
     toInspectableClass(resolver),
@@ -1053,6 +1058,7 @@ const analyzeResolver = async (
   const methodTypeNames = await getResolverTypeNames(resolver, metadata, program, options);
 
   for (const method of metadata.methods) {
+    if (dataOnly && !isQueryData(method)) continue;
     await registerAnalyzedMethod(method, resolver.name, state, methodTypeNames, options);
   }
 };
@@ -1171,7 +1177,7 @@ const registerModelQueries = async (context: ModelRenderContext): Promise<void> 
     context.analysis.modelResolvers.has(item.resolver),
   )) {
     const methodNames = await getModelMethodNames(context, input.resolver);
-    for (const method of input.metadata.methods) {
+    for (const method of input.metadata.methods.filter((method) => !isQueryData(method))) {
       const operation = getOperationMetadata(method);
       if (typeof method.name !== 'string' || operation?.kind !== 'query') continue;
       await registerModelQuery(
@@ -1233,8 +1239,13 @@ const analyzeResolvers = async (
   );
   const analysis = analyzeGraphqlModels(inputs);
   for (const resolver of resolvers) {
-    if (!analysis.modelResolvers.has(resolver.name))
-      await analyzeResolver(resolver, state, program, options);
+    await analyzeResolver(
+      resolver,
+      state,
+      program,
+      options,
+      analysis.modelResolvers.has(resolver.name),
+    );
   }
   const modelDefinitions = await renderModels({
     inputs,

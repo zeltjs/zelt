@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Query, ResolveMultiField, Resolver } from './graphql.decorator';
+import { Query, QueryData, ResolveMultiField, Resolver } from './graphql.decorator';
 import type { GraphqlResolverClass } from './graphql-metadata.lib';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
@@ -56,6 +56,24 @@ describe('computeGraphqlPrebuiltHash', () => {
     expect(first.name).toBe(second.name);
     expect(await computeGraphqlPrebuiltHash('/graphql', [first])).not.toBe(
       await computeGraphqlPrebuiltHash('/graphql', [second]),
+    );
+  });
+
+  it('detects direct data field renames and changes from model query to direct data', async () => {
+    const declaration = (field: string) => {
+      @Resolver()
+      class NamedResolver {
+        @QueryData(field)
+        value(): string {
+          return 'value';
+        }
+      }
+      return NamedResolver;
+    };
+    const first = await computeGraphqlPrebuiltHash('/graphql', [declaration('value')]);
+    expect(first).not.toBe(await computeGraphqlPrebuiltHash('/graphql', [declaration('renamed')]));
+    expect(first).not.toBe(
+      await computeGraphqlPrebuiltHash('/graphql', [queryDeclaration('value')]),
     );
   });
 

@@ -1037,3 +1037,21 @@ HTTP レベルの処理は `graphql-http`、実行は `graphql-js` に準拠し�
 - **メソッド**: `GET` は Query のみ、`POST` は Query と Mutation を受け付けます。
 - **ヘッダー**: `POST` 時の `Content-Type: application/json` をサポートし、`Accept: application/graphql-response+json` に対応しています。
 - **ステータスコード**: `application/graphql-response+json` 利用時、構文エラー・検証エラー・変数エラーは HTTP 400、実行結果は HTTP 200 となります。
+
+## model と連携しない Query
+
+`@QueryData()` は戻り値をそのまま公開します。`id` や model 定義は不要です。
+
+```ts
+import { QueryData, Resolver } from '@zeltjs/graphql';
+
+@Resolver()
+export class StatusResolver {
+  @QueryData()
+  health() {
+    return { status: true };
+  }
+}
+```
+
+戻り値の型から出力型を生成します。ネストしたオブジェクト・配列・nullable・Promise に対応し、`args(schema)` や `@QueryData('公開名')` も使えます。戻り値に `id` があっても model 参照には変換しません。同じ Resolver に model を解決する `@Query()` と併記できます。
