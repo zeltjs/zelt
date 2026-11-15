@@ -16,6 +16,14 @@ describe('valibotAdapter', () => {
     expect(jsonSchema.properties).toBeDefined();
   });
 
+  it('converts branded schemas to their underlying JSON Schema', () => {
+    const schema = v.pipe(v.string(), v.uuid(), v.brand('UserId'));
+
+    const jsonSchema = valibotAdapter.toJsonSchema(schema);
+
+    expect(jsonSchema).toEqual(valibotAdapter.toJsonSchema(v.pipe(v.string(), v.uuid())));
+  });
+
   it('throws for non-valibot values', () => {
     const notValibot = { type: 'string' };
 

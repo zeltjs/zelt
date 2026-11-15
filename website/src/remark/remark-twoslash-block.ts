@@ -10,7 +10,8 @@ type Node = any;
 type CodeNode = any;
 
 export interface RemarkTwoslashBlockOptions {
-  twoslasher: TwoslashInstance;
+  // Built per page so that blocks can share files derived from their own page.
+  twoslasherFor: (page: string) => TwoslashInstance;
   themes: Record<string, string>;
   langs: string[];
 }
@@ -88,9 +89,10 @@ const findCodeNode = (preNode: Node): Node | undefined =>
  * from <pre>/<code> elements.
  */
 export const remarkTwoslashBlock = (options: RemarkTwoslashBlockOptions) => {
-  const { twoslasher, themes, langs } = options;
+  const { twoslasherFor, themes, langs } = options;
 
-  return async (tree: Node): Promise<void> => {
+  return async (tree: Node, file: { readonly value: unknown }): Promise<void> => {
+    const twoslasher = twoslasherFor(String(file.value));
     const highlighter = await getHighlighter(options);
     const lightTheme = themes.light ?? Object.values(themes)[0];
     const darkTheme = themes.dark ?? Object.values(themes)[0];

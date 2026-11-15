@@ -95,7 +95,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Integrations',
       collapsed: false,
-      items: ['hono-client', 'openapi', 'graphql', 'bullmq'],
+      items: ['hono-client', 'openapi', 'graphql', 'graphql-drizzle', 'bullmq'],
     },
     {
       type: 'category',

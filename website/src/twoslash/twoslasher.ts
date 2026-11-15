@@ -82,25 +82,20 @@ const baseTwoslasher = createTwoslasher({
   },
 });
 
-const sharedFiles = (code: string): ExtraFiles => {
-  if (!code.includes('// @filename: graphql-drizzle/')) return {};
-  return graphqlDrizzleSetup(
-    readFileSync(
-      path.join(
-        rootDir,
-        'website/i18n/ja/docusaurus-plugin-content-docs/current/graphql-drizzle.md',
-      ),
-      'utf8',
-    ),
-    readFileSync(path.join(__dirname, 'fixtures/graphql-drizzle/drizzle.service.ts'), 'utf8'),
-  );
-};
+const databaseService = path.join(__dirname, 'fixtures/graphql-drizzle/drizzle.service.ts');
 
-export const twoslasher: TwoslashInstance = Object.assign(
-  (code: string, lang?: string, options?: TwoslashExecuteOptions) =>
-    baseTwoslasher(code, lang, {
-      ...options,
-      extraFiles: { ...sharedFiles(code), ...options?.extraFiles },
-    }),
-  { getCacheMap: baseTwoslasher.getCacheMap },
-);
+// Blocks of a guide share files built from that same page, so each language checks its own code.
+const sharedFiles = (code: string, page: string): ExtraFiles =>
+  code.includes('// @filename: graphql-drizzle/')
+    ? graphqlDrizzleSetup(page, readFileSync(databaseService, 'utf8'))
+    : {};
+
+export const twoslasherFor = (page: string): TwoslashInstance =>
+  Object.assign(
+    (code: string, lang?: string, options?: TwoslashExecuteOptions) =>
+      baseTwoslasher(code, lang, {
+        ...options,
+        extraFiles: { ...sharedFiles(code, page), ...options?.extraFiles },
+      }),
+    { getCacheMap: baseTwoslasher.getCacheMap },
+  );

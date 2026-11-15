@@ -225,7 +225,7 @@ import { DrizzleService } from '../db/drizzle.service';
 import { UserId, users } from '../db/schema';
 import { GeneratedUserResolver, type User } from '../generated/drizzle-graphql';
 
-const GetUserInput = v.object({ id: UserId });
+export const GetUserInput = v.object({ id: UserId });
 
 declare module '../generated/drizzle-graphql' {
   interface User {

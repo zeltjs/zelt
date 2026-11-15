@@ -1,9 +1,10 @@
-import type { ExtraFiles } from 'twoslash';
-
 const visibleCode = (code: string): string => code.split('// ---cut---\n').at(-1) ?? code;
 
 // The guide's schema and generated excerpt stay authoritative for every isolated block.
-export const graphqlDrizzleSetup = (markdown: string, databaseService: string): ExtraFiles => {
+export const graphqlDrizzleSetup = (
+  markdown: string,
+  databaseService: string,
+): Readonly<Record<string, string>> => {
   const blocks = [...markdown.matchAll(/```ts\n([\s\S]*?)```/g)].map((match) =>
     visibleCode(match[1] ?? ''),
   );

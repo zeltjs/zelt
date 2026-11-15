@@ -4,7 +4,7 @@ import type { PluginOptions as SearchPluginOptions } from '@easyops-cn/docusauru
 import rehypeShiki from '@shikijs/rehype';
 import sidebars from './sidebars.js';
 import { remarkTwoslashBlock } from './src/remark/remark-twoslash-block';
-import { twoslasher } from './src/twoslash/twoslasher';
+import { twoslasherFor } from './src/twoslash/twoslasher';
 
 type SidebarItem =
   | string
@@ -44,7 +44,7 @@ const shikiBaseConfig = {
 };
 
 const twoslashBlockOptions = {
-  twoslasher,
+  twoslasherFor,
   themes: shikiBaseConfig.themes,
   langs: shikiBaseConfig.langs,
 };

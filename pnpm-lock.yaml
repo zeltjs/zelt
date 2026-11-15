@@ -965,6 +965,9 @@ importers:
       '@zeltjs/auth-session':
         specifier: workspace:*
         version: link:../packages/auth-session
+      '@zeltjs/cli':
+        specifier: workspace:*
+        version: link:../packages/cli
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../packages/core

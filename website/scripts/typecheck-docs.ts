@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { twoslasher } from '../src/twoslash/twoslasher';
+import { twoslasherFor } from '../src/twoslash/twoslasher';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const websiteDir = path.resolve(__dirname, '..');
@@ -55,6 +55,7 @@ for (const targetDir of TARGET_DIRS) {
   for (const file of walkMarkdown(absDir)) {
     if (isExampleDoc(path.relative(websiteDir, file))) continue;
     const markdown = readFileSync(file, 'utf8');
+    const twoslasher = twoslasherFor(markdown);
     let blockIndex = 0;
     for (const match of markdown.matchAll(TS_FENCE)) {
       blockIndex += 1;
