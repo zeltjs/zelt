@@ -199,7 +199,7 @@ type Post {
 
 ## resolver を書く {#resolver}
 
-公開する各モデルについて、生成された抽象クラスを継承した resolver を **1 つ** 用意し、`graphql()` に登録します。Query と計算フィールドは、このクラスに通常どおり書きます。モデルが何を公開するかは、このクラスと継承元をたどれば分かります。
+公開する各モデルについて、生成された抽象クラスを継承した resolver を **1 つ** 用意し、`graphql()` に登録します。Query と計算フィールドは、このファイルに通常どおり書きます。モデルが何を公開するかは、このファイル（追加したフィールドの宣言と resolver）と継承元をたどれば分かります。
 
 ```ts
 // src/graphql/user.resolver.ts
@@ -212,6 +212,12 @@ import { UserId, users } from '../db/schema';
 import { GeneratedUserResolver, type User } from '../generated/drizzle-graphql';
 
 const GetUserInput = v.object({ id: UserId });
+
+declare module '../generated/drizzle-graphql' {
+  interface User {
+    readonly displayName: string;
+  }
+}
 
 @Resolver()
 export class UserResolver extends GeneratedUserResolver {
@@ -260,24 +266,54 @@ graphql({
 
 ### フィールドを追加する {#add-field}
 
-生成されたモデルに、`@ResolveField` でフィールドを追加できます。メソッド名がフィールド名、戻り値の型が GraphQL の型になります。上の例では `User.displayName: String!` が追加されます。
+生成されたモデルにフィールドを追加するには、[GraphQL のモデル](./graphql.md#code-first)と同じく、モデル型に宣言して `@ResolveField` で解決します。生成ファイルは編集できないため、宣言は resolver のファイルから `declare module` で生成された `interface` に追加します（TypeScript の declaration merging）。上の例では `User.displayName: String!` が追加されます。
 
-引数の `Pick<User, ...>` で、計算に必要なカラムを宣言します。`hidden` のカラムも `$` 付きの名前で参照できます。
+追加したフィールドはモデル型の一部になるため、別の `@ResolveField` の依存にも、関連先からの参照（`Post.author` の先）にも使えます。`@ResolveField` の引数の `Pick<User, ...>` で、計算に必要なフィールドを宣言します。`hidden` のカラムも `$` 付きの名前で参照できます。
 
 ```ts
-@ResolveField()
-hasPassword(user: Pick<User, '$passwordHash'>): boolean {
-  return user.$passwordHash.length > 0;
+declare module '../generated/drizzle-graphql' {
+  interface User {
+    readonly displayName: string;
+    readonly initials: string;
+    readonly hasPassword: boolean;
+  }
+}
+
+@Resolver()
+export class UserResolver extends GeneratedUserResolver {
+  @ResolveField()
+  displayName(user: Pick<User, 'firstName' | 'lastName'>): string {
+    return `${user.firstName} ${user.lastName}`;
+  }
+
+  @ResolveField()
+  initials(user: Pick<User, 'displayName'>): string {
+    return user.displayName
+      .split(' ')
+      .map((part) => part.charAt(0))
+      .join('');
+  }
+
+  @ResolveField()
+  hasPassword(user: Pick<User, '$passwordHash'>): boolean {
+    return user.$passwordHash.length > 0;
+  }
 }
 ```
 
-追加したフィールドは生成されたモデル型には含まれないため、別の `@ResolveField` の依存（`Pick<User, 'displayName'>`）には指定できません。
+宣言したフィールドに `@ResolveField` がない場合や、`@ResolveField` に対応する宣言がない場合は、[GraphQL の契約](./graphql.md#runtime-contract)のとおりビルドエラーになります。
 
 ### カラムを別の形で公開する {#replace-field}
 
-カラムの値を変換して公開したい場合は、カラムを `hidden` にし、同じ名前のフィールドを `@ResolveField` で追加します。上のスキーマの `posts.createdAt` はこの例です。
+カラムの値を変換して公開したい場合は、カラムを `hidden` にし、同じ名前のフィールドを宣言して `@ResolveField` で解決します。上のスキーマの `posts.createdAt` はこの例です。
 
 ```ts
+declare module '../generated/drizzle-graphql' {
+  interface Post {
+    readonly createdAt: string;
+  }
+}
+
 @Resolver()
 export class PostResolver extends GeneratedPostResolver {
   @ResolveField()
@@ -287,7 +323,7 @@ export class PostResolver extends GeneratedPostResolver {
 }
 ```
 
-`hidden` にしていないカラムと同じ名前のフィールドを追加すると、供給元が重複するためビルドエラーになります。暗黙の上書きは起きません。
+`hidden` にしていないカラムと同じ名前のフィールドは追加できません。型が異なれば TypeScript の型エラーに、型が同じでも供給元が重複するためビルドエラーになります。暗黙の上書きは起きません。
 
 ## カラムの型 {#column-types}
 
@@ -340,7 +376,8 @@ GraphQL スキーマの変更がクライアントに与える影響（フィー
 - カラムとリレーションのキー名が重複している
 - 2 つのテーブルの GraphQL 型名が重複している
 - 公開するモデルを継承した resolver が `graphql()` に登録されていない、または 2 つ以上登録されている
-- `hidden` でないカラムやリレーションと同じ名前のフィールドを `@ResolveField` で追加した
+- `hidden` でないカラムやリレーションと同じ名前のフィールドを追加した
+- 追加したフィールドの宣言と `@ResolveField` が対応していない
 
 ## 現在の対応範囲 {#limitations}
 
