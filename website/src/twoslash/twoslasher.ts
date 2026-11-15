@@ -1,7 +1,9 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { ExtraFiles, TwoslashExecuteOptions, TwoslashInstance } from 'twoslash';
 import { createTwoslasher } from 'twoslash';
+import { graphqlDrizzleSetup } from './graphql-drizzle-setup.lib';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // src/twoslash -> website -> repo root
@@ -29,7 +31,7 @@ const pnpmTypes = (prefix: string, subpath: string): string[] => {
  * when a doc snippet stops type-checking). Keeping a single instance prevents
  * the compilerOptions/paths from drifting between rendering and verification.
  */
-export const twoslasher = createTwoslasher({
+const baseTwoslasher = createTwoslasher({
   vfsRoot: rootDir,
   tsLibDirectory,
   compilerOptions: {
@@ -57,6 +59,7 @@ export const twoslasher = createTwoslasher({
       '@zeltjs/adapter-electron/renderer': ['./packages/adapter-electron/dist/renderer/index.d.ts'],
       '@zeltjs/validator-valibot': ['./packages/validator-valibot/dist/index.d.ts'],
       '@zeltjs/validator-valibot/openapi': ['./packages/validator-valibot/dist/openapi/index.d.ts'],
+      '@zeltjs/graphql-drizzle/codegen': ['./packages/graphql-drizzle/dist/codegen.d.ts'],
       '@zeltjs/graphql/codegen': ['./packages/graphql/dist/codegen.d.ts'],
       '@zeltjs/kv/adaptor-redis': ['./packages/kv/dist/adaptor-redis/index.d.ts'],
       '@zeltjs/eventbus/adaptor-memory': ['./packages/eventbus/dist/adaptor-memory/index.d.ts'],
@@ -78,3 +81,26 @@ export const twoslasher = createTwoslasher({
     },
   },
 });
+
+const sharedFiles = (code: string): ExtraFiles => {
+  if (!code.includes('// @filename: graphql-drizzle/')) return {};
+  return graphqlDrizzleSetup(
+    readFileSync(
+      path.join(
+        rootDir,
+        'website/i18n/ja/docusaurus-plugin-content-docs/current/graphql-drizzle.md',
+      ),
+      'utf8',
+    ),
+    readFileSync(path.join(__dirname, 'fixtures/graphql-drizzle/drizzle.service.ts'), 'utf8'),
+  );
+};
+
+export const twoslasher: TwoslashInstance = Object.assign(
+  (code: string, lang?: string, options?: TwoslashExecuteOptions) =>
+    baseTwoslasher(code, lang, {
+      ...options,
+      extraFiles: { ...sharedFiles(code), ...options?.extraFiles },
+    }),
+  { getCacheMap: baseTwoslasher.getCacheMap },
+);

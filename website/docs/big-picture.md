@@ -46,6 +46,12 @@ flowchart TD
 - **zelt.config.ts** — your instructions to the CLI: which plugins to run,
   build and dev settings.
 
+Method decorators (`@Get`, `@Cron`, `@ResolveField`, …) are inherited from
+parent classes, and a base class needs no class decorator. A method that a
+subclass redefines replaces the parent's method together with its decorators,
+just like a JavaScript override. Class decorators (`@Controller`,
+`@Resolver`, …) are not inherited; put them on each class you register.
+
 ## zelt CLI (build / dev)
 
 `zelt build` (and every `zelt dev` restart) imports your app definition and

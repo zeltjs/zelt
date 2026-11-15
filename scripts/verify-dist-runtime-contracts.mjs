@@ -26,6 +26,7 @@ const ENTRYPOINT_POLICIES = {
   },
   '@zeltjs/eslint-plugin': { nodeBuiltins: ALL_NODE_BUILTINS },
   '@zeltjs/graphql/codegen': { nodeBuiltins: ALL_NODE_BUILTINS },
+  '@zeltjs/graphql-drizzle/codegen': { nodeBuiltins: ALL_NODE_BUILTINS },
   // The extractor reads the app through the TS compiler API and spawns a child
   // process. Its '/snapshot' subpath stays on the default (no builtins) because
   // the browser UI imports the JSON contract from there.

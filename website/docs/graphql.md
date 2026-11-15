@@ -91,7 +91,9 @@ export type User = {
 };
 ```
 
-`ID` is a string-compatible type exported by `@zeltjs/graphql` that explicitly maps to GraphQL `ID!`. A `string` maps to `String!`, even when the property is named `id`.
+`ID` is a type exported by `@zeltjs/graphql` that explicitly maps to GraphQL `ID!`. A `string` maps to `String!`, even when the property is named `id`.
+
+`ID<T extends string = string>` exposes a branded string (for example `ID<UserId>`) as GraphQL `ID` while keeping its brand (`ID` is the same as `ID<string>`). Other branded strings and numbers are exposed as `String` and `Float`.
 
 In the resolver, `@Query` returns the target ID, and `@ResolveField` receives the parent ID to produce the field value:
 

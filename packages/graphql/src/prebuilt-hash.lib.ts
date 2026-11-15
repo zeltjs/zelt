@@ -13,6 +13,7 @@ const operationKinds = new Set([
 ]);
 
 const resolverDeclaration = (resolver: GraphqlResolverClass) => {
+  // Use the same effective methods as codegen, including undecorated base classes.
   const methods = getClassMetadata(resolver)?.methods ?? [];
   const operations = methods.flatMap((method) => {
     const methodName = method.name;

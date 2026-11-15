@@ -36,6 +36,8 @@ pnpm add @zeltjs/graphql-drizzle
 `zelt.config.ts` に `drizzleGraphqlPlugin()` を登録します。**`graphqlPlugin()` より前に置いてください。** 生成されたコードを `graphqlPlugin()` が解析するためです。
 
 ```ts
+// @filename: graphql-drizzle/zelt.config.ts
+// ---cut---
 import { defineConfig } from '@zeltjs/cli';
 import { graphqlPlugin } from '@zeltjs/graphql/codegen';
 import { drizzleGraphqlPlugin } from '@zeltjs/graphql-drizzle/codegen';
@@ -71,15 +73,17 @@ export default defineConfig({
 テーブルとリレーションは、普段どおり Drizzle で書きます。
 
 ```ts
+// @filename: graphql-drizzle/src/db/schema.ts
+// ---cut---
 // src/db/schema.ts
 import { relations } from 'drizzle-orm';
-import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { gqlMeta } from '@zeltjs/graphql-drizzle';
 import * as v from 'valibot';
 
 export const UserId = v.pipe(v.string(), v.uuid(), v.brand('UserId'));
 export type UserId = v.InferOutput<typeof UserId>;
-export type PostId = number & v.Brand<'PostId'>;
+export type PostId = string & v.Brand<'PostId'>;
 
 export const users = gqlMeta(
   pgTable('users', {
@@ -93,7 +97,7 @@ export const users = gqlMeta(
 
 export const posts = gqlMeta(
   pgTable('posts', {
-    id: integer().primaryKey().generatedAlwaysAsIdentity().$type<PostId>(),
+    id: uuid().primaryKey().defaultRandom().$type<PostId>(),
     title: text().notNull(),
     authorId: uuid('author_id').$type<UserId>().notNull().references(() => users.id),
     createdAt: gqlMeta(timestamp('created_at').notNull().defaultNow(), { hidden: true }),
@@ -138,6 +142,10 @@ export const postsRelations = relations(posts, ({ one }) => ({
 上のスキーマから、次のコードが生成されます（抜粋）。
 
 ```ts
+// @filename: graphql-drizzle/src/generated/drizzle-graphql.ts
+import type { ID } from '@zeltjs/graphql';
+import { users, posts } from '../db/schema';
+// ---cut---
 // src/generated/drizzle-graphql.ts（生成ファイル・編集しない）
 type UsersRow = typeof users.$inferSelect;
 type PostsRow = typeof posts.$inferSelect;
@@ -153,6 +161,7 @@ export interface User {
 export interface Post {
   readonly id: ID<PostsRow['id']>;
   readonly title: PostsRow['title'];
+  readonly authorId: PostsRow['authorId'];
   readonly $createdAt: PostsRow['createdAt'];
   readonly author: User;
 }
@@ -167,14 +176,16 @@ export abstract class GeneratedPostResolver { /* カラムとリレーション�
 
 ### 主キーと ID {#primary-key}
 
-単一カラムの主キーが、モデルの `id` になります。主キーのカラム名や型は問いません。
+単一カラムの主キーが、モデルの `id` になります。主キーのカラム名は問いませんが、型は文字列に限ります（理由は下記）。
 
 | | 型 |
 | --- | --- |
-| TypeScript（`User['id']`） | 主キーの型そのもの。上の例では `UserId`、`Post['id']` は `PostId`。`$type<>()` を付けなければ `string` や `number` |
+| TypeScript（`User['id']`） | 主キーの型そのもの。上の例では `UserId`、`Post['id']` は `PostId`。`$type<>()` を付けなければ `string` |
 | GraphQL | `ID!` |
 
-`ID<T>` は「GraphQL では `ID` として公開する」という印を `T` に付けた型で、値は `T` のまま扱えます。`UserId` の値はそのまま `User['id']` に代入でき、`User['id']` も `UserId` として使えます。整数の主キーは、GraphQL のレスポンスでは文字列になります。
+`ID<T>` は「GraphQL では `ID` として公開する」という印を `T` に付けた型で、値は `T` のまま扱えます。`UserId` の値はそのまま `User['id']` に代入でき、`User['id']` も `UserId` として使えます。
+
+GraphQL の ID は、すべてのモデルを通して一意であることが前提です。主キーには、テーブルをまたいでも重複しない文字列（UUID など）を使ってください。テーブルごとの連番になる整数の主キーは、この前提を満たせないため公開できません（生成時エラー）。
 
 GraphQL の型は `ID` のままで、`UserId` のような独自の scalar にはしません。クライアントのキャッシュやコード生成は `ID` を前提にしているためです。
 
@@ -191,6 +202,7 @@ type User {
 type Post {
   id: ID!
   title: String!
+  authorId: String!
   author: User!
 }
 ```
@@ -202,6 +214,8 @@ type Post {
 公開する各モデルについて、生成された抽象クラスを継承した resolver を **1 つ** 用意し、`graphql()` に登録します。Query と計算フィールドは、このファイルに通常どおり書きます。モデルが何を公開するかは、このファイル（追加したフィールドの宣言と resolver）と継承元をたどれば分かります。
 
 ```ts
+// @filename: graphql-drizzle/src/graphql/user.resolver.ts
+// ---cut---
 // src/graphql/user.resolver.ts
 import { inject } from '@zeltjs/core';
 import { args, Query, ResolveField, Resolver } from '@zeltjs/graphql';
@@ -242,6 +256,8 @@ export class UserResolver extends GeneratedUserResolver {
 ```
 
 ```ts
+// @filename: graphql-drizzle/src/graphql/post.resolver.ts
+// ---cut---
 // src/graphql/post.resolver.ts
 import { Resolver } from '@zeltjs/graphql';
 import { GeneratedPostResolver } from '../generated/drizzle-graphql';
@@ -251,6 +267,11 @@ export class PostResolver extends GeneratedPostResolver {}
 ```
 
 ```ts
+// @filename: graphql-drizzle/src/app.ts
+import { graphql } from '@zeltjs/graphql';
+import { UserResolver } from './graphql/user.resolver';
+import { PostResolver } from './graphql/post.resolver';
+// ---cut---
 // src/app.ts
 graphql({
   path: '/graphql',
@@ -262,7 +283,7 @@ graphql({
 
 [GraphQL の契約](./graphql.md#runtime-contract)のとおり、Query が返した ID は「その行が存在する」ことを意味します。クライアントから受け取った ID をそのまま返さず、上の例のように DB で存在を確かめてから返してください。存在しない ID を返すと、カラムを取得する時点で GraphQL エラーになります。
 
-クライアントから届く ID は、どの主キーでも文字列です。主キーの型への変換と検証は、`args()` の validator で行います。上の例では、`UserId` のスキーマが UUID であることを検証して brand を付けます。整数の主キーなら、validator で文字列を数値に変換してください。
+クライアントから届く ID は、どの主キーでも文字列です。主キーの型への変換と検証は、`args()` の validator で行います。上の例では、`UserId` のスキーマが UUID であることを検証して brand を付けます。
 
 ### フィールドを追加する {#add-field}
 
@@ -271,6 +292,10 @@ graphql({
 追加したフィールドはモデル型の一部になるため、別の `@ResolveField` の依存にも、関連先からの参照（`Post.author` の先）にも使えます。`@ResolveField` の引数の `Pick<User, ...>` で、計算に必要なフィールドを宣言します。`hidden` のカラムも `$` 付きの名前で参照できます。
 
 ```ts
+// @filename: graphql-drizzle/src/graphql/user.resolver.ts
+import { Resolver, ResolveField } from '@zeltjs/graphql';
+import { GeneratedUserResolver, type User } from '../generated/drizzle-graphql';
+// ---cut---
 declare module '../generated/drizzle-graphql' {
   interface User {
     readonly displayName: string;
@@ -308,6 +333,10 @@ export class UserResolver extends GeneratedUserResolver {
 カラムの値を変換して公開したい場合は、カラムを `hidden` にし、同じ名前のフィールドを宣言して `@ResolveField` で解決します。上のスキーマの `posts.createdAt` はこの例です。
 
 ```ts
+// @filename: graphql-drizzle/src/graphql/post.resolver.ts
+import { Resolver, ResolveField } from '@zeltjs/graphql';
+import { GeneratedPostResolver, type Post } from '../generated/drizzle-graphql';
+// ---cut---
 declare module '../generated/drizzle-graphql' {
   interface Post {
     readonly createdAt: string;
@@ -348,6 +377,7 @@ export class PostResolver extends GeneratedPostResolver {
 | `many(posts)` | `readonly Post[]` | `[Post!]!` |
 | `one(users, …)`、`fields` がすべて `notNull()` | `User` | `User!` |
 | `one(users, …)`、`fields` に nullable なカラムを含む | `User \| null` | `User` |
+| `one(users)`（`fields` を持たない逆向きの `one`） | `User \| null` | `User` |
 
 - `many` は関連先の主キーの昇順で返します。関連先がなければ空配列です。
 - `one` で `fields` がすべて `notNull()` の場合は、参照先が必ず存在することを前提とします。外部キー制約で参照整合性を保ってください。参照先が存在しない行があると GraphQL エラーになります。
@@ -371,6 +401,7 @@ GraphQL スキーマの変更がクライアントに与える影響（フィー
 次の場合、`zelt build` / `zelt dev` は生成または解析の段階でエラーにします。
 
 - 公開するテーブルに単一カラムの主キーがない（複合主キー・主キーなし）
+- 公開するテーブルの主キーが文字列型でない（整数など）
 - 公開するテーブルが、主キー以外に `id` というキーのカラムを持つ
 - 公開するカラムの型が[対応表](#column-types)にない
 - カラムとリレーションのキー名が重複している

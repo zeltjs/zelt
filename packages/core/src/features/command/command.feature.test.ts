@@ -1,6 +1,7 @@
 import { Container } from '@needle-di/core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import { createApp } from '../../app';
 import { ZeltCommandExecutionError, ZeltContextNotAvailableError } from '../../kernel';
 import { CommandFeature, command } from './command.feature';
 import { Command } from './definition/command.decorator';
@@ -34,6 +35,43 @@ class FailCommand {
 }
 
 describe('command feature', () => {
+  it('executes an inherited run method from an undecorated base with command arguments', async () => {
+    const calls: string[] = [];
+    abstract class BaseCommand {
+      readonly label = 'base';
+      run(input = args(echoSchema)) {
+        calls.push(`${this.label}:${input.target}`);
+      }
+    }
+    @Command({ name: 'inherited' })
+    class ChildCommand extends BaseCommand {}
+    @Command({ name: 'overridden' })
+    class OverrideCommand extends BaseCommand {
+      override run(input = args(echoSchema)) {
+        calls.push(`child:${input.target}`);
+      }
+    }
+    const running = await createApp([command([ChildCommand, OverrideCommand])]).createRuntime();
+    try {
+      expect(await running.command.execCommand(['inherited', 'first'])).toEqual({ exitCode: 0 });
+      expect(await running.command.execCommand(['overridden', 'second'])).toEqual({ exitCode: 0 });
+      expect(calls).toEqual(['base:first', 'child:second']);
+    } finally {
+      await running.shutdown();
+    }
+  });
+
+  it('does not inherit the Command class decorator', async () => {
+    @Command({ name: 'parent' })
+    class ParentCommand {
+      run() {}
+    }
+    class UndecoratedChildCommand extends ParentCommand {}
+    await expect(createApp([command([UndecoratedChildCommand])]).createRuntime()).rejects.toThrow(
+      /missing @Command/,
+    );
+  });
+
   it('command() returns CommandFeature instance', () => {
     const feature = command([GreetCommand]);
 

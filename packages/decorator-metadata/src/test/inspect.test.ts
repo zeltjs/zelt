@@ -4,6 +4,30 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { clearProgramCache, getTypeMetadata } from '../inspect/index';
 
 describe('getTypeMetadata', () => {
+  it('extracts inherited methods and properties from an undecorated abstract base', async () => {
+    const { Derived } = await import('./fixtures/inherited-members');
+    const result = await getTypeMetadata(Derived, {
+      tsconfig: resolve(__dirname, '../../tsconfig.json'),
+    });
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value.props).toEqual([{ own: true }]);
+    expect(result.value.methods).toMatchObject([
+      {
+        name: 'inherited',
+        props: [{ method: 'base' }],
+        params: [{ name: 'count', type: { kind: 'primitive', type: 'number' } }],
+        returnType: { kind: 'primitive', type: 'string' },
+      },
+    ]);
+    expect(result.value.properties).toMatchObject([
+      {
+        name: 'value',
+        props: [{ column: true }],
+        type: { kind: 'primitive', type: 'string' },
+      },
+    ]);
+  });
   beforeAll(() => {
     clearProgramCache();
   });

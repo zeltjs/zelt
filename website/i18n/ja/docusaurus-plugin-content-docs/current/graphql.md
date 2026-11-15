@@ -97,7 +97,9 @@ export type User = {
 };
 ```
 
-`ID` は `@zeltjs/graphql` が提供する文字列互換の型で、GraphQL の `ID!` を明示します。`string` は `String!` になります。
+`ID` は `@zeltjs/graphql` が提供する型で、GraphQL の `ID!` を明示します。`string` は `String!` になります。
+
+`ID<T extends string = string>` は、brand 付きの文字列（`ID<UserId>` など）を、brand を保ったまま GraphQL の `ID` として明示します（`ID` は `ID<string>` と同じです）。ID 以外の brand 付き `string`／`number` は `String`／`Float` として公開できます。
 
 リゾルバでは、`@Query` が対象の ID を返し、`@ResolveField` が親の ID を受け取ってフィールドの値を返します。
 

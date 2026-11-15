@@ -159,6 +159,56 @@ describe('captureStackTrace and resolvePosition', () => {
 });
 
 describe('metadata store', () => {
+  it('reads inherited members without a base class decorator and isolates siblings', () => {
+    abstract class Base {
+      @createMethodDecorator({ method: 'base' })
+      inherited() {}
+      @createMethodDecorator({ method: 'old' })
+      replaced() {}
+      @createMethodDecorator({ method: 'hidden' })
+      hidden() {}
+      @createPropertyDecorator({ column: true })
+      value = '';
+    }
+    @createClassDecorator({ name: 'first' })
+    class First extends Base {
+      @createMethodDecorator({ method: 'new' })
+      override replaced() {}
+      override hidden() {}
+    }
+    @createClassDecorator({ name: 'second' })
+    class Second extends Base {}
+    expect(getClassMetadata(First)).toEqual({
+      props: [{ name: 'first' }],
+      methods: [
+        { name: 'replaced', props: [{ method: 'new' }] },
+        { name: 'inherited', props: [{ method: 'base' }] },
+      ],
+      properties: [{ name: 'value', props: [{ column: true }] }],
+    });
+    expect(getClassMetadata(Second)?.methods.map(({ name }) => name)).toEqual([
+      'inherited',
+      'replaced',
+      'hidden',
+    ]);
+    expect(getClassMetadata(Base)?.methods).toHaveLength(3);
+    expect(getClassMetadata(First)?.methods).toHaveLength(2);
+  });
+
+  it('reads undecorated legacy bases without inheriting class annotations', () => {
+    class Base {
+      inherited() {}
+    }
+    createMethodDecorator({ inherited: true })(Base.prototype, 'inherited');
+    @createClassDecorator({ own: true })
+    class Child extends Base {}
+    expect(getClassMetadata(Child)).toEqual({
+      props: [{ own: true }],
+      methods: [{ name: 'inherited', props: [{ inherited: true }] }],
+      properties: [],
+    });
+  });
+
   const mockTrace: StackTrace = { _brand: 'StackTrace', error: new CaptureStackError() };
 
   it('recordClass stores class metadata', () => {

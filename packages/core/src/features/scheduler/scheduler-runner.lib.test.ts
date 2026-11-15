@@ -118,4 +118,64 @@ describe('SchedulerRunner', () => {
 
     expect(readyApp.scheduler.isSchedulerRunning()).toBe(false);
   });
+
+  it('inherits schedules from an undecorated base and honors method overrides', async () => {
+    const calls: string[] = [];
+    abstract class Tasks {
+      readonly label = 'base';
+      @Cron('* * * * * *')
+      inherited() {
+        calls.push(this.label);
+      }
+      @Cron('* * * * * *')
+      removed() {
+        calls.push('removed');
+      }
+      @Cron('* * * * * *')
+      replaced() {
+        calls.push('parent');
+      }
+    }
+    @Scheduled()
+    class ChildTasks extends Tasks {
+      override removed() {
+        calls.push('unrouted');
+      }
+      @Cron('*/2 * * * * *')
+      override replaced() {
+        calls.push('child');
+      }
+    }
+    readyApp = await createApp([scheduler([ChildTasks])]).createRuntime();
+    await readyApp.scheduler.startScheduler();
+    expect(readyApp.scheduler.getSchedulerJobs()).toEqual([
+      { name: 'replaced', cronExpression: '*/2 * * * * *', timezone: undefined },
+      { name: 'inherited', cronExpression: '* * * * * *', timezone: undefined },
+    ]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(calls).toEqual(['base']);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(calls.filter((call) => call === 'base')).toHaveLength(2);
+    expect(calls.filter((call) => call === 'child')).toHaveLength(1);
+    expect(calls).not.toContain('parent');
+    expect(calls).not.toContain('removed');
+    expect(calls).not.toContain('unrouted');
+  });
+
+  it('does not inherit the Scheduled class decorator', async () => {
+    const calls: string[] = [];
+    @Scheduled()
+    class ParentTasks {
+      @Cron('* * * * * *')
+      tick() {
+        calls.push('tick');
+      }
+    }
+    class UnscheduledChild extends ParentTasks {}
+    readyApp = await createApp([scheduler([UnscheduledChild])]).createRuntime();
+    await readyApp.scheduler.startScheduler();
+    expect(readyApp.scheduler.getSchedulerJobs()).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(calls).toEqual([]);
+  });
 });

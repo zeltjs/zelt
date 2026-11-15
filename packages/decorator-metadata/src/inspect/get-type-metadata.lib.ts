@@ -46,26 +46,23 @@ const findMethodInClass = (
   cls: TSClassDeclaration,
   name: string,
   ts: TypeScriptModule,
+  checker: TSTypeChecker,
 ): TSMethodDeclaration | undefined => {
-  for (const member of cls.members) {
-    if (ts.isMethodDeclaration(member) && member.name.getText() === name) {
-      return member;
-    }
-  }
-  return undefined;
+  const instance = checker.getTypeAtLocation(cls);
+  const methods = (checker.getPropertyOfType(instance, name)?.declarations ?? []).filter(
+    ts.isMethodDeclaration,
+  );
+  return methods.find((method) => method.body !== undefined) ?? methods[0];
 };
 
 const findPropertyInClass = (
   cls: TSClassDeclaration,
   name: string,
   ts: TypeScriptModule,
+  checker: TSTypeChecker,
 ): TSPropertyDeclaration | undefined => {
-  for (const member of cls.members) {
-    if (ts.isPropertyDeclaration(member) && member.name.getText() === name) {
-      return member;
-    }
-  }
-  return undefined;
+  const instance = checker.getTypeAtLocation(cls);
+  return checker.getPropertyOfType(instance, name)?.declarations?.find(ts.isPropertyDeclaration);
 };
 
 const paramPosition = (
@@ -90,7 +87,7 @@ const extractMethodInfo = (
   let returnType: TypeInfo = { kind: 'unknown' };
 
   if (typeof m.name === 'string') {
-    const methodNode = findMethodInClass(classNode, m.name, ts);
+    const methodNode = findMethodInClass(classNode, m.name, ts, checker);
     if (methodNode) {
       const sig = checker.getSignatureFromDeclaration(methodNode);
       if (sig) {
@@ -129,7 +126,7 @@ const extractPropertyInfo = (
   let optional = false;
 
   if (typeof p.name === 'string') {
-    const propNode = findPropertyInClass(classNode, p.name, ts);
+    const propNode = findPropertyInClass(classNode, p.name, ts, checker);
     if (propNode) {
       const propSymbol = checker.getSymbolAtLocation(propNode.name);
       if (propSymbol) {

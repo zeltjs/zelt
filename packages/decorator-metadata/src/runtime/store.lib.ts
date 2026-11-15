@@ -188,14 +188,80 @@ const toPublicClassMeta = (internal: InternalClassMeta): ClassMeta => ({
 });
 
 export const getClassMetadata = (cls: object): ClassMeta | undefined => {
-  const internal = classStore.get(cls);
+  const internal = getInternalClassMetadata(cls);
   return internal ? toPublicClassMeta(internal) : undefined;
 };
 
 // --- Internal Query (for inspect module) ---
 
-export const getInternalClassMetadata = (cls: object): InternalClassMeta | undefined =>
-  classStore.get(cls);
+const objectValue = (value: unknown): object | undefined =>
+  (typeof value === 'object' && value !== null) || typeof value === 'function' ? value : undefined;
+
+const ownPrototype = (cls: object): object | undefined =>
+  objectValue(Object.getOwnPropertyDescriptor(cls, 'prototype')?.value);
+
+const ownDecoratorMetadata = (cls: object): object | undefined => {
+  const metadataSymbol: unknown = Reflect.get(Symbol, 'metadata');
+  return objectValue(
+    Object.getOwnPropertyDescriptor(
+      cls,
+      typeof metadataSymbol === 'symbol' ? metadataSymbol : Symbol.for('Symbol.metadata'),
+    )?.value,
+  );
+};
+
+const withPendingMembers = (cls: object, base: InternalClassMeta): InternalClassMeta => {
+  const prototype = ownPrototype(cls);
+  const keys = [prototype, ownDecoratorMetadata(cls)].filter((key) => key !== undefined);
+  const methods = keys
+    .flatMap((key) => methodRecords.get(key) ?? [])
+    .filter(
+      (record) =>
+        prototype !== undefined && Object.getOwnPropertyDescriptor(prototype, record.name),
+    );
+  const properties = keys.flatMap((key) => propertyRecords.get(key) ?? []);
+  return {
+    ...base,
+    methods: methods.reduce(upsertMethod, base.methods),
+    properties: properties.reduce(upsertProperty, base.properties),
+  };
+};
+
+// A class decorator is optional for bases. Their member records remain attached to the
+// legacy prototype or TC39 metadata object until a metadata query needs them.
+const ownMetadata = (cls: object): InternalClassMeta | undefined => {
+  const stored = classStore.get(cls);
+  const own = withPendingMembers(cls, stored ?? emptyMeta());
+  return stored || own.methods.length > 0 || own.properties.length > 0 ? own : undefined;
+};
+
+const withInheritedMembers = (
+  own: InternalClassMeta,
+  inherited: InternalClassMeta,
+  prototype: object | undefined,
+): InternalClassMeta => {
+  const names = new Set([
+    ...(prototype ? Reflect.ownKeys(prototype) : []),
+    ...own.methods.map((method) => method.name),
+    ...own.properties.map((property) => property.name),
+  ]);
+  return {
+    ...own,
+    methods: [...own.methods, ...inherited.methods.filter((method) => !names.has(method.name))],
+    properties: [
+      ...own.properties,
+      ...inherited.properties.filter((property) => !names.has(property.name)),
+    ],
+  };
+};
+
+// Member lookup follows JavaScript overrides; class annotations belong only to that class.
+export const getInternalClassMetadata = (cls: object): InternalClassMeta | undefined => {
+  const own = ownMetadata(cls);
+  const parent: unknown = Object.getPrototypeOf(cls);
+  const inherited = typeof parent === 'function' ? getInternalClassMetadata(parent) : undefined;
+  return inherited ? withInheritedMembers(own ?? emptyMeta(), inherited, ownPrototype(cls)) : own;
+};
 
 export const ensureClassMeta = (cls: object, trace: StackTrace): void => {
   const existing = classStore.get(cls);

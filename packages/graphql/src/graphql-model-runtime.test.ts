@@ -151,6 +151,19 @@ const fixture = (
 };
 
 describe('model execution contracts', () => {
+  it.each([0, 1, -1, 0.5, Number.MAX_SAFE_INTEGER, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects numeric model ID %s before resolving any fields',
+    async (id) => {
+      const { execute, calls } = fixture({ users: () => [{ id }] });
+      const result = await execute('{ users { name } }');
+      expect(result.data?.['users']).toEqual([null]);
+      expect(result.errors?.map(({ message, path }) => ({ message, path }))).toEqual([
+        { message: 'GraphQL model reference must have a string id', path: ['users', 0] },
+      ]);
+      expect(calls.map(({ method }) => method)).toEqual(['users']);
+    },
+  );
+
   it('resolves identity models from the reference id without invoking a provider', async () => {
     const definitions: GraphqlModels = {
       User: {

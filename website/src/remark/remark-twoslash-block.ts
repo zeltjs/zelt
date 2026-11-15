@@ -30,6 +30,12 @@ const getHighlighter = async (options: RemarkTwoslashBlockOptions) => {
 const isTypeScriptLang = (lang: string): boolean =>
   ['ts', 'tsx', 'typescript', 'typescriptreact'].includes(lang);
 
+const canonicalLanguage = (lang: string): string => {
+  if (lang === 'ts') return 'typescript';
+  if (lang === 'typescriptreact') return 'tsx';
+  return lang;
+};
+
 const hastToHtml = (node: Node): string => {
   if (node.type === 'text') {
     return escapeHtml(node.value ?? '');
@@ -98,7 +104,7 @@ export const remarkTwoslashBlock = (options: RemarkTwoslashBlockOptions) => {
     });
 
     for (const { node, parent, index } of codeNodes) {
-      const lang = node.lang as string;
+      const lang = canonicalLanguage(node.lang as string);
       const code = node.value as string;
       const meta = (node.meta as string | null) ?? '';
 

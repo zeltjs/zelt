@@ -4,7 +4,7 @@ import { arrayElement, withoutNullish } from './graphql-model-checker.lib';
 
 type Type = import('typescript').Type;
 
-// `ID` is `string` plus an optional brand, so it is recognized by that brand rather than by name.
+// Recognize the optional ID marker before interpreting any underlying primitive brand.
 const isGraphqlId = (type: Type, reader: ModelTypeReader): boolean => {
   const { checker } = reader;
   const brand = checker.getPropertyOfType(type, '__zeltGraphqlScalar');
@@ -16,10 +16,15 @@ const isGraphqlId = (type: Type, reader: ModelTypeReader): boolean => {
 const scalarValue = (type: Type, reader: ModelTypeReader): GraphqlModelValue => {
   const { flags } = type;
   const { TypeFlags } = reader.ts;
-  if (isGraphqlId(type, reader)) return { kind: 'scalar', name: 'ID' };
   if (flags & TypeFlags.BooleanLike) return { kind: 'scalar', name: 'boolean' };
   if (flags & TypeFlags.StringLike) return { kind: 'scalar', name: 'string' };
   if (flags & TypeFlags.NumberLike) return { kind: 'scalar', name: 'number' };
+  if (type.isIntersection()) {
+    if (type.types.some((member) => Boolean(member.flags & TypeFlags.String)))
+      return { kind: 'scalar', name: 'string' };
+    if (type.types.some((member) => Boolean(member.flags & TypeFlags.Number)))
+      return { kind: 'scalar', name: 'number' };
+  }
   return { kind: 'opaque' };
 };
 
@@ -28,6 +33,7 @@ const isBooleanUnion = (type: Type, reader: ModelTypeReader): boolean =>
   type.types.every((member) => Boolean(member.flags & reader.ts.TypeFlags.BooleanLike));
 
 const nonNullValue = (type: Type, reader: ModelTypeReader): GraphqlModelValue => {
+  if (isGraphqlId(type, reader)) return { kind: 'scalar', name: 'ID' };
   const element = arrayElement(type, reader);
   if (element) return { kind: 'array', item: readModelValue(element, reader) };
   if (isBooleanUnion(type, reader)) return { kind: 'scalar', name: 'boolean' };
