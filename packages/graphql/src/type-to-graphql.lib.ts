@@ -90,11 +90,11 @@ type GraphqlUnionDefinition = {
   readonly members: readonly string[];
 };
 
+type GraphqlTypeNameOwner = 'builtin' | 'model' | 'object' | 'enum' | 'scalar' | 'union';
+
 export type GraphqlTypeContext = {
-  /** type name -> owner key; shared by every GraphQL type kind so names stay unique */
-  readonly typeNameOwners: Map<string, string>;
-  /** owner key -> assigned type name */
-  readonly ownedTypeNames: Map<string, string>;
+  /** Every GraphQL type kind shares one namespace, so names are tracked across kinds. */
+  readonly typeNames: Map<string, GraphqlTypeNameOwner>;
   readonly objects: Map<string, GraphqlObjectDefinition>;
   readonly enums: Map<string, GraphqlEnumDefinition>;
   readonly scalars: Map<string, GraphqlScalarDefinition>;
@@ -123,23 +123,19 @@ const BUILT_IN_TYPE_NAMES = [
 
 export const createGraphqlTypeContext = (
   modelNames: ReadonlySet<string> = new Set(),
-): GraphqlTypeContext => {
-  const reserved: [string, string][] = [
-    ...BUILT_IN_TYPE_NAMES.map((name): [string, string] => [name, `builtin:${name}`]),
-    ...[...modelNames].map((name): [string, string] => [name, `model:${name}`]),
-  ];
-  return {
-    typeNameOwners: new Map(reserved),
-    ownedTypeNames: new Map(reserved.map(([name, owner]) => [owner, name])),
-    objects: new Map(),
-    enums: new Map(),
-    scalars: new Map(),
-    unions: new Map(),
-    unionFields: new Map(),
-    enumFields: new Map(),
-    referencedTypes: new Set(),
-  };
-};
+): GraphqlTypeContext => ({
+  typeNames: new Map<string, GraphqlTypeNameOwner>([
+    ...BUILT_IN_TYPE_NAMES.map((name): [string, GraphqlTypeNameOwner] => [name, 'builtin']),
+    ...[...modelNames].map((name): [string, GraphqlTypeNameOwner] => [name, 'model']),
+  ]),
+  objects: new Map(),
+  enums: new Map(),
+  scalars: new Map(),
+  unions: new Map(),
+  unionFields: new Map(),
+  enumFields: new Map(),
+  referencedTypes: new Set(),
+});
 
 const primitiveMap: Record<string, string | undefined> = {
   string: 'String',
@@ -168,6 +164,22 @@ const toEnumValue = (value: string): string => {
     .toUpperCase();
   const name = normalized.length > 0 ? normalized : 'VALUE';
   return /^[A-Z_]/.test(name) ? name : `_${name}`;
+};
+
+// Names are never rewritten on conflict: a silently renamed type would break existing clients.
+/** @throws {Error} */
+const claimTypeName = (
+  ctx: GraphqlTypeContext,
+  owner: GraphqlTypeNameOwner,
+  declared: string,
+): string => {
+  const name = toGraphqlTypeName(declared);
+  const holder = ctx.typeNames.get(name);
+  if (holder !== undefined && holder !== owner) {
+    throw new Error(`GraphQL type name conflict: ${name} is used as both ${holder} and ${owner}`);
+  }
+  ctx.typeNames.set(name, owner);
+  return name;
 };
 
 const renderType = (ref: GraphqlTypeRef): string => (ref.nullable ? ref.type : `${ref.type}!`);
@@ -199,8 +211,7 @@ const ensureEnum = (
   nameHint: string | undefined,
   values: readonly string[],
 ): GraphqlTypeRef => {
-  const original = toGraphqlTypeName(nameHint ?? 'GraphqlEnum');
-  const enumName = allocateTypeName(ctx, `enum:${original}`, original, 'Enum');
+  const enumName = claimTypeName(ctx, 'enum', nameHint ?? 'GraphqlEnum');
   const enumValues = values.map(toEnumValue);
   const existing = ctx.enums.get(enumName);
   if (existing) {
@@ -215,93 +226,9 @@ const ensureEnum = (
   return { type: enumName, nullable: false };
 };
 
-const registerTypeName = (ctx: GraphqlTypeContext, owner: string, name: string): string => {
-  ctx.typeNameOwners.set(name, owner);
-  ctx.ownedTypeNames.set(owner, name);
-  return name;
-};
-
-// Generated names (direct objects, enums) yield to every other registered type by suffixing.
-const allocateTypeName = (
-  ctx: GraphqlTypeContext,
-  owner: string,
-  original: string,
-  suffix: string,
-): string => {
-  const existing = ctx.ownedTypeNames.get(owner);
-  if (existing) return existing;
-  let name = original;
-  while (ctx.typeNameOwners.has(name)) name = `${name}${suffix}`;
-  return registerTypeName(ctx, owner, name);
-};
-
-// Explicit names (scalars, unions, resolver parents) are referenced by users/runtime and cannot be renamed.
 /** @throws {Error} */
-const claimTypeName = (ctx: GraphqlTypeContext, owner: string, name: string): string => {
-  const holder = ctx.typeNameOwners.get(name);
-  const assigned = ctx.ownedTypeNames.get(owner);
-  if ((holder !== undefined && holder !== owner) || (assigned !== undefined && assigned !== name)) {
-    throw new Error(`Duplicate GraphQL type name: ${name}`);
-  }
-  return registerTypeName(ctx, owner, name);
-};
-
-/** @throws {Error} */
-const claimDeclaredName = (
-  ctx: GraphqlTypeContext,
-  kind: 'object' | 'scalar' | 'union',
-  declared: string,
-): string => {
-  const name = toGraphqlTypeName(declared);
-  return claimTypeName(ctx, `${kind}:${name}`, name);
-};
-
-// Explicit names must be claimed before any generated name is allocated; otherwise a generated
-// name registered earlier could take a name a later scalar/union/parent cannot give up.
-/** @throws {Error} */
-export const reserveExplicitTypeNames = (
-  ctx: GraphqlTypeContext,
-  type: GraphqlOutputTypeInfo,
-): void => {
-  match(type)
-    .with({ kind: 'graphqlScalar' }, (t) => {
-      claimDeclaredName(ctx, 'scalar', t.name);
-    })
-    .with({ kind: 'graphqlNamedUnion' }, (t) => {
-      claimDeclaredName(ctx, 'union', t.name);
-      for (const member of t.members) reserveExplicitTypeNames(ctx, member.type);
-    })
-    .with({ kind: 'array' }, (t) => reserveExplicitTypeNames(ctx, t.items))
-    .with({ kind: 'promise' }, (t) => reserveExplicitTypeNames(ctx, t.inner))
-    .with({ kind: 'union' }, (t) => {
-      for (const member of t.types) reserveExplicitTypeNames(ctx, member);
-    })
-    .with({ kind: 'object' }, (t) => {
-      for (const prop of t.properties) reserveExplicitTypeNames(ctx, prop.type);
-    })
-    .with(
-      { kind: 'primitive' },
-      { kind: 'literal' },
-      { kind: 'named' },
-      { kind: 'ref' },
-      { kind: 'unknown' },
-      () => undefined,
-    )
-    .exhaustive();
-};
-
-/** @throws {Error} */
-export const reserveObjectTypeName = (ctx: GraphqlTypeContext, declared: string): void => {
-  claimDeclaredName(ctx, 'object', declared);
-};
-
-// Model objects use field resolvers; direct values need distinct GraphQL object identities.
-const directObjectName = (ctx: GraphqlTypeContext, hint: string): string => {
-  const original = toGraphqlTypeName(hint);
-  return allocateTypeName(ctx, `object:${original}`, original, 'Data');
-};
-
-const ensureObject = (ctx: GraphqlTypeContext, objectName: string): GraphqlObjectDefinition => {
+const ensureObject = (ctx: GraphqlTypeContext, name: string): GraphqlObjectDefinition => {
+  const objectName = claimTypeName(ctx, 'object', name);
   const existing = ctx.objects.get(objectName);
   if (existing) return existing;
   const created = { name: objectName, fields: new Map<string, string>() };
@@ -311,7 +238,7 @@ const ensureObject = (ctx: GraphqlTypeContext, objectName: string): GraphqlObjec
 
 /** @throws {Error} */
 const ensureScalar = (ctx: GraphqlTypeContext, type: GraphqlScalarTypeInfo): GraphqlTypeRef => {
-  const scalarName = claimDeclaredName(ctx, 'scalar', type.name);
+  const scalarName = claimTypeName(ctx, 'scalar', type.name);
   const existing = ctx.scalars.get(scalarName);
   if (
     existing &&
@@ -384,16 +311,14 @@ const convertObject = (
     throw new Error('Anonymous object GraphQL output requires a name hint');
   }
 
-  const object = ensureObject(ctx, directObjectName(ctx, nameHint));
-  // Child identity derives from the original hint so renaming the parent cannot shift child names.
-  const childHintPrefix = toGraphqlTypeName(nameHint);
+  const object = ensureObject(ctx, nameHint);
   for (const prop of type.properties) {
-    addObjectField(
+    addGraphqlField(
       ctx,
-      object,
+      object.name,
       prop.name,
       prop.type,
-      `${childHintPrefix}${toPascalCase(prop.name)}`,
+      `${object.name}${toPascalCase(prop.name)}`,
       {
         nullable: prop.optional,
       },
@@ -434,10 +359,10 @@ const ensureNamedUnion = (
   type: GraphqlNamedUnionTypeInfo,
   ctx: GraphqlTypeContext,
 ): GraphqlTypeRef => {
-  const unionName = claimDeclaredName(ctx, 'union', type.name);
+  const unionName = claimTypeName(ctx, 'union', type.name);
   const members = type.members.map((member) => {
-    const objectName = directObjectName(ctx, member.name);
-    const ref = convertTypeInfoToGraphqlRef(member.type, ctx, member.name);
+    const objectName = toGraphqlTypeName(member.name);
+    const ref = convertTypeInfoToGraphqlRef(member.type, ctx, objectName);
     if (ref.type !== objectName || ref.nullable) {
       throw new Error(
         `GraphQL union member must be a named object type: ${unionName}.${objectName}`,
@@ -501,12 +426,12 @@ export const convertTypeInfoToGraphqlRef = (
     .with({ kind: 'union' }, (t) => convertUnion(t, ctx, nameHint))
     .with({ kind: 'promise' }, (t) => convertTypeInfoToGraphqlRef(t.inner, ctx, nameHint))
     .with({ kind: 'named' }, (t) => {
-      const name = directObjectName(ctx, t.name);
+      const name = toGraphqlTypeName(t.name);
       ctx.referencedTypes.add(name);
       return { type: name, nullable: false };
     })
     .with({ kind: 'ref' }, (t) => {
-      const name = directObjectName(ctx, t.name);
+      const name = toGraphqlTypeName(t.name);
       ctx.referencedTypes.add(name);
       return { type: name, nullable: false };
     })
@@ -519,29 +444,6 @@ export const convertTypeInfoToGraphqlRef = (
 const GRAPHQL_NAME_PATTERN = /^[_A-Za-z][_0-9A-Za-z]*$/;
 
 /** @throws {Error} */
-const addObjectField = (
-  ctx: GraphqlTypeContext,
-  object: GraphqlObjectDefinition,
-  fieldName: string,
-  type: GraphqlOutputTypeInfo,
-  typeNameHint: string | undefined,
-  options: { readonly nullable?: boolean },
-): void => {
-  if (isInternalBrandProperty(fieldName)) return;
-  if (!GRAPHQL_NAME_PATTERN.test(fieldName)) {
-    throw new Error(`Invalid GraphQL field name: ${object.name}.${fieldName}`);
-  }
-  const ref = convertTypeInfoToGraphqlRef(type, ctx, typeNameHint);
-  const fieldRef = { ...ref, nullable: ref.nullable || options.nullable === true };
-  addFieldDefinition(object, fieldName, renderType(fieldRef));
-
-  const enumValues = getStringLiteralUnionValues(type);
-  if (enumValues) {
-    addEnumFieldMapping(ctx, object.name, fieldName, enumValues);
-  }
-};
-
-/** @throws {Error} */
 export const addGraphqlField = (
   ctx: GraphqlTypeContext,
   objectName: string,
@@ -550,8 +452,19 @@ export const addGraphqlField = (
   typeNameHint?: string,
   options: { readonly nullable?: boolean } = {},
 ): void => {
-  const object = ensureObject(ctx, claimDeclaredName(ctx, 'object', objectName));
-  addObjectField(ctx, object, fieldName, type, typeNameHint, options);
+  if (isInternalBrandProperty(fieldName)) return;
+  if (!GRAPHQL_NAME_PATTERN.test(fieldName)) {
+    throw new Error(`Invalid GraphQL field name: ${objectName}.${fieldName}`);
+  }
+  const object = ensureObject(ctx, objectName);
+  const ref = convertTypeInfoToGraphqlRef(type, ctx, typeNameHint);
+  const fieldRef = { ...ref, nullable: ref.nullable || options.nullable === true };
+  addFieldDefinition(object, fieldName, renderType(fieldRef));
+
+  const enumValues = getStringLiteralUnionValues(type);
+  if (enumValues) {
+    addEnumFieldMapping(ctx, object.name, fieldName, enumValues);
+  }
 };
 
 const printObject = (object: GraphqlObjectDefinition): string => {

@@ -9,121 +9,6 @@ import {
 } from './type-to-graphql.lib';
 
 describe('typeInfoToGraphqlType', () => {
-  it('allocates distinct direct object names around model names and previously generated names', () => {
-    const modelNames = new Set(['Score', 'ScoreData', 'ScoreDataDataItems']);
-    const ctx = createGraphqlTypeContext(modelNames);
-    const first = convertTypeInfoToGraphqlRef(
-      {
-        kind: 'object',
-        properties: [
-          {
-            name: 'items',
-            optional: false,
-            type: {
-              kind: 'array',
-              items: {
-                kind: 'object',
-                properties: [
-                  { name: 'value', optional: false, type: { kind: 'primitive', type: 'number' } },
-                ],
-              },
-            },
-          },
-        ],
-      },
-      ctx,
-      'Score',
-    );
-    const second = convertTypeInfoToGraphqlRef(
-      {
-        kind: 'object',
-        properties: [
-          { name: 'label', optional: false, type: { kind: 'primitive', type: 'string' } },
-        ],
-      },
-      ctx,
-      first.type,
-    );
-    expect(first.type).not.toBe(second.type);
-    for (const name of ctx.objects.keys()) expect(modelNames.has(name)).toBe(false);
-    expect(ctx.objects.get(first.type)?.fields.size).toBe(1);
-    expect(ctx.objects.get(second.type)?.fields.get('label')).toBe('String!');
-    const repeated = convertTypeInfoToGraphqlRef({ kind: 'object', properties: [] }, ctx, 'Score');
-    expect(repeated).toEqual(first);
-  });
-
-  it('derives child names from the original hint, not the renamed parent', () => {
-    const ctx = createGraphqlTypeContext(new Set(['Score']));
-    const ref = convertTypeInfoToGraphqlRef(
-      {
-        kind: 'object',
-        properties: [
-          {
-            name: 'detail',
-            optional: false,
-            type: {
-              kind: 'object',
-              properties: [
-                { name: 'value', optional: false, type: { kind: 'primitive', type: 'number' } },
-              ],
-            },
-          },
-        ],
-      },
-      ctx,
-      'Score',
-    );
-    expect(ref.type).toBe('ScoreData');
-    expect(ctx.objects.get('ScoreData')?.fields.get('detail')).toBe('ScoreDetail!');
-  });
-
-  it('keeps generated object and enum names unique across every type kind and order', () => {
-    const statusEnum = {
-      kind: 'union',
-      types: [
-        { kind: 'literal', value: 'on' } as const,
-        { kind: 'literal', value: 'off' } as const,
-      ],
-    } satisfies TypeInfo;
-    const statusObject = {
-      kind: 'object',
-      properties: [{ name: 'ok', optional: false, type: { kind: 'primitive', type: 'boolean' } }],
-    } satisfies TypeInfo;
-
-    for (const order of ['enumFirst', 'objectFirst'] as const) {
-      const ctx = createGraphqlTypeContext();
-      addGraphqlField(ctx, 'Parent', 'value', { kind: 'primitive', type: 'string' });
-      const refs =
-        order === 'enumFirst'
-          ? [
-              convertTypeInfoToGraphqlRef(statusEnum, ctx, 'Status'),
-              convertTypeInfoToGraphqlRef(statusObject, ctx, 'Status'),
-            ]
-          : [
-              convertTypeInfoToGraphqlRef(statusObject, ctx, 'Status'),
-              convertTypeInfoToGraphqlRef(statusEnum, ctx, 'Status'),
-            ];
-      const queryHinted = convertTypeInfoToGraphqlRef(statusObject, ctx, 'Query');
-
-      const names = [
-        ...ctx.objects.keys(),
-        ...ctx.enums.keys(),
-        ...ctx.scalars.keys(),
-        ...ctx.unions.keys(),
-      ];
-      expect(new Set(names).size).toBe(names.length);
-      expect(new Set(refs.map((r) => r.type)).size).toBe(2);
-      expect(queryHinted.type).not.toBe('Query');
-    }
-  });
-
-  it('rejects explicit type names already held by another type', () => {
-    const ctx = createGraphqlTypeContext(new Set(['User']));
-    expect(() =>
-      addGraphqlField(ctx, 'User', 'name', { kind: 'primitive', type: 'string' }),
-    ).toThrow(/duplicate.*type name/i);
-  });
-
   it('converts nullable arrays and string literal unions', () => {
     const typeInfo = {
       kind: 'union',
@@ -260,6 +145,47 @@ describe('typeInfoToGraphqlType internal error paths', () => {
 
     convertTypeInfoToGraphqlRef(enumA, ctx, 'Status');
     expect(() => convertTypeInfoToGraphqlRef(enumB, ctx, 'Status')).toThrow(/duplicate.*enum/i);
+  });
+
+  it('rejects type names shared across GraphQL type kinds instead of renaming them', () => {
+    const levelEnum = {
+      kind: 'union',
+      types: [
+        { kind: 'literal', value: 'low' } as const,
+        { kind: 'literal', value: 'high' } as const,
+      ],
+    } satisfies TypeInfo;
+    const levelObject = {
+      kind: 'object',
+      properties: [{ name: 'value', optional: false, type: { kind: 'primitive', type: 'number' } }],
+    } satisfies TypeInfo;
+
+    const enumFirst = createGraphqlTypeContext();
+    convertTypeInfoToGraphqlRef(levelEnum, enumFirst, 'Level');
+    expect(() => convertTypeInfoToGraphqlRef(levelObject, enumFirst, 'Level')).toThrow(
+      /type name conflict: Level/,
+    );
+
+    const objectFirst = createGraphqlTypeContext();
+    convertTypeInfoToGraphqlRef(levelObject, objectFirst, 'Level');
+    expect(() => convertTypeInfoToGraphqlRef(levelEnum, objectFirst, 'Level')).toThrow(
+      /type name conflict: Level/,
+    );
+  });
+
+  it('rejects direct object names that collide with model or built-in type names', () => {
+    const ctx = createGraphqlTypeContext(new Set(['Score']));
+    const object = {
+      kind: 'object',
+      properties: [{ name: 'value', optional: false, type: { kind: 'primitive', type: 'number' } }],
+    } satisfies TypeInfo;
+
+    expect(() => convertTypeInfoToGraphqlRef(object, ctx, 'Score')).toThrow(
+      /type name conflict: Score/,
+    );
+    expect(() => convertTypeInfoToGraphqlRef(object, ctx, 'Query')).toThrow(
+      /type name conflict: Query/,
+    );
   });
 
   it('rejects duplicate field with incompatible type', () => {
