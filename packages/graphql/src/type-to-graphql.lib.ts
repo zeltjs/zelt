@@ -246,12 +246,59 @@ const claimTypeName = (ctx: GraphqlTypeContext, owner: string, name: string): st
   return registerTypeName(ctx, owner, name);
 };
 
-const objectOwner = (original: string): string => `object:${original}`;
+/** @throws {Error} */
+const claimDeclaredName = (
+  ctx: GraphqlTypeContext,
+  kind: 'object' | 'scalar' | 'union',
+  declared: string,
+): string => {
+  const name = toGraphqlTypeName(declared);
+  return claimTypeName(ctx, `${kind}:${name}`, name);
+};
+
+// Explicit names must be claimed before any generated name is allocated; otherwise a generated
+// name registered earlier could take a name a later scalar/union/parent cannot give up.
+/** @throws {Error} */
+export const reserveExplicitTypeNames = (
+  ctx: GraphqlTypeContext,
+  type: GraphqlOutputTypeInfo,
+): void => {
+  match(type)
+    .with({ kind: 'graphqlScalar' }, (t) => {
+      claimDeclaredName(ctx, 'scalar', t.name);
+    })
+    .with({ kind: 'graphqlNamedUnion' }, (t) => {
+      claimDeclaredName(ctx, 'union', t.name);
+      for (const member of t.members) reserveExplicitTypeNames(ctx, member.type);
+    })
+    .with({ kind: 'array' }, (t) => reserveExplicitTypeNames(ctx, t.items))
+    .with({ kind: 'promise' }, (t) => reserveExplicitTypeNames(ctx, t.inner))
+    .with({ kind: 'union' }, (t) => {
+      for (const member of t.types) reserveExplicitTypeNames(ctx, member);
+    })
+    .with({ kind: 'object' }, (t) => {
+      for (const prop of t.properties) reserveExplicitTypeNames(ctx, prop.type);
+    })
+    .with(
+      { kind: 'primitive' },
+      { kind: 'literal' },
+      { kind: 'named' },
+      { kind: 'ref' },
+      { kind: 'unknown' },
+      () => undefined,
+    )
+    .exhaustive();
+};
+
+/** @throws {Error} */
+export const reserveObjectTypeName = (ctx: GraphqlTypeContext, declared: string): void => {
+  claimDeclaredName(ctx, 'object', declared);
+};
 
 // Model objects use field resolvers; direct values need distinct GraphQL object identities.
 const directObjectName = (ctx: GraphqlTypeContext, hint: string): string => {
   const original = toGraphqlTypeName(hint);
-  return allocateTypeName(ctx, objectOwner(original), original, 'Data');
+  return allocateTypeName(ctx, `object:${original}`, original, 'Data');
 };
 
 const ensureObject = (ctx: GraphqlTypeContext, objectName: string): GraphqlObjectDefinition => {
@@ -264,8 +311,7 @@ const ensureObject = (ctx: GraphqlTypeContext, objectName: string): GraphqlObjec
 
 /** @throws {Error} */
 const ensureScalar = (ctx: GraphqlTypeContext, type: GraphqlScalarTypeInfo): GraphqlTypeRef => {
-  const scalarName = toGraphqlTypeName(type.name);
-  claimTypeName(ctx, `scalar:${scalarName}`, scalarName);
+  const scalarName = claimDeclaredName(ctx, 'scalar', type.name);
   const existing = ctx.scalars.get(scalarName);
   if (
     existing &&
@@ -388,8 +434,7 @@ const ensureNamedUnion = (
   type: GraphqlNamedUnionTypeInfo,
   ctx: GraphqlTypeContext,
 ): GraphqlTypeRef => {
-  const declaredName = toGraphqlTypeName(type.name);
-  const unionName = claimTypeName(ctx, `union:${declaredName}`, declaredName);
+  const unionName = claimDeclaredName(ctx, 'union', type.name);
   const members = type.members.map((member) => {
     const objectName = directObjectName(ctx, member.name);
     const ref = convertTypeInfoToGraphqlRef(member.type, ctx, member.name);
@@ -505,8 +550,7 @@ export const addGraphqlField = (
   typeNameHint?: string,
   options: { readonly nullable?: boolean } = {},
 ): void => {
-  const name = toGraphqlTypeName(objectName);
-  const object = ensureObject(ctx, claimTypeName(ctx, objectOwner(name), name));
+  const object = ensureObject(ctx, claimDeclaredName(ctx, 'object', objectName));
   addObjectField(ctx, object, fieldName, type, typeNameHint, options);
 };
 

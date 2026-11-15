@@ -30,6 +30,8 @@ import {
   convertTypeInfoToGraphqlRef,
   createGraphqlTypeContext,
   renderGraphqlDefinitions,
+  reserveExplicitTypeNames,
+  reserveObjectTypeName,
 } from './type-to-graphql.lib';
 
 type TS = typeof import('typescript');
@@ -1037,14 +1039,19 @@ const registerAnalyzedMethod = async (
   );
 };
 
+type DirectResolverMethods = {
+  readonly resolverName: string;
+  readonly methods: readonly MethodInfo[];
+  readonly methodTypeNames: ReadonlyMap<string, MethodTypeNames>;
+};
+
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
-const analyzeResolver = async (
+const collectDirectResolverMethods = async (
   resolver: GraphqlResolverClass,
-  state: AnalysisState,
   program: ResolverProgram,
   options: GenerateSdlOptions,
   dataOnly: boolean,
-): Promise<void> => {
+): Promise<DirectResolverMethods> => {
   const metadataResult = await getTypeMetadata(
     toInspectableClass(resolver),
     buildInspectOptions(options),
@@ -1056,10 +1063,56 @@ const analyzeResolver = async (
 
   const metadata = metadataResult.value;
   const methodTypeNames = await getResolverTypeNames(resolver, metadata, program, options);
+  const methods = metadata.methods.filter((method) => !dataOnly || isQueryData(method));
+  return { resolverName: resolver.name, methods, methodTypeNames };
+};
 
-  for (const method of metadata.methods) {
-    if (dataOnly && !isQueryData(method)) continue;
-    await registerAnalyzedMethod(method, resolver.name, state, methodTypeNames, options);
+/**
+ * @throws {Error} from graphql-sdl-generator.lib.ts:reserveDirectMethodTypeNames
+ */
+const reserveDirectMethodTypeNames = (
+  state: AnalysisState,
+  resolverName: string,
+  method: MethodInfo,
+  names: MethodTypeNames | undefined,
+): void => {
+  const operation = getDirectOperationMetadata(method, resolverName);
+  if (!operation) return;
+  reserveExplicitTypeNames(state.typeCtx, names?.returnType ?? method.returnType);
+  if (operation.kind === 'resolveField' && names?.parentTypeName) {
+    reserveObjectTypeName(state.typeCtx, names.parentTypeName);
+  }
+};
+
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const analyzeDirectResolvers = async (
+  resolvers: readonly GraphqlResolverClass[],
+  modelResolvers: ReadonlySet<string>,
+  state: AnalysisState,
+  program: ResolverProgram,
+  options: GenerateSdlOptions,
+): Promise<void> => {
+  const directResolvers: DirectResolverMethods[] = [];
+  for (const resolver of resolvers) {
+    directResolvers.push(
+      await collectDirectResolverMethods(
+        resolver,
+        program,
+        options,
+        modelResolvers.has(resolver.name),
+      ),
+    );
+  }
+  for (const { resolverName, methods, methodTypeNames } of directResolvers) {
+    for (const method of methods) {
+      if (typeof method.name !== 'string') continue;
+      reserveDirectMethodTypeNames(state, resolverName, method, methodTypeNames.get(method.name));
+    }
+  }
+  for (const { resolverName, methods, methodTypeNames } of directResolvers) {
+    for (const method of methods) {
+      await registerAnalyzedMethod(method, resolverName, state, methodTypeNames, options);
+    }
   }
 };
 
@@ -1237,15 +1290,7 @@ const analyzeResolvers = async (
     roots: { query: new Map(), mutation: new Map() },
     bindings: {},
   };
-  for (const resolver of resolvers) {
-    await analyzeResolver(
-      resolver,
-      state,
-      program,
-      options,
-      analysis.modelResolvers.has(resolver.name),
-    );
-  }
+  await analyzeDirectResolvers(resolvers, analysis.modelResolvers, state, program, options);
   const modelDefinitions = await renderModels({
     inputs,
     analysis,
