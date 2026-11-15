@@ -91,6 +91,8 @@ type GraphqlUnionDefinition = {
 };
 
 export type GraphqlTypeContext = {
+  readonly modelNames: ReadonlySet<string>;
+  readonly objectNames: Map<string, string>;
   readonly objects: Map<string, GraphqlObjectDefinition>;
   readonly enums: Map<string, GraphqlEnumDefinition>;
   readonly scalars: Map<string, GraphqlScalarDefinition>;
@@ -106,7 +108,11 @@ export type GraphqlTypeResult = {
   readonly definitions: readonly string[];
 };
 
-export const createGraphqlTypeContext = (): GraphqlTypeContext => ({
+export const createGraphqlTypeContext = (
+  modelNames: ReadonlySet<string> = new Set(),
+): GraphqlTypeContext => ({
+  modelNames,
+  objectNames: new Map(),
   objects: new Map(),
   enums: new Map(),
   scalars: new Map(),
@@ -187,6 +193,18 @@ const ensureEnum = (
   }
   ctx.enums.set(enumName, { name: enumName, values: enumValues });
   return { type: enumName, nullable: false };
+};
+
+// Model objects use field resolvers; direct values need distinct GraphQL object identities.
+const directObjectName = (ctx: GraphqlTypeContext, hint: string): string => {
+  const original = toGraphqlTypeName(hint);
+  const existing = ctx.objectNames.get(original);
+  if (existing) return existing;
+  let name = original;
+  const assigned = new Set(ctx.objectNames.values());
+  while (ctx.modelNames.has(name) || assigned.has(name)) name = `${name}Data`;
+  ctx.objectNames.set(original, name);
+  return name;
 };
 
 const ensureObject = (ctx: GraphqlTypeContext, name: string): GraphqlObjectDefinition => {
@@ -273,7 +291,7 @@ const convertObject = (
     throw new Error('Anonymous object GraphQL output requires a name hint');
   }
 
-  const object = ensureObject(ctx, nameHint);
+  const object = ensureObject(ctx, directObjectName(ctx, nameHint));
   for (const prop of type.properties) {
     addGraphqlField(
       ctx,
@@ -323,8 +341,8 @@ const ensureNamedUnion = (
 ): GraphqlTypeRef => {
   const unionName = toGraphqlTypeName(type.name);
   const members = type.members.map((member) => {
-    const objectName = toGraphqlTypeName(member.name);
-    const ref = convertTypeInfoToGraphqlRef(member.type, ctx, objectName);
+    const objectName = directObjectName(ctx, member.name);
+    const ref = convertTypeInfoToGraphqlRef(member.type, ctx, member.name);
     if (ref.type !== objectName || ref.nullable) {
       throw new Error(
         `GraphQL union member must be a named object type: ${unionName}.${objectName}`,
@@ -388,12 +406,12 @@ export const convertTypeInfoToGraphqlRef = (
     .with({ kind: 'union' }, (t) => convertUnion(t, ctx, nameHint))
     .with({ kind: 'promise' }, (t) => convertTypeInfoToGraphqlRef(t.inner, ctx, nameHint))
     .with({ kind: 'named' }, (t) => {
-      const name = toGraphqlTypeName(t.name);
+      const name = directObjectName(ctx, t.name);
       ctx.referencedTypes.add(name);
       return { type: name, nullable: false };
     })
     .with({ kind: 'ref' }, (t) => {
-      const name = toGraphqlTypeName(t.name);
+      const name = directObjectName(ctx, t.name);
       ctx.referencedTypes.add(name);
       return { type: name, nullable: false };
     })

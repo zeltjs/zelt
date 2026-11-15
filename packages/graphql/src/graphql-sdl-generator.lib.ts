@@ -1227,17 +1227,16 @@ const analyzeResolvers = async (
   resolvers: readonly GraphqlResolverClass[],
   options: GenerateSdlOptions = {},
 ): Promise<AnalyzeResolversResult> => {
-  const state: AnalysisState = {
-    typeCtx: createGraphqlTypeContext(),
-    roots: { query: new Map(), mutation: new Map() },
-    bindings: {},
-  };
-
   const program = await loadResolverProgram(options);
   const inputs = await Promise.all(
     resolvers.map((resolver) => inspectModelResolver(resolver, program, options)),
   );
   const analysis = analyzeGraphqlModels(inputs);
+  const state: AnalysisState = {
+    typeCtx: createGraphqlTypeContext(new Set(Object.keys(analysis.models))),
+    roots: { query: new Map(), mutation: new Map() },
+    bindings: {},
+  };
   for (const resolver of resolvers) {
     await analyzeResolver(
       resolver,

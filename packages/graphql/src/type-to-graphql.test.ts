@@ -9,6 +9,49 @@ import {
 } from './type-to-graphql.lib';
 
 describe('typeInfoToGraphqlType', () => {
+  it('allocates distinct direct object names around model names and previously generated names', () => {
+    const modelNames = new Set(['Score', 'ScoreData', 'ScoreDataDataItems']);
+    const ctx = createGraphqlTypeContext(modelNames);
+    const first = convertTypeInfoToGraphqlRef(
+      {
+        kind: 'object',
+        properties: [
+          {
+            name: 'items',
+            optional: false,
+            type: {
+              kind: 'array',
+              items: {
+                kind: 'object',
+                properties: [
+                  { name: 'value', optional: false, type: { kind: 'primitive', type: 'number' } },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      ctx,
+      'Score',
+    );
+    const second = convertTypeInfoToGraphqlRef(
+      {
+        kind: 'object',
+        properties: [
+          { name: 'label', optional: false, type: { kind: 'primitive', type: 'string' } },
+        ],
+      },
+      ctx,
+      first.type,
+    );
+    expect(first.type).not.toBe(second.type);
+    for (const name of ctx.objects.keys()) expect(modelNames.has(name)).toBe(false);
+    expect(ctx.objects.get(first.type)?.fields.size).toBe(1);
+    expect(ctx.objects.get(second.type)?.fields.get('label')).toBe('String!');
+    const repeated = convertTypeInfoToGraphqlRef({ kind: 'object', properties: [] }, ctx, 'Score');
+    expect(repeated).toEqual(first);
+  });
+
   it('converts nullable arrays and string literal unions', () => {
     const typeInfo = {
       kind: 'union',

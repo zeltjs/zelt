@@ -34,6 +34,11 @@ const calls: Call[] = [];
 @Resolver()
 class Accounts {
   @QueryData()
+  directScore(): Score {
+    return { id: 'standalone', value: 123 };
+  }
+
+  @QueryData()
   health(): { status: boolean } {
     return { status: true };
   }
@@ -197,6 +202,36 @@ const start = (contextMode: 'sync' | 'async') => {
 };
 
 describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode) => {
+  it('keeps direct output separate when its TypeScript type is also a model', async () => {
+    const running = await start(mode);
+    try {
+      const response = await running.http.request('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Identity': 'one' },
+        body: JSON.stringify({
+          query: '{ directScore { __typename id value } scores { __typename value } }',
+        }),
+      });
+      expect(await response.json()).toEqual({
+        data: {
+          directScore: { __typename: 'ScoreData', id: 'standalone', value: 123 },
+          scores: [
+            { __typename: 'Score', value: 1 },
+            { __typename: 'Score', value: 2 },
+            { __typename: 'Score', value: 1 },
+          ],
+        },
+      });
+      expect(calls.filter((call) => call.method === 'scores').map((call) => call.ids)).toEqual([
+        ['a'],
+        ['bb'],
+      ]);
+      expect(generated.bindings['ScoreData']).toBeUndefined();
+    } finally {
+      await running.shutdown();
+    }
+  });
+
   it('returns direct data beside model queries without loading models for that data', async () => {
     const running = await start(mode);
     try {
