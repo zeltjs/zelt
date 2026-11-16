@@ -63,6 +63,7 @@ Application code may use these APIs directly:
 - `graphql()`
 - `Resolver`
 - `Query`
+- `QueryData`
 - `Mutation`
 - `ResolveField`
 - `ResolveMultiField`
@@ -120,11 +121,43 @@ Runtime integration APIs used by adapters and framework internals remain on
 Generation, TypeScript inspection, GraphQL metadata getters, and type
 conversion helpers are available from `@zeltjs/graphql/codegen`.
 
-## Model references and field providers
+## Direct query data
 
-A resolver with one `@ResolveMultiField()` supplies a named model. Queries
-and `@Relation()` methods return `Pick<Model, 'id'>` references; the runtime
-hydrates those references through an operation-local DataLoader. All three
+Use `@QueryData()` for a query that returns values directly, without model IDs
+or field providers:
+
+```ts
+import { QueryData, Resolver } from '@zeltjs/graphql';
+
+@Resolver()
+class StatusResolver {
+  @QueryData()
+  health() {
+    return { status: true };
+  }
+}
+```
+
+Code-first generates the output type from the return type. Supported scalar,
+object, array, nullable, and Promise return types follow the existing output
+rules. `args(schema)` and an explicit field name (`@QueryData('health')`)
+work as with `@Query()`. A returned `id` is ordinary data and does not trigger
+model resolution. `@QueryData()` and model operations may share a resolver
+class. In schema-first mode it binds a root Query field in the supplied SDL.
+
+## Model IDs and field providers
+
+GraphQL scalar names follow the declared TypeScript type. After upgrading,
+`id: string` generates `String!` instead of the previously inferred `ID!`.
+To keep `ID!`, import `ID` from `@zeltjs/graphql` and declare `id: ID`.
+Regenerate prebuilt output and check client operations and schema compatibility
+when migrating an existing endpoint.
+
+Declare public fields and private resolution properties in a named model.
+`@ResolveField()` and `@Relation()` resolve declared fields; `@ResolveMultiField()`
+may supply several properties together. It is optional when fields need only the ID. Queries
+and `@Relation()` methods return `Pick<Model, 'id'>`; the runtime
+hydrates data for those IDs through an operation-local DataLoader. All three
 method kinds use the same contract: a single parent returns its result,
 and an array of parents returns a Map from parent ID to each result. Both
 forms may return a value or a Promise for the whole result. Batch parent
@@ -134,10 +167,17 @@ that form is permitted and does not produce a build warning.
 
 Properties beginning with `$` remain available to providers and dependent
 methods but are excluded from the GraphQL schema. A provider returns the
-complete model, including private properties, directly for one reference
+model or a `Pick<Model, keys>` of its supplied properties (including `id`), directly for one ID
 or in a Map keyed by the requested IDs for a batch. Missing targets are
 explicit null values; malformed Maps are errors. Map values are results,
-not individual Promises. Single providers still cache by model and ID
+not individual Promises. The provider return type assigns its public fields to
+that provider: returning `Model` assigns all public fields, while returning
+`Pick<Model, keys>` assigns only those keys. A field must have exactly one
+supplier, so exclude fields resolved by `@ResolveField()` or `@Relation()` from
+the provider Pick; supplying the same field twice is a build error.
+Write `Pick<Model, keys>` directly; a `Pick` reached through another type alias
+or a custom generic is reported as a build error.
+Single providers still cache by model and ID
 within an operation, but distinct IDs invoke them individually.
 
 Regenerate prebuilt output after upgrading: provider and computed-field

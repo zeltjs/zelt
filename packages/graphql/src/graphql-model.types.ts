@@ -1,10 +1,12 @@
+export type GraphqlModelScalar = 'ID' | 'string' | 'number' | 'boolean';
+
 export type GraphqlModelBinding = {
   readonly resolver: string;
   readonly method: string;
 };
 
 export type GraphqlModelValue =
-  | { kind: 'scalar'; readonly name: 'string' | 'number' | 'boolean' }
+  | { kind: 'scalar'; readonly name: GraphqlModelScalar }
   | { kind: 'array'; readonly item: GraphqlModelValue }
   | { kind: 'nullable'; readonly inner: GraphqlModelValue }
   | { kind: 'optional'; readonly inner: GraphqlModelValue }
@@ -16,11 +18,21 @@ export type GraphqlModelProperty = {
   readonly value: GraphqlModelValue;
 };
 
-export type GraphqlModelDefinition = {
-  readonly provider: GraphqlModelBinding;
-  readonly mode: 'single' | 'batch';
-  readonly properties: readonly GraphqlModelProperty[];
-};
+/**
+ * `properties` are the values a reference is hydrated with. An identity model has no provider,
+ * so only its `id` is known and every other field is resolved from that id.
+ */
+export type GraphqlModelDefinition =
+  | {
+      kind: 'identity';
+      readonly properties: readonly GraphqlModelProperty[];
+    }
+  | {
+      kind: 'provided';
+      readonly provider: GraphqlModelBinding;
+      readonly mode: 'single' | 'batch';
+      readonly properties: readonly GraphqlModelProperty[];
+    };
 
 export type GraphqlModelResultShape =
   | { kind: 'one'; readonly nullable: boolean }

@@ -8,6 +8,7 @@ import type {
   GraphqlModels,
   GraphqlModelValue,
 } from './graphql-model.types';
+import { readOwnEntry } from './graphql-record.lib';
 
 const record = (value: unknown): Record<string, unknown> | undefined =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -28,7 +29,7 @@ const parseValue = (value: unknown, depth = 0): GraphqlModelValue | undefined =>
   return match(entry)
     .returnType<GraphqlModelValue | undefined>()
     .with({ kind: 'opaque' }, () => ({ kind: 'opaque' }))
-    .with({ kind: 'scalar', name: P.union('string', 'number', 'boolean') }, ({ name }) => ({
+    .with({ kind: 'scalar', name: P.union('ID', 'string', 'number', 'boolean') }, ({ name }) => ({
       kind: 'scalar',
       name,
     }))
@@ -71,22 +72,32 @@ const parseProperties = (value: unknown): readonly GraphqlModelProperty[] | unde
   return properties;
 };
 
+const hasScalarId = (properties: readonly GraphqlModelProperty[]): boolean =>
+  match(properties.find((property) => property.name === 'id'))
+    .with({ optional: false, value: { kind: 'scalar', name: P.union('ID', 'string') } }, () => true)
+    .otherwise(() => false);
+
+const parseProvided = (
+  entry: Record<string, unknown>,
+  properties: readonly GraphqlModelProperty[],
+): GraphqlModelDefinition | undefined => {
+  const mode = entry['mode'];
+  const provider = parseBinding(entry['provider']);
+  if ((mode !== 'single' && mode !== 'batch') || !provider) return undefined;
+  return { kind: 'provided', provider, properties, mode };
+};
+
 const parseModel = (value: unknown): GraphqlModelDefinition | undefined => {
   const entry = record(value);
-  if (!entry) return undefined;
-  const mode = entry['mode'];
-  if (mode !== 'single' && mode !== 'batch') return undefined;
-  const provider = parseBinding(entry['provider']);
-  const properties = parseProperties(entry['properties']);
-  if (!provider || !properties) return undefined;
-  const id = properties.find((property) => property.name === 'id');
-  if (
-    !match(id)
-      .with({ optional: false, value: { kind: 'scalar', name: 'string' } }, () => true)
-      .otherwise(() => false)
-  )
-    return undefined;
-  return { provider, properties, mode };
+  const properties = entry && parseProperties(entry['properties']);
+  if (!entry || !properties || !hasScalarId(properties)) return undefined;
+  return match(entry['kind'])
+    .returnType<GraphqlModelDefinition | undefined>()
+    .with('identity', () =>
+      properties.length === 1 ? { kind: 'identity', properties } : undefined,
+    )
+    .with('provided', () => parseProvided(entry, properties))
+    .otherwise(() => undefined);
 };
 
 const parseShape = (value: unknown): GraphqlModelResultShape | undefined => {
@@ -176,29 +187,34 @@ const hasValidFieldReferences = (
   models: GraphqlModels,
   names: ReadonlySet<string>,
   owner: string,
+  owned: Readonly<Record<string, GraphqlModelField>>,
   field: GraphqlModelField,
 ): boolean => {
   if (field.kind !== 'computed' && !names.has(field.target)) return false;
   if (field.kind === 'query') return owner === 'Query';
   const parent = models[owner];
   if (!parent || !names.has(owner)) return false;
-  return hasValidDependencies(parent, field);
+  return hasValidDependencies(parent, owned, field);
 };
 
+/** Dependencies are supplied properties or computed fields of the same model. */
 const hasValidDependencies = (
   parent: GraphqlModelDefinition,
+  owned: Readonly<Record<string, GraphqlModelField>>,
   field: Exclude<GraphqlModelField, { kind: 'query' }>,
 ): boolean => {
   if (field.mode === 'batch' && !field.dependencies.includes('id')) return false;
   const keys = new Set(parent.properties.map((property) => property.name));
-  return field.dependencies.every((key) => keys.has(key));
+  return field.dependencies.every(
+    (key) => keys.has(key) || readOwnEntry(owned, key)?.kind === 'computed',
+  );
 };
 
 const hasValidReferences = (models: GraphqlModels, fields: GraphqlModelFields): boolean => {
   const names = new Set(Object.keys(models));
   return Object.entries(fields).every(([owner, definitions]) =>
     Object.values(definitions).every((field) =>
-      hasValidFieldReferences(models, names, owner, field),
+      hasValidFieldReferences(models, names, owner, definitions, field),
     ),
   );
 };

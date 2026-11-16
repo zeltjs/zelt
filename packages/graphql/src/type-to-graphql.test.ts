@@ -147,6 +147,47 @@ describe('typeInfoToGraphqlType internal error paths', () => {
     expect(() => convertTypeInfoToGraphqlRef(enumB, ctx, 'Status')).toThrow(/duplicate.*enum/i);
   });
 
+  it('rejects type names shared across GraphQL type kinds instead of renaming them', () => {
+    const levelEnum = {
+      kind: 'union',
+      types: [
+        { kind: 'literal', value: 'low' } as const,
+        { kind: 'literal', value: 'high' } as const,
+      ],
+    } satisfies TypeInfo;
+    const levelObject = {
+      kind: 'object',
+      properties: [{ name: 'value', optional: false, type: { kind: 'primitive', type: 'number' } }],
+    } satisfies TypeInfo;
+
+    const enumFirst = createGraphqlTypeContext();
+    convertTypeInfoToGraphqlRef(levelEnum, enumFirst, 'Level');
+    expect(() => convertTypeInfoToGraphqlRef(levelObject, enumFirst, 'Level')).toThrow(
+      /type name conflict: Level/,
+    );
+
+    const objectFirst = createGraphqlTypeContext();
+    convertTypeInfoToGraphqlRef(levelObject, objectFirst, 'Level');
+    expect(() => convertTypeInfoToGraphqlRef(levelEnum, objectFirst, 'Level')).toThrow(
+      /type name conflict: Level/,
+    );
+  });
+
+  it('rejects direct object names that collide with model or built-in type names', () => {
+    const ctx = createGraphqlTypeContext(new Set(['Score']));
+    const object = {
+      kind: 'object',
+      properties: [{ name: 'value', optional: false, type: { kind: 'primitive', type: 'number' } }],
+    } satisfies TypeInfo;
+
+    expect(() => convertTypeInfoToGraphqlRef(object, ctx, 'Score')).toThrow(
+      /type name conflict: Score/,
+    );
+    expect(() => convertTypeInfoToGraphqlRef(object, ctx, 'Query')).toThrow(
+      /type name conflict: Query/,
+    );
+  });
+
   it('rejects duplicate field with incompatible type', () => {
     const ctx = createGraphqlTypeContext();
     const stringType = { kind: 'primitive', type: 'string' } satisfies TypeInfo;

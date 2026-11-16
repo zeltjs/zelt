@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
-import { Query, Resolver } from './index';
+import { Query, QueryData, Resolver } from './index';
 import {
   generateSchemaFirstResolverChecks,
   renderSchemaFirstResolverChecks,
@@ -28,7 +28,7 @@ class SchemaFirstCheckStorefrontResolver {
 
 @Resolver()
 class SchemaFirstCheckNamedStorefrontResolver {
-  @Query('product')
+  @QueryData('product')
   findProduct(input = { id: 'p_lamp' }): Promise<Product | null> {
     return Promise.resolve({ id: input.id, name: 'Desk Lamp' });
   }

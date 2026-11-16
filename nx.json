@@ -1,5 +1,4 @@
 {
-  "plugins": ["./scripts/verification-diagnostics.mjs"],
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": ["default", "!{projectRoot}/**/*.test.ts", "!{projectRoot}/vitest.config.ts"],
@@ -14,16 +13,7 @@
         "runtime": "node --version"
       }
     ],
-    "buildTools": ["{workspaceRoot}/scripts/pure-class-decorators.mjs", "toolchain"],
-    "verification": [
-      "{workspaceRoot}/**/*",
-      { "runtime": "node --no-warnings scripts/verification-toolchain.mjs --fingerprint" },
-      { "env": "CI" },
-      { "env": "NODE_ENV" },
-      { "env": "NODE_OPTIONS" },
-      { "env": "TZ" },
-      { "dependentTasksOutputFiles": "**/dist/**/*" }
-    ]
+    "buildTools": ["{workspaceRoot}/scripts/pure-class-decorators.mjs", "toolchain"]
   },
   "targetDefaults": {
     "build": {
@@ -34,7 +24,7 @@
     },
     "test": {
       "cache": true,
-      "dependsOn": ["build"],
+      "dependsOn": ["build", "^build"],
       "inputs": [
         "default",
         "^default",

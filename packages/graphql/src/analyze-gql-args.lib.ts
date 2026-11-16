@@ -171,6 +171,16 @@ const matchArgsCall = (
   return init;
 };
 
+/** Whether a parameter of the method is initialized with args(), regardless of its schema. */
+export const hasGraphqlArgsCall = (
+  methodNode: TSMethodDeclaration,
+  sourceFile: TSSourceFile,
+  ts: TS,
+): boolean => {
+  const helperNames = findImportedHelperLocalNames(sourceFile, ts);
+  return methodNode.parameters.some((param) => matchArgsCall(param.initializer, helperNames, ts));
+};
+
 /** @throws {Error} */
 export const extractGraphqlArgsRef = (
   methodNode: TSMethodDeclaration,

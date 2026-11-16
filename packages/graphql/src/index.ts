@@ -19,6 +19,7 @@ export { gqlScalar, isGqlScalar } from './gql-scalar.lib';
 export {
   Mutation,
   Query,
+  QueryData,
   Relation,
   ResolveField,
   ResolveMultiField,
@@ -26,6 +27,7 @@ export {
 } from './graphql.decorator';
 export type { GraphqlChildOptions, GraphqlOptions } from './graphql-child.lib';
 export { graphql } from './graphql-child.lib';
+export type { ID } from './graphql-id.types';
 export type {
   GqlSchemaRef,
   GraphqlOperationKind,

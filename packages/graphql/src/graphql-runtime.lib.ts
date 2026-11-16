@@ -398,7 +398,7 @@ const createBoundFieldResolver = (
       return context.models.resolveQuery(typeName, fieldName, binding, args);
     }
     if (modelField) {
-      return context.models.resolveField(typeName, fieldName, binding, parent, args);
+      return context.models.resolveField(typeName, fieldName, parent, args);
     }
     const isRoot = typeName === 'Query' || typeName === 'Mutation';
     const result = await invoke(binding, isRoot ? [] : [parent], args, context.captured);
@@ -438,6 +438,42 @@ const attachBindingResolvers = (
   for (const [typeName, bindings] of Object.entries(runtime.bindings)) {
     const type = schema.getType(typeName);
     if (type instanceof GraphQLObjectType) attachTypeBindings(type, bindings, runtime, invoke);
+  }
+};
+
+/**
+ * Supplied model properties have no binding, yet GraphQL parents carry only the id, so they are
+ * read through the operation, which calls the provider only once a selection needs it.
+ */
+const attachModelPropertyResolvers = (
+  schema: GraphQLSchema,
+  runtime: GeneratedGraphqlRuntime,
+): void => {
+  for (const [typeName, model] of Object.entries(runtime.models ?? {})) {
+    const type = schema.getType(typeName);
+    if (type instanceof GraphQLObjectType)
+      attachPropertyResolvers(type, model.properties, readOwnEntry(runtime.enumFields, typeName));
+  }
+};
+
+const attachPropertyResolvers = (
+  type: GraphQLObjectType,
+  properties: GraphqlModels[string]['properties'],
+  enumFields: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined,
+): void => {
+  const graphqlFields = type.getFields();
+  for (const { name } of properties) {
+    const field = graphqlFields[name];
+    if (!field || field.resolve || name === 'id') continue;
+    const mapping = readOwnEntry(enumFields, name);
+    field.resolve = async (
+      parent: unknown,
+      args: Readonly<Record<string, unknown>>,
+      context: OperationContext,
+    ) => {
+      const value = await context.models.resolveField(type.name, name, parent, args);
+      return mapping ? normalizeEnumValue(value, mapping) : value;
+    };
   }
 };
 
@@ -540,6 +576,7 @@ export const createGraphqlExecution = (options: CreateGraphqlExecutorOptions): G
   attachScalarSerializers(schema, options.runtime);
   attachUnionResolvers(schema, options.runtime);
   attachBindingResolvers(schema, options.runtime, invoke);
+  attachModelPropertyResolvers(schema, options.runtime);
   attachEnumFieldResolvers(schema, options.runtime);
   const validationRules = options.validationRules ?? [];
 
@@ -550,6 +587,7 @@ export const createGraphqlExecution = (options: CreateGraphqlExecutorOptions): G
     const models = createGraphqlModelExecution({
       models: options.runtime.models ?? {},
       modelFields: options.runtime.modelFields ?? {},
+      bindings: options.runtime.bindings,
       invoke: (binding, positional, fieldArgs) => invoke(binding, positional, fieldArgs, captured),
     });
     const context: OperationContext = { captured, models };

@@ -1,14 +1,13 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
-
 import { GENERATED_FILE_HEADER_MARKER } from '@zeltjs/cli';
 import type { ClassMetadata, MethodInfo } from '@zeltjs/decorator-metadata/inspect';
 import { getTypeMetadata } from '@zeltjs/decorator-metadata/inspect';
 import type { ObjectTypeDefinitionNode } from 'graphql';
 import { Kind, parse } from 'graphql';
-
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
+import { readDirectOperationKind } from './graphql-metadata.lib';
 
 export type GenerateSchemaFirstResolverChecksOptions = {
   readonly schemaSdl: string;
@@ -85,8 +84,8 @@ const rejectModelOperation = (kind: unknown): void => {
 const getOperationMetadata = (method: MethodInfo): GraphqlOperationMetadata | undefined => {
   for (const prop of method.props) rejectModelOperation(Reflect.get(prop, 'kind'));
   for (const prop of method.props) {
-    const kind: unknown = Reflect.get(prop, 'kind');
-    if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') {
+    const kind = readDirectOperationKind(Reflect.get(prop, 'kind'));
+    if (kind) {
       const fieldName: unknown = Reflect.get(prop, 'fieldName');
       return {
         kind,

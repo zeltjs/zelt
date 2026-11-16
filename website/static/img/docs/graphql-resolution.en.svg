@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1454 792" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" role="img">
+<title>How Zelt calls only the resolvers a request needs</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#777"/></marker></defs>
+<style>
+rect { fill: #fff; stroke: #555; stroke-width: 1.5; }
+.bg { stroke: none; }
+.zelt { fill: #eef3ff; stroke: #3b5bdb; }
+.idle { stroke: #aaa; stroke-dasharray: 5 4; }
+.line { fill: none; stroke: #777; stroke-width: 1.5; }
+text { fill: #222; }
+.deco { font-weight: 600; font-size: 14px; }
+.sig { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; fill: #333; }
+.idle-text { fill: #aaa; }
+.note { fill: #666; font-size: 13px; }
+.caption { fill: #555; font-size: 13px; font-weight: 600; }
+</style>
+<rect class="bg" x="0" y="0" width="1454" height="792" rx="8"/>
+<rect class="" x="30" y="150" width="200" height="152" rx="6"/>
+<text class="deco" x="46" y="174">Request</text>
+<text xml:space="preserve" class="sig" x="46" y="196">users {</text>
+<text xml:space="preserve" class="sig" x="46" y="212">  role</text>
+<text xml:space="preserve" class="sig" x="46" y="228">  age</text>
+<text xml:space="preserve" class="sig" x="46" y="244">  firstName</text>
+<text xml:space="preserve" class="sig" x="46" y="260">  lastName</text>
+<text xml:space="preserve" class="sig" x="46" y="276">  posts { title }</text>
+<text xml:space="preserve" class="sig" x="46" y="292">}</text>
+<path class="line" d="M230,228 H268" marker-end="url(#arrow)"/>
+<rect class="zelt" x="270" y="200" width="140" height="56" rx="6"/>
+<text x="340" y="233" text-anchor="middle" font-weight="600">Zelt</text>
+<text class="caption" x="500" y="40">① Select IDs first</text>
+<rect class="" x="500" y="56" width="640" height="56" rx="6"/>
+<text class="deco" x="516" y="79">@Query</text>
+<text xml:space="preserve" class="sig" x="516" y="99">users(): readonly Pick&lt;User, 'id'&gt;[]</text>
+<path class="line" d="M310,200 V72 H498" marker-end="url(#arrow)"/>
+<path class="line" d="M500,96 H370 V198" marker-end="url(#arrow)"/>
+<text class="caption" x="500" y="184">② Zelt calls only the resolvers the request needs</text>
+<path class="line" d="M410,228 H498" marker-end="url(#arrow)"/>
+<rect class="" x="500" y="200" width="640" height="56" rx="6"/>
+<text class="deco" x="516" y="223">@ResolveField</text>
+<text xml:space="preserve" class="sig" x="516" y="243">role(user: Pick&lt;User, 'id'&gt;): User['role']</text>
+<text class="note" x="1164" y="224">Called because it is requested</text>
+<rect class="" x="500" y="286" width="640" height="56" rx="6"/>
+<text class="deco" x="516" y="309">@ResolveField</text>
+<text xml:space="preserve" class="sig" x="516" y="329">age(user: Pick&lt;User, 'birthday'&gt;): User['age']</text>
+<text class="note" x="1164" y="310">Called because it is requested</text>
+<path class="line" d="M455,314 H498" marker-end="url(#arrow)"/>
+<rect class="" x="500" y="372" width="640" height="56" rx="6"/>
+<text class="deco" x="516" y="395">@ResolveField</text>
+<text xml:space="preserve" class="sig" x="516" y="415">birthday(user: Pick&lt;User, 'id'&gt;): User['birthday']</text>
+<text class="note" x="1164" y="396">Called automatically because</text>
+<text class="note" x="1164" y="414">age needs birthday</text>
+<path class="line" d="M820,342 V370" marker-end="url(#arrow)"/>
+<rect class="idle" x="500" y="458" width="640" height="56" rx="6"/>
+<text class="deco idle-text" x="516" y="481">@ResolveField</text>
+<text xml:space="preserve" class="sig idle-text" x="516" y="501">bio(user: Pick&lt;User, 'id'&gt;): User['bio']</text>
+<text class="note" x="1164" y="482">Not called: neither requested</text>
+<text class="note" x="1164" y="500">nor depended on</text>
+<rect class="" x="500" y="544" width="640" height="74" rx="6"/>
+<text class="deco" x="516" y="567">@ResolveMultiField</text>
+<text xml:space="preserve" class="sig" x="516" y="587">values(users: readonly Pick&lt;User, 'id'&gt;[])</text>
+<text xml:space="preserve" class="sig" x="516" y="605">  : ReadonlyMap&lt;User['id'], Pick&lt;User, 'firstName' | 'lastName'&gt;&gt;</text>
+<text class="note" x="1164" y="568">Called because firstName and</text>
+<text class="note" x="1164" y="586">lastName are requested</text>
+<path class="line" d="M455,572 H498" marker-end="url(#arrow)"/>
+<rect class="" x="500" y="648" width="640" height="74" rx="6"/>
+<text class="deco" x="516" y="671">@Relation</text>
+<text xml:space="preserve" class="sig" x="516" y="691">posts(users: readonly Pick&lt;User, 'id'&gt;[])</text>
+<text xml:space="preserve" class="sig" x="516" y="709">  : ReadonlyMap&lt;User['id'], readonly Pick&lt;Post, 'id'&gt;[]&gt;</text>
+<path class="line" d="M455,676 H498" marker-end="url(#arrow)"/>
+<path class="line" d="M455,228 V676"/>
+<path class="line" d="M1140,685 H1172" marker-end="url(#arrow)"/>
+<rect class="" x="1186" y="660" width="200" height="62" rx="6"/>
+<rect class="" x="1180" y="654" width="200" height="62" rx="6"/>
+<rect class="" x="1174" y="648" width="200" height="62" rx="6"/>
+<text class="deco" x="1190" y="672">Post resolvers</text>
+<text class="sig" x="1190" y="692">title(post) …</text>
+<text class="note" x="1174" y="750">③ For each returned Post ID,</text>
+<text class="note" x="1174" y="768">the same flow calls only what is needed</text>
+</svg>

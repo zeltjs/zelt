@@ -90,7 +90,11 @@ type GraphqlUnionDefinition = {
   readonly members: readonly string[];
 };
 
+type GraphqlTypeNameOwner = 'builtin' | 'model' | 'object' | 'enum' | 'scalar' | 'union';
+
 export type GraphqlTypeContext = {
+  /** Every GraphQL type kind shares one namespace, so names are tracked across kinds. */
+  readonly typeNames: Map<string, GraphqlTypeNameOwner>;
   readonly objects: Map<string, GraphqlObjectDefinition>;
   readonly enums: Map<string, GraphqlEnumDefinition>;
   readonly scalars: Map<string, GraphqlScalarDefinition>;
@@ -106,7 +110,24 @@ export type GraphqlTypeResult = {
   readonly definitions: readonly string[];
 };
 
-export const createGraphqlTypeContext = (): GraphqlTypeContext => ({
+const BUILT_IN_TYPE_NAMES = [
+  'String',
+  'Float',
+  'Int',
+  'Boolean',
+  'ID',
+  'Query',
+  'Mutation',
+  'Subscription',
+];
+
+export const createGraphqlTypeContext = (
+  modelNames: ReadonlySet<string> = new Set(),
+): GraphqlTypeContext => ({
+  typeNames: new Map<string, GraphqlTypeNameOwner>([
+    ...BUILT_IN_TYPE_NAMES.map((name): [string, GraphqlTypeNameOwner] => [name, 'builtin']),
+    ...[...modelNames].map((name): [string, GraphqlTypeNameOwner] => [name, 'model']),
+  ]),
   objects: new Map(),
   enums: new Map(),
   scalars: new Map(),
@@ -145,6 +166,22 @@ const toEnumValue = (value: string): string => {
   return /^[A-Z_]/.test(name) ? name : `_${name}`;
 };
 
+// Names are never rewritten on conflict: a silently renamed type would break existing clients.
+/** @throws {Error} */
+const claimTypeName = (
+  ctx: GraphqlTypeContext,
+  owner: GraphqlTypeNameOwner,
+  declared: string,
+): string => {
+  const name = toGraphqlTypeName(declared);
+  const holder = ctx.typeNames.get(name);
+  if (holder !== undefined && holder !== owner) {
+    throw new Error(`GraphQL type name conflict: ${name} is used as both ${holder} and ${owner}`);
+  }
+  ctx.typeNames.set(name, owner);
+  return name;
+};
+
 const renderType = (ref: GraphqlTypeRef): string => (ref.nullable ? ref.type : `${ref.type}!`);
 
 const isNullishType = (type: GraphqlOutputTypeInfo): boolean =>
@@ -174,7 +211,7 @@ const ensureEnum = (
   nameHint: string | undefined,
   values: readonly string[],
 ): GraphqlTypeRef => {
-  const enumName = toGraphqlTypeName(nameHint ?? 'GraphqlEnum');
+  const enumName = claimTypeName(ctx, 'enum', nameHint ?? 'GraphqlEnum');
   const enumValues = values.map(toEnumValue);
   const existing = ctx.enums.get(enumName);
   if (existing) {
@@ -189,8 +226,9 @@ const ensureEnum = (
   return { type: enumName, nullable: false };
 };
 
+/** @throws {Error} */
 const ensureObject = (ctx: GraphqlTypeContext, name: string): GraphqlObjectDefinition => {
-  const objectName = toGraphqlTypeName(name);
+  const objectName = claimTypeName(ctx, 'object', name);
   const existing = ctx.objects.get(objectName);
   if (existing) return existing;
   const created = { name: objectName, fields: new Map<string, string>() };
@@ -200,7 +238,7 @@ const ensureObject = (ctx: GraphqlTypeContext, name: string): GraphqlObjectDefin
 
 /** @throws {Error} */
 const ensureScalar = (ctx: GraphqlTypeContext, type: GraphqlScalarTypeInfo): GraphqlTypeRef => {
-  const scalarName = toGraphqlTypeName(type.name);
+  const scalarName = claimTypeName(ctx, 'scalar', type.name);
   const existing = ctx.scalars.get(scalarName);
   if (
     existing &&
@@ -321,7 +359,7 @@ const ensureNamedUnion = (
   type: GraphqlNamedUnionTypeInfo,
   ctx: GraphqlTypeContext,
 ): GraphqlTypeRef => {
-  const unionName = toGraphqlTypeName(type.name);
+  const unionName = claimTypeName(ctx, 'union', type.name);
   const members = type.members.map((member) => {
     const objectName = toGraphqlTypeName(member.name);
     const ref = convertTypeInfoToGraphqlRef(member.type, ctx, objectName);

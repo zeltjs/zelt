@@ -5,17 +5,49 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, parseGraphqlPrebuiltEntry } from './graphql-runtime.lib';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
-import { graphql, Query, Relation, ResolveField, ResolveMultiField, Resolver } from './index';
+import {
+  graphql,
+  Query,
+  QueryData,
+  Relation,
+  ResolveField,
+  ResolveMultiField,
+  Resolver,
+} from './index';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
-type Account = { id: string; first: string; last: string; $identity: string };
-type Entry = { id: string; title: string; $author: string };
+type Account = {
+  id: string;
+  first: string;
+  last: string;
+  $identity: string;
+  constructor: string;
+  name: string;
+  labels: readonly string[] | null;
+  publicEntries: readonly Entry[];
+};
+type Entry = { id: string; title: string; $author: string; author: Account };
 type Score = { id: string; value: number };
 type Call = { readonly method: string; readonly ids: readonly string[]; readonly identity: string };
 const calls: Call[] = [];
 
 @Resolver()
 class Accounts {
+  @QueryData()
+  health(): { status: boolean } {
+    return { status: true };
+  }
+
+  @QueryData('snapshot')
+  async directSnapshot(): Promise<{
+    id: string;
+    items: readonly { label: string }[];
+    note: string | null;
+  }> {
+    await Promise.resolve();
+    return { id: 'standalone', items: [{ label: 'ready' }], note: null };
+  }
+
   @Query('toString')
   objectLabel(): Pick<Account, 'id'> {
     return { id: 'a' };
@@ -32,7 +64,7 @@ class Accounts {
 
   @Query()
   missing(): Pick<Account, 'id'> | null {
-    return { id: 'absent' };
+    return null;
   }
 
   @Query()
@@ -49,17 +81,15 @@ class Accounts {
   async load(
     refs: readonly Pick<Account, 'id'>[],
     req = request(),
-  ): Promise<ReadonlyMap<Account['id'], Account | null>> {
+  ): Promise<ReadonlyMap<Account['id'], Pick<Account, 'id' | 'first' | 'last' | '$identity'>>> {
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
     await Promise.resolve();
     calls.push({ method: 'accounts', ids: refs.map((ref) => ref.id), identity });
     if (refs.some((ref) => ref.id === 'unavailable')) throw new Error('Data source unavailable');
+    if (refs.some((ref) => ref.id === 'absent')) throw new Error('Account not found');
     return new Map(
-      refs.map(({ id }) => [
-        id,
-        id === 'absent' ? null : { id, first: id, last: 'User', $identity: identity },
-      ]),
+      refs.map(({ id }) => [id, { id, first: id, last: 'User', $identity: identity }]),
     );
   }
 
@@ -107,7 +137,7 @@ class Entries {
   load(
     refs: readonly Pick<Entry, 'id'>[],
     req = request(),
-  ): ReadonlyMap<Entry['id'], Entry | null> {
+  ): ReadonlyMap<Entry['id'], Pick<Entry, 'id' | 'title' | '$author'>> {
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
     calls.push({ method: 'entries', ids: refs.map((ref) => ref.id), identity });
@@ -131,7 +161,7 @@ class Scores {
   }
 
   @ResolveMultiField()
-  async load(ref: Pick<Score, 'id'>, req = request()): Promise<Score | null> {
+  async load(ref: Pick<Score, 'id'>, req = request()): Promise<Score> {
     await Promise.resolve();
     const identity = req.header('X-Identity');
     if (identity === undefined) throw new Error('Identity header required by test provider');
@@ -166,7 +196,49 @@ const start = (contextMode: 'sync' | 'async') => {
   });
 };
 
+describe('direct data typed as a model', () => {
+  it('fails generation instead of renaming the direct output type', async () => {
+    @Resolver()
+    class DirectScores {
+      @QueryData()
+      directScore(): Score {
+        return { id: 'standalone', value: 123 };
+      }
+    }
+
+    await expect(
+      generateGraphqlRuntimeForResolvers([...resolvers, DirectScores], {
+        tsconfig: resolve(__dirname, '../tsconfig.json'),
+      }),
+    ).rejects.toThrow(/type name conflict: Score/);
+  }, 30_000);
+});
+
 describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode) => {
+  it('returns direct data beside model queries without loading models for that data', async () => {
+    const running = await start(mode);
+    try {
+      const response = await running.http.request('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: '{ health { status } snapshot { id items { label } note } }',
+        }),
+      });
+      expect(await response.json()).toEqual({
+        data: {
+          health: { status: true },
+          snapshot: { id: 'standalone', items: [{ label: 'ready' }], note: null },
+        },
+      });
+      expect(calls).toEqual([]);
+      expect(generated.modelFields?.['Query']?.['health']).toBeUndefined();
+      expect(generated.modelFields?.['Query']?.['snapshot']).toBeUndefined();
+    } finally {
+      await running.shutdown();
+    }
+  });
+
   it('publishes a per-parent result for async batch fields and caches single providers', async () => {
     const running = await start(mode);
     try {
@@ -214,7 +286,7 @@ describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode
       await running.shutdown();
     }
   });
-  it('preserves missing-target nullability and failure paths through HTTP', async () => {
+  it('lets queries answer null and reports ids without data at the field that needs them', async () => {
     const running = await start(mode);
     try {
       const send = async (query: string) => {
@@ -226,13 +298,16 @@ describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode
         return response.json();
       };
       expect(await send('{ missing { id } }')).toEqual({ data: { missing: null } });
-      expect(await send('{ required: missingStrict { id } }')).toMatchObject({
-        data: null,
-        errors: [{ path: ['required'] }],
+      expect(await send('{ required: missingStrict { id } }')).toEqual({
+        data: { required: { id: 'absent' } },
       });
-      expect(await send('{ unavailable { id } }')).toMatchObject({
+      expect(await send('{ required: missingStrict { first } }')).toMatchObject({
+        data: null,
+        errors: [{ message: 'Account not found', path: ['required', 'first'] }],
+      });
+      expect(await send('{ unavailable { first } }')).toMatchObject({
         data: { unavailable: null },
-        errors: [{ message: 'Data source unavailable', path: ['unavailable'] }],
+        errors: [{ message: 'Data source unavailable', path: ['unavailable', 'first'] }],
       });
     } finally {
       await running.shutdown();

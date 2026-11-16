@@ -12,6 +12,7 @@ import type { GqlSchemaResolver, GraphqlArgsSchemaRef } from './analyze-gql-args
 import { extractGraphqlArgsRef, resolveGraphqlArgs } from './analyze-gql-args.lib';
 import { parseGqlScalar } from './gql-scalar.lib';
 import type { GraphqlOperationMetadata, GraphqlResolverClass } from './graphql-metadata.lib';
+import { readDirectOperationKind } from './graphql-metadata.lib';
 import { analyzeGraphqlModels } from './graphql-model-analysis.lib';
 import {
   renderGraphqlModelProperty,
@@ -88,10 +89,13 @@ function narrowToTypeReference(type: TSType): TSType {
   return type;
 }
 
+const isQueryData = (method: MethodInfo): boolean =>
+  method.props.some((prop) => Reflect.get(prop, 'kind') === 'queryData');
+
 const getOperationMetadata = (method: MethodInfo): GraphqlOperationMetadata | undefined => {
   for (const prop of method.props) {
-    const kind: unknown = Reflect.get(prop, 'kind');
-    if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') {
+    const kind = readDirectOperationKind(Reflect.get(prop, 'kind'));
+    if (kind) {
       const fieldName: unknown = Reflect.get(prop, 'fieldName');
       return {
         kind,
@@ -726,20 +730,29 @@ type ResolverClassNode = {
   readonly ts: TS;
 };
 
-/** @throws {Error | UnsupportedTypeScriptVersionError} */
-const findResolverClassNode = async (
-  resolver: GraphqlResolverClass,
-  metadata: ClassMetadata,
-  options: GenerateSdlOptions,
-): Promise<ResolverClassNode | undefined> => {
-  if (!metadata.pos) return undefined;
+type ResolverProgram = {
+  readonly program: import('typescript').Program;
+  readonly checker: TSTypeChecker;
+  readonly ts: TS;
+};
 
+// One generation reads every resolver through one Program: model types are compared by identity,
+// and a cache cleared by a concurrent generation must not split them across Programs.
+/** @throws {Error | UnsupportedTypeScriptVersionError} */
+const loadResolverProgram = async (options: GenerateSdlOptions): Promise<ResolverProgram> => {
   const programResult = await getOrCreateProgram(resolve(options.tsconfig ?? 'tsconfig.json'));
   if (programResult.isErr()) {
     throw new Error(`Failed to load TypeScript program: ${programResult.error.message}`);
   }
+  return programResult.value;
+};
 
-  const { checker, program, ts } = programResult.value;
+const findResolverClassNode = (
+  resolver: GraphqlResolverClass,
+  metadata: ClassMetadata,
+  { checker, program, ts }: ResolverProgram,
+): ResolverClassNode | undefined => {
+  if (!metadata.pos) return undefined;
   const sourceFile = program.getSourceFile(metadata.pos.sourceFile);
   if (!sourceFile) return undefined;
 
@@ -751,9 +764,10 @@ const findResolverClassNode = async (
 const getResolverTypeNames = async (
   resolver: GraphqlResolverClass,
   metadata: ClassMetadata,
+  program: ResolverProgram,
   options: GenerateSdlOptions,
 ): Promise<Map<string, MethodTypeNames>> => {
-  const found = await findResolverClassNode(resolver, metadata, options);
+  const found = findResolverClassNode(resolver, metadata, program);
   if (!found) return new Map();
 
   const result = new Map<string, MethodTypeNames>();
@@ -1027,7 +1041,9 @@ const registerAnalyzedMethod = async (
 const analyzeResolver = async (
   resolver: GraphqlResolverClass,
   state: AnalysisState,
+  program: ResolverProgram,
   options: GenerateSdlOptions,
+  dataOnly: boolean,
 ): Promise<void> => {
   const metadataResult = await getTypeMetadata(
     toInspectableClass(resolver),
@@ -1039,9 +1055,10 @@ const analyzeResolver = async (
   }
 
   const metadata = metadataResult.value;
-  const methodTypeNames = await getResolverTypeNames(resolver, metadata, options);
+  const methodTypeNames = await getResolverTypeNames(resolver, metadata, program, options);
 
   for (const method of metadata.methods) {
+    if (dataOnly && !isQueryData(method)) continue;
     await registerAnalyzedMethod(method, resolver.name, state, methodTypeNames, options);
   }
 };
@@ -1050,6 +1067,7 @@ type ModelRenderContext = {
   readonly inputs: readonly import('./graphql-model-analysis.lib').ModelResolverInput[];
   readonly analysis: ReturnType<typeof analyzeGraphqlModels>;
   readonly resolvers: readonly GraphqlResolverClass[];
+  readonly program: ResolverProgram;
   readonly options: GenerateSdlOptions;
   readonly state: AnalysisState;
 };
@@ -1088,7 +1106,7 @@ const getModelMethodNames = async (
   const input = context.inputs.find((item) => item.resolver === resolverName);
   const resolver = context.resolvers.find((item) => item.name === resolverName);
   if (!input || !resolver) throw new Error(`Missing resolver ${resolverName}`);
-  return getResolverTypeNames(resolver, input.metadata, context.options);
+  return getResolverTypeNames(resolver, input.metadata, context.program, context.options);
 };
 
 /**
@@ -1159,7 +1177,7 @@ const registerModelQueries = async (context: ModelRenderContext): Promise<void> 
     context.analysis.modelResolvers.has(item.resolver),
   )) {
     const methodNames = await getModelMethodNames(context, input.resolver);
-    for (const method of input.metadata.methods) {
+    for (const method of input.metadata.methods.filter((method) => !isQueryData(method))) {
       const operation = getOperationMetadata(method);
       if (typeof method.name !== 'string' || operation?.kind !== 'query') continue;
       await registerModelQuery(
@@ -1192,13 +1210,14 @@ const renderModels = async (context: ModelRenderContext): Promise<string[]> => {
 /** @throws {Error | UnsupportedTypeScriptVersionError} */
 const inspectModelResolver = async (
   resolver: GraphqlResolverClass,
+  program: ResolverProgram,
   options: GenerateSdlOptions,
 ) => {
   const result = await getTypeMetadata(toInspectableClass(resolver), buildInspectOptions(options));
   if (result.isErr()) {
     throw new Error(`Failed to inspect GraphQL resolver ${resolver.name}: ${result.error.message}`);
   }
-  const found = await findResolverClassNode(resolver, result.value, options);
+  const found = findResolverClassNode(resolver, result.value, program);
   if (!found) throw new Error(`Cannot inspect GraphQL resolver ${resolver.name}`);
   return { resolver: resolver.name, metadata: result.value, ...found };
 };
@@ -1208,25 +1227,33 @@ const analyzeResolvers = async (
   resolvers: readonly GraphqlResolverClass[],
   options: GenerateSdlOptions = {},
 ): Promise<AnalyzeResolversResult> => {
+  const program = await loadResolverProgram(options);
+  const inputs = await Promise.all(
+    resolvers.map((resolver) => inspectModelResolver(resolver, program, options)),
+  );
+  const analysis = analyzeGraphqlModels(inputs);
   const state: AnalysisState = {
-    typeCtx: createGraphqlTypeContext(),
+    typeCtx: createGraphqlTypeContext(new Set(Object.keys(analysis.models))),
     roots: { query: new Map(), mutation: new Map() },
     bindings: {},
   };
-
-  // Complete the first inspection so subsequent calls share its TypeScript Program.
-  const [first, ...remaining] = resolvers;
-  const initial = first ? [await inspectModelResolver(first, options)] : [];
-  const inputs = [
-    ...initial,
-    ...(await Promise.all(remaining.map((resolver) => inspectModelResolver(resolver, options)))),
-  ];
-  const analysis = analyzeGraphqlModels(inputs);
   for (const resolver of resolvers) {
-    if (!analysis.modelResolvers.has(resolver.name))
-      await analyzeResolver(resolver, state, options);
+    await analyzeResolver(
+      resolver,
+      state,
+      program,
+      options,
+      analysis.modelResolvers.has(resolver.name),
+    );
   }
-  const modelDefinitions = await renderModels({ inputs, analysis, resolvers, options, state });
+  const modelDefinitions = await renderModels({
+    inputs,
+    analysis,
+    resolvers,
+    program,
+    options,
+    state,
+  });
   const schemaSdl = buildSdl(state.roots, [
     ...renderGraphqlDefinitions(state.typeCtx),
     ...modelDefinitions,
