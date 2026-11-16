@@ -230,16 +230,22 @@ afterAll(async () => {
 });
 
 describe.each(Object.entries(guides))('GraphQL Drizzle guide (%s)', (lang, path) => {
-  const load = async () => {
-    const markdown = await readFile(path, 'utf8');
-    return { markdown, generated: await generate(lang, markdown) };
+  // Generation runs the real build plugin once per guide; both tests read the same output.
+  let loaded: Promise<{ readonly markdown: string; readonly generated: Generated }> | undefined;
+  const load = () => {
+    loaded ??= readFile(path, 'utf8').then(async (markdown) => ({
+      markdown,
+      generated: await generate(lang, markdown),
+    }));
+    return loaded;
   };
 
   it('shows an excerpt of what the generator emits for the guide schema', async () => {
     const { generated } = await load();
     expect(excerptMismatches(generated.excerpt, generated.actual)).toEqual([]);
-  });
+  }, 60_000);
 
+  // Building the SDL type-checks the guide's app with the TypeScript compiler, which is slow.
   it('shows the SDL the generated models contribute, and Query has only the written @Query', async () => {
     const { markdown, generated } = await load();
     const shownBlock = fences(markdown, 'graphql').find((block) => block.includes('type '));
@@ -259,5 +265,5 @@ describe.each(Object.entries(guides))('GraphQL Drizzle guide (%s)', (lang, path)
     // The guide's user.resolver.ts adds `displayName` and writes the only @Query, `user`.
     expect(fieldsOf(real.getType('User'))).toContain('displayName: String!');
     expect(Object.keys(real.getQueryType()?.getFields() ?? {})).toEqual(['user']);
-  });
+  }, 60_000);
 });

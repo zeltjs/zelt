@@ -204,6 +204,7 @@ const config: KnipConfig = {
         '@zeltjs/core',
         '@zeltjs/db',
         '@zeltjs/eventbus',
+        '@zeltjs/graphql-drizzle',
         '@zeltjs/hono-client',
         '@zeltjs/kv',
         '@zeltjs/rate-limit',
@@ -226,7 +227,8 @@ const config: KnipConfig = {
         'wrangler',
       ],
       // Swizzled Docusaurus theme components are loaded by Docusaurus at runtime
-      ignore: ['src/theme/**'],
+      // Twoslash fixtures are read as text into the docs' virtual file system
+      ignore: ['src/theme/**', 'src/twoslash/fixtures/**'],
     },
   },
 };
