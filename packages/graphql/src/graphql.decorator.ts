@@ -34,6 +34,7 @@ const createGraphqlOperationDecorator =
     });
 
 export const Query = createGraphqlOperationDecorator('query');
+export const QueryData = createGraphqlOperationDecorator('queryData');
 export const Mutation = createGraphqlOperationDecorator('mutation');
 export const ResolveField = createGraphqlOperationDecorator('resolveField');
 

@@ -6,6 +6,7 @@ const compareText = (left: string, right: string): number =>
 
 const operationKinds = new Set([
   'query',
+  'queryData',
   'mutation',
   'resolveField',
   'resolveMultiField',

@@ -1027,3 +1027,21 @@ HTTP transport conforms to `graphql-http` and execution is powered by `graphql-j
 - **Methods**: `GET` accepts queries; `POST` accepts queries and mutations.
 - **Headers**: Supports `Content-Type: application/json` and `Accept: application/graphql-response+json`.
 - **Status Codes**: When using `application/graphql-response+json`, syntax errors, validation errors, and variable errors return HTTP 400; execution results return HTTP 200.
+
+## Queries without model resolution
+
+`@QueryData()` publishes the returned value directly. No `id` or model definition is required.
+
+```ts
+import { QueryData, Resolver } from '@zeltjs/graphql';
+
+@Resolver()
+export class StatusResolver {
+  @QueryData()
+  health() {
+    return { status: true };
+  }
+}
+```
+
+The return type determines the output type, including supported nested objects, arrays, nullable values, and Promises. Use `args(schema)` for arguments and `@QueryData('fieldName')` for an explicit field name. An `id` property remains ordinary data. Direct data and model queries can share a resolver class.

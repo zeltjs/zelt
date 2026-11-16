@@ -5,7 +5,15 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
 import { createGraphqlExecutor, parseGraphqlPrebuiltEntry } from './graphql-runtime.lib';
 import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
-import { graphql, Query, Relation, ResolveField, ResolveMultiField, Resolver } from './index';
+import {
+  graphql,
+  Query,
+  QueryData,
+  Relation,
+  ResolveField,
+  ResolveMultiField,
+  Resolver,
+} from './index';
 import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 
 type Account = {
@@ -25,6 +33,21 @@ const calls: Call[] = [];
 
 @Resolver()
 class Accounts {
+  @QueryData()
+  health(): { status: boolean } {
+    return { status: true };
+  }
+
+  @QueryData('snapshot')
+  async directSnapshot(): Promise<{
+    id: string;
+    items: readonly { label: string }[];
+    note: string | null;
+  }> {
+    await Promise.resolve();
+    return { id: 'standalone', items: [{ label: 'ready' }], note: null };
+  }
+
   @Query('toString')
   objectLabel(): Pick<Account, 'id'> {
     return { id: 'a' };
@@ -173,7 +196,49 @@ const start = (contextMode: 'sync' | 'async') => {
   });
 };
 
+describe('direct data typed as a model', () => {
+  it('fails generation instead of renaming the direct output type', async () => {
+    @Resolver()
+    class DirectScores {
+      @QueryData()
+      directScore(): Score {
+        return { id: 'standalone', value: 123 };
+      }
+    }
+
+    await expect(
+      generateGraphqlRuntimeForResolvers([...resolvers, DirectScores], {
+        tsconfig: resolve(__dirname, '../tsconfig.json'),
+      }),
+    ).rejects.toThrow(/type name conflict: Score/);
+  }, 30_000);
+});
+
 describe.each(['sync', 'async'] as const)('generated model endpoint (%s)', (mode) => {
+  it('returns direct data beside model queries without loading models for that data', async () => {
+    const running = await start(mode);
+    try {
+      const response = await running.http.request('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: '{ health { status } snapshot { id items { label } note } }',
+        }),
+      });
+      expect(await response.json()).toEqual({
+        data: {
+          health: { status: true },
+          snapshot: { id: 'standalone', items: [{ label: 'ready' }], note: null },
+        },
+      });
+      expect(calls).toEqual([]);
+      expect(generated.modelFields?.['Query']?.['health']).toBeUndefined();
+      expect(generated.modelFields?.['Query']?.['snapshot']).toBeUndefined();
+    } finally {
+      await running.shutdown();
+    }
+  });
+
   it('publishes a per-parent result for async batch fields and caches single providers', async () => {
     const running = await start(mode);
     try {

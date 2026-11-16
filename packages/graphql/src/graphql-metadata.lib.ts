@@ -13,6 +13,7 @@ export type GraphqlResolverMetadata = {
 
 export type GraphqlOperationKind =
   | 'query'
+  | 'queryData'
   | 'mutation'
   | 'resolveField'
   | 'relation'
@@ -54,3 +55,12 @@ export const setGraphqlControllerMetadata = (
 export const getGraphqlControllerMetadata = (
   controller: object,
 ): GraphqlControllerMetadata | undefined => controllerMetadata.get(controller);
+
+/** Maps direct-value operations to their GraphQL execution kind. */
+export const readDirectOperationKind = (
+  kind: unknown,
+): 'query' | 'mutation' | 'resolveField' | undefined => {
+  if (kind === 'queryData') return 'query';
+  if (kind === 'query' || kind === 'mutation' || kind === 'resolveField') return kind;
+  return undefined;
+};
