@@ -147,22 +147,22 @@ import type { ID } from '@zeltjs/graphql';
 import { users, posts } from '../db/schema';
 // ---cut---
 // src/generated/drizzle-graphql.ts（生成ファイル・編集しない）
-type UsersRow = typeof users.$inferSelect;
-type PostsRow = typeof posts.$inferSelect;
+type $usersRow = typeof users.$inferSelect;
+type $postsRow = typeof posts.$inferSelect;
 
 export interface User {
-  readonly id: ID<UsersRow['id']>;
-  readonly firstName: UsersRow['firstName'];
-  readonly lastName: UsersRow['lastName'];
-  readonly $passwordHash: UsersRow['passwordHash'];
+  readonly id: ID<$usersRow['id']>;
+  readonly firstName: $usersRow['firstName'];
+  readonly lastName: $usersRow['lastName'];
+  readonly $passwordHash: $usersRow['passwordHash'];
   readonly posts: readonly Post[];
 }
 
 export interface Post {
-  readonly id: ID<PostsRow['id']>;
-  readonly title: PostsRow['title'];
-  readonly authorId: PostsRow['authorId'];
-  readonly $createdAt: PostsRow['createdAt'];
+  readonly id: ID<$postsRow['id']>;
+  readonly title: $postsRow['title'];
+  readonly authorId: $postsRow['authorId'];
+  readonly $createdAt: $postsRow['createdAt'];
   readonly author: User;
 }
 
@@ -404,8 +404,10 @@ GraphQL スキーマの変更がクライアントに与える影響（フィー
 - 公開するテーブルの主キーが文字列型でない（整数など）
 - 公開するテーブルが、主キー以外に `id` というキーのカラムを持つ
 - 公開するカラムの型が[対応表](#column-types)にない
-- カラムとリレーションのキー名が重複している
+- 公開するテーブルが PostgreSQL / SQLite のテーブルでない（MySQL など）
+- カラムとリレーションのキー名が重複している、あるいは、リレーションのキーや、主キーでも `hidden` でもないカラムのキーが GraphQL の名前として使えない（`full-name`、`$` や `__` で始まるキーなど）
 - 2 つのテーブルの GraphQL 型名が重複している
+- テーブルの GraphQL 型名が、GraphQL の名前として使えない、生成される resolver 名（`GeneratedXxxResolver`）と重複している、または GraphQL や TypeScript が予約している名前（`ID`、`String`、`Query`、`string`、`class` など）である
 - 公開するモデルを継承した resolver が `graphql()` に登録されていない、または 2 つ以上登録されている
 - `hidden` でないカラムやリレーションと同じ名前のフィールドを追加した
 - 追加したフィールドの宣言と `@ResolveField` が対応していない

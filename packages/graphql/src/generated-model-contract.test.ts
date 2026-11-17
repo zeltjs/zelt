@@ -2,6 +2,11 @@ import { resolve } from 'node:path';
 import { createApp, http, Injectable, inject } from '@zeltjs/core';
 import * as v from 'valibot';
 import { beforeAll, beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
+import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
+import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
+import type { ID } from './index';
+import { graphql, Query, Relation, ResolveField, ResolveMultiField, Resolver } from './index';
+import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
 import type {
   GeneratedPost,
   GeneratedUser,
@@ -9,19 +14,14 @@ import type {
   PostId,
   Score,
   UserId,
-} from './generated-model.types';
-import type { GeneratedGraphqlRuntime } from './graphql-runtime.lib';
-import { generateGraphqlRuntimeForResolvers } from './graphql-sdl-generator.lib';
-import type { ID } from './index';
-import { graphql, Query, Relation, ResolveField, ResolveMultiField, Resolver } from './index';
-import { computeGraphqlPrebuiltHash } from './prebuilt-hash.lib';
+} from './test/fixtures/generated-model.types';
 
 const userId = 'u1' as UserId;
 const postId = v.parse(v.pipe(v.string(), v.brand('PostId')), 'p1');
 const score = v.parse(v.pipe(v.number(), v.brand('Score')), 1);
 const label = 'Ada' as Label;
 
-declare module './generated-model.types' {
+declare module './test/fixtures/generated-model.types' {
   interface GeneratedUser {
     readonly displayName: string;
     readonly initials: string;

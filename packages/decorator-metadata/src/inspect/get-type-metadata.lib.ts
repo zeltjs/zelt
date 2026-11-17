@@ -27,43 +27,74 @@ const DEFAULT_EXPAND_STRATEGY = 'exported-only' as const;
 type TypeScriptModule = typeof import('typescript');
 type TSClassDeclaration = import('typescript').ClassDeclaration;
 type TSMethodDeclaration = import('typescript').MethodDeclaration;
-type TSPropertyDeclaration = import('typescript').PropertyDeclaration;
+type TSSignature = import('typescript').Signature;
+type TSSymbol = import('typescript').Symbol;
 type TSTypeChecker = import('typescript').TypeChecker;
 type ExtractTypeFn = (type: import('typescript').Type) => TypeInfo;
 
 type StoredMethodMeta = {
   readonly name: string | symbol;
+  readonly isStatic: boolean;
   readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 type StoredPropertyMeta = {
   readonly name: string | symbol;
+  readonly isStatic: boolean;
   readonly trace: StackTrace | undefined;
   readonly props: readonly object[];
 };
 
-const findMethodInClass = (
+// The member symbol is read through the class's own instance/constructor type so that
+// members inherited from a generic base come back instantiated with the derived type arguments.
+const findMemberSymbol = (
   cls: TSClassDeclaration,
   name: string,
+  isStatic: boolean,
+  checker: TSTypeChecker,
+): TSSymbol | undefined => {
+  if (!isStatic) return checker.getPropertyOfType(checker.getTypeAtLocation(cls), name);
+  const classSymbol = cls.name ? checker.getSymbolAtLocation(cls.name) : undefined;
+  return classSymbol
+    ? checker.getPropertyOfType(checker.getTypeOfSymbol(classSymbol), name)
+    : undefined;
+};
+
+type FoundMethod = { readonly symbol: TSSymbol; readonly node: TSMethodDeclaration };
+
+const findMethodInClass = (
+  cls: TSClassDeclaration,
+  m: StoredMethodMeta & { readonly name: string },
   ts: TypeScriptModule,
   checker: TSTypeChecker,
-): TSMethodDeclaration | undefined => {
-  const instance = checker.getTypeAtLocation(cls);
-  const methods = (checker.getPropertyOfType(instance, name)?.declarations ?? []).filter(
-    ts.isMethodDeclaration,
-  );
-  return methods.find((method) => method.body !== undefined) ?? methods[0];
+): FoundMethod | undefined => {
+  const symbol = findMemberSymbol(cls, m.name, m.isStatic, checker);
+  const methods = (symbol?.declarations ?? []).filter(ts.isMethodDeclaration);
+  const node = methods.find((method) => method.body !== undefined) ?? methods[0];
+  return symbol && node ? { symbol, node } : undefined;
 };
 
 const findPropertyInClass = (
   cls: TSClassDeclaration,
-  name: string,
+  p: StoredPropertyMeta & { readonly name: string },
   ts: TypeScriptModule,
   checker: TSTypeChecker,
-): TSPropertyDeclaration | undefined => {
-  const instance = checker.getTypeAtLocation(cls);
-  return checker.getPropertyOfType(instance, name)?.declarations?.find(ts.isPropertyDeclaration);
+): TSSymbol | undefined => {
+  const symbol = findMemberSymbol(cls, p.name, p.isStatic, checker);
+  return symbol?.declarations?.some(ts.isPropertyDeclaration) ? symbol : undefined;
 };
+
+// Overload implementations are not part of the member type's call signatures, so they
+// fall back to the declaration's own (uninstantiated) signature.
+const methodSignature = (
+  method: FoundMethod,
+  ts: TypeScriptModule,
+  checker: TSTypeChecker,
+): TSSignature | undefined =>
+  checker
+    .getSignaturesOfType(checker.getTypeOfSymbol(method.symbol), ts.SignatureKind.Call)
+    .find((signature) => signature.getDeclaration() === method.node) ??
+  checker.getSignatureFromDeclaration(method.node);
 
 const paramPosition = (
   param: import('typescript').Symbol,
@@ -87,9 +118,9 @@ const extractMethodInfo = (
   let returnType: TypeInfo = { kind: 'unknown' };
 
   if (typeof m.name === 'string') {
-    const methodNode = findMethodInClass(classNode, m.name, ts, checker);
-    if (methodNode) {
-      const sig = checker.getSignatureFromDeclaration(methodNode);
+    const method = findMethodInClass(classNode, { ...m, name: m.name }, ts, checker);
+    if (method) {
+      const sig = methodSignature(method, ts, checker);
       if (sig) {
         for (const param of sig.getParameters()) {
           const paramType = checker.getTypeOfSymbol(param);
@@ -126,14 +157,10 @@ const extractPropertyInfo = (
   let optional = false;
 
   if (typeof p.name === 'string') {
-    const propNode = findPropertyInClass(classNode, p.name, ts, checker);
-    if (propNode) {
-      const propSymbol = checker.getSymbolAtLocation(propNode.name);
-      if (propSymbol) {
-        const propType = checker.getTypeOfSymbol(propSymbol);
-        type = extractType(propType);
-        optional = (propSymbol.flags & ts.SymbolFlags.Optional) !== 0;
-      }
+    const propSymbol = findPropertyInClass(classNode, { ...p, name: p.name }, ts, checker);
+    if (propSymbol) {
+      type = extractType(checker.getTypeOfSymbol(propSymbol));
+      optional = (propSymbol.flags & ts.SymbolFlags.Optional) !== 0;
     }
   }
 

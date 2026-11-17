@@ -28,6 +28,63 @@ describe('getTypeMetadata', () => {
       },
     ]);
   });
+  it('extracts members of a generic base as instantiated by the derived class', async () => {
+    const { StringChild } = await import('./fixtures/inherited-members');
+    const result = await getTypeMetadata(StringChild, {
+      tsconfig: resolve(__dirname, '../../tsconfig.json'),
+    });
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value.methods).toMatchObject([
+      {
+        name: 'echo',
+        params: [{ name: 'value', type: { kind: 'primitive', type: 'string' } }],
+        returnType: { kind: 'primitive', type: 'string' },
+      },
+    ]);
+    expect(result.value.properties).toMatchObject([
+      { name: 'value', type: { kind: 'primitive', type: 'string' } },
+    ]);
+  });
+  it.each([
+    ['inherited from an undecorated base', 'StaticChild', 'make', 'string'],
+    ['shadowed by a same-named instance method', 'SameNamedMembers', 'run', 'number'],
+  ] as const)(
+    'extracts a static method %s from its own side',
+    async (_label, exportName, name, returns) => {
+      const fixtures = await import('./fixtures/inherited-members');
+      const result = await getTypeMetadata(fixtures[exportName], {
+        tsconfig: resolve(__dirname, '../../tsconfig.json'),
+      });
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) return;
+      expect(result.value.methods).toMatchObject([
+        {
+          name,
+          params: [{ name: 'count', type: { kind: 'primitive', type: 'number' } }],
+          returnType: { kind: 'primitive', type: returns },
+        },
+      ]);
+    },
+  );
+  it('extracts static methods and properties', async () => {
+    const { StaticMembers } = await import('./fixtures/inherited-members');
+    const result = await getTypeMetadata(StaticMembers, {
+      tsconfig: resolve(__dirname, '../../tsconfig.json'),
+    });
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value.methods).toMatchObject([
+      {
+        name: 'create',
+        params: [{ name: 'count', type: { kind: 'primitive', type: 'number' } }],
+        returnType: { kind: 'primitive', type: 'string' },
+      },
+    ]);
+    expect(result.value.properties).toMatchObject([
+      { name: 'label', type: { kind: 'primitive', type: 'string' } },
+    ]);
+  });
   beforeAll(() => {
     clearProgramCache();
   });

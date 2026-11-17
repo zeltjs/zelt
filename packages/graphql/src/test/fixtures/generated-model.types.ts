@@ -1,5 +1,5 @@
 import type * as v from 'valibot';
-import type { ID } from './index';
+import type { ID } from '../../index';
 
 export type UserId = string & Readonly<{ __brand: 'UserId' }>;
 export type PostId = string & v.Brand<'PostId'>;

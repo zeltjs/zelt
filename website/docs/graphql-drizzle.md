@@ -147,22 +147,22 @@ import type { ID } from '@zeltjs/graphql';
 import { users, posts } from '../db/schema';
 // ---cut---
 // src/generated/drizzle-graphql.ts (generated; do not edit)
-type UsersRow = typeof users.$inferSelect;
-type PostsRow = typeof posts.$inferSelect;
+type $usersRow = typeof users.$inferSelect;
+type $postsRow = typeof posts.$inferSelect;
 
 export interface User {
-  readonly id: ID<UsersRow['id']>;
-  readonly firstName: UsersRow['firstName'];
-  readonly lastName: UsersRow['lastName'];
-  readonly $passwordHash: UsersRow['passwordHash'];
+  readonly id: ID<$usersRow['id']>;
+  readonly firstName: $usersRow['firstName'];
+  readonly lastName: $usersRow['lastName'];
+  readonly $passwordHash: $usersRow['passwordHash'];
   readonly posts: readonly Post[];
 }
 
 export interface Post {
-  readonly id: ID<PostsRow['id']>;
-  readonly title: PostsRow['title'];
-  readonly authorId: PostsRow['authorId'];
-  readonly $createdAt: PostsRow['createdAt'];
+  readonly id: ID<$postsRow['id']>;
+  readonly title: $postsRow['title'];
+  readonly authorId: $postsRow['authorId'];
+  readonly $createdAt: $postsRow['createdAt'];
   readonly author: User;
 }
 
@@ -404,8 +404,10 @@ In the following cases, `zelt build` / `zelt dev` fails at the generation or ana
 - An exposed table's primary key is not a string type (an integer, for example)
 - An exposed table has a column keyed `id` other than its primary key
 - An exposed column's type is not in the [type table](#column-types)
-- A column and a relation share a key name
+- An exposed table is not a PostgreSQL or SQLite table (MySQL, for example)
+- A column and a relation share a key name, or the key of a relation or of a column that is neither the primary key nor `hidden` is not a valid GraphQL name (`full-name`, or a key starting with `$` or `__`, for example)
 - Two tables have the same GraphQL type name
+- A table's GraphQL type name is not a valid GraphQL name, is the same as a generated resolver name (`GeneratedXxxResolver`), or is a name GraphQL or TypeScript reserves (`ID`, `String`, `Query`, `string`, `class`, and so on)
 - No resolver extending an exposed model is registered with `graphql()`, or two or more are registered
 - An added field has the same name as a column or relation that is not `hidden`
 - An added field's declaration and its `@ResolveField` do not match

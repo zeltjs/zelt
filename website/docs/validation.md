@@ -31,7 +31,7 @@ Check the [Valibot releases](https://github.com/fabian-hiller/valibot/releases) 
 
 :::info[Important]
 Import `request()` from `@zeltjs/core`. The Valibot package only provides the OpenAPI schema adapter.
-The `valibot` peer dependency must be `^1.0.0`. We test against `1.3.x`; using an older version may cause type inference issues.
+The `valibot` peer dependency must be `^1.1.0`. We test against `1.5.x`; using an older version may cause type inference issues.
 :::
 
 ## Basic Usage

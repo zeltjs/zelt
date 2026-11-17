@@ -64,7 +64,69 @@ describe('drizzleGraphqlPlugin lifecycle', () => {
     expect(await readFile(path, 'utf8')).toBe(code);
     expect(loaded).toEqual([join(cwd, 'schema.ts'), join(cwd, 'schema.ts')]);
     expect(registered).toEqual([path, path]);
-    expect(code).toContain('import * as schema from "../schema"');
+    expect(code).toContain('import * as $schema from "../schema"');
+  });
+
+  it.each([
+    ['without a package name', undefined, '"src/generated/models.ts#User"'],
+    ['with a package name', '@acme/app', '"@acme/app/src/generated/models.ts#User"'],
+  ])(
+    'emits the same file for the same project in a different directory (%s)',
+    async (_label, name, identity) => {
+      const outputs = await Promise.all(
+        [await temp(), await temp()].map(async (cwd) => {
+          if (name) await writeFile(join(cwd, 'package.json'), JSON.stringify({ name }));
+          await plugin('./src/generated/models.ts').preBuild?.(context(cwd));
+          return readFile(join(cwd, 'src/generated/models.ts'), 'utf8');
+        }),
+      );
+      expect(outputs[0]).toBe(outputs[1]);
+      expect(outputs[0]).toContain(identity);
+    },
+  );
+
+  it.each([
+    ['counts only its own package when both register', ['a', 'b'], undefined],
+    ['notices its own omission when only the other registers', ['b'], 'found 0'],
+  ])('%s (two packages, same out and model names)', async (_label, registered, failure) => {
+    const projects = await Promise.all(
+      ['a', 'b'].map(async (name) => {
+        const cwd = await temp();
+        await writeFile(join(cwd, 'package.json'), JSON.stringify({ name }));
+        const instance = plugin();
+        await instance.preBuild?.(context(cwd));
+        const code = await readFile(join(cwd, 'generated.ts'), 'utf8');
+        const identities = [...code.matchAll(/\[\$zeltDrizzleModel\] = ("[^"]+")/g)].map(
+          (match): unknown => JSON.parse(match[1] ?? '""'),
+        );
+        return { name, cwd, instance, identities };
+      }),
+    );
+    const resolvers = projects
+      .filter(({ name }) => registered.includes(name))
+      .flatMap(({ name, identities }) =>
+        identities.map((identity, index) => {
+          const resolver = class {
+            static readonly [generatedModelKey] = identity;
+          };
+          // graphql() requires distinct resolver class names.
+          Object.defineProperty(resolver, 'name', { value: `${name}Resolver${index}` });
+          Resolver()(resolver);
+          return resolver;
+        }),
+      );
+    const child = graphql({ path: '/graphql', resolvers });
+    const [own] = projects;
+    if (!own) throw new Error('missing project');
+    const ctx = {
+      ...context(own.cwd),
+      loadStaticApp: async () => ({
+        http: { getControllers: () => child.blueprint().getControllers() },
+      }),
+    };
+    const result = own.instance.postBuild?.(ctx, { success: true });
+    if (failure) await expect(result).rejects.toThrow(failure);
+    else await expect(result).resolves.toBeUndefined();
   });
 
   it('recomputes on every build without retriggering dev watches for identical content', async () => {
@@ -97,10 +159,10 @@ describe('drizzleGraphqlPlugin lifecycle', () => {
       const cwd = await temp();
       const marker = generatedModelKey;
       class UserBase {
-        static readonly [marker] = `${join(cwd, 'generated.ts')}#User`;
+        static readonly [marker] = 'generated.ts#User';
       }
       class PostBase {
-        static readonly [marker] = `${join(cwd, 'generated.ts')}#Post`;
+        static readonly [marker] = 'generated.ts#Post';
       }
       @Resolver()
       class UserResolver extends UserBase {}

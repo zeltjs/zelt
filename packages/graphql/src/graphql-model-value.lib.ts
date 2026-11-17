@@ -20,9 +20,9 @@ const scalarValue = (type: Type, reader: ModelTypeReader): GraphqlModelValue => 
   if (flags & TypeFlags.StringLike) return { kind: 'scalar', name: 'string' };
   if (flags & TypeFlags.NumberLike) return { kind: 'scalar', name: 'number' };
   if (type.isIntersection()) {
-    if (type.types.some((member) => Boolean(member.flags & TypeFlags.String)))
+    if (type.types.some((member) => Boolean(member.flags & TypeFlags.StringLike)))
       return { kind: 'scalar', name: 'string' };
-    if (type.types.some((member) => Boolean(member.flags & TypeFlags.Number)))
+    if (type.types.some((member) => Boolean(member.flags & TypeFlags.NumberLike)))
       return { kind: 'scalar', name: 'number' };
   }
   return { kind: 'opaque' };

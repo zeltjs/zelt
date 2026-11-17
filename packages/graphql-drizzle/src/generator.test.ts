@@ -9,6 +9,7 @@ import {
   serial,
 } from 'drizzle-orm/pg-core';
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { gqlMeta } from './index';
 import { renderModels } from './render.lib';
@@ -23,15 +24,29 @@ const options = {
   header: '// generated',
 };
 
+const importBindings = (statement: ts.ImportDeclaration): readonly string[] => {
+  const bindings = statement.importClause?.namedBindings;
+  if (bindings && ts.isNamespaceImport(bindings)) return [bindings.name.text];
+  return bindings?.elements.map((element) => element.name.text) ?? [];
+};
+
+const internalBindings = (statement: ts.Statement, file: ts.SourceFile): readonly string[] => {
+  if (ts.isImportDeclaration(statement)) return importBindings(statement);
+  if (ts.isTypeAliasDeclaration(statement)) return [statement.name.text];
+  if (ts.isVariableStatement(statement))
+    return statement.declarationList.declarations.map((item) => item.name.getText(file));
+  return [];
+};
+
 describe('schema generation', () => {
   it('emits inferred column types, generic IDs, hidden fields, and abstract batch resolvers', () => {
     const result = readSchema(schema);
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') throw new Error(result.message);
     const code = renderModels(result.models, options);
-    expect(code).toContain('type UsersRow = typeof schema.users.$inferSelect;');
-    expect(code).toContain('readonly id: ID<UsersRow["id"]>');
-    expect(code).toContain('readonly $passwordHash: UsersRow["passwordHash"]');
+    expect(code).toContain('type $usersRow = typeof $schema.users.$inferSelect;');
+    expect(code).toContain('readonly id: ID<$usersRow["id"]>');
+    expect(code).toContain('readonly $passwordHash: $usersRow["passwordHash"]');
     expect(code).toContain('readonly posts: readonly Post[]');
     expect(code).toContain('readonly author: User;');
     expect(code).toContain('readonly reviewer: User | null;');
@@ -40,13 +55,17 @@ describe('schema generation', () => {
     expect(code).toContain('async $drizzleRelation_reviewer(');
     expect(code).not.toContain('$drizzleRelation0');
     expect(code).toContain('export abstract class GeneratedUserResolver');
-    expect(code).toContain('readonly #database = inject(Database)');
+    expect(code).toContain('readonly #database = $inject($Database)');
     expect(code).not.toContain('@Resolver');
     expect(code).not.toMatch(/interface Sessions|Relation\("sessions"\)|@Query|@Mutation/);
   });
 
   it.each([
-    ['no PK', { broken: sqliteTable('broken', { value: text() }) }],
+    [
+      'no PK',
+      { broken: sqliteTable('broken', { value: text() }) },
+      'Table "broken" must have a single-column primary key.',
+    ],
     [
       'composite PK',
       {
@@ -54,18 +73,126 @@ describe('schema generation', () => {
           primaryKey({ columns: [t.a, t.b] }),
         ]),
       },
+      'Table "broken" must have a single-column primary key.',
     ],
-    ['non-primary id', { broken: sqliteTable('broken', { key: text().primaryKey(), id: text() }) }],
     [
-      'duplicate GraphQL names',
-      {
-        first: gqlMeta(sqliteTable('a', { id: text().primaryKey() }), { name: 'Same' }),
-        second: gqlMeta(sqliteTable('b', { id: text().primaryKey() }), { name: 'Same' }),
-      },
+      'non-primary id',
+      { broken: sqliteTable('broken', { key: text().primaryKey(), id: text() }) },
+      'Table "broken" has a non-primary-key column named "id".',
     ],
-    ['unsupported MySQL', { broken: mysqlTable('broken', { id: int().primaryKey() }) }],
-  ])('rejects %s', (_name, input) => {
-    expect(readSchema(input).kind).toBe('error');
+    [
+      'unsupported MySQL',
+      { broken: mysqlTable('broken', { id: int().primaryKey() }) },
+      'Table "broken": only PostgreSQL and SQLite are supported.',
+    ],
+  ])('rejects %s', (_name, input, message) => {
+    expect(readSchema(input)).toEqual({ kind: 'error', message });
+  });
+
+  it('keeps every internal binding of the generated module out of the GraphQL name space', () => {
+    // GraphQL type names cannot contain `$`, so a `$` name can never be shadowed by a model.
+    const database = gqlMeta(sqliteTable('a', { id: text().primaryKey(), ref: text() }), {
+      name: 'Database',
+    });
+    const relation = gqlMeta(sqliteTable('b', { id: text().primaryKey() }), { name: 'Relation' });
+    const databaseRelations = relations(database, ({ one }) => ({
+      target: one(relation, { fields: [database.ref], references: [relation.id] }),
+    }));
+    const result = readSchema({ database, relation, databaseRelations });
+    if (result.kind === 'error') throw new Error(result.message);
+    const file = ts.createSourceFile(
+      'generated.ts',
+      renderModels(result.models, options),
+      ts.ScriptTarget.Latest,
+    );
+    const internal = file.statements.flatMap((statement) => internalBindings(statement, file));
+    const exported = file.statements.flatMap((statement) =>
+      (ts.isInterfaceDeclaration(statement) || ts.isClassDeclaration(statement)) && statement.name
+        ? [statement.name.text]
+        : [],
+    );
+    expect(exported).toEqual([
+      'Database',
+      'Relation',
+      'GeneratedDatabaseResolver',
+      'GeneratedRelationResolver',
+    ]);
+    expect(internal.filter((name) => name !== 'ID' && !name.startsWith('$'))).toEqual([]);
+  });
+
+  it.each(['ID', 'Query', 'Mutation', 'Subscription', 'String', 'Int', 'Float', 'Boolean'])(
+    'rejects the reserved GraphQL type name %s',
+    (name) => {
+      const table = gqlMeta(sqliteTable('a', { id: text().primaryKey() }), { name });
+      expect(readSchema({ table })).toEqual({
+        kind: 'error',
+        message: `Table "table" uses the GraphQL type name "${name}", which GraphQL reserves. Set a different name with gqlMeta(table, { name: ... }) in the schema.`,
+      });
+    },
+  );
+
+  it.each([
+    [
+      'two models',
+      { first: { name: 'Same' }, second: { name: 'Same' } },
+      'Duplicate GraphQL type name "Same": it is both the GraphQL type name of table "first" and the GraphQL type name of table "second". Set a different name with gqlMeta(table, { name: ... }) in the schema.',
+    ],
+    [
+      'a model and a later resolver',
+      { first: { name: 'GeneratedPostResolver' }, second: { name: 'Post' } },
+      'Duplicate export name in the generated module "GeneratedPostResolver": it is both the GraphQL type name of table "first" and the resolver class generated for table "second". Set a different name with gqlMeta(table, { name: ... }) in the schema.',
+    ],
+    [
+      'a resolver and a later model',
+      { first: { name: 'Post' }, second: { name: 'GeneratedPostResolver' } },
+      'Duplicate export name in the generated module "GeneratedPostResolver": it is both the resolver class generated for table "first" and the GraphQL type name of table "second". Set a different name with gqlMeta(table, { name: ... }) in the schema.',
+    ],
+  ])('rejects generated export names shared by %s', (_case, names, message) => {
+    const input = Object.fromEntries(
+      Object.entries(names).map(([key, meta]) => [
+        key,
+        gqlMeta(sqliteTable(key, { id: text().primaryKey() }), meta),
+      ]),
+    );
+    expect(readSchema(input)).toEqual({ kind: 'error', message });
+  });
+
+  it.each(['string', 'class', 'undefined', 'keyof'])(
+    'rejects the type name %s, which TypeScript cannot use as the model interface',
+    (name) => {
+      const table = gqlMeta(sqliteTable('a', { id: text().primaryKey() }), { name });
+      expect(readSchema({ table })).toEqual({
+        kind: 'error',
+        message: `Table "table" uses the GraphQL type name "${name}", which TypeScript reserves and the generated model interface cannot take. Set a different name with gqlMeta(table, { name: ... }) in the schema.`,
+      });
+    },
+  );
+
+  it.each(['__User', 'User-Name', '名前', '1User'])(
+    'rejects the GraphQL type name %s, which is not a GraphQL name',
+    (name) => {
+      const table = gqlMeta(sqliteTable('a', { id: text().primaryKey() }), { name });
+      expect(readSchema({ table })).toEqual({
+        kind: 'error',
+        message: `Table "table" has an invalid GraphQL type name "${name}" (letters, digits and "_", not starting with a digit or "__"). Set a different name with gqlMeta(table, { name: ... }) in the schema.`,
+      });
+    },
+  );
+
+  it.each([
+    ['user_posts', 'type $user_postsRow = typeof $schema.user_posts.$inferSelect;'],
+    ['userPosts', 'type $userPostsRow = typeof $schema.userPosts.$inferSelect;'],
+    ['$posts', 'type $$24$postsRow = typeof $schema.$posts.$inferSelect;'],
+    ['my-posts', 'type $my$2d$postsRow = (typeof $schema)["my-posts"]["$inferSelect"];'],
+  ])('derives a distinct internal row type from the export name %s', (exportName, alias) => {
+    const result = readSchema({
+      [exportName]: gqlMeta(sqliteTable('a', { id: text().primaryKey() }), { name: 'A' }),
+      userposts: gqlMeta(sqliteTable('b', { id: text().primaryKey() }), { name: 'B' }),
+    });
+    if (result.kind === 'error') throw new Error(result.message);
+    const code = renderModels(result.models, options);
+    expect(code).toContain(alias);
+    expect(code).toContain('type $userpostsRow = typeof $schema.userposts.$inferSelect;');
   });
 
   it('supports table-level single-column PKs and maps renamed PKs to id', () => {
@@ -133,20 +260,58 @@ describe('schema generation', () => {
     expect(readSchema({ hidden })).toEqual({ kind: 'success', models: [] });
   });
 
-  it('quotes property keys only when they cannot be identifiers', () => {
+  it.each(['full-name', '名前', '__internal', '$secret', '1st'])(
+    'rejects the public column key %s, which is not a GraphQL name',
+    (key) => {
+      const users = sqliteTable('users', { id: text().primaryKey(), [key]: text() });
+      expect(readSchema({ users })).toEqual({
+        kind: 'error',
+        message: `Table "users" exposes the column key "${key}", which is not a valid GraphQL field name (letters, digits and "_", not starting with a digit or "__"). Rename the key in the table definition, or hide the column with gqlMeta(column, { hidden: true }).`,
+      });
+    },
+  );
+
+  it('rejects a relation key that is not a GraphQL name', () => {
+    const users = sqliteTable('users', { id: text().primaryKey() });
+    const posts = sqliteTable('posts', { id: text().primaryKey(), user: text() });
+    const postsRelations = relations(posts, ({ one }) => ({
+      'written-by': one(users, { fields: [posts.user], references: [users.id] }),
+    }));
+    expect(readSchema({ users, posts, postsRelations })).toEqual({
+      kind: 'error',
+      message:
+        'Table "posts" has the relation key "written-by", which is not a valid GraphQL field name (letters, digits and "_", not starting with a digit or "__"). Rename the key in relations().',
+    });
+  });
+
+  it('accepts any key for a hidden column, quoting it when it is not an identifier', () => {
     const result = readSchema({
       users: sqliteTable('users', {
         id: text().primaryKey(),
         firstName: text(),
-        'full-name': text(),
-        名前: text(),
+        'full-name': gqlMeta(text(), { hidden: true }),
+        名前: gqlMeta(text(), { hidden: true }),
+        secret: gqlMeta(text(), { hidden: true }),
       }),
     });
     if (result.kind === 'error') throw new Error(result.message);
     const code = renderModels(result.models, options);
-    expect(code).toContain('readonly firstName: UsersRow["firstName"];');
-    expect(code).toContain('readonly "full-name": UsersRow["full-name"];');
-    expect(code).toContain('readonly 名前: UsersRow["名前"];');
+    expect(code).toContain('readonly firstName: $usersRow["firstName"];');
+    expect(code).toContain('readonly "$full-name": $usersRow["full-name"];');
+    expect(code).toContain('readonly $名前: $usersRow["名前"];');
+    expect(code).toContain('readonly $secret: $usersRow["secret"];');
+  });
+
+  it('cannot expose a public column that collides with a hidden column', () => {
+    const users = sqliteTable('users', {
+      id: text().primaryKey(),
+      secret: gqlMeta(text(), { hidden: true }),
+      $secret: text(),
+    });
+    expect(readSchema({ users })).toMatchObject({
+      kind: 'error',
+      message: expect.stringContaining('exposes the column key "$secret"'),
+    });
   });
 
   it('returns relation normalization errors as values', () => {

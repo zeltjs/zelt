@@ -14,7 +14,6 @@ export type ModelRelation = {
 export type Model = {
   readonly name: string;
   readonly exportName: string;
-  readonly rowName: string;
   readonly dialect: 'pg' | 'sqlite';
   readonly primaryKey: string;
   readonly columns: readonly ModelColumn[];

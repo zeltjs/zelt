@@ -229,6 +229,10 @@ const config: KnipConfig = {
       // Swizzled Docusaurus theme components are loaded by Docusaurus at runtime
       // Twoslash fixtures are read as text into the docs' virtual file system
       ignore: ['src/theme/**', 'src/twoslash/fixtures/**'],
+      // guide-project.lib.ts is material shared by the guide tests only. Production
+      // mode does not read tests, so it is declared as not shipped (the same '!...!'
+      // shape as packages/studio-ui); the default run still checks it.
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!scripts/guide-project.lib.ts!'],
     },
   },
 };
