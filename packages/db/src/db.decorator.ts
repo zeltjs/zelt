@@ -21,7 +21,7 @@ export function createTransactionDecorator<T>(serviceClass: DatabaseServiceClass
         const service = services.get(this as object);
         if (service === undefined) {
           throw new Error(
-            `@Transaction() method "${String(context.name)}" was called on an instance that was not constructed through dependency injection`,
+            `@Transaction() method "${String(context.name)}" was called with a \`this\` that is not an instance of its class`,
           );
         }
         return service.withTransaction(() => originalMethod.apply(this, args)) as ReturnType<M>;
