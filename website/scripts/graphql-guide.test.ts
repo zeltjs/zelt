@@ -7,7 +7,8 @@ import { generateGraphqlRuntimeForResolvers } from '@zeltjs/graphql/codegen';
 import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
 import { buildSchema, printSchema } from 'graphql';
 import { afterAll, describe, expect, it } from 'vitest';
-import { fences, importModule, virtualFiles, writeProject } from './guide-project.lib';
+import { codeFences } from '../src/twoslash/code-fences.lib';
+import { importModule, virtualFiles, writeProject } from './guide-project.lib';
 
 // The guide is the user-facing contract. This test does not restate its code: it runs the
 // guide's own code blocks and checks the schemas and responses the guide claims.
@@ -84,7 +85,7 @@ afterAll(async () => {
 describe.each(Object.entries(guides))('GraphQL guide (%s)', (lang, { path, names }) => {
   const load = async () => {
     const markdown = await readFile(path, 'utf8');
-    return { ts: fences(markdown, 'ts'), graphql: fences(markdown, 'graphql') };
+    return { ts: codeFences(markdown, 'ts'), graphql: codeFences(markdown, 'graphql') };
   };
   const project = async (block: string | undefined, name: string): Promise<string> => {
     const dir = join(workDir, `${lang}-${name}`);

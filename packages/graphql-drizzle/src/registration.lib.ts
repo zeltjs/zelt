@@ -6,15 +6,17 @@ import type { Model } from './schema.types';
 const collectRegistrations = (
   http: Pick<HttpStaticCapabilities, 'getControllers'>,
 ): ReadonlyMap<string, number> => {
+  // One resolver class may serve several endpoints; it still extends the model only once.
+  const resolvers = new Set(
+    http
+      .getControllers()
+      .flatMap((controller) => getGraphqlControllerMetadata(controller)?.resolvers ?? []),
+  );
   const registrations = new Map<string, number>();
-  for (const controller of new Set(http.getControllers())) {
-    const endpoint = getGraphqlControllerMetadata(controller);
-    if (!endpoint) continue;
-    for (const resolver of endpoint.resolvers) {
-      const identity: unknown = Reflect.get(resolver, generatedModelKey);
-      if (typeof identity !== 'string') continue;
-      registrations.set(identity, (registrations.get(identity) ?? 0) + 1);
-    }
+  for (const resolver of resolvers) {
+    const identity: unknown = Reflect.get(resolver, generatedModelKey);
+    if (typeof identity !== 'string') continue;
+    registrations.set(identity, (registrations.get(identity) ?? 0) + 1);
   }
   return registrations;
 };

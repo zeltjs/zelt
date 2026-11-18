@@ -67,6 +67,19 @@ describe('drizzleGraphqlPlugin lifecycle', () => {
     expect(code).toContain('import * as $schema from "../schema"');
   });
 
+  it('imports a module under a dot-directory next to the output relatively', async () => {
+    const cwd = await temp();
+    const instance = drizzleGraphqlPlugin({
+      schema: './.config/schema.ts',
+      database: { module: './.config/database.service.ts', export: 'DrizzleService' },
+      out: './generated.ts',
+    });
+    await instance.preBuild?.(context(cwd));
+    const code = await readFile(join(cwd, 'generated.ts'), 'utf8');
+    expect(code).toContain('import * as $schema from "./.config/schema"');
+    expect(code).toContain('from "./.config/database.service"');
+  });
+
   it.each([
     ['without a package name', undefined, '"src/generated/models.ts#User"'],
     ['with a package name', '@acme/app', '"@acme/app/src/generated/models.ts#User"'],
@@ -153,9 +166,28 @@ describe('drizzleGraphqlPlugin lifecycle', () => {
     );
   });
 
-  it.each([1, 2])(
-    'requires exactly one registered subclass per model (registrations=%i)',
-    async (count) => {
+  it.each([
+    ['one subclass', [['User', 'Post']], undefined],
+    [
+      'one subclass on two endpoints',
+      [
+        ['User', 'Post'],
+        ['User', 'Post'],
+      ],
+      undefined,
+    ],
+    ['two subclasses', [['User', 'OtherUser', 'Post']], 'found 2'],
+    [
+      'two subclasses on two endpoints',
+      [
+        ['User', 'Post'],
+        ['OtherUser', 'Post'],
+      ],
+      'found 2',
+    ],
+  ] as const)(
+    'requires exactly one registered subclass per model: %s',
+    async (_label, endpoints, failure) => {
       const cwd = await temp();
       const marker = generatedModelKey;
       class UserBase {
@@ -170,24 +202,27 @@ describe('drizzleGraphqlPlugin lifecycle', () => {
       class OtherUserResolver extends UserBase {}
       @Resolver()
       class PostResolver extends PostBase {}
-      const child = graphql({
-        path: '/graphql',
-        resolvers:
-          count === 1
-            ? [UserResolver, PostResolver]
-            : [UserResolver, OtherUserResolver, PostResolver],
-      });
+      const resolvers = { User: UserResolver, OtherUser: OtherUserResolver, Post: PostResolver };
+      const children = endpoints.map((names, index) =>
+        graphql({
+          path: `/graphql${index}`,
+          name: `graphql${index}`,
+          resolvers: names.map((name) => resolvers[name]),
+        }),
+      );
       const ctx = {
         ...context(cwd),
         loadStaticApp: async () => ({
-          http: { getControllers: () => child.blueprint().getControllers() },
+          http: {
+            getControllers: () => children.flatMap((child) => child.blueprint().getControllers()),
+          },
         }),
       };
       const instance = plugin();
       await instance.preBuild?.(ctx);
-      if (count === 1)
-        await expect(instance.postBuild?.(ctx, { success: true })).resolves.toBeUndefined();
-      else await expect(instance.postBuild?.(ctx, { success: true })).rejects.toThrow('found 2');
+      const result = instance.postBuild?.(ctx, { success: true });
+      if (failure) await expect(result).rejects.toThrow(failure);
+      else await expect(result).resolves.toBeUndefined();
     },
   );
 

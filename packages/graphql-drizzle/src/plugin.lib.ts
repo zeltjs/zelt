@@ -27,7 +27,7 @@ const importSpecifier = (out: string, module: string): string => {
   const path = relative(dirname(out), module)
     .replaceAll('\\', '/')
     .replace(/\.[cm]?tsx?$/, '');
-  return path.startsWith('.') ? path : `./${path}`;
+  return /^\.\.?\//.test(path) ? path : `./${path}`;
 };
 
 /** @throws {Error} A malformed module cannot enter the build pipeline. */

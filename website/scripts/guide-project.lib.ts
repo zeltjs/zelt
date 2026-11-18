@@ -4,11 +4,6 @@ import { pathToFileURL } from 'node:url';
 
 export type GuideFile = { readonly name: string; readonly content: string };
 
-export const fences = (markdown: string, lang: string): readonly string[] =>
-  [...markdown.matchAll(new RegExp(`\`\`\`${lang}\\n([\\s\\S]*?)\`\`\``, 'g'))].map(
-    (match) => match[1] ?? '',
-  );
-
 // Twoslash cut markers only hide lines from the rendered page; the program keeps them.
 export const virtualFiles = (block: string): readonly GuideFile[] =>
   block

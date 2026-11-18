@@ -13,15 +13,17 @@ const pascalCase = (name: string): string =>
     letter.toUpperCase(),
   );
 
-const columnKey = (table: Table, column: Column): ReadResult<string> => {
+const columnKey = (table: Table, column: Column): string | undefined => {
+  // Drizzle's types accept a column of any table with the same SQL name, so ownership is checked here.
+  if (column.table !== table) return undefined;
   // PostgreSQL creates separate extra-config columns for table-level constraints.
-  const entry = Object.entries(getTableColumns(table)).find(
+  return Object.entries(getTableColumns(table)).find(
     ([, value]) => value.name === column.name,
-  );
-  return entry
-    ? { kind: 'success', value: entry[0] }
-    : { kind: 'error', message: `Relation column "${column.name}" does not belong to its table.` };
+  )?.[0];
 };
+
+// Names a column by its key in the table that owns it, as the schema author wrote it.
+const columnLabel = (column: Column): string => columnKey(column.table, column) ?? column.name;
 
 const tableShape = (table: Table) => {
   if (is(table, PgTable)) return { dialect: 'pg', config: getPgConfig(table) } as const;
@@ -152,13 +154,23 @@ const readPrimaryKey = (
       message: `Table "${exportName}" must have a string primary key; got ${pk.dataType}.`,
     };
   const key = columnKey(table, pk);
-  if (key.kind === 'error') return key;
-  if (key.value !== 'id' && Object.keys(getTableColumns(table)).includes('id'))
+  if (key === undefined)
+    return {
+      kind: 'error',
+      message: `Table "${exportName}" has a primary key column "${columnLabel(pk)}" that does not belong to it.`,
+    };
+  // A table-level primaryKey() leaves the column nullable in Drizzle's row type, which ID<T> rejects.
+  if (!pk.notNull)
+    return {
+      kind: 'error',
+      message: `Table "${exportName}" must have a non-null primary key: add .notNull() to column "${key}", or use the column-level .primaryKey().`,
+    };
+  if (key !== 'id' && Object.keys(getTableColumns(table)).includes('id'))
     return {
       kind: 'error',
       message: `Table "${exportName}" has a non-primary-key column named "id".`,
     };
-  return key;
+  return { kind: 'success', value: key };
 };
 
 const readModel = (exportName: string, table: Table): ReadResult<Model> => {
@@ -190,29 +202,40 @@ const readModel = (exportName: string, table: Table): ReadResult<Model> => {
   };
 };
 
-const readJoins = (source: Table, relation: ReadRelation): ReadResult<ModelRelation['joins']> => {
+const foreignColumn = (key: string, column: Column, exportName: string): SchemaError => ({
+  kind: 'error',
+  message: `Relation "${key}" joins on a column "${columnLabel(column)}" that does not belong to table "${exportName}".`,
+});
+
+const readJoins = (
+  source: Model,
+  sourceTable: Table,
+  relation: ReadRelation,
+  target: Model,
+): ReadResult<ModelRelation['joins']> => {
   const joins: { source: string; target: string }[] = [];
   for (const [index, field] of relation.fields.entries()) {
     const reference = relation.references[index];
     if (!reference)
       return { kind: 'error', message: `Relation "${relation.key}" has mismatched join columns.` };
-    const sourceKey = columnKey(source, field);
-    if (sourceKey.kind === 'error') return sourceKey;
+    const sourceKey = columnKey(sourceTable, field);
+    if (sourceKey === undefined) return foreignColumn(relation.key, field, source.exportName);
     const targetKey = columnKey(relation.targetTable, reference);
-    if (targetKey.kind === 'error') return targetKey;
-    joins.push({ source: sourceKey.value, target: targetKey.value });
+    if (targetKey === undefined) return foreignColumn(relation.key, reference, target.exportName);
+    joins.push({ source: sourceKey, target: targetKey });
   }
   return { kind: 'success', value: joins };
 };
 
 const readModelRelation = (
-  source: Table,
+  source: Model,
+  sourceTable: Table,
   relation: ReadRelation,
   target: Model,
 ): ReadResult<ModelRelation> => {
   if (relation.fields.length !== relation.references.length || relation.fields.length === 0)
     return { kind: 'error', message: `Relation "${relation.key}" has mismatched join columns.` };
-  const joins = readJoins(source, relation);
+  const joins = readJoins(source, sourceTable, relation, target);
   if (joins.kind === 'error') return joins;
   return {
     kind: 'success',
@@ -229,12 +252,18 @@ const readModelRelation = (
   };
 };
 
+// alias() returns a proxy that passes is(_, Table) but names no table of its own, so it is not a model.
+// Drizzle keeps this flag under a registered symbol and reads it itself in every dialect, but its
+// typings hide it.
+const isAlias = (table: Table): boolean =>
+  Reflect.get(table, Symbol.for('drizzle:IsAlias')) === true;
+
 const publicTables = (
   schema: Record<string, unknown>,
 ): ReadResult<readonly { exportName: string; table: Table }[]> => {
   const tables: { exportName: string; table: Table }[] = [];
   for (const [exportName, table] of Object.entries(schema)) {
-    if (!is(table, DrizzleTable)) continue;
+    if (!is(table, DrizzleTable) || isAlias(table)) continue;
     const meta = readGraphqlMeta(table);
     if (meta.kind === 'error') return meta;
     if (!meta.value.hidden) tables.push({ exportName, table });
@@ -265,7 +294,7 @@ const attachRelations = (
         kind: 'error',
         message: `Table "${model.exportName}" has the relation key "${relation.key}", which is not a valid GraphQL field name ${NAME_RULE}. Rename the key in relations().`,
       };
-    const result = readModelRelation(table, relation, target);
+    const result = readModelRelation(model, table, relation, target);
     if (result.kind === 'error') return result;
     attached.push(result.value);
   }

@@ -1,13 +1,13 @@
-const visibleCode = (code: string): string => code.split('// ---cut---\n').at(-1) ?? code;
+import { codeFences } from './code-fences.lib';
+
+const visibleCode = (code: string): string => code.split(/\/\/ ---cut---\r?\n/).at(-1) ?? code;
 
 // The guide's schema and generated excerpt stay authoritative for every isolated block.
 export const graphqlDrizzleSetup = (
   markdown: string,
   databaseService: string,
 ): Readonly<Record<string, string>> => {
-  const blocks = [...markdown.matchAll(/```ts\n([\s\S]*?)```/g)].map((match) =>
-    visibleCode(match[1] ?? ''),
-  );
+  const blocks = codeFences(markdown, 'ts').map(visibleCode);
   const block = (marker: string): string => {
     const found = blocks.find((code) => code.includes(marker));
     if (found === undefined) throw new Error(`GraphQL Drizzle guide is missing ${marker}`);

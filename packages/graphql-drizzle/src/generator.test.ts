@@ -1,6 +1,7 @@
 import { relations } from 'drizzle-orm';
 import { int, mysqlTable } from 'drizzle-orm/mysql-core';
 import {
+  alias as pgAlias,
   bigint as pgBigint,
   integer as pgInteger,
   primaryKey as pgPrimaryKey,
@@ -8,7 +9,7 @@ import {
   text as pgText,
   serial,
 } from 'drizzle-orm/pg-core';
-import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { alias, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { gqlMeta } from './index';
@@ -74,6 +75,18 @@ describe('schema generation', () => {
         ]),
       },
       'Table "broken" must have a single-column primary key.',
+    ],
+    [
+      'nullable SQLite table-level PK',
+      { broken: sqliteTable('broken', { key: text() }, (t) => [primaryKey({ columns: [t.key] })]) },
+      'Table "broken" must have a non-null primary key: add .notNull() to column "key", or use the column-level .primaryKey().',
+    ],
+    [
+      'nullable PostgreSQL table-level PK',
+      {
+        broken: pgTable('broken', { key: pgText() }, (t) => [pgPrimaryKey({ columns: [t.key] })]),
+      },
+      'Table "broken" must have a non-null primary key: add .notNull() to column "key", or use the column-level .primaryKey().',
     ],
     [
       'non-primary id',
@@ -260,6 +273,53 @@ describe('schema generation', () => {
     expect(readSchema({ hidden })).toEqual({ kind: 'success', models: [] });
   });
 
+  describe('exported aliases', () => {
+    const render = (exports: Record<string, unknown>): string => {
+      const result = readSchema(exports);
+      if (result.kind !== 'success') throw new Error(result.message);
+      return renderModels(result.models, options);
+    };
+    const pgUsers = pgTable('users', { id: pgText().primaryKey(), parentId: pgText() });
+    const sqliteUsers = sqliteTable('users', { id: text().primaryKey(), parentId: text() });
+
+    it.each([
+      ['PostgreSQL', pgUsers, pgAlias(pgUsers, 'parent')],
+      ['SQLite', sqliteUsers, alias(sqliteUsers, 'parent')],
+    ])('ignores a %s alias like any other non-table export', (_dialect, users, parent) => {
+      expect(readSchema({ users, parent })).toMatchObject({
+        kind: 'success',
+        models: [{ name: 'Users' }],
+      });
+      expect(render({ users, parent })).toBe(render({ users }));
+    });
+
+    it('keeps a self-relation when an alias of the table is exported', () => {
+      const users = sqliteUsers;
+      const usersRelations = relations(users, ({ one, many }) => ({
+        parent: one(users, {
+          fields: [users.parentId],
+          references: [users.id],
+          relationName: 'parent',
+        }),
+        children: many(users, { relationName: 'parent' }),
+      }));
+      const parent = alias(users, 'parent');
+      expect(readSchema({ users, parent, usersRelations })).toMatchObject({
+        kind: 'success',
+        models: [
+          {
+            name: 'Users',
+            relations: [
+              { key: 'parent', target: 'Users', kind: 'one' },
+              { key: 'children', target: 'Users', kind: 'many' },
+            ],
+          },
+        ],
+      });
+      expect(render({ users, parent, usersRelations })).toBe(render({ users, usersRelations }));
+    });
+  });
+
   it.each(['full-name', '名前', '__internal', '$secret', '1st'])(
     'rejects the public column key %s, which is not a GraphQL name',
     (key) => {
@@ -311,6 +371,46 @@ describe('schema generation', () => {
     expect(readSchema({ users })).toMatchObject({
       kind: 'error',
       message: expect.stringContaining('exposes the column key "$secret"'),
+    });
+  });
+
+  describe('relation join columns', () => {
+    const users = sqliteTable('users', { id: text().primaryKey() });
+    const posts = sqliteTable('posts', { id: text().primaryKey(), authorId: text() });
+    // Same SQL table names, so Drizzle's types accept their columns; they are other tables.
+    const otherUsers = sqliteTable('users', { id: text().primaryKey() });
+    const otherPosts = sqliteTable('posts', { id: text().primaryKey(), authorId: text() });
+
+    it.each([
+      ['fields', otherPosts.authorId, users.id],
+      ['references', posts.authorId, otherUsers.id],
+    ])('rejects a same-named column of another table in %s', (_side, field, reference) => {
+      const postsRelations = relations(posts, ({ one }) => ({
+        author: one(users, { fields: [field], references: [reference] }),
+      }));
+      expect(readSchema({ users, posts, postsRelations })).toMatchObject({
+        kind: 'error',
+        message: expect.stringMatching(/^Relation "author" /),
+      });
+    });
+
+    it('accepts PostgreSQL columns that also appear in table-level constraints', () => {
+      const pgUsers = pgTable('users', { key: pgText().notNull() }, (t) => [
+        pgPrimaryKey({ columns: [t.key] }),
+      ]);
+      const pgPosts = pgTable('posts', { id: pgText().primaryKey(), authorKey: pgText() });
+      const pgPostsRelations = relations(pgPosts, ({ one }) => ({
+        author: one(pgUsers, { fields: [pgPosts.authorKey], references: [pgUsers.key] }),
+      }));
+      expect(
+        readSchema({ users: pgUsers, posts: pgPosts, postsRelations: pgPostsRelations }),
+      ).toMatchObject({
+        kind: 'success',
+        models: [
+          { primaryKey: 'key' },
+          { relations: [{ joins: [{ source: 'authorKey', target: 'key' }] }] },
+        ],
+      });
     });
   });
 
@@ -383,7 +483,8 @@ describe('schema generation', () => {
     }));
     expect(readSchema({ users, posts, postsRelations })).toEqual({
       kind: 'error',
-      message: 'Relation column "foreign" does not belong to its table.',
+      message:
+        'Relation "author" joins on a column "foreign" that does not belong to table "posts".',
     });
   });
 });
