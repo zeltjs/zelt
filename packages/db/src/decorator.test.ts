@@ -1,5 +1,5 @@
 import { createApp, Injectable, inject } from '@zeltjs/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { DatabaseService } from './database.service';
 import { createTransactionDecorator } from './db.decorator';
@@ -66,6 +66,34 @@ describe('createTransactionDecorator', () => {
     } finally {
       await runtime.shutdown();
     }
+  });
+
+  it('uses the database of the runtime that constructed the instance', async () => {
+    const runtimeA = await startRuntime();
+    const runtimeB = await startRuntime();
+    try {
+      const serviceA = await runtimeA.get(OrderService);
+      await runtimeB.get(OrderService);
+
+      await serviceA.place(3);
+
+      expect((await runtimeA.get(MemoryDatabase)).transactions).toHaveLength(1);
+      expect((await runtimeB.get(MemoryDatabase)).transactions).toHaveLength(0);
+    } finally {
+      await runtimeA.shutdown();
+      await runtimeB.shutdown();
+    }
+  });
+
+  it('rejects static methods at the type level', () => {
+    // Never invoked: defining the class would run the static initializer outside DI.
+    const defineStatic = () =>
+      class {
+        // @ts-expect-error static methods have no constructed instance to inject into
+        @Transaction()
+        static async run(): Promise<void> {}
+      };
+    expectTypeOf(defineStatic).toBeFunction();
   });
 
   it('nests inner decorated calls inside the outer transaction', async () => {

@@ -9,7 +9,12 @@ type AnyAsyncFn = (...args: any[]) => Promise<any>;
 
 export function createTransactionDecorator<T>(serviceClass: DatabaseServiceClass<T>) {
   return function Transaction() {
-    return <M extends AnyAsyncFn>(originalMethod: M, context: ClassMethodDecoratorContext): M => {
+    // Static methods are rejected by the type: their initializer runs at class definition,
+    // where there is no instance being constructed and inject() cannot resolve anything.
+    return <M extends AnyAsyncFn>(
+      originalMethod: M,
+      context: ClassMethodDecoratorContext & { static: false },
+    ): M => {
       // inject() only works while the container is constructing the instance,
       // so the service is captured at construction rather than at call time.
       const services = new WeakMap<object, DatabaseService<T>>();
