@@ -1,83 +1,87 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createApp, Injectable, inject } from '@zeltjs/core';
+import { describe, expect, it } from 'vitest';
 
 import { DatabaseService } from './database.service';
 import { createTransactionDecorator } from './db.decorator';
 
-class MockDatabaseService extends DatabaseService<{ id: string }> {
-  withTransactionCalls: (() => Promise<unknown>)[] = [];
+type Client = { readonly kind: 'base' | 'transaction'; active: boolean };
+type TransactionCall = { readonly parent: Client; readonly tx: Client };
 
-  async setup() {
-    return { client: { id: 'mock-client' } };
+@Injectable()
+class MemoryDatabase extends DatabaseService<Client> {
+  readonly transactions: TransactionCall[] = [];
+
+  setup(): Promise<{ client: Client }> {
+    return Promise.resolve({ client: { kind: 'base', active: true } });
   }
 
-  async transaction<T>(client: { id: string }, fn: (tx: { id: string }) => Promise<T>): Promise<T> {
-    return fn(client);
+  async transaction<T>(parent: Client, fn: (tx: Client) => Promise<T>): Promise<T> {
+    const tx: Client = { kind: 'transaction', active: true };
+    this.transactions.push({ parent, tx });
+    try {
+      return await fn(tx);
+    } finally {
+      tx.active = false;
+    }
   }
 
-  override withTransaction<T>(fn: () => Promise<T>): Promise<T> {
-    this.withTransactionCalls.push(fn as () => Promise<unknown>);
-    return fn();
+  shutdown(): Promise<void> {
+    return Promise.resolve();
   }
-
-  async shutdown() {}
 }
 
-const mockService = new MockDatabaseService();
+const Transaction = createTransactionDecorator(MemoryDatabase);
 
-vi.mock('@zeltjs/core', () => ({
-  createContextStorage: () => ({
-    get: () => undefined,
-    run: (_value: unknown, fn: () => unknown) => fn(),
-  }),
-  inject: vi.fn((cls: unknown) => {
-    if (cls === MockDatabaseService) return mockService;
-    return { register: vi.fn() };
-  }),
-  LifecycleManager: class {},
-}));
+@Injectable()
+class OrderService {
+  constructor(private db = inject(MemoryDatabase)) {}
+
+  @Transaction()
+  async place(quantity: number): Promise<{ quantity: number; client: Client }> {
+    await Promise.resolve();
+    return { quantity, client: { ...this.db.client } };
+  }
+
+  @Transaction()
+  async placeTwice(): Promise<void> {
+    await this.place(1);
+    await this.place(2);
+  }
+}
+
+const startRuntime = () => createApp([]).createRuntime({ contextMode: 'async' });
 
 describe('createTransactionDecorator', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockService.withTransactionCalls = [];
-  });
+  it('runs a method called after construction inside a transaction', async () => {
+    const runtime = await startRuntime();
+    try {
+      const service = await runtime.get(OrderService);
 
-  it('should create a Transaction decorator factory', () => {
-    const Transaction = createTransactionDecorator(MockDatabaseService);
+      const result = await service.place(3);
 
-    expect(typeof Transaction).toBe('function');
-  });
-
-  it('should wrap method in withTransaction when decorated', async () => {
-    const Transaction = createTransactionDecorator(MockDatabaseService);
-
-    class TestService {
-      @Transaction()
-      async doWork(value: number): Promise<number> {
-        return value * 2;
-      }
+      expect(result).toEqual({ quantity: 3, client: { kind: 'transaction', active: true } });
+      const db = await runtime.get(MemoryDatabase);
+      expect(db.transactions).toHaveLength(1);
+      expect(db.client).toEqual({ kind: 'base', active: true });
+    } finally {
+      await runtime.shutdown();
     }
-
-    const testService = new TestService();
-    const result = await testService.doWork(5);
-
-    expect(result).toBe(10);
-    expect(mockService.withTransactionCalls).toHaveLength(1);
   });
 
-  it('should preserve method arguments and return value', async () => {
-    const Transaction = createTransactionDecorator(MockDatabaseService);
+  it('nests inner decorated calls inside the outer transaction', async () => {
+    const runtime = await startRuntime();
+    try {
+      const service = await runtime.get(OrderService);
 
-    class TestService {
-      @Transaction()
-      async add(a: number, b: number): Promise<number> {
-        return a + b;
-      }
+      await service.placeTwice();
+
+      const db = await runtime.get(MemoryDatabase);
+      const [outer, ...inner] = db.transactions;
+      expect(outer?.parent).toEqual({ kind: 'base', active: true });
+      expect(inner).toHaveLength(2);
+      expect(inner.every((call) => call.parent === outer?.tx)).toBe(true);
+    } finally {
+      await runtime.shutdown();
     }
-
-    const testService = new TestService();
-    const result = await testService.add(3, 4);
-
-    expect(result).toBe(7);
   });
 });
