@@ -8,9 +8,11 @@ import type { GraphQLNamedType } from 'graphql';
 import { buildSchema, isObjectType } from 'graphql';
 import ts from 'typescript';
 import { afterAll, describe, expect, it } from 'vitest';
-import { codeFences } from '../src/twoslash/code-fences.lib';
+import type { CodeBlock } from '../src/twoslash/code-blocks.lib';
+import { twoslashBlocks } from '../src/twoslash/code-blocks.lib';
 import { graphqlDrizzleSetup } from '../src/twoslash/graphql-drizzle-setup.lib';
 import { importModule, virtualFiles, writeProject } from './guide-project.lib';
+import { createReadCodeBlocks } from './markdown-code.lib';
 
 // The guide shows the generated file and the resulting SDL instead of letting readers run the
 // generator. This test runs the real generator on the guide's own schema and config blocks and
@@ -32,10 +34,11 @@ type Generated = { readonly excerpt: string; readonly actual: string; readonly d
 
 // Each guide gets its own project: the files the type-checker shares between the guide's
 // blocks, plus the config block, with the shown generated file replaced by the real output.
-const generate = async (lang: string, markdown: string): Promise<Generated> => {
-  const shared = graphqlDrizzleSetup(markdown, await readFile(databaseService, 'utf8'));
-  const config = codeFences(markdown, 'ts')
-    .flatMap(virtualFiles)
+const generate = async (lang: string, page: readonly CodeBlock[]): Promise<Generated> => {
+  const blocks = twoslashBlocks(page);
+  const shared = graphqlDrizzleSetup(blocks, await readFile(databaseService, 'utf8'));
+  const config = blocks
+    .flatMap(({ code }) => virtualFiles(code))
     .find((file) => file.name === `${root}/zelt.config.ts`);
   if (!config) throw new Error('The guide has no zelt.config.ts block');
   const dir = join(workDir, lang);
@@ -230,14 +233,18 @@ afterAll(async () => {
   await rm(workDir, { recursive: true, force: true });
 });
 
+const readCodeBlocks = createReadCodeBlocks();
+
 describe.each(Object.entries(guides))('GraphQL Drizzle guide (%s)', (lang, path) => {
   // Generation runs the real build plugin once per guide; both tests read the same output.
-  let loaded: Promise<{ readonly markdown: string; readonly generated: Generated }> | undefined;
+  let loaded:
+    | Promise<{ readonly page: readonly CodeBlock[]; readonly generated: Generated }>
+    | undefined;
   const load = () => {
-    loaded ??= readFile(path, 'utf8').then(async (markdown) => ({
-      markdown,
-      generated: await generate(lang, markdown),
-    }));
+    loaded ??= readFile(path, 'utf8').then(async (markdown) => {
+      const page = await readCodeBlocks(path, markdown);
+      return { page, generated: await generate(lang, page) };
+    });
     return loaded;
   };
 
@@ -248,8 +255,10 @@ describe.each(Object.entries(guides))('GraphQL Drizzle guide (%s)', (lang, path)
 
   // Building the SDL type-checks the guide's app with the TypeScript compiler, which is slow.
   it('shows the SDL the generated models contribute, and Query has only the written @Query', async () => {
-    const { markdown, generated } = await load();
-    const shownBlock = codeFences(markdown, 'graphql').find((block) => block.includes('type '));
+    const { page, generated } = await load();
+    const shownBlock = page.find(
+      ({ lang, value }) => lang === 'graphql' && value.includes('type '),
+    )?.value;
     const shown = buildSchema(shownBlock ?? '');
     const real = buildSchema(await generatedSdl(generated.dir));
     const models = generatedFields(generated.actual);

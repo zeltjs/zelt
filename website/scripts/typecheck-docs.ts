@@ -1,8 +1,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { codeFences } from '../src/twoslash/code-fences.lib';
-import { twoslasherFor } from '../src/twoslash/twoslasher';
+import type { TwoslashBlock } from '../src/twoslash/code-blocks.lib';
+import { twoslashBlocks } from '../src/twoslash/code-blocks.lib';
+import { createTwoslasherForPage } from '../src/twoslash/twoslasher';
+import { createReadCodeBlocks } from './markdown-code.lib';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const websiteDir = path.resolve(__dirname, '..');
@@ -18,14 +20,8 @@ const TARGET_DIRS = ['docs', 'i18n/ja/docusaurus-plugin-content-docs/current', '
 // example docs sit inside the i18n docs tree). Those are excerpt-checked.
 const isExampleDoc = (relPath: string): boolean => relPath.split(path.sep).includes('examples');
 
-// The fence languages that the Docusaurus build runs through Twoslash
-// (remark-twoslash-block uses explicitTrigger: false, so the `twoslash`
-// keyword is optional — every TS fence is type-checked).
-const TS_LANGS = ['ts', 'tsx', 'typescript', 'typescriptreact'] as const;
-
-const langFor = (fence: string): 'ts' | 'tsx' =>
-  fence === 'tsx' || fence === 'typescriptreact' ? 'tsx' : 'ts';
-
+// The blocks the Docusaurus build runs through Twoslash: the page is read with the site's
+// Markdown syntax, and the same selection (languages, `source=` excerpts) applies.
 const walkMarkdown = (dir: string, acc: string[] = []): string[] => {
   if (!existsSync(dir)) return acc;
   for (const entry of readdirSync(dir)) {
@@ -48,30 +44,37 @@ const compilerErrorLines = (message: string): string[] =>
     .map((line) => line.trim())
     .filter((line) => /^\[\d+]/.test(line));
 
+const describeError = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error);
+  const errors = compilerErrorLines(message);
+  return errors.length > 0 ? errors.join('\n      ') : (message.split('\n')[0] ?? message);
+};
+
+const readCodeBlocks = createReadCodeBlocks();
+
+const twoslasherFor = createTwoslasherForPage();
 const failures: Failure[] = [];
 let blockCount = 0;
 
 for (const targetDir of TARGET_DIRS) {
   const absDir = path.join(websiteDir, targetDir);
   for (const file of walkMarkdown(absDir)) {
-    if (isExampleDoc(path.relative(websiteDir, file))) continue;
-    const markdown = readFileSync(file, 'utf8');
-    const twoslasher = twoslasherFor(markdown);
-    for (const lang of TS_LANGS) {
-      for (const [index, code] of codeFences(markdown, lang).entries()) {
-        blockCount += 1;
-        try {
-          twoslasher(code, langFor(lang));
-        } catch (error) {
-          const message = (error as Error).message;
-          const errors = compilerErrorLines(message);
-          failures.push({
-            file: path.relative(websiteDir, file),
-            lang,
-            block: index + 1,
-            message: errors.length > 0 ? errors.join('\n      ') : message.split('\n')[0],
-          });
-        }
+    const relPath = path.relative(websiteDir, file);
+    if (isExampleDoc(relPath)) continue;
+    let blocks: readonly TwoslashBlock[];
+    try {
+      blocks = twoslashBlocks(await readCodeBlocks(file, readFileSync(file, 'utf8')));
+    } catch (error) {
+      failures.push({ file: relPath, lang: 'markdown', block: 0, message: describeError(error) });
+      continue;
+    }
+    const twoslasher = twoslasherFor(blocks);
+    for (const [index, { lang, code }] of blocks.entries()) {
+      blockCount += 1;
+      try {
+        twoslasher(code, lang);
+      } catch (error) {
+        failures.push({ file: relPath, lang, block: index + 1, message: describeError(error) });
       }
     }
   }

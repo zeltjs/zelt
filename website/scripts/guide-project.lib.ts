@@ -4,16 +4,18 @@ import { pathToFileURL } from 'node:url';
 
 export type GuideFile = { readonly name: string; readonly content: string };
 
-// Twoslash cut markers only hide lines from the rendered page; the program keeps them.
-export const virtualFiles = (block: string): readonly GuideFile[] =>
-  block
-    .split(/^\/\/ @filename:\s*/m)
-    .slice(1)
-    .map((part) => {
-      const [name = '', ...lines] = part.split('\n');
-      const content = lines.filter((line) => !/^\/\/ ---cut(-after)?---$/.test(line)).join('\n');
-      return { name: name.trim(), content };
-    });
+// Splits a block at Twoslash's own `// @filename:` lines. Cut markers stay in the files: they
+// only hide lines from the rendered page, and the program keeps them as comments.
+const FILENAME = /^[\t\v\f ]*\/\/\s?@filename: (.+)$/gm;
+
+export const virtualFiles = (block: string): readonly GuideFile[] => {
+  const markers = [...block.matchAll(FILENAME)];
+  return markers.map((marker, index) => {
+    const start = (marker.index ?? 0) + marker[0].length;
+    const body = block.slice(start, markers[index + 1]?.index ?? block.length);
+    return { name: (marker[1] ?? '').trim(), content: body.replace(/^\r?\n/, '') };
+  });
+};
 
 const tsconfig = {
   compilerOptions: {

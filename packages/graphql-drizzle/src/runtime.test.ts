@@ -35,6 +35,7 @@ type EmployeeMethods = {
     { id: string; code: string; tenant: string; managerCode: string | null }
   >;
   $drizzleRelation_manager: Batch<string, Ref<string> | null>;
+  $drizzleRelation_peer: Batch<string, Ref<string>>;
   $drizzleRelation_reports: Batch<string, readonly Ref<string>[]>;
 };
 let employees: EmployeeMethods;
@@ -202,6 +203,33 @@ describe('generated batches with a real SQLite database', () => {
       ],
     );
     expect(queries).toHaveLength(1);
+  });
+  it('rejects a one relation that matches more than one target, naming the parent and relation', async () => {
+    targets.db.client.run("INSERT INTO employees VALUES ('e11', 'boss', 'a', NULL)");
+    queries.length = 0;
+    try {
+      await expect(
+        employees.$drizzleRelation_manager([{ id: 'e10' }, { id: 'e02' }]),
+      ).rejects.toThrow('Employee.manager: more than one target for e02');
+      expect(queries).toHaveLength(1);
+    } finally {
+      targets.db.client.run("DELETE FROM employees WHERE employee_id = 'e11'");
+    }
+  });
+  it('rejects a required one relation that matches more than one target', async () => {
+    expect([...(await employees.$drizzleRelation_peer([{ id: 'e02' }]))]).toEqual([
+      ['e02', { id: 'e02' }],
+    ]);
+    targets.db.client.run("INSERT INTO employees VALUES ('e03', 'worker', 'a', NULL)");
+    queries.length = 0;
+    try {
+      await expect(employees.$drizzleRelation_peer([{ id: 'e02' }])).rejects.toThrow(
+        'Employee.peer: more than one target for e02',
+      );
+      expect(queries).toHaveLength(1);
+    } finally {
+      targets.db.client.run("DELETE FROM employees WHERE employee_id = 'e03'");
+    }
   });
   it('obtains the current client through DatabaseService during a propagated transaction', async () => {
     await expect(

@@ -935,6 +935,9 @@ importers:
         specifier: 5.2.0
         version: 5.2.0
     devDependencies:
+      '@docusaurus/mdx-loader':
+        specifier: 3.10.2
+        version: 3.10.2(@swc/core@1.16.21)(esbuild@0.28.2)(postcss@8.5.32)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@docusaurus/module-type-aliases':
         specifier: 3.10.2
         version: 3.10.2(@swc/core@1.16.21)(esbuild@0.28.2)(postcss@8.5.32)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -947,6 +950,9 @@ importers:
       '@docusaurus/types':
         specifier: 3.10.2
         version: 3.10.2(@swc/core@1.16.21)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(esbuild@0.28.2)(html-minifier-terser@7.2.0)(postcss@8.5.32)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@types/mdast':
+        specifier: 4.0.4
+        version: 4.0.4
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0

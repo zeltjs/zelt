@@ -12,6 +12,7 @@ import {
 import { alias, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { generatedExports } from './generated-module.lib';
 import { gqlMeta } from './index';
 import { renderModels } from './render.lib';
 import { readSchema } from './schema-adapter.lib';
@@ -89,6 +90,20 @@ describe('schema generation', () => {
       'Table "broken" must have a non-null primary key: add .notNull() to column "key", or use the column-level .primaryKey().',
     ],
     [
+      'hidden SQLite column-level PK',
+      { broken: sqliteTable('broken', { id: gqlMeta(text().primaryKey(), { hidden: true }) }) },
+      'Table "broken" marks primary key column "id" as hidden. Remove { hidden: true } because the primary key is exposed as "id".',
+    ],
+    [
+      'hidden PostgreSQL table-level PK',
+      {
+        broken: pgTable('broken', { key: gqlMeta(pgText().notNull(), { hidden: true }) }, (t) => [
+          pgPrimaryKey({ columns: [t.key] }),
+        ]),
+      },
+      'Table "broken" marks primary key column "key" as hidden. Remove { hidden: true } because the primary key is exposed as "id".',
+    ],
+    [
       'non-primary id',
       { broken: sqliteTable('broken', { key: text().primaryKey(), id: text() }) },
       'Table "broken" has a non-primary-key column named "id".',
@@ -130,6 +145,12 @@ describe('schema generation', () => {
       'GeneratedDatabaseResolver',
       'GeneratedRelationResolver',
     ]);
+    // The clash check guards exactly the names the module declares.
+    expect(new Set(exported)).toEqual(
+      new Set(
+        result.models.flatMap((model) => generatedExports(model.name).map(({ name }) => name)),
+      ),
+    );
     expect(internal.filter((name) => name !== 'ID' && !name.startsWith('$'))).toEqual([]);
   });
 
@@ -317,6 +338,73 @@ describe('schema generation', () => {
         ],
       });
       expect(render({ users, parent, usersRelations })).toBe(render({ users, usersRelations }));
+    });
+
+    // Drizzle indexes relations by SQL name; an alias sharing it must not take them over.
+    const pgSchema = () => {
+      const users = pgTable('users', { id: pgText().primaryKey() });
+      const posts = pgTable('posts', { id: pgText().primaryKey(), authorId: pgText().notNull() });
+      return {
+        sameName: pgAlias(users, 'users'),
+        exports: {
+          users,
+          posts,
+          usersRelations: relations(users, ({ many }) => ({ posts: many(posts) })),
+          postsRelations: relations(posts, ({ one }) => ({
+            author: one(users, { fields: [posts.authorId], references: [users.id] }),
+          })),
+        },
+      };
+    };
+    const sqliteSchema = () => {
+      const users = sqliteTable('users', { id: text().primaryKey() });
+      const posts = sqliteTable('posts', { id: text().primaryKey(), authorId: text().notNull() });
+      return {
+        sameName: alias(users, 'users'),
+        exports: {
+          users,
+          posts,
+          usersRelations: relations(users, ({ many }) => ({ posts: many(posts) })),
+          postsRelations: relations(posts, ({ one }) => ({
+            author: one(users, { fields: [posts.authorId], references: [users.id] }),
+          })),
+        },
+      };
+    };
+
+    it.each([
+      ['PostgreSQL', pgSchema()],
+      ['SQLite', sqliteSchema()],
+    ])(
+      'leaves the output unchanged when a %s alias takes the SQL name of a real table',
+      (_dialect, { sameName, exports }) => {
+        const { users, posts, usersRelations, postsRelations } = exports;
+        const expected = render(exports);
+        expect(expected).toContain('async $drizzleRelation_posts(');
+        expect(expected).toContain('async $drizzleRelation_author(');
+        for (const placed of [
+          { sameName, ...exports },
+          { users, sameName, posts, usersRelations, postsRelations },
+          { ...exports, sameName },
+        ])
+          expect(render(placed)).toBe(expected);
+      },
+    );
+  });
+
+  it('does not expose a relation to a hidden table', () => {
+    const users = sqliteTable('users', { id: text().primaryKey() });
+    const sessions = gqlMeta(
+      sqliteTable('sessions', { id: text().primaryKey(), userId: text().notNull() }),
+      { hidden: true },
+    );
+    const usersRelations = relations(users, ({ many }) => ({ sessions: many(sessions) }));
+    const sessionsRelations = relations(sessions, ({ one }) => ({
+      user: one(users, { fields: [sessions.userId], references: [users.id] }),
+    }));
+    expect(readSchema({ users, sessions, usersRelations, sessionsRelations })).toMatchObject({
+      kind: 'success',
+      models: [{ name: 'Users', relations: [] }],
     });
   });
 

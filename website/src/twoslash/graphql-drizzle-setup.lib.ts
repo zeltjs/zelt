@@ -1,13 +1,12 @@
-import { codeFences } from './code-fences.lib';
-
-const visibleCode = (code: string): string => code.split(/\/\/ ---cut---\r?\n/).at(-1) ?? code;
+import type { TwoslashBlock } from './code-blocks.lib';
+import { visibleCode } from './code-blocks.lib';
 
 // The guide's schema and generated excerpt stay authoritative for every isolated block.
 export const graphqlDrizzleSetup = (
-  markdown: string,
+  page: readonly TwoslashBlock[],
   databaseService: string,
 ): Readonly<Record<string, string>> => {
-  const blocks = codeFences(markdown, 'ts').map(visibleCode);
+  const blocks = page.map(({ code }) => visibleCode(code));
   const block = (marker: string): string => {
     const found = blocks.find((code) => code.includes(marker));
     if (found === undefined) throw new Error(`GraphQL Drizzle guide is missing ${marker}`);

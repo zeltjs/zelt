@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { describe, expect, it } from 'vitest';
 import { remarkTwoslashBlock } from '../src/remark/remark-twoslash-block';
-import { twoslasherFor } from '../src/twoslash/twoslasher';
+import { createTwoslasherForPage } from '../src/twoslash/twoslasher';
 
 type Node =
   | { type: 'code'; lang: string; value: string }
@@ -27,10 +27,9 @@ export const visibleCode = hiddenSetup;`,
         ],
       };
       await remarkTwoslashBlock({
-        twoslasherFor,
+        twoslasherFor: createTwoslasherForPage(),
         themes: { light: 'kanagawa-wave', dark: 'kanagawa-wave' },
-        langs: ['typescript', 'tsx'],
-      })(tree, { value: '' });
+      })(tree);
       const rendered = tree.children[0];
       expect(rendered?.type).toBe('twoslashBlock');
       if (rendered?.type !== 'twoslashBlock')

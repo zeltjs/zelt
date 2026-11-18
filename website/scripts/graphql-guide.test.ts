@@ -7,8 +7,9 @@ import { generateGraphqlRuntimeForResolvers } from '@zeltjs/graphql/codegen';
 import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
 import { buildSchema, printSchema } from 'graphql';
 import { afterAll, describe, expect, it } from 'vitest';
-import { codeFences } from '../src/twoslash/code-fences.lib';
+import { twoslashBlocks } from '../src/twoslash/code-blocks.lib';
 import { importModule, virtualFiles, writeProject } from './guide-project.lib';
+import { createReadCodeBlocks } from './markdown-code.lib';
 
 // The guide is the user-facing contract. This test does not restate its code: it runs the
 // guide's own code blocks and checks the schemas and responses the guide claims.
@@ -82,11 +83,18 @@ afterAll(async () => {
   await rm(workDir, { recursive: true, force: true });
 });
 
+const readCodeBlocks = createReadCodeBlocks();
+
 describe.each(Object.entries(guides))('GraphQL guide (%s)', (lang, { path, names }) => {
-  const load = async () => {
-    const markdown = await readFile(path, 'utf8');
-    return { ts: codeFences(markdown, 'ts'), graphql: codeFences(markdown, 'graphql') };
+  const loadGuide = async () => {
+    const blocks = await readCodeBlocks(path, await readFile(path, 'utf8'));
+    return {
+      ts: twoslashBlocks(blocks).map(({ code }) => code),
+      graphql: blocks.filter(({ lang }) => lang === 'graphql').map(({ value }) => value),
+    };
   };
+  let loaded: ReturnType<typeof loadGuide> | undefined;
+  const load = () => (loaded ??= loadGuide());
   const project = async (block: string | undefined, name: string): Promise<string> => {
     const dir = join(workDir, `${lang}-${name}`);
     await writeProject(dir, virtualFiles(block ?? ''));
@@ -101,7 +109,7 @@ describe.each(Object.entries(guides))('GraphQL guide (%s)', (lang, { path, names
     expect(await endpoint.query('{ user(id: "u1") { id name } }')).toEqual({
       data: { user: { id: 'u1', name: 'User u1' } },
     });
-  });
+  }, 15_000);
 
   it.each([
     ['batch', 4],

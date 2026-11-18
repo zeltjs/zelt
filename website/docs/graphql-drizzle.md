@@ -402,6 +402,7 @@ In the following cases, `zelt build` / `zelt dev` fails at the generation or ana
 
 - An exposed table has no single-column primary key (a composite key or no primary key)
 - An exposed table's primary key is not a string type (an integer, for example)
+- An exposed table's primary-key column is marked `hidden: true`
 - An exposed table has a column keyed `id` other than its primary key
 - An exposed column's type is not in the [type table](#column-types)
 - An exposed table is not a PostgreSQL or SQLite table (MySQL, for example)

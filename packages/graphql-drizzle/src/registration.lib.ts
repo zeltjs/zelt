@@ -1,6 +1,6 @@
 import type { HttpStaticCapabilities } from '@zeltjs/core';
 import { getGraphqlControllerMetadata } from '@zeltjs/graphql/codegen';
-import { generatedModelKey } from './render.lib';
+import { generatedModelKey, modelIdentity, resolverClassName } from './generated-module.lib';
 import type { Model } from './schema.types';
 
 const collectRegistrations = (
@@ -28,9 +28,9 @@ export const registrationError = (
 ): string | undefined => {
   const registrations = collectRegistrations(http);
   for (const model of models) {
-    const count = registrations.get(`${source}#${model.name}`) ?? 0;
+    const count = registrations.get(modelIdentity(source, model.name)) ?? 0;
     if (count !== 1) {
-      return `Model "${model.name}" requires exactly one resolver extending Generated${model.name}Resolver registered in graphql(); found ${count}.`;
+      return `Model "${model.name}" requires exactly one resolver extending ${resolverClassName(model.name)} registered in graphql(); found ${count}.`;
     }
   }
   return undefined;

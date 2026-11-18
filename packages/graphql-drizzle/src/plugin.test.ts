@@ -4,7 +4,7 @@ import type { BuildContext } from '@zeltjs/cli';
 import { graphql, Resolver } from '@zeltjs/graphql';
 import { afterEach, describe, expect, it } from 'vitest';
 import { drizzleGraphqlPlugin } from './codegen';
-import { generatedModelKey } from './render.lib';
+import { generatedModelKey } from './generated-module.lib';
 import * as schema from './test/fixtures/schema';
 
 const root = resolve(__dirname, '../../..');

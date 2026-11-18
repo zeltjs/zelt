@@ -1,10 +1,8 @@
 import type * as Preset from '@docusaurus/preset-classic';
 import type { Config } from '@docusaurus/types';
 import type { PluginOptions as SearchPluginOptions } from '@easyops-cn/docusaurus-search-local';
-import rehypeShiki from '@shikijs/rehype';
 import sidebars from './sidebars.js';
-import { remarkTwoslashBlock } from './src/remark/remark-twoslash-block';
-import { twoslasherFor } from './src/twoslash/twoslasher';
+import { shikiRehypePlugins, twoslashContent } from './src/markdown-content';
 
 type SidebarItem =
   | string
@@ -21,38 +19,6 @@ const extractDocPaths = (items: SidebarItem[]): string[] =>
   });
 
 const llmsIncludeOrder = extractDocPaths(sidebars.docsSidebar as SidebarItem[]);
-
-const shikiBaseConfig = {
-  themes: {
-    light: 'kanagawa-wave',
-    dark: 'kanagawa-wave',
-  },
-  defaultLanguage: 'text',
-  langs: [
-    'typescript',
-    'javascript',
-    'tsx',
-    'jsx',
-    'bash',
-    'json',
-    'yaml',
-    'css',
-    'html',
-    'markdown',
-    'text',
-  ],
-};
-
-const twoslashBlockOptions = {
-  twoslasherFor,
-  themes: shikiBaseConfig.themes,
-  langs: shikiBaseConfig.langs,
-};
-
-const shikiOnly = {
-  ...shikiBaseConfig,
-  transformers: [],
-};
 
 const config: Config = {
   title: 'ZeltJS',
@@ -73,11 +39,11 @@ const config: Config = {
 
   markdown: {
     mermaid: true,
-    // future.v4 disables mdx1Compat wholesale; {#id} heading IDs are still
-    // required for stable anchors in ja translations (docusaurus i18n convention)
-    mdx1Compat: {
-      headingIds: true,
-    },
+    // Every setting that changes how a page parses is spelled out, so that the doc scripts do not
+    // have to know Docusaurus' defaults. future.v4 disables mdx1Compat wholesale; {#id} heading IDs
+    // are still required for stable anchors in ja translations (docusaurus i18n convention).
+    format: 'mdx',
+    mdx1Compat: { comments: false, admonitions: false, headingIds: true },
     hooks: {
       onBrokenMarkdownLinks: 'warn',
     },
@@ -147,14 +113,10 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
           routeBasePath: 'docs',
-          remarkPlugins: [[remarkTwoslashBlock, twoslashBlockOptions]],
-          rehypePlugins: [[rehypeShiki, shikiOnly]],
+          ...twoslashContent,
         },
         blog: false,
-        pages: {
-          remarkPlugins: [[remarkTwoslashBlock, twoslashBlockOptions]],
-          rehypePlugins: [[rehypeShiki, shikiOnly]],
-        },
+        pages: twoslashContent,
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -171,7 +133,7 @@ const config: Config = {
         routeBasePath: 'examples',
         sidebarPath: './sidebars-examples.ts',
         editUrl: 'https://github.com/zeltjs/zelt/tree/main/website/',
-        rehypePlugins: [[rehypeShiki, shikiOnly]],
+        rehypePlugins: shikiRehypePlugins,
       },
     ],
     [

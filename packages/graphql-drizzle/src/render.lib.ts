@@ -1,6 +1,10 @@
+import {
+  generatedModelKeyExpression,
+  modelIdentity,
+  resolverClassName,
+} from './generated-module.lib';
 import type { Model, ModelRelation } from './schema.types';
 
-export const generatedModelKey = Symbol.for('@zeltjs/graphql-drizzle/model');
 const quote = (value: string): string => JSON.stringify(value);
 const isIdentifier = (value: string): boolean =>
   /^[$_\p{ID_Start}](?:[$_\p{ID_Continue}]|\u200C|\u200D)*$/u.test(value);
@@ -35,7 +39,7 @@ const renderInterface = (model: Model): string => {
   const row = rowName(model);
   const columns = model.columns.map(({ key, property }) => {
     const type = `${row}[${quote(key)}]`;
-    return `  readonly ${propertyName(property)}: ${property === 'id' ? `ID<${type}>` : type};`;
+    return `  readonly ${propertyName(property)}: ${key === model.primaryKey ? `ID<${type}>` : type};`;
   });
   const relations = model.relations.map(
     (relation) => `  readonly ${propertyName(relation.key)}: ${relationType(relation)};`,
@@ -92,10 +96,14 @@ const renderRelation = (model: Model, relation: ModelRelation): string => {
     relation.kind === 'many'
       ? `readonly ${targetPick}[]`
       : `${targetPick}${relation.nullable ? ' | null' : ''}`;
+  // A one relation holds at most one target per parent; a second match is a broken schema
+  // contract, not a choice between targets.
   const accumulate =
     relation.kind === 'many'
       ? `      result.get(row.parentId)?.push({ id: row.targetId });`
-      : `      result.set(row.parentId, { id: row.targetId });`;
+      : `      if (result.get(row.parentId)) throw new globalThis.Error(${quote(`${model.name}.${relation.key}: more than one target for `)} + globalThis.String(row.parentId));
+      result.set(row.parentId, { id: row.targetId });`;
+  const order = relation.kind === 'many' ? `\n      .orderBy($asc(${targetId}))` : '';
   const required = renderRequired(model, relation, targetPick);
   return `  @$Relation(${quote(relation.key)})
   async ${propertyName(`$drizzleRelation_${relation.key}`)}(refs: readonly globalThis.Pick<${model.name}, 'id'>[]): globalThis.Promise<globalThis.ReadonlyMap<${model.name}['id'], ${returnType}>> {
@@ -103,8 +111,7 @@ const renderRelation = (model: Model, relation: ModelRelation): string => {
     const target = $${model.dialect}Alias($schema[${quote(relation.targetExport)}], ${quote(`zelt_${model.exportName}_${relation.key}`)});
     const rows = await this.#database.client.select({ parentId: ${pk}, targetId: ${targetId} })
       .from(${source}).innerJoin(target, $and(${joins}))
-      .where($inArray(${pk}, refs.map(({ id }) => id)))
-      .orderBy($asc(${targetId}));
+      .where($inArray(${pk}, refs.map(({ id }) => id)))${order};
     const result = new globalThis.Map<${model.name}['id'], ${resultType}>(refs.map(({ id }) => [id, ${relation.kind === 'many' ? '[]' : 'null'}]));
     for (const row of rows) {
 ${accumulate}
@@ -126,11 +133,14 @@ export const renderModels = (models: readonly Model[], options: RenderOptions): 
   const dialects = [
     ...new Set(models.filter((model) => model.relations.length > 0).map((model) => model.dialect)),
   ];
+  const ordered = models.some((model) =>
+    model.relations.some((relation) => relation.kind === 'many'),
+  );
   const imports = [
     options.header,
     `import { inject as $inject } from '@zeltjs/core';`,
     `import { ${models.some((model) => model.relations.length > 0) ? 'Relation as $Relation, ' : ''}ResolveMultiField as $ResolveMultiField, type ID } from '@zeltjs/graphql';`,
-    `import { ${dialects.length > 0 ? 'and as $and, asc as $asc, eq as $eq, ' : ''}inArray as $inArray } from 'drizzle-orm';`,
+    `import { ${dialects.length > 0 ? 'and as $and, ' : ''}${ordered ? 'asc as $asc, ' : ''}${dialects.length > 0 ? 'eq as $eq, ' : ''}inArray as $inArray } from 'drizzle-orm';`,
     ...dialects.map(
       (dialect) =>
         `import { alias as $${dialect}Alias } from 'drizzle-orm/${dialect === 'pg' ? 'pg' : 'sqlite'}-core';`,
@@ -141,12 +151,12 @@ export const renderModels = (models: readonly Model[], options: RenderOptions): 
   // Internal bindings carry `$`, which GraphQL type names cannot, so no model can shadow them;
   // globals are read through `globalThis` because a model may take a global's name.
   const classes = models.map(
-    (model) => `export abstract class Generated${model.name}Resolver {
-  static readonly [$zeltDrizzleModel] = ${quote(`${options.source}#${model.name}`)};
+    (model) => `export abstract class ${resolverClassName(model.name)} {
+  static readonly [$zeltDrizzleModel] = ${quote(modelIdentity(options.source, model.name))};
   readonly #database = $inject($Database);
 
 ${renderValues(model)}${model.relations.map((relation) => `\n\n${renderRelation(model, relation)}`).join('')}
 }`,
   );
-  return `${imports.join('\n')}\n\nconst $zeltDrizzleModel = globalThis.Symbol.for('@zeltjs/graphql-drizzle/model');\n\n${models.map(renderInterface).join('\n\n')}\n\n${classes.join('\n\n')}\n`;
+  return `${imports.join('\n')}\n\nconst $zeltDrizzleModel = ${generatedModelKeyExpression};\n\n${models.map(renderInterface).join('\n\n')}\n\n${classes.join('\n\n')}\n`;
 };

@@ -19,4 +19,10 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
     relationName: 'manager',
   }),
   reports: many(employees, { relationName: 'manager' }),
+  // Required, and unique only while no two employees share a code within a tenant.
+  peer: one(employees, {
+    fields: [employees.code, employees.tenant],
+    references: [employees.code, employees.tenant],
+    relationName: 'peer',
+  }),
 }));

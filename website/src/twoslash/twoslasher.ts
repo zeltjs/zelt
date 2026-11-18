@@ -1,9 +1,16 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ExtraFiles, TwoslashExecuteOptions, TwoslashInstance } from 'twoslash';
+import type {
+  CreateTwoslashOptions,
+  ExtraFiles,
+  TwoslashExecuteOptions,
+  TwoslashInstance,
+} from 'twoslash';
 import { createTwoslasher } from 'twoslash';
+import type { TwoslashBlock } from './code-blocks.lib';
 import { graphqlDrizzleSetup } from './graphql-drizzle-setup.lib';
+import { createTwoslashDiskOptions } from './twoslash-disk.lib';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // src/twoslash -> website -> repo root
@@ -26,12 +33,12 @@ const pnpmTypes = (prefix: string, subpath: string): string[] => {
 };
 
 /**
- * Shared Twoslash instance used both by the Docusaurus build (to render
+ * Shared Twoslash options used both by the Docusaurus build (to render
  * type-checked code blocks) and by `scripts/typecheck-docs.ts` (to fail CI
- * when a doc snippet stops type-checking). Keeping a single instance prevents
+ * when a doc snippet stops type-checking). Keeping a single definition prevents
  * the compilerOptions/paths from drifting between rendering and verification.
  */
-const baseTwoslasher = createTwoslasher({
+const twoslashOptions = {
   vfsRoot: rootDir,
   tsLibDirectory,
   compilerOptions: {
@@ -80,22 +87,34 @@ const baseTwoslasher = createTwoslasher({
       postgres: pnpmTypes('postgres@', 'postgres/types/index.d.ts'),
     },
   },
-});
+} satisfies CreateTwoslashOptions;
 
 const databaseService = path.join(__dirname, 'fixtures/graphql-drizzle/drizzle.service.ts');
 
 // Blocks of a guide share files built from that same page, so each language checks its own code.
-const sharedFiles = (code: string, page: string): ExtraFiles =>
+const sharedFiles = (code: string, page: readonly TwoslashBlock[]): ExtraFiles =>
   code.includes('// @filename: graphql-drizzle/')
     ? graphqlDrizzleSetup(page, readFileSync(databaseService, 'utf8'))
     : {};
 
-export const twoslasherFor = (page: string): TwoslashInstance =>
-  Object.assign(
-    (code: string, lang?: string, options?: TwoslashExecuteOptions) =>
-      baseTwoslasher(code, lang, {
-        ...options,
-        extraFiles: { ...sharedFiles(code, page), ...options?.extraFiles },
-      }),
-    { getCacheMap: baseTwoslasher.getCacheMap },
-  );
+/**
+ * Twoslash 0.3.9 keeps one virtual file system per instance, even with `cache: false`, and
+ * leaves a snippet's files in it when the snippet fails. Each snippet therefore gets its own
+ * instance, so no snippet can see another's files and the result does not depend on order.
+ */
+export const createTwoslasherForPage = () => {
+  const optionsForSnippet = {
+    ...twoslashOptions,
+    ...createTwoslashDiskOptions(),
+    cache: false,
+  } as const;
+  return (page: readonly TwoslashBlock[]): TwoslashInstance =>
+    Object.assign(
+      (code: string, lang?: string, options?: TwoslashExecuteOptions) =>
+        createTwoslasher(optionsForSnippet)(code, lang, {
+          ...options,
+          extraFiles: { ...sharedFiles(code, page), ...options?.extraFiles },
+        }),
+      { getCacheMap: () => undefined },
+    );
+};

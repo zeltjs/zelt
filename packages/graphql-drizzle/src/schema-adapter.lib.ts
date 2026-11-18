@@ -1,10 +1,13 @@
 import type { Column, Table } from 'drizzle-orm';
-import { Table as DrizzleTable, getTableColumns, is } from 'drizzle-orm';
+import { getTableColumns, is } from 'drizzle-orm';
 import { getTableConfig as getPgConfig, PgTable } from 'drizzle-orm/pg-core';
 import { getTableConfig as getSqliteConfig, SQLiteTable } from 'drizzle-orm/sqlite-core';
+import type { GeneratedExport } from './generated-module.lib';
+import { generatedExports } from './generated-module.lib';
+import type { TableGraphqlMeta } from './metadata.lib';
 import { readGraphqlMeta } from './metadata.lib';
-import type { ReadRelation } from './relations-adapter.lib';
-import { createRelationsReader } from './relations-adapter.lib';
+import type { DrizzleSchema, ReadRelation, SchemaTable } from './relations-adapter.lib';
+import { createRelationsReader, identifyDrizzleSchema } from './relations-adapter.lib';
 import type { Model, ModelRelation, ReadResult, SchemaError, SchemaResult } from './schema.types';
 import { readDrizzle } from './schema-result.lib';
 
@@ -81,10 +84,8 @@ const typescriptUnusableNames: ReadonlySet<string> = new Set(
     .split(' '),
 );
 
-const readModelName = (exportName: string, table: Table): ReadResult<string> => {
-  const meta = readGraphqlMeta(table);
-  if (meta.kind === 'error') return meta;
-  const name = meta.value.name ?? pascalCase(exportName);
+const readModelName = (exportName: string, meta: TableGraphqlMeta): ReadResult<string> => {
+  const name = meta.name ?? pascalCase(exportName);
   if (!validName(name))
     return {
       kind: 'error',
@@ -111,6 +112,11 @@ const readColumnProperty = (
   hidden: boolean,
   primaryKey: string,
 ): ReadResult<string> => {
+  if (key === primaryKey && hidden)
+    return {
+      kind: 'error',
+      message: `Table "${exportName}" marks primary key column "${key}" as hidden. Remove { hidden: true } because the primary key is exposed as "id".`,
+    };
   if (key === primaryKey) return { kind: 'success', value: 'id' };
   if (hidden) return { kind: 'success', value: `$${key}` };
   return validName(key)
@@ -173,7 +179,7 @@ const readPrimaryKey = (
   return { kind: 'success', value: key };
 };
 
-const readModel = (exportName: string, table: Table): ReadResult<Model> => {
+const readModel = ({ exportName, table, meta }: PublicTable): ReadResult<Model> => {
   const result = readDrizzle(() => tableShape(table));
   if (result.kind === 'error') return result;
   const shape = result.value;
@@ -185,7 +191,7 @@ const readModel = (exportName: string, table: Table): ReadResult<Model> => {
   const key = readPrimaryKey(exportName, table, shape.config);
   if (key.kind === 'error') return key;
   const primaryKey = key.value;
-  const name = readModelName(exportName, table);
+  const name = readModelName(exportName, meta);
   if (name.kind === 'error') return name;
   const columns = readColumns(exportName, table, primaryKey);
   if (columns.kind === 'error') return columns;
@@ -252,23 +258,18 @@ const readModelRelation = (
   };
 };
 
-// alias() returns a proxy that passes is(_, Table) but names no table of its own, so it is not a model.
-// Drizzle keeps this flag under a registered symbol and reads it itself in every dialect, but its
-// typings hide it.
-const isAlias = (table: Table): boolean =>
-  Reflect.get(table, Symbol.for('drizzle:IsAlias')) === true;
+// A table's gqlMeta is read once here; both whether it is exposed and what it is named follow it.
+type PublicTable = SchemaTable & { readonly meta: TableGraphqlMeta };
 
-const publicTables = (
-  schema: Record<string, unknown>,
-): ReadResult<readonly { exportName: string; table: Table }[]> => {
-  const tables: { exportName: string; table: Table }[] = [];
-  for (const [exportName, table] of Object.entries(schema)) {
-    if (!is(table, DrizzleTable) || isAlias(table)) continue;
-    const meta = readGraphqlMeta(table);
+// Hidden tables stay in the Drizzle schema used for relation inference.
+const publicTables = (tables: readonly SchemaTable[]): ReadResult<readonly PublicTable[]> => {
+  const visible: PublicTable[] = [];
+  for (const entry of tables) {
+    const meta = readGraphqlMeta(entry.table);
     if (meta.kind === 'error') return meta;
-    if (!meta.value.hidden) tables.push({ exportName, table });
+    if (!meta.value.hidden) visible.push({ ...entry, meta: meta.value });
   }
-  return { kind: 'success', value: tables };
+  return { kind: 'success', value: visible };
 };
 
 const attachRelations = (
@@ -307,7 +308,7 @@ const attachRelations = (
   };
 };
 
-type ExportedName = { readonly exportName: string; readonly role: 'type' | 'resolver' };
+type ExportedName = { readonly exportName: string; readonly role: GeneratedExport['role'] };
 
 const describeOwner = ({ exportName, role }: ExportedName): string =>
   role === 'type'
@@ -319,10 +320,9 @@ const claimExportedNames = (
   model: Model,
   claimed: Map<string, ExportedName>,
 ): SchemaError | undefined => {
-  const wanted: readonly (readonly [string, ExportedName])[] = [
-    [model.name, { exportName: model.exportName, role: 'type' }],
-    [`Generated${model.name}Resolver`, { exportName: model.exportName, role: 'resolver' }],
-  ];
+  const wanted = generatedExports(model.name).map(
+    ({ name, role }) => [name, { exportName: model.exportName, role }] as const,
+  );
   for (const [name, owner] of wanted) {
     const existing = claimed.get(name);
     if (existing)
@@ -335,27 +335,27 @@ const claimExportedNames = (
   return undefined;
 };
 
-const readModels = (schema: Record<string, unknown>): ReadResult<ReadonlyMap<Table, Model>> => {
+const readModels = (tables: readonly PublicTable[]): ReadResult<ReadonlyMap<Table, Model>> => {
   const byTable = new Map<Table, Model>();
   const exportedNames = new Map<string, ExportedName>();
-  const tables = publicTables(schema);
-  if (tables.kind === 'error') return tables;
-  for (const { exportName, table } of tables.value) {
-    const result = readModel(exportName, table);
+  for (const entry of tables) {
+    const result = readModel(entry);
     if (result.kind === 'error') return result;
     const model = result.value;
     const clash = claimExportedNames(model, exportedNames);
     if (clash) return clash;
-    byTable.set(table, model);
+    byTable.set(entry.table, model);
   }
   return { kind: 'success', value: byTable };
 };
 
-export const readSchema = (schema: Record<string, unknown>): SchemaResult => {
-  const tables = readModels(schema);
+const readModelsWithRelations = (drizzle: DrizzleSchema): SchemaResult => {
+  const tables = publicTables(drizzle.tables);
   if (tables.kind === 'error') return tables;
-  const byTable = tables.value;
-  const reader = createRelationsReader(schema);
+  const read = readModels(tables.value);
+  if (read.kind === 'error') return read;
+  const byTable = read.value;
+  const reader = createRelationsReader(drizzle);
   if (reader.kind === 'error') return reader;
   const models: Model[] = [];
   for (const [table, model] of byTable) {
@@ -367,3 +367,6 @@ export const readSchema = (schema: Record<string, unknown>): SchemaResult => {
   }
   return { kind: 'success', models };
 };
+
+export const readSchema = (schema: Record<string, unknown>): SchemaResult =>
+  readModelsWithRelations(identifyDrizzleSchema(schema));
