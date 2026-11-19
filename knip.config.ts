@@ -165,11 +165,12 @@ const config: KnipConfig = {
       ignoreDependencies: ['@types/node'],
     },
     website: {
-      // prism-theme-kanagawa.ts is imported by docusaurus.config.ts but knip --production misses it
       // scripts/*.ts are run via npm scripts (lint:slugs, test:docs)
       // remark/*.ts are remark plugins imported by docusaurus.config.ts
       entry: [
         'docusaurus.config.ts',
+        // Knip's production graph skips imports from the Docusaurus config.
+        'src/markdown-content.ts!',
         'src/prism-theme-kanagawa.ts',
         'src/remark/*.ts',
         'src/twoslash/*.ts',
@@ -229,10 +230,8 @@ const config: KnipConfig = {
       // Swizzled Docusaurus theme components are loaded by Docusaurus at runtime
       // Twoslash fixtures are read as text into the docs' virtual file system
       ignore: ['src/theme/**', 'src/twoslash/fixtures/**'],
-      // guide-project.lib.ts is material shared by the guide tests only. Production
-      // mode does not read tests, so it is declared as not shipped (the same '!...!'
-      // shape as packages/studio-ui); the default run still checks it.
-      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!scripts/guide-project.lib.ts!'],
+      // Docs verification scripts run in CI and stay visible in the default analysis.
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!scripts/**!'],
     },
   },
 };
