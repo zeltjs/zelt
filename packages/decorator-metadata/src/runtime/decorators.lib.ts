@@ -172,14 +172,14 @@ const applyLegacyMethod = (
   descriptor: unknown,
 ): undefined => {
   if (typeof contextOrName !== 'string' && typeof contextOrName !== 'symbol') return undefined;
-  const classKey = asObject(target);
-  if (!classKey) return undefined;
+  const holder = asObject(target);
+  if (!holder) return undefined;
   const desc: PropertyDescriptor | undefined =
     typeof descriptor === 'object' && descriptor !== null ? descriptor : undefined;
   handler({
-    classKey,
+    classKey: getPrototypeKey(holder),
     name: contextOrName,
-    isStatic: typeof target === 'function',
+    isStatic: typeof holder === 'function',
     method: toDecoratedMethod(desc?.value),
   });
   return undefined;
@@ -207,12 +207,12 @@ const adaptMethodContext = (handler: MethodHandler): MethodDecoratorFn => {
   return decorate;
 };
 
-type PropertyHandler = (classKey: object, name: string | symbol) => void;
+type PropertyHandler = (classKey: object, name: string | symbol, isStatic: boolean) => void;
 
 const applyFieldContext = (handler: PropertyHandler, ctx: FieldContext): undefined => {
   if (typeof ctx.name !== 'string' && typeof ctx.name !== 'symbol') return undefined;
   if (!ctx.metadata) return undefined;
-  handler(ctx.metadata, ctx.name);
+  handler(ctx.metadata, ctx.name, ctx.static ?? false);
   return undefined;
 };
 
@@ -222,9 +222,9 @@ const applyLegacyProperty = (
   contextOrName: unknown,
 ): undefined => {
   if (typeof contextOrName !== 'string' && typeof contextOrName !== 'symbol') return undefined;
-  const classKey = asObject(target);
-  if (!classKey) return undefined;
-  handler(classKey, contextOrName);
+  const holder = asObject(target);
+  if (!holder) return undefined;
+  handler(getPrototypeKey(holder), contextOrName, typeof holder === 'function');
   return undefined;
 };
 
@@ -281,7 +281,7 @@ export const createMethodDecorator = <TProps extends object, E extends Error = E
     }
 
     const trace = withCallStackTrace(defineTrace, captureApplicationStackTrace());
-    recordMethod(info.classKey, info.name, trace, props);
+    recordMethod(info.classKey, info.name, info.isStatic, trace, props);
     if (options?.afterApply && info.method) options.afterApply(info.method, info.name);
   });
 };
@@ -296,9 +296,9 @@ export const createPropertyDecorator = <TProps extends object>(
 ): PropertyDecoratorFn => {
   const defineTrace = captureStackTrace();
 
-  return adaptPropertyContext((classKey, name) => {
+  return adaptPropertyContext((classKey, name, isStatic) => {
     const trace = withCallStackTrace(defineTrace, captureApplicationStackTrace());
-    recordProperty(classKey, name, trace, props);
+    recordProperty(classKey, name, isStatic, trace, props);
     options?.afterApply?.(name);
   });
 };

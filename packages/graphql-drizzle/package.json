@@ -1,0 +1,72 @@
+{
+  "name": "@zeltjs/graphql-drizzle",
+  "version": "0.0.0",
+  "description": "Generate Zelt GraphQL models and resolvers from Drizzle schemas",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/graphql-drizzle"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./codegen": {
+      "import": {
+        "types": "./dist/codegen.d.ts",
+        "default": "./dist/codegen.js"
+      },
+      "require": {
+        "types": "./dist/codegen.d.cts",
+        "default": "./dist/codegen.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "pnpm -w run test:prepare && vitest run",
+    "typecheck": "node ../../scripts/typecheck-project.mjs",
+    "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint .",
+    "distribution": "node ../../scripts/pack-distribution.mjs"
+  },
+  "peerDependencies": {
+    "@zeltjs/cli": "workspace:*",
+    "@zeltjs/core": "workspace:*",
+    "@zeltjs/db": "workspace:*",
+    "@zeltjs/graphql": "workspace:*",
+    "drizzle-orm": "0.45.4"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/better-sqlite3": "9.6.0",
+    "@zeltjs/cli": "workspace:*",
+    "@zeltjs/core": "workspace:*",
+    "@zeltjs/db": "workspace:*",
+    "@zeltjs/graphql": "workspace:*",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.4",
+    "graphql": "17.1.0",
+    "valibot": "catalog:",
+    "vitest": "catalog:",
+    "typescript": "catalog:"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  },
+  "main": "./dist/index.cjs"
+}

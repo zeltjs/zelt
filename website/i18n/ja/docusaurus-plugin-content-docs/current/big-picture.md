@@ -33,6 +33,8 @@ flowchart TD
 - **テスト**もentryと同じように、appとprebuiltをadapterのひとつである `onTest` に渡します。テスト用の別経路ではなく、本番と同じ経路をin-processで実行します。
 - **zelt.config.ts**にはどのpluginを使うかと、build・devの設定を書きます。CLIはこの設定に従います。
 
+メソッドに付けるデコレータ（`@Get`、`@Cron`、`@ResolveField` など）は親クラスから引き継がれます。基底クラスにクラスデコレータは不要です。子クラスで同じ名前のメソッドを定義すると、JavaScript の上書きと同じく、親のメソッドはそのデコレータごと使われなくなります。クラスに付けるデコレータ（`@Controller`、`@Resolver` など）は引き継がれないため、登録する各クラスに付けてください。
+
 ## zelt CLI (build / dev)
 
 `zelt build` はapp定義をimportして評価します。`zelt dev` も再起動のたびに同じ評価を行います。この評価ではデコレータと型メタデータを収集しますが、サーバーの起動や接続の開始は行いません。得られる **blueprint** はアプリのルート・リゾルバ・型を表すデータです。

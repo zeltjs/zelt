@@ -605,6 +605,45 @@ importers:
         specifier: 'catalog:'
         version: 5.0.5(@types/node@26.6.6)(@vitest/coverage-v8@5.0.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/graphql-drizzle:
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: 9.6.0
+        version: 9.6.0
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      '@zeltjs/cli':
+        specifier: workspace:*
+        version: link:../cli
+      '@zeltjs/core':
+        specifier: workspace:*
+        version: link:../core
+      '@zeltjs/db':
+        specifier: workspace:*
+        version: link:../db
+      '@zeltjs/graphql':
+        specifier: workspace:*
+        version: link:../graphql
+      better-sqlite3:
+        specifier: 13.0.3
+        version: 13.0.3
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@cloudflare/workers-types@5.20261101.1)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(bun-types@1.4.4)(postgres@4.0.0)
+      graphql:
+        specifier: 17.1.0
+        version: 17.1.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@6.0.3)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.6)(@vitest/coverage-v8@5.0.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/hono-client:
     dependencies:
       '@zeltjs/decorator-metadata':
@@ -896,6 +935,9 @@ importers:
         specifier: 5.2.0
         version: 5.2.0
     devDependencies:
+      '@docusaurus/mdx-loader':
+        specifier: 3.10.2
+        version: 3.10.2(@swc/core@1.16.21)(esbuild@0.28.2)(postcss@8.5.32)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@docusaurus/module-type-aliases':
         specifier: 3.10.2
         version: 3.10.2(@swc/core@1.16.21)(esbuild@0.28.2)(postcss@8.5.32)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -908,6 +950,9 @@ importers:
       '@docusaurus/types':
         specifier: 3.10.2
         version: 3.10.2(@swc/core@1.16.21)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(esbuild@0.28.2)(html-minifier-terser@7.2.0)(postcss@8.5.32)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@types/mdast':
+        specifier: 4.0.4
+        version: 4.0.4
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
@@ -926,6 +971,9 @@ importers:
       '@zeltjs/auth-session':
         specifier: workspace:*
         version: link:../packages/auth-session
+      '@zeltjs/cli':
+        specifier: workspace:*
+        version: link:../packages/cli
       '@zeltjs/core':
         specifier: workspace:*
         version: link:../packages/core
@@ -938,6 +986,9 @@ importers:
       '@zeltjs/graphql':
         specifier: workspace:*
         version: link:../packages/graphql
+      '@zeltjs/graphql-drizzle':
+        specifier: workspace:*
+        version: link:../packages/graphql-drizzle
       '@zeltjs/hono-client':
         specifier: workspace:*
         version: link:../packages/hono-client
@@ -11394,6 +11445,7 @@ packages:
 
   tldts-core@7.4.20:
     resolution: {integrity: sha512-C630TWXZCZmLq0F2bW4QqwnaaxCQ/svpAqvJwnC4JvgEM5ohhBnGsEzTLSOXcN+xjz+kEaHS5uoWIw2klnqd0A==}
+    deprecated: Partial release, see https://github.com/remusao/tldts/issues/2735. Use >=7.4.22.
 
   tldts@7.4.19:
     resolution: {integrity: sha512-48dH6aSpQnpbzDUc4vIQZ1VjB8tkK+e8c1yx05/SZK+rkssgjEOlxDd/yU8/a4vGYQ9vRgJr9dwMq9TJ0b3X2Q==}

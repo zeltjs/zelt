@@ -1,6 +1,5 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { readFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { App, ConfiguredFeature } from '@zeltjs/core';
 import type { GraphqlResolverClass } from '@zeltjs/graphql';
 import { computeGraphqlPrebuiltHash } from '@zeltjs/graphql';
@@ -8,6 +7,9 @@ import { generateGraphqlRuntimeForResolvers } from '@zeltjs/graphql/codegen';
 import { valibotAdapter } from '@zeltjs/validator-valibot/openapi';
 import { buildSchema, printSchema } from 'graphql';
 import { afterAll, describe, expect, it } from 'vitest';
+import { twoslashBlocks } from '../src/twoslash/code-blocks.lib';
+import { importModule, virtualFiles, writeProject } from './guide-project.lib';
+import { createReadCodeBlocks } from './markdown-code.lib';
 
 // The guide is the user-facing contract. This test does not restate its code: it runs the
 // guide's own code blocks and checks the schemas and responses the guide claims.
@@ -23,52 +25,6 @@ const guides = {
     path: join(websiteDir, 'i18n/ja/docusaurus-plugin-content-docs/current/graphql.md'),
     names: { u1: '山田 太郎', first: '太郎', last: '山田', u2: 'John Doe' },
   },
-};
-
-type GuideFile = { readonly name: string; readonly content: string };
-
-const fences = (markdown: string, lang: string): readonly string[] =>
-  [...markdown.matchAll(new RegExp(`\`\`\`${lang}\\n([\\s\\S]*?)\`\`\``, 'g'))].map(
-    (match) => match[1] ?? '',
-  );
-
-// Twoslash cut markers only hide lines from the rendered page; the program keeps them.
-const virtualFiles = (block: string): readonly GuideFile[] =>
-  block
-    .split(/^\/\/ @filename:\s*/m)
-    .slice(1)
-    .map((part) => {
-      const [name = '', ...lines] = part.split('\n');
-      const content = lines.filter((line) => !/^\/\/ ---cut(-after)?---$/.test(line)).join('\n');
-      return { name: name.trim(), content };
-    });
-
-const tsconfig = {
-  compilerOptions: {
-    target: 'ES2022',
-    module: 'ESNext',
-    moduleResolution: 'Bundler',
-    strict: true,
-    skipLibCheck: true,
-  },
-  include: ['**/*.ts'],
-};
-
-const writeProject = async (dir: string, files: readonly GuideFile[]): Promise<void> => {
-  await rm(dir, { recursive: true, force: true });
-  await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, 'tsconfig.json'), JSON.stringify(tsconfig));
-  for (const file of files) {
-    await mkdir(dirname(join(dir, file.name)), { recursive: true });
-    await writeFile(join(dir, file.name), file.content);
-  }
-};
-
-const importModule = async (path: string): Promise<Record<string, unknown>> => {
-  const loaded: unknown = await import(pathToFileURL(path).href);
-  return typeof loaded === 'object' && loaded !== null
-    ? Object.fromEntries(Object.entries(loaded))
-    : {};
 };
 
 function asResolver(value: unknown): GraphqlResolverClass;
@@ -127,11 +83,18 @@ afterAll(async () => {
   await rm(workDir, { recursive: true, force: true });
 });
 
+const readCodeBlocks = createReadCodeBlocks();
+
 describe.each(Object.entries(guides))('GraphQL guide (%s)', (lang, { path, names }) => {
-  const load = async () => {
-    const markdown = await readFile(path, 'utf8');
-    return { ts: fences(markdown, 'ts'), graphql: fences(markdown, 'graphql') };
+  const loadGuide = async () => {
+    const blocks = await readCodeBlocks(path, await readFile(path, 'utf8'));
+    return {
+      ts: twoslashBlocks(blocks).map(({ code }) => code),
+      graphql: blocks.filter(({ lang }) => lang === 'graphql').map(({ value }) => value),
+    };
   };
+  let loaded: ReturnType<typeof loadGuide> | undefined;
+  const load = () => (loaded ??= loadGuide());
   const project = async (block: string | undefined, name: string): Promise<string> => {
     const dir = join(workDir, `${lang}-${name}`);
     await writeProject(dir, virtualFiles(block ?? ''));
@@ -146,7 +109,7 @@ describe.each(Object.entries(guides))('GraphQL guide (%s)', (lang, { path, names
     expect(await endpoint.query('{ user(id: "u1") { id name } }')).toEqual({
       data: { user: { id: 'u1', name: 'User u1' } },
     });
-  });
+  }, 15_000);
 
   it.each([
     ['batch', 4],

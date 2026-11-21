@@ -150,6 +150,8 @@ class. In schema-first mode it binds a root Query field in the supplied SDL.
 GraphQL scalar names follow the declared TypeScript type. After upgrading,
 `id: string` generates `String!` instead of the previously inferred `ID!`.
 To keep `ID!`, import `ID` from `@zeltjs/graphql` and declare `id: ID`.
+`ID<T extends string = string>` keeps the brand of a branded string (for example
+`id: ID<UserId>`). Other branded strings and numbers map to `String` and `Float`.
 Regenerate prebuilt output and check client operations and schema compatibility
 when migrating an existing endpoint.
 

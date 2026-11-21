@@ -1,0 +1,30 @@
+{
+  "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./.typebuild",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "tsBuildInfoFile": "./.typebuild/.tsbuildinfo",
+    "erasableSyntaxOnly": false,
+    "types": ["node"],
+    "emitDeclarationOnly": true
+  },
+  "include": ["src/**/*"],
+  "references": [
+    {
+      "path": "../cli"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../db"
+    },
+    {
+      "path": "../graphql"
+    }
+  ]
+}

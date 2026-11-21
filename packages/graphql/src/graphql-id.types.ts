@@ -2,6 +2,6 @@
  * A string that the generated schema exposes as GraphQL `ID`.
  *
  * Plain `string` stays `String`; only properties declared with this type become `ID`.
- * The brand is optional, so any string can be assigned without a runtime wrapper.
+ * The optional marker preserves the underlying type, including its brands.
  */
-export type ID = string & { __zeltGraphqlScalar?: 'ID' };
+export type ID<T extends string = string> = T & { __zeltGraphqlScalar?: 'ID' };

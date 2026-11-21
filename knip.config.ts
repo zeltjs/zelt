@@ -165,11 +165,12 @@ const config: KnipConfig = {
       ignoreDependencies: ['@types/node'],
     },
     website: {
-      // prism-theme-kanagawa.ts is imported by docusaurus.config.ts but knip --production misses it
       // scripts/*.ts are run via npm scripts (lint:slugs, test:docs)
       // remark/*.ts are remark plugins imported by docusaurus.config.ts
       entry: [
         'docusaurus.config.ts',
+        // Knip's production graph skips imports from the Docusaurus config.
+        'src/markdown-content.ts!',
         'src/prism-theme-kanagawa.ts',
         'src/remark/*.ts',
         'src/twoslash/*.ts',
@@ -204,6 +205,7 @@ const config: KnipConfig = {
         '@zeltjs/core',
         '@zeltjs/db',
         '@zeltjs/eventbus',
+        '@zeltjs/graphql-drizzle',
         '@zeltjs/hono-client',
         '@zeltjs/kv',
         '@zeltjs/rate-limit',
@@ -226,7 +228,10 @@ const config: KnipConfig = {
         'wrangler',
       ],
       // Swizzled Docusaurus theme components are loaded by Docusaurus at runtime
-      ignore: ['src/theme/**'],
+      // Twoslash fixtures are read as text into the docs' virtual file system
+      ignore: ['src/theme/**', 'src/twoslash/fixtures/**'],
+      // Docs verification scripts run in CI and stay visible in the default analysis.
+      project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!', '!scripts/**!'],
     },
   },
 };

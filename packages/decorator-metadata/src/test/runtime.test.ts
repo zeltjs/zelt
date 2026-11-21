@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { getSourcePosition, resolveDefinitionPosition, resolvePosition } from '../inspect/index';
-import type { StackTrace } from '../runtime/index';
+import type { ClassDecoratorFn, StackTrace } from '../runtime/index';
 import {
   aggregateMembers,
   CaptureStackError,
@@ -159,6 +159,177 @@ describe('captureStackTrace and resolvePosition', () => {
 });
 
 describe('metadata store', () => {
+  it('reads inherited members without a base class decorator and isolates siblings', () => {
+    abstract class Base {
+      @createMethodDecorator({ method: 'base' })
+      inherited() {}
+      @createMethodDecorator({ method: 'old' })
+      replaced() {}
+      @createMethodDecorator({ method: 'hidden' })
+      hidden() {}
+      @createPropertyDecorator({ column: true })
+      value = '';
+    }
+    @createClassDecorator({ name: 'first' })
+    class First extends Base {
+      @createMethodDecorator({ method: 'new' })
+      override replaced() {}
+      override hidden() {}
+    }
+    @createClassDecorator({ name: 'second' })
+    class Second extends Base {}
+    expect(getClassMetadata(First)).toEqual({
+      props: [{ name: 'first' }],
+      methods: [
+        { name: 'replaced', props: [{ method: 'new' }] },
+        { name: 'inherited', props: [{ method: 'base' }] },
+      ],
+      properties: [{ name: 'value', props: [{ column: true }] }],
+    });
+    expect(getClassMetadata(Second)?.methods.map(({ name }) => name)).toEqual([
+      'inherited',
+      'replaced',
+      'hidden',
+    ]);
+    expect(getClassMetadata(Base)?.methods).toHaveLength(3);
+    expect(getClassMetadata(First)?.methods).toHaveLength(2);
+  });
+
+  it('reads undecorated legacy bases without inheriting class annotations', () => {
+    class Base {
+      inherited() {}
+    }
+    createMethodDecorator({ inherited: true })(Base.prototype, 'inherited');
+    @createClassDecorator({ own: true })
+    class Child extends Base {}
+    expect(getClassMetadata(Child)).toEqual({
+      props: [{ own: true }],
+      methods: [{ name: 'inherited', props: [{ inherited: true }] }],
+      properties: [],
+    });
+  });
+
+  describe.each([
+    ['an undecorated base', false],
+    ['a decorated base', true],
+  ])('static members of %s follow the instance inheritance rule', (_label, decorated) => {
+    const base = (): ClassDecoratorFn =>
+      decorated ? createClassDecorator({ base: true }) : () => undefined;
+
+    it('inherits static method decorators', () => {
+      @base()
+      class Base {
+        @createMethodDecorator({ side: 'static' })
+        static make() {}
+      }
+      @createClassDecorator({ own: true })
+      class Child extends Base {}
+      expect(getClassMetadata(Child)?.methods).toEqual([
+        { name: 'make', props: [{ side: 'static' }] },
+      ]);
+    });
+
+    it('drops a static decorator when the static method is overridden', () => {
+      @base()
+      class Base {
+        @createMethodDecorator({ side: 'static' })
+        static make() {}
+      }
+      @createClassDecorator({ own: true })
+      class Child extends Base {
+        static override make() {}
+      }
+      expect(getClassMetadata(Child)?.methods).toEqual([]);
+    });
+
+    it('keeps decorators of the other side when only a same-named member is redeclared', () => {
+      @base()
+      class Base {
+        @createMethodDecorator({ side: 'static' })
+        static run() {}
+        @createMethodDecorator({ side: 'instance' })
+        go() {}
+      }
+      @createClassDecorator({ own: true })
+      class Child extends Base {
+        run() {}
+        static go() {}
+      }
+      expect(getClassMetadata(Child)?.methods).toEqual([
+        { name: 'run', props: [{ side: 'static' }] },
+        { name: 'go', props: [{ side: 'instance' }] },
+      ]);
+    });
+
+    it('keeps property decorators when a field is redeclared on either side', () => {
+      @base()
+      class Base {
+        @createPropertyDecorator({ side: 'instance' })
+        value = '';
+        @createPropertyDecorator({ side: 'static' })
+        static label = '';
+      }
+      @createClassDecorator({ own: true })
+      class DecoratedChild extends Base {
+        override value = 'child';
+        static override label = 'child';
+      }
+      class PlainChild extends Base {
+        override value = 'child';
+        static override label = 'child';
+      }
+      for (const child of [DecoratedChild, PlainChild]) {
+        const properties = getClassMetadata(child)?.properties;
+        expect(properties).toEqual(
+          expect.arrayContaining([
+            { name: 'value', props: [{ side: 'instance' }] },
+            { name: 'label', props: [{ side: 'static' }] },
+          ]),
+        );
+        expect(properties).toHaveLength(2);
+      }
+    });
+
+    it('keeps a static and an instance member of the same name apart', () => {
+      @base()
+      class Base {
+        @createMethodDecorator({ side: 'static' })
+        static run() {}
+        @createMethodDecorator({ side: 'instance' })
+        run() {}
+      }
+      @createClassDecorator({ own: true })
+      class Child extends Base {}
+      expect(getClassMetadata(Child)?.methods).toEqual(
+        expect.arrayContaining([
+          { name: 'run', props: [{ side: 'static' }] },
+          { name: 'run', props: [{ side: 'instance' }] },
+        ]),
+      );
+      expect(getClassMetadata(Child)?.methods).toHaveLength(2);
+    });
+  });
+
+  it('applies the same static rule to legacy decorators', () => {
+    class Base {
+      static make() {}
+      static keep() {}
+    }
+    for (const name of ['make', 'keep'] as const)
+      createMethodDecorator({ legacy: name })(
+        Base,
+        name,
+        Object.getOwnPropertyDescriptor(Base, name),
+      );
+    class Child extends Base {
+      static override make() {}
+    }
+    createClassDecorator({ own: true })(Child);
+    expect(getClassMetadata(Child)?.methods).toEqual([
+      { name: 'keep', props: [{ legacy: 'keep' }] },
+    ]);
+  });
+
   const mockTrace: StackTrace = { _brand: 'StackTrace', error: new CaptureStackError() };
 
   it('recordClass stores class metadata', () => {
@@ -178,7 +349,7 @@ describe('metadata store', () => {
     class TestClass {}
     const classKey = {};
 
-    recordMethod(classKey, 'getUser', mockTrace, { method: 'GET' });
+    recordMethod(classKey, 'getUser', false, mockTrace, { method: 'GET' });
     recordClass(TestClass, mockTrace, {});
     aggregateMembers(TestClass, classKey);
 
@@ -193,7 +364,7 @@ describe('metadata store', () => {
     const classKey = {};
     const sym = Symbol('handler');
 
-    recordMethod(classKey, sym, mockTrace, { method: 'POST' });
+    recordMethod(classKey, sym, false, mockTrace, { method: 'POST' });
     recordClass(TestClass, mockTrace, {});
     aggregateMembers(TestClass, classKey);
 
@@ -207,7 +378,7 @@ describe('metadata store', () => {
     class TestClass {}
     const classKey = {};
 
-    recordProperty(classKey, 'name', mockTrace, { nullable: false });
+    recordProperty(classKey, 'name', false, mockTrace, { nullable: false });
     recordClass(TestClass, mockTrace, {});
     aggregateMembers(TestClass, classKey);
 
@@ -222,7 +393,7 @@ describe('metadata store', () => {
     const classKey = {};
     const sym = Symbol('secret');
 
-    recordProperty(classKey, sym, mockTrace, { encrypted: true });
+    recordProperty(classKey, sym, false, mockTrace, { encrypted: true });
     recordClass(TestClass, mockTrace, {});
     aggregateMembers(TestClass, classKey);
 
@@ -262,8 +433,8 @@ describe('metadata store', () => {
   it('appends props when the same method receives multiple decorators', () => {
     class TestClass {}
     const classKey = {};
-    recordMethod(classKey, 'handler', mockTrace, { decorator: 'Route', method: 'GET' });
-    recordMethod(classKey, 'handler', mockTrace, {
+    recordMethod(classKey, 'handler', false, mockTrace, { decorator: 'Route', method: 'GET' });
+    recordMethod(classKey, 'handler', false, mockTrace, {
       decorator: 'Authorized',
       roles: ['admin'],
     });
@@ -417,7 +588,7 @@ describe('create* options', () => {
     }
 
     const meta = getClassMetadata(Foo);
-    expect(meta?.methods.find((m) => m.name === 'handler')).toBeUndefined();
+    expect(meta?.methods).toEqual([{ name: 'handler', props: [{ decorator: 'Tag' }] }]);
   });
 
   it('createClassDecorator rejectIfApplied callback can veto a second application', () => {

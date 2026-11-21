@@ -31,7 +31,7 @@ pnpm add @zeltjs/validator-valibot valibot @valibot/to-json-schema
 
 :::info[重要]
 `request()`は`@zeltjs/core`からimportしてください。Valibotパッケージが提供するのはOpenAPI schemaアダプターのみです。
-`valibot`のpeer dependencyは`^1.0.0`である必要があります。テストは`1.3.x`に対して行っています。それより古いバージョンを使うと型推論の問題が発生する場合があります。
+`valibot`のpeer dependencyは`^1.1.0`である必要があります。テストは`1.5.x`に対して行っています。それより古いバージョンを使うと型推論の問題が発生する場合があります。
 :::
 
 ## Basic Usage {#basic-usage}

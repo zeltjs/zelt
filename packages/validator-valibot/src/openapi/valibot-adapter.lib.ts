@@ -32,6 +32,9 @@ export const valibotAdapter: SchemaAdapter = {
         'Invalid valibot schema: expected valibot schema with ~standard.vendor="valibot"',
       );
     }
-    return narrowToJsonSchema(toJsonSchema(narrowToValibotSchema(schema)));
+    // brand only narrows the TypeScript type; it has no wire representation to convert.
+    return narrowToJsonSchema(
+      toJsonSchema(narrowToValibotSchema(schema), { ignoreActions: ['brand'] }),
+    );
   },
 };

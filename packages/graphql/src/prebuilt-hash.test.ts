@@ -30,7 +30,30 @@ const queryDeclaration = (fieldName: string) => {
   return NamedResolver;
 };
 
+const inheritedDeclaration = (fieldName: string) => {
+  abstract class GeneratedResolver {
+    @Query(fieldName)
+    value(): string {
+      return 'value';
+    }
+  }
+  @Resolver()
+  class NamedResolver extends GeneratedResolver {}
+  return NamedResolver;
+};
+
 describe('computeGraphqlPrebuiltHash', () => {
+  it('fingerprints declarations on an undecorated abstract base', async () => {
+    const first = inheritedDeclaration('first');
+    const second = inheritedDeclaration('second');
+    expect(first.name).toBe(second.name);
+    expect(await computeGraphqlPrebuiltHash('/graphql', [first])).not.toBe(
+      await computeGraphqlPrebuiltHash('/graphql', [second]),
+    );
+    expect(await computeGraphqlPrebuiltHash('/graphql', [first])).toBe(
+      await computeGraphqlPrebuiltHash('/graphql', [inheritedDeclaration('first')]),
+    );
+  });
   it('does not depend on locale collation for resolver names or operations', async () => {
     const original = String.prototype.localeCompare;
     const compare = vi.spyOn(String.prototype, 'localeCompare');

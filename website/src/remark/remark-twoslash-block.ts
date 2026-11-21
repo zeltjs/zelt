@@ -3,6 +3,8 @@ import type { Highlighter } from 'shiki';
 import { createHighlighter } from 'shiki';
 import type { TwoslashInstance } from 'twoslash';
 import { visit } from 'unist-util-visit';
+import type { TwoslashBlock } from '../twoslash/code-blocks.lib';
+import { twoslashBlock, twoslashSyntaxLanguages } from '../twoslash/code-blocks.lib';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Node = any;
@@ -10,25 +12,10 @@ type Node = any;
 type CodeNode = any;
 
 export interface RemarkTwoslashBlockOptions {
-  twoslasher: TwoslashInstance;
+  // Built per page so that blocks can share files derived from their own page.
+  twoslasherFor: (page: readonly TwoslashBlock[]) => TwoslashInstance;
   themes: Record<string, string>;
-  langs: string[];
 }
-
-let highlighterPromise: Promise<Highlighter> | null = null;
-
-const getHighlighter = async (options: RemarkTwoslashBlockOptions) => {
-  if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({
-      themes: Object.values(options.themes),
-      langs: options.langs,
-    });
-  }
-  return highlighterPromise;
-};
-
-const isTypeScriptLang = (lang: string): boolean =>
-  ['ts', 'tsx', 'typescript', 'typescriptreact'].includes(lang);
 
 const hastToHtml = (node: Node): string => {
   if (node.type === 'text') {
@@ -82,35 +69,32 @@ const findCodeNode = (preNode: Node): Node | undefined =>
  * from <pre>/<code> elements.
  */
 export const remarkTwoslashBlock = (options: RemarkTwoslashBlockOptions) => {
-  const { twoslasher, themes, langs } = options;
+  const { twoslasherFor, themes } = options;
+  let highlighterPromise: Promise<Highlighter> | undefined;
 
   return async (tree: Node): Promise<void> => {
-    const highlighter = await getHighlighter(options);
+    highlighterPromise ??= createHighlighter({
+      themes: Object.values(themes),
+      langs: twoslashSyntaxLanguages,
+    });
+    const highlighter = await highlighterPromise;
     const lightTheme = themes.light ?? Object.values(themes)[0];
     const darkTheme = themes.dark ?? Object.values(themes)[0];
 
-    const codeNodes: { node: CodeNode; parent: Node; index: number }[] = [];
+    const codeNodes: { block: TwoslashBlock; parent: Node; index: number }[] = [];
 
     visit(tree, 'code', (node: CodeNode, index: number | undefined, parent: Node) => {
-      if (parent && index !== undefined && node.lang) {
-        codeNodes.push({ node, parent, index });
+      const block = twoslashBlock(node);
+      if (parent && index !== undefined && block) {
+        codeNodes.push({ block, parent, index });
       }
     });
 
-    for (const { node, parent, index } of codeNodes) {
-      const lang = node.lang as string;
-      const code = node.value as string;
-      const meta = (node.meta as string | null) ?? '';
+    // The page's code is read from the same syntax tree that is rendered.
+    const twoslasher = twoslasherFor(codeNodes.map(({ block }) => block));
 
-      if (!langs.includes(lang)) continue;
-
-      if (!isTypeScriptLang(lang)) continue;
-
-      // Example excerpts (```ts source=...```) are verbatim slices of real
-      // example apps validated by check-example-excerpts.ts. They reference
-      // sibling modules that don't resolve in the isolated twoslash VFS, so
-      // render them as plain highlighted code instead of type-checking them.
-      if (/\bsource=/.test(meta)) continue;
+    for (const { block, parent, index } of codeNodes) {
+      const { lang, code } = block;
 
       let twoslashHtml: string | null = null;
       let plainCodeHtml: string | null = null;

@@ -11,7 +11,7 @@ import { readModelValue } from './graphql-model-value.lib';
 // Each unit reads one user-written form. The fixtures write the form as the type of a property,
 // as resolver signatures do, so an alias around the form itself never sneaks in.
 const PRELUDE = `
-type ID = string & { __zeltGraphqlScalar?: 'ID' };
+type ID<T extends string = string> = T & { __zeltGraphqlScalar?: 'ID' };
 type Thing = { readonly id: ID; readonly label: string; readonly $code: string };
 type Other = { readonly id: string };
 type ThingRef = Pick<Thing, 'id'>;
@@ -186,6 +186,11 @@ describe('model property value', () => {
     ['string | null', { kind: 'nullable', inner: { kind: 'scalar', name: 'string' } }],
     ["'a' | 'b'", { kind: 'opaque' }],
     ['Date', { kind: 'opaque' }],
+    ["string & Readonly<{ __brand: 'Name' }>", { kind: 'scalar', name: 'string' }],
+    ["'Ada' & Readonly<{ __brand: 'Name' }>", { kind: 'scalar', name: 'string' }],
+    ["1 & Readonly<{ __brand: 'Score' }>", { kind: 'scalar', name: 'number' }],
+    ["ID<'u1' & Readonly<{ __brand: 'UserId' }>>", { kind: 'scalar', name: 'ID' }],
+    ["number & Readonly<{ __zeltGraphqlScalar?: 'ID' }>", { kind: 'scalar', name: 'number' }],
   ])('%s → %o', (form, value) => {
     const { type, reader } = read(form);
     expect(readModelValue(type, reader)).toEqual(value);

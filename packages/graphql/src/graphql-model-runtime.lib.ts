@@ -53,6 +53,8 @@ const record = (value: unknown, properties: readonly string[] = []): Source => {
   return Object.fromEntries([...keys].map((key) => [key, Reflect.get(value, key)]));
 };
 
+const isModelId = (value: unknown): boolean => typeof value === 'string';
+
 /**
  * @throws {Error} from graphql-model-runtime.lib.ts:identity
  */
@@ -61,13 +63,14 @@ const identity = (value: unknown): string => {
     throw new Error('GraphQL model reference must be an object');
   }
   const id: unknown = Reflect.get(value, 'id');
-  if (typeof id !== 'string') throw new Error('GraphQL model reference must have a string id');
-  return id;
+  if (typeof id === 'string') return id;
+  throw new Error('GraphQL model reference must have a string id');
 };
 
 const matchesScalar = (value: unknown, name: GraphqlModelScalar): boolean =>
   match(name)
-    .with('ID', 'string', () => typeof value === 'string')
+    .with('ID', () => isModelId(value))
+    .with('string', () => typeof value === 'string')
     .with('number', () => typeof value === 'number' && Number.isFinite(value))
     .with('boolean', () => typeof value === 'boolean')
     .exhaustive();
@@ -272,7 +275,7 @@ const isReferenceObject = (value: unknown): boolean =>
   typeof value === 'object' &&
   value !== null &&
   !Array.isArray(value) &&
-  typeof Reflect.get(value, 'id') === 'string';
+  isModelId(Reflect.get(value, 'id'));
 
 // Preserve reference extras while accepting Promise-compatible query implementations.
 const referenceResult = async (
