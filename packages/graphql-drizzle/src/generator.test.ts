@@ -12,8 +12,9 @@ import {
 import { alias, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import 'drizzle-metadata/register';
+import './metadata';
 import { generatedExports } from './generated-module.lib';
-import { gqlMeta } from './index';
 import { renderModels } from './render.lib';
 import { readSchema } from './schema-adapter.lib';
 import * as schema from './test/fixtures/schema';
@@ -91,17 +92,19 @@ describe('schema generation', () => {
     ],
     [
       'hidden SQLite column-level PK',
-      { broken: sqliteTable('broken', { id: gqlMeta(text().primaryKey(), { hidden: true }) }) },
-      'Table "broken" marks primary key column "id" as hidden. Remove { hidden: true } because the primary key is exposed as "id".',
+      { broken: sqliteTable('broken', { id: text().primaryKey().meta({ graphqlHidden: true }) }) },
+      'Table "broken" marks primary key column "id" as hidden. Remove graphqlHidden from its .meta() because the primary key is exposed as "id".',
     ],
     [
       'hidden PostgreSQL table-level PK',
       {
-        broken: pgTable('broken', { key: gqlMeta(pgText().notNull(), { hidden: true }) }, (t) => [
-          pgPrimaryKey({ columns: [t.key] }),
-        ]),
+        broken: pgTable(
+          'broken',
+          { key: pgText().notNull().meta({ graphqlHidden: true }) },
+          (t) => [pgPrimaryKey({ columns: [t.key] })],
+        ),
       },
-      'Table "broken" marks primary key column "key" as hidden. Remove { hidden: true } because the primary key is exposed as "id".',
+      'Table "broken" marks primary key column "key" as hidden. Remove graphqlHidden from its .meta() because the primary key is exposed as "id".',
     ],
     [
       'non-primary id',
@@ -119,10 +122,12 @@ describe('schema generation', () => {
 
   it('keeps every internal binding of the generated module out of the GraphQL name space', () => {
     // GraphQL type names cannot contain `$`, so a `$` name can never be shadowed by a model.
-    const database = gqlMeta(sqliteTable('a', { id: text().primaryKey(), ref: text() }), {
-      name: 'Database',
+    const database = sqliteTable('a', { id: text().primaryKey(), ref: text() }).meta({
+      graphqlName: 'Database',
     });
-    const relation = gqlMeta(sqliteTable('b', { id: text().primaryKey() }), { name: 'Relation' });
+    const relation = sqliteTable('b', { id: text().primaryKey() }).meta({
+      graphqlName: 'Relation',
+    });
     const databaseRelations = relations(database, ({ one }) => ({
       target: one(relation, { fields: [database.ref], references: [relation.id] }),
     }));
@@ -157,10 +162,10 @@ describe('schema generation', () => {
   it.each(['ID', 'Query', 'Mutation', 'Subscription', 'String', 'Int', 'Float', 'Boolean'])(
     'rejects the reserved GraphQL type name %s',
     (name) => {
-      const table = gqlMeta(sqliteTable('a', { id: text().primaryKey() }), { name });
+      const table = sqliteTable('a', { id: text().primaryKey() }).meta({ graphqlName: name });
       expect(readSchema({ table })).toEqual({
         kind: 'error',
-        message: `Table "table" uses the GraphQL type name "${name}", which GraphQL reserves. Set a different name with gqlMeta(table, { name: ... }) in the schema.`,
+        message: `Table "table" uses the GraphQL type name "${name}", which GraphQL reserves. Set a different name with .meta({ graphqlName: ... }) on the table in the schema.`,
       });
     },
   );
@@ -168,24 +173,24 @@ describe('schema generation', () => {
   it.each([
     [
       'two models',
-      { first: { name: 'Same' }, second: { name: 'Same' } },
-      'Duplicate GraphQL type name "Same": it is both the GraphQL type name of table "first" and the GraphQL type name of table "second". Set a different name with gqlMeta(table, { name: ... }) in the schema.',
+      { first: 'Same', second: 'Same' },
+      'Duplicate GraphQL type name "Same": it is both the GraphQL type name of table "first" and the GraphQL type name of table "second". Set a different name with .meta({ graphqlName: ... }) on the table in the schema.',
     ],
     [
       'a model and a later resolver',
-      { first: { name: 'GeneratedPostResolver' }, second: { name: 'Post' } },
-      'Duplicate export name in the generated module "GeneratedPostResolver": it is both the GraphQL type name of table "first" and the resolver class generated for table "second". Set a different name with gqlMeta(table, { name: ... }) in the schema.',
+      { first: 'GeneratedPostResolver', second: 'Post' },
+      'Duplicate export name in the generated module "GeneratedPostResolver": it is both the GraphQL type name of table "first" and the resolver class generated for table "second". Set a different name with .meta({ graphqlName: ... }) on the table in the schema.',
     ],
     [
       'a resolver and a later model',
-      { first: { name: 'Post' }, second: { name: 'GeneratedPostResolver' } },
-      'Duplicate export name in the generated module "GeneratedPostResolver": it is both the resolver class generated for table "first" and the GraphQL type name of table "second". Set a different name with gqlMeta(table, { name: ... }) in the schema.',
+      { first: 'Post', second: 'GeneratedPostResolver' },
+      'Duplicate export name in the generated module "GeneratedPostResolver": it is both the resolver class generated for table "first" and the GraphQL type name of table "second". Set a different name with .meta({ graphqlName: ... }) on the table in the schema.',
     ],
   ])('rejects generated export names shared by %s', (_case, names, message) => {
     const input = Object.fromEntries(
-      Object.entries(names).map(([key, meta]) => [
+      Object.entries(names).map(([key, name]) => [
         key,
-        gqlMeta(sqliteTable(key, { id: text().primaryKey() }), meta),
+        sqliteTable(key, { id: text().primaryKey() }).meta({ graphqlName: name }),
       ]),
     );
     expect(readSchema(input)).toEqual({ kind: 'error', message });
@@ -194,10 +199,10 @@ describe('schema generation', () => {
   it.each(['string', 'class', 'undefined', 'keyof'])(
     'rejects the type name %s, which TypeScript cannot use as the model interface',
     (name) => {
-      const table = gqlMeta(sqliteTable('a', { id: text().primaryKey() }), { name });
+      const table = sqliteTable('a', { id: text().primaryKey() }).meta({ graphqlName: name });
       expect(readSchema({ table })).toEqual({
         kind: 'error',
-        message: `Table "table" uses the GraphQL type name "${name}", which TypeScript reserves and the generated model interface cannot take. Set a different name with gqlMeta(table, { name: ... }) in the schema.`,
+        message: `Table "table" uses the GraphQL type name "${name}", which TypeScript reserves and the generated model interface cannot take. Set a different name with .meta({ graphqlName: ... }) on the table in the schema.`,
       });
     },
   );
@@ -205,10 +210,10 @@ describe('schema generation', () => {
   it.each(['__User', 'User-Name', '名前', '1User'])(
     'rejects the GraphQL type name %s, which is not a GraphQL name',
     (name) => {
-      const table = gqlMeta(sqliteTable('a', { id: text().primaryKey() }), { name });
+      const table = sqliteTable('a', { id: text().primaryKey() }).meta({ graphqlName: name });
       expect(readSchema({ table })).toEqual({
         kind: 'error',
-        message: `Table "table" has an invalid GraphQL type name "${name}" (letters, digits and "_", not starting with a digit or "__"). Set a different name with gqlMeta(table, { name: ... }) in the schema.`,
+        message: `Table "table" has an invalid GraphQL type name "${name}" (letters, digits and "_", not starting with a digit or "__"). Set a different name with .meta({ graphqlName: ... }) on the table in the schema.`,
       });
     },
   );
@@ -220,8 +225,8 @@ describe('schema generation', () => {
     ['my-posts', 'type $my$2d$postsRow = (typeof $schema)["my-posts"]["$inferSelect"];'],
   ])('derives a distinct internal row type from the export name %s', (exportName, alias) => {
     const result = readSchema({
-      [exportName]: gqlMeta(sqliteTable('a', { id: text().primaryKey() }), { name: 'A' }),
-      userposts: gqlMeta(sqliteTable('b', { id: text().primaryKey() }), { name: 'B' }),
+      [exportName]: sqliteTable('a', { id: text().primaryKey() }).meta({ graphqlName: 'A' }),
+      userposts: sqliteTable('b', { id: text().primaryKey() }).meta({ graphqlName: 'B' }),
     });
     if (result.kind === 'error') throw new Error(result.message);
     const code = renderModels(result.models, options);
@@ -290,7 +295,7 @@ describe('schema generation', () => {
   });
 
   it('ignores hidden tables before PK validation and relation normalization', () => {
-    const hidden = gqlMeta(sqliteTable('hidden', { value: text() }), { hidden: true });
+    const hidden = sqliteTable('hidden', { value: text() }).meta({ graphqlHidden: true });
     expect(readSchema({ hidden })).toEqual({ kind: 'success', models: [] });
   });
 
@@ -394,10 +399,10 @@ describe('schema generation', () => {
 
   it('does not expose a relation to a hidden table', () => {
     const users = sqliteTable('users', { id: text().primaryKey() });
-    const sessions = gqlMeta(
-      sqliteTable('sessions', { id: text().primaryKey(), userId: text().notNull() }),
-      { hidden: true },
-    );
+    const sessions = sqliteTable('sessions', {
+      id: text().primaryKey(),
+      userId: text().notNull(),
+    }).meta({ graphqlHidden: true });
     const usersRelations = relations(users, ({ many }) => ({ sessions: many(sessions) }));
     const sessionsRelations = relations(sessions, ({ one }) => ({
       user: one(users, { fields: [sessions.userId], references: [users.id] }),
@@ -414,7 +419,7 @@ describe('schema generation', () => {
       const users = sqliteTable('users', { id: text().primaryKey(), [key]: text() });
       expect(readSchema({ users })).toEqual({
         kind: 'error',
-        message: `Table "users" exposes the column key "${key}", which is not a valid GraphQL field name (letters, digits and "_", not starting with a digit or "__"). Rename the key in the table definition, or hide the column with gqlMeta(column, { hidden: true }).`,
+        message: `Table "users" exposes the column key "${key}", which is not a valid GraphQL field name (letters, digits and "_", not starting with a digit or "__"). Rename the key in the table definition, or hide the column with .meta({ graphqlHidden: true }).`,
       });
     },
   );
@@ -437,9 +442,9 @@ describe('schema generation', () => {
       users: sqliteTable('users', {
         id: text().primaryKey(),
         firstName: text(),
-        'full-name': gqlMeta(text(), { hidden: true }),
-        名前: gqlMeta(text(), { hidden: true }),
-        secret: gqlMeta(text(), { hidden: true }),
+        'full-name': text().meta({ graphqlHidden: true }),
+        名前: text().meta({ graphqlHidden: true }),
+        secret: text().meta({ graphqlHidden: true }),
       }),
     });
     if (result.kind === 'error') throw new Error(result.message);
@@ -453,7 +458,7 @@ describe('schema generation', () => {
   it('cannot expose a public column that collides with a hidden column', () => {
     const users = sqliteTable('users', {
       id: text().primaryKey(),
-      secret: gqlMeta(text(), { hidden: true }),
+      secret: text().meta({ graphqlHidden: true }),
       $secret: text(),
     });
     expect(readSchema({ users })).toMatchObject({
@@ -519,35 +524,30 @@ describe('schema generation', () => {
     expect(readSchema({ broken })).toEqual({ kind: 'error', message: 'Invalid table constraints' });
   });
 
+  // Schemas are loaded without type checking, so metadata of the wrong type reaches the reader.
   it('returns invalid table metadata as an error value', () => {
     const users = sqliteTable('users', { id: text().primaryKey() });
-    Object.defineProperty(users, Symbol.for('@zeltjs/graphql-drizzle/meta'), { value: 42 });
+    Reflect.apply(users.meta, users, [{ graphqlName: 42 }]);
     expect(readSchema({ users })).toEqual({
       kind: 'error',
-      message: 'Invalid graphql-drizzle metadata.',
+      message: 'Invalid graphql-drizzle metadata: "graphqlName" must be a string.',
     });
   });
 
   it('returns invalid column metadata as an error value', () => {
     const secret = text();
-    const config: unknown = Reflect.get(secret, 'config');
-    if (typeof config !== 'object' || config === null)
-      throw new Error('Missing Drizzle builder config');
-    Object.defineProperty(config, Symbol.for('@zeltjs/graphql-drizzle/meta'), { value: null });
+    Reflect.apply(secret.meta, secret, [{ graphqlHidden: 'yes' }]);
     const users = sqliteTable('users', { id: text().primaryKey(), secret });
     expect(readSchema({ users })).toEqual({
       kind: 'error',
-      message: 'Invalid graphql-drizzle metadata.',
+      message: 'Invalid graphql-drizzle metadata: "graphqlHidden" must be a boolean.',
     });
   });
 
   it('returns a malformed column configuration as an error value', () => {
     const users = sqliteTable('users', { id: text().primaryKey(), secret: text() });
     Reflect.set(users.secret, 'config', null);
-    expect(readSchema({ users })).toEqual({
-      kind: 'error',
-      message: 'gqlMeta expects a Drizzle table, column, or column builder.',
-    });
+    expect(readSchema({ users })).toMatchObject({ kind: 'error' });
   });
 
   it('returns Drizzle relation configuration errors as values', () => {

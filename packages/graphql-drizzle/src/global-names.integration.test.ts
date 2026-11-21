@@ -39,9 +39,14 @@ beforeAll(async () => {
     paths: {
       '@zeltjs/graphql': ['packages/graphql/src/index.ts'],
       '@zeltjs/core': ['packages/core/dist/index.d.ts'],
-      '@zeltjs/graphql-drizzle': ['packages/graphql-drizzle/src/index.ts'],
       'drizzle-orm': ['packages/graphql-drizzle/node_modules/drizzle-orm'],
       'drizzle-orm/*': ['packages/graphql-drizzle/node_modules/drizzle-orm/*'],
+      'drizzle-metadata': [
+        'packages/graphql-drizzle/node_modules/drizzle-metadata/dist/index.d.ts',
+      ],
+      'drizzle-metadata/register': [
+        'packages/graphql-drizzle/node_modules/drizzle-metadata/dist/register.d.ts',
+      ],
     },
   });
 }, 30_000);

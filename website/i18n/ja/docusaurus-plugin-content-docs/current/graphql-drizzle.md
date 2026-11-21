@@ -28,7 +28,7 @@ Mutation は生成しません。`where` や並び順はアプリごとに要件
 - DB クライアントは `@zeltjs/db` の `DatabaseService` を継承した service から取得します（[データベース](./db.md)）。生成されたコードもこの service の `client` を使うため、トランザクションの伝播はそのまま効きます。
 
 ```bash
-pnpm add @zeltjs/graphql-drizzle
+pnpm add @zeltjs/graphql-drizzle drizzle-metadata@0.0.1
 ```
 
 ## 設定 {#configuration}
@@ -76,42 +76,34 @@ export default defineConfig({
 // @filename: graphql-drizzle/src/db/schema.ts
 // ---cut---
 // src/db/schema.ts
+import 'drizzle-metadata/register';
+import '@zeltjs/graphql-drizzle/metadata';
 import { relations } from 'drizzle-orm';
 import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { gqlMeta } from '@zeltjs/graphql-drizzle';
 import * as v from 'valibot';
 
 export const UserId = v.pipe(v.string(), v.uuid(), v.brand('UserId'));
 export type UserId = v.InferOutput<typeof UserId>;
 export type PostId = string & v.Brand<'PostId'>;
 
-export const users = gqlMeta(
-  pgTable('users', {
-    id: uuid().primaryKey().defaultRandom().$type<UserId>(),
-    firstName: text('first_name').notNull(),
-    lastName: text('last_name').notNull(),
-    passwordHash: gqlMeta(text('password_hash').notNull(), { hidden: true }),
-  }),
-  { name: 'User' },
-);
+export const users = pgTable('users', {
+  id: uuid().primaryKey().defaultRandom().$type<UserId>(),
+  firstName: text('first_name').notNull(),
+  lastName: text('last_name').notNull(),
+  passwordHash: text('password_hash').notNull().meta({ graphqlHidden: true }),
+}).meta({ graphqlName: 'User' });
 
-export const posts = gqlMeta(
-  pgTable('posts', {
-    id: uuid().primaryKey().defaultRandom().$type<PostId>(),
-    title: text().notNull(),
-    authorId: uuid('author_id').$type<UserId>().notNull().references(() => users.id),
-    createdAt: gqlMeta(timestamp('created_at').notNull().defaultNow(), { hidden: true }),
-  }),
-  { name: 'Post' },
-);
+export const posts = pgTable('posts', {
+  id: uuid().primaryKey().defaultRandom().$type<PostId>(),
+  title: text().notNull(),
+  authorId: uuid('author_id').$type<UserId>().notNull().references(() => users.id),
+  createdAt: timestamp('created_at').notNull().defaultNow().meta({ graphqlHidden: true }),
+}).meta({ graphqlName: 'Post' });
 
-export const sessions = gqlMeta(
-  pgTable('sessions', {
-    id: uuid().primaryKey(),
-    userId: uuid('user_id').$type<UserId>().notNull().references(() => users.id),
-  }),
-  { hidden: true },
-);
+export const sessions = pgTable('sessions', {
+  id: uuid().primaryKey(),
+  userId: uuid('user_id').$type<UserId>().notNull().references(() => users.id),
+}).meta({ graphqlHidden: true });
 
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
@@ -123,19 +115,23 @@ export const postsRelations = relations(posts, ({ one }) => ({
 }));
 ```
 
-### `gqlMeta` で公開範囲を指定する {#gql-meta}
+### `.meta()` で公開範囲を指定する {#gql-meta}
 
-`gqlMeta(対象, 指定)` は、テーブルまたはカラムをそのまま返します。Drizzle から見た型も動作も変わりません。GraphQL 向けの指定だけを、定義と同じ場所に書けます。
+GraphQL 向けの指定は、[drizzle-metadata](https://www.npmjs.com/package/drizzle-metadata) の `.meta()` で、テーブルやカラムの定義と同じ場所に書きます。`.meta()` はテーブルまたはカラムをそのまま返します。Drizzle から見た型も動作も変わりません。
 
-| 対象 | 指定 | 意味 |
+スキーマファイルの先頭で 2 つのモジュールを import します。`drizzle-metadata/register` は Drizzle のテーブルとカラムに `.meta()` を加え、`@zeltjs/graphql-drizzle/metadata` は下の key を `.meta()` の型に加えます。生成はスキーマのモジュールだけを読み込むため、アプリの入口ではなくスキーマファイル自身で import してください。
+
+| 対象 | metadata | 意味 |
 | --- | --- | --- |
-| テーブル | `{ name: 'User' }` | GraphQL の型名。省略すると export 名を PascalCase にしたもの（`users` → `Users`） |
-| テーブル | `{ hidden: true }` | モデルを生成しない。このテーブルへのリレーションも生成しない |
-| カラム | `{ hidden: true }` | GraphQL に公開しない。resolver からは `$` 付きの名前で参照できる（後述） |
+| テーブル | `graphqlName: 'User'` | GraphQL の型名。省略すると export 名を PascalCase にしたもの（`users` → `Users`） |
+| テーブル | `graphqlHidden: true` | モデルを生成しない。このテーブルへのリレーションも生成しない |
+| カラム | `graphqlHidden: true` | GraphQL に公開しない。resolver からは `$` 付きの名前で参照できる（後述） |
+
+drizzle-metadata を使う他のライブラリも、同じ `.meta()` に自分の key を加えます。同じテーブルやカラムで `.meta()` を複数回呼ぶと後の呼び出しで置き換わるため、key はまとめて 1 回で書いてください。
 
 この例では ID と外部キーを brand 型にしていますが、brand 型は必須ではありません。使う場合は Drizzle の `$type<>()` で指定すると、その型が生成されるモデル型にそのまま引き継がれます（[主キーと ID](#primary-key)）。
 
-`gqlMeta` を付けないテーブルは公開されます。DB に新しいテーブルやカラムを追加すると、次のビルドで GraphQL にも現れます。公開したくないものには `hidden` を付けてください。
+`graphqlHidden` を付けないテーブルは公開されます。DB に新しいテーブルやカラムを追加すると、次のビルドで GraphQL にも現れます。公開したくないものには `graphqlHidden` を付けてください。
 
 ## 生成されるもの {#generated}
 
@@ -170,8 +166,8 @@ export abstract class GeneratedUserResolver { /* カラムとリレーション�
 export abstract class GeneratedPostResolver { /* カラムとリレーションの解決 */ }
 ```
 
-- **モデル型**: カラムはそのキー名のプロパティになり、型は Drizzle が推論する型（`$inferSelect`）をそのまま参照します。`hidden` のカラムは `$` 付きの名前になり、[GraphQL の規約](./graphql.md#code-first)どおりスキーマには現れません。
-- **リレーション**: `relations()` のキー名のプロパティになります。`hidden` のテーブルへのリレーション（上の例の `sessions`）は生成されません。
+- **モデル型**: カラムはそのキー名のプロパティになり、型は Drizzle が推論する型（`$inferSelect`）をそのまま参照します。`graphqlHidden` のカラムは `$` 付きの名前になり、[GraphQL の規約](./graphql.md#code-first)どおりスキーマには現れません。
+- **リレーション**: `relations()` のキー名のプロパティになります。`graphqlHidden` のテーブルへのリレーション（上の例の `sessions`）は生成されません。
 - **`GeneratedXxxResolver`**: カラムの値を ID からまとめて取得する `@ResolveMultiField` と、各リレーションの `@Relation` を持つ抽象クラスです。
 
 ### 主キーと ID {#primary-key}
@@ -289,7 +285,7 @@ graphql({
 
 生成されたモデルにフィールドを追加するには、[GraphQL のモデル](./graphql.md#code-first)と同じく、モデル型に宣言して `@ResolveField` で解決します。生成ファイルは編集できないため、宣言は resolver のファイルから `declare module` で生成された `interface` に追加します（TypeScript の declaration merging）。上の例では `User.displayName: String!` が追加されます。
 
-追加したフィールドはモデル型の一部になるため、別の `@ResolveField` の依存にも、関連先からの参照（`Post.author` の先）にも使えます。`@ResolveField` の引数の `Pick<User, ...>` で、計算に必要なフィールドを宣言します。`hidden` のカラムも `$` 付きの名前で参照できます。
+追加したフィールドはモデル型の一部になるため、別の `@ResolveField` の依存にも、関連先からの参照（`Post.author` の先）にも使えます。`@ResolveField` の引数の `Pick<User, ...>` で、計算に必要なフィールドを宣言します。`graphqlHidden` のカラムも `$` 付きの名前で参照できます。
 
 ```ts
 // @filename: graphql-drizzle/src/graphql/user.resolver.ts
@@ -330,7 +326,7 @@ export class UserResolver extends GeneratedUserResolver {
 
 ### カラムを別の形で公開する {#replace-field}
 
-カラムの値を変換して公開したい場合は、カラムを `hidden` にし、同じ名前のフィールドを宣言して `@ResolveField` で解決します。上のスキーマの `posts.createdAt` はこの例です。
+カラムの値を変換して公開したい場合は、カラムを `graphqlHidden` にし、同じ名前のフィールドを宣言して `@ResolveField` で解決します。上のスキーマの `posts.createdAt` はこの例です。
 
 ```ts
 // @filename: graphql-drizzle/src/graphql/post.resolver.ts
@@ -352,7 +348,7 @@ export class PostResolver extends GeneratedPostResolver {
 }
 ```
 
-`hidden` にしていないカラムと同じ名前のフィールドは追加できません。型が異なれば TypeScript の型エラーに、型が同じでも供給元が重複するためビルドエラーになります。暗黙の上書きは起きません。
+`graphqlHidden` にしていないカラムと同じ名前のフィールドは追加できません。型が異なれば TypeScript の型エラーに、型が同じでも供給元が重複するためビルドエラーになります。暗黙の上書きは起きません。
 
 ## カラムの型 {#column-types}
 
@@ -368,7 +364,7 @@ export class PostResolver extends GeneratedPostResolver {
 
 `$type<>()` で brand を付けた `string` / `number`（`UserId` など）は、元の型として公開されます。
 
-上記以外の型（`Date`、`bigint`、JSON、文字列リテラルのユニオンなど）のカラムを公開しようとすると、ビルド時にエラーになります。`hidden` にして、[別の形で公開](#replace-field)してください。
+上記以外の型（`Date`、`bigint`、JSON、文字列リテラルのユニオンなど）のカラムを公開しようとすると、ビルド時にエラーになります。`graphqlHidden` にして、[別の形で公開](#replace-field)してください。
 
 ## リレーション {#relations}
 
@@ -388,11 +384,11 @@ export class PostResolver extends GeneratedPostResolver {
 
 | 変更 | 次のビルドでの結果 |
 | --- | --- |
-| カラム・テーブル・リレーションを追加 | GraphQL に追加される（`hidden` を付けたものを除く） |
+| カラム・テーブル・リレーションを追加 | GraphQL に追加される（`graphqlHidden` を付けたものを除く） |
 | カラムを削除・改名 | GraphQL から消える。そのカラムに依存する `Pick` や resolver は型エラー |
 | カラムの型を変更 | モデル型が変わる。合わない resolver は型エラー |
-| `hidden` を付ける | GraphQL から消え、`$` 付きの名前に変わる。元の名前に依存する resolver は型エラー |
-| テーブルを `hidden` にする | モデルと、そこへのリレーションが消える。継承している resolver はエラー |
+| `graphqlHidden` を付ける | GraphQL から消え、`$` 付きの名前に変わる。元の名前に依存する resolver は型エラー |
+| テーブルを `graphqlHidden` にする | モデルと、そこへのリレーションが消える。継承している resolver はエラー |
 
 GraphQL スキーマの変更がクライアントに与える影響（フィールドの削除など）は、このパッケージでは検出しません。
 
@@ -402,15 +398,15 @@ GraphQL スキーマの変更がクライアントに与える影響（フィー
 
 - 公開するテーブルに単一カラムの主キーがない（複合主キー・主キーなし）
 - 公開するテーブルの主キーが文字列型でない（整数など）
-- 公開するテーブルの主キーカラムに `hidden: true` が指定されている
+- 公開するテーブルの主キーカラムに `graphqlHidden: true` が指定されている
 - 公開するテーブルが、主キー以外に `id` というキーのカラムを持つ
 - 公開するカラムの型が[対応表](#column-types)にない
 - 公開するテーブルが PostgreSQL / SQLite のテーブルでない（MySQL など）
-- カラムとリレーションのキー名が重複している、あるいは、リレーションのキーや、主キーでも `hidden` でもないカラムのキーが GraphQL の名前として使えない（`full-name`、`$` や `__` で始まるキーなど）
+- カラムとリレーションのキー名が重複している、あるいは、リレーションのキーや、主キーでも `graphqlHidden` でもないカラムのキーが GraphQL の名前として使えない（`full-name`、`$` や `__` で始まるキーなど）
 - 2 つのテーブルの GraphQL 型名が重複している
 - テーブルの GraphQL 型名が、GraphQL の名前として使えない、生成される resolver 名（`GeneratedXxxResolver`）と重複している、または GraphQL や TypeScript が予約している名前（`ID`、`String`、`Query`、`string`、`class` など）である
 - 公開するモデルを継承した resolver が `graphql()` に登録されていない、または 2 つ以上登録されている
-- `hidden` でないカラムやリレーションと同じ名前のフィールドを追加した
+- `graphqlHidden` でないカラムやリレーションと同じ名前のフィールドを追加した
 - 追加したフィールドの宣言と `@ResolveField` が対応していない
 
 ## 現在の対応範囲 {#limitations}

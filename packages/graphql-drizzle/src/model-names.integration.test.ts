@@ -3,7 +3,8 @@ import { relative, resolve } from 'node:path';
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import ts from 'typescript';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { gqlMeta } from './index';
+import 'drizzle-metadata/register';
+import './metadata';
 import { renderModels } from './render.lib';
 import { readSchema } from './schema-adapter.lib';
 
@@ -40,9 +41,10 @@ const schemaSource = (name: string): string =>
   [
     `import { relations } from 'drizzle-orm';`,
     `import { sqliteTable, text } from 'drizzle-orm/sqlite-core';`,
-    `import { gqlMeta } from '${specifier(directory, resolve(__dirname, 'index'))}';`,
-    `export const model = gqlMeta(sqliteTable('model', { id: text().primaryKey(), hubId: text('hub_id') }), { name: ${JSON.stringify(name)} });`,
-    `export const hub = gqlMeta(sqliteTable('hub', { id: text().primaryKey(), modelId: text('model_id') }), { name: 'Hub' });`,
+    `import 'drizzle-metadata/register';`,
+    `import '${specifier(directory, resolve(__dirname, 'metadata'))}';`,
+    `export const model = sqliteTable('model', { id: text().primaryKey(), hubId: text('hub_id') }).meta({ graphqlName: ${JSON.stringify(name)} });`,
+    `export const hub = sqliteTable('hub', { id: text().primaryKey(), modelId: text('model_id') }).meta({ graphqlName: 'Hub' });`,
     `export const hubRelations = relations(hub, ({ one, many }) => ({ single: one(model, { fields: [hub.modelId], references: [model.id], relationName: 'single' }), list: many(model, { relationName: 'list' }) }));`,
     `export const modelRelations = relations(model, ({ one }) => ({ hub: one(hub, { fields: [model.hubId], references: [hub.id], relationName: 'list' }) }));`,
   ].join('\n');
@@ -62,6 +64,12 @@ const program = (files: readonly string[]): ts.Program =>
       '@zeltjs/core': ['packages/core/dist/index.d.ts'],
       'drizzle-orm': ['packages/graphql-drizzle/node_modules/drizzle-orm'],
       'drizzle-orm/*': ['packages/graphql-drizzle/node_modules/drizzle-orm/*'],
+      'drizzle-metadata': [
+        'packages/graphql-drizzle/node_modules/drizzle-metadata/dist/index.d.ts',
+      ],
+      'drizzle-metadata/register': [
+        'packages/graphql-drizzle/node_modules/drizzle-metadata/dist/register.d.ts',
+      ],
     },
   });
 
@@ -89,7 +97,7 @@ const generate = async (name: string, index: number): Promise<string> => {
 
 it('either rejects a TypeScript keyword as a model name or generates a module that type-checks', async () => {
   const accepted = candidates().filter((name) => {
-    const table = gqlMeta(sqliteTable('model', { id: text().primaryKey() }), { name });
+    const table = sqliteTable('model', { id: text().primaryKey() }).meta({ graphqlName: name });
     return readSchema({ table }).kind === 'success';
   });
   // Contextual keywords stay usable, so the type check below is never vacuous.

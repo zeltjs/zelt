@@ -407,6 +407,7 @@ export default tseslint.config(
       'packages/testing/src/adapters/jest.ts',
       'packages/testing/src/adapters/bun.ts',
       'packages/testing/src/adapters/node.ts',
+      'packages/graphql-drizzle/src/metadata.ts',
     ],
     rules: {
       'zelt/double-dot-naming': 'off',

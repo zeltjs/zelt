@@ -219,6 +219,7 @@ const config: KnipConfig = {
         'docusaurus-markdown-source-plugin',
         'docusaurus-plugin-docusaurus-markdown-source-plugin',
         'docusaurus-plugin-llms',
+        'drizzle-metadata',
         'drizzle-orm',
         'postgres',
         'prism-react-renderer',

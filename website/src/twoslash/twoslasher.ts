@@ -67,6 +67,7 @@ const twoslashOptions = {
       '@zeltjs/validator-valibot': ['./packages/validator-valibot/dist/index.d.ts'],
       '@zeltjs/validator-valibot/openapi': ['./packages/validator-valibot/dist/openapi/index.d.ts'],
       '@zeltjs/graphql-drizzle/codegen': ['./packages/graphql-drizzle/dist/codegen.d.ts'],
+      '@zeltjs/graphql-drizzle/metadata': ['./packages/graphql-drizzle/dist/metadata.d.ts'],
       '@zeltjs/graphql/codegen': ['./packages/graphql/dist/codegen.d.ts'],
       '@zeltjs/kv/adaptor-redis': ['./packages/kv/dist/adaptor-redis/index.d.ts'],
       '@zeltjs/eventbus/adaptor-memory': ['./packages/eventbus/dist/adaptor-memory/index.d.ts'],
@@ -83,7 +84,16 @@ const twoslashOptions = {
       ioredis: pnpmTypes('ioredis@', 'ioredis/built/index.d.ts'),
       bullmq: pnpmTypes('bullmq@', 'bullmq/dist/esm/index.d.ts'),
       'drizzle-orm': pnpmTypes('drizzle-orm@', 'drizzle-orm/index.d.ts'),
-      'drizzle-orm/*': pnpmTypes('drizzle-orm@', 'drizzle-orm/*/index.d.ts'),
+      // drizzle-metadata/register augments modules such as 'drizzle-orm/table', which are files.
+      'drizzle-orm/*': [
+        ...pnpmTypes('drizzle-orm@', 'drizzle-orm/*/index.d.ts'),
+        ...pnpmTypes('drizzle-orm@', 'drizzle-orm/*.d.ts'),
+      ],
+      'drizzle-metadata': pnpmTypes('drizzle-metadata@', 'drizzle-metadata/dist/index.d.ts'),
+      'drizzle-metadata/register': pnpmTypes(
+        'drizzle-metadata@',
+        'drizzle-metadata/dist/register.d.ts',
+      ),
       postgres: pnpmTypes('postgres@', 'postgres/types/index.d.ts'),
     },
   },
