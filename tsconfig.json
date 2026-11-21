@@ -4,6 +4,7 @@
     { "path": "packages/core" },
     { "path": "packages/graphql" },
     { "path": "packages/graphql-drizzle" },
+    { "path": "packages/drizzle-repository" },
     { "path": "packages/openapi" },
     { "path": "packages/testing" },
     { "path": "packages/adapter-node" },

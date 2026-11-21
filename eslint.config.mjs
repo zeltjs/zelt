@@ -349,6 +349,9 @@ export default tseslint.config(
       // Disposable tsx child process: no DI container exists in this throwaway
       // script, so it IS the process boundary (argv/cwd/stdout/exitCode)
       'packages/studio-extract/src/plugins/zelt-inspect-entry.ts',
+      // Package-manager bin entry: it reads its working directory and reports through stderr
+      // and the exit code, as a command-line tool does
+      'packages/drizzle-repository/src/cli.ts',
       // Spawns the inspector child process with the parent's own node binary
       // (process.execPath) so it runs regardless of the host's PATH/shell setup
       'packages/studio-extract/src/plugins/zelt-inspect-runner.lib.ts',
@@ -408,6 +411,8 @@ export default tseslint.config(
       'packages/testing/src/adapters/bun.ts',
       'packages/testing/src/adapters/node.ts',
       'packages/graphql-drizzle/src/metadata.ts',
+      'packages/drizzle-repository/src/engine.ts',
+      'packages/drizzle-repository/src/metadata.ts',
     ],
     rules: {
       'zelt/double-dot-naming': 'off',

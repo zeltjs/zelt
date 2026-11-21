@@ -1,0 +1,33 @@
+{
+  "extends": "@9wick/eslint-plugin-strict-type-rules/tsconfig/strictest.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./.typebuild",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "tsBuildInfoFile": "./.typebuild/.tsbuildinfo",
+    "erasableSyntaxOnly": false,
+    "types": ["node"],
+    "paths": {
+      "@zeltjs/drizzle-repository": ["./src/index.ts"],
+      "@zeltjs/drizzle-repository/engine": ["./src/engine.ts"],
+      "@zeltjs/drizzle-repository/metadata": ["./src/metadata.ts"]
+    },
+    "emitDeclarationOnly": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/test/fixtures/zelt-app/**"],
+  "references": [
+    {
+      "path": "../cli"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../db"
+    }
+  ]
+}

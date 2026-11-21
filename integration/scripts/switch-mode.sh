@@ -44,6 +44,12 @@ PACKAGES=(
   "cli"
 )
 
+# Installed only by the consumers that list them in their package.extra.json dependencies.
+# dist/pack modes override such a dependency with the local artifact, as for PACKAGES.
+OPTIONAL_PACKAGES=(
+  "drizzle-repository"
+)
+
 # Volta の node/npm shim は CWD から manifest (package.json) を探すため、
 # 呼び出し元の CWD に壊れた/生成途中の package.json があると起動自体に失敗する。
 # node/npm はすべてルート (manifest が常に正常) を CWD にして実行する。
@@ -116,6 +122,9 @@ generate_package_json() {
         local spec="${ARTIFACT_SPECS[$pkg]}"
         deps="$deps\"@zeltjs/$pkg\": \"$spec\","
         overrides="$overrides\"@zeltjs/$pkg\": \"$spec\","
+      done
+      for pkg in "${OPTIONAL_PACKAGES[@]}"; do
+        overrides="$overrides\"@zeltjs/$pkg\": \"${ARTIFACT_SPECS[$pkg]}\","
       done
       ;;
     public)
@@ -211,7 +220,7 @@ declare -A ARTIFACT_SPECS=()
 prepare_distributions() {
   (cd "$ROOT_DIR" && pnpm nx run-many -t distribution --projects='@zeltjs/*')
   local specs
-  specs=$(run_at_root node --input-type=module - "$MODE" "${PACKAGES[@]}" <<'NODE'
+  specs=$(run_at_root node --input-type=module - "$MODE" "${PACKAGES[@]}" "${OPTIONAL_PACKAGES[@]}" <<'NODE'
 import { materializeDistribution } from './scripts/pack-distribution.mjs';
 const [mode, ...packages] = process.argv.slice(2);
 for (const name of packages) {

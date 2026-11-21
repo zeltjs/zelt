@@ -1,0 +1,76 @@
+{
+  "name": "@zeltjs/drizzle-repository",
+  "version": "0.0.0",
+  "description": "Generate domain repositories from a drizzle schema for Zelt applications",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeltjs/zelt.git",
+    "directory": "packages/drizzle-repository"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "zelt-drizzle-repository": "./bin/zelt-drizzle-repository.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./metadata": {
+      "types": "./dist/metadata.d.ts",
+      "default": "./dist/metadata.js"
+    },
+    "./engine": {
+      "types": "./dist/engine.d.ts",
+      "default": "./dist/engine.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "pnpm -w run test:prepare && vitest run",
+    "typecheck": "node ../../scripts/typecheck-project.mjs",
+    "lint": "node --max-old-space-size=3072 ../../node_modules/eslint/bin/eslint.js . && oxlint .",
+    "distribution": "node ../../scripts/pack-distribution.mjs"
+  },
+  "peerDependencies": {
+    "@zeltjs/cli": "workspace:*",
+    "@zeltjs/core": "workspace:*",
+    "@zeltjs/db": "workspace:*",
+    "drizzle-metadata": "0.0.1",
+    "drizzle-orm": ">=0.45.0 <1.0.0 || >=1.0.0-rc.5 <2.0.0",
+    "neverthrow": ">=8.0.0"
+  },
+  "dependencies": {
+    "jiti": "2.7.0"
+  },
+  "devDependencies": {
+    "@libsql/client": "0.18.0",
+    "@testcontainers/mysql": "12.2.1",
+    "@testcontainers/postgresql": "12.2.1",
+    "@types/node": "catalog:",
+    "@types/pg": "8.23.1",
+    "@zeltjs/cli": "workspace:*",
+    "@zeltjs/core": "workspace:*",
+    "@zeltjs/db": "workspace:*",
+    "drizzle-metadata": "0.0.1",
+    "drizzle-orm": "0.45.4",
+    "mysql2": "3.24.6",
+    "neverthrow": "8.2.0",
+    "pg": "8.23.1",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "unplugin-swc": "2.0.0",
+    "vitest": "catalog:"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  }
+}

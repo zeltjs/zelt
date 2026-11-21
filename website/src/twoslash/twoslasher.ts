@@ -9,6 +9,7 @@ import type {
 } from 'twoslash';
 import { createTwoslasher } from 'twoslash';
 import type { TwoslashBlock } from './code-blocks.lib';
+import { drizzleRepositoryFiles } from './drizzle-repository-setup.lib';
 import { graphqlDrizzleSetup } from './graphql-drizzle-setup.lib';
 import { createTwoslashDiskOptions } from './twoslash-disk.lib';
 
@@ -69,6 +70,8 @@ const twoslashOptions = {
       '@zeltjs/graphql-drizzle/codegen': ['./packages/graphql-drizzle/dist/codegen.d.ts'],
       '@zeltjs/graphql-drizzle/metadata': ['./packages/graphql-drizzle/dist/metadata.d.ts'],
       '@zeltjs/graphql/codegen': ['./packages/graphql/dist/codegen.d.ts'],
+      '@zeltjs/drizzle-repository/engine': ['./packages/drizzle-repository/dist/engine.d.ts'],
+      '@zeltjs/drizzle-repository/metadata': ['./packages/drizzle-repository/dist/metadata.d.ts'],
       '@zeltjs/kv/adaptor-redis': ['./packages/kv/dist/adaptor-redis/index.d.ts'],
       '@zeltjs/eventbus/adaptor-memory': ['./packages/eventbus/dist/adaptor-memory/index.d.ts'],
       '@zeltjs/eventbus/adaptor-redis': ['./packages/eventbus/dist/adaptor-redis/index.d.ts'],
@@ -95,17 +98,22 @@ const twoslashOptions = {
         'drizzle-metadata/dist/register.d.ts',
       ),
       postgres: pnpmTypes('postgres@', 'postgres/types/index.d.ts'),
+      neverthrow: pnpmTypes('neverthrow@', 'neverthrow/dist/index.d.ts'),
     },
   },
 } satisfies CreateTwoslashOptions;
 
 const databaseService = path.join(__dirname, 'fixtures/graphql-drizzle/drizzle.service.ts');
+const drizzleRepositoryApp = path.join(__dirname, 'fixtures/drizzle-repository');
 
 // Blocks of a guide share files built from that same page, so each language checks its own code.
-const sharedFiles = (code: string, page: readonly TwoslashBlock[]): ExtraFiles =>
-  code.includes('// @filename: graphql-drizzle/')
-    ? graphqlDrizzleSetup(page, readFileSync(databaseService, 'utf8'))
-    : {};
+const sharedFiles = (code: string, page: readonly TwoslashBlock[]): ExtraFiles => {
+  if (code.includes('// @filename: graphql-drizzle/'))
+    return graphqlDrizzleSetup(page, readFileSync(databaseService, 'utf8'));
+  if (code.includes('// @filename: drizzle-repository/'))
+    return drizzleRepositoryFiles(drizzleRepositoryApp);
+  return {};
+};
 
 /**
  * Twoslash 0.3.9 keeps one virtual file system per instance, even with `cache: false`, and
