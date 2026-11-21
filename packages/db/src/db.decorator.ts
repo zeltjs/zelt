@@ -9,10 +9,28 @@ type AnyAsyncFn = (...args: any[]) => Promise<any>;
 
 export function createTransactionDecorator<T>(serviceClass: DatabaseServiceClass<T>) {
   return function Transaction() {
-    return <M extends AnyAsyncFn>(originalMethod: M, _context: ClassMethodDecoratorContext): M =>
-      async function (this: unknown, ...args: Parameters<M>) {
-        const service = inject(serviceClass);
+    // Static methods are rejected by the type: their initializer runs at class definition,
+    // where there is no instance being constructed and inject() cannot resolve anything.
+    return <M extends AnyAsyncFn>(
+      originalMethod: M,
+      context: ClassMethodDecoratorContext & { static: false },
+    ): M => {
+      // inject() only works while the container is constructing the instance,
+      // so the service is captured at construction rather than at call time.
+      const services = new WeakMap<object, DatabaseService<T>>();
+      context.addInitializer(function (this: unknown) {
+        services.set(this as object, inject<DatabaseService<T>>(serviceClass));
+      });
+
+      return async function (this: unknown, ...args: Parameters<M>) {
+        const service = services.get(this as object);
+        if (service === undefined) {
+          throw new Error(
+            `@Transaction() method "${String(context.name)}" was called with a \`this\` that is not an instance of its class`,
+          );
+        }
         return service.withTransaction(() => originalMethod.apply(this, args)) as ReturnType<M>;
       } as M;
+    };
   };
 }
