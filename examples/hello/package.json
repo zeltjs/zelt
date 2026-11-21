@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tsx src/main.ts",
     "dev:node": "tsx src/node.ts",
+    "test": "pnpm -w run test:prepare && vitest run",
     "generate:openapi": "tsx scripts/generate-openapi.ts",
     "typecheck": "tsc --noEmit",
     "contract:build": "tsx ../../packages/contract/src/cli.ts build",

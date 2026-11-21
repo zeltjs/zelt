@@ -19,7 +19,7 @@
     "lint:fix": "node --max-old-space-size=6144 ./node_modules/eslint/bin/eslint.js . --fix && oxlint . --fix",
     "knip": "knip",
     "codepolicy": "time codepolicy --filter=all 2>&1 | tee codepolicy.log",
-    "test": "pnpm run test:prepare && vitest run",
+    "test": "nx run-many -t test --parallel=1",
     "test:prepare": "node scripts/prepare-vitest.mjs",
     "test:integration": "./integration/scripts/run-tests.sh dist",
     "verify:txiki": "node scripts/verify-txiki-runtime.mjs",
