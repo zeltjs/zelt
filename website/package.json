@@ -70,6 +70,7 @@
     "@zeltjs/validator-valibot": "workspace:*",
     "better-sqlite3": "13.0.3",
     "bullmq": "6.5.3",
+    "drizzle-metadata": "0.0.1",
     "drizzle-orm": "0.45.4",
     "graphql": "17.1.0",
     "postgres": "4.0.0",

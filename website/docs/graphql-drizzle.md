@@ -28,7 +28,7 @@ Mutations are not generated. `where` clauses and ordering differ by app, so they
 - The DB client comes from a service that extends `DatabaseService` from `@zeltjs/db` ([Database](./db.md)). The generated code uses this service's `client` too, so transaction propagation keeps working.
 
 ```bash
-pnpm add @zeltjs/graphql-drizzle
+pnpm add @zeltjs/graphql-drizzle drizzle-metadata@0.0.1
 ```
 
 ## Configuration {#configuration}
@@ -76,42 +76,34 @@ Write tables and relations in Drizzle as usual.
 // @filename: graphql-drizzle/src/db/schema.ts
 // ---cut---
 // src/db/schema.ts
+import 'drizzle-metadata/register';
+import '@zeltjs/graphql-drizzle/metadata';
 import { relations } from 'drizzle-orm';
 import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { gqlMeta } from '@zeltjs/graphql-drizzle';
 import * as v from 'valibot';
 
 export const UserId = v.pipe(v.string(), v.uuid(), v.brand('UserId'));
 export type UserId = v.InferOutput<typeof UserId>;
 export type PostId = string & v.Brand<'PostId'>;
 
-export const users = gqlMeta(
-  pgTable('users', {
-    id: uuid().primaryKey().defaultRandom().$type<UserId>(),
-    firstName: text('first_name').notNull(),
-    lastName: text('last_name').notNull(),
-    passwordHash: gqlMeta(text('password_hash').notNull(), { hidden: true }),
-  }),
-  { name: 'User' },
-);
+export const users = pgTable('users', {
+  id: uuid().primaryKey().defaultRandom().$type<UserId>(),
+  firstName: text('first_name').notNull(),
+  lastName: text('last_name').notNull(),
+  passwordHash: text('password_hash').notNull().meta({ graphqlHidden: true }),
+}).meta({ graphqlName: 'User' });
 
-export const posts = gqlMeta(
-  pgTable('posts', {
-    id: uuid().primaryKey().defaultRandom().$type<PostId>(),
-    title: text().notNull(),
-    authorId: uuid('author_id').$type<UserId>().notNull().references(() => users.id),
-    createdAt: gqlMeta(timestamp('created_at').notNull().defaultNow(), { hidden: true }),
-  }),
-  { name: 'Post' },
-);
+export const posts = pgTable('posts', {
+  id: uuid().primaryKey().defaultRandom().$type<PostId>(),
+  title: text().notNull(),
+  authorId: uuid('author_id').$type<UserId>().notNull().references(() => users.id),
+  createdAt: timestamp('created_at').notNull().defaultNow().meta({ graphqlHidden: true }),
+}).meta({ graphqlName: 'Post' });
 
-export const sessions = gqlMeta(
-  pgTable('sessions', {
-    id: uuid().primaryKey(),
-    userId: uuid('user_id').$type<UserId>().notNull().references(() => users.id),
-  }),
-  { hidden: true },
-);
+export const sessions = pgTable('sessions', {
+  id: uuid().primaryKey(),
+  userId: uuid('user_id').$type<UserId>().notNull().references(() => users.id),
+}).meta({ graphqlHidden: true });
 
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
@@ -123,19 +115,23 @@ export const postsRelations = relations(posts, ({ one }) => ({
 }));
 ```
 
-### Controlling Exposure with `gqlMeta` {#gql-meta}
+### Controlling Exposure with `.meta()` {#gql-meta}
 
-`gqlMeta(target, options)` returns the table or column as is. Neither its Drizzle type nor its behavior changes. You can write the GraphQL-specific options right next to the definition.
+GraphQL-specific options are written with the `.meta()` method of [drizzle-metadata](https://www.npmjs.com/package/drizzle-metadata), right next to the table or column definition. `.meta()` returns the table or column as is. Neither its Drizzle type nor its behavior changes.
 
-| Target | Option | Meaning |
+Import two modules at the top of the schema file. `drizzle-metadata/register` adds `.meta()` to Drizzle tables and columns, and `@zeltjs/graphql-drizzle/metadata` adds the keys below to the type of `.meta()`. Import them in the schema file itself rather than in the app entry, because generation loads only the schema module.
+
+| Target | Metadata | Meaning |
 | --- | --- | --- |
-| Table | `{ name: 'User' }` | GraphQL type name. Defaults to the export name in PascalCase (`users` → `Users`) |
-| Table | `{ hidden: true }` | No model is generated. Relations to this table are not generated either |
-| Column | `{ hidden: true }` | Not exposed in GraphQL. Resolvers can refer to it by a `$`-prefixed name (see below) |
+| Table | `graphqlName: 'User'` | GraphQL type name. Defaults to the export name in PascalCase (`users` → `Users`) |
+| Table | `graphqlHidden: true` | No model is generated. Relations to this table are not generated either |
+| Column | `graphqlHidden: true` | Not exposed in GraphQL. Resolvers can refer to it by a `$`-prefixed name (see below) |
+
+Other libraries built on drizzle-metadata add their own keys to the same `.meta()`. A later `.meta()` call replaces an earlier one on the same table or column, so write all keys in one call.
 
 This example uses brand types for IDs and foreign keys, but brand types are not required. When you use them, specify them with Drizzle's `$type<>()`, and the type carries over to the generated model type unchanged ([Primary Keys and IDs](#primary-key)).
 
-Tables without `gqlMeta` are exposed. When you add a new table or column to the DB, it appears in GraphQL on the next build. Mark anything you do not want to expose with `hidden`.
+Tables without `graphqlHidden` are exposed. When you add a new table or column to the DB, it appears in GraphQL on the next build. Mark anything you do not want to expose with `graphqlHidden`.
 
 ## What Gets Generated {#generated}
 
@@ -170,8 +166,8 @@ export abstract class GeneratedUserResolver { /* resolves columns and relations 
 export abstract class GeneratedPostResolver { /* resolves columns and relations */ }
 ```
 
-- **Model types**: Each column becomes a property named after its key, and its type refers directly to the type Drizzle infers (`$inferSelect`). `hidden` columns get a `$`-prefixed name and, per the [GraphQL conventions](./graphql.md#code-first), do not appear in the schema.
-- **Relations**: Each becomes a property named after its key in `relations()`. Relations to `hidden` tables (`sessions` in the example above) are not generated.
+- **Model types**: Each column becomes a property named after its key, and its type refers directly to the type Drizzle infers (`$inferSelect`). `graphqlHidden` columns get a `$`-prefixed name and, per the [GraphQL conventions](./graphql.md#code-first), do not appear in the schema.
+- **Relations**: Each becomes a property named after its key in `relations()`. Relations to `graphqlHidden` tables (`sessions` in the example above) are not generated.
 - **`GeneratedXxxResolver`**: An abstract class with a `@ResolveMultiField` that fetches column values for IDs in batches and a `@Relation` for each relation.
 
 ### Primary Keys and IDs {#primary-key}
@@ -289,7 +285,7 @@ IDs from clients are strings for every primary key. Convert and validate them to
 
 To add a field to a generated model, do as with [GraphQL models](./graphql.md#code-first): declare it in the model type and resolve it with `@ResolveField`. The generated file cannot be edited, so declare it from the resolver's file by adding it to the generated `interface` with `declare module` (TypeScript declaration merging). The example above adds `User.displayName: String!`.
 
-An added field becomes part of the model type, so it can be a dependency of another `@ResolveField` and can be referenced from related models (the target of `Post.author`). Declare the fields a computation needs with `Pick<User, ...>` in the `@ResolveField` parameter. `hidden` columns can also be referenced by their `$`-prefixed names.
+An added field becomes part of the model type, so it can be a dependency of another `@ResolveField` and can be referenced from related models (the target of `Post.author`). Declare the fields a computation needs with `Pick<User, ...>` in the `@ResolveField` parameter. `graphqlHidden` columns can also be referenced by their `$`-prefixed names.
 
 ```ts
 // @filename: graphql-drizzle/src/graphql/user.resolver.ts
@@ -330,7 +326,7 @@ A declared field without a `@ResolveField`, or a `@ResolveField` without a match
 
 ### Exposing a Column in a Different Form {#replace-field}
 
-To expose a transformed column value, make the column `hidden`, declare a field with the same name, and resolve it with `@ResolveField`. `posts.createdAt` in the schema above is an example.
+To expose a transformed column value, make the column `graphqlHidden`, declare a field with the same name, and resolve it with `@ResolveField`. `posts.createdAt` in the schema above is an example.
 
 ```ts
 // @filename: graphql-drizzle/src/graphql/post.resolver.ts
@@ -352,7 +348,7 @@ export class PostResolver extends GeneratedPostResolver {
 }
 ```
 
-You cannot add a field with the same name as a column that is not `hidden`. If the types differ, it is a TypeScript type error; if the types are the same, the duplicate source is a build error. No implicit override happens.
+You cannot add a field with the same name as a column that is not `graphqlHidden`. If the types differ, it is a TypeScript type error; if the types are the same, the duplicate source is a build error. No implicit override happens.
 
 ## Column Types {#column-types}
 
@@ -368,7 +364,7 @@ A column can be exposed when the TypeScript type Drizzle infers for it is one of
 
 A `string` / `number` branded with `$type<>()` (such as `UserId`) is exposed as its underlying type.
 
-Exposing a column of any other type (`Date`, `bigint`, JSON, a union of string literals, and so on) is a build error. Make it `hidden` and [expose it in a different form](#replace-field).
+Exposing a column of any other type (`Date`, `bigint`, JSON, a union of string literals, and so on) is a build error. Make it `graphqlHidden` and [expose it in a different form](#replace-field).
 
 ## Relations {#relations}
 
@@ -388,11 +384,11 @@ Exposing a column of any other type (`Date`, `bigint`, JSON, a union of string l
 
 | Change | Result on the next build |
 | --- | --- |
-| Add a column, table, or relation | Added to GraphQL (except those marked `hidden`) |
+| Add a column, table, or relation | Added to GraphQL (except those marked `graphqlHidden`) |
 | Remove or rename a column | Removed from GraphQL. `Pick`s and resolvers that depend on the column are type errors |
 | Change a column's type | The model type changes. Resolvers that no longer fit are type errors |
-| Add `hidden` | Removed from GraphQL and renamed with a `$` prefix. Resolvers that depend on the original name are type errors |
-| Make a table `hidden` | The model and the relations to it are removed. Resolvers extending it are errors |
+| Add `graphqlHidden` | Removed from GraphQL and renamed with a `$` prefix. Resolvers that depend on the original name are type errors |
+| Make a table `graphqlHidden` | The model and the relations to it are removed. Resolvers extending it are errors |
 
 This package does not detect how GraphQL schema changes (such as removed fields) affect clients.
 
@@ -402,15 +398,15 @@ In the following cases, `zelt build` / `zelt dev` fails at the generation or ana
 
 - An exposed table has no single-column primary key (a composite key or no primary key)
 - An exposed table's primary key is not a string type (an integer, for example)
-- An exposed table's primary-key column is marked `hidden: true`
+- An exposed table's primary-key column is marked `graphqlHidden: true`
 - An exposed table has a column keyed `id` other than its primary key
 - An exposed column's type is not in the [type table](#column-types)
 - An exposed table is not a PostgreSQL or SQLite table (MySQL, for example)
-- A column and a relation share a key name, or the key of a relation or of a column that is neither the primary key nor `hidden` is not a valid GraphQL name (`full-name`, or a key starting with `$` or `__`, for example)
+- A column and a relation share a key name, or the key of a relation or of a column that is neither the primary key nor `graphqlHidden` is not a valid GraphQL name (`full-name`, or a key starting with `$` or `__`, for example)
 - Two tables have the same GraphQL type name
 - A table's GraphQL type name is not a valid GraphQL name, is the same as a generated resolver name (`GeneratedXxxResolver`), or is a name GraphQL or TypeScript reserves (`ID`, `String`, `Query`, `string`, `class`, and so on)
 - No resolver extending an exposed model is registered with `graphql()`, or two or more are registered
-- An added field has the same name as a column or relation that is not `hidden`
+- An added field has the same name as a column or relation that is not `graphqlHidden`
 - An added field's declaration and its `@ResolveField` do not match
 
 ## Current Scope {#limitations}

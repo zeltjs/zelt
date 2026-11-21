@@ -1,16 +1,14 @@
 import { relations } from 'drizzle-orm';
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { gqlMeta } from '../../index';
+import 'drizzle-metadata/register';
+import '../../metadata';
 
-export const employees = gqlMeta(
-  sqliteTable('employees', {
-    employeeId: text('employee_id').primaryKey(),
-    code: text().notNull(),
-    tenant: text().notNull(),
-    managerCode: text('manager_code'),
-  }),
-  { name: 'Employee' },
-);
+export const employees = sqliteTable('employees', {
+  employeeId: text('employee_id').primaryKey(),
+  code: text().notNull(),
+  tenant: text().notNull(),
+  managerCode: text('manager_code'),
+}).meta({ graphqlName: 'Employee' });
 
 export const employeesRelations = relations(employees, ({ one, many }) => ({
   manager: one(employees, {

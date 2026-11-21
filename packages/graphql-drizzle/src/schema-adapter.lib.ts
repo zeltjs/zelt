@@ -5,7 +5,7 @@ import { getTableConfig as getSqliteConfig, SQLiteTable } from 'drizzle-orm/sqli
 import type { GeneratedExport } from './generated-module.lib';
 import { generatedExports } from './generated-module.lib';
 import type { TableGraphqlMeta } from './metadata.lib';
-import { readGraphqlMeta } from './metadata.lib';
+import { readColumnGraphqlMeta, readTableGraphqlMeta } from './metadata.lib';
 import type { DrizzleSchema, ReadRelation, SchemaTable } from './relations-adapter.lib';
 import { createRelationsReader, identifyDrizzleSchema } from './relations-adapter.lib';
 import type { Model, ModelRelation, ReadResult, SchemaError, SchemaResult } from './schema.types';
@@ -52,7 +52,8 @@ const validName = (name: string): boolean =>
   /^[_A-Za-z][_0-9A-Za-z]*$/.test(name) && !name.startsWith('__');
 
 const NAME_RULE = '(letters, digits and "_", not starting with a digit or "__")';
-const RENAME_HINT = 'Set a different name with gqlMeta(table, { name: ... }) in the schema.';
+const RENAME_HINT =
+  'Set a different name with .meta({ graphqlName: ... }) on the table in the schema.';
 
 // Built-in scalars and root operation types already own these names in every GraphQL schema.
 const reservedTypeNames: ReadonlySet<string> = new Set([
@@ -115,7 +116,7 @@ const readColumnProperty = (
   if (key === primaryKey && hidden)
     return {
       kind: 'error',
-      message: `Table "${exportName}" marks primary key column "${key}" as hidden. Remove { hidden: true } because the primary key is exposed as "id".`,
+      message: `Table "${exportName}" marks primary key column "${key}" as hidden. Remove graphqlHidden from its .meta() because the primary key is exposed as "id".`,
     };
   if (key === primaryKey) return { kind: 'success', value: 'id' };
   if (hidden) return { kind: 'success', value: `$${key}` };
@@ -123,7 +124,7 @@ const readColumnProperty = (
     ? { kind: 'success', value: key }
     : {
         kind: 'error',
-        message: `Table "${exportName}" exposes the column key "${key}", which is not a valid GraphQL field name ${NAME_RULE}. Rename the key in the table definition, or hide the column with gqlMeta(column, { hidden: true }).`,
+        message: `Table "${exportName}" exposes the column key "${key}", which is not a valid GraphQL field name ${NAME_RULE}. Rename the key in the table definition, or hide the column with .meta({ graphqlHidden: true }).`,
       };
 };
 
@@ -134,9 +135,9 @@ const readColumns = (
 ): ReadResult<Model['columns']> => {
   const columns: { key: string; property: string }[] = [];
   for (const [key, column] of Object.entries(getTableColumns(table))) {
-    const meta = readGraphqlMeta(column);
+    const meta = readColumnGraphqlMeta(column);
     if (meta.kind === 'error') return meta;
-    const property = readColumnProperty(exportName, key, meta.value.hidden === true, primaryKey);
+    const property = readColumnProperty(exportName, key, meta.value.hidden, primaryKey);
     if (property.kind === 'error') return property;
     columns.push({ key, property: property.value });
   }
@@ -258,14 +259,14 @@ const readModelRelation = (
   };
 };
 
-// A table's gqlMeta is read once here; both whether it is exposed and what it is named follow it.
+// A table's GraphQL metadata is read once here; both whether it is exposed and what it is named follow it.
 type PublicTable = SchemaTable & { readonly meta: TableGraphqlMeta };
 
 // Hidden tables stay in the Drizzle schema used for relation inference.
 const publicTables = (tables: readonly SchemaTable[]): ReadResult<readonly PublicTable[]> => {
   const visible: PublicTable[] = [];
   for (const entry of tables) {
-    const meta = readGraphqlMeta(entry.table);
+    const meta = readTableGraphqlMeta(entry.table);
     if (meta.kind === 'error') return meta;
     if (!meta.value.hidden) visible.push({ ...entry, meta: meta.value });
   }

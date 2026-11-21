@@ -1,34 +1,32 @@
 import { relations } from 'drizzle-orm';
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { gqlMeta } from '../../index';
+import 'drizzle-metadata/register';
+import '../../metadata';
 
 // Models named after the globals the generated module refers to. Relations cover the
 // many, required-one and nullable-one code paths.
-export const pick = gqlMeta(sqliteTable('pick', { id: text().primaryKey(), label: text() }), {
-  name: 'Pick',
+export const pick = sqliteTable('pick', { id: text().primaryKey(), label: text() }).meta({
+  graphqlName: 'Pick',
 });
-export const promise = gqlMeta(
-  sqliteTable('promise', {
-    id: text().primaryKey(),
-    pickId: text('pick_id')
-      .notNull()
-      .references(() => pick.id),
-    mapId: text('map_id').references(() => map.id),
-  }),
-  { name: 'Promise' },
-);
-export const map = gqlMeta(sqliteTable('map', { id: text().primaryKey() }), { name: 'Map' });
-export const readonlyMap = gqlMeta(sqliteTable('readonly_map', { id: text().primaryKey() }), {
-  name: 'ReadonlyMap',
+export const promise = sqliteTable('promise', {
+  id: text().primaryKey(),
+  pickId: text('pick_id')
+    .notNull()
+    .references(() => pick.id),
+  mapId: text('map_id').references(() => map.id),
+}).meta({ graphqlName: 'Promise' });
+export const map = sqliteTable('map', { id: text().primaryKey() }).meta({ graphqlName: 'Map' });
+export const readonlyMap = sqliteTable('readonly_map', { id: text().primaryKey() }).meta({
+  graphqlName: 'ReadonlyMap',
 });
-export const error = gqlMeta(sqliteTable('error', { id: text().primaryKey() }), {
-  name: 'Error',
+export const error = sqliteTable('error', { id: text().primaryKey() }).meta({
+  graphqlName: 'Error',
 });
-export const symbol = gqlMeta(sqliteTable('symbol', { id: text().primaryKey() }), {
-  name: 'Symbol',
+export const symbol = sqliteTable('symbol', { id: text().primaryKey() }).meta({
+  graphqlName: 'Symbol',
 });
-export const globalThisTable = gqlMeta(sqliteTable('global_this', { id: text().primaryKey() }), {
-  name: 'globalThis',
+export const globalThisTable = sqliteTable('global_this', { id: text().primaryKey() }).meta({
+  graphqlName: 'globalThis',
 });
 
 // Export names that are not plain identifiers still need a valid, distinct row type alias.

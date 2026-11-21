@@ -12,7 +12,6 @@ export default mergeConfig(
     },
     resolve: {
       alias: [
-        { find: '@zeltjs/graphql-drizzle', replacement: resolve(__dirname, 'src/index.ts') },
         {
           find: '@zeltjs/graphql/codegen',
           replacement: resolve(__dirname, '../graphql/src/codegen.ts'),
