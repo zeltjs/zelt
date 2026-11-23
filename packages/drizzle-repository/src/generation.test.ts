@@ -393,6 +393,59 @@ describe('generation fails', () => {
     ]);
   });
 
+  it('when two tables make the same names and files', async () => {
+    const directory = await schemaProject(
+      `export const userProfiles = sqliteTable("user_profiles_a", { id: text().primaryKey() });
+      export const user_profiles = sqliteTable("user_profiles_b", { id: text().primaryKey() });`,
+    );
+    expect(await errorsOf(directory)).toEqual([
+      'userProfiles and user_profiles: both make UserProfiles, UserProfilesId, UserProfilesExistedId, NewUserProfiles, UserProfilesRepositoryBase, model/user-profiles.model.ts, repository/user-profiles.repository-base.ts',
+    ]);
+  });
+
+  it('when two unique keys make the same method', async () => {
+    const directory = await schemaProject(
+      `export const a = sqliteTable("a", {
+        id: text().primaryKey(),
+        emailAddress: text().notNull().unique(),
+        email_address: text("email_address_2").notNull().unique(),
+      });`,
+    );
+    expect(await errorsOf(directory)).toEqual([
+      'a(emailAddress) and a(email_address): both make isExistedByEmailAddress',
+    ]);
+  });
+
+  it('when a unique key has a column named id, which the result of its method uses', async () => {
+    const directory = await schemaProject(
+      `export const a = sqliteTable("a", { uuid: text().primaryKey(), id: text().notNull().unique() });`,
+    );
+    expect(await errorsOf(directory)).toEqual([
+      'the result of isExistedById and a.id: both make id',
+    ]);
+  });
+
+  it('when a relation has the name of a column of its table', async () => {
+    const directory = await schemaProject(
+      `export const parent = sqliteTable("parent", { id: text().primaryKey(), items: text() });
+      export const item = sqliteTable("item", { id: text().primaryKey(), parent_id: text().notNull().references(() => parent.id) });
+      export const parentRelations = relations(parent, ({ many }) => ({ items: many(item).meta({ includedInDomain: true }) }));
+      export const itemRelations = relations(item, ({ one }) => ({ parent: one(parent, { fields: [item.parent_id], references: [parent.id] }) }));`,
+    );
+    expect(await errorsOf(directory)).toEqual([
+      'parent.items and the relation parent.items: both make items',
+    ]);
+  });
+
+  it('when a table is exported under a name the generated code keeps for itself', async () => {
+    const directory = await schemaProject(
+      `export const $engine = sqliteTable("engine", { id: text().primaryKey() });`,
+    );
+    expect(await errorsOf(directory)).toEqual([
+      '$engine: makes the type name "$engine", which the generated code cannot declare. Export it under a name that starts with a letter',
+    ]);
+  });
+
   it('when a table is not of SQLite, PostgreSQL or MySQL', async () => {
     const directory = await schemaProject(
       `import { singlestoreTable, varchar } from "drizzle-orm/singlestore-core";

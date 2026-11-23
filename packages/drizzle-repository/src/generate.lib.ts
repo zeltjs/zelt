@@ -1,34 +1,25 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import type { Result } from 'neverthrow';
 import { err, ok, ResultAsync } from 'neverthrow';
 
-import type { Domain } from './domain.lib';
 import { buildDomains } from './domain.lib';
 import { emitModel } from './emit-model.lib';
 import { emitRepository } from './emit-repository.lib';
 import type { EmitPaths } from './emit-shared.lib';
-import { fileBaseName, GENERATED_HEADER } from './emit-shared.lib';
+import { GENERATED_HEADER, specifier } from './emit-shared.lib';
 import type {
   DrizzleRepositoryOptions,
   GeneratedFile,
   GenerationError,
   Schema,
 } from './generation.types';
+import type { Names } from './naming.lib';
+import { MODEL_SUFFIX, nameDomains, REPOSITORY_SUFFIX } from './naming.lib';
 import { fieldOf, toRow } from './row.lib';
 import type { SchemaLoader } from './schema-loader.lib';
 import { readSchema } from './schema-reader.lib';
-
-const MODEL_SUFFIX = '.model.ts';
-const REPOSITORY_SUFFIX = '.repository-base.ts';
-
-const withoutExtension = (path: string): string => path.replace(/\.(c|m)?(t|j)sx?$/, '');
-
-const specifier = (fromDirectory: string, to: string): string => {
-  const path = withoutExtension(relative(fromDirectory, to)).split('\\').join('/');
-  return path.startsWith('.') ? path : `./${path}`;
-};
 
 const schemaPaths = (options: DrizzleRepositoryOptions): readonly string[] =>
   typeof options.schema === 'string' ? [options.schema] : options.schema;
@@ -83,31 +74,23 @@ const filesOf = (
   options: DrizzleRepositoryOptions,
   loaded: LoadedSchema,
   schema: Schema,
-  domains: readonly Domain[],
+  names: Names,
 ): readonly GeneratedFile[] => {
   const modelDirectory = resolve(cwd, options.out.model);
   const repositoryDirectory = resolve(cwd, options.out.repository);
-  const roots = new Map(domains.map((domain) => [domain.exportName, domain]));
   const emitPaths: EmitPaths = {
     schemaFromModel: specifiersFrom(modelDirectory, loaded.sourceOf),
     schemaFromRepository: specifiersFrom(repositoryDirectory, loaded.sourceOf),
-    modelFromRepository: specifier(repositoryDirectory, modelDirectory),
     databaseFromRepository: specifier(repositoryDirectory, resolve(cwd, options.database.from)),
     databaseName: options.database.name,
   };
-  return domains.flatMap((domain): GeneratedFile[] => {
-    const base = fileBaseName(domain.exportName);
-    return [
-      {
-        path: resolve(modelDirectory, `${base}${MODEL_SUFFIX}`),
-        content: emitModel(domain, roots, emitPaths),
-      },
-      {
-        path: resolve(repositoryDirectory, `${base}${REPOSITORY_SUFFIX}`),
-        content: emitRepository(domain, schema.drizzleMajor, roots, emitPaths),
-      },
-    ];
-  });
+  return [...names.values()].flatMap((own): GeneratedFile[] => [
+    { path: own.modelFile, content: emitModel(own, names, emitPaths) },
+    {
+      path: own.repositoryFile,
+      content: emitRepository(own, schema.drizzleMajor, names, emitPaths),
+    },
+  ]);
 };
 
 export const planFiles = (
@@ -124,7 +107,14 @@ export const planFiles = (
     .andThen(mergeExports)
     .andThen((loaded) => readSchema(loaded.exports).map((schema) => ({ loaded, schema })))
     .andThen(({ loaded, schema }) =>
-      buildDomains(schema).map((domains) => filesOf(cwd, options, loaded, schema, domains)),
+      buildDomains(schema).map((domains) => ({ loaded, schema, domains })),
+    )
+    .andThen(({ loaded, schema, domains }) =>
+      nameDomains(domains, {
+        cwd,
+        model: resolve(cwd, options.out.model),
+        repository: resolve(cwd, options.out.repository),
+      }).map((names) => filesOf(cwd, options, loaded, schema, names)),
     );
 
 /** @throws {Error} when the file cannot be read for another reason than not existing

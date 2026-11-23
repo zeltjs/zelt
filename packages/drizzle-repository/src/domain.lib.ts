@@ -36,44 +36,25 @@ type LinkPair = { readonly column: string; readonly parent: string };
 export type DomainChild = {
   readonly relation: string;
   readonly exportName: string;
-  readonly typeName: string;
   readonly primaryKey: string;
   readonly columns: readonly ChildColumn[];
   readonly link: readonly LinkPair[];
   readonly children: readonly DomainChild[];
 };
 
-type DomainKey = {
-  readonly name: string;
-  readonly columns: readonly string[];
-};
-
-type DomainFinder = {
-  readonly name: string;
-  readonly column: string;
-  readonly target: string;
-};
+// A reference column of the root, which finds the domains that point to the root it references.
+type DomainFinder = { readonly column: string; readonly root: string };
 
 export type Domain = {
-  readonly typeName: string;
   readonly exportName: string;
   readonly dialect: Dialect;
   readonly primaryKey: string;
   readonly columns: readonly DomainColumn[];
-  readonly uniqueKeys: readonly DomainKey[];
+  // The columns of each unique key.
+  readonly uniqueKeys: readonly (readonly string[])[];
   readonly finders: readonly DomainFinder[];
   readonly children: readonly DomainChild[];
 };
-
-// Every character that cannot be in an identifier separates words, so a column key always makes a method name.
-export const upperCamel = (name: string): string =>
-  name
-    .split(/[^A-Za-z0-9$]+/)
-    .filter((part) => part.length > 0)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
-
-const keyName = (columns: readonly string[]): string => columns.map(upperCamel).join('And');
 
 const sameColumns = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((column) => b.includes(column));
@@ -296,7 +277,6 @@ const childOf = (
     {
       relation: relation.name,
       exportName: table.exportName,
-      typeName: upperCamel(table.exportName),
       primaryKey,
       columns,
       link,
@@ -316,23 +296,22 @@ const childrenOf = (
     .flatMap((relation) => childOf(context, columns, relation, path));
 
 // A key with a NULL-able column cannot identify a row, so no method is made from it.
-const uniqueKeysOf = (root: SchemaTable, primaryKey: string): DomainKey[] =>
+const uniqueKeysOf = (root: SchemaTable, primaryKey: string): (readonly string[])[] =>
   root.uniqueKeys
     .filter((columns) => !sameColumns(columns, [primaryKey]))
     .filter((columns) => columns.every((key) => columnByKey(root, key)?.notNull === true))
     .filter(
       (columns, index, all) => all.findIndex((other) => sameColumns(other, columns)) === index,
-    )
-    .map((columns): DomainKey => ({ name: keyName(columns), columns }));
+    );
 
 // A reference that is also a unique key is read through the unique key.
 const findersOf = (
   columns: readonly DomainColumn[],
-  uniqueKeys: readonly DomainKey[],
+  uniqueKeys: readonly (readonly string[])[],
 ): DomainFinder[] =>
   columns.flatMap((column): DomainFinder[] =>
-    column.kind === 'reference' && !uniqueKeys.some((key) => sameColumns(key.columns, [column.key]))
-      ? [{ name: keyName([column.key]), column: column.key, target: column.root }]
+    column.kind === 'reference' && !uniqueKeys.some((key) => sameColumns(key, [column.key]))
+      ? [{ column: column.key, root: column.root }]
       : [],
   );
 
@@ -350,7 +329,6 @@ const domainOf = (context: Context, root: SchemaTable, primaryKey: string): Doma
   const uniqueKeys = uniqueKeysOf(root, primaryKey);
   return [
     {
-      typeName: upperCamel(root.exportName),
       exportName: root.exportName,
       dialect: root.dialect,
       primaryKey,

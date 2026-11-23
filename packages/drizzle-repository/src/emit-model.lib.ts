@@ -1,21 +1,24 @@
+import { dirname } from 'node:path';
+
 import type { Domain, DomainChild, DomainColumn } from './domain.lib';
-import type { EmitPaths, Roots } from './emit-shared.lib';
+import type { EmitPaths } from './emit-shared.lib';
 import {
   excludedOf,
-  fileBaseName,
   GENERATED_HEADER,
   property,
   quote,
   schemaImports,
+  specifier,
   tablesOf,
   union,
 } from './emit-shared.lib';
+import type { ChildNames, DomainNames, Names } from './naming.lib';
 
 type Table = Domain | DomainChild;
 
 type TablePlace = {
-  readonly domain: Domain;
-  readonly roots: Roots;
+  readonly own: DomainNames;
+  readonly names: Names;
   readonly isRoot: boolean;
   readonly parentIsRoot: boolean;
 };
@@ -28,16 +31,20 @@ const referenceType = (
   column: Extract<DomainColumn, { kind: 'reference' }>,
   place: TablePlace,
 ): string | undefined => {
-  const target = place.roots.get(column.root);
+  const target = place.names.get(column.root);
   if (target === undefined) return undefined;
-  const ownRoot = !place.isRoot && target === place.domain;
-  return orNull(`${target.typeName}${ownRoot ? 'Id' : 'ExistedId'}`, column.nullable);
+  const ownRoot = !place.isRoot && target === place.own;
+  return orNull(ownRoot ? target.id : target.existedId, column.nullable);
 };
 
 const columnType = (column: DomainColumn, place: TablePlace): string | undefined => {
   if (column.kind === 'reference') return referenceType(column, place);
-  if (column.kind === 'link' && place.parentIsRoot && column.parent === place.domain.primaryKey) {
-    return orNull(`${place.domain.typeName}Id`, column.nullable);
+  if (
+    column.kind === 'link' &&
+    place.parentIsRoot &&
+    column.parent === place.own.domain.primaryKey
+  ) {
+    return orNull(place.own.id, column.nullable);
   }
   return undefined;
 };
@@ -66,46 +73,46 @@ const objectType = (table: Table, extra: ReadonlyMap<string, string>): string =>
 };
 
 const childTypes = (
-  children: readonly DomainChild[],
-  domain: Domain,
-  roots: Roots,
+  children: readonly ChildNames[],
+  own: DomainNames,
+  names: Names,
   parentIsRoot: boolean,
 ): string[] =>
-  children.flatMap((child) => {
-    const extra = typedColumns(child, { domain, roots, isRoot: false, parentIsRoot });
-    for (const nested of child.children) extra.set(nested.relation, `${nested.typeName}[]`);
+  children.flatMap(({ child, type, children: nested }) => {
+    const extra = typedColumns(child, { own, names, isRoot: false, parentIsRoot });
+    for (const grandChild of nested) extra.set(grandChild.child.relation, `${grandChild.type}[]`);
     return [
-      ...childTypes(child.children, domain, roots, false),
-      `export type ${child.typeName} = ${objectType(child, extra)};\n`,
+      ...childTypes(nested, own, names, false),
+      `export type ${type} = ${objectType(child, extra)};\n`,
     ];
   });
 
-const foreignRootsOf = (domain: Domain, roots: Roots): Domain[] => [
+const foreignRootsOf = (own: DomainNames, names: Names): DomainNames[] => [
   ...new Set(
-    [domain, ...tablesOf(domain.children)]
+    [own.domain, ...tablesOf(own.domain.children)]
       .flatMap((table) =>
         table.columns.flatMap((column) =>
-          column.kind === 'reference' ? [roots.get(column.root)] : [],
+          column.kind === 'reference' ? [names.get(column.root)] : [],
         ),
       )
-      .flatMap((target) => (target === undefined || target === domain ? [] : [target])),
+      .flatMap((target) => (target === undefined || target === own ? [] : [target])),
   ),
 ];
 
-const stagingDeclaration = (name: string): readonly string[] => [
+const stagingDeclaration = (own: DomainNames): readonly string[] => [
   `declare module "@zeltjs/drizzle-repository" {`,
   `  interface StagingModels {`,
-  `    ${name}: { save: $repository.SaveInput<${name}, New${name}>; model: ${name} };`,
+  `    ${own.model}: { save: $repository.SaveInput<${own.model}, ${own.newModel}>; model: ${own.model} };`,
   `  }`,
   `}`,
 ];
 
 export const emitModel = (
-  domain: Domain,
-  roots: Roots,
+  own: DomainNames,
+  names: Names,
   paths: Pick<EmitPaths, 'schemaFromModel'>,
 ): string => {
-  const name = domain.typeName;
+  const { domain, model } = own;
   const tables = [domain, ...tablesOf(domain.children)];
   const schema = schemaImports(
     'import type',
@@ -113,17 +120,17 @@ export const emitModel = (
     paths.schemaFromModel,
   );
 
-  const rootExtra = typedColumns(domain, { domain, roots, isRoot: true, parentIsRoot: false });
-  rootExtra.set(domain.primaryKey, `${name}ExistedId`);
-  for (const child of domain.children) rootExtra.set(child.relation, `${child.typeName}[]`);
+  const rootExtra = typedColumns(domain, { own, names, isRoot: true, parentIsRoot: false });
+  rootExtra.set(domain.primaryKey, own.existedId);
+  for (const { child, type } of own.children) rootExtra.set(child.relation, `${type}[]`);
 
   return [
     GENERATED_HEADER,
     `import type * as $repository from "@zeltjs/drizzle-repository";`,
     ...schema.lines,
-    ...foreignRootsOf(domain, roots).map(
+    ...foreignRootsOf(own, names).map(
       (root) =>
-        `import type { ${root.typeName}ExistedId } from ${quote(`./${fileBaseName(root.exportName)}.model`)};`,
+        `import type { ${root.existedId} } from ${quote(specifier(dirname(own.modelFile), root.modelFile))};`,
     ),
     '',
     ...tables.map(
@@ -131,15 +138,15 @@ export const emitModel = (
         `type ${rowTypeName(table)} = typeof ${schema.ref(table.exportName)}.$inferSelect;`,
     ),
     '',
-    `export type ${name}Id = ${rowTypeName(domain)}[${quote(domain.primaryKey)}];`,
-    `export type ${name}ExistedId = $repository.Existed<${name}Id, ${quote(name)}>;`,
+    `export type ${own.id} = ${rowTypeName(domain)}[${quote(domain.primaryKey)}];`,
+    `export type ${own.existedId} = $repository.Existed<${own.id}, ${quote(model)}>;`,
     '',
-    ...childTypes(domain.children, domain, roots, true),
-    `export type ${name} = ${objectType(domain, rootExtra)};`,
+    ...childTypes(own.children, own, names, true),
+    `export type ${model} = ${objectType(domain, rootExtra)};`,
     '',
-    `export type New${name} = Omit<${name}, ${quote(domain.primaryKey)}> & { ${property(domain.primaryKey)}: ${name}Id };`,
+    `export type ${own.newModel} = Omit<${model}, ${quote(domain.primaryKey)}> & { ${property(domain.primaryKey)}: ${own.id} };`,
     '',
-    ...stagingDeclaration(name),
+    ...stagingDeclaration(own),
     '',
   ].join('\n');
 };

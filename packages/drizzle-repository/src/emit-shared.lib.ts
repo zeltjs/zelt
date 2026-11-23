@@ -1,3 +1,5 @@
+import { relative } from 'node:path';
+
 import { GENERATED_FILE_HEADER_MARKER } from '@zeltjs/cli';
 
 import type { Domain, DomainChild, DomainColumn } from './domain.lib';
@@ -10,19 +12,16 @@ export type EmitPaths = {
   // Export name of each table -> the module that exports it.
   readonly schemaFromModel: ReadonlyMap<string, string>;
   readonly schemaFromRepository: ReadonlyMap<string, string>;
-  readonly modelFromRepository: string;
   readonly databaseFromRepository: string;
   readonly databaseName: string;
 };
 
-// Export name of each domain root -> its domain.
-export type Roots = ReadonlyMap<string, Domain>;
+const withoutExtension = (path: string): string => path.replace(/\.(c|m)?(t|j)sx?$/, '');
 
-export const fileBaseName = (exportName: string): string =>
-  exportName
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/_/g, '-')
-    .toLowerCase();
+export const specifier = (fromDirectory: string, to: string): string => {
+  const path = withoutExtension(relative(fromDirectory, to)).split('\\').join('/');
+  return path.startsWith('.') ? path : `./${path}`;
+};
 
 export const quote = (value: string): string => JSON.stringify(value);
 
