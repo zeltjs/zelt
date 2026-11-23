@@ -386,7 +386,9 @@ describe('generation fails', () => {
       export const child = sqliteTable("child", { id: text().primaryKey(), parent_id: text().notNull() });
       export const parentRelations = relations(parent, ({ many }) => ({ children: many(child).meta({ includedInDomain: true }) }));`,
     );
-    expect(await errorsOf(directory)).toEqual([expect.stringMatching(/^relations: .*parent/)]);
+    expect(await errorsOf(directory)).toEqual([
+      expect.stringMatching(/^parent\.children: There is not enough information/),
+    ]);
   });
 
   it('when a foreign key points to a table that no schema file exports', async () => {

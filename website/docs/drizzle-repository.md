@@ -17,7 +17,7 @@ npm install -D @zeltjs/cli
 
 `@zeltjs/core`, `@zeltjs/cli` and `drizzle-orm` are peer dependencies. `drizzle-orm` is supported at `0.45.x` and at `1.x` from `1.0.0-rc.5`.
 
-The supported databases are SQLite, PostgreSQL and MySQL. If the schema has a table of any other database, generation fails.
+The supported databases are SQLite, PostgreSQL and MySQL.
 
 ## Workflow
 
@@ -176,15 +176,6 @@ To check that the generated files match `schema.ts`, add `--check`. If they do n
 ```bash
 npx zelt-drizzle-repository generate --config zelt.config.ts --check
 ```
-
-Generation fails in the following cases.
-
-- `optimisticLock` is on a column that is not numeric.
-- `optimisticLock` is on more than one column of one table.
-- `optimisticLock` is on a column of a table that is not the root of a domain.
-- A table pointed to with `includedInDomain` is pointed to from two or more tables.
-- `includedInDomain` is on a relation that is not `many`.
-- The primary key of a table in a domain is not a single column.
 
 ## What is generated
 

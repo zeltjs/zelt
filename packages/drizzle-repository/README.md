@@ -13,7 +13,7 @@ npm install -D @zeltjs/cli
 
 `@zeltjs/core`、`@zeltjs/cli`、`drizzle-orm`はpeer dependencyである。`drizzle-orm`は`0.45.x`と、`1.0.0-rc.5`以降の`1.x`に対応する。
 
-対応するDBは、SQLite・PostgreSQL・MySQLである。それ以外のDBのtableがschemaにあると、生成は失敗する。
+対応するDBは、SQLite・PostgreSQL・MySQLである。
 
 ## 使い方の流れ
 
@@ -156,15 +156,6 @@ npx zelt-drizzle-repository generate --config zelt.config.ts
 ```bash
 npx zelt-drizzle-repository generate --config zelt.config.ts --check
 ```
-
-次の場合、生成は失敗する。
-
-- `optimisticLock`が数値でない列に付いている。
-- `optimisticLock`が1つのtableの複数の列に付いている。
-- `optimisticLock`が、domainの起点でないtableの列に付いている。
-- `includedInDomain`で指されたtableが、2つ以上のtableから指されている。
-- `includedInDomain`が、`many`でない関連に付いている。
-- domainに入るtableの主キーが、1つの列でない。
 
 ## 生成されるもの
 

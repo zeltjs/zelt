@@ -18,9 +18,11 @@ const keysOfColumns = (table: Table, columns: readonly Column[]): string[] => {
   return columns.map((column) => keyByName.get(column.name) ?? column.name);
 };
 
-const relationError = (cause: unknown): GenerationError => ({
-  message: `relations: ${cause instanceof Error ? cause.message : String(cause)}`,
-});
+const relationError =
+  (place: string) =>
+  (cause: unknown): GenerationError => ({
+    message: `${place}: ${cause instanceof Error ? cause.message : String(cause)}`,
+  });
 
 // Only a relation that builds a domain must point to exported tables; the generator reads no other.
 const unresolved = (
@@ -42,16 +44,18 @@ export const readRelationsV0 = (
   exports: Exports,
   tableNames: ReadonlyMap<Table, string>,
 ): Result<SchemaRelation[], GenerationError[]> => {
+  // Extraction runs the relations() callbacks of every schema file, so no one relation is the place.
   const extracted = Result.fromThrowable(
     () => orm.extractTablesRelationalConfig(exports, orm.createTableRelationsHelpers),
-    relationError,
+    relationError('relations'),
   )();
   if (extracted.isErr()) return err([extracted.error]);
   const { tables, tableNamesMap } = extracted.value;
-  const normalize = Result.fromThrowable(
-    (relation: Relation) => orm.normalizeRelation(tables, tableNamesMap, relation),
-    relationError,
-  );
+  const normalize = (place: string, relation: Relation) =>
+    Result.fromThrowable(
+      () => orm.normalizeRelation(tables, tableNamesMap, relation),
+      relationError(place),
+    )();
   // drizzle keys the tables by their export names.
   const read = (
     source: string,
@@ -71,7 +75,7 @@ export const readRelationsV0 = (
     };
     if (!base.includedInDomain) return [ok({ ...base, sourceColumns: [], targetColumns: [] })];
     return [
-      normalize(relation).map((normalized) => ({
+      normalize(`${source}.${name}`, relation).map((normalized) => ({
         ...base,
         sourceColumns: keysOfColumns(relation.sourceTable, normalized.fields),
         targetColumns: keysOfColumns(relation.referencedTable, normalized.references),
