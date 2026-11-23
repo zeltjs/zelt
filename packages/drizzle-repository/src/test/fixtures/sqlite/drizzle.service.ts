@@ -17,10 +17,10 @@ export class DrizzleService extends DatabaseService<
   Database,
   { client: Database; connection: Client }
 > {
-  executedQueries = 0;
-  private readonly countingLogger = {
-    logQuery: () => {
-      this.executedQueries += 1;
+  readonly executedStatements: string[] = [];
+  private readonly recordingLogger = {
+    logQuery: (query: string) => {
+      this.executedStatements.push(query);
     },
   };
 
@@ -29,7 +29,7 @@ export class DrizzleService extends DatabaseService<
     const directory = mkdtempSync(join(tmpdir(), 'drizzle-repository-'));
     const connection = createClient({ url: `file:${join(directory, 'test.db')}` });
     for (const statement of schema.ddl) await connection.execute(statement);
-    return { client: drizzle(connection, { schema, logger: this.countingLogger }), connection };
+    return { client: drizzle(connection, { schema, logger: this.recordingLogger }), connection };
   }
 
   transaction<T>(client: Database, fn: (tx: Database) => Promise<T>): Promise<T> {

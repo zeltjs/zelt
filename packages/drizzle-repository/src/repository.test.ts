@@ -13,15 +13,19 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DrizzleService as MySqlDrizzleService } from './test/fixtures/mysql/drizzle.service';
+import { ArchiveRepositoryBase as MySqlArchives } from './test/fixtures/mysql/generated/repository/archive.repository-base';
 import { OrderRepositoryBase as MySqlOrders } from './test/fixtures/mysql/generated/repository/order.repository-base';
 import { ProductRepositoryBase as MySqlProducts } from './test/fixtures/mysql/generated/repository/product.repository-base';
 import { TenantRepositoryBase as MySqlTenants } from './test/fixtures/mysql/generated/repository/tenant.repository-base';
+import { TimelineRepositoryBase as MySqlTimelines } from './test/fixtures/mysql/generated/repository/timeline.repository-base';
 import { UserRepositoryBase as MySqlUsers } from './test/fixtures/mysql/generated/repository/user.repository-base';
 import * as mysqlSchema from './test/fixtures/mysql/schema';
 import { DrizzleService as PgDrizzleService } from './test/fixtures/pg/drizzle.service';
+import { ArchiveRepositoryBase as PgArchives } from './test/fixtures/pg/generated/repository/archive.repository-base';
 import { OrderRepositoryBase as PgOrders } from './test/fixtures/pg/generated/repository/order.repository-base';
 import { ProductRepositoryBase as PgProducts } from './test/fixtures/pg/generated/repository/product.repository-base';
 import { TenantRepositoryBase as PgTenants } from './test/fixtures/pg/generated/repository/tenant.repository-base';
+import { TimelineRepositoryBase as PgTimelines } from './test/fixtures/pg/generated/repository/timeline.repository-base';
 import { UserRepositoryBase as PgUsers } from './test/fixtures/pg/generated/repository/user.repository-base';
 import * as pgSchema from './test/fixtures/pg/schema';
 import { DrizzleService as SqliteDrizzleService } from './test/fixtures/sqlite/drizzle.service';
@@ -31,10 +35,18 @@ import type { User, UserExistedId } from './test/fixtures/sqlite/generated/model
 import { OrderRepositoryBase as SqliteOrders } from './test/fixtures/sqlite/generated/repository/order.repository-base';
 import { ProductRepositoryBase as SqliteProducts } from './test/fixtures/sqlite/generated/repository/product.repository-base';
 import { TenantRepositoryBase as SqliteTenants } from './test/fixtures/sqlite/generated/repository/tenant.repository-base';
+import { TimelineRepositoryBase as SqliteTimelines } from './test/fixtures/sqlite/generated/repository/timeline.repository-base';
 import { UserRepositoryBase as SqliteUsers } from './test/fixtures/sqlite/generated/repository/user.repository-base';
 import * as sqliteSchema from './test/fixtures/sqlite/schema';
 
 type PublicOf<T> = { [K in keyof T]: T[K] };
+
+// A domain whose included rows are keyed by K, and the column of those rows that only the database writes.
+type KeyedChildren<Repository, K> = {
+  readonly repository: Repository;
+  readonly recordedBy: (key: K) => Promise<string | undefined>;
+  readonly setRecordedBy: (key: K, value: string) => Promise<void>;
+};
 
 // The generated code is the same for every dialect, so one contract runs against each database.
 type ContractDeps = {
@@ -48,8 +60,12 @@ type ContractDeps = {
   readonly orderExists: (orderId: string) => Promise<boolean>;
   // Runs the work in an outer transaction: DatabaseService.withTransaction(), which @Transaction() of @zeltjs/db calls.
   readonly inTransaction: <T>(fn: () => Promise<T>) => Promise<T>;
-  // Number of statements the database client sent while the work ran.
-  readonly queriesDuring: (fn: () => Promise<unknown>) => Promise<number>;
+  readonly timelines: KeyedChildren<PublicOf<SqliteTimelines>, Date>;
+  // SQLite has none, because relational queries read included rows through JSON,
+  // which cannot hold a BLOB.
+  readonly archives: KeyedChildren<PublicOf<PgArchives>, Buffer> | undefined;
+  // Statements the database client sent while the work ran.
+  readonly statementsDuring: (fn: () => Promise<unknown>) => Promise<readonly string[]>;
   readonly shutdown: () => Promise<void>;
 };
 
@@ -155,14 +171,16 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
     it('reads a domain with its included rows in one query', async () => {
       const customer = await createUser();
       const created = await createOrder(customer.id, ['A', 'B']);
-      expect(await deps.queriesDuring(async () => orders.getById(created.id))).toBe(1);
+      expect(await deps.statementsDuring(async () => orders.getById(created.id))).toHaveLength(1);
     });
 
     it('reads every domain found by a foreign key in one query', async () => {
       const customer = await createUser();
       await createOrder(customer.id, ['A']);
       await createOrder(customer.id, ['B', 'C']);
-      expect(await deps.queriesDuring(async () => orders.findByCustomerId(customer.id))).toBe(1);
+      expect(
+        await deps.statementsDuring(async () => orders.findByCustomerId(customer.id)),
+      ).toHaveLength(1);
     });
   });
 
@@ -284,6 +302,58 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
       const rows = await deps.itemsOf(created.id);
       expect(rows.find((row) => row.id === itemA?.id)?.name).toBe('A');
       expect(rows.some((row) => row.id === itemC?.id)).toBe(false);
+    });
+  });
+
+  describe('saving included rows keyed by a value that is not a string', () => {
+    const rewrites = (statements: readonly string[]): readonly string[] =>
+      statements.filter((statement) => /^\s*(insert|delete)\b/i.test(statement));
+
+    it('rewrites no unchanged row keyed by a date, and keeps the column only the database writes', async () => {
+      const { repository, recordedBy, setRecordedBy } = deps.timelines;
+      const id = nextId('timeline');
+      const at = new Date(Date.UTC(2020, 0, 1, 0, 0, ++sequence));
+      const created = (
+        await repository.save({
+          pre: null,
+          input: { id, events: [{ at, timeline_id: id, note: 'started' }] },
+        })
+      )._unsafeUnwrap();
+      await setRecordedBy(at, 'importer');
+
+      // A second read returns equal values in new objects, as a later request would.
+      const input = (await repository.getById(created.id))._unsafeUnwrap();
+
+      const statements = await deps.statementsDuring(async () =>
+        (await repository.save({ pre: created, input }))._unsafeUnwrap(),
+      );
+
+      expect(rewrites(statements)).toEqual([]);
+      expect(await recordedBy(at)).toBe('importer');
+    });
+
+    it('rewrites no unchanged row keyed by bytes, and keeps the column only the database writes', async (context) => {
+      if (deps.archives === undefined) return context.skip();
+      const { repository, recordedBy, setRecordedBy } = deps.archives;
+      const id = nextId('archive');
+      const digest = Buffer.from(id);
+      const created = (
+        await repository.save({
+          pre: null,
+          input: { id, entries: [{ digest, archive_id: id, name: 'readme' }] },
+        })
+      )._unsafeUnwrap();
+      await setRecordedBy(digest, 'importer');
+
+      // A second read returns equal values in new objects, as a later request would.
+      const input = (await repository.getById(created.id))._unsafeUnwrap();
+
+      const statements = await deps.statementsDuring(async () =>
+        (await repository.save({ pre: created, input }))._unsafeUnwrap(),
+      );
+
+      expect(rewrites(statements)).toEqual([]);
+      expect(await recordedBy(digest)).toBe('importer');
     });
   });
 
@@ -483,21 +553,34 @@ describe('SQLite', () => {
   repositoryContract(async () => {
     const runtime = await createApp([]).createRuntime();
     const db = await runtime.get(SqliteDrizzleService);
-    const { order, orderItem } = sqliteSchema;
+    const { order, orderItem, timelineEvent } = sqliteSchema;
     return {
       tenants: await runtime.get(SqliteTenants),
       users: await runtime.get(SqliteUsers),
       products: await runtime.get(SqliteProducts),
       orders: await runtime.get(SqliteOrders),
+      timelines: {
+        repository: await runtime.get(SqliteTimelines),
+        recordedBy: async (at) =>
+          (await db.client.select().from(timelineEvent).where(eq(timelineEvent.at, at)))[0]
+            ?.recorded_by,
+        setRecordedBy: async (at, value) => {
+          await db.client
+            .update(timelineEvent)
+            .set({ recorded_by: value })
+            .where(eq(timelineEvent.at, at));
+        },
+      },
+      archives: undefined,
       itemsOf: (orderId) =>
         db.client.select().from(orderItem).where(eq(orderItem.order_id, orderId)),
       orderExists: async (orderId) =>
         (await db.client.select().from(order).where(eq(order.id, orderId))).length === 1,
       inTransaction: (fn) => db.withTransaction(fn),
-      queriesDuring: async (fn) => {
-        const before = db.executedQueries;
+      statementsDuring: async (fn) => {
+        const before = db.executedStatements.length;
         await fn();
-        return db.executedQueries - before;
+        return db.executedStatements.slice(before);
       },
       shutdown: () => runtime.shutdown(),
     };
@@ -508,21 +591,45 @@ describe('PostgreSQL', () => {
   repositoryContract(async () => {
     const runtime = await createApp([]).createRuntime();
     const db = await runtime.get(PgDrizzleService);
-    const { order, orderItem } = pgSchema;
+    const { archiveEntry, order, orderItem, timelineEvent } = pgSchema;
     return {
       tenants: await runtime.get(PgTenants),
       users: await runtime.get(PgUsers),
       products: await runtime.get(PgProducts),
       orders: await runtime.get(PgOrders),
+      timelines: {
+        repository: await runtime.get(PgTimelines),
+        recordedBy: async (at) =>
+          (await db.client.select().from(timelineEvent).where(eq(timelineEvent.at, at)))[0]
+            ?.recorded_by,
+        setRecordedBy: async (at, value) => {
+          await db.client
+            .update(timelineEvent)
+            .set({ recorded_by: value })
+            .where(eq(timelineEvent.at, at));
+        },
+      },
+      archives: {
+        repository: await runtime.get(PgArchives),
+        recordedBy: async (digest) =>
+          (await db.client.select().from(archiveEntry).where(eq(archiveEntry.digest, digest)))[0]
+            ?.recorded_by,
+        setRecordedBy: async (digest, value) => {
+          await db.client
+            .update(archiveEntry)
+            .set({ recorded_by: value })
+            .where(eq(archiveEntry.digest, digest));
+        },
+      },
       itemsOf: (orderId) =>
         db.client.select().from(orderItem).where(eq(orderItem.order_id, orderId)),
       orderExists: async (orderId) =>
         (await db.client.select().from(order).where(eq(order.id, orderId))).length === 1,
       inTransaction: (fn) => db.withTransaction(fn),
-      queriesDuring: async (fn) => {
-        const before = db.executedQueries;
+      statementsDuring: async (fn) => {
+        const before = db.executedStatements.length;
         await fn();
-        return db.executedQueries - before;
+        return db.executedStatements.slice(before);
       },
       shutdown: () => runtime.shutdown(),
     };
@@ -533,21 +640,45 @@ describe('MySQL', () => {
   repositoryContract(async () => {
     const runtime = await createApp([]).createRuntime();
     const db = await runtime.get(MySqlDrizzleService);
-    const { order, orderItem } = mysqlSchema;
+    const { archiveEntry, order, orderItem, timelineEvent } = mysqlSchema;
     return {
       tenants: await runtime.get(MySqlTenants),
       users: await runtime.get(MySqlUsers),
       products: await runtime.get(MySqlProducts),
       orders: await runtime.get(MySqlOrders),
+      timelines: {
+        repository: await runtime.get(MySqlTimelines),
+        recordedBy: async (at) =>
+          (await db.client.select().from(timelineEvent).where(eq(timelineEvent.at, at)))[0]
+            ?.recorded_by,
+        setRecordedBy: async (at, value) => {
+          await db.client
+            .update(timelineEvent)
+            .set({ recorded_by: value })
+            .where(eq(timelineEvent.at, at));
+        },
+      },
+      archives: {
+        repository: await runtime.get(MySqlArchives),
+        recordedBy: async (digest) =>
+          (await db.client.select().from(archiveEntry).where(eq(archiveEntry.digest, digest)))[0]
+            ?.recorded_by,
+        setRecordedBy: async (digest, value) => {
+          await db.client
+            .update(archiveEntry)
+            .set({ recorded_by: value })
+            .where(eq(archiveEntry.digest, digest));
+        },
+      },
       itemsOf: (orderId) =>
         db.client.select().from(orderItem).where(eq(orderItem.order_id, orderId)),
       orderExists: async (orderId) =>
         (await db.client.select().from(order).where(eq(order.id, orderId))).length === 1,
       inTransaction: (fn) => db.withTransaction(fn),
-      queriesDuring: async (fn) => {
-        const before = db.executedQueries;
+      statementsDuring: async (fn) => {
+        const before = db.executedStatements.length;
         await fn();
-        return db.executedQueries - before;
+        return db.executedStatements.slice(before);
       },
       shutdown: () => runtime.shutdown(),
     };

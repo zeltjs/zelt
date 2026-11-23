@@ -10,7 +10,7 @@ import type {
 import { findFirstRow, toDbError } from './engine-read.lib';
 import { ConflictError, DbError } from './repository.errors';
 import type { Row } from './repository.types';
-import { rowsOf, sameValue, toRow } from './row.lib';
+import { rowsOf, toRow, valueKey } from './row.lib';
 import type { Settled } from './settled.lib';
 import { failed, succeeded, toResultAsync } from './settled.lib';
 import type { SqlClient } from './sql-client.lib';
@@ -29,7 +29,7 @@ const pick = (row: Row, columns: readonly string[]): Row => {
 const changedColumns = (pre: Row, input: Row, columns: readonly string[]): Row =>
   Object.fromEntries(
     columns
-      .filter((column) => !sameValue(pre[column], input[column]))
+      .filter((column) => valueKey(pre[column]) !== valueKey(input[column]))
       .map((column) => [column, input[column]]),
   );
 
@@ -89,10 +89,9 @@ const syncChildren = async (
   input: Row,
 ): Promise<void> => {
   for (const child of children) {
-    const preRows = new Map(rowsOf(pre[child.relation]).map((row) => [row[child.primaryKey], row]));
-    const inputRows = new Map(
-      linkedRowsOf(input, child).map((row) => [row[child.primaryKey], row]),
-    );
+    const keyOf = (row: Row): string => valueKey(row[child.primaryKey]);
+    const preRows = new Map(rowsOf(pre[child.relation]).map((row) => [keyOf(row), row]));
+    const inputRows = new Map(linkedRowsOf(input, child).map((row) => [keyOf(row), row]));
     for (const [id, row] of preRows) {
       if (!inputRows.has(id)) await deleteTree(client, child, row);
     }
@@ -241,7 +240,7 @@ const settleSave = async (
 ): Promise<Settled<Row, ConflictError | DbError>> => {
   const id = input[domain.primaryKey];
   // The update is keyed by the id of input, so a different id would write pre's changes onto another row.
-  if (pre !== null && !sameValue(pre[domain.primaryKey], id)) {
+  if (pre !== null && valueKey(pre[domain.primaryKey]) !== valueKey(id)) {
     const cause = new Error(
       `${domain.name}: pre has ${domain.primaryKey} ${String(pre[domain.primaryKey])} but input has ${String(id)}`,
     );

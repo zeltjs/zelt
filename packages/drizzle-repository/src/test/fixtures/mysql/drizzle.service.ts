@@ -15,10 +15,10 @@ export class DrizzleService extends DatabaseService<
   Database,
   { client: Database; connection: Pool }
 > {
-  executedQueries = 0;
-  private readonly countingLogger = {
-    logQuery: () => {
-      this.executedQueries += 1;
+  readonly executedStatements: string[] = [];
+  private readonly recordingLogger = {
+    logQuery: (query: string) => {
+      this.executedStatements.push(query);
     },
   };
 
@@ -26,7 +26,7 @@ export class DrizzleService extends DatabaseService<
     const connection = createPool(inject('mysqlUrl'));
     for (const statement of schema.ddl) await connection.query(statement);
     return {
-      client: drizzle(connection, { schema, mode: 'default', logger: this.countingLogger }),
+      client: drizzle(connection, { schema, mode: 'default', logger: this.recordingLogger }),
       connection,
     };
   }

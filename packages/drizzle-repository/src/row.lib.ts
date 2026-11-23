@@ -18,16 +18,31 @@ export const rowsOf = (value: unknown): readonly Row[] =>
       })
     : [];
 
-export const serializeKey = (values: readonly unknown[]): string =>
-  JSON.stringify(values, (_key, value: unknown) =>
-    typeof value === 'bigint' ? `${value.toString()}n` : value,
-  );
+const hexOf = (view: ArrayBufferView): string =>
+  Array.from(new Uint8Array(view.buffer, view.byteOffset, view.byteLength), (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  ).join('');
 
-// Objects come from JSON and custom columns, which may hold bigint values that JSON.stringify rejects.
-export const sameValue = (a: unknown, b: unknown): boolean => {
-  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
-  if (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null) {
-    return serializeKey([a]) === serializeKey([b]);
-  }
-  return Object.is(a, b);
+// Each value is tagged with its type, so that 1n, 1 and "1" stay apart.
+const tagged = (value: unknown): unknown => {
+  if (typeof value === 'object') return value === null ? ['null'] : taggedObject(value);
+  if (typeof value === 'string' || typeof value === 'boolean') return [typeof value, value];
+  return [typeof value, String(value)];
 };
+
+const taggedObject = (value: object): unknown => {
+  if (value instanceof Date) return ['date', value.getTime()];
+  if (ArrayBuffer.isView(value)) return ['bytes', hexOf(value)];
+  if (Array.isArray(value)) return ['array', value.map(tagged)];
+  // JSON columns may hold the same object with its keys in another order.
+  return [
+    'object',
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, tagged(Reflect.get(value, key))]),
+  ];
+};
+
+// The one identity of column values. A row read twice holds equal values in new objects, so
+// dates, bytes and JSON are compared by content.
+export const valueKey = (value: unknown): string => JSON.stringify(tagged(value));

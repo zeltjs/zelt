@@ -4,7 +4,7 @@ import { err, ok } from 'neverthrow';
 
 import { StagingDuplicateError } from './repository.errors';
 import type { Row } from './repository.types';
-import { serializeKey, toRow } from './row.lib';
+import { toRow, valueKey } from './row.lib';
 
 // Generated model files add one entry per domain through declaration merging.
 // biome-ignore lint/suspicious/noEmptyInterface: generated model files fill it through declaration merging
@@ -47,7 +47,7 @@ export const registerStagingDefinition = (model: string, definition: StagingDefi
 const keyOf = (model: Row, columns: readonly string[]): string | undefined => {
   const values = columns.map((column) => model[column]);
   if (values.some((value) => value === null || value === undefined)) return undefined;
-  return serializeKey(values);
+  return valueKey(values);
 };
 
 /** @throws {Error} when called outside withStagingScope */
@@ -158,11 +158,11 @@ export const findStagedByPrimaryKey = (model: string, id: unknown): StagedEntry 
   storage
     .getStore()
     ?.get(model)
-    ?.byPrimaryKey.get(serializeKey([id]));
+    ?.byPrimaryKey.get(valueKey([id]));
 
 export const findStagedByUniqueKey = (
   model: string,
   uniqueKey: string,
   values: readonly unknown[],
 ): StagedEntry | undefined =>
-  storage.getStore()?.get(model)?.byUniqueKey.get(uniqueKey)?.get(serializeKey(values));
+  storage.getStore()?.get(model)?.byUniqueKey.get(uniqueKey)?.get(valueKey(values));
