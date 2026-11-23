@@ -1,9 +1,9 @@
 import { dirname } from 'node:path';
 
 import type { Domain, DomainChild, DomainColumn } from './domain.lib';
+import { excludedOf } from './domain.lib';
 import type { EmitPaths } from './emit-shared.lib';
 import {
-  excludedOf,
   GENERATED_HEADER,
   property,
   quote,

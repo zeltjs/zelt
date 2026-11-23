@@ -56,6 +56,14 @@ export type Domain = {
   readonly children: readonly DomainChild[];
 };
 
+type ClassifiedTable = { readonly columns: readonly DomainColumn[] };
+
+export const excludedOf = (table: ClassifiedTable): string[] =>
+  table.columns.flatMap((column) => (column.kind === 'excluded' ? [column.key] : []));
+
+export const modelColumnsOf = (table: ClassifiedTable): string[] =>
+  table.columns.flatMap((column) => (column.kind === 'excluded' ? [] : [column.key]));
+
 const sameColumns = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((column) => b.includes(column));
 
@@ -295,14 +303,20 @@ const childrenOf = (
     .filter((relation) => relation.source === source)
     .flatMap((relation) => childOf(context, columns, relation, path));
 
-// A key with a NULL-able column cannot identify a row, so no method is made from it.
-const uniqueKeysOf = (root: SchemaTable, primaryKey: string): (readonly string[])[] =>
-  root.uniqueKeys
-    .filter((columns) => !sameColumns(columns, [primaryKey]))
-    .filter((columns) => columns.every((key) => columnByKey(root, key)?.notNull === true))
-    .filter(
-      (columns, index, all) => all.findIndex((other) => sameColumns(other, columns)) === index,
-    );
+// A key with a NULL-able column cannot identify a row, and a key with a column the model leaves
+// out cannot be matched against a staged model, so no method is made from either.
+const uniqueKeysOf = (
+  root: SchemaTable,
+  primaryKey: string,
+  columns: readonly DomainColumn[],
+): (readonly string[])[] => {
+  const excluded = new Set(excludedOf({ columns }));
+  return root.uniqueKeys
+    .filter((keys) => !sameColumns(keys, [primaryKey]))
+    .filter((keys) => keys.every((key) => columnByKey(root, key)?.notNull === true))
+    .filter((keys) => !keys.some((key) => excluded.has(key)))
+    .filter((keys, index, all) => all.findIndex((other) => sameColumns(other, keys)) === index);
+};
 
 // A reference that is also a unique key is read through the unique key.
 const findersOf = (
@@ -326,7 +340,7 @@ const domainOf = (context: Context, root: SchemaTable, primaryKey: string): Doma
     }),
   );
   if (columns === undefined) return [];
-  const uniqueKeys = uniqueKeysOf(root, primaryKey);
+  const uniqueKeys = uniqueKeysOf(root, primaryKey, columns);
   return [
     {
       exportName: root.exportName,

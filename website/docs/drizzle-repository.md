@@ -566,5 +566,5 @@ The following are not generated. If needed, write them yourself in the app's Rep
 - Searches by conditions other than keys
 - Methods that read several IDs at once
 - Reads that do not return models (list screens, aggregation)
-- Methods from NULL-able keys, or from unique indexes with expressions or conditions
+- Methods from NULL-able keys, keys containing an `excludedFromModel` column, or unique indexes with expressions or conditions
 - Value validation and business decisions

@@ -29,7 +29,7 @@ const schemaProject = async (tables: string): Promise<string> => {
       `import "drizzle-metadata/register";`,
       `import "@zeltjs/drizzle-repository/metadata";`,
       `import { relations } from "drizzle-orm";`,
-      `import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";`,
+      `import { integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";`,
       tables,
     ].join('\n'),
   );
@@ -163,6 +163,28 @@ describe('generated code', () => {
     expect(contentOf('pet.model.ts')).not.toContain('owner_id:');
     expect(contentOf('pet.repository-base.ts')).toContain('findByVetId(key: OwnerExistedId)');
     expect(contentOf('pet.repository-base.ts')).not.toContain('findByOwnerId');
+  });
+
+  it('makes no method from a unique key with a column excluded from the model', async () => {
+    const directory = await schemaProject(
+      `export const account = sqliteTable(
+        "account",
+        {
+          id: text().primaryKey(),
+          email: text().notNull().unique().meta({ excludedFromModel: true }),
+          region: text().notNull().meta({ excludedFromModel: true }),
+          handle: text().notNull(),
+          slug: text().notNull().unique(),
+        },
+        (table) => [unique().on(table.region, table.handle)],
+      );`,
+    );
+    const repository = (await plan(directory))
+      ._unsafeUnwrap()
+      .find((file) => file.path.endsWith('account.repository-base.ts'))?.content;
+    expect(repository).toContain('isExistedBySlug(');
+    expect(repository).not.toContain('isExistedByEmail');
+    expect(repository).not.toContain('isExistedByRegionAndHandle');
   });
 
   // Table names that are also names the generated code uses, a key that needs quoting,

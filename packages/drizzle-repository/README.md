@@ -435,5 +435,5 @@ await withStagingScope(async () => {
 - キー以外の条件での検索
 - 複数のIDをまとめて読むメソッド
 - modelを返さない読み取り（一覧画面、集計）
-- NULLのキー、式や条件付きの一意indexからのメソッド
+- NULLのキー、`excludedFromModel`の列を含むキー、式や条件付きの一意indexからのメソッド
 - 値の検証と、業務上の判断

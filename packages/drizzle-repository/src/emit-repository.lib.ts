@@ -1,11 +1,10 @@
 import { dirname } from 'node:path';
 
 import type { DomainChild } from './domain.lib';
+import { excludedOf, modelColumnsOf } from './domain.lib';
 import type { EmitPaths } from './emit-shared.lib';
 import {
-  excludedOf,
   GENERATED_HEADER,
-  modelColumnsOf,
   property,
   quote,
   schemaImports,
