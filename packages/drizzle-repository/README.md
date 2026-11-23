@@ -385,7 +385,10 @@ await withStagingScope(async () => {
     if (checked.isErr()) return err(checked.error);
     if (checked.value.id !== NOT_EXIST) continue;
 
-    const staged = stage("User", { pre: null, input: { id: newUserId(), email: row.email } });
+    const staged = stage(UserRepositoryBase.staging, {
+      pre: null,
+      input: { id: newUserId(), name: row.name, email: row.email },
+    });
     if (staged.isErr()) return err(staged.error);
   }
 });
@@ -394,8 +397,8 @@ await withStagingScope(async () => {
 | 関数 | 意味 |
 |---|---|
 | `withStagingScope(fn)` | stagingが有効な範囲を作る。`fn`が終わると、stageしたmodelは消える |
-| `stage(名前, { pre, input })` | 保存する予定のmodelをstageする。名前はmodelの型の名前である。`save`に渡すのと同じ値を渡す |
-| `stageDelete(名前, model)` | 削除する予定のmodelをstageする |
+| `stage(<Model>RepositoryBase.staging, { pre, input })` | 保存する予定のmodelをstageする。`save`に渡すのと同じ値を渡す |
+| `stageDelete(<Model>RepositoryBase.staging, model)` | 削除する予定のmodelをstageする |
 
 ### stageを見る読み取り
 

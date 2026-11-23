@@ -99,14 +99,6 @@ const foreignRootsOf = (own: DomainNames, names: Names): DomainNames[] => [
   ),
 ];
 
-const stagingDeclaration = (own: DomainNames): readonly string[] => [
-  `declare module "@zeltjs/drizzle-repository" {`,
-  `  interface StagingModels {`,
-  `    ${own.model}: { save: $repository.SaveInput<${own.model}, ${own.newModel}>; model: ${own.model} };`,
-  `  }`,
-  `}`,
-];
-
 export const emitModel = (
   own: DomainNames,
   names: Names,
@@ -145,8 +137,6 @@ export const emitModel = (
     `export type ${model} = ${objectType(domain, rootExtra)};`,
     '',
     `export type ${own.newModel} = Omit<${model}, ${quote(domain.primaryKey)}> & { ${property(domain.primaryKey)}: ${own.id} };`,
-    '',
-    ...stagingDeclaration(own),
     '',
   ].join('\n');
 };

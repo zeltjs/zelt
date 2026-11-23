@@ -3,45 +3,39 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { StagingDuplicateError } from './repository.errors';
-import type { Row } from './repository.types';
-import { toRow, valueKey } from './row.lib';
-
-// Generated model files add one entry per domain through declaration merging.
-// biome-ignore lint/suspicious/noEmptyInterface: generated model files fill it through declaration merging
-export interface StagingModels {}
-
-type StagingModelName = keyof StagingModels & string;
-
-type SaveOf<N extends StagingModelName> = StagingModels[N] extends { save: infer S } ? S : never;
-type ModelOf<N extends StagingModelName> = StagingModels[N] extends { model: infer M } ? M : never;
+import type { Row, SaveInput } from './repository.types';
+import { valueKey } from './row.lib';
 
 export type UniqueKeyDefinition = {
   readonly name: string;
   readonly columns: readonly string[];
 };
 
-type StagingDefinition = {
+// The part of a domain definition that staging reads.
+type StagingDomain = {
+  readonly name: string;
   readonly primaryKey: string;
   readonly uniqueKeys: readonly UniqueKeyDefinition[];
 };
 
+declare const models: unique symbol;
+
+// A generated repository exposes its domain as `staging`. A scope keeps staged models by this
+// object, so each repository reads exactly the models staged with its own key.
+export type StagingKey<Model extends Row, NewModel extends Row> = StagingDomain & {
+  readonly [models]?: { readonly model: Model; readonly newModel: NewModel };
+};
+
 export type StagedEntry = { readonly kind: 'save' | 'delete'; readonly model: Row };
 
-type ModelStage = {
+type DomainStage = {
   readonly byPrimaryKey: Map<string, StagedEntry>;
   readonly byUniqueKey: Map<string, Map<string, StagedEntry>>;
 };
 
-type StagingState = Map<string, ModelStage>;
+type StagingState = Map<StagingDomain, DomainStage>;
 
 const storage = new AsyncLocalStorage<StagingState>();
-
-// Filled when a generated repository module is loaded; stage() needs the keys of a model by its name.
-const definitions = new Map<string, StagingDefinition>();
-
-export const registerStagingDefinition = (model: string, definition: StagingDefinition): void => {
-  definitions.set(model, definition);
-};
 
 // A key containing NULL never collides, matching how SQL UNIQUE treats NULL.
 const keyOf = (model: Row, columns: readonly string[]): string | undefined => {
@@ -59,35 +53,19 @@ const requireState = (): StagingState => {
   return state;
 };
 
-/** @throws {Error} when no generated repository registered the model */
-const requireDefinition = (model: string): StagingDefinition => {
-  const definition = definitions.get(model);
-  if (definition === undefined) {
-    throw new Error(`${model} is not a generated domain. Import its repository before staging it`);
-  }
-  return definition;
-};
-
-/** @throws {Error} when the value is not a model object */
-const requireRow = (model: string, value: unknown): Row => {
-  const row = toRow(value);
-  if (row === undefined) throw new Error(`${model}: a staged model must be an object`);
-  return row;
-};
-
-const modelStageOf = (state: StagingState, model: string): ModelStage => {
-  const existing = state.get(model);
+const domainStageOf = (state: StagingState, domain: StagingDomain): DomainStage => {
+  const existing = state.get(domain);
   if (existing !== undefined) return existing;
-  const created: ModelStage = { byPrimaryKey: new Map(), byUniqueKey: new Map() };
-  state.set(model, created);
+  const created: DomainStage = { byPrimaryKey: new Map(), byUniqueKey: new Map() };
+  state.set(domain, created);
   return created;
 };
 
 type UniqueEntry = { readonly index: Map<string, StagedEntry>; readonly key: string };
 
 const uniqueEntriesOf = (
-  model: string,
-  stage: ModelStage,
+  domain: StagingDomain,
+  stage: DomainStage,
   entry: StagedEntry,
   uniqueKeys: readonly UniqueKeyDefinition[],
 ): Result<readonly UniqueEntry[], StagingDuplicateError> => {
@@ -96,7 +74,7 @@ const uniqueEntriesOf = (
     const key = keyOf(entry.model, uniqueKey.columns);
     if (key === undefined) continue;
     const index = stage.byUniqueKey.get(uniqueKey.name) ?? new Map<string, StagedEntry>();
-    if (index.has(key)) return err(new StagingDuplicateError(model, uniqueKey.name));
+    if (index.has(key)) return err(new StagingDuplicateError(domain.name, uniqueKey.name));
     stage.byUniqueKey.set(uniqueKey.name, index);
     entries.push({ index, key });
   }
@@ -105,24 +83,23 @@ const uniqueEntriesOf = (
 
 /** @throws {Error} when called outside withStagingScope, or for a model without its primary key */
 const putStaged = (
-  model: string,
+  domain: StagingDomain,
   entry: StagedEntry,
   uniqueKeys: readonly UniqueKeyDefinition[],
 ): Result<void, StagingDuplicateError> => {
-  const definition = requireDefinition(model);
-  const stageOfModel = modelStageOf(requireState(), model);
+  const stageOfDomain = domainStageOf(requireState(), domain);
 
-  const primaryKey = keyOf(entry.model, [definition.primaryKey]);
+  const primaryKey = keyOf(entry.model, [domain.primaryKey]);
   if (primaryKey === undefined) {
-    throw new Error(`${model} has no ${definition.primaryKey}`);
+    throw new Error(`${domain.name} has no ${domain.primaryKey}`);
   }
-  if (stageOfModel.byPrimaryKey.has(primaryKey)) {
-    return err(new StagingDuplicateError(model, definition.primaryKey));
+  if (stageOfDomain.byPrimaryKey.has(primaryKey)) {
+    return err(new StagingDuplicateError(domain.name, domain.primaryKey));
   }
 
-  const uniqueEntries = uniqueEntriesOf(model, stageOfModel, entry, uniqueKeys);
+  const uniqueEntries = uniqueEntriesOf(domain, stageOfDomain, entry, uniqueKeys);
   if (uniqueEntries.isErr()) return err(uniqueEntries.error);
-  stageOfModel.byPrimaryKey.set(primaryKey, entry);
+  stageOfDomain.byPrimaryKey.set(primaryKey, entry);
   for (const { index, key } of uniqueEntries.value) index.set(key, entry);
   return ok(undefined);
 };
@@ -135,34 +112,32 @@ export const withStagingScope = <T>(fn: () => Promise<T>): Promise<T> => {
   return storage.run(new Map(), fn);
 };
 
+// The key alone decides the model types, so a value of another domain is a type error.
 /** @throws {Error} when called outside withStagingScope */
-export const stage = <N extends StagingModelName>(
-  model: N,
-  value: SaveOf<N>,
-): Result<void, StagingDuplicateError> => {
-  const input = requireRow(
-    model,
-    typeof value === 'object' && value !== null ? Reflect.get(value, 'input') : undefined,
-  );
-  return putStaged(model, { kind: 'save', model: input }, requireDefinition(model).uniqueKeys);
-};
-
-/** @throws {Error} when called outside withStagingScope */
-export const stageDelete = <N extends StagingModelName>(
-  model: N,
-  value: ModelOf<N>,
+export const stage = <Model extends Row, NewModel extends Row>(
+  key: StagingKey<Model, NewModel>,
+  value: NoInfer<SaveInput<Model, NewModel>>,
 ): Result<void, StagingDuplicateError> =>
-  putStaged(model, { kind: 'delete', model: requireRow(model, value) }, []);
+  putStaged(key, { kind: 'save', model: value.input }, key.uniqueKeys);
 
-export const findStagedByPrimaryKey = (model: string, id: unknown): StagedEntry | undefined =>
+/** @throws {Error} when called outside withStagingScope */
+export const stageDelete = <Model extends Row, NewModel extends Row>(
+  key: StagingKey<Model, NewModel>,
+  model: NoInfer<Model>,
+): Result<void, StagingDuplicateError> => putStaged(key, { kind: 'delete', model }, []);
+
+export const findStagedByPrimaryKey = (
+  domain: StagingDomain,
+  id: unknown,
+): StagedEntry | undefined =>
   storage
     .getStore()
-    ?.get(model)
+    ?.get(domain)
     ?.byPrimaryKey.get(valueKey([id]));
 
 export const findStagedByUniqueKey = (
-  model: string,
+  domain: StagingDomain,
   uniqueKey: string,
   values: readonly unknown[],
 ): StagedEntry | undefined =>
-  storage.getStore()?.get(model)?.byUniqueKey.get(uniqueKey)?.get(valueKey(values));
+  storage.getStore()?.get(domain)?.byUniqueKey.get(uniqueKey)?.get(valueKey(values));

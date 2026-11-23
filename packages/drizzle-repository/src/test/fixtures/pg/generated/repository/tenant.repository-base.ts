@@ -9,7 +9,7 @@ import { DrizzleService as $Database } from "../../drizzle.service";
 import * as $schema0 from "../../schema";
 import type { Tenant, TenantExistedId, TenantId, NewTenant } from "../model/tenant.model";
 
-const $domain = $engine.defineDomain({
+const $domain: $engine.DomainDefinition = {
   name: "Tenant",
   drizzleMajor: 0,
   dialect: "pg",
@@ -21,10 +21,14 @@ const $domain = $engine.defineDomain({
   lockColumn: undefined,
   uniqueKeys: [],
   children: [],
-});
+};
 
 @$Injectable()
 export class TenantRepositoryBase {
+  static get staging(): $repository.StagingKey<Tenant, NewTenant> {
+    return $domain;
+  }
+
   private readonly db = $inject($Database);
 
   isExisted(id: TenantId): $ResultAsync<TenantExistedId | $repository.NOT_EXIST, $repository.DbError> {

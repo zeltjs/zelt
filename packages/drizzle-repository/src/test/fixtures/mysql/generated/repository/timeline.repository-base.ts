@@ -9,7 +9,7 @@ import { DrizzleService as $Database } from "../../drizzle.service";
 import * as $schema0 from "../../schema";
 import type { Timeline, TimelineExistedId, TimelineId, NewTimeline } from "../model/timeline.model";
 
-const $domain = $engine.defineDomain({
+const $domain: $engine.DomainDefinition = {
   name: "Timeline",
   drizzleMajor: 0,
   dialect: "mysql",
@@ -31,10 +31,14 @@ const $domain = $engine.defineDomain({
       children: [],
     }
   ],
-});
+};
 
 @$Injectable()
 export class TimelineRepositoryBase {
+  static get staging(): $repository.StagingKey<Timeline, NewTimeline> {
+    return $domain;
+  }
+
   private readonly db = $inject($Database);
 
   isExisted(id: TimelineId): $ResultAsync<TimelineExistedId | $repository.NOT_EXIST, $repository.DbError> {

@@ -15,9 +15,3 @@ export type Product = Omit<$productRow, "tenant_id" | "id"> & {
 };
 
 export type NewProduct = Omit<Product, "id"> & { id: ProductId };
-
-declare module "@zeltjs/drizzle-repository" {
-  interface StagingModels {
-    Product: { save: $repository.SaveInput<Product, NewProduct>; model: Product };
-  }
-}

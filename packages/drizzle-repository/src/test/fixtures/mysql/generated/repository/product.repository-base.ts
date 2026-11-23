@@ -10,7 +10,7 @@ import * as $schema0 from "../../schema";
 import type { Product, ProductExistedId, ProductId, NewProduct } from "../model/product.model";
 import type { TenantExistedId } from "../model/tenant.model";
 
-const $domain = $engine.defineDomain({
+const $domain: $engine.DomainDefinition = {
   name: "Product",
   drizzleMajor: 0,
   dialect: "mysql",
@@ -22,10 +22,14 @@ const $domain = $engine.defineDomain({
   lockColumn: undefined,
   uniqueKeys: [{"name":"TenantIdAndSlug","columns":["tenant_id","slug"]}],
   children: [],
-});
+};
 
 @$Injectable()
 export class ProductRepositoryBase {
+  static get staging(): $repository.StagingKey<Product, NewProduct> {
+    return $domain;
+  }
+
   private readonly db = $inject($Database);
 
   isExisted(id: ProductId): $ResultAsync<ProductExistedId | $repository.NOT_EXIST, $repository.DbError> {

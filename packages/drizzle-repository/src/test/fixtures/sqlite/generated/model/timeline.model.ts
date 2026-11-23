@@ -19,9 +19,3 @@ export type Timeline = Omit<$timelineRow, "id"> & {
 };
 
 export type NewTimeline = Omit<Timeline, "id"> & { id: TimelineId };
-
-declare module "@zeltjs/drizzle-repository" {
-  interface StagingModels {
-    Timeline: { save: $repository.SaveInput<Timeline, NewTimeline>; model: Timeline };
-  }
-}

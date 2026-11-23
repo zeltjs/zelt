@@ -10,21 +10,9 @@ import type { Settled } from './settled.lib';
 import { failed, succeeded, toResultAsync } from './settled.lib';
 import type { SqlClient } from './sql-client.lib';
 import { columnOf, conditionOf, sqlClient } from './sql-client.lib';
-import {
-  findStagedByPrimaryKey,
-  findStagedByUniqueKey,
-  registerStagingDefinition,
-} from './staging.lib';
+import { findStagedByPrimaryKey, findStagedByUniqueKey } from './staging.lib';
 
 export const toDbError = (cause: unknown): DbError => new DbError({ cause });
-
-export const defineDomain = (definition: DomainDefinition): DomainDefinition => {
-  registerStagingDefinition(definition.name, {
-    primaryKey: definition.primaryKey,
-    uniqueKeys: definition.uniqueKeys,
-  });
-  return definition;
-};
 
 type Shape = {
   readonly excludedColumns: readonly string[];
@@ -89,7 +77,7 @@ const settleIsExisted = async (
   id: unknown,
 ): Promise<Settled<unknown, DbError>> => {
   try {
-    const staged = findStagedByPrimaryKey(domain.name, id);
+    const staged = findStagedByPrimaryKey(domain, id);
     if (staged !== undefined) return succeeded(staged.kind === 'save' ? id : NOT_EXIST);
     const found = await selectPrimaryKey(domain, db, { [domain.primaryKey]: id });
     return succeeded(found === undefined ? NOT_EXIST : found);
@@ -110,7 +98,7 @@ const settleGetById = async (
   id: unknown,
 ): Promise<Settled<Row, EntityNotFoundError | DbError>> => {
   try {
-    const staged = findStagedByPrimaryKey(domain.name, id);
+    const staged = findStagedByPrimaryKey(domain, id);
     if (staged !== undefined) {
       return staged.kind === 'save'
         ? succeeded(staged.model)
@@ -141,13 +129,13 @@ const checkUniqueKey = async (
   const values = definition.columns.map((column) => key[column]);
   const notExist: Row = { ...key, id: NOT_EXIST };
 
-  const staged = findStagedByUniqueKey(domain.name, uniqueKey, values);
+  const staged = findStagedByUniqueKey(domain, uniqueKey, values);
   if (staged?.kind === 'save') return { id: staged.model[domain.primaryKey] };
 
   const found = await selectPrimaryKey(domain, db, key);
   if (found === undefined) return notExist;
   // A staged change of the same row wins over the stored key: it was deleted, or its key was changed.
-  if (findStagedByPrimaryKey(domain.name, found) !== undefined) return notExist;
+  if (findStagedByPrimaryKey(domain, found) !== undefined) return notExist;
   return { id: found };
 };
 

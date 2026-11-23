@@ -21,9 +21,3 @@ export type Order = Omit<$orderRow, "created_at" | "customer_id" | "id"> & {
 };
 
 export type NewOrder = Omit<Order, "id"> & { id: OrderId };
-
-declare module "@zeltjs/drizzle-repository" {
-  interface StagingModels {
-    Order: { save: $repository.SaveInput<Order, NewOrder>; model: Order };
-  }
-}

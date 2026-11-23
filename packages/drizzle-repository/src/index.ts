@@ -8,4 +8,4 @@ export {
   StagingDuplicateError,
 } from './repository.errors';
 export type { Existed, SaveInput } from './repository.types';
-export { type StagingModels, stage, stageDelete, withStagingScope } from './staging.lib';
+export { type StagingKey, stage, stageDelete, withStagingScope } from './staging.lib';

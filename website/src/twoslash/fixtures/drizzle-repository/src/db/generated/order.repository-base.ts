@@ -10,7 +10,7 @@ import * as $schema0 from "../schema";
 import type { Order, OrderExistedId, OrderId, NewOrder } from "../../domain/generated/order.model";
 import type { CustomerExistedId } from "../../domain/generated/customer.model";
 
-const $domain = $engine.defineDomain({
+const $domain: $engine.DomainDefinition = {
   name: "Order",
   drizzleMajor: 0,
   dialect: "sqlite",
@@ -32,10 +32,14 @@ const $domain = $engine.defineDomain({
       children: [],
     }
   ],
-});
+};
 
 @$Injectable()
 export class OrderRepositoryBase {
+  static get staging(): $repository.StagingKey<Order, NewOrder> {
+    return $domain;
+  }
+
   private readonly db = $inject($Database);
 
   isExisted(id: OrderId): $ResultAsync<OrderExistedId | $repository.NOT_EXIST, $repository.DbError> {

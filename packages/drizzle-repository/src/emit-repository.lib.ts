@@ -107,7 +107,7 @@ const domainDefinition = (
   const children = domain.children.map((child) => childDefinition(child, '    ', ref));
   const lockColumn = domain.columns.find((column) => column.kind === 'lock')?.key;
   return [
-    `const $domain = $engine.defineDomain({`,
+    `const $domain: $engine.DomainDefinition = {`,
     `  name: ${quote(model)},`,
     `  drizzleMajor: ${drizzleMajor},`,
     `  dialect: ${quote(domain.dialect)},`,
@@ -119,7 +119,7 @@ const domainDefinition = (
     `  lockColumn: ${lockColumn === undefined ? 'undefined' : quote(lockColumn)},`,
     `  uniqueKeys: ${JSON.stringify(uniqueKeys.map(({ key, columns }) => ({ name: key, columns })))},`,
     `  children: [${children.length === 0 ? '' : `\n${children.join(',\n')}\n  `}],`,
-    `});`,
+    `};`,
   ];
 };
 
@@ -181,6 +181,11 @@ export const emitRepository = (
     '',
     `@$Injectable()`,
     `export class ${own.repository} {`,
+    // A getter, because SWC's decorator transform for an ES5 target drops static fields.
+    `  static get staging(): $repository.StagingKey<${own.model}, ${own.newModel}> {`,
+    `    return $domain;`,
+    `  }`,
+    '',
     `  private readonly db = $inject($Database);`,
     ...methods.flatMap((text) => ['', text ?? '']),
     `}`,

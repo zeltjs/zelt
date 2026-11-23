@@ -9,7 +9,7 @@ import { DrizzleService as $Database } from "../../drizzle.service";
 import * as $schema0 from "../../schema";
 import type { Archive, ArchiveExistedId, ArchiveId, NewArchive } from "../model/archive.model";
 
-const $domain = $engine.defineDomain({
+const $domain: $engine.DomainDefinition = {
   name: "Archive",
   drizzleMajor: 0,
   dialect: "mysql",
@@ -31,10 +31,14 @@ const $domain = $engine.defineDomain({
       children: [],
     }
   ],
-});
+};
 
 @$Injectable()
 export class ArchiveRepositoryBase {
+  static get staging(): $repository.StagingKey<Archive, NewArchive> {
+    return $domain;
+  }
+
   private readonly db = $inject($Database);
 
   isExisted(id: ArchiveId): $ResultAsync<ArchiveExistedId | $repository.NOT_EXIST, $repository.DbError> {

@@ -9,7 +9,7 @@ import { DrizzleService as $Database } from "../drizzle.service";
 import * as $schema0 from "../schema";
 import type { Customer, CustomerExistedId, CustomerId, NewCustomer } from "../../domain/generated/customer.model";
 
-const $domain = $engine.defineDomain({
+const $domain: $engine.DomainDefinition = {
   name: "Customer",
   drizzleMajor: 0,
   dialect: "sqlite",
@@ -21,10 +21,14 @@ const $domain = $engine.defineDomain({
   lockColumn: undefined,
   uniqueKeys: [],
   children: [],
-});
+};
 
 @$Injectable()
 export class CustomerRepositoryBase {
+  static get staging(): $repository.StagingKey<Customer, NewCustomer> {
+    return $domain;
+  }
+
   private readonly db = $inject($Database);
 
   isExisted(id: CustomerId): $ResultAsync<CustomerExistedId | $repository.NOT_EXIST, $repository.DbError> {

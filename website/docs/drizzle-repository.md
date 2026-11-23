@@ -516,7 +516,10 @@ await withStagingScope(async () => {
     if (checked.isErr()) return err(checked.error);
     if (checked.value.id !== NOT_EXIST) continue;
 
-    const staged = stage("User", { pre: null, input: { id: newUserId(), email: row.email } });
+    const staged = stage(UserRepositoryBase.staging, {
+      pre: null,
+      input: { id: newUserId(), name: row.name, email: row.email },
+    });
     if (staged.isErr()) return err(staged.error);
   }
 });
@@ -525,8 +528,8 @@ await withStagingScope(async () => {
 | Function | Meaning |
 |---|---|
 | `withStagingScope(fn)` | Creates a scope in which staging is active. When `fn` finishes, the staged models are gone |
-| `stage(name, { pre, input })` | Stages a model to be saved. The name is the name of the model type. Pass the same value you pass to `save` |
-| `stageDelete(name, model)` | Stages a model to be deleted |
+| `stage(<Model>RepositoryBase.staging, { pre, input })` | Stages a model to be saved. Pass the same value you pass to `save` |
+| `stageDelete(<Model>RepositoryBase.staging, model)` | Stages a model to be deleted |
 
 ### Reads that look at the stage
 

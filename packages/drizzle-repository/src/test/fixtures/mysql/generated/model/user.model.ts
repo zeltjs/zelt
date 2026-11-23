@@ -15,9 +15,3 @@ export type User = Omit<$userRow, "created_at" | "tenant_id" | "id"> & {
 };
 
 export type NewUser = Omit<User, "id"> & { id: UserId };
-
-declare module "@zeltjs/drizzle-repository" {
-  interface StagingModels {
-    User: { save: $repository.SaveInput<User, NewUser>; model: User };
-  }
-}

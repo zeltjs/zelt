@@ -19,9 +19,3 @@ export type Archive = Omit<$archiveRow, "id"> & {
 };
 
 export type NewArchive = Omit<Archive, "id"> & { id: ArchiveId };
-
-declare module "@zeltjs/drizzle-repository" {
-  interface StagingModels {
-    Archive: { save: $repository.SaveInput<Archive, NewArchive>; model: Archive };
-  }
-}

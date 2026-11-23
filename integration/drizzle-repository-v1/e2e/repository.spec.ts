@@ -380,7 +380,7 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
     it('lets later reads see a staged model as if it were stored', async () => {
       await withStagingScope(async () => {
         const input = newUser('staged@example.com');
-        stage('User', { pre: null, input })._unsafeUnwrap();
+        stage(UserRepositoryBase.staging, { pre: null, input })._unsafeUnwrap();
 
         const existed = (await users.isExisted(input.id))._unsafeUnwrap();
         expect(existed).toBe(input.id);
@@ -399,7 +399,7 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
         const other = (
           await tenants.save({ pre: null, input: { id: nextId('tenant'), name: 't' } })
         )._unsafeUnwrap();
-        stage('User', {
+        stage(UserRepositoryBase.staging, {
           pre: null,
           input: { ...newUser('fk@example.com'), tenant_id: other.id },
         })._unsafeUnwrap();
@@ -410,7 +410,7 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
     it('treats a model staged for deletion as missing', async () => {
       const user = await createUser({ email: 'to-delete@example.com' });
       await withStagingScope(async () => {
-        stageDelete('User', user)._unsafeUnwrap();
+        stageDelete(UserRepositoryBase.staging, user)._unsafeUnwrap();
         expect((await users.isExisted(user.id))._unsafeUnwrap()).toBe(NOT_EXIST);
         expect((await users.getById(user.id))._unsafeUnwrapErr()).toBeInstanceOf(
           EntityNotFoundError,
@@ -424,12 +424,15 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
     it('returns StagingDuplicateError for the same primary key or unique key', async () => {
       await withStagingScope(async () => {
         const first = newUser('dup@example.com');
-        stage('User', { pre: null, input: first })._unsafeUnwrap();
-        expect(stage('User', { pre: null, input: first })._unsafeUnwrapErr()).toBeInstanceOf(
-          StagingDuplicateError,
-        );
+        stage(UserRepositoryBase.staging, { pre: null, input: first })._unsafeUnwrap();
         expect(
-          stage('User', { pre: null, input: newUser('dup@example.com') })._unsafeUnwrapErr(),
+          stage(UserRepositoryBase.staging, { pre: null, input: first })._unsafeUnwrapErr(),
+        ).toBeInstanceOf(StagingDuplicateError);
+        expect(
+          stage(UserRepositoryBase.staging, {
+            pre: null,
+            input: newUser('dup@example.com'),
+          })._unsafeUnwrapErr(),
         ).toBeInstanceOf(StagingDuplicateError);
       });
     });
@@ -438,7 +441,7 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
       const products_ = [nextId('product'), nextId('product')];
       await withStagingScope(async () => {
         for (const id of products_) {
-          stage('User', {
+          stage(UserRepositoryBase.staging, {
             pre: null,
             input: { ...newUser(`${id}@example.com`), nickname: null },
           })._unsafeUnwrap();
@@ -453,13 +456,15 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
         return (await users.isExisted(input.id))._unsafeUnwrap();
       };
       await withStagingScope(async () => {
-        stage('User', { pre: null, input })._unsafeUnwrap();
+        stage(UserRepositoryBase.staging, { pre: null, input })._unsafeUnwrap();
         expect(await check()).toBe(input.id);
       });
     });
 
     it('throws outside a scope and when a scope is nested', async () => {
-      expect(() => stage('User', { pre: null, input: newUser('outside@example.com') })).toThrow();
+      expect(() =>
+        stage(UserRepositoryBase.staging, { pre: null, input: newUser('outside@example.com') }),
+      ).toThrow();
       await withStagingScope(async () => {
         expect(() => withStagingScope(async () => undefined)).toThrow();
       });

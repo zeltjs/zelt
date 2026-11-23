@@ -13,9 +13,3 @@ export type Tenant = Omit<$tenantRow, "id"> & {
 };
 
 export type NewTenant = Omit<Tenant, "id"> & { id: TenantId };
-
-declare module "@zeltjs/drizzle-repository" {
-  interface StagingModels {
-    Tenant: { save: $repository.SaveInput<Tenant, NewTenant>; model: Tenant };
-  }
-}

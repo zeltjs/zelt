@@ -1,4 +1,5 @@
 import { createApp } from '@zeltjs/core';
+import type { StagingKey } from '@zeltjs/drizzle-repository';
 import {
   ConflictError,
   DbError,
@@ -31,7 +32,11 @@ import * as pgSchema from './test/fixtures/pg/schema';
 import { DrizzleService as SqliteDrizzleService } from './test/fixtures/sqlite/drizzle.service';
 import type { Order } from './test/fixtures/sqlite/generated/model/order.model';
 import type { TenantExistedId } from './test/fixtures/sqlite/generated/model/tenant.model';
-import type { User, UserExistedId } from './test/fixtures/sqlite/generated/model/user.model';
+import type {
+  NewUser,
+  User,
+  UserExistedId,
+} from './test/fixtures/sqlite/generated/model/user.model';
 import { OrderRepositoryBase as SqliteOrders } from './test/fixtures/sqlite/generated/repository/order.repository-base';
 import { ProductRepositoryBase as SqliteProducts } from './test/fixtures/sqlite/generated/repository/product.repository-base';
 import { TenantRepositoryBase as SqliteTenants } from './test/fixtures/sqlite/generated/repository/tenant.repository-base';
@@ -52,6 +57,7 @@ type KeyedChildren<Repository, K> = {
 type ContractDeps = {
   readonly tenants: PublicOf<SqliteTenants>;
   readonly users: PublicOf<SqliteUsers>;
+  readonly userStaging: StagingKey<User, NewUser>;
   readonly products: PublicOf<SqliteProducts>;
   readonly orders: PublicOf<SqliteOrders>;
   readonly itemsOf: (
@@ -461,7 +467,7 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
     it('lets later reads see a staged model as if it were stored', async () => {
       await withStagingScope(async () => {
         const input = newUser('staged@example.com');
-        stage('User', { pre: null, input })._unsafeUnwrap();
+        stage(deps.userStaging, { pre: null, input })._unsafeUnwrap();
 
         const existed = (await users.isExisted(input.id))._unsafeUnwrap();
         expect(existed).toBe(input.id);
@@ -480,7 +486,7 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
         const other = (
           await tenants.save({ pre: null, input: { id: nextId('tenant'), name: 't' } })
         )._unsafeUnwrap();
-        stage('User', {
+        stage(deps.userStaging, {
           pre: null,
           input: { ...newUser('fk@example.com'), tenant_id: other.id },
         })._unsafeUnwrap();
@@ -491,7 +497,7 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
     it('treats a model staged for deletion as missing', async () => {
       const user = await createUser({ email: 'to-delete@example.com' });
       await withStagingScope(async () => {
-        stageDelete('User', user)._unsafeUnwrap();
+        stageDelete(deps.userStaging, user)._unsafeUnwrap();
         expect((await users.isExisted(user.id))._unsafeUnwrap()).toBe(NOT_EXIST);
         expect((await users.getById(user.id))._unsafeUnwrapErr()).toBeInstanceOf(
           EntityNotFoundError,
@@ -505,12 +511,15 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
     it('returns StagingDuplicateError for the same primary key or unique key', async () => {
       await withStagingScope(async () => {
         const first = newUser('dup@example.com');
-        stage('User', { pre: null, input: first })._unsafeUnwrap();
-        expect(stage('User', { pre: null, input: first })._unsafeUnwrapErr()).toBeInstanceOf(
-          StagingDuplicateError,
-        );
+        stage(deps.userStaging, { pre: null, input: first })._unsafeUnwrap();
         expect(
-          stage('User', { pre: null, input: newUser('dup@example.com') })._unsafeUnwrapErr(),
+          stage(deps.userStaging, { pre: null, input: first })._unsafeUnwrapErr(),
+        ).toBeInstanceOf(StagingDuplicateError);
+        expect(
+          stage(deps.userStaging, {
+            pre: null,
+            input: newUser('dup@example.com'),
+          })._unsafeUnwrapErr(),
         ).toBeInstanceOf(StagingDuplicateError);
       });
     });
@@ -519,7 +528,7 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
       const products_ = [nextId('product'), nextId('product')];
       await withStagingScope(async () => {
         for (const id of products_) {
-          stage('User', {
+          stage(deps.userStaging, {
             pre: null,
             input: { ...newUser(`${id}@example.com`), nickname: null },
           })._unsafeUnwrap();
@@ -534,13 +543,15 @@ const repositoryContract = (setup: () => Promise<ContractDeps>): void => {
         return (await users.isExisted(input.id))._unsafeUnwrap();
       };
       await withStagingScope(async () => {
-        stage('User', { pre: null, input })._unsafeUnwrap();
+        stage(deps.userStaging, { pre: null, input })._unsafeUnwrap();
         expect(await check()).toBe(input.id);
       });
     });
 
     it('throws outside a scope and when a scope is nested', async () => {
-      expect(() => stage('User', { pre: null, input: newUser('outside@example.com') })).toThrow();
+      expect(() =>
+        stage(deps.userStaging, { pre: null, input: newUser('outside@example.com') }),
+      ).toThrow();
       await withStagingScope(async () => {
         expect(() => withStagingScope(async () => undefined)).toThrow();
       });
@@ -557,6 +568,7 @@ describe('SQLite', () => {
     return {
       tenants: await runtime.get(SqliteTenants),
       users: await runtime.get(SqliteUsers),
+      userStaging: SqliteUsers.staging,
       products: await runtime.get(SqliteProducts),
       orders: await runtime.get(SqliteOrders),
       timelines: {
@@ -595,6 +607,7 @@ describe('PostgreSQL', () => {
     return {
       tenants: await runtime.get(PgTenants),
       users: await runtime.get(PgUsers),
+      userStaging: PgUsers.staging,
       products: await runtime.get(PgProducts),
       orders: await runtime.get(PgOrders),
       timelines: {
@@ -644,6 +657,7 @@ describe('MySQL', () => {
     return {
       tenants: await runtime.get(MySqlTenants),
       users: await runtime.get(MySqlUsers),
+      userStaging: MySqlUsers.staging,
       products: await runtime.get(MySqlProducts),
       orders: await runtime.get(MySqlOrders),
       timelines: {
@@ -682,5 +696,28 @@ describe('MySQL', () => {
       },
       shutdown: () => runtime.shutdown(),
     };
+  });
+});
+
+// Two schemas can each have a domain named User, as an app with two databases has.
+describe('staging across schemas', () => {
+  it('shows a staged model only to the repository of the domain it was staged for', async () => {
+    const runtime = await createApp([]).createRuntime();
+    const users = await runtime.get(SqliteUsers);
+    const input = {
+      id: 'user-staged-for-postgresql',
+      tenant_id: 'tenant' as TenantExistedId,
+      email: 'postgresql@example.com',
+      name: 'Staged',
+      nickname: null,
+    };
+    try {
+      await withStagingScope(async () => {
+        stage(PgUsers.staging, { pre: null, input })._unsafeUnwrap();
+        expect((await users.isExisted(input.id))._unsafeUnwrap()).toBe(NOT_EXIST);
+      });
+    } finally {
+      await runtime.shutdown();
+    }
   });
 });
