@@ -48,7 +48,10 @@ export const orderItem = sqliteTable('order_item', {
   name: text().notNull(),
 });
 
-export const relations = defineRelations({ tenant, user, product, order, orderItem }, (r) => ({
+// defineRelations() takes every table, because db.query reads only the tables it was given.
+const schema = { tenant, user, product, order, orderItem };
+
+export const schemaRelations = defineRelations(schema, (r) => ({
   order: {
     items: r.many.orderItem().meta({ includedInDomain: true }),
   },

@@ -10,7 +10,7 @@ import { drizzle } from 'drizzle-orm/libsql';
 
 import * as schema from './schema';
 
-type Database = LibSQLDatabase<typeof schema.relations>;
+type Database = LibSQLDatabase<typeof schema.schemaRelations>;
 
 @Injectable()
 export class DrizzleService extends DatabaseService<
@@ -32,7 +32,7 @@ export class DrizzleService extends DatabaseService<
     return {
       client: drizzle({
         client: connection,
-        relations: schema.relations,
+        relations: schema.schemaRelations,
         logger: this.countingLogger,
       }),
       connection,

@@ -62,13 +62,20 @@ export const orderItem = sqliteTable("order_item", {
 export const orderRelations = relations(order, ({ many }) => ({
   items: many(orderItem).meta({ includedInDomain: true }),
 }));
+
+export const orderItemRelations = relations(orderItem, ({ one }) => ({
+  order: one(order, { fields: [orderItem.order_id], references: [order.id] }),
+}));
 ```
 
 ```ts
 // drizzle 1.x
-export const schemaRelations = defineRelations({ order, orderItem }, (r) => ({
+export const schemaRelations = defineRelations(schema, (r) => ({
   order: {
     items: r.many.orderItem().meta({ includedInDomain: true }),
+  },
+  orderItem: {
+    order: r.one.order({ from: r.orderItem.order_id, to: r.order.id }),
   },
 }));
 ```
