@@ -36,7 +36,7 @@ domainは、DBに対して1度に読み書きする単位である。1つのdoma
 
 table・キー・関連は、drizzleの書き方でそのまま書く。drizzleにない情報は、`drizzle-metadata`の`.meta()`で書く。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/db/schema.ts
 // src/db/schema.ts
 import "drizzle-metadata/register";
 import "@zeltjs/drizzle-repository/metadata";
@@ -57,7 +57,7 @@ export const orderItem = sqliteTable("order_item", {
 
 関連は、使っているdrizzleの版の書き方で書く。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/db/schema.ts
 // drizzle 0.45.x
 export const orderRelations = relations(order, ({ many }) => ({
   items: many(orderItem).meta({ includedInDomain: true }),
@@ -68,7 +68,7 @@ export const orderItemRelations = relations(orderItem, ({ one }) => ({
 }));
 ```
 
-```ts
+```ts source=integration/drizzle-repository-v1/src/schema.ts
 // drizzle 1.x
 export const schemaRelations = defineRelations(schema, (r) => ({
   order: {
@@ -113,7 +113,7 @@ DBの値とJSの値の変換は、drizzleの列定義で書く。日時なら`in
 
 `zelt.config.ts`にpluginを登録する。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/zelt.config.ts
 // zelt.config.ts
 import { defineConfig } from "@zeltjs/cli";
 import { drizzleRepositoryPlugin } from "@zeltjs/drizzle-repository";
@@ -212,7 +212,7 @@ delete(model: User): ResultAsync<void, ConflictError | DbError>
 
 生成された基底は、そのまま使わない。アプリのRepositoryが基底を`inject()`で受け取り、使うメソッドだけを公開する。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.repository.ts
 // src/user/user.query.repository.ts
 @Injectable()
 export class UserQueryRepository {
@@ -240,7 +240,7 @@ export class UserCommandRepository {
 
 存在を確認してから読む。`getById`は確認した後のIDしか受け取らない。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const existed = await this.users.isExisted(input.user_id);
 if (existed.isErr()) return err(existed.error);
 if (existed.value === NOT_EXIST) return rejected("not_found");
@@ -255,7 +255,7 @@ const user = await this.users.getById(existed.value);
 
 `isExistedBy<一意キー>`は、あるかないかを、確認した結果の型で返す。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const checked = await this.users.isExistedByEmail(input.email);
 if (checked.isErr()) return err(checked.error);
 
@@ -285,7 +285,7 @@ if (checked.value.id === NOT_EXIST) {
 
 `save`の`pre`に`null`を渡すと、作成になる。`input`には、新しく作るときの型`NewUser`を渡す。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const created = await this.userCommands.save({
   pre: null,
   input: { id: newUserId(), name: "Alice", email },
@@ -299,7 +299,7 @@ if (created.isErr()) return err(created.error);
 
 読んだmodelを`pre`に、変えた後のmodelを`input`に渡す。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const user = await this.users.getById(userExistedId);
 if (user.isErr()) return err(user.error);
 
@@ -313,7 +313,7 @@ if (saved.isErr()) return err(saved.error);
 - `input`は完全なmodelである。一部の項目だけを渡すことはできない。
 - 複数のtableからなるdomainでは、`pre`と`input`を行ごとに比べ、変わった行だけが書かれる。`input`で増えた行は追加され、減った行は削除される。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/order/order.examples.ts
 const order = await this.orders.getById(orderExistedId);
 if (order.isErr()) return err(order.error);
 
@@ -338,7 +338,7 @@ const saved = await this.orderCommands.save({ pre: order.value, input });
 
 `optimisticLock`の列がないdomainで、行がすでにないときは、何もせずに成功する。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const user = await this.users.getById(userExistedId);
 if (user.isErr()) return err(user.error);
 
@@ -365,7 +365,7 @@ if (deleted.isErr()) return err(deleted.error);
 - 書くときは、起点のtableのlockの列が`pre`の値と一致することを条件にする。条件に合えば、lockの列を1進める。
 - 条件に合わなければ、そのdomainには何も書かず、`ConflictError`を返す。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/order/order.examples.ts
 const saved = await this.orderCommands.save({ pre: order.value, input });
 if (saved.isErr() && saved.error instanceof ConflictError) {
   // 読んだ後に、他の処理がこの注文を書き換えた。読み直すかどうかは呼んだ側が決める
@@ -382,7 +382,7 @@ if (saved.isErr() && saved.error instanceof ConflictError) {
 
 stagingは読み取りのための層である。stageしてもDBには書かれない。いつDBに書くかは、利用者が決める。
 
-```ts
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 import { withStagingScope, stage } from "@zeltjs/drizzle-repository";
 
 await withStagingScope(async () => {

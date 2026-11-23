@@ -40,12 +40,7 @@ domainは、DBに対して1度に読み書きする単位である。1つのdoma
 
 table・キー・関連は、drizzleの書き方でそのまま書く。drizzleにない情報は、`drizzle-metadata`の`.meta()`で書く。
 
-```ts
-// @filename: drizzle-repository/src/db/guide-schema.ts
-import { sql } from 'drizzle-orm';
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { customer } from './schema';
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/db/schema.ts
 // src/db/schema.ts
 import "drizzle-metadata/register";
 import "@zeltjs/drizzle-repository/metadata";
@@ -66,11 +61,7 @@ export const orderItem = sqliteTable("order_item", {
 
 関連は、使っているdrizzleの版の書き方で書く。
 
-```ts
-// @filename: drizzle-repository/src/db/guide-relations.ts
-import { relations } from 'drizzle-orm';
-import { order, orderItem } from './schema';
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/db/schema.ts
 // drizzle 0.45.x
 export const orderRelations = relations(order, ({ many }) => ({
   items: many(orderItem).meta({ includedInDomain: true }),
@@ -81,8 +72,7 @@ export const orderItemRelations = relations(orderItem, ({ one }) => ({
 }));
 ```
 
-```ts
-// @noErrors
+```ts source=integration/drizzle-repository-v1/src/schema.ts
 // drizzle 1.x
 export const schemaRelations = defineRelations(schema, (r) => ({
   order: {
@@ -127,12 +117,7 @@ DBの値とJSの値の変換は、drizzleの列定義で書く。日時なら`in
 
 `zelt.config.ts`にpluginを登録する。
 
-```ts
-// @filename: drizzle-repository/src/app.ts
-import { createApp } from '@zeltjs/core';
-export const app = createApp([]);
-// @filename: drizzle-repository/zelt.config.ts
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/zelt.config.ts
 // zelt.config.ts
 import { defineConfig } from "@zeltjs/cli";
 import { drizzleRepositoryPlugin } from "@zeltjs/drizzle-repository";
@@ -233,11 +218,7 @@ delete(model: User): ResultAsync<void, ConflictError | DbError>
 
 生成された基底は、そのまま使わない。アプリのRepositoryが基底を`inject()`で受け取り、使うメソッドだけを公開する。
 
-```ts
-// @filename: drizzle-repository/src/user/user.repository.ts
-import { Injectable, inject } from '@zeltjs/core';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.repository.ts
 // src/user/user.query.repository.ts
 @Injectable()
 export class UserQueryRepository {
@@ -265,27 +246,12 @@ export class UserCommandRepository {
 
 存在を確認してから読む。`getById`は確認した後のIDしか受け取らない。
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { NOT_EXIST } from '@zeltjs/drizzle-repository';
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-declare const rejected: (reason: string) => unknown;
-export class Example {
-  constructor(
-    private readonly users: UserRepositoryBase,
-  ) {}
-  async run(input: { user_id: UserId }) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const existed = await this.users.isExisted(input.user_id);
 if (existed.isErr()) return err(existed.error);
 if (existed.value === NOT_EXIST) return rejected("not_found");
 
 const user = await this.users.getById(existed.value);
-// ---cut-after---
-  }
-}
 ```
 
 - `isExisted`は、行があれば確認した後のIDを返し、なければ`NOT_EXIST`を返す。行がないことはエラーではない。
@@ -295,18 +261,7 @@ const user = await this.users.getById(existed.value);
 
 `isExistedBy<一意キー>`は、あるかないかを、確認した結果の型で返す。
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { NOT_EXIST } from '@zeltjs/drizzle-repository';
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-export class Example {
-  constructor(
-    private readonly users: UserRepositoryBase,
-  ) {}
-  async run(input: { email: string }) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const checked = await this.users.isExistedByEmail(input.email);
 if (checked.isErr()) return err(checked.error);
 
@@ -314,9 +269,6 @@ if (checked.value.id === NOT_EXIST) {
   // checked.value は { id: NOT_EXIST, email }。このemailの行がないことを確認した値である
 } else {
   // checked.value.id は UserExistedId。getById に渡せる
-}
-// ---cut-after---
-  }
 }
 ```
 
@@ -339,18 +291,7 @@ if (checked.value.id === NOT_EXIST) {
 
 `save`の`pre`に`null`を渡すと、作成になる。`input`には、新しく作るときの型`NewUser`を渡す。
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-declare const newUserId: () => UserId;
-export class Example {
-  constructor(
-    private readonly userCommands: UserRepositoryBase,
-  ) {}
-  async run(email: string) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const created = await this.userCommands.save({
   pre: null,
   input: { id: newUserId(), name: "Alice", email },
@@ -358,27 +299,13 @@ const created = await this.userCommands.save({
 if (created.isErr()) return err(created.error);
 
 // created.value は User。id は UserExistedId になっている
-// ---cut-after---
-  }
-}
 ```
 
 ### 更新する
 
 読んだmodelを`pre`に、変えた後のmodelを`input`に渡す。
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-export class Example {
-  constructor(
-    private readonly users: UserRepositoryBase,
-    private readonly userCommands: UserRepositoryBase,
-  ) {}
-  async run(userExistedId: UserExistedId) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const user = await this.users.getById(userExistedId);
 if (user.isErr()) return err(user.error);
 
@@ -387,29 +314,12 @@ const saved = await this.userCommands.save({
   input: { ...user.value, name: "Bob" },
 });
 if (saved.isErr()) return err(saved.error);
-// ---cut-after---
-  }
-}
 ```
 
 - `input`は完全なmodelである。一部の項目だけを渡すことはできない。
 - 複数のtableからなるdomainでは、`pre`と`input`を行ごとに比べ、変わった行だけが書かれる。`input`で増えた行は追加され、減った行は削除される。
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { err } from 'neverthrow';
-import type { OrderExistedId } from '../domain/generated/order.model';
-import { OrderRepositoryBase } from '../db/generated/order.repository-base';
-declare const itemB: string;
-declare const itemC: string;
-declare const newOrderItemId: () => string;
-export class Example {
-  constructor(
-    private readonly orders: OrderRepositoryBase,
-    private readonly orderCommands: OrderRepositoryBase,
-  ) {}
-  async run(orderExistedId: OrderExistedId) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/order/order.examples.ts
 const order = await this.orders.getById(orderExistedId);
 if (order.isErr()) return err(order.error);
 
@@ -426,9 +336,6 @@ const input = {
 
 const saved = await this.orderCommands.save({ pre: order.value, input });
 // 明細Bの更新、明細Dの追加、明細Cの削除だけが書かれる
-// ---cut-after---
-  }
-}
 ```
 
 ### 削除する
@@ -437,26 +344,12 @@ const saved = await this.orderCommands.save({ pre: order.value, input });
 
 `optimisticLock`の列がないdomainで、行がすでにないときは、何もせずに成功する。
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-export class Example {
-  constructor(
-    private readonly users: UserRepositoryBase,
-    private readonly userCommands: UserRepositoryBase,
-  ) {}
-  async run(userExistedId: UserExistedId) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const user = await this.users.getById(userExistedId);
 if (user.isErr()) return err(user.error);
 
 const deleted = await this.userCommands.delete(user.value);
 if (deleted.isErr()) return err(deleted.error);
-// ---cut-after---
-  }
-}
 ```
 
 ### 書き込みの決まり
@@ -478,27 +371,10 @@ if (deleted.isErr()) return err(deleted.error);
 - 書くときは、起点のtableのlockの列が`pre`の値と一致することを条件にする。条件に合えば、lockの列を1進める。
 - 条件に合わなければ、そのdomainには何も書かず、`ConflictError`を返す。
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { ConflictError } from '@zeltjs/drizzle-repository';
-import type { OrderExistedId } from '../domain/generated/order.model';
-import { OrderRepositoryBase } from '../db/generated/order.repository-base';
-export class Example {
-  constructor(
-    private readonly orders: OrderRepositoryBase,
-    private readonly orderCommands: OrderRepositoryBase,
-  ) {}
-  async run(orderExistedId: OrderExistedId) {
-    const order = await this.orders.getById(orderExistedId);
-    if (order.isErr()) return;
-    const input = order.value;
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/order/order.examples.ts
 const saved = await this.orderCommands.save({ pre: order.value, input });
 if (saved.isErr() && saved.error instanceof ConflictError) {
   // 読んだ後に、他の処理がこの注文を書き換えた。読み直すかどうかは呼んだ側が決める
-}
-// ---cut-after---
-  }
 }
 ```
 
@@ -512,8 +388,7 @@ if (saved.isErr() && saved.error instanceof ConflictError) {
 
 stagingは読み取りのための層である。stageしてもDBには書かれない。いつDBに書くかは、利用者が決める。
 
-```ts
-// @noErrors
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 import { withStagingScope, stage } from "@zeltjs/drizzle-repository";
 
 await withStagingScope(async () => {

@@ -40,12 +40,7 @@ A domain is the unit that is read from and written to the DB at one time. One do
 
 Write tables, keys and relations as drizzle has them. Write what drizzle lacks with `.meta()` of `drizzle-metadata`.
 
-```ts
-// @filename: drizzle-repository/src/db/guide-schema.ts
-import { sql } from 'drizzle-orm';
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { customer } from './schema';
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/db/schema.ts
 // src/db/schema.ts
 import "drizzle-metadata/register";
 import "@zeltjs/drizzle-repository/metadata";
@@ -66,11 +61,7 @@ export const orderItem = sqliteTable("order_item", {
 
 Write relations the way the version of drizzle you use writes them.
 
-```ts
-// @filename: drizzle-repository/src/db/guide-relations.ts
-import { relations } from 'drizzle-orm';
-import { order, orderItem } from './schema';
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/db/schema.ts
 // drizzle 0.45.x
 export const orderRelations = relations(order, ({ many }) => ({
   items: many(orderItem).meta({ includedInDomain: true }),
@@ -81,8 +72,7 @@ export const orderItemRelations = relations(orderItem, ({ one }) => ({
 }));
 ```
 
-```ts
-// @noErrors
+```ts source=integration/drizzle-repository-v1/src/schema.ts
 // drizzle 1.x
 export const schemaRelations = defineRelations(schema, (r) => ({
   order: {
@@ -127,12 +117,7 @@ Write conversions between DB values and JS values in the drizzle column definiti
 
 Register the plugin in `zelt.config.ts`.
 
-```ts
-// @filename: drizzle-repository/src/app.ts
-import { createApp } from '@zeltjs/core';
-export const app = createApp([]);
-// @filename: drizzle-repository/zelt.config.ts
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/zelt.config.ts
 // zelt.config.ts
 import { defineConfig } from "@zeltjs/cli";
 import { drizzleRepositoryPlugin } from "@zeltjs/drizzle-repository";
@@ -233,11 +218,7 @@ When the same set of columns is both a unique key and a foreign key, it is treat
 
 Do not use the generated base as it is. The app's Repository receives the base with `inject()` and exposes only the methods it uses.
 
-```ts
-// @filename: drizzle-repository/src/user/user.repository.ts
-import { Injectable, inject } from '@zeltjs/core';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.repository.ts
 // src/user/user.query.repository.ts
 @Injectable()
 export class UserQueryRepository {
@@ -265,27 +246,12 @@ export class UserCommandRepository {
 
 Confirm existence before reading. `getById` accepts only confirmed IDs.
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { NOT_EXIST } from '@zeltjs/drizzle-repository';
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-declare const rejected: (reason: string) => unknown;
-export class Example {
-  constructor(
-    private readonly users: UserRepositoryBase,
-  ) {}
-  async run(input: { user_id: UserId }) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const existed = await this.users.isExisted(input.user_id);
 if (existed.isErr()) return err(existed.error);
 if (existed.value === NOT_EXIST) return rejected("not_found");
 
 const user = await this.users.getById(existed.value);
-// ---cut-after---
-  }
-}
 ```
 
 - `isExisted` returns the confirmed ID if the row exists, and `NOT_EXIST` if it does not. A missing row is not an error.
@@ -295,18 +261,7 @@ const user = await this.users.getById(existed.value);
 
 `isExistedBy<UniqueKey>` returns whether a row exists or not as the type of the checked result.
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { NOT_EXIST } from '@zeltjs/drizzle-repository';
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-export class Example {
-  constructor(
-    private readonly users: UserRepositoryBase,
-  ) {}
-  async run(input: { email: string }) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const checked = await this.users.isExistedByEmail(input.email);
 if (checked.isErr()) return err(checked.error);
 
@@ -314,9 +269,6 @@ if (checked.value.id === NOT_EXIST) {
   // checked.value is { id: NOT_EXIST, email }: a value confirming that no row has this email
 } else {
   // checked.value.id is a UserExistedId, which can be passed to getById
-}
-// ---cut-after---
-  }
 }
 ```
 
@@ -339,18 +291,7 @@ if (checked.value.id === NOT_EXIST) {
 
 Passing `null` as `pre` of `save` creates. Pass the type used to create a new one, `NewUser`, as `input`.
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-declare const newUserId: () => UserId;
-export class Example {
-  constructor(
-    private readonly userCommands: UserRepositoryBase,
-  ) {}
-  async run(email: string) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const created = await this.userCommands.save({
   pre: null,
   input: { id: newUserId(), name: "Alice", email },
@@ -358,27 +299,13 @@ const created = await this.userCommands.save({
 if (created.isErr()) return err(created.error);
 
 // created.value is a User, and its id is now a UserExistedId
-// ---cut-after---
-  }
-}
 ```
 
 ### Updating
 
 Pass the model you read as `pre`, and the changed model as `input`.
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-export class Example {
-  constructor(
-    private readonly users: UserRepositoryBase,
-    private readonly userCommands: UserRepositoryBase,
-  ) {}
-  async run(userExistedId: UserExistedId) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const user = await this.users.getById(userExistedId);
 if (user.isErr()) return err(user.error);
 
@@ -387,29 +314,12 @@ const saved = await this.userCommands.save({
   input: { ...user.value, name: "Bob" },
 });
 if (saved.isErr()) return err(saved.error);
-// ---cut-after---
-  }
-}
 ```
 
 - `input` is a complete model. You cannot pass only some of the fields.
 - In a domain made of several tables, `pre` and `input` are compared row by row, and only the rows that changed are written. Rows added in `input` are inserted, and rows removed are deleted.
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { err } from 'neverthrow';
-import type { OrderExistedId } from '../domain/generated/order.model';
-import { OrderRepositoryBase } from '../db/generated/order.repository-base';
-declare const itemB: string;
-declare const itemC: string;
-declare const newOrderItemId: () => string;
-export class Example {
-  constructor(
-    private readonly orders: OrderRepositoryBase,
-    private readonly orderCommands: OrderRepositoryBase,
-  ) {}
-  async run(orderExistedId: OrderExistedId) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/order/order.examples.ts
 const order = await this.orders.getById(orderExistedId);
 if (order.isErr()) return err(order.error);
 
@@ -419,16 +329,13 @@ const input = {
   items: [
     ...order.value.items
       .filter((item) => item.id !== itemC)
-      .map((item) => (item.id === itemB ? { ...item, name: "new name" } : item)),
+      .map((item) => (item.id === itemB ? { ...item, name: "新しい名前" } : item)),
     { id: newOrderItemId(), order_id: order.value.id, name: "D" },
   ],
 };
 
 const saved = await this.orderCommands.save({ pre: order.value, input });
 // Only the update of item B, the insert of item D and the delete of item C are written
-// ---cut-after---
-  }
-}
 ```
 
 ### Deleting
@@ -437,26 +344,12 @@ Pass the model you read. The rows of the tables in the same domain are deleted w
 
 In a domain without an `optimisticLock` column, if the row is already gone, it does nothing and succeeds.
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { err } from 'neverthrow';
-import type { UserExistedId, UserId } from '../domain/generated/user.model';
-import { UserRepositoryBase } from '../db/generated/user.repository-base';
-export class Example {
-  constructor(
-    private readonly users: UserRepositoryBase,
-    private readonly userCommands: UserRepositoryBase,
-  ) {}
-  async run(userExistedId: UserExistedId) {
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 const user = await this.users.getById(userExistedId);
 if (user.isErr()) return err(user.error);
 
 const deleted = await this.userCommands.delete(user.value);
 if (deleted.isErr()) return err(deleted.error);
-// ---cut-after---
-  }
-}
 ```
 
 ### Rules of writing
@@ -478,27 +371,10 @@ In a domain with a column that has `optimisticLock`, `save` and `delete` prevent
 - When writing, the condition is that the lock column of the root table matches the value in `pre`. If the condition holds, the lock column advances by 1.
 - If the condition does not hold, nothing is written to the domain and `ConflictError` is returned.
 
-```ts
-// @filename: drizzle-repository/src/user/example.ts
-import { ConflictError } from '@zeltjs/drizzle-repository';
-import type { OrderExistedId } from '../domain/generated/order.model';
-import { OrderRepositoryBase } from '../db/generated/order.repository-base';
-export class Example {
-  constructor(
-    private readonly orders: OrderRepositoryBase,
-    private readonly orderCommands: OrderRepositoryBase,
-  ) {}
-  async run(orderExistedId: OrderExistedId) {
-    const order = await this.orders.getById(orderExistedId);
-    if (order.isErr()) return;
-    const input = order.value;
-// ---cut---
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/order/order.examples.ts
 const saved = await this.orderCommands.save({ pre: order.value, input });
 if (saved.isErr() && saved.error instanceof ConflictError) {
   // Another process rewrote this order after it was read. The caller decides whether to read it again
-}
-// ---cut-after---
-  }
 }
 ```
 
@@ -512,8 +388,7 @@ When processing several items in order, later items' reads refer to the models a
 
 Staging is a layer for reading. Staging does not write to the DB. When to write to the DB is decided by the user.
 
-```ts
-// @noErrors
+```ts source=website/src/twoslash/fixtures/drizzle-repository/src/user/user.examples.ts
 import { withStagingScope, stage } from "@zeltjs/drizzle-repository";
 
 await withStagingScope(async () => {

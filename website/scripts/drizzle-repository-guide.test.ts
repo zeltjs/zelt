@@ -1,19 +1,22 @@
 import { cp, readdir, readFile, rm } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import { drizzleRepositoryPlugin } from '@zeltjs/drizzle-repository';
+import type { ZeltConfig } from '@zeltjs/cli';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { twoslashBlocks, visibleCode } from '../src/twoslash/code-blocks.lib';
 import { importModule } from './guide-project.lib';
 import { createReadCodeBlocks } from './markdown-code.lib';
 
-// The guide's blocks are type-checked against an app whose repositories and models are committed
-// generator output. This test runs the real generator on that app's schema and checks that the
-// committed output is what the generator produces now. UPDATE_GENERATED=1 rewrites it.
+// The README of the package and the guide show excerpts of one app: its schema and config, and
+// code that uses the repositories and models the real generator wrote from that schema. This test
+// runs the generator from the app's own config and checks that the committed output is what the
+// generator produces now (UPDATE_GENERATED=1 rewrites it), type-checks the app, and checks that
+// each code block is an excerpt of the file its `source=` names.
 const websiteDir = join(import.meta.dirname, '..');
+const repoDir = join(websiteDir, '..');
 const fixtureDir = join(websiteDir, 'src/twoslash/fixtures/drizzle-repository');
 const workDir = join(websiteDir, '.generated/drizzle-repository-guide');
-const guides = {
+const docs = {
+  README: join(repoDir, 'packages/drizzle-repository/README.md'),
   en: join(websiteDir, 'docs/drizzle-repository.md'),
   ja: join(websiteDir, 'i18n/ja/docusaurus-plugin-content-docs/current/drizzle-repository.md'),
 };
@@ -25,18 +28,23 @@ const listFiles = async (dir: string): Promise<readonly string[]> =>
     .map((entry) => relative(dir, join(entry.parentPath, entry.name)))
     .sort();
 
+function asConfig(value: unknown): ZeltConfig;
+function asConfig(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null)
+    throw new Error('zelt.config.ts has no default export');
+  return value;
+}
+
 const generate = async (): Promise<void> => {
   await rm(workDir, { recursive: true, force: true });
   await cp(join(fixtureDir, 'src/db'), join(workDir, 'src/db'), {
     recursive: true,
     filter: (source) => !source.includes('/generated'),
   });
-  const plugin = drizzleRepositoryPlugin({
-    schema: './src/db/schema.ts',
-    database: { from: './src/db/drizzle.service.ts', name: 'DrizzleService' },
-    out: { model: './src/domain/generated', repository: './src/db/generated' },
-  });
-  await plugin.preBuild?.({
+  const config = asConfig((await importModule(join(fixtureDir, 'zelt.config.ts')))['default']);
+  const plugin = config.plugins?.find((candidate) => candidate.name === 'drizzle-repository');
+  if (plugin?.preBuild === undefined) throw new Error('zelt.config.ts has no repository plugin');
+  await plugin.preBuild({
     cwd: workDir,
     build: {},
     loadModule: importModule,
@@ -45,8 +53,25 @@ const generate = async (): Promise<void> => {
   });
 };
 
+const typeErrors = (project: string): string => {
+  const host = {
+    getCanonicalFileName: (name: string) => name,
+    getCurrentDirectory: () => project,
+    getNewLine: () => '\n',
+  };
+  const config = ts.getParsedCommandLineOfConfigFile(join(project, 'tsconfig.json'), undefined, {
+    ...ts.sys,
+    onUnRecoverableConfigFileDiagnostic: (diagnostic) => {
+      throw new Error(ts.formatDiagnostic(diagnostic, host));
+    },
+  });
+  if (config === undefined) throw new Error(`${project}/tsconfig.json cannot be read`);
+  const program = ts.createProgram(config.fileNames, config.options);
+  return ts.formatDiagnostics([...config.errors, ...ts.getPreEmitDiagnostics(program)], host);
+};
+
 // Comparing tokens keeps formatting, comments and quote style out of the comparison.
-const tokens = (code: string): string => {
+const tokens = (code: string): readonly string[] => {
   const scanner = ts.createScanner(ts.ScriptTarget.Latest, true, ts.LanguageVariant.Standard, code);
   const result: string[] = [];
   for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan()) {
@@ -56,7 +81,41 @@ const tokens = (code: string): string => {
         : scanner.getTokenText(),
     );
   }
-  return result.join(' ');
+  return result;
+};
+
+const isExcerpt = (file: readonly string[], block: readonly string[]): boolean =>
+  block.length > 0 &&
+  file.some((_, start) => block.every((token, index) => file[start + index] === token));
+
+const typescript = new Set(['ts', 'typescript', 'tsx']);
+const SOURCE = /\bsource=(\S+)/;
+
+// No file can hold these blocks: one shows the drizzle() call of both drizzle versions side by
+// side, the other the generated methods with placeholders for the names of keys.
+const pseudoCode = ['drizzle(connection, { schema });', 'isExisted(id: UserId):'];
+
+const readCodeBlocks = createReadCodeBlocks();
+
+const mismatchesOf = async (doc: string): Promise<readonly string[]> => {
+  const blocks = await readCodeBlocks(doc, await readFile(doc, 'utf8'));
+  const mismatches: string[] = [];
+  for (const { lang, meta, value } of blocks) {
+    if (!typescript.has(lang ?? '')) continue;
+    const source = meta?.match(SOURCE)?.[1];
+    if (source === undefined) {
+      if (!pseudoCode.some((line) => value.includes(line))) mismatches.push(`no source=\n${value}`);
+      continue;
+    }
+    // An import only tells where a name comes from; the file may import more names, in any order.
+    const shown = value
+      .split('\n')
+      .filter((line) => !line.startsWith('import '))
+      .join('\n');
+    const file = await readFile(join(repoDir, source), 'utf8');
+    if (!isExcerpt(tokens(file), tokens(shown))) mismatches.push(`not in ${source}\n${value}`);
+  }
+  return mismatches;
 };
 
 describe('drizzle-repository guide', () => {
@@ -79,20 +138,14 @@ describe('drizzle-repository guide', () => {
     }
   }, 60_000);
 
-  const readCodeBlocks = createReadCodeBlocks();
+  it('type-checks its app', () => {
+    expect(typeErrors(fixtureDir)).toBe('');
+  }, 60_000);
 
-  it.each(Object.entries(guides))(
-    '%s: the shown schema is the schema of the app',
-    async (_, guide) => {
-      const blocks = twoslashBlocks(await readCodeBlocks(guide, await readFile(guide, 'utf8')));
-      const schemaBlock = blocks.find(({ code }) => code.includes('// src/db/schema.ts'));
-      if (schemaBlock === undefined) throw new Error('The guide has no src/db/schema.ts block');
-      const shown = visibleCode(schemaBlock.code)
-        .split('\n')
-        .filter((line) => !line.startsWith('import '))
-        .join('\n');
-      const appSchema = await readFile(join(fixtureDir, 'src/db/schema.ts'), 'utf8');
-      expect(tokens(appSchema)).toContain(tokens(shown));
+  it.each(Object.entries(docs))(
+    '%s: every code block is an excerpt of a file of a tested app',
+    async (_, doc) => {
+      expect(await mismatchesOf(doc)).toEqual([]);
     },
   );
 });
