@@ -1,6 +1,6 @@
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import { err, ok, Result } from 'neverthrow';
 
+import type { Dialect } from './domain-definition.types';
 import type {
   GenerationError,
   Schema,
@@ -9,18 +9,37 @@ import type {
   SchemaTable,
 } from './generation.types';
 
-// Columns of a child row that hold the values of the parent columns at the same positions.
-type DomainForeignKey = {
-  readonly columns: readonly string[];
-  readonly parentColumns: readonly string[];
-};
+// The one part a column plays in its domain. The classifiers below report a primary key that is
+// excluded or the lock, a lock that is excluded, and a lock on a table that is not a root.
+export type DomainColumn =
+  | { kind: 'id' | 'value' | 'excluded' | 'lock'; readonly key: string }
+  // Holds the id of the root of a domain.
+  | {
+      kind: 'reference';
+      readonly key: string;
+      readonly root: string;
+      readonly nullable: boolean;
+    }
+  // Holds the value of the parent column of an included row; the engine writes it.
+  | {
+      kind: 'link';
+      readonly key: string;
+      readonly parent: string;
+      readonly nullable: boolean;
+    };
+
+export type ChildColumn = Exclude<DomainColumn, { kind: 'lock' }>;
+
+// A column of a child row and the parent column whose value it holds.
+type LinkPair = { readonly column: string; readonly parent: string };
 
 export type DomainChild = {
   readonly relation: string;
-  readonly table: SchemaTable;
-  readonly foreignKey: DomainForeignKey;
+  readonly exportName: string;
   readonly typeName: string;
   readonly primaryKey: string;
+  readonly columns: readonly ChildColumn[];
+  readonly link: readonly LinkPair[];
   readonly children: readonly DomainChild[];
 };
 
@@ -37,9 +56,10 @@ type DomainFinder = {
 
 export type Domain = {
   readonly typeName: string;
-  readonly root: SchemaTable;
+  readonly exportName: string;
+  readonly dialect: Dialect;
   readonly primaryKey: string;
-  readonly lockColumn: string | undefined;
+  readonly columns: readonly DomainColumn[];
   readonly uniqueKeys: readonly DomainKey[];
   readonly finders: readonly DomainFinder[];
   readonly children: readonly DomainChild[];
@@ -61,29 +81,89 @@ const sameColumns = (a: readonly string[], b: readonly string[]): boolean =>
 const columnByKey = (table: SchemaTable, key: string): SchemaColumn | undefined =>
   table.columns.find((column) => column.key === key);
 
-const lockErrors = (table: SchemaTable, isRoot: boolean): GenerationError[] => {
-  const locks = table.columns.filter((column) => column.optimisticLock);
-  const errors: GenerationError[] = locks
-    .filter((column) => !column.isNumber)
-    .map((column) => ({
-      message: `${table.exportName}.${column.key}: optimisticLock is only for a number column`,
-    }));
-  // A NULL lock value never matches the condition of the update, so every write would conflict.
-  for (const column of locks.filter((candidate) => !candidate.notNull)) {
-    errors.push({
-      message: `${table.exportName}.${column.key}: optimisticLock is only for a NOT NULL column`,
-    });
-  }
-  if (locks.length > 1) {
-    errors.push({ message: `${table.exportName}: optimisticLock is on more than one column` });
-  }
-  if (locks.length > 0 && !isRoot) {
-    errors.push({
-      message: `${table.exportName}: optimisticLock is on a table that is not the root of a domain`,
-    });
-  }
-  return errors;
+const failures = (messages: readonly (string | false)[]): GenerationError[] =>
+  messages.flatMap((message) => (message === false ? [] : [{ message }]));
+
+// What a table's place in the domain tells about its columns.
+type Place = {
+  readonly table: SchemaTable;
+  readonly primaryKey: string;
+  // Column -> the parent column whose value the engine writes into it.
+  readonly links: ReadonlyMap<string, string>;
+  // Column -> the domain root whose primary key it points to.
+  readonly references: ReadonlyMap<string, string>;
 };
+
+const notRootLock = (table: SchemaTable): string =>
+  `${table.exportName}: optimisticLock is on a table that is not the root of a domain`;
+
+const classifyLock = (
+  column: SchemaColumn,
+  at: string,
+): Result<DomainColumn, GenerationError[]> => {
+  const errors = failures([
+    column.excludedFromModel && `${at}: optimisticLock is not for a column excluded from the model`,
+    !column.isNumber && `${at}: optimisticLock is only for a number column`,
+    // A NULL lock value never matches the condition of the update, so every write would conflict.
+    !column.notNull && `${at}: optimisticLock is only for a NOT NULL column`,
+  ]);
+  return errors.length > 0 ? err(errors) : ok({ kind: 'lock', key: column.key });
+};
+
+const classifyPrimaryKey = (
+  column: SchemaColumn,
+  at: string,
+): Result<ChildColumn, GenerationError[]> => {
+  const errors = failures([
+    column.excludedFromModel && `${at}: excludedFromModel is not for the primary key`,
+    column.optimisticLock && `${at}: optimisticLock is not for the primary key`,
+  ]);
+  return errors.length > 0 ? err(errors) : ok({ kind: 'id', key: column.key });
+};
+
+// Decides every part but the lock, which only the root of a domain may have.
+const classifyUnlocked = (
+  column: SchemaColumn,
+  place: Place,
+): Result<ChildColumn, GenerationError[]> => {
+  const { key } = column;
+  if (key === place.primaryKey) {
+    return classifyPrimaryKey(column, `${place.table.exportName}.${key}`);
+  }
+  if (column.excludedFromModel) return ok({ kind: 'excluded', key });
+  const nullable = !column.notNull;
+  const parent = place.links.get(key);
+  if (parent !== undefined) return ok({ kind: 'link', key, parent, nullable });
+  const root = place.references.get(key);
+  if (root !== undefined) return ok({ kind: 'reference', key, root, nullable });
+  return ok({ kind: 'value', key });
+};
+
+const classifyRootColumns = (place: Place): Result<DomainColumn[], GenerationError[]> => {
+  const { table } = place;
+  const columns = Result.combineWithAllErrors(
+    table.columns.map((column) =>
+      column.optimisticLock && column.key !== place.primaryKey
+        ? classifyLock(column, `${table.exportName}.${column.key}`)
+        : classifyUnlocked(column, place),
+    ),
+  ).mapErr((errors) => errors.flat());
+  const locks = table.columns.filter((column) => column.optimisticLock);
+  if (locks.length <= 1) return columns;
+  return err([
+    ...(columns.isErr() ? columns.error : []),
+    { message: `${table.exportName}: optimisticLock is on more than one column` },
+  ]);
+};
+
+const classifyChildColumns = (place: Place): Result<ChildColumn[], GenerationError[]> =>
+  Result.combineWithAllErrors(
+    place.table.columns.map((column) =>
+      column.optimisticLock
+        ? err([{ message: notRootLock(place.table) }])
+        : classifyUnlocked(column, place),
+    ),
+  ).mapErr((errors) => errors.flat());
 
 const singlePrimaryKey = (table: SchemaTable): Result<string, GenerationError> => {
   const [first, ...rest] = table.primaryKey;
@@ -95,11 +175,27 @@ const singlePrimaryKey = (table: SchemaTable): Result<string, GenerationError> =
   return ok(first);
 };
 
-// The engine writes the parent's values into these columns, so the parent's model must carry them.
-const foreignKeyOf = (
+// A foreign key holds the id of a domain only when it points to the primary key of its root.
+const referencesOf = (
+  table: SchemaTable,
+  rootByName: ReadonlyMap<string, SchemaTable>,
+): ReadonlyMap<string, string> =>
+  new Map(
+    table.foreignKeys.flatMap((foreignKey): [string, string][] => {
+      const [column, ...rest] = foreignKey.columns;
+      const target = rootByName.get(foreignKey.table);
+      if (column === undefined || rest.length > 0 || target === undefined) return [];
+      return sameColumns(foreignKey.foreignColumns, target.primaryKey)
+        ? [[column, foreignKey.table]]
+        : [];
+    }),
+  );
+
+// The engine writes the parent's values into the link columns, so the parent's model must carry them.
+const linkOf = (
   relation: SchemaRelation,
-  parent: SchemaTable,
-): Result<DomainForeignKey, GenerationError> => {
+  parentColumns: readonly DomainColumn[],
+): Result<readonly LinkPair[], GenerationError> => {
   const { sourceColumns, targetColumns } = relation;
   const label = `${relation.source}.${relation.name}`;
   if (sourceColumns.length === 0 || sourceColumns.length !== targetColumns.length) {
@@ -108,14 +204,19 @@ const foreignKeyOf = (
     });
   }
   const excluded = sourceColumns.filter(
-    (key) => columnByKey(parent, key)?.excludedFromModel === true,
+    (key) => parentColumns.find((column) => column.key === key)?.kind === 'excluded',
   );
   if (excluded.length > 0) {
     return err({
       message: `${label}: the relation uses ${excluded.join(', ')}, which is excluded from the model`,
     });
   }
-  return ok({ columns: targetColumns, parentColumns: sourceColumns });
+  return ok(
+    targetColumns.flatMap((column, index) => {
+      const parent = sourceColumns[index];
+      return parent === undefined ? [] : [{ column, parent }];
+    }),
+  );
 };
 
 const cycleError = (members: readonly string[]): GenerationError => ({
@@ -147,26 +248,24 @@ const unreachedError = (
 
 type Context = {
   readonly tableByName: ReadonlyMap<string, SchemaTable>;
+  readonly rootByName: ReadonlyMap<string, SchemaTable>;
   readonly included: readonly SchemaRelation[];
-  readonly rootNames: ReadonlySet<string>;
   readonly reached: Set<string>;
   readonly errors: GenerationError[];
 };
 
-const childKeys = (
-  table: SchemaTable,
-  relation: SchemaRelation,
-  parent: SchemaTable,
-): Result<readonly [string, DomainForeignKey], GenerationError[]> => {
-  const primaryKey = singlePrimaryKey(table);
-  const foreignKey = foreignKeyOf(relation, parent);
-  if (primaryKey.isOk() && foreignKey.isOk()) return ok([primaryKey.value, foreignKey.value]);
-  return err([primaryKey, foreignKey].flatMap((result) => (result.isErr() ? [result.error] : [])));
+const valueOrReport = <T>(
+  context: Context,
+  result: Result<T, GenerationError[]>,
+): T | undefined => {
+  if (result.isOk()) return result.value;
+  context.errors.push(...result.error);
+  return undefined;
 };
 
 const childOf = (
   context: Context,
-  source: string,
+  parentColumns: readonly DomainColumn[],
   relation: SchemaRelation,
   path: readonly string[],
 ): DomainChild[] => {
@@ -175,31 +274,46 @@ const childOf = (
     return [];
   }
   const table = context.tableByName.get(relation.target);
-  const parent = context.tableByName.get(source);
-  if (table === undefined || parent === undefined) return [];
+  if (table === undefined) return [];
   context.reached.add(table.exportName);
-  const keys = childKeys(table, relation, parent);
-  if (keys.isErr()) {
-    context.errors.push(...keys.error);
-    return [];
-  }
-  const [primaryKey, foreignKey] = keys.value;
+  const keys = valueOrReport(
+    context,
+    Result.combineWithAllErrors([singlePrimaryKey(table), linkOf(relation, parentColumns)]),
+  );
+  if (keys === undefined) return [];
+  const [primaryKey, link] = keys;
+  const columns = valueOrReport(
+    context,
+    classifyChildColumns({
+      table,
+      primaryKey,
+      links: new Map(link.map(({ column, parent }) => [column, parent])),
+      references: referencesOf(table, context.rootByName),
+    }),
+  );
+  if (columns === undefined) return [];
   return [
     {
       relation: relation.name,
-      table,
-      foreignKey,
+      exportName: table.exportName,
       typeName: upperCamel(table.exportName),
       primaryKey,
-      children: childrenOf(context, table.exportName, [...path, table.exportName]),
+      columns,
+      link,
+      children: childrenOf(context, table.exportName, columns, [...path, table.exportName]),
     },
   ];
 };
 
-const childrenOf = (context: Context, source: string, path: readonly string[]): DomainChild[] =>
+const childrenOf = (
+  context: Context,
+  source: string,
+  columns: readonly DomainColumn[],
+  path: readonly string[],
+): DomainChild[] =>
   context.included
     .filter((relation) => relation.source === source)
-    .flatMap((relation) => childOf(context, source, relation, path));
+    .flatMap((relation) => childOf(context, columns, relation, path));
 
 // A key with a NULL-able column cannot identify a row, so no method is made from it.
 const uniqueKeysOf = (root: SchemaTable, primaryKey: string): DomainKey[] =>
@@ -211,44 +325,61 @@ const uniqueKeysOf = (root: SchemaTable, primaryKey: string): DomainKey[] =>
     )
     .map((columns): DomainKey => ({ name: keyName(columns), columns }));
 
+// A reference that is also a unique key is read through the unique key.
 const findersOf = (
-  context: Context,
-  root: SchemaTable,
+  columns: readonly DomainColumn[],
   uniqueKeys: readonly DomainKey[],
 ): DomainFinder[] =>
-  root.foreignKeys.flatMap((foreignKey): DomainFinder[] => {
-    const [column, ...rest] = foreignKey.columns;
-    const target = context.tableByName.get(foreignKey.table);
-    if (column === undefined || rest.length > 0 || !context.rootNames.has(foreignKey.table)) {
-      return [];
-    }
-    if (target === undefined || !sameColumns(foreignKey.foreignColumns, target.primaryKey)) {
-      return [];
-    }
-    if (uniqueKeys.some((key) => sameColumns(key.columns, foreignKey.columns))) return [];
-    return [{ name: keyName(foreignKey.columns), column, target: foreignKey.table }];
-  });
+  columns.flatMap((column): DomainFinder[] =>
+    column.kind === 'reference' && !uniqueKeys.some((key) => sameColumns(key.columns, [column.key]))
+      ? [{ name: keyName([column.key]), column: column.key, target: column.root }]
+      : [],
+  );
 
-const domainOf = (context: Context, root: SchemaTable): Domain[] => {
-  const primaryKeyResult = singlePrimaryKey(root);
-  if (primaryKeyResult.isErr()) {
-    context.errors.push(primaryKeyResult.error);
-    return [];
-  }
-  const primaryKey = primaryKeyResult.value;
+const domainOf = (context: Context, root: SchemaTable, primaryKey: string): Domain[] => {
+  const columns = valueOrReport(
+    context,
+    classifyRootColumns({
+      table: root,
+      primaryKey,
+      links: new Map(),
+      references: referencesOf(root, context.rootByName),
+    }),
+  );
+  if (columns === undefined) return [];
   const uniqueKeys = uniqueKeysOf(root, primaryKey);
   return [
     {
       typeName: upperCamel(root.exportName),
-      root,
+      exportName: root.exportName,
+      dialect: root.dialect,
       primaryKey,
-      lockColumn: root.columns.find((column) => column.optimisticLock)?.key,
+      columns,
       uniqueKeys,
-      finders: findersOf(context, root, uniqueKeys),
-      children: childrenOf(context, root.exportName, [root.exportName]),
+      finders: findersOf(columns, uniqueKeys),
+      children: childrenOf(context, root.exportName, columns, [root.exportName]),
     },
   ];
 };
+
+const unreachedErrors = (context: Context): GenerationError[] => {
+  const parentOf = new Map(context.included.map((relation) => [relation.target, relation.source]));
+  return [...parentOf.keys()].flatMap((target) => {
+    if (context.reached.has(target)) return [];
+    return unreachedError(target, parentOf, context.tableByName) ?? [];
+  });
+};
+
+// A table in no domain is never written, so a lock on it would protect nothing.
+const outsideLockErrors = (context: Context, tables: readonly SchemaTable[]): GenerationError[] =>
+  tables
+    .filter(
+      (table) =>
+        !context.rootByName.has(table.exportName) &&
+        !context.reached.has(table.exportName) &&
+        table.columns.some((column) => column.optimisticLock),
+    )
+    .map((table) => ({ message: notRootLock(table) }));
 
 const parentCountErrors = (included: readonly SchemaRelation[]): GenerationError[] => {
   const parentsOf = new Map<string, number>();
@@ -269,15 +400,14 @@ export const buildDomains = (
   const targets = new Set(included.map((relation) => relation.target));
   // A table keyed by several columns (such as the link table of a many-to-many relation) is left out
   // unless includedInDomain puts it into a domain, which then fails because a row needs a single id.
-  const rootNames = new Set(
-    schema.tables
-      .filter((table) => !targets.has(table.exportName) && singlePrimaryKey(table).isOk())
-      .map((table) => table.exportName),
-  );
+  const roots = schema.tables.flatMap((table): [SchemaTable, string][] => {
+    const primaryKey = singlePrimaryKey(table);
+    return !targets.has(table.exportName) && primaryKey.isOk() ? [[table, primaryKey.value]] : [];
+  });
   const context: Context = {
     tableByName: new Map(schema.tables.map((table) => [table.exportName, table])),
+    rootByName: new Map(roots.map(([table]) => [table.exportName, table])),
     included,
-    rootNames,
     reached: new Set(),
     errors: [
       ...parentCountErrors(included),
@@ -286,20 +416,12 @@ export const buildDomains = (
         .map((relation) => ({
           message: `${relation.source}.${relation.name}: includedInDomain is only for a many relation`,
         })),
-      ...schema.tables.flatMap((table) => lockErrors(table, rootNames.has(table.exportName))),
     ],
   };
 
-  const domains = schema.tables
-    .filter((table) => rootNames.has(table.exportName))
-    .flatMap((root) => domainOf(context, root));
+  const domains = roots.flatMap(([root, primaryKey]) => domainOf(context, root, primaryKey));
 
-  const parentOf = new Map(included.map((relation) => [relation.target, relation.source]));
-  for (const target of parentOf.keys()) {
-    if (context.reached.has(target)) continue;
-    const error = unreachedError(target, parentOf, context.tableByName);
-    if (error !== undefined) context.errors.push(error);
-  }
+  context.errors.push(...unreachedErrors(context), ...outsideLockErrors(context, schema.tables));
 
   const messages = [...new Set(context.errors.map((error) => error.message))];
   return messages.length > 0 ? err(messages.map((message) => ({ message }))) : ok(domains);

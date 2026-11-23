@@ -147,6 +147,24 @@ describe('generating', () => {
 });
 
 describe('generated code', () => {
+  it('leaves a foreign key excluded from the model out of the model and the methods', async () => {
+    const directory = await schemaProject(
+      `export const owner = sqliteTable("owner", { id: text().primaryKey() });
+      export const pet = sqliteTable("pet", {
+        id: text().primaryKey(),
+        owner_id: text().notNull().references(() => owner.id).meta({ excludedFromModel: true }),
+        vet_id: text().notNull().references(() => owner.id),
+      });`,
+    );
+    const files = (await plan(directory))._unsafeUnwrap();
+    const contentOf = (name: string): string | undefined =>
+      files.find((file) => file.path.endsWith(name))?.content;
+    expect(contentOf('pet.model.ts')).toContain('vet_id: OwnerExistedId;');
+    expect(contentOf('pet.model.ts')).not.toContain('owner_id:');
+    expect(contentOf('pet.repository-base.ts')).toContain('findByVetId(key: OwnerExistedId)');
+    expect(contentOf('pet.repository-base.ts')).not.toContain('findByOwnerId');
+  });
+
   // Table names that are also names the generated code uses, a key that needs quoting,
   // and a foreign key to a column that is not the primary key of its table.
   const awkwardSchema = `
@@ -210,6 +228,34 @@ describe('generated code', () => {
 });
 
 describe('generation fails', () => {
+  it('when excludedFromModel is on the primary key', async () => {
+    const directory = await schemaProject(
+      `export const a = sqliteTable("a", { id: text().primaryKey().meta({ excludedFromModel: true }) });`,
+    );
+    expect(await errorsOf(directory)).toEqual([
+      'a.id: excludedFromModel is not for the primary key',
+    ]);
+  });
+
+  it('when optimisticLock is on the primary key', async () => {
+    const directory = await schemaProject(
+      `export const a = sqliteTable("a", { id: integer().primaryKey().meta({ optimisticLock: true }) });`,
+    );
+    expect(await errorsOf(directory)).toEqual(['a.id: optimisticLock is not for the primary key']);
+  });
+
+  it('when optimisticLock is on a column excluded from the model', async () => {
+    const directory = await schemaProject(
+      `export const a = sqliteTable("a", {
+        id: text().primaryKey(),
+        v: integer().notNull().meta({ optimisticLock: true, excludedFromModel: true }),
+      });`,
+    );
+    expect(await errorsOf(directory)).toEqual([
+      'a.v: optimisticLock is not for a column excluded from the model',
+    ]);
+  });
+
   it('when optimisticLock is on a column that is not a number', async () => {
     const directory = await schemaProject(
       `export const a = sqliteTable("a", { id: text().primaryKey(), v: text().notNull().meta({ optimisticLock: true }) });`,

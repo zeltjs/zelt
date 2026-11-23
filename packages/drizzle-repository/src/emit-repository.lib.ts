@@ -13,6 +13,11 @@ import {
 
 const result = (value: string, error: string): string => `$ResultAsync<${value}, ${error}>`;
 
+const foreignKeyOf = (child: DomainChild) => ({
+  columns: child.link.map((pair) => pair.column),
+  parentColumns: child.link.map((pair) => pair.parent),
+});
+
 const childDefinition = (
   child: DomainChild,
   indent: string,
@@ -24,11 +29,11 @@ const childDefinition = (
   return [
     `${indent}{`,
     `${indent}  relation: ${quote(child.relation)},`,
-    `${indent}  table: ${ref(child.table.exportName)},`,
+    `${indent}  table: ${ref(child.exportName)},`,
     `${indent}  primaryKey: ${quote(child.primaryKey)},`,
-    `${indent}  foreignKey: ${JSON.stringify(child.foreignKey)},`,
-    `${indent}  columns: ${JSON.stringify(modelColumnsOf(child.table))},`,
-    `${indent}  excludedColumns: ${JSON.stringify(excludedOf(child.table))},`,
+    `${indent}  foreignKey: ${JSON.stringify(foreignKeyOf(child))},`,
+    `${indent}  columns: ${JSON.stringify(modelColumnsOf(child))},`,
+    `${indent}  excludedColumns: ${JSON.stringify(excludedOf(child))},`,
     `${indent}  children: [${nested.length === 0 ? '' : `\n${nested.join(',\n')}\n${indent}  `}],`,
     `${indent}}`,
   ].join('\n');
@@ -96,19 +101,19 @@ const domainDefinition = (
   drizzleMajor: 0 | 1,
   ref: (exportName: string) => string,
 ): string[] => {
-  const root = domain.root;
   const children = domain.children.map((child) => childDefinition(child, '    ', ref));
+  const lockColumn = domain.columns.find((column) => column.kind === 'lock')?.key;
   return [
     `const $domain = $engine.defineDomain({`,
     `  name: ${quote(domain.typeName)},`,
     `  drizzleMajor: ${drizzleMajor},`,
-    `  dialect: ${quote(root.dialect)},`,
-    `  queryKey: ${quote(root.exportName)},`,
-    `  table: ${ref(root.exportName)},`,
+    `  dialect: ${quote(domain.dialect)},`,
+    `  queryKey: ${quote(domain.exportName)},`,
+    `  table: ${ref(domain.exportName)},`,
     `  primaryKey: ${quote(domain.primaryKey)},`,
-    `  columns: ${JSON.stringify(modelColumnsOf(root))},`,
-    `  excludedColumns: ${JSON.stringify(excludedOf(root))},`,
-    `  lockColumn: ${domain.lockColumn === undefined ? 'undefined' : quote(domain.lockColumn)},`,
+    `  columns: ${JSON.stringify(modelColumnsOf(domain))},`,
+    `  excludedColumns: ${JSON.stringify(excludedOf(domain))},`,
+    `  lockColumn: ${lockColumn === undefined ? 'undefined' : quote(lockColumn)},`,
     `  uniqueKeys: ${JSON.stringify(domain.uniqueKeys)},`,
     `  children: [${children.length === 0 ? '' : `\n${children.join(',\n')}\n  `}],`,
     `});`,
@@ -135,10 +140,10 @@ const imports = (
     '',
     `import { ${paths.databaseName} as $Database } from ${quote(paths.databaseFromRepository)};`,
     ...schemaLines,
-    `import type { ${name}, ${name}ExistedId, ${name}Id, New${name} } from ${quote(modelPath(domain.root.exportName))};`,
+    `import type { ${name}, ${name}ExistedId, ${name}Id, New${name} } from ${quote(modelPath(domain.exportName))};`,
     ...finderTargets.map(
       (target) =>
-        `import type { ${target.typeName}ExistedId } from ${quote(modelPath(target.root.exportName))};`,
+        `import type { ${target.typeName}ExistedId } from ${quote(modelPath(target.exportName))};`,
     ),
   ];
 };
@@ -149,13 +154,13 @@ export const emitRepository = (
   roots: Roots,
   paths: EmitPaths,
 ): string => {
-  const tables = [domain.root, ...tablesOf(domain.children)];
+  const tables = [domain, ...tablesOf(domain.children)];
   const schema = schemaImports(
     'import',
     tables.map((table) => table.exportName),
     paths.schemaFromRepository,
   );
-  const row = `(typeof ${schema.ref(domain.root.exportName)}.$inferSelect)`;
+  const row = `(typeof ${schema.ref(domain.exportName)}.$inferSelect)`;
   const [isExisted, getById, save, remove] = baseMethods(domain.typeName);
   const methods = [
     isExisted,

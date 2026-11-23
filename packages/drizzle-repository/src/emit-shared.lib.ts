@@ -1,7 +1,6 @@
 import { GENERATED_FILE_HEADER_MARKER } from '@zeltjs/cli';
 
-import type { Domain } from './domain.lib';
-import type { SchemaForeignKey, SchemaTable } from './generation.types';
+import type { Domain, DomainChild, DomainColumn } from './domain.lib';
 
 // zelt build deletes a file it no longer produces only when the file carries this marker.
 export const GENERATED_HEADER = `// ${GENERATED_FILE_HEADER_MARKER}\n`;
@@ -61,21 +60,13 @@ export const schemaImports = (
 export const union = (names: readonly string[]): string =>
   names.length === 0 ? 'never' : names.map(quote).join(' | ');
 
-// A foreign key takes the id types of a domain only when it points to the primary key of its root.
-export const rootOf = (foreignKey: SchemaForeignKey, roots: Roots): Domain | undefined => {
-  const target = roots.get(foreignKey.table);
-  if (target === undefined || foreignKey.columns.length !== 1) return undefined;
-  return foreignKey.foreignColumns.length === 1 &&
-    foreignKey.foreignColumns[0] === target.primaryKey
-    ? target
-    : undefined;
-};
+type Table = { readonly columns: readonly DomainColumn[] };
 
-export const excludedOf = (table: SchemaTable): string[] =>
-  table.columns.filter((column) => column.excludedFromModel).map((column) => column.key);
+export const excludedOf = (table: Table): string[] =>
+  table.columns.flatMap((column) => (column.kind === 'excluded' ? [column.key] : []));
 
-export const modelColumnsOf = (table: SchemaTable): string[] =>
-  table.columns.filter((column) => !column.excludedFromModel).map((column) => column.key);
+export const modelColumnsOf = (table: Table): string[] =>
+  table.columns.flatMap((column) => (column.kind === 'excluded' ? [] : [column.key]));
 
-export const tablesOf = (children: Domain['children']): SchemaTable[] =>
-  children.flatMap((child) => [child.table, ...tablesOf(child.children)]);
+export const tablesOf = (children: Domain['children']): DomainChild[] =>
+  children.flatMap((child) => [child, ...tablesOf(child.children)]);

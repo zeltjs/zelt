@@ -87,7 +87,7 @@ const filesOf = (
 ): readonly GeneratedFile[] => {
   const modelDirectory = resolve(cwd, options.out.model);
   const repositoryDirectory = resolve(cwd, options.out.repository);
-  const roots = new Map(domains.map((domain) => [domain.root.exportName, domain]));
+  const roots = new Map(domains.map((domain) => [domain.exportName, domain]));
   const emitPaths: EmitPaths = {
     schemaFromModel: specifiersFrom(modelDirectory, loaded.sourceOf),
     schemaFromRepository: specifiersFrom(repositoryDirectory, loaded.sourceOf),
@@ -96,7 +96,7 @@ const filesOf = (
     databaseName: options.database.name,
   };
   return domains.flatMap((domain): GeneratedFile[] => {
-    const base = fileBaseName(domain.root.exportName);
+    const base = fileBaseName(domain.exportName);
     return [
       {
         path: resolve(modelDirectory, `${base}${MODEL_SUFFIX}`),
