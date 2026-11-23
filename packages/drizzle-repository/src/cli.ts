@@ -12,7 +12,7 @@ import {
 } from './generate.lib';
 import type { DrizzleRepositoryOptions, GeneratedFile } from './generation.types';
 import { formatErrors, optionsOf, PLUGIN_NAME } from './plugin-options.lib';
-import { freshModuleLoader } from './schema-loader.lib';
+import { freshSchemaLoader } from './schema-loader.lib';
 
 const USAGE = 'usage: zelt-drizzle-repository generate --config zelt.config.ts [--check]';
 
@@ -76,7 +76,7 @@ const runCli = async (): Promise<number> => {
     );
   }
 
-  const files = await planFiles(cwd, options, freshModuleLoader(cwd));
+  const files = await planFiles(cwd, options, freshSchemaLoader(cwd));
   if (files.isErr()) return reportFailure(formatErrors(files.error));
 
   return values.check

@@ -1,8 +1,7 @@
 import { getMeta } from 'drizzle-metadata';
 import type { Column, Table } from 'drizzle-orm';
-import { entityKind, getTableColumns, is } from 'drizzle-orm';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import { entityKind, getTableColumns, getTableName, is } from 'drizzle-orm';
+import { err, ok, Result } from 'neverthrow';
 
 import type { Dialect } from './domain-definition.types';
 import type {
@@ -104,26 +103,36 @@ const readColumn = (column: Column, keyByName: ReadonlyMap<string, string>): Sch
 };
 
 const readForeignKeys = (
+  exportName: string,
   config: TableConfig,
   tableNames: ReadonlyMap<Table, string>,
   keysOf: (columns: readonly unknown[]) => readonly string[] | undefined,
-): SchemaForeignKey[] =>
-  config.foreignKeys.flatMap((foreignKey): SchemaForeignKey[] => {
-    const reference = foreignKey.reference();
-    const target = tableNames.get(reference.foreignTable);
-    const columnKeys = keysOf(reference.columns);
-    if (target === undefined || columnKeys === undefined) return [];
-    const foreignKeyOf = keysByName(reference.foreignTable);
-    return [
-      {
-        columns: columnKeys,
-        table: target,
-        foreignColumns: reference.foreignColumns.map(
-          (column) => foreignKeyOf.get(column.name) ?? column.name,
-        ),
-      },
-    ];
-  });
+): Result<SchemaForeignKey[], GenerationError[]> =>
+  Result.combineWithAllErrors(
+    config.foreignKeys.flatMap((foreignKey): Result<SchemaForeignKey, GenerationError>[] => {
+      const reference = foreignKey.reference();
+      const columnKeys = keysOf(reference.columns);
+      if (columnKeys === undefined) return [];
+      const target = tableNames.get(reference.foreignTable);
+      if (target === undefined) {
+        return [
+          err({
+            message: `${exportName}.${columnKeys.join(', ')}: the foreign key points to ${getTableName(reference.foreignTable)}, which is not exported from the schema files`,
+          }),
+        ];
+      }
+      const foreignKeyOf = keysByName(reference.foreignTable);
+      return [
+        ok({
+          columns: columnKeys,
+          table: target,
+          foreignColumns: reference.foreignColumns.map(
+            (column) => foreignKeyOf.get(column.name) ?? column.name,
+          ),
+        }),
+      ];
+    }),
+  );
 
 const readUniqueKeys = (
   config: TableConfig,
@@ -155,25 +164,27 @@ export const readTable = (
   table: Table,
   tableNames: ReadonlyMap<Table, string>,
   readers: readonly DialectReader[],
-): Result<SchemaTable, GenerationError> =>
-  readTableConfig(exportName, table, readers).map(({ dialect, config }) => {
-    // Matched by database name: pg builds new column objects for constraints declared on the table.
-    const keyByName = keysByName(table);
-    const keysOf = (columns: readonly unknown[]): readonly string[] | undefined => {
-      const keys = columns.flatMap((column) => {
-        const name = columnName(column);
-        const key = name === undefined ? undefined : keyByName.get(name);
-        return key === undefined ? [] : [key];
-      });
-      return keys.length === columns.length ? keys : undefined;
-    };
-    return {
-      exportName,
-      table,
-      dialect,
-      columns: config.columns.map((column) => readColumn(column, keyByName)),
-      primaryKey: readPrimaryKey(config, keyByName, keysOf),
-      uniqueKeys: readUniqueKeys(config, keysOf),
-      foreignKeys: readForeignKeys(config, tableNames, keysOf),
-    };
-  });
+): Result<SchemaTable, GenerationError[]> =>
+  readTableConfig(exportName, table, readers)
+    .mapErr((error) => [error])
+    .andThen(({ dialect, config }) => {
+      // Matched by database name: pg builds new column objects for constraints declared on the table.
+      const keyByName = keysByName(table);
+      const keysOf = (columns: readonly unknown[]): readonly string[] | undefined => {
+        const keys = columns.flatMap((column) => {
+          const name = columnName(column);
+          const key = name === undefined ? undefined : keyByName.get(name);
+          return key === undefined ? [] : [key];
+        });
+        return keys.length === columns.length ? keys : undefined;
+      };
+      return readForeignKeys(exportName, config, tableNames, keysOf).map((foreignKeys) => ({
+        exportName,
+        table,
+        dialect,
+        columns: config.columns.map((column) => readColumn(column, keyByName)),
+        primaryKey: readPrimaryKey(config, keyByName, keysOf),
+        uniqueKeys: readUniqueKeys(config, keysOf),
+        foreignKeys,
+      }));
+    });

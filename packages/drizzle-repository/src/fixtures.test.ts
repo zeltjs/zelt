@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { expect, it } from 'vitest';
 
 import { findStaleFiles, planFiles, writeFiles } from './generate.lib';
-import { freshModuleLoader } from './schema-loader.lib';
+import { freshSchemaLoader } from './schema-loader.lib';
 
 const fixtures = resolve(import.meta.dirname, 'test/fixtures');
 
@@ -21,7 +21,7 @@ it.each(['sqlite', 'pg', 'mysql'])(
           database: { from: './drizzle.service.ts', name: 'DrizzleService' },
           out: { model: './generated/model', repository: './generated/repository' },
         },
-        freshModuleLoader(directory),
+        freshSchemaLoader(directory),
       )
     )._unsafeUnwrap();
     if (process.env['UPDATE_GENERATED'] === '1') await writeFiles(files);

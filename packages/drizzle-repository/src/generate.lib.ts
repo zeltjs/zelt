@@ -17,10 +17,8 @@ import type {
   Schema,
 } from './generation.types';
 import { fieldOf, toRow } from './row.lib';
+import type { SchemaLoader } from './schema-loader.lib';
 import { readSchema } from './schema-reader.lib';
-
-// Loads a schema module by its absolute path and returns its namespace.
-export type ModuleLoader = (path: string) => Promise<unknown>;
 
 const MODEL_SUFFIX = '.model.ts';
 const REPOSITORY_SUFFIX = '.repository-base.ts';
@@ -44,12 +42,11 @@ type LoadedSchema = {
 };
 
 const loadModules = async (
-  load: ModuleLoader,
+  load: SchemaLoader,
   files: readonly string[],
 ): Promise<readonly LoadedModule[]> => {
-  const modules: LoadedModule[] = [];
-  for (const file of files) modules.push({ file, exports: toRow(await load(file)) ?? {} });
-  return modules;
+  const namespaces = await load(files);
+  return files.map((file, index) => ({ file, exports: toRow(namespaces[index]) ?? {} }));
 };
 
 const mergeExports = (
@@ -116,7 +113,7 @@ const filesOf = (
 export const planFiles = (
   cwd: string,
   options: DrizzleRepositoryOptions,
-  load: ModuleLoader,
+  load: SchemaLoader,
 ): ResultAsync<readonly GeneratedFile[], readonly GenerationError[]> =>
   ResultAsync.fromSafePromise(
     loadModules(

@@ -26,7 +26,7 @@ const readLoaded = (
   const tableResults = tableEntries.map(([name, table]) =>
     readTable(name, table, tableNames, readers),
   );
-  const errors = tableResults.flatMap((result) => (result.isErr() ? [result.error] : []));
+  const errors = tableResults.flatMap((result) => (result.isErr() ? result.error : []));
   if (errors.length > 0) return err(errors);
   const tables: SchemaTable[] = tableResults.flatMap((result) =>
     result.isOk() ? [result.value] : [],
@@ -36,8 +36,8 @@ const readLoaded = (
   const relations =
     drizzleMajor === 0
       ? readRelationsV0(orm, exports, tableNames)
-      : ok(readRelationsV1(exports, tableNames));
-  if (relations.isErr()) return err([relations.error]);
+      : readRelationsV1(exports, tableNames);
+  if (relations.isErr()) return err(relations.error);
   return ok({ drizzleMajor, tables, relations: relations.value });
 };
 

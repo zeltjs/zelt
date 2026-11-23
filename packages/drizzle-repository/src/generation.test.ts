@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 import { findStaleFiles, planFiles, writeFiles } from './generate.lib';
 import type { DrizzleRepositoryOptions } from './generation.types';
-import { freshModuleLoader } from './schema-loader.lib';
+import { freshSchemaLoader } from './schema-loader.lib';
 
 // Tests run from the workspace root too, so paths are taken from this package.
 const packageRoot = resolve(import.meta.dirname, '..');
@@ -14,10 +14,15 @@ const packageRoot = resolve(import.meta.dirname, '..');
 const temporaryRoot = resolve(packageRoot, '.tmp');
 const directories: string[] = [];
 
-const schemaProject = async (tables: string): Promise<string> => {
+const projectDirectory = async (): Promise<string> => {
   await mkdir(temporaryRoot, { recursive: true });
   const directory = await mkdtemp(join(temporaryRoot, 'generation-'));
   directories.push(directory);
+  return directory;
+};
+
+const schemaProject = async (tables: string): Promise<string> => {
+  const directory = await projectDirectory();
   await writeFile(
     join(directory, 'schema.ts'),
     [
@@ -37,8 +42,13 @@ const options: DrizzleRepositoryOptions = {
   out: { model: './model', repository: './repository' },
 };
 
+const usersSource = [
+  `import { sqliteTable, text } from "drizzle-orm/sqlite-core";`,
+  `export const users = sqliteTable("users", { id: text().primaryKey() });`,
+].join('\n');
+
 const plan = (directory: string, planOptions = options) =>
-  planFiles(directory, planOptions, freshModuleLoader(directory));
+  planFiles(directory, planOptions, freshSchemaLoader(directory));
 
 const errorsOf = async (directory: string): Promise<readonly string[]> =>
   (await plan(directory))._unsafeUnwrapErr().map((error) => error.message);
@@ -96,6 +106,32 @@ describe('generating', () => {
     expect(result._unsafeUnwrapErr().map((error) => error.message)).toEqual([
       `a: exported from both ${join(directory, 'schema.ts')} and ${join(directory, 'other.ts')}`,
     ]);
+  });
+
+  // One file exports a table; the other points a foreign key at it and re-exports it.
+  const splitOptions: DrizzleRepositoryOptions = {
+    ...options,
+    schema: ['./users.ts', './posts.ts'],
+  };
+  const splitProject = async (): Promise<string> => {
+    const directory = await projectDirectory();
+    await writeFile(join(directory, 'users.ts'), usersSource);
+    await writeFile(
+      join(directory, 'posts.ts'),
+      [
+        `import { sqliteTable, text } from "drizzle-orm/sqlite-core";`,
+        `import { users } from "./users";`,
+        `export { users } from "./users";`,
+        `export const posts = sqliteTable("posts", { id: text().primaryKey(), user_id: text().notNull().references(() => users.id) });`,
+      ].join('\n'),
+    );
+    return directory;
+  };
+  it('reads schema files that import and re-export each other as one schema', async () => {
+    const directory = await splitProject();
+    const files = (await plan(directory, splitOptions))._unsafeUnwrap();
+    const repository = files.find((file) => file.path.endsWith('posts.repository-base.ts'));
+    expect(repository?.content).toContain('findByUserId(key: UsersExistedId)');
   });
 
   it('makes no domain from a table keyed by several columns', async () => {
@@ -283,6 +319,32 @@ describe('generation fails', () => {
       export const parentRelations = relations(parent, ({ many }) => ({ children: many(child).meta({ includedInDomain: true }) }));`,
     );
     expect(await errorsOf(directory)).toEqual([expect.stringMatching(/^relations: .*parent/)]);
+  });
+
+  it('when a foreign key points to a table that no schema file exports', async () => {
+    const directory = await schemaProject(
+      `import { users } from "./users";
+      export const posts = sqliteTable("posts", { id: text().primaryKey(), user_id: text().notNull().references(() => users.id) });`,
+    );
+    await writeFile(join(directory, 'users.ts'), usersSource);
+    expect(await errorsOf(directory)).toEqual([
+      'posts.user_id: the foreign key points to users, which is not exported from the schema files',
+    ]);
+  });
+
+  it('when includedInDomain points to a table that no schema file exports', async () => {
+    const directory = await schemaProject(
+      `import { comments } from "./comments";
+      export const posts = sqliteTable("posts", { id: text().primaryKey() });
+      export const postRelations = relations(posts, ({ many }) => ({ comments: many(comments).meta({ includedInDomain: true }) }));`,
+    );
+    await writeFile(
+      join(directory, 'comments.ts'),
+      `import { sqliteTable, text } from "drizzle-orm/sqlite-core";\nexport const comments = sqliteTable("comments", { id: text().primaryKey(), post_id: text().notNull() });`,
+    );
+    expect(await errorsOf(directory)).toEqual([
+      'posts.comments: comments is not exported from the schema files',
+    ]);
   });
 
   it('when a table is not of SQLite, PostgreSQL or MySQL', async () => {

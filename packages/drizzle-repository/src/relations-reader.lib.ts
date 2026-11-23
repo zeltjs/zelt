@@ -1,6 +1,6 @@
 import { getMeta } from 'drizzle-metadata';
 import type { Column } from 'drizzle-orm';
-import { is, Relation, Table } from 'drizzle-orm';
+import { getTableName, is, Relation, Table } from 'drizzle-orm';
 import { err, ok, Result } from 'neverthrow';
 
 import type { GenerationError, SchemaRelation } from './generation.types';
@@ -22,6 +22,16 @@ const relationError = (cause: unknown): GenerationError => ({
   message: `relations: ${cause instanceof Error ? cause.message : String(cause)}`,
 });
 
+// Only a relation that builds a domain must point to exported tables; the generator reads no other.
+const unresolved = (
+  place: string,
+  relation: unknown,
+  table: Table,
+): Result<SchemaRelation, GenerationError>[] =>
+  includedInDomain(relation)
+    ? [err({ message: `${place}: ${getTableName(table)} is not exported from the schema files` })]
+    : [];
+
 // drizzle 0.x reads the relations through its own extraction: it pairs a many relation with the
 // opposite one relation by instance, and that pairing tells which columns the many relation uses.
 // These functions exist only in drizzle 0.x, so they are read from the module loaded at run time.
@@ -31,21 +41,27 @@ export const readRelationsV0 = (
   orm: DrizzleModule,
   exports: Exports,
   tableNames: ReadonlyMap<Table, string>,
-): Result<SchemaRelation[], GenerationError> => {
+): Result<SchemaRelation[], GenerationError[]> => {
   const extracted = Result.fromThrowable(
     () => orm.extractTablesRelationalConfig(exports, orm.createTableRelationsHelpers),
     relationError,
   )();
-  if (extracted.isErr()) return err(extracted.error);
+  if (extracted.isErr()) return err([extracted.error]);
   const { tables, tableNamesMap } = extracted.value;
   const normalize = Result.fromThrowable(
     (relation: Relation) => orm.normalizeRelation(tables, tableNamesMap, relation),
     relationError,
   );
-  const read = (name: string, relation: Relation): Result<SchemaRelation, GenerationError>[] => {
-    const source = tableNames.get(relation.sourceTable);
+  // drizzle keys the tables by their export names.
+  const read = (
+    source: string,
+    name: string,
+    relation: Relation,
+  ): Result<SchemaRelation, GenerationError>[] => {
     const target = tableNames.get(relation.referencedTable);
-    if (source === undefined || target === undefined) return [];
+    if (target === undefined) {
+      return unresolved(`${source}.${name}`, relation, relation.referencedTable);
+    }
     const base = {
       source,
       name,
@@ -62,9 +78,9 @@ export const readRelationsV0 = (
       })),
     ];
   };
-  return Result.combine(
-    Object.values(tables).flatMap((config) =>
-      Object.entries(config.relations).flatMap(([name, relation]) => read(name, relation)),
+  return Result.combineWithAllErrors(
+    Object.entries(tables).flatMap(([source, config]) =>
+      Object.entries(config.relations).flatMap(([name, relation]) => read(source, name, relation)),
     ),
   );
 };
@@ -94,16 +110,21 @@ const columnKeys = (columns: unknown): string[] =>
   });
 
 const readRelationV1 = (
-  source: string,
+  sourceTable: Table,
   name: string,
   relation: unknown,
   tableNames: ReadonlyMap<Table, string>,
-): SchemaRelation[] => {
+): Result<SchemaRelation, GenerationError>[] => {
+  const source = tableNames.get(sourceTable);
+  if (source === undefined) {
+    return unresolved(`${getTableName(sourceTable)}.${name}`, relation, sourceTable);
+  }
   const targetTable = fieldOf(relation, 'targetTable');
-  const target = is(targetTable, Table) ? tableNames.get(targetTable) : undefined;
-  if (target === undefined) return [];
+  if (!is(targetTable, Table)) return [];
+  const target = tableNames.get(targetTable);
+  if (target === undefined) return unresolved(`${source}.${name}`, relation, targetTable);
   return [
-    {
+    ok({
       source,
       name,
       target,
@@ -111,20 +132,20 @@ const readRelationV1 = (
       includedInDomain: includedInDomain(relation),
       sourceColumns: columnKeys(fieldOf(relation, 'sourceColumns')),
       targetColumns: columnKeys(fieldOf(relation, 'targetColumns')),
-    },
+    }),
   ];
 };
 
 export const readRelationsV1 = (
   exports: Exports,
   tableNames: ReadonlyMap<Table, string>,
-): SchemaRelation[] =>
-  Object.values(exports)
-    .flatMap((value) => relationsConfigV1(value) ?? [])
-    .flatMap(({ table, relations }) => {
-      const source = tableNames.get(table);
-      if (source === undefined) return [];
-      return Object.entries(relations).flatMap(([name, relation]) =>
-        readRelationV1(source, name, relation, tableNames),
-      );
-    });
+): Result<SchemaRelation[], GenerationError[]> =>
+  Result.combineWithAllErrors(
+    Object.values(exports)
+      .flatMap((value) => relationsConfigV1(value) ?? [])
+      .flatMap(({ table, relations }) =>
+        Object.entries(relations).flatMap(([name, relation]) =>
+          readRelationV1(table, name, relation, tableNames),
+        ),
+      ),
+  );
