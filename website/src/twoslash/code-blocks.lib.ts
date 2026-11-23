@@ -16,9 +16,10 @@ const twoslashLanguages: ReadonlyMap<string, TwoslashBlock['lang']> = new Map([
 
 export const twoslashSyntaxLanguages = [...new Set(twoslashLanguages.values())];
 
-// Example excerpts (```ts source=...```) are verbatim slices of real example apps validated by
-// check-example-excerpts.ts. They reference sibling modules that don't resolve in the isolated
-// Twoslash VFS, so they are rendered as plain highlighted code instead of being type-checked.
+// Excerpts (```ts source=...```) are slices of real, separately type-checked apps, validated by
+// check-example-excerpts.ts and by the test of the guide that shows them. They reference sibling
+// modules that don't resolve in the isolated Twoslash VFS, so they are rendered as plain
+// highlighted code instead of being type-checked.
 export const twoslashBlock = ({ lang, meta, value }: CodeBlock): TwoslashBlock | undefined => {
   const canonical = lang == null ? undefined : twoslashLanguages.get(lang);
   if (canonical === undefined || /\bsource=/.test(meta ?? '')) return undefined;

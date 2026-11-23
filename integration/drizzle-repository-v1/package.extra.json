@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "prepare:integration": "zelt-drizzle-repository generate --config zelt.config.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "0.18.0",
+    "@zeltjs/drizzle-repository": "0.0.0",
+    "drizzle-metadata": "0.0.1",
+    "drizzle-orm": "1.0.0-rc.5",
+    "neverthrow": "8.2.0"
+  }
+}

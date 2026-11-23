@@ -27,6 +27,10 @@ const ENTRYPOINT_POLICIES = {
   '@zeltjs/eslint-plugin': { nodeBuiltins: ALL_NODE_BUILTINS },
   '@zeltjs/graphql/codegen': { nodeBuiltins: ALL_NODE_BUILTINS },
   '@zeltjs/graphql-drizzle/codegen': { nodeBuiltins: ALL_NODE_BUILTINS },
+  // The staging scope runs on AsyncLocalStorage. The root entry also carries the zelt.config
+  // plugin, whose preBuild hook loads the generator (fs, path) lazily at build time.
+  '@zeltjs/drizzle-repository': { nodeBuiltins: ['async_hooks', 'fs', 'path'] },
+  '@zeltjs/drizzle-repository/engine': { nodeBuiltins: ['async_hooks'] },
   // The extractor reads the app through the TS compiler API and spawns a child
   // process. Its '/snapshot' subpath stays on the default (no builtins) because
   // the browser UI imports the JSON contract from there.
