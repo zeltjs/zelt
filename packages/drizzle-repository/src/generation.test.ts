@@ -164,10 +164,12 @@ describe('generated code', () => {
     await writeFiles((await plan(directory))._unsafeUnwrap());
 
     const tsc = resolve(packageRoot, 'node_modules/typescript/bin/tsc');
-    const result = await promisify(execFile)('node', [tsc, '-p', directory]).catch(
-      (error: { stdout: string }) => error,
+    // tsc prints its diagnostics to stdout, which the message of a failed execFile leaves out.
+    const output = await promisify(execFile)('node', [tsc, '-p', directory]).then(
+      ({ stdout, stderr }) => `${stdout}${stderr}`,
+      (error: Error & { readonly stdout?: string }) => `${error.message}\n${error.stdout ?? ''}`,
     );
-    expect(result.stdout).toBe('');
+    expect(output).toBe('');
   }, 60_000);
 });
 
