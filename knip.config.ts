@@ -193,6 +193,7 @@ const config: KnipConfig = {
       // Twoslash VFS requires these packages for TypeScript path resolution in docs code blocks
       ignoreDependencies: [
         '@docusaurus/theme-common',
+        '@libsql/client',
         '@easyops-cn/docusaurus-search-local',
         '@easyops-cn/docusaurus-theme-docusaurus-search-local',
         '@shikijs/rehype',
@@ -204,6 +205,7 @@ const config: KnipConfig = {
         '@zeltjs/auth-session',
         '@zeltjs/core',
         '@zeltjs/db',
+        '@zeltjs/drizzle-repository',
         '@zeltjs/eventbus',
         '@zeltjs/graphql-drizzle',
         '@zeltjs/hono-client',
@@ -221,6 +223,7 @@ const config: KnipConfig = {
         'docusaurus-plugin-llms',
         'drizzle-metadata',
         'drizzle-orm',
+        'neverthrow',
         'postgres',
         'prism-react-renderer',
         'shiki',
