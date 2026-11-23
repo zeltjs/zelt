@@ -3,6 +3,7 @@ import { join, relative } from 'node:path';
 import type { ZeltConfig } from '@zeltjs/cli';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { visibleCode } from '../src/twoslash/code-blocks.lib';
 import { importModule } from './guide-project.lib';
 import { createReadCodeBlocks } from './markdown-code.lib';
 
@@ -10,7 +11,8 @@ import { createReadCodeBlocks } from './markdown-code.lib';
 // code that uses the repositories and models the real generator wrote from that schema. This test
 // runs the generator from the app's own config and checks that the committed output is what the
 // generator produces now (UPDATE_GENERATED=1 rewrites it), type-checks the app, and checks that
-// each code block is an excerpt of the file its `source=` names.
+// each code block is an excerpt of the file it names: with `source=`, or for a Twoslash block of
+// the guide, with the `// @filename:` it is placed at.
 const websiteDir = join(import.meta.dirname, '..');
 const repoDir = join(websiteDir, '..');
 const fixtureDir = join(websiteDir, 'src/twoslash/fixtures/drizzle-repository');
@@ -70,16 +72,13 @@ const typeErrors = (project: string): string => {
   return ts.formatDiagnostics([...config.errors, ...ts.getPreEmitDiagnostics(program)], host);
 };
 
-// Comparing tokens keeps formatting, comments and quote style out of the comparison.
+// Comparing tokens keeps formatting, comments and quote style out of the comparison. A string
+// literal is compared by its kind only, so each translation can write its text in its language.
 const tokens = (code: string): readonly string[] => {
   const scanner = ts.createScanner(ts.ScriptTarget.Latest, true, ts.LanguageVariant.Standard, code);
   const result: string[] = [];
   for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan()) {
-    result.push(
-      kind === ts.SyntaxKind.StringLiteral
-        ? JSON.stringify(scanner.getTokenValue())
-        : scanner.getTokenText(),
-    );
+    result.push(kind === ts.SyntaxKind.StringLiteral ? '<string>' : scanner.getTokenText());
   }
   return result;
 };
@@ -90,6 +89,17 @@ const isExcerpt = (file: readonly string[], block: readonly string[]): boolean =
 
 const typescript = new Set(['ts', 'typescript', 'tsx']);
 const SOURCE = /\bsource=(\S+)/;
+// A Twoslash block of the guide is placed at a file of the app, which is the file it shows.
+const APP_FILE = /^\/\/ @filename: drizzle-repository\/(\S+)$/m;
+
+// The file a block is an excerpt of, and the code the reader sees of it.
+const excerptOf = (meta: string | null | undefined, value: string) => {
+  const source = meta?.match(SOURCE)?.[1];
+  if (source !== undefined) return { file: join(repoDir, source), shown: value };
+  const appFile = value.match(APP_FILE)?.[1];
+  if (appFile !== undefined) return { file: join(fixtureDir, appFile), shown: visibleCode(value) };
+  return undefined;
+};
 
 // No file can hold these blocks: one shows the drizzle() call of both drizzle versions side by
 // side, the other the generated methods with placeholders for the names of keys.
@@ -102,18 +112,19 @@ const mismatchesOf = async (doc: string): Promise<readonly string[]> => {
   const mismatches: string[] = [];
   for (const { lang, meta, value } of blocks) {
     if (!typescript.has(lang ?? '')) continue;
-    const source = meta?.match(SOURCE)?.[1];
-    if (source === undefined) {
-      if (!pseudoCode.some((line) => value.includes(line))) mismatches.push(`no source=\n${value}`);
+    const excerpt = excerptOf(meta, value);
+    if (excerpt === undefined) {
+      if (!pseudoCode.some((line) => value.includes(line))) mismatches.push(`no source\n${value}`);
       continue;
     }
     // An import only tells where a name comes from; the file may import more names, in any order.
-    const shown = value
+    const shown = excerpt.shown
       .split('\n')
       .filter((line) => !line.startsWith('import '))
       .join('\n');
-    const file = await readFile(join(repoDir, source), 'utf8');
-    if (!isExcerpt(tokens(file), tokens(shown))) mismatches.push(`not in ${source}\n${value}`);
+    const file = await readFile(excerpt.file, 'utf8');
+    if (!isExcerpt(tokens(file), tokens(shown)))
+      mismatches.push(`not in ${relative(repoDir, excerpt.file)}\n${excerpt.shown}`);
   }
   return mismatches;
 };
